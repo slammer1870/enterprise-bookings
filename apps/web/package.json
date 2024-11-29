@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
+    "test": "vitest",
     "lint": "next lint",
     "check-types": "tsc --noEmit"
   },
@@ -13,7 +14,8 @@
     "@repo/ui": "workspace:*",
     "next": "15.0.3",
     "react": "19.0.0-rc-66855b96-20241106",
-    "react-dom": "19.0.0-rc-66855b96-20241106"
+    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "vitest": "^2.1.6"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
