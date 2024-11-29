@@ -1,0 +1,7 @@
+{
+  "name": "@repo/auth",
+  "version": "0.0.1",
+  "dependencies": {
+    "payload": "^3.2.1"
+  }
+}
