@@ -27,7 +27,7 @@ export const modifyAuthCollection = (
   if (!existingNameField) {
     fields.push(name);
   }
-
+  // add email field
   const existingEmailField = fields.find(
     (field) => "name" in field && field.name === "email"
   );

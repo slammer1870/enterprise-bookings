@@ -73,10 +73,13 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       // /////////////////////////////////////
       // success redirect
       // /////////////////////////////////////
+
+      const url: string = callbackUrl ? (callbackUrl as string) : "/dashboard";
+
       return new Response(null, {
         headers: {
           "Set-Cookie": cookie,
-          Location: callbackUrl as string,
+          Location: url,
         },
         status: 302,
       });
