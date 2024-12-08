@@ -1,5 +1,7 @@
 import type { Plugin } from "payload";
+
 import { modifyAuthCollection } from "./auth-collection";
+
 import type { PluginTypes } from "../types";
 
 export const magicLinkPlugin =

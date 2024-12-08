@@ -1,4 +1,4 @@
-import { APIError, CollectionSlug, Endpoint, PayloadHandler } from "payload";
+import { APIError, CollectionSlug, Endpoint } from "payload";
 
 import { generatePasswordSaltHash } from "../utils/password";
 
