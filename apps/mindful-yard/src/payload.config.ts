@@ -1,7 +1,6 @@
 // storage-adapter-import-placeholder
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
-import { magicLinkPlugin } from '@repo/auth'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -35,9 +34,6 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
-    magicLinkPlugin({
-      enabled: true,
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-    }),
+    // storage-adapter-placeholder
   ],
 })

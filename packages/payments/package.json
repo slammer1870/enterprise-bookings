@@ -1,22 +1,12 @@
 {
-  "name": "@repo/auth",
+  "name": "@repo/payments",
   "version": "0.0.1",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "scripts": {
-    "build": "tsc"
-  },
   "dependencies": {
     "@payloadcms/ui": "^3.2.2",
     "@repo/roles": "workspace:*",
-    "@types/jsonwebtoken": "^9.0.7",
-    "jsonwebtoken": "^9.0.2",
     "payload": "^3.2.1",
     "stripe": "^17.4.0"
-  },
-  "peerDependencies": {
-    "payload": "^3.2.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
