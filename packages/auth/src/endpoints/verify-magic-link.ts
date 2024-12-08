@@ -21,10 +21,11 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
     req.headers.set("token", token as string);
 
-    const authCollection = (pluginOptions.authCollection ||
+    const authCollectionSlug = (pluginOptions.authCollection ||
       "users") as CollectionSlug;
 
-    const collectionConfig = req.payload.collections[authCollection]?.config;
+    const collectionConfig =
+      req.payload.collections[authCollectionSlug]?.config;
 
     try {
       const magicLinkStrategyIndex = req.payload.authStrategies.findIndex(
@@ -51,7 +52,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       const fieldsToSign = {
         id: authenticated.user.id,
         email: authenticated.user.email,
-        collection: "users",
+        collection: authCollectionSlug,
       };
 
       const token = jwt.sign(fieldsToSign, req.payload.secret, {

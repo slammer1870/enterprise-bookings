@@ -1,4 +1,9 @@
-import { AuthStrategy, AuthStrategyResult, Payload } from "payload";
+import {
+  AuthStrategy,
+  AuthStrategyResult,
+  CollectionSlug,
+  Payload,
+} from "payload";
 
 import jwt from "jsonwebtoken";
 
@@ -21,12 +26,15 @@ export const magicLink = (pluginOptions: PluginTypes): AuthStrategy => ({
       };
     }
 
+    const authCollectionSlug = (pluginOptions.authCollection ||
+      "users") as CollectionSlug;
+
     try {
       const decoded = jwt.verify(token, payload.secret) as { id: string };
 
       // Create a Payload login response
       const user = await payload.findByID({
-        collection: pluginOptions.authCollection || "users",
+        collection: authCollectionSlug,
         id: decoded.id,
       });
 

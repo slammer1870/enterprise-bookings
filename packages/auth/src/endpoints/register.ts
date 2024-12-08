@@ -1,4 +1,4 @@
-import { APIError, Endpoint, PayloadHandler } from "payload";
+import { APIError, CollectionSlug, Endpoint, PayloadHandler } from "payload";
 
 import { generatePasswordSaltHash } from "../utils/password";
 
@@ -20,8 +20,11 @@ export const register = (pluginOptions: PluginTypes): Endpoint => ({
       throw new APIError("Invalid request body", 400);
     }
 
+    const authCollectionSlug = (pluginOptions.authCollection ||
+      "users") as CollectionSlug;
+
     const existingUser = await req.payload.find({
-      collection: "users",
+      collection: authCollectionSlug,
       where: {
         email: {
           equals: email,
@@ -40,7 +43,7 @@ export const register = (pluginOptions: PluginTypes): Endpoint => ({
       });
 
       const user = await req.payload.create({
-        collection: pluginOptions.authCollection || "users",
+        collection: authCollectionSlug,
         data: {
           name: name,
           email: email,

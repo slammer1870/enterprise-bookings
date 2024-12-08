@@ -1,4 +1,4 @@
-import { APIError, Endpoint } from "payload";
+import { APIError, CollectionSlug, Endpoint } from "payload";
 
 import jwt from "jsonwebtoken";
 
@@ -22,20 +22,25 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       throw new APIError("Invalid request body", 400);
     }
 
+    const authCollectionSlug = (pluginOptions.authCollection ||
+      "users") as CollectionSlug;
+
     const user = await req.payload.find({
-      collection: pluginOptions.authCollection || "users",
+      collection: authCollectionSlug,
       where: { email: { equals: email } },
     });
 
-    if (!(user.docs.length > 0)) {
-      throw new APIError("User not found", 400);
+    const id = user.docs[0]!.id;
+
+    if (!id) {
+      throw new APIError("Error getting user", 400);
     }
 
     try {
       const fieldsToSign = {
-        id: user.docs[0]?.id,
-        email: user.docs[0]?.email,
-        collection: "users",
+        id: id,
+        email: email,
+        collection: authCollectionSlug,
       };
 
       const token = jwt.sign(fieldsToSign, req.payload.secret, {
