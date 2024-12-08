@@ -1,14 +1,15 @@
 import { AuthStrategy, type CollectionConfig } from "payload";
 
-import { PluginTypes } from "./types";
+import { PluginTypes } from "../types";
 
-import { sendMagicLink } from "./endpoints/send-magic-link";
-import { verifyMagicLink } from "./endpoints/verify-magic-link";
+import { sendMagicLink } from "../endpoints/send-magic-link";
+import { verifyMagicLink } from "../endpoints/verify-magic-link";
 
-import { name } from "./fields/name";
-import { email } from "./fields/email";
+import { name } from "../fields/name";
+import { email } from "../fields/email";
 
-import { magicLink } from "./strategies/magic-link";
+import { magicLink } from "../strategies/magic-link";
+import { register } from "../endpoints/register";
 
 export const modifyAuthCollection = (
   pluginOptions: PluginTypes,
@@ -18,7 +19,7 @@ export const modifyAuthCollection = (
   // modify fields
   // /////////////////////////////////////
 
-  // add name fields
+  // add name field
   const fields = existingCollectionConfig.fields || [];
   const existingNameField = fields.find(
     (field) => "name" in field && field.name === "name"
@@ -27,20 +28,11 @@ export const modifyAuthCollection = (
     fields.push(name);
   }
 
-  // add email field if disableLocalStrategy is set
-  // and we don't have an email field
-  if (
-    typeof existingCollectionConfig.auth !== "boolean" &&
-    existingCollectionConfig.auth !== undefined &&
-    existingCollectionConfig.auth.disableLocalStrategy === true &&
-    fields.every((field: any) => field.name !== "email")
-  ) {
-    const existingEmailField = fields.find(
-      (field) => "name" in field && field.name === "email"
-    );
-    if (!existingEmailField) {
-      fields.push(email);
-    }
+  const existingEmailField = fields.find(
+    (field) => "name" in field && field.name === "email"
+  );
+  if (!existingEmailField) {
+    fields.push(email);
   }
 
   // /////////////////////////////////////
@@ -56,12 +48,13 @@ export const modifyAuthCollection = (
   } else if (Array.isArray(existingCollectionConfig.auth.strategies)) {
     strategies = existingCollectionConfig.auth.strategies || [];
   }
-  strategies.push(magicLink);
+  strategies.push(magicLink(pluginOptions));
 
   // /////////////////////////////////////
   // modify endpoints
   // /////////////////////////////////////
   const endpoints = existingCollectionConfig.endpoints || [];
+  endpoints.push(register(pluginOptions));
   endpoints.push(sendMagicLink(pluginOptions));
   endpoints.push(verifyMagicLink(pluginOptions));
 

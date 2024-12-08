@@ -16,12 +16,14 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
     const { email, callbackUrl } = await req.json();
 
+    const url = callbackUrl || "/dashboard";
+
     if (!email) {
       throw new APIError("Invalid request body", 400);
     }
 
     const user = await req.payload.find({
-      collection: "users",
+      collection: pluginOptions.authCollection || "users",
       where: { email: { equals: email } },
     });
 
@@ -41,7 +43,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       });
 
       // Create the magic link URL
-      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}&callbackUrl=${callbackUrl || "/dashboard"}`;
+      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}&callbackUrl=${url}`;
 
       req.payload.sendEmail({
         to: email,

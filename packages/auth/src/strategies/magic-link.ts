@@ -2,7 +2,9 @@ import { AuthStrategy, AuthStrategyResult, Payload } from "payload";
 
 import jwt from "jsonwebtoken";
 
-export const magicLink: AuthStrategy = {
+import type { PluginTypes } from "../types";
+
+export const magicLink = (pluginOptions: PluginTypes): AuthStrategy => ({
   name: "magic-link",
   authenticate: async ({
     payload,
@@ -24,15 +26,9 @@ export const magicLink: AuthStrategy = {
 
       // Create a Payload login response
       const user = await payload.findByID({
-        collection: "users",
+        collection: pluginOptions.authCollection || "users",
         id: decoded.id,
       });
-
-      if (!user) {
-        return {
-          user: null,
-        };
-      }
 
       return {
         user: user as unknown as AuthStrategyResult["user"],
@@ -45,4 +41,4 @@ export const magicLink: AuthStrategy = {
       user: null,
     };
   },
-};
+});

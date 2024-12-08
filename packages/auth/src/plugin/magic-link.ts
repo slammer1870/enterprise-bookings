@@ -1,6 +1,6 @@
 import type { Plugin } from "payload";
-import { modifyAuthCollection } from "./modify-auth-collection";
-import type { PluginTypes } from "./types";
+import { modifyAuthCollection } from "./auth-collection";
+import type { PluginTypes } from "../types";
 
 export const magicLinkPlugin =
   (pluginOptions: PluginTypes): Plugin =>
@@ -14,23 +14,23 @@ export const magicLinkPlugin =
     // /////////////////////////////////////
     // Modify auth collection
     // /////////////////////////////////////
-    const authCollectionSlug = pluginOptions.authCollection || "users";
-    const authCollection = config.collections?.find(
-      (collection) => collection.slug === authCollectionSlug
+    const { authCollection = "users", serverURL } = pluginOptions;
+    const authCollectionConfig = config.collections?.find(
+      (collection) => collection.slug === authCollection
     );
-    if (!authCollection) {
+    if (!authCollectionConfig) {
       throw new Error(
-        `The collection with the slug "${authCollectionSlug}" was not found.`
+        `The collection with the slug "${authCollection}" was not found.`
       );
     }
     const modifiedAuthCollection = modifyAuthCollection(
       pluginOptions,
-      authCollection
+      authCollectionConfig
     );
 
     config.collections = [
       ...(config.collections?.filter(
-        (collection) => collection.slug !== authCollectionSlug
+        (collection) => collection.slug !== authCollection
       ) || []),
       modifiedAuthCollection,
     ];
