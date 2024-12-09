@@ -5,4 +5,5 @@ export const email: Field = {
   label: "Email",
   type: "text",
   required: true,
+  saveToJWT: true,
 };
