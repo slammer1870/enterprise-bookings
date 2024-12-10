@@ -20,7 +20,7 @@ jobs:
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling # Ensure this is a valid string
-          POSTGRES_DB: bookings   # Set the name of the database to create
+          POSTGRES_DB: bookings # Set the name of the database to create
         ports:
           - 5432:5432
         options: >-
@@ -52,11 +52,6 @@ jobs:
             sleep 5
           done
           echo "Postgres is up!"
-
-      - name: Set up Environment Variables
-        run: |
-          echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
-          echo "POSTGRES_PASSWORD=brugrappling" >> $GITHUB_ENV # Ensure the password is set as an environment variable
 
       - name: Run tests
         env:
