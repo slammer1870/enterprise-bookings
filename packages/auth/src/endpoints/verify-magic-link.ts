@@ -19,8 +19,6 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       throw new APIError("Token is required", 400);
     }
 
-    req.headers.set("token", token as string);
-
     const authCollectionSlug = (pluginOptions.authCollection ||
       "users") as CollectionSlug;
 
@@ -41,12 +39,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       });
 
       if (!authenticated?.user) {
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          headers: {
-            Location: "/login?error=token",
-          },
-          status: 302,
-        });
+        throw new APIError("Invalid token", 400);
       }
 
       const fieldsToSign = {
@@ -84,6 +77,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         status: 302,
       });
     } catch (error) {
+      console.log("Verify Magic Link Error", error);
       return new Response(JSON.stringify({ error: "Invalid token" }), {
         headers: {
           Location: "/login",

@@ -18,7 +18,9 @@ export const magicLink = (pluginOptions: PluginTypes): AuthStrategy => ({
     payload: Payload;
     headers: Headers;
   }) => {
-    const token = headers.get("token");
+    const heads = new Headers(headers);
+
+    const token = heads.get("token") as string;
 
     if (!token) {
       return {
@@ -30,12 +32,19 @@ export const magicLink = (pluginOptions: PluginTypes): AuthStrategy => ({
       "users") as CollectionSlug;
 
     try {
-      const decoded = jwt.verify(token, payload.secret) as { id: string };
+      const decoded = jwt.verify(token, payload.secret) as {
+        id: string;
+        email: string;
+      };
 
       // Create a Payload login response
-      const user = await payload.findByID({
+      const user = await payload.find({
         collection: authCollectionSlug,
-        id: decoded.id,
+        where: {
+          email: {
+            equals: decoded.email,
+          },
+        },
       });
 
       return {

@@ -30,7 +30,11 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       where: { email: { equals: email } },
     });
 
-    const id = user.docs[0]!.id;
+    if (!user || user.totalDocs === 0) {
+      throw new APIError("User not found", 400);
+    }
+
+    const id = user.docs[0]?.id;
 
     if (!id) {
       throw new APIError("Error getting user", 400);
