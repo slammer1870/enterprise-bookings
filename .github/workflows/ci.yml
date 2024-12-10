@@ -54,11 +54,6 @@ jobs:
       - name: Set up Environment Variables
         run: echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
 
-      - name: Debug Environment Variables
-        env:
-          DATABASE_URI: ${{ env.DATABASE_URI }}
-        run: echo "DATABASE_URI is set to: $DATABASE_URI"
-
       - name: Run tests
         env:
           DATABASE_URI: ${{ env.DATABASE_URI }} # Pass the DATABASE_URI to the test environment
