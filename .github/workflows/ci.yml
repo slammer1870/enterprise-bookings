@@ -12,6 +12,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: your_password_here # Set a password for the postgres user
+          POSTGRES_DB: your_database_name_here   # Set the name of the database to create
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -27,7 +42,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Postgres is unavailable - sleeping"
+            sleep 5
+          done
+          echo "Postgres is up!"
+
+      - name: Set up Environment Variables
+        run: echo "DATABASE_URI=postgres://postgres:your_password_here@localhost:5432/your_database_name_here" >> $GITHUB_ENV
+
       - name: Run tests
+        env:
+          DATABASE_URI: ${{ env.DATABASE_URI }} # Pass the DATABASE_URI to the test environment
         run: pnpm test
 
       - name: Build the project
