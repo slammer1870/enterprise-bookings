@@ -29,6 +29,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Set up Environment Variables
+        run: echo "DATABASE_URL=postgres://postgres:CAt7KUwtsQ005H2NqOxtBrvylu3SRWdhNi3vJMYrhGtJd0cZFhO6jDetpBCVr9c9@157.90.233.127:5432/postgres" >> $GITHUB_ENV
+
+      - name: Wait for Database to Be Accessible
+        run: |
+          echo "Waiting for database connection..."
+          until pg_isready -h 157.90.233.127 -p 5432 -U postgres; do
+            echo "Postgres is unavailable - sleeping"
+            sleep 5
+          done
+          echo "Postgres is up!"
+
       - name: Run tests
         run: pnpm test
 
