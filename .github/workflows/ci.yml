@@ -16,9 +16,9 @@ jobs:
       postgres:
         image: postgres:latest
         env:
-          POSTGRES_USER: postgres
+          POSTGRES_USER: "postgres"
           POSTGRES_PASSWORD: "brugrappling" # Ensure this is a valid string
-          POSTGRES_DB: bookings   # Set the name of the database to create
+          POSTGRES_DB: "bookings"   # Set the name of the database to create
         ports:
           - 5432:5432
         options: >-
