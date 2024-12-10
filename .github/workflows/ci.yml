@@ -17,7 +17,7 @@ jobs:
         image: postgres:latest
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling # Set a password for the postgres user
+          POSTGRES_PASSWORD: brugrappling # Ensure this is a valid string
           POSTGRES_DB: bookings   # Set the name of the database to create
         ports:
           - 5432:5432
@@ -53,6 +53,11 @@ jobs:
 
       - name: Set up Environment Variables
         run: echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
+
+      - name: Debug Environment Variables
+        run: echo "DATABASE_URI is set to: $DATABASE_URI"
+        env:
+          DATABASE_URI: ${{ env.DATABASE_URI }}
 
       - name: Run tests
         env:
