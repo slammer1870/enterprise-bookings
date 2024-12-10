@@ -60,7 +60,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
+          DATABASE_URL: postgres://postgres:brugrappling@localhost:5432/bookings
         run: pnpm test
 
       - name: Build the project
