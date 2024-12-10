@@ -53,7 +53,7 @@ jobs:
           done
           echo "Postgres is up!"
 
-      - name: Set Database Environment Variable
+      - name: Set Database Environment Variables
         run: echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
 
       - name: Verify Environment Variable
