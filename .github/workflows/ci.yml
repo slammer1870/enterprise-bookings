@@ -16,6 +16,8 @@ jobs:
       postgres:
         image: postgres:latest
         env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling # Ensure this is a valid string
           POSTGRES_DB: bookings   # Set the name of the database to create
