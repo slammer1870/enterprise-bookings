@@ -57,7 +57,7 @@ jobs:
       - name: Debug Environment Variables
         run: echo "DATABASE_URI is set to: $DATABASE_URI"
         env:
-          DATABASE_URI: ${{ env.DATABASE_URI }}
+          DATABASE_URI: ${{ secrets.DATABASE_URI }}
 
       - name: Run tests
         env:
