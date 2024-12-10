@@ -41,7 +41,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: ${{ env.DATABASE_URI }}
+          DATABASE_URI: ${{ env.DATABASE_URI }}
         run: pnpm test
 
       - name: Build the project
