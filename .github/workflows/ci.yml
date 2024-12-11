@@ -21,7 +21,6 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling # Consider using a secret for sensitive data
           POSTGRES_DB: bookings
-          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
         ports:
           - 5432:5432
         options: >-
@@ -55,6 +54,8 @@ jobs:
           echo "Postgres is up!"
 
       - name: Debug Database URI
+        env:
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
       - name: Run tests
