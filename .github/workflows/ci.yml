@@ -57,7 +57,7 @@ jobs:
         run: echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
 
       - name: Debug Database URI
-        run: echo "DATABASE_URI is set to"
+        run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
       - name: Run tests
         run: pnpm test
