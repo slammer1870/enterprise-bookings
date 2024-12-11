@@ -19,7 +19,7 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling  # Consider using a secret for sensitive data
+          POSTGRES_PASSWORD: brugrappling # Consider using a secret for sensitive data
           POSTGRES_DB: bookings
         ports:
           - 5432:5432
@@ -53,16 +53,10 @@ jobs:
           done
           echo "Postgres is up!"
 
-      - name: Set Connection String Dynamically
-        run: |
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=brugrappling
-          POSTGRES_DB=bookings
-          POSTGRES_HOST=localhost
-          POSTGRES_PORT=5432
-          echo "DATABASE_URI=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB" >> $GITHUB_ENV
+      - name: Set Database Environment Variable
+        run: echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
 
-      - name: Verify Connection String
+      - name: Debug Database URI
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
       - name: Run tests
