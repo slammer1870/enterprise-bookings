@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env: # Add this section to define environment variables
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings # Ensure this matches your config
 
     services:
       postgres:
@@ -54,8 +56,6 @@ jobs:
           echo "Postgres is up!"
 
       - name: Debug Database URI
-        env:
-          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
       - name: Run tests
