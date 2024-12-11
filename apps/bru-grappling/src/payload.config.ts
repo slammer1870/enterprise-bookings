@@ -38,6 +38,7 @@ export default buildConfig({
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
+      authCollection: 'users',
     }),
   ],
 })

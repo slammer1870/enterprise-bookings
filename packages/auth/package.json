@@ -9,20 +9,20 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@payloadcms/db-postgres": "^3.5.0",
-    "@payloadcms/payload-cloud": "^3.5.0",
-    "@payloadcms/richtext-lexical": "^3.5.0",
-    "@payloadcms/ui": "^3.5.0",
+    "@payloadcms/db-postgres": "^3.2.1",
+    "@payloadcms/payload-cloud": "^3.2.1",
+    "@payloadcms/richtext-lexical": "^3.2.1",
+    "@payloadcms/ui": "^3.2.1",
     "@repo/roles": "workspace:*",
     "@types/jsonwebtoken": "^9.0.7",
     "jsonwebtoken": "^9.0.2",
     "node-mocks-http": "^1.16.1",
-    "payload": "^3.5.0",
+    "payload": "^3.2.1",
     "sharp": "0.32.6",
     "stripe": "^17.4.0"
   },
   "peerDependencies": {
-    "payload": "^3.5.0"
+    "payload": "^3.2.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
