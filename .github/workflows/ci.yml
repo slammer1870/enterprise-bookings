@@ -60,7 +60,7 @@ jobs:
           POSTGRES_DB=bookings
           POSTGRES_HOST=localhost
           POSTGRES_PORT=5432
-    echo "DATABASE_URI=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB" >> $GITHUB_ENV
+          echo "DATABASE_URI=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB" >> $GITHUB_ENV
 
       - name: Verify Connection String
         run: echo "DATABASE_URI: ${{ env.DATABASE_URI }}"
