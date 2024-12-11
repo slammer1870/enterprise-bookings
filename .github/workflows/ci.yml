@@ -21,6 +21,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling # Consider using a secret for sensitive data
           POSTGRES_DB: bookings
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
         ports:
           - 5432:5432
         options: >-
@@ -52,11 +53,6 @@ jobs:
             sleep 5
           done
           echo "Postgres is up!"
-
-      - name: Set Database Environment Variable
-        env:
-          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
-        run: echo "DATABASE_URI=postgres://postgres:brugrappling@localhost:5432/bookings" >> $GITHUB_ENV
 
       - name: Debug Database URI
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
