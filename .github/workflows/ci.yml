@@ -19,7 +19,7 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling
+          POSTGRES_PASSWORD: brugrappling  # Consider using a secret for sensitive data
           POSTGRES_DB: bookings
         ports:
           - 5432:5432
