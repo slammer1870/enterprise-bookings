@@ -19,8 +19,8 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling # Ensure this is a valid string
-          POSTGRES_DB: bookings # Set the name of the database to create
+          POSTGRES_PASSWORD: brugrappling
+          POSTGRES_DB: bookings
         ports:
           - 5432:5432
         options: >-
@@ -31,12 +31,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: "18" # Specify the Node.js version
+          node-version: "18"
 
       - name: Install pnpm
         run: npm install -g pnpm
