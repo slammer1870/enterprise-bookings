@@ -12,8 +12,6 @@ import { magicLinkPlugin } from "../src";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
-console.log("DATABASE_URI CONFIG", process.env.DATABASE_URI);
-
 export default buildConfig({
   admin: {
     user: "users",
