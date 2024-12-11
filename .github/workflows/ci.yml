@@ -63,7 +63,7 @@ jobs:
           echo "DATABASE_URI=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB" >> $GITHUB_ENV
 
       - name: Verify Connection String
-        run: echo "DATABASE_URI: ${{ env.DATABASE_URI }}"
+        run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
       - name: Run tests
         run: pnpm test
