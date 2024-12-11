@@ -7,8 +7,6 @@ import { createMocks } from "node-mocks-http";
 describe("Registration", async () => {
   let build: Payload;
 
-  console.log("DATABASE URI", process.env.DATABASE_URI);
-
   beforeAll(async () => {
     build = await payload.init({ config: buildConfig });
 
