@@ -4,6 +4,7 @@ import payload, { Endpoint, Payload } from "payload";
 import buildConfig, { user } from "./config";
 
 import { createMocks } from "node-mocks-http";
+
 describe("Registration", async () => {
   let build: Payload;
 
@@ -78,7 +79,6 @@ describe("Registration", async () => {
       data: {
         name: user.name,
         email: user.email,
-        password: user.password,
       },
       payload: build,
     });
