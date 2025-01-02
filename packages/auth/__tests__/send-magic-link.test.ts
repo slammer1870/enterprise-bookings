@@ -12,6 +12,7 @@ import payload, { Endpoint, Payload } from "payload";
 import buildConfig, { user } from "./config";
 
 import { createMocks } from "node-mocks-http";
+
 describe("Magic Link", async () => {
   let build: Payload;
 
@@ -70,6 +71,7 @@ describe("Magic Link", async () => {
       await deleteUser();
     }
   });
+
   it("should send a magic link to a user", async () => {
     const endpoints = build.collections.users.config.endpoints as Endpoint[];
 

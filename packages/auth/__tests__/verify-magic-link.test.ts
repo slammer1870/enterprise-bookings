@@ -1,12 +1,5 @@
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+
 import payload, { Endpoint, Payload } from "payload";
 
 import buildConfig, { user } from "./config";
