@@ -21,6 +21,10 @@
       "cache": false,
       "persistent": true
     },
+    "generate:importmap": {
+      "cache": false,
+      "persistent": true
+    },
     "test": {}
   }
 }

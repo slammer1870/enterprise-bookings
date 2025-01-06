@@ -7,6 +7,8 @@
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "test": "turbo run test",
+    "generate:importmap": "turbo run generate:importmap",
+    "generate:types": "turbo run generate:types",
     "ui": "pnpm --filter @repo/ui ui"
   },
   "devDependencies": {
