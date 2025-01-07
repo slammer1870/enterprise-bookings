@@ -1,5 +1,5 @@
-import { FetchLessons as FetchLessons_c3ac74b2b037608532c19a7b953d7a94 } from '@repo/bookings/src/components/fetch-lessons'
+import { FetchLessons as FetchLessons_511233d99c928e84af9e3b44860d4aef } from '@repo/bookings/src/components/lessons/fetch-lessons'
 
 export const importMap = {
-  "@repo/bookings/src/components/fetch-lessons#FetchLessons": FetchLessons_c3ac74b2b037608532c19a7b953d7a94
+  "@repo/bookings/src/components/lessons/fetch-lessons#FetchLessons": FetchLessons_511233d99c928e84af9e3b44860d4aef
 }

@@ -44,8 +44,8 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      paymentsEnabled: true,
-      childrenEnabled: true,
+      paymentsEnabled: false,
+      childrenEnabled: false,
     }),
   ],
 })

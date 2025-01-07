@@ -1,4 +1,6 @@
 import { CollectionConfig } from "payload";
+import { getRemainingCapacity } from "../hooks/remaining-capacity";
+import { getBookingStatus } from "../hooks/booking-status";
 
 export const lessonsCollection: CollectionConfig = {
   slug: "lessons",
@@ -14,7 +16,8 @@ export const lessonsCollection: CollectionConfig = {
     components: {
       views: {
         list: {
-          Component: "@repo/bookings/src/components/fetch-lessons#FetchLessons",
+          Component:
+            "@repo/bookings/src/components/lessons/fetch-lessons#FetchLessons",
         },
       },
     },
@@ -154,5 +157,74 @@ export const lessonsCollection: CollectionConfig = {
         },
       ],
     },
+    {
+      name: "class_option",
+      label: "Class Option",
+      type: "relationship",
+      relationTo: "class-options",
+      required: true,
+    },
+    {
+      name: "remaining_capacity",
+      type: "number",
+      hidden: true,
+      access: {
+        create: () => false,
+        update: () => false,
+      },
+      admin: {
+        description: "The number of places remaining",
+        readOnly: true,
+      },
+      hooks: {
+        afterRead: [getRemainingCapacity],
+      },
+    },
+    {
+      name: "bookings",
+      label: "Bookings",
+      type: "join",
+      collection: "bookings",
+      maxDepth: 3,
+      hasMany: true,
+      on: "lesson",
+    },
+    {
+      name: "booking_status",
+      type: "text",
+      access: {
+        create: () => false,
+        update: () => false,
+      },
+      admin: {
+        description: "Status of the lesson",
+        readOnly: true,
+        hidden: true,
+      },
+      hooks: {
+        beforeChange: [
+          ({ siblingData }) => {
+            // Mutate the sibling data to prevent DB storage
+            // eslint-disable-next-line no-param-reassign
+            siblingData.booking_status = undefined;
+          },
+        ],
+        afterRead: [getBookingStatus],
+      },
+    },
   ],
+  hooks: {
+    beforeDelete: [
+      async ({ req, id }) => {
+        await req.payload.delete({
+          collection: "bookings",
+          where: {
+            lesson: {
+              equals: id,
+            },
+          },
+        });
+      },
+    ],
+  },
 };

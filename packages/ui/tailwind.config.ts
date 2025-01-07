@@ -10,6 +10,9 @@ const config = {
     "./src/**/*.{ts,tsx}",
     "../../packages/ui/src/**/*.{ts,tsx}",
   ],
+  corePlugins: {
+    preflight: false, // Disable Tailwind’s CSS reset
+  },
   theme: {
     container: {
       center: true,

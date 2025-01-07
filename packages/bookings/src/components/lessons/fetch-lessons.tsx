@@ -3,16 +3,13 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-//import { DatePicker } from "@/components/date-picker";
-//import { Button } from "@/components/ui/button";
-
-import { DatePicker } from "@payloadcms/ui";
+import { DatePicker } from "@repo/ui/components/ui/date-picker";
 
 import { Button } from "@payloadcms/ui";
 
-import { Lesson } from "../types";
+import { Lesson } from "../../types";
 
-import { getLessonsQuery } from "../utils/query";
+import { getLessonsQuery } from "@repo/shared-utils";
 
 import { LessonList } from "./lesson-list";
 
@@ -36,14 +33,14 @@ export const FetchLessons: React.FC<{
 
   return (
     <div className=" mx-20">
-      <div className="flex flex-row justify-start items-center mb-4 gap-8">
+      <div className="flex flex-row justify-start items-center mb-4 gap-6">
         <h1>Lessons</h1>
         <Link
           href={{
             pathname: "/admin/collections/lessons/create",
           }}
         >
-          <Button buttonStyle="pill" className="whitespace-nowrap">
+          <Button buttonStyle="pill" className="whitespace-nowrap py-0">
             Create New
           </Button>
         </Link>

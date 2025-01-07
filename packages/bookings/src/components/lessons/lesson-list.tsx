@@ -1,8 +1,8 @@
-//import LessonDetail from "./LessonDetail";
-
-import { Lesson } from "../types";
+import { Lesson } from "../../types";
+import { LessonDetail } from "./lesson-detail";
 
 export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
+  console.log(lessons);
   return (
     <div className="w-full">
       <div className="flex flex-col">
@@ -16,8 +16,10 @@ export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
         <div className="flex flex-col gap-4">
           {lessons && lessons.length > 0 ? (
             lessons.map((lesson: Lesson) => (
-              <p>hello</p>
-              /*<LessonDetail key={lesson.id} lesson={lesson} />*/
+              <div key={lesson.id}>
+                <div>{lesson.bookings.docs.length}</div>
+                <LessonDetail lesson={lesson} />
+              </div>
             ))
           ) : (
             <span>No classes for today</span>

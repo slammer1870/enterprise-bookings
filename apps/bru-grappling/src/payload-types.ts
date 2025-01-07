@@ -14,15 +14,23 @@ export interface Config {
     media: Media;
     users: User;
     lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
+  };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -107,6 +115,47 @@ export interface Lesson {
   end_time: string;
   lock_out_time: number;
   location: string;
+  class_option: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remaining_capacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  /**
+   * Status of the lesson
+   */
+  booking_status?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  type: 'adult' | 'child';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
   updatedAt: string;
   createdAt: string;
 }
@@ -128,6 +177,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'lessons';
         value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -215,6 +272,33 @@ export interface LessonsSelect<T extends boolean = true> {
   end_time?: T;
   lock_out_time?: T;
   location?: T;
+  class_option?: T;
+  remaining_capacity?: T;
+  bookings?: T;
+  booking_status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  type?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }
