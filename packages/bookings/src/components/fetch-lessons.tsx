@@ -43,7 +43,9 @@ export const FetchLessons: React.FC<{
             pathname: "/admin/collections/lessons/create",
           }}
         >
-          <Button>Create New Lesson</Button>
+          <Button buttonStyle="pill" className="whitespace-nowrap">
+            Create New
+          </Button>
         </Link>
         <span className="w-full text-center font-medium text-lg hidden md:block"></span>
       </div>
