@@ -6,10 +6,8 @@ export const getLessonsQuery = (date: Date) => {
   const { startOfDay, endOfDay } = getDayRange(date);
 
   const query = {
-    sort: "start_time",
     depth: 3,
     limit: "100",
-    page: "1",
     where: {
       or: [
         {
@@ -28,9 +26,13 @@ export const getLessonsQuery = (date: Date) => {
         },
       ],
     },
+    sort: "start_time",
   };
 
-  const stringifiedQuery = qs.stringify(query, { addQueryPrefix: true });
+  const stringifiedQuery = qs.stringify(query, {
+    addQueryPrefix: true,
+    encode: false,
+  });
 
   return stringifiedQuery;
 };

@@ -1,3 +1,5 @@
+"use client";
+
 import { BookingsCount } from "../bookings/bookings-count";
 
 import { BookingList } from "../bookings/booking-list";
@@ -11,6 +13,28 @@ import {
 import { Lesson, Booking, ClassOption } from "../../types";
 
 import { ManageLesson } from "./manage-lesson";
+import { Button } from "@repo/ui/components/ui/button";
+
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@repo/ui/components/ui/table";
+
+import { format } from "date-fns";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ChevronUp } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@repo/ui/components/ui/dropdown-menu";
+import { useState } from "react";
+import { ClassOptionName } from "../class-options/name";
 
 /* eslint-disable-next-line */
 
@@ -20,35 +44,68 @@ const options: Intl.DateTimeFormatOptions = {
 };
 
 export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
-  console.log("deail is rendered");
   const bookings = lesson.bookings.docs as Booking[];
   const classOption = lesson.class_option as ClassOption;
 
+  const [expandedLessons, setExpandedLessons] = useState<Set<number>>(
+    new Set()
+  );
+
+  const toggleBookings = (lessonId: number) => {
+    setExpandedLessons((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(lessonId)) {
+        newSet.delete(lessonId);
+      } else {
+        newSet.add(lessonId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleEdit = (lessonId: number) => {
+    console.log("Edit lesson", lessonId);
+  };
+
+  const handleDelete = (lessonId: number) => {
+    console.log("Delete lesson", lessonId);
+  };
+
   return (
-    <Collapsible key={lesson.id}>
-      <div>
-        <div className="flex flex-row mb-4">
-          <div className="w-1/6 text-gray-500">
-            {new Date(lesson.start_time).toLocaleTimeString("en-GB", options)}
-          </div>
-          <div className="w-1/6">
-            {new Date(lesson.end_time).toLocaleTimeString("en-GB", options)}
-          </div>
-          <div className="w-2/6">{/*<p>{classOption.name}</p>*/}</div>
-          <div className="text-right w-1/6">
-            <CollapsibleTrigger className="cursor-pointer bg-white">
-              <BookingsCount count={bookings.length} />
-            </CollapsibleTrigger>
-          </div>
-          <div className="text-right w-1/6 flex justify-end items-start">
-            <ManageLesson lessonId={lesson.id} />
-          </div>
-        </div>
-        <CollapsibleContent>
-          <BookingList bookings={bookings} />
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
+    <>
+      <TableRow key={lesson.id}>
+        <TableCell>{format(lesson.start_time, "HH:mm")}</TableCell>
+        <TableCell>{format(lesson.end_time, "HH:mm")}</TableCell>
+        <TableCell>{classOption.name}</TableCell>
+        <TableCell>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => toggleBookings(lesson.id)}
+            className="flex items-center border-solid border-gray-700 border-1 bg-transparent shadow-none"
+          >
+            {lesson.bookings.docs.length}
+            {expandedLessons.has(lesson.id) ? (
+              <ChevronUp className="ml-2 h-4 w-4" />
+            ) : (
+              <ChevronDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        </TableCell>
+        <TableCell className="text-right">
+          <ManageLesson lessonId={lesson.id} />
+        </TableCell>
+      </TableRow>
+      {expandedLessons.has(lesson.id) && (
+        <TableRow>
+          <TableCell colSpan={5}>
+            <div className="bg-gray-100 rounded-md p-4">
+              <BookingList bookings={bookings} />
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 };
 

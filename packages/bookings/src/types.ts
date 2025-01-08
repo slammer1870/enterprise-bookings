@@ -9,13 +9,13 @@ export type Lesson = {
   date: string;
   start_time: string;
   end_time: string;
-  class_option: ClassOption;
+  class_option: number | ClassOption;
   bookings: { docs: Booking[] };
 };
 
 export interface Booking {
   id: number;
-  user: number | User;
+  user: User;
   lesson: number | Lesson;
   status: "pending" | "confirmed" | "cancelled" | "waiting";
   updatedAt: string;

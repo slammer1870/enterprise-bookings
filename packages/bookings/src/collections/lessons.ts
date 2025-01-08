@@ -163,15 +163,13 @@ export const lessonsCollection: CollectionConfig = {
       type: "relationship",
       relationTo: "class-options",
       required: true,
+      hasMany: false,
     },
     {
       name: "remaining_capacity",
       type: "number",
       hidden: true,
-      access: {
-        create: () => false,
-        update: () => false,
-      },
+      virtual: true,
       admin: {
         description: "The number of places remaining",
         readOnly: true,
@@ -192,25 +190,15 @@ export const lessonsCollection: CollectionConfig = {
     {
       name: "booking_status",
       type: "text",
-      access: {
-        create: () => false,
-        update: () => false,
-      },
       admin: {
         description: "Status of the lesson",
         readOnly: true,
         hidden: true,
       },
       hooks: {
-        beforeChange: [
-          ({ siblingData }) => {
-            // Mutate the sibling data to prevent DB storage
-            // eslint-disable-next-line no-param-reassign
-            siblingData.booking_status = undefined;
-          },
-        ],
         afterRead: [getBookingStatus],
       },
+      virtual: true,
     },
   ],
   hooks: {

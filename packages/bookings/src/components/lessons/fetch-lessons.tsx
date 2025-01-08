@@ -14,14 +14,18 @@ import { getLessonsQuery } from "@repo/shared-utils";
 import { LessonList } from "./lesson-list";
 
 import { Toaster } from "sonner";
+import { BasePayload } from "payload";
+
+import qs from "qs";
 
 export const FetchLessons: React.FC<{
-  data: any;
+  params: any;
   searchParams: { [key: string]: string | string[] | undefined };
-}> = ({ data, searchParams }) => {
-  const searchQuery = "where[or][0][and][0][start_time][greater_than_equal]";
+  payload: BasePayload;
+}> = async ({ searchParams, payload, params }) => {
+  const startQuery = "where[or][0][and][0][start_time][greater_than_equal]";
 
-  const condition = searchParams && searchParams[searchQuery];
+  const condition = searchParams && searchParams[startQuery];
 
   if (!condition) {
     const query = getLessonsQuery(new Date());
@@ -29,7 +33,16 @@ export const FetchLessons: React.FC<{
     redirect(`/admin/collections/lessons${query}`);
   }
 
-  const lessons = data.docs as Lesson[];
+  const ps = qs.parse(searchParams as unknown as string, {
+    ignoreQueryPrefix: true,
+    depth: 6,
+  });
+
+  const searchQuery = { collection: params.segments[1], ...ps };
+
+  const lessonList = await payload.find(searchQuery);
+
+  const lessons = lessonList.docs as Lesson[];
 
   return (
     <div className=" mx-20">

@@ -61,7 +61,7 @@ export function EditBooking({ booking }: { booking: Booking }) {
   const form = useForm<FormSchema>({
     resolver: zodResolver(FormData),
     defaultValues: {
-      user: typeof booking.user === "number" ? booking.user : booking.user.id,
+      user: booking.user.id,
       status: booking.status,
     },
   });
