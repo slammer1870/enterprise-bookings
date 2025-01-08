@@ -14,6 +14,7 @@ import { getLessonsQuery } from "@repo/shared-utils";
 import { LessonList } from "./lesson-list";
 
 import { Toaster } from "sonner";
+
 import { BasePayload } from "payload";
 
 import qs from "qs";
@@ -45,7 +46,7 @@ export const FetchLessons: React.FC<{
   const lessons = lessonList.docs as Lesson[];
 
   return (
-    <div className=" mx-20">
+    <div className="mx-20">
       <div className="flex flex-row justify-start items-center mb-4 gap-6">
         <h1>Lessons</h1>
         <Link

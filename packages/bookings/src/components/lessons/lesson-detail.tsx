@@ -35,6 +35,7 @@ import {
 } from "@repo/ui/components/ui/dropdown-menu";
 import { useState } from "react";
 import { ClassOptionName } from "../class-options/name";
+import { AddBooking } from "../bookings/add-booking";
 
 /* eslint-disable-next-line */
 
@@ -97,10 +98,11 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
         </TableCell>
       </TableRow>
       {expandedLessons.has(lesson.id) && (
-        <TableRow>
+        <TableRow className="bg-gray-100">
           <TableCell colSpan={5}>
-            <div className="bg-gray-100 rounded-md p-4">
+            <div className="rounded-md p-2">
               <BookingList bookings={bookings} />
+              <AddBooking lessonId={lesson.id} />
             </div>
           </TableCell>
         </TableRow>
