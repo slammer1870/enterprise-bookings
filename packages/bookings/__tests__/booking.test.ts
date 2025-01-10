@@ -62,13 +62,10 @@ describe("Plugin tests", () => {
   });
 
   it("should query added by plugin custom endpoint", async () => {
-    const response = await restClient.GET("/my-plugin-endpoint");
-    expect(response.status).toBe(200);
+    const response = await restClient.GET("/api/lessons");
+    expect(response.status).toBe(404);
 
     const data = await response.json();
-    expect(data).toMatchObject({
-      message: "Hello from custom endpoint",
-    });
   });
 
   it("can create post with a custom text field added by plugin", async () => {

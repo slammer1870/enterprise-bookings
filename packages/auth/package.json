@@ -6,7 +6,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc",
-    "test": "docker-compose up -d db && vitest && docker-compose down"
+    "test": "vitest"
   },
   "dependencies": {
     "@payloadcms/db-postgres": "^3.2.1",
