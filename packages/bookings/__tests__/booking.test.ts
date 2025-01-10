@@ -18,7 +18,7 @@ import { NextRESTClient } from "./helpers/NextRESTClient.js";
 
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
-import buildConfig from "./config";
+import { createConfig } from "./config";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,14 +51,10 @@ describe("Plugin tests", () => {
       process.env.DATABASE_URI = databaseUri;
     }
 
-    payload = await getPayload({ config: buildConfig });
-    restClient = new NextRESTClient(payload.config);
-  });
+    const config = await createConfig(process.env.DATABASE_URI);
 
-  afterAll(async () => {
-    if (payload.db.destroy) {
-      await payload.db.destroy();
-    }
+    payload = await getPayload({ config: config });
+    restClient = new NextRESTClient(payload.config);
   });
 
   it("should query added by plugin custom endpoint", async () => {

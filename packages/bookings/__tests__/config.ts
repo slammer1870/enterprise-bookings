@@ -12,68 +12,63 @@ import { bookingsPlugin } from "../src";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
-export default buildConfig({
-  admin: {
-    user: "users",
-    importMap: {
-      baseDir: path.resolve(dirname),
-    },
-  },
-  serverURL: "http://localhost:3000",
-  collections: [
-    {
-      slug: "users",
-      admin: {
-        useAsTitle: "email",
-      },
-      auth: true,
-      fields: [
-        // Email added by default
-        // Add more fields as needed
-      ],
-    },
-    {
-      slug: "media",
-      access: {
-        read: () => true,
-      },
-      fields: [
-        {
-          name: "alt",
-          type: "text",
-          required: true,
-        },
-      ],
-      upload: true,
-    },
-  ],
-  editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || "sectre",
-  typescript: {
-    outputFile: path.resolve(dirname, "payload-types.ts"),
-  },
-  db: postgresAdapter({
-    pool: {
-      connectionString:
-        process.env.DATABASE_URI ||
-        "postgres://postgres:brugrappling@localhost:5432/bookings_test",
-    },
-  }),
-  sharp,
-  plugins: [
-    payloadCloudPlugin(),
-    bookingsPlugin({
-      enabled: true,
-      paymentsEnabled: false,
-      childrenEnabled: false,
-    }),
-    // storage-adapter-placeholder
-  ],
-});
+console.log("DATABASE_URI in Config", process.env.DATABASE_URI);
 
-export const user = {
-  id: "1",
-  name: "test",
-  email: "test@test.com",
-  password: "test",
+export const createConfig = async (databaseUri: string) => {
+  return buildConfig({
+    admin: {
+      user: "users",
+      importMap: {
+        baseDir: path.resolve(dirname),
+      },
+    },
+    serverURL: "http://localhost:3000",
+    collections: [
+      {
+        slug: "users",
+        admin: {
+          useAsTitle: "email",
+        },
+        auth: true,
+        fields: [
+          // Email added by default
+          // Add more fields as needed
+        ],
+      },
+      {
+        slug: "media",
+        access: {
+          read: () => true,
+        },
+        fields: [
+          {
+            name: "alt",
+            type: "text",
+            required: true,
+          },
+        ],
+        upload: true,
+      },
+    ],
+    editor: lexicalEditor(),
+    secret: process.env.PAYLOAD_SECRET || "sectre",
+    typescript: {
+      outputFile: path.resolve(dirname, "payload-types.ts"),
+    },
+    db: postgresAdapter({
+      pool: {
+        connectionString: process.env.DATABASE_URI || databaseUri,
+      },
+    }),
+    sharp,
+    plugins: [
+      payloadCloudPlugin(),
+      bookingsPlugin({
+        enabled: true,
+        paymentsEnabled: false,
+        childrenEnabled: false,
+      }),
+      // storage-adapter-placeholder
+    ],
+  });
 };
