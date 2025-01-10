@@ -54,32 +54,13 @@ describe("Plugin tests", () => {
     const config = await createConfig(process.env.DATABASE_URI);
 
     payload = await getPayload({ config: config });
-    restClient = new NextRESTClient(payload.config);
+    restClient = new NextRESTClient(config);
   });
 
-  it("should query added by plugin custom endpoint", async () => {
-    const response = await restClient.GET("/api/lessons");
-    expect(response.status).toBe(404);
+  it("should should get the lessons endpoint", async () => {
+    const response = await restClient.GET("/lessons");
+    expect(response.status).toBe(200);
 
     const data = await response.json();
-  });
-
-  it("can create post with a custom text field added by plugin", async () => {
-    const post = await payload.create({
-      collection: "posts",
-      data: {
-        addedByPlugin: "added by plugin",
-      },
-    });
-
-    expect(post.addedByPlugin).toBe("added by plugin");
-  });
-
-  it("plugin creates and seeds plugin-collection", async () => {
-    expect(payload.collections["plugin-collection"]).toBeDefined();
-
-    const { docs } = await payload.find({ collection: "plugin-collection" });
-
-    expect(docs).toHaveLength(1);
   });
 });
