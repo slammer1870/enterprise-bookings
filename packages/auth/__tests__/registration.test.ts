@@ -6,10 +6,29 @@ import buildConfig, { user } from "./config";
 
 import { createMocks } from "node-mocks-http";
 
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
+
 describe("Registration", async () => {
   let build: Payload;
 
   beforeAll(async () => {
+    if (!process.env.DATABASE_URI) {
+      console.log("Starting memory database");
+      const postgresContainer = await new PostgreSqlContainer()
+        .withExposedPorts(5432)
+        .withUsername("postgres")
+        .withPassword("brugrappling")
+        .withDatabase("bookings_test")
+        .start();
+
+      const host = postgresContainer.getHost();
+      const port = postgresContainer.getMappedPort(5432);
+      const databaseUri = `postgresql://postgres:brugrappling@${host}:${port}/bookings_test`;
+
+      console.log("PostgreSQL database started");
+      process.env.DATABASE_URI = databaseUri;
+    }
+
     build = await payload.init({ config: buildConfig });
 
     const existingUser = await build.find({
@@ -49,6 +68,10 @@ describe("Registration", async () => {
 
     if (existingUser.docs.length > 0) {
       await deleteUser();
+    }
+
+    if (payload.db.destroy) {
+      await payload.db.destroy();
     }
   });
 

@@ -8,8 +8,6 @@ export const bookingsCollection: CollectionConfig = {
     group: "Bookings",
     hidden: true,
   },
-  access: {},
-
   fields: [
     {
       name: "user",

@@ -143,7 +143,6 @@ export interface ClassOption {
    */
   places: number;
   description: string;
-  type: 'adult' | 'child';
   updatedAt: string;
   createdAt: string;
 }
@@ -287,7 +286,6 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
-  type?: T;
   updatedAt?: T;
   createdAt?: T;
 }

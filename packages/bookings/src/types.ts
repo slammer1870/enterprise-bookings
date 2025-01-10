@@ -1,6 +1,20 @@
 export type PluginTypes = {
+  /**
+   * Enable or disable plugin
+   * @default false
+   */
   enabled: boolean;
+
+  /**
+   * Enable or disable payments
+   * @default false
+   */
   paymentsEnabled: boolean;
+
+  /**
+   * Enable or disable children
+   * @default false
+   */
   childrenEnabled: boolean;
 };
 

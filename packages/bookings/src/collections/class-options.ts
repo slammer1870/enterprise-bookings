@@ -36,16 +36,19 @@ export const classOptionsCollection = (
         type: "textarea",
         required: true,
       },
-      {
-        name: "type",
-        label: "Class Type",
-        type: "select",
-        options: ["adult", "child"],
-        defaultValue: "adult",
-        required: true,
-      },
     ],
   };
+
+  if (pluginOptions.childrenEnabled) {
+    config.fields.push({
+      name: "type",
+      label: "Class Type",
+      type: "select",
+      options: ["adult", "child"],
+      defaultValue: "adult",
+      required: true,
+    });
+  }
 
   if (pluginOptions.paymentsEnabled) {
     config.fields.push({

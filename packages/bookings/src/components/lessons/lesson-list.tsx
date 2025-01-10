@@ -28,7 +28,9 @@ export const LessonList: React.FC<{
       </TableHeader>
       <TableBody>
         {lessons && lessons.length > 0 ? (
-          lessons.map((lesson: Lesson) => <LessonDetail lesson={lesson} />)
+          lessons.map((lesson: Lesson) => (
+            <LessonDetail lesson={lesson} key={lesson.id} />
+          ))
         ) : (
           <TableRow>
             <TableCell colSpan={5} className="text-center">
