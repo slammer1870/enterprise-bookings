@@ -70,8 +70,8 @@ describe("Registration", async () => {
       await deleteUser();
     }
 
-    if (payload.db.destroy) {
-      await payload.db.destroy();
+    if (build.db.destroy) {
+      await build.db.destroy();
     }
   });
 
