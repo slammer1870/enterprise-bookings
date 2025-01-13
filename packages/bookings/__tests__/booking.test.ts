@@ -16,9 +16,15 @@ import { fileURLToPath } from "url";
 
 import { NextRESTClient } from "./helpers/NextRESTClient.js";
 
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { buildConfig } from "payload";
 
-import { createConfig } from "./config";
+import { config } from "./config";
+
+import { createDbString } from "@repo/testing-config/src/utils/db.js";
+
+import { setDbString } from "@repo/testing-config/src/utils/payload-config.js";
+
+import { postgresAdapter } from "@payloadcms/db-postgres";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,26 +41,16 @@ describe("Plugin tests", () => {
     });
 
     if (!process.env.DATABASE_URI) {
-      console.log("Starting memory database");
-      const postgresContainer = await new PostgreSqlContainer()
-        .withExposedPorts(5432)
-        .withUsername("postgres")
-        .withPassword("brugrappling")
-        .withDatabase("bookings_test")
-        .start();
+      const dbString = await createDbString();
+      process.env.DATABASE_URI = dbString;
 
-      const host = postgresContainer.getHost();
-      const port = postgresContainer.getMappedPort(5432);
-      const databaseUri = `postgresql://postgres:brugrappling@${host}:${port}/bookings_test`;
-
-      console.log("PostgreSQL database started");
-      process.env.DATABASE_URI = databaseUri;
+      config.db = setDbString(dbString);
     }
 
-    const config = await createConfig(process.env.DATABASE_URI);
+    const builtConfig = await buildConfig(config);
 
-    payload = await getPayload({ config: config });
-    restClient = new NextRESTClient(config);
+    payload = await getPayload({ config: builtConfig });
+    restClient = new NextRESTClient(builtConfig);
   });
 
   it("should be unauthorized to get the bookings endpoint", async () => {

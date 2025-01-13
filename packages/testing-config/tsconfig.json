@@ -1,0 +1,11 @@
+{
+  "extends": "@repo/typescript-config/package.json",
+  "compilerOptions": {
+    "version": true
+  },
+  "include": ["src/**/*"],
+  "paths": {
+    "@repo/testing-config/*": ["@repo/testing-config/src/*"]
+  },
+  "exclude": ["node_modules"]
+}

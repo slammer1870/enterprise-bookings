@@ -13,6 +13,7 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:^",
     "@repo/shared-utils": "workspace:*",
+    "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@testing-library/dom": "^10.4.0",
