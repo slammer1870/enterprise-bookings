@@ -61,4 +61,31 @@ describe("Plugin tests", () => {
     const response = await restClient.GET("/lessons");
     expect(response.status).toBe(200);
   });
+  it("should have a booking status of active", async () => {
+    const classOption = await payload.create({
+      collection: "class-options",
+      data: {
+        name: "Test Class Option",
+        places: 4,
+        description: "Test Class Option",
+      },
+    });
+    const lesson = await payload.create({
+      collection: "lessons",
+      data: {
+        date: new Date(),
+        start_time: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        end_time: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        class_option: classOption.id,
+        location: "Test Location",
+      },
+    });
+
+    const response = await restClient.GET(`/lessons/${lesson.id}`);
+
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.booking_status).toBe("active");
+  });
 });

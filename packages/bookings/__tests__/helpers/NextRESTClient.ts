@@ -189,14 +189,14 @@ export class NextRESTClient {
   }
 
   async login({
-    slug,
+    slug = "users",
     credentials,
   }: {
     credentials?: {
       email: string;
       password: string;
     };
-    slug: string;
+    slug?: string;
   }): Promise<{ [key: string]: unknown }> {
     const response = await this.POST(`/${slug}/login`, {
       body: JSON.stringify(
