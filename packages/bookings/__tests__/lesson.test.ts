@@ -28,13 +28,6 @@ let restClient: NextRESTClient;
 
 describe("Lesson tests", () => {
   beforeAll(async () => {
-    process.env.DISABLE_PAYLOAD_HMR = "true";
-    process.env.PAYLOAD_DROP_DATABASE = "true";
-
-    dotenv.config({
-      path: path.resolve(dirname, "./.env"),
-    });
-
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
       process.env.DATABASE_URI = dbString;
