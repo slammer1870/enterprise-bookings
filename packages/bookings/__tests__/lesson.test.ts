@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import dotenv from "dotenv";
 import path from "path";
@@ -25,7 +25,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 let payload: Payload;
 let restClient: NextRESTClient;
 
-describe("Plugin tests", () => {
+describe("Lesson tests", () => {
   beforeAll(async () => {
     process.env.DISABLE_PAYLOAD_HMR = "true";
     process.env.PAYLOAD_DROP_DATABASE = "true";

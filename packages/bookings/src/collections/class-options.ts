@@ -2,7 +2,8 @@ import type { CollectionConfig } from "payload";
 import { PluginTypes } from "../types";
 
 export const classOptionsCollection = (
-  pluginOptions: PluginTypes
+  childrenEnabled: boolean,
+  paymentsEnabled: boolean
 ): CollectionConfig => {
   const config: CollectionConfig = {
     slug: "class-options",
@@ -39,7 +40,7 @@ export const classOptionsCollection = (
     ],
   };
 
-  if (pluginOptions.childrenEnabled) {
+  if (childrenEnabled) {
     config.fields.push({
       name: "type",
       label: "Class Type",
@@ -50,7 +51,7 @@ export const classOptionsCollection = (
     });
   }
 
-  if (pluginOptions.paymentsEnabled) {
+  if (paymentsEnabled) {
     config.fields.push({
       name: "paymentMethods",
       label: "Payment Methods",

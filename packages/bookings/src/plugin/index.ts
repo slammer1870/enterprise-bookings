@@ -7,17 +7,21 @@ import { bookingsCollection } from "../collections/bookings";
 import { classOptionsCollection } from "../collections/class-options";
 
 export const bookingsPlugin =
-  (pluginOptions: PluginTypes): Plugin =>
+  ({
+    enabled = false,
+    childrenEnabled = false,
+    paymentsEnabled = false,
+  }: PluginTypes): Plugin =>
   (incomingConfig) => {
     let config = { ...incomingConfig };
 
-    if (pluginOptions.enabled === false) {
+    if (!enabled) {
       return config;
     }
 
     const collections: CollectionConfig[] = config.collections || [];
     collections.push(lessonsCollection);
-    collections.push(classOptionsCollection(pluginOptions));
+    collections.push(classOptionsCollection(childrenEnabled, paymentsEnabled));
     collections.push(bookingsCollection);
 
     config.collections = collections;
