@@ -57,8 +57,8 @@ describe("Plugin tests", () => {
     restClient = new NextRESTClient(config);
   });
 
-  it("should be unauthorized to get the bookings endpoint", async () => {
-    const response = await restClient.GET("/bookings");
-    expect(response.status).toBe(403);
+  it("should should get the lessons endpoint", async () => {
+    const response = await restClient.GET("/lessons");
+    expect(response.status).toBe(200);
   });
 });
