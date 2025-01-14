@@ -23,6 +23,7 @@ let restClient: NextRESTClient;
 
 describe("Lesson tests", () => {
   beforeAll(async () => {
+    console.log("beforeAll for lesson tests");
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
       process.env.DATABASE_URI = dbString;

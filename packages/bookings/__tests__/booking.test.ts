@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { getPayload } from "payload";
 
