@@ -2,8 +2,7 @@ import type { CollectionConfig } from "payload";
 import { PluginTypes } from "../types";
 
 export const classOptionsCollection = (
-  childrenEnabled: boolean,
-  paymentsEnabled: boolean
+  pluginOptions: PluginTypes
 ): CollectionConfig => {
   const config: CollectionConfig = {
     slug: "class-options",
@@ -40,7 +39,7 @@ export const classOptionsCollection = (
     ],
   };
 
-  if (childrenEnabled) {
+  if (pluginOptions.childrenEnabled) {
     config.fields.push({
       name: "type",
       label: "Class Type",
@@ -48,40 +47,6 @@ export const classOptionsCollection = (
       options: ["adult", "child"],
       defaultValue: "adult",
       required: true,
-    });
-  }
-
-  if (paymentsEnabled) {
-    config.fields.push({
-      name: "paymentMethods",
-      label: "Payment Methods",
-      type: "group",
-      fields: [
-        {
-          name: "allowedDropIns",
-          label: "Allowed Drop Ins",
-          type: "relationship",
-          hasMany: true,
-          relationTo: "drop-ins",
-          admin: {
-            description:
-              "Select the drop ins that are allowed for this class option.",
-            position: "sidebar",
-          },
-        },
-        {
-          name: "allowedPlans",
-          label: "Allowed Plans",
-          type: "relationship",
-          relationTo: "plans",
-          hasMany: true,
-          admin: {
-            description:
-              "Select the subscriptionsthat are allowed for this class option.",
-            position: "sidebar",
-          },
-        },
-      ],
     });
   }
 

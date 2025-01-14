@@ -25,16 +25,20 @@ import {
 } from "@repo/ui/components/ui/table";
 
 import { format } from "date-fns";
+
 import { ChevronDown, MoreHorizontal } from "lucide-react";
+
 import { ChevronUp } from "lucide-react";
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@repo/ui/components/ui/dropdown-menu";
+
 import { useState } from "react";
-import { ClassOptionName } from "../class-options/name";
+
 import { AddBooking } from "../bookings/add-booking";
 
 /* eslint-disable-next-line */

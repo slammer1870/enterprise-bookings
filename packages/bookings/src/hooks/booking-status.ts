@@ -6,17 +6,20 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     return;
   }
 
-  const class_options = await req.payload.find({
+  const classOptionsQuery = await req.payload.find({
     collection: "class-options",
     depth: 2,
     where: {
       id: { equals: data?.class_option },
     },
+    limit: 1,
   });
 
-  const trialable = class_options.docs.some((option) =>
+  const classOptions = classOptionsQuery.docs as ClassOption[];
+
+  const trialable = classOptions.some((option) =>
     option.paymentMethods?.allowedDropIns?.some(
-      (paymentMethod: DropIn) => paymentMethod.price_type === "trial"
+      (dropIn: DropIn) => dropIn.price_type === "trial"
     )
   );
 
@@ -63,7 +66,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   }
 
   // TODO implement waitlist
-  if (bookingQuery.totalDocs >= (class_options.docs[0] as ClassOption).places) {
+  if (bookingQuery.totalDocs >= (classOptions[0] as ClassOption).places) {
     return "waitlist";
   }
 

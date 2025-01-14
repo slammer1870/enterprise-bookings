@@ -9,13 +9,13 @@ export type PluginTypes = {
    * Enable or disable payments
    * @default false
    */
-  paymentsEnabled: boolean;
+  paymentsEnabled?: boolean;
 
   /**
    * Enable or disable children
    * @default false
    */
-  childrenEnabled: boolean;
+  childrenEnabled?: boolean;
 };
 
 export type Lesson = {
@@ -49,8 +49,8 @@ export interface ClassOption {
   description: string;
   type: "adult" | "child";
   paymentMethods?: {
-    allowedDropIns?: (number | DropIn)[] | null;
-    allowedPlans?: (number | Plan)[] | null;
+    allowedDropIns?: DropIn[] | undefined;
+    allowedPlans?: Plan[] | undefined;
   };
   updatedAt: string;
   createdAt: string;

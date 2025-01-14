@@ -1,6 +1,7 @@
 import { Payload } from "payload";
+
 import { Lesson } from "../../types";
-import { ClassOptionName } from "../class-options/name";
+
 import { LessonDetail } from "./lesson-detail";
 
 import {
