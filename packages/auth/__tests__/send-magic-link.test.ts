@@ -14,7 +14,6 @@ describe("Magic Link", async () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
-      process.env.DATABASE_URI = dbString;
 
       config.db = setDbString(dbString);
     }

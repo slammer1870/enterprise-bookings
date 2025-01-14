@@ -18,14 +18,16 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
+import { ClassOption } from "../src/types.js";
+
 let payload: Payload;
 let restClient: NextRESTClient;
+let classOption: ClassOption;
 
 describe("Lesson tests", () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
-      process.env.DATABASE_URI = dbString;
 
       config.db = setDbString(dbString);
     }
@@ -34,6 +36,15 @@ describe("Lesson tests", () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
+
+    classOption = (await payload.create({
+      collection: "class-options",
+      data: {
+        name: "Test Class Option",
+        places: 4,
+        description: "Test Class Option",
+      },
+    })) as ClassOption;
   });
 
   it("should should get the lessons endpoint", async () => {
@@ -41,14 +52,6 @@ describe("Lesson tests", () => {
     expect(response.status).toBe(200);
   });
   it("should have a booking status of active", async () => {
-    const classOption = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option",
-        places: 4,
-        description: "Test Class Option",
-      },
-    });
     const lesson = await payload.create({
       collection: "lessons",
       data: {
@@ -66,5 +69,24 @@ describe("Lesson tests", () => {
 
     expect(response.status).toBe(200);
     expect(data.booking_status).toBe("active");
+  });
+  it("should have a booking status of closed", async () => {
+    const lesson = await payload.create({
+      collection: "lessons",
+      data: {
+        date: new Date(),
+        start_time: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        end_time: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        class_option: classOption.id,
+        location: "Test Location",
+      },
+    });
+
+    const response = await restClient.GET(`/lessons/${lesson.id}`);
+
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.booking_status).toBe("closed");
   });
 });
