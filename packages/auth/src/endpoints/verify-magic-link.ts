@@ -19,6 +19,8 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       throw new APIError("Token is required", 400);
     }
 
+    req.headers.set("token", token as string);
+
     const authCollectionSlug = (pluginOptions.authCollection ||
       "users") as CollectionSlug;
 

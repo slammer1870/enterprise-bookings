@@ -5,7 +5,7 @@
   "dependencies": {
     "@payloadcms/ui": "^3.2.2",
     "@repo/roles": "workspace:*",
-    "payload": "^3.15.1",
+    "payload": "^3.17.1",
     "stripe": "^17.4.0"
   },
   "devDependencies": {

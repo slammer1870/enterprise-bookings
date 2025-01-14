@@ -11,12 +11,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { buildConfig, getPayload } from "payload";
 
-import { NextRESTClient } from "./helpers/NextRESTClient.js";
-
 import { config } from "./config.js";
 
-import { setDbString } from "@repo/testing-config/src/utils/payload-config.js";
-import { createDbString } from "@repo/testing-config/src/utils/db.js";
+import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { createDbString } from "@repo/testing-config/src/utils/db";
+
+import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
 let payload: Payload;
 let restClient: NextRESTClient;

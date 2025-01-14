@@ -7,26 +7,19 @@
 
 import type { Payload } from "payload";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import dotenv from "dotenv";
-import path from "path";
 import { getPayload } from "payload";
-import { fileURLToPath } from "url";
 
-import { NextRESTClient } from "./helpers/NextRESTClient.js";
+import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
 import { buildConfig } from "payload";
 
 import { config } from "./config";
 
-import { createDbString } from "@repo/testing-config/src/utils/db.js";
+import { createDbString } from "@repo/testing-config/src/utils/db";
 
-import { setDbString } from "@repo/testing-config/src/utils/payload-config.js";
-
-import { postgresAdapter } from "@payloadcms/db-postgres";
-
-const dirname = path.dirname(fileURLToPath(import.meta.url));
+import { setDbString } from "@repo/testing-config/src/utils/payload-config";
 
 let payload: Payload;
 let restClient: NextRESTClient;

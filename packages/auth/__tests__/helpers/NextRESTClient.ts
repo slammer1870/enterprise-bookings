@@ -1,10 +1,11 @@
-import type {
+import {
   JoinQuery,
   PopulateType,
   SanitizedConfig,
   SelectType,
   Where,
 } from "payload";
+
 import type { ParsedQs } from "qs-esm";
 
 import {
@@ -136,7 +137,7 @@ export class NextRESTClient {
     const url = `${this.serverURL}${this.config.routes.api}/${slugs}`;
 
     return {
-      slug: slugs.split("/"),
+      slug: slugs ? slugs.split("/") : [],
       params: params ? qs.parse(params) : undefined,
       url,
     };

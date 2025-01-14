@@ -2,10 +2,14 @@
   "name": "@repo/testing-config",
   "version": "1.0.0",
   "license": "MIT",
+  "type": "module",
   "dependencies": {
-    "@payloadcms/db-postgres": "^3.16.0",
+    "@payloadcms/db-postgres": "^3.17.1",
+    "@payloadcms/next": "^3.17.1",
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
-    "payload": "^3.15.1"
+    "payload": "^3.17.1",
+    "qs-esm": "^7.0.2"
   }
 }

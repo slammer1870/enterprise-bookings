@@ -1,72 +1,54 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import payload, { buildConfig, Endpoint, getPayload, Payload } from "payload";
+import payload, {
+  buildConfig,
+  Endpoint,
+  getPayload,
+  Payload,
+  User,
+} from "payload";
 
 import { config, user } from "./config";
 
 import jwt from "jsonwebtoken";
 
 import { createMocks } from "node-mocks-http";
+import { createDbString } from "@repo/testing-config/src/utils/db";
+import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
 describe("Verify Magic Link", async () => {
   let payload: Payload;
+  let restClient: NextRESTClient;
+  let createdUser: any;
 
   beforeAll(async () => {
-    const builtConfig = await buildConfig(config);
-    payload = await getPayload({ config: builtConfig });
-  });
+    if (!process.env.DATABASE_URI) {
+      const dbString = await createDbString();
+      process.env.DATABASE_URI = dbString;
 
-  beforeEach(async () => {
-    const existingUser = await payload.find({
-      collection: "users",
-      where: {
-        email: {
-          equals: user.email,
-        },
-      },
-    });
-
-    user.id = existingUser.docs[0]?.id as string;
-
-    if (!existingUser) {
-      const createdUser = await payload.create({
-        collection: "users",
-        data: {
-          name: user.name,
-          email: user.email,
-          password: user.password,
-        },
-      });
-
-      user.id = createdUser.id as string;
+      config.db = setDbString(dbString);
     }
-  });
 
-  const deleteUser = async () => {
-    await payload.delete({
+    const builtConfig = await buildConfig(config);
+
+    payload = await getPayload({ config: builtConfig });
+    restClient = new NextRESTClient(builtConfig);
+
+    createdUser = await payload.create({
       collection: "users",
-      where: {
-        email: {
-          equals: user.email,
-        },
+      data: {
+        name: user.name,
+        email: user.email,
+        password: user.password,
       },
     });
-  };
-
-  afterEach(async () => {
-    await deleteUser();
   });
 
   it("should verify a magic link to log in a user", async () => {
-    const endpoints = payload.collections.users.config.endpoints as Endpoint[];
-
-    const endpoint = endpoints.find(
-      (e) => e.path === "/verify-magic-link"
-    ) as Endpoint;
-
     const fieldsToSign = {
-      id: user.id,
-      email: user.email,
+      id: createdUser.id,
+      email: createdUser.email,
       collection: "users",
     };
 
@@ -74,20 +56,9 @@ describe("Verify Magic Link", async () => {
       expiresIn: "15m", // Token expires in 15 minutes
     });
 
-    const { req } = createMocks({
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        token: token,
-      },
-      query: {
-        token: token,
-        callbackUrl: "/dashboard",
-      },
-      payload: payload,
-    });
-
-    const response = await endpoint.handler(req);
+    const response = await restClient.GET(
+      `/users/verify-magic-link?token=${token}&callbackUrl=/dashboard`
+    );
 
     expect(response.status).toBe(302);
 
