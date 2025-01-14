@@ -12,8 +12,6 @@ import { bookingsPlugin } from "../src";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
-console.log("DATABASE_URI in Config", process.env.DATABASE_URI);
-
 export const config: Config = {
   admin: {
     user: "users",

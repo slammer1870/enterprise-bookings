@@ -9,10 +9,7 @@ import type { Payload } from "payload";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import dotenv from "dotenv";
-import path from "path";
 import { buildConfig, getPayload } from "payload";
-import { fileURLToPath } from "url";
 
 import { NextRESTClient } from "./helpers/NextRESTClient.js";
 
@@ -20,8 +17,6 @@ import { config } from "./config.js";
 
 import { setDbString } from "@repo/testing-config/src/utils/payload-config.js";
 import { createDbString } from "@repo/testing-config/src/utils/db.js";
-
-const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let payload: Payload;
 let restClient: NextRESTClient;
