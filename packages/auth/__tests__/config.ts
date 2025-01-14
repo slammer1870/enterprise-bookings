@@ -71,7 +71,6 @@ export const config: Config = {
 };
 
 export const user = {
-  id: "1",
   name: "test",
   email: "test@test.com",
   password: "test",
