@@ -265,6 +265,9 @@ importers:
       '@repo/roles':
         specifier: workspace:*
         version: link:../roles
+      '@repo/testing-config':
+        specifier: workspace:*
+        version: link:../testing-config
       '@testcontainers/postgresql':
         specifier: ^10.16.0
         version: 10.16.0

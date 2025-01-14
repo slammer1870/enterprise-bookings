@@ -7,118 +7,88 @@ import {
   expect,
   it,
 } from "vitest";
-import payload, { Endpoint, Payload } from "payload";
+import payload, { buildConfig, Endpoint, getPayload, Payload } from "payload";
 
-import buildConfig, { user } from "./config";
+import { config, user } from "./config";
 
 import { createMocks } from "node-mocks-http";
+import { createDbString } from "../../testing-config/src/utils/db";
+import { setDbString } from "../../testing-config/src/utils/payload-config";
 
 describe("Magic Link", async () => {
-  let build: Payload;
+  let payload: Payload;
 
   beforeAll(async () => {
-    build = await payload.init({ config: buildConfig });
-  });
+    if (!process.env.DATABASE_URI) {
+      const dbString = await createDbString();
+      process.env.DATABASE_URI = dbString;
 
-  beforeEach(async () => {
-    const existingUser = await build.find({
-      collection: "users",
-      where: {
-        email: {
-          equals: user.email,
-        },
-      },
-    });
-
-    try {
-      if (existingUser.docs.length === 0) {
-        await build.create({
-          collection: "users",
-          data: {
-            name: user.name,
-            email: user.email,
-            password: user.password,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Error creating user:", error);
+      config.db = setDbString(dbString);
     }
-  });
 
-  const deleteUser = async () => {
-    await build.delete({
+    const builtConfig = await buildConfig(config);
+
+    payload = await getPayload({ config: builtConfig });
+
+    await payload.create({
       collection: "users",
-      where: {
-        email: {
-          equals: user.email,
-        },
-      },
+      data: user,
     });
-  };
+  });
+});
 
-  afterEach(async () => {
-    const existingUser = await build.find({
-      collection: "users",
-      where: {
-        email: {
-          equals: user.email,
-        },
-      },
-    });
+afterAll(async () => {
+  if (payload.db.destroy) {
+    await payload.db.destroy();
+  }
+});
 
-    if (existingUser.docs.length > 0) {
-      await deleteUser();
-    }
+it("should send a magic link to a user", async () => {
+  const endpoints = payload.collections.users.config.endpoints as Endpoint[];
+
+  const endpoint = endpoints.find(
+    (e) => e.path === "/send-magic-link"
+  ) as Endpoint;
+
+  const { req, res } = createMocks({
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: {
+      name: user.name,
+      email: user.email,
+    },
+    payload: payload,
   });
 
-  it("should send a magic link to a user", async () => {
-    const endpoints = build.collections.users.config.endpoints as Endpoint[];
+  req.json = () => req.data;
 
-    const endpoint = endpoints.find(
-      (e) => e.path === "/send-magic-link"
-    ) as Endpoint;
+  await endpoint.handler(req);
 
-    const { req, res } = createMocks({
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: {
-        name: user.name,
-        email: user.email,
-      },
-      payload: build,
-    });
+  expect(res._getStatusCode()).toBe(200);
+});
 
-    req.json = () => req.data;
+it("should fail if the user does not exist", async () => {
+  const endpoints = payload.collections.users.config.endpoints as Endpoint[];
 
-    await endpoint.handler(req);
+  const endpoint = endpoints.find(
+    (e) => e.path === "/send-magic-link"
+  ) as Endpoint;
 
-    expect(res._getStatusCode()).toBe(200);
+  const { req } = createMocks({
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: {
+      name: user.name,
+      email: "nonexistent@example.com",
+    },
+    payload: payload,
   });
 
-  it("should fail if the user does not exist", async () => {
-    const endpoints = build.collections.users.config.endpoints as Endpoint[];
+  req.json = () => req.data;
 
-    const endpoint = endpoints.find(
-      (e) => e.path === "/send-magic-link"
-    ) as Endpoint;
-
-    const { req } = createMocks({
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: {
-        name: user.name,
-        email: "nonexistent@example.com",
-      },
-      payload: build,
-    });
-
-    req.json = () => req.data;
-
-    await expect(endpoint.handler(req)).rejects.toThrow("User not found");
-  });
+  await expect(endpoint.handler(req)).rejects.toThrow("User not found");
 });

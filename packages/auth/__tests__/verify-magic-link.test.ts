@@ -1,22 +1,23 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import payload, { Endpoint, Payload } from "payload";
+import payload, { buildConfig, Endpoint, getPayload, Payload } from "payload";
 
-import buildConfig, { user } from "./config";
+import { config, user } from "./config";
 
 import jwt from "jsonwebtoken";
 
 import { createMocks } from "node-mocks-http";
 
 describe("Verify Magic Link", async () => {
-  let build: Payload;
+  let payload: Payload;
 
   beforeAll(async () => {
-    build = await payload.init({ config: buildConfig });
+    const builtConfig = await buildConfig(config);
+    payload = await getPayload({ config: builtConfig });
   });
 
   beforeEach(async () => {
-    const existingUser = await build.find({
+    const existingUser = await payload.find({
       collection: "users",
       where: {
         email: {
@@ -28,7 +29,7 @@ describe("Verify Magic Link", async () => {
     user.id = existingUser.docs[0]?.id as string;
 
     if (!existingUser) {
-      const createdUser = await build.create({
+      const createdUser = await payload.create({
         collection: "users",
         data: {
           name: user.name,
@@ -42,7 +43,7 @@ describe("Verify Magic Link", async () => {
   });
 
   const deleteUser = async () => {
-    await build.delete({
+    await payload.delete({
       collection: "users",
       where: {
         email: {
@@ -57,7 +58,7 @@ describe("Verify Magic Link", async () => {
   });
 
   it("should verify a magic link to log in a user", async () => {
-    const endpoints = build.collections.users.config.endpoints as Endpoint[];
+    const endpoints = payload.collections.users.config.endpoints as Endpoint[];
 
     const endpoint = endpoints.find(
       (e) => e.path === "/verify-magic-link"
@@ -69,7 +70,7 @@ describe("Verify Magic Link", async () => {
       collection: "users",
     };
 
-    const token = jwt.sign(fieldsToSign, build.secret, {
+    const token = jwt.sign(fieldsToSign, payload.secret, {
       expiresIn: "15m", // Token expires in 15 minutes
     });
 
@@ -83,7 +84,7 @@ describe("Verify Magic Link", async () => {
         token: token,
         callbackUrl: "/dashboard",
       },
-      payload: build,
+      payload: payload,
     });
 
     const response = await endpoint.handler(req);

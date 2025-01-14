@@ -3,7 +3,7 @@ import { postgresAdapter } from "@payloadcms/db-postgres";
 import { payloadCloudPlugin } from "@payloadcms/payload-cloud";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import path from "path";
-import { buildConfig } from "payload";
+import { buildConfig, Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
@@ -12,7 +12,7 @@ import { magicLinkPlugin } from "../src";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
-export default buildConfig({
+export const config: Config = {
   admin: {
     user: "users",
     importMap: {
@@ -68,7 +68,7 @@ export default buildConfig({
     }),
     // storage-adapter-placeholder
   ],
-});
+};
 
 export const user = {
   id: "1",
