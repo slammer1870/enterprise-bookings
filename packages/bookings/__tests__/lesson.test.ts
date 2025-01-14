@@ -52,12 +52,19 @@ describe("Lesson tests", () => {
     expect(response.status).toBe(200);
   });
   it("should have a booking status of active", async () => {
+    const now = new Date(); // Get the current date and time
+    const tomorrow = new Date(now); // Create a new Date object based on the current date
+    tomorrow.setDate(now.getDate() + 1);
+
+    const oneHourLater = new Date(tomorrow); // Create a copy of the current date
+    oneHourLater.setHours(oneHourLater.getHours() + 1);
+
     const lesson = await payload.create({
       collection: "lessons",
       data: {
-        date: new Date(),
-        start_time: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        end_time: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        date: tomorrow,
+        start_time: tomorrow,
+        end_time: oneHourLater,
         class_option: classOption.id,
         location: "Test Location",
       },
