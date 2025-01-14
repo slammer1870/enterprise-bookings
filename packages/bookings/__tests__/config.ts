@@ -54,7 +54,7 @@ export const config: Config = {
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI,
+      connectionString: process.env.DATABASE_URI ,
     },
   }),
   sharp,
