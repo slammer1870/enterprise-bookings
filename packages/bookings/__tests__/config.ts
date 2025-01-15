@@ -54,7 +54,7 @@ export const config: Config = {
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI ,
+      connectionString: process.env.DATABASE_URI,
     },
   }),
   sharp,
@@ -62,7 +62,10 @@ export const config: Config = {
     payloadCloudPlugin(),
     bookingsPlugin({
       enabled: true,
-      paymentsEnabled: false,
+      paymentMethods: {
+        stripeSecretKey: process.env.STRIPE_SECRET_KEY || "secretkey",
+        allowedDropIns: true,
+      },
       childrenEnabled: false,
     }),
     // storage-adapter-placeholder

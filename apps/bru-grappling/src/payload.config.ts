@@ -45,7 +45,10 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      paymentsEnabled: false,
+      paymentMethods: {
+        stripeSecretKey: process.env.STRIPE_SECRET_KEY || 'secretkey',
+        allowedDropIns: true,
+      },
       childrenEnabled: false,
     }),
   ],

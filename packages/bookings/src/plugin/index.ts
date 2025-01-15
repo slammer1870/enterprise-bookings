@@ -18,6 +18,13 @@ export const bookingsPlugin =
 
     const collections: CollectionConfig[] = config.collections || [];
 
+    if (
+      pluginOptions.paymentMethods.stripeSecretKey &&
+      pluginOptions.paymentMethods.allowedDropIns
+    ) {
+      collections.push(dropInsCollection);
+    }
+
     collections.push(lessonsCollection);
     collections.push(classOptionsCollection(pluginOptions));
     collections.push(bookingsCollection);
