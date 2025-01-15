@@ -1,4 +1,4 @@
-import type { CollectionConfig, CollectionSlug } from "payload";
+import type { CollectionConfig, CollectionSlug, Field } from "payload";
 import { PluginTypes } from "../types";
 
 import { dropInsCollection } from "../collections/payments/drop-ins";
@@ -52,18 +52,24 @@ export const classOptionsCollection = (
     });
   }
 
-  if (
-    pluginOptions.paymentMethods.stripeSecretKey &&
-    pluginOptions.paymentMethods.allowedDropIns
-  ) {
-    config.fields.push({
-      name: "dropIn",
-      label: "Drop In",
-      type: "relationship",
-      relationTo: dropInsCollection.slug as CollectionSlug,
-      hasMany: true,
-      required: true,
-    });
+  if (pluginOptions.paymentMethods.stripeSecretKey) {
+    const paymentMethods: Field = {
+      name: "paymentMethods",
+      label: "Payment Methods",
+      type: "group",
+      fields: [],
+    };
+    if (pluginOptions.paymentMethods.allowedDropIns) {
+      paymentMethods.fields.push({
+        name: "allowedDropIns",
+        label: "Allowed Drop Ins",
+        type: "relationship",
+        relationTo: dropInsCollection.slug as CollectionSlug,
+        hasMany: true,
+      });
+    }
+
+    config.fields.push(paymentMethods);
   }
 
   return config;

@@ -16,7 +16,11 @@ export const bookingsPlugin =
       return config;
     }
 
-    const collections: CollectionConfig[] = config.collections || [];
+    const collections = config.collections || [];
+
+    collections.push(lessonsCollection);
+    collections.push(classOptionsCollection(pluginOptions));
+    collections.push(bookingsCollection);
 
     if (
       pluginOptions.paymentMethods.stripeSecretKey &&
@@ -24,10 +28,6 @@ export const bookingsPlugin =
     ) {
       collections.push(dropInsCollection);
     }
-
-    collections.push(lessonsCollection);
-    collections.push(classOptionsCollection(pluginOptions));
-    collections.push(bookingsCollection);
 
     config.collections = collections;
 
