@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { buildConfig, Endpoint, getPayload, Payload } from "payload";
+import { buildConfig, getPayload, Payload } from "payload";
 
 import { user, config } from "./config";
 
