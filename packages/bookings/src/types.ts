@@ -30,7 +30,7 @@ export type Lesson = {
   classOption: ClassOption;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
-  bookingStatus: "active" | "waitingList" | "closed" | "booked" | "trialable";
+  bookingStatus: "active" | "waitlist" | "closed" | "booked" | "trialable";
 };
 
 export interface Booking {
