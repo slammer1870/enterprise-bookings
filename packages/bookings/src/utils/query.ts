@@ -6,7 +6,7 @@ export const getLessonsQuery = (date: Date) => {
   const { startOfDay, endOfDay } = getDayRange(date);
 
   const query = {
-    sort: "start_time",
+    sort: "startTime",
     depth: 2,
     limit: "100",
     page: "1",
@@ -15,12 +15,12 @@ export const getLessonsQuery = (date: Date) => {
         {
           and: [
             {
-              start_time: {
+              startTime: {
                 greater_than_equal: startOfDay.toISOString(),
               },
             },
             {
-              start_time: {
+              startTime: {
                 less_than_equal: endOfDay.toISOString(),
               },
             },

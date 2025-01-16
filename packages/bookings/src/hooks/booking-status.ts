@@ -10,7 +10,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     collection: "class-options",
     depth: 2,
     where: {
-      id: { equals: data?.class_option },
+      id: { equals: data?.classOption },
     },
     limit: 1,
   });
@@ -19,7 +19,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
   const trialable = classOptions.some((option) =>
     option.paymentMethods?.allowedDropIns?.some(
-      (dropIn: DropIn) => dropIn.price_type === "trial"
+      (dropIn: DropIn) => dropIn.priceType === "trial"
     )
   );
 
@@ -52,14 +52,14 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
         (booking.user as unknown as User).id ===
         (req.user as unknown as User).id
     ) &&
-    new Date(data?.start_time) >= currentTime
+    new Date(data?.startTime) >= currentTime
   ) {
     return "booked";
   }
 
   // Check if the lesson is closed based on lock-out time
   if (
-    new Date(data?.start_time).getTime() - data?.lock_out_time * 60000 <=
+    new Date(data?.startTime).getTime() - data?.lockOutTime * 60000 <=
     currentTime.getTime()
   ) {
     return "closed";

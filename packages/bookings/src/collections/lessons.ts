@@ -43,7 +43,7 @@ export const lessonsCollection: CollectionConfig = {
           },
         },
         {
-          name: "start_time",
+          name: "startTime",
           type: "date",
           required: true,
           admin: {
@@ -84,7 +84,7 @@ export const lessonsCollection: CollectionConfig = {
           },
         },
         {
-          name: "end_time",
+          name: "endTime",
           type: "date",
           required: true,
           admin: {
@@ -125,11 +125,11 @@ export const lessonsCollection: CollectionConfig = {
           },
           validate: (value, options) => {
             const siblingData = options.siblingData as {
-              start_time: string;
+              startTime: string;
             };
-            if (value && siblingData.start_time) {
+            if (value && siblingData.startTime) {
               const endTime = new Date(value);
-              const startTime = new Date(siblingData.start_time);
+              const startTime = new Date(siblingData.startTime);
               if (endTime <= startTime) {
                 return "End time must be greater than start time";
               }
@@ -143,7 +143,7 @@ export const lessonsCollection: CollectionConfig = {
       type: "row",
       fields: [
         {
-          name: "lock_out_time",
+          name: "lockOutTime",
           label: "Lock Out Time (minutes)",
           type: "number",
           required: true,
@@ -158,7 +158,7 @@ export const lessonsCollection: CollectionConfig = {
       ],
     },
     {
-      name: "class_option",
+      name: "classOption",
       label: "Class Option",
       type: "relationship",
       relationTo: "class-options",
@@ -166,7 +166,7 @@ export const lessonsCollection: CollectionConfig = {
       hasMany: false,
     },
     {
-      name: "remaining_capacity",
+      name: "remainingCapacity",
       type: "number",
       hidden: true,
       virtual: true,
@@ -188,7 +188,7 @@ export const lessonsCollection: CollectionConfig = {
       on: "lesson",
     },
     {
-      name: "booking_status",
+      name: "bookingStatus",
       type: "text",
       admin: {
         description: "Status of the lesson",

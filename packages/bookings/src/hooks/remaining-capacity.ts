@@ -10,7 +10,7 @@ export const getRemainingCapacity: FieldHook = async ({
   }
   const classOption = await req.payload.findByID({
     collection: "class-options",
-    id: data?.class_option,
+    id: data?.classOption,
     depth: 1,
     context: {
       triggerAfterChange: false,

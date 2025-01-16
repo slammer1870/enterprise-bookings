@@ -50,7 +50,7 @@ const options: Intl.DateTimeFormatOptions = {
 
 export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
   const bookings = lesson.bookings.docs as Booking[];
-  const classOption = lesson.class_option as ClassOption;
+  const classOption = lesson.classOption as ClassOption;
 
   const [expandedLessons, setExpandedLessons] = useState<Set<number>>(
     new Set()
@@ -79,8 +79,8 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
   return (
     <>
       <TableRow key={lesson.id}>
-        <TableCell>{format(lesson.start_time, "HH:mm")}</TableCell>
-        <TableCell>{format(lesson.end_time, "HH:mm")}</TableCell>
+        <TableCell>{format(lesson.startTime, "HH:mm")}</TableCell>
+        <TableCell>{format(lesson.endTime, "HH:mm")}</TableCell>
         <TableCell>{classOption.name}</TableCell>
         <TableCell>
           <Button

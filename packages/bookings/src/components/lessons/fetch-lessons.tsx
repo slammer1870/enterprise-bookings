@@ -24,7 +24,7 @@ export const FetchLessons: React.FC<{
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
-  const startQuery = "where[or][0][and][0][start_time][greater_than_equal]";
+  const startQuery = "where[or][0][and][0][startTime][greater_than_equal]";
 
   const condition = searchParams && searchParams[startQuery];
 

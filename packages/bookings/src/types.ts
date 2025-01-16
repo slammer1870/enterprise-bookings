@@ -25,9 +25,9 @@ export type PluginTypes = {
 export type Lesson = {
   id: number;
   date: string;
-  start_time: string;
-  end_time: string;
-  class_option: number | ClassOption;
+  startTime: string;
+  endTime: string;
+  classOption: number | ClassOption;
   bookings: { docs: Booking[] };
 };
 
@@ -67,8 +67,8 @@ export interface DropIn {
   id: number;
   name: string;
   price: number;
-  price_type: "trial" | "normal";
-  allowed_classes?: {
+  priceType: "trial" | "normal";
+  allowedClasses?: {
     docs?: (number | ClassOption)[] | null;
     hasNextPage?: boolean | null;
   } | null;
@@ -87,7 +87,7 @@ export interface Plan {
       }[]
     | null;
   sessions?: number | null;
-  interval_count?: number | null;
+  intervalCount?: number | null;
   interval?: ("day" | "week" | "month" | "quarter" | "year") | null;
   stripeProductID?: string | null;
   priceJSON?: string | null;

@@ -16,6 +16,7 @@ export interface Config {
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
+    'drop-ins': DropIn;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -24,6 +25,9 @@ export interface Config {
     lessons: {
       bookings: 'bookings';
     };
+    'drop-ins': {
+      allowedClasses: 'class-options';
+    };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
@@ -31,6 +35,7 @@ export interface Config {
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -111,15 +116,15 @@ export interface User {
 export interface Lesson {
   id: number;
   date: string;
-  start_time: string;
-  end_time: string;
-  lock_out_time: number;
+  startTime: string;
+  endTime: string;
+  lockOutTime: number;
   location: string;
-  class_option: number | ClassOption;
+  classOption: number | ClassOption;
   /**
    * The number of places remaining
    */
-  remaining_capacity?: number | null;
+  remainingCapacity?: number | null;
   bookings?: {
     docs?: (number | Booking)[] | null;
     hasNextPage?: boolean | null;
@@ -127,7 +132,7 @@ export interface Lesson {
   /**
    * Status of the lesson
    */
-  booking_status?: string | null;
+  bookingStatus?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -143,6 +148,26 @@ export interface ClassOption {
    */
   places: number;
   description: string;
+  paymentMethods?: {
+    allowedDropIns?: (number | DropIn)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  price: number;
+  priceType: 'trial' | 'normal';
+  allowedClasses?: {
+    docs?: (number | ClassOption)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  active?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -184,6 +209,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'bookings';
         value: number | Booking;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -267,14 +296,14 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface LessonsSelect<T extends boolean = true> {
   date?: T;
-  start_time?: T;
-  end_time?: T;
-  lock_out_time?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
   location?: T;
-  class_option?: T;
-  remaining_capacity?: T;
+  classOption?: T;
+  remainingCapacity?: T;
   bookings?: T;
-  booking_status?: T;
+  bookingStatus?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -286,6 +315,11 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIns?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -297,6 +331,19 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  name?: T;
+  price?: T;
+  priceType?: T;
+  allowedClasses?: T;
+  active?: T;
   updatedAt?: T;
   createdAt?: T;
 }

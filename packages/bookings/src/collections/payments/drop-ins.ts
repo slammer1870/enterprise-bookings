@@ -24,7 +24,7 @@ export const dropInsCollection: CollectionConfig = {
       required: true,
     },
     {
-      name: "price_type",
+      name: "priceType",
       label: "Price Type",
       type: "select",
       options: ["trial", "normal"],
@@ -32,7 +32,7 @@ export const dropInsCollection: CollectionConfig = {
       required: true,
     },
     {
-      name: "allowed_classes",
+      name: "allowedClasses",
       label: "Allowed Classes",
       type: "join",
       collection: "class-options",

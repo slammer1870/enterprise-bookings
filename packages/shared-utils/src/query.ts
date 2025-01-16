@@ -13,12 +13,12 @@ export const getLessonsQuery = (date: Date) => {
         {
           and: [
             {
-              start_time: {
+              startTime: {
                 greater_than_equal: startOfDay.toISOString(),
               },
             },
             {
-              start_time: {
+              startTime: {
                 less_than_equal: endOfDay.toISOString(),
               },
             },
@@ -26,7 +26,7 @@ export const getLessonsQuery = (date: Date) => {
         },
       ],
     },
-    sort: "start_time",
+    sort: "startTime",
   };
 
   const stringifiedQuery = qs.stringify(query, {

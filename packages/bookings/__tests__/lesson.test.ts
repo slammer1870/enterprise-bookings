@@ -63,9 +63,9 @@ describe("Lesson tests", () => {
       collection: "lessons",
       data: {
         date: tomorrow,
-        start_time: tomorrow,
-        end_time: oneHourLater,
-        class_option: classOption.id,
+        startTime: tomorrow,
+        endTime: oneHourLater,
+        classOption: classOption.id,
         location: "Test Location",
       },
     });
@@ -75,16 +75,16 @@ describe("Lesson tests", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.booking_status).toBe("active");
+    expect(data.bookingStatus).toBe("active");
   });
   it("should have a booking status of closed", async () => {
     const lesson = await payload.create({
       collection: "lessons",
       data: {
         date: new Date(),
-        start_time: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        end_time: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        class_option: classOption.id,
+        startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        classOption: classOption.id,
         location: "Test Location",
       },
     });
@@ -94,7 +94,7 @@ describe("Lesson tests", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.booking_status).toBe("closed");
+    expect(data.bookingStatus).toBe("closed");
   });
   it("should have a booking status of booked", async () => {
     const user = await payload.create({
@@ -108,9 +108,9 @@ describe("Lesson tests", () => {
       collection: "lessons",
       data: {
         date: new Date(),
-        start_time: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        end_time: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        class_option: classOption.id,
+        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        classOption: classOption.id,
         location: "Test Location",
       },
     });
@@ -131,8 +131,8 @@ describe("Lesson tests", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.booking_status).toBe("booked");
-    expect(data.remaining_capacity).toBe(3);
+    expect(data.bookingStatus).toBe("booked");
+    expect(data.remainingCapacity).toBe(3);
   });
   it("should have a booking status of waitlist", async () => {
     const user = await payload.create({
@@ -147,9 +147,9 @@ describe("Lesson tests", () => {
       collection: "lessons",
       data: {
         date: new Date(),
-        start_time: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        end_time: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        class_option: classOption.id,
+        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        classOption: classOption.id,
         location: "Test Location",
       },
     });
@@ -192,6 +192,6 @@ describe("Lesson tests", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.booking_status).toBe("waitlist");
+    expect(data.bookingStatus).toBe("waitlist");
   });
 });

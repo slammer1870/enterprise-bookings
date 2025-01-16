@@ -1,12 +1,17 @@
 import { APIError, CollectionConfig } from "payload";
 
+import { isAdminOrMember } from "../access/bookings";
+
 export const bookingsCollection: CollectionConfig = {
   slug: "bookings",
-  defaultSort: "updated_at",
+  defaultSort: "updatedAt",
   admin: {
     useAsTitle: "user",
     group: "Bookings",
     hidden: true,
+  },
+  access: {
+    create: isAdminOrMember,
   },
   fields: [
     {
@@ -41,8 +46,9 @@ export const bookingsCollection: CollectionConfig = {
           depth: 1,
         });
 
-        const open = (lesson.remaining_capacity as number) > 0;
+        const open = (lesson.remainingCapacity as number) > 0;
 
+        //Prevent booking if the lesson is fully booked
         if (!open && data?.status === "confirmed") {
           throw new APIError("This lesson is fully booked", 400);
         }
