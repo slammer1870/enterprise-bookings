@@ -27,8 +27,10 @@ export type Lesson = {
   date: string;
   startTime: string;
   endTime: string;
-  classOption: number | ClassOption;
+  classOption: ClassOption;
   bookings: { docs: Booking[] };
+  remainingCapacity: number;
+  bookingStatus: "active" | "waitingList" | "closed" | "booked" | "trialable";
 };
 
 export interface Booking {
@@ -42,9 +44,9 @@ export interface Booking {
 
 export interface User {
   id: number;
-  name: string;
+  name?: string;
   email: string;
-  roles: string[];
+  roles?: string[];
 }
 
 export interface ClassOption {
@@ -54,8 +56,8 @@ export interface ClassOption {
   description: string;
   type: "adult" | "child";
   paymentMethods?: {
-    allowedDropIns?: DropIn[] | undefined;
-    allowedPlans?: Plan[] | undefined;
+    allowedDropIns?: DropIn[];
+    allowedPlans?: Plan[];
   };
   updatedAt: string;
   createdAt: string;

@@ -42,7 +42,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     },
   });
 
-  const bookings = bookingQuery.docs as Booking[];
+  const bookings = bookingQuery.docs as unknown as Booking[];
 
   // Check if user is defined and if there are bookings for the user
   if (

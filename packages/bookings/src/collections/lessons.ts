@@ -168,7 +168,6 @@ export const lessonsCollection: CollectionConfig = {
     {
       name: "remainingCapacity",
       type: "number",
-      hidden: true,
       virtual: true,
       admin: {
         description: "The number of places remaining",
