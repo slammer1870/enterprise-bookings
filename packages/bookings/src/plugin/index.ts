@@ -1,4 +1,4 @@
-import type { CollectionConfig, Plugin } from "payload";
+import type { Plugin } from "payload";
 
 import { PluginTypes } from "../types";
 

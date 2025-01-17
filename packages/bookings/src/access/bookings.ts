@@ -24,7 +24,7 @@ export const isAdminOrMember: Access = async ({
 
     if (!user) return false;
 
-    if (user.roles && user.roles?.includes("admin")) return true;
+    if (user.roles?.includes("admin")) return true;
 
     if (lesson.bookingStatus !== "active") {
       return false;
@@ -37,10 +37,19 @@ export const isAdminOrMember: Access = async ({
     // Check if the lesson has an allowed plan payment method
     if (lesson.classOption.paymentMethods?.allowedPlans) {
       //TODO: Check if the user has a subscription plan that is allowed for this lesson
+      return false;
     }
 
-    //TODO default this to true
-    return false;
+    // Check if the lesson has an allowed drop in payment method
+    if (
+      lesson.classOption.paymentMethods?.allowedDropIns?.length &&
+      lesson.classOption.paymentMethods?.allowedDropIns?.length > 0
+    ) {
+      //TODO: Check if the user has a drop in payment method that is allowed for this lesson
+      return false;
+    }
+
+    return true;
   } catch (error) {
     console.error(error);
     return false;

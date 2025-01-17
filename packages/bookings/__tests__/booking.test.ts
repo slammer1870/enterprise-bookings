@@ -21,8 +21,11 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
 
+import { User } from "../src/types";
+
 let payload: Payload;
 let restClient: NextRESTClient;
+let user: User;
 
 describe("Booking tests", () => {
   beforeAll(async () => {
@@ -36,19 +39,72 @@ describe("Booking tests", () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
+
+    user = (await payload.create({
+      collection: "users",
+      data: {
+        email: "test@test.com",
+        password: "test",
+      },
+    })) as unknown as User;
   });
 
   it("should be unauthorized to get the bookings endpoint without user", async () => {
     const response = await restClient.GET("/bookings");
     expect(response.status).toBe(403);
   });
+  it("should be authorized to create the booking endpoint with user", async () => {
+    const classOptionWithoutPaymentMethods = await payload.create({
+      collection: "class-options",
+      data: {
+        name: "Test Class Option",
+        places: 4,
+        description: "Test Class Option",
+      },
+    });
+
+    console.log(
+      "classOptionWithoutPaymentMethods",
+      classOptionWithoutPaymentMethods
+    );
+
+    const lesson = await payload.create({
+      collection: "lessons",
+      data: {
+        date: new Date(),
+        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        classOption: classOptionWithoutPaymentMethods.id,
+        location: "Test Location",
+      },
+    });
+
+    const response = await restClient
+      .login({
+        credentials: {
+          email: user.email,
+          password: "test",
+        },
+      })
+      .then(() =>
+        restClient.POST("/bookings", {
+          body: JSON.stringify({
+            lesson: lesson.id,
+            user: user.id,
+            status: "confirmed",
+          }),
+        })
+      );
+
+    expect(response.status).toBe(201);
+  });
 
   it("should be unauthorized to get the bookings endpoint with user that is not admin or member", async () => {
-    const user = await payload.create({
-      collection: "users",
+    const dropIn = await payload.create({
+      collection: "drop-ins",
       data: {
-        email: "test@test.com",
-        password: "test",
+        name: "Drop In",
+        price: 10,
       },
     });
 
@@ -58,6 +114,9 @@ describe("Booking tests", () => {
         name: "Test Class Option",
         places: 4,
         description: "Test Class Option",
+        paymentMethods: {
+          allowedDropIns: [dropIn.id],
+        },
       },
     });
 

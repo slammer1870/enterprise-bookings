@@ -18,7 +18,7 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
-import { ClassOption } from "../src/types.js";
+import { ClassOption, Lesson } from "../src/types.js";
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -189,7 +189,7 @@ describe("Lesson tests", () => {
 
     const response = await restClient.GET(`/lessons/${lesson.id}`);
 
-    const data = await response.json();
+    const data = (await response.json()) as Lesson;
 
     expect(response.status).toBe(200);
     expect(data.bookingStatus).toBe("waitlist");

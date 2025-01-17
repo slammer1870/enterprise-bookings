@@ -66,6 +66,7 @@ export const classOptionsCollection = (
         type: "relationship",
         relationTo: dropInsCollection.slug as CollectionSlug,
         hasMany: true,
+        required: false,
       });
     }
 
