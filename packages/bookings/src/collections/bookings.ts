@@ -11,6 +11,7 @@ export const bookingsCollection: CollectionConfig = {
     hidden: true,
   },
   access: {
+    //TODO: Add read, update and delete access control
     create: isAdminOrMember,
   },
   fields: [

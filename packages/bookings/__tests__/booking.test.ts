@@ -48,12 +48,11 @@ describe("Booking tests", () => {
       },
     })) as unknown as User;
   });
-
-  it("should be unauthorized to get the bookings endpoint without user", async () => {
+  it("should be unauthorized to get the bookings endpoint ", async () => {
     const response = await restClient.GET("/bookings");
     expect(response.status).toBe(403);
   });
-  it("should be authorized to create the booking endpoint with user", async () => {
+  it("should be authorized to create a booking endpoint with user", async () => {
     const classOptionWithoutPaymentMethods = await payload.create({
       collection: "class-options",
       data: {
@@ -93,7 +92,7 @@ describe("Booking tests", () => {
 
     expect(response.status).toBe(201);
   });
-  it("should be unauthorized to get the bookings endpoint with user that is not admin or member", async () => {
+  it("should be unauthorized to create a booking with user that is not admin or member", async () => {
     const dropIn = await payload.create({
       collection: "drop-ins",
       data: {
@@ -144,4 +143,5 @@ describe("Booking tests", () => {
 
     expect(response.status).toBe(403);
   });
+  it("should be authorized to get the bookings endpoint with user that is a member", async () => {});
 });
