@@ -63,11 +63,6 @@ describe("Booking tests", () => {
       },
     });
 
-    console.log(
-      "classOptionWithoutPaymentMethods",
-      classOptionWithoutPaymentMethods
-    );
-
     const lesson = await payload.create({
       collection: "lessons",
       data: {
@@ -98,7 +93,6 @@ describe("Booking tests", () => {
 
     expect(response.status).toBe(201);
   });
-
   it("should be unauthorized to get the bookings endpoint with user that is not admin or member", async () => {
     const dropIn = await payload.create({
       collection: "drop-ins",
