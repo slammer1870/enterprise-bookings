@@ -6,7 +6,6 @@ import { EditBooking } from "./edit-booking";
 export const BookingList = ({ bookings }: { bookings: Booking[] }) => {
   if (!bookings || bookings.length === 0) return null;
 
-  console.log("bookings", bookings);
   return (
     <div className="w-full">
       <h3 className="mb-4">Bookings</h3>

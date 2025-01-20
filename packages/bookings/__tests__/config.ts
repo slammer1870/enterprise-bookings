@@ -3,12 +3,12 @@ import { postgresAdapter } from "@payloadcms/db-postgres";
 import { payloadCloudPlugin } from "@payloadcms/payload-cloud";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import path from "path";
-import { buildConfig, Config } from "payload";
+import { Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "../src";
-
+import { stripePlugin } from "@payloadcms/plugin-stripe";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
@@ -67,6 +67,9 @@ export const config: Config = {
         allowedDropIns: true,
       },
       childrenEnabled: false,
+    }),
+    stripePlugin({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY || "secretkey",
     }),
     // storage-adapter-placeholder
   ],
