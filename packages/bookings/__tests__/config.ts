@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "../src";
-import { stripePlugin } from "@payloadcms/plugin-stripe";
+
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
@@ -67,9 +67,6 @@ export const config: Config = {
         allowedDropIns: true,
       },
       childrenEnabled: false,
-    }),
-    stripePlugin({
-      stripeSecretKey: process.env.STRIPE_SECRET_KEY || "secretkey",
     }),
     // storage-adapter-placeholder
   ],

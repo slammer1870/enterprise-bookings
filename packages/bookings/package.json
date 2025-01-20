@@ -35,7 +35,6 @@
     "@payloadcms/db-postgres": "^3.2.1",
     "@payloadcms/next": "^3.15.1",
     "@payloadcms/payload-cloud": "^3.2.1",
-    "@payloadcms/plugin-stripe": "^3.17.1",
     "@payloadcms/richtext-lexical": "^3.2.1",
     "@payloadcms/ui": "^3.14.0",
     "@testcontainers/postgresql": "^10.16.0",
