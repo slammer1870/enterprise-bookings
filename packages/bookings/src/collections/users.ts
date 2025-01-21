@@ -1,6 +1,9 @@
 import { CollectionConfig, SelectField } from "payload";
+
 import { ensureFirstUserIsAdmin } from "../hooks/users/ensureFirstUserIsAdmin";
 import { createStripeCustomer } from "../hooks/users/createStripeCustomer";
+
+import { customersProxy } from "../endpoints/stripe-customers";
 
 export const modifyUsersCollection = (
   existingCollectionConfig: CollectionConfig
@@ -77,6 +80,14 @@ export const modifyUsersCollection = (
   const hooks = existingCollectionConfig.hooks || {};
 
   hooks.beforeChange = [...(hooks.beforeChange || []), createStripeCustomer];
+
+  const endpoints = existingCollectionConfig.endpoints || [];
+
+  endpoints.push({
+    path: "/stripe-customers",
+    method: "get",
+    handler: customersProxy,
+  });
 
   return {
     ...existingCollectionConfig,
