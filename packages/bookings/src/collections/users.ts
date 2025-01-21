@@ -5,6 +5,8 @@ import { createStripeCustomer } from "../hooks/users/createStripeCustomer";
 
 import { customersProxy } from "../endpoints/stripe-customers";
 
+import { checkRole } from "@repo/shared-utils/src/check-role";
+
 export const modifyUsersCollection = (
   existingCollectionConfig: CollectionConfig
 ): CollectionConfig => {
@@ -42,12 +44,9 @@ export const modifyUsersCollection = (
       defaultValue: ["customer"],
       hasMany: true,
       access: {
-        create: ({ req: { user } }) =>
-          user?.roles && user?.roles.includes("admin"),
-        read: ({ req: { user } }) =>
-          user?.roles && user?.roles.includes("admin"),
-        update: ({ req: { user } }) =>
-          user?.roles && user?.roles.includes("admin"),
+        create: ({ req: { user } }) => checkRole(["admin"], user as any),
+        read: ({ req: { user } }) => checkRole(["admin"], user as any),
+        update: ({ req: { user } }) => checkRole(["admin"], user as any),
       },
       hooks: {
         beforeChange: [ensureFirstUserIsAdmin],
