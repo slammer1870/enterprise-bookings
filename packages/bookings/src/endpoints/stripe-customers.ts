@@ -1,6 +1,7 @@
 import { type PayloadHandler } from "payload";
 
 import { stripe } from "../lib/stripe";
+import { checkRole } from "@repo/shared-utils/src/check-role";
 
 const logs = process.env.LOGS_STRIPE_PROXY === "1";
 
@@ -10,7 +11,7 @@ const logs = process.env.LOGS_STRIPE_PROXY === "1";
 export const customersProxy: PayloadHandler = async (
   req
 ): Promise<Response> => {
-  if (!req.user || (!req.user.roles && !req.user.roles.includes("admin"))) {
+  if (!req.user || !checkRole(["admin"], req.user as any)) {
     if (logs)
       req.payload.logger.error({
         err: `You are not authorized to access customers`,
