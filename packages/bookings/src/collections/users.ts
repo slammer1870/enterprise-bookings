@@ -64,8 +64,7 @@ export const modifyUsersCollection = (
       type: "text",
       label: "Stripe Customer",
       access: {
-        read: ({ req: { user } }) =>
-          user?.roles && user?.roles.includes("admin"),
+        read: ({ req: { user } }) => checkRole(["admin"], user as any),
       },
       admin: {
         components: {
