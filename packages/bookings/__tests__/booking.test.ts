@@ -93,6 +93,13 @@ describe("Booking tests", () => {
     expect(response.status).toBe(201);
   });
   it("should be unauthorized to create a booking with user that is not admin or member", async () => {
+    user = (await payload.create({
+      collection: "users",
+      data: {
+        email: "customer@test.com",
+        password: "test",
+      },
+    })) as unknown as User;
     const dropIn = await payload.create({
       collection: "drop-ins",
       data: {
