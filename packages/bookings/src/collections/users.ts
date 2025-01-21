@@ -68,7 +68,13 @@ export const modifyUsersCollection = (
       },
       admin: {
         components: {
-          Field: "@repo/bookings/src/components/customer-select#CustomerSelect",
+          Field: {
+            path: "@repo/bookings/src/components/custom-select#CustomSelect",
+            clientProps: {
+              apiUrl: `/api/users/stripe-customers`,
+              dataLabel: "customer",
+            },
+          },
         },
         position: "sidebar",
       },

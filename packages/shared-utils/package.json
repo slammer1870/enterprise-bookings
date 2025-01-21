@@ -1,8 +1,10 @@
 {
   "name": "@repo/shared-utils",
   "version": "0.0.1",
+  "type": "module",
   "dependencies": {
-    "qs": "^6.14.0"
+    "qs": "^6.14.0",
+    "@repo/typescript-config": "workspace:*"
   },
   "devDependencies": {
     "@types/qs": "^6.9.18"
