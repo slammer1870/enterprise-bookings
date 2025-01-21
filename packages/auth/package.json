@@ -1,42 +1,42 @@
 {
   "name": "@repo/auth",
   "version": "0.0.1",
-  "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "scripts": {
-    "test": "vitest --hook-timeout=100000"
-  },
   "dependencies": {
-    "@payloadcms/db-postgres": "^3.2.1",
-    "@payloadcms/next": "^3.15.1",
-    "@payloadcms/payload-cloud": "^3.2.1",
-    "@payloadcms/richtext-lexical": "^3.2.1",
-    "@payloadcms/ui": "^3.2.1",
+    "@payloadcms/db-postgres": "^3.18.0",
+    "@payloadcms/next": "^3.18.0",
+    "@payloadcms/payload-cloud": "^3.18.0",
+    "@payloadcms/richtext-lexical": "^3.18.0",
+    "@payloadcms/ui": "^3.18.0",
     "@repo/roles": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
     "@types/jsonwebtoken": "^9.0.7",
     "jsonwebtoken": "^9.0.2",
-    "node-mocks-http": "^1.16.1",
-    "payload": "^3.17.1",
-    "sharp": "0.32.6",
-    "stripe": "^17.4.0"
-  },
-  "peerDependencies": {
-    "payload": "^3.5.0"
+    "node-mocks-http": "^1.16.2",
+    "payload": "^3.18.0",
+    "sharp": "0.33.5",
+    "stripe": "^17.5.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@testing-library/dom": "^10.4.0",
-    "@testing-library/react": "^16.1.0",
-    "@types/node": "^20",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^22.10.7",
     "@types/react": "npm:types-react@19.0.0-rc.1",
     "@types/react-dom": "npm:types-react-dom@19.0.0-rc.1",
-    "eslint": "^8",
-    "eslint-config-next": "15.0.3",
-    "typescript": "5.5.4",
-    "vitest": "^2.1.6"
-  }
+    "eslint": "^9.18.0",
+    "eslint-config-next": "15.1.5",
+    "typescript": "5.7.3",
+    "vitest": "^3.0.3"
+  },
+  "main": "./src/index.ts",
+  "peerDependencies": {
+    "payload": "^3.18.0"
+  },
+  "scripts": {
+    "test": "vitest --hook-timeout=100000"
+  },
+  "type": "module",
+  "types": "./src/index.ts"
 }

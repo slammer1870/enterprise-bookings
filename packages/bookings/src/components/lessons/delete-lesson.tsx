@@ -1,6 +1,7 @@
 "use client";
 
-import { useConfirm } from "@repo/ui/hooks/use-confirm";
+import { useConfirm } from "@repo/ui/components/ui/use-confirm";
+
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

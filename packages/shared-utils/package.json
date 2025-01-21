@@ -1,15 +1,15 @@
 {
   "name": "@repo/shared-utils",
   "version": "0.0.1",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "dependencies": {
+    "qs": "^6.14.0"
+  },
+  "devDependencies": {
+    "@types/qs": "^6.9.18"
+  },
   "files": [
     "src"
   ],
-  "dependencies": {
-    "qs": "^6.13.1"
-  },
-  "devDependencies": {
-    "@types/qs": "^6.9.17"
-  }
+  "main": "src/index.ts",
+  "types": "src/index.ts"
 }

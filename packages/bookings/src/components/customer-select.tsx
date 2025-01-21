@@ -1,13 +1,24 @@
 "use client";
 
-import type { TextField } from "payload";
+import type { TextFieldClientProps } from "payload";
 
-import { CopyToClipboard, Select, useFormFields } from "@payloadcms/ui";
+import {
+  CopyToClipboard,
+  Select,
+  SelectInput,
+  useField,
+  useFormFields,
+} from "@payloadcms/ui";
 
 import * as React from "react";
 
-export const CustomerSelect: React.FC<TextField> = (props) => {
-  const { name, label } = props;
+export const CustomerSelect: React.FC<TextFieldClientProps> = (props) => {
+  const { path, field } = props;
+
+  const { label, name } = field;
+
+  const { value, setValue } = useField<string>({ path });
+
   const [options, setOptions] = React.useState<
     {
       label: string;
@@ -15,8 +26,9 @@ export const CustomerSelect: React.FC<TextField> = (props) => {
     }[]
   >([]);
 
-  const { value: stripeCustomerID } =
-    useFormFields(([fields]) => fields[name]) || {};
+  const selectFieldValue = useFormFields(([fields]) => {
+    return fields[path]?.value as string;
+  });
 
   React.useEffect(() => {
     const getStripeCustomers = async () => {
@@ -61,7 +73,7 @@ export const CustomerSelect: React.FC<TextField> = (props) => {
 
   const href = `https://dashboard.stripe.com/${
     process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-  }customers/${stripeCustomerID}`;
+  }customers/${selectFieldValue}`;
 
   return (
     <div>
@@ -87,8 +99,15 @@ export const CustomerSelect: React.FC<TextField> = (props) => {
         </a>
         .
       </p>
-      <Select {...props} options={options} />
-      {Boolean(stripeCustomerID) && (
+      <SelectInput
+        path={path}
+        name={name}
+        options={options}
+        value={value}
+        onChange={(e: any) => setValue(e?.value)}
+        className="mb-2"
+      />
+      {Boolean(selectFieldValue) && (
         <div>
           <div>
             <span
@@ -98,7 +117,7 @@ export const CustomerSelect: React.FC<TextField> = (props) => {
               }}
             >
               {`Manage "${
-                options.find((option) => option.value === stripeCustomerID)
+                options.find((option) => option.value === selectFieldValue)
                   ?.label || "Unknown"
               }" in Stripe`}
             </span>
@@ -114,7 +133,7 @@ export const CustomerSelect: React.FC<TextField> = (props) => {
             <a
               href={`https://dashboard.stripe.com/${
                 process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-              }customers/${stripeCustomerID}`}
+              }customers/${selectFieldValue}`}
               rel="noreferrer noopener"
               target="_blank"
             >
