@@ -150,5 +150,5 @@ describe("Booking tests", () => {
 
     expect(response.status).toBe(403);
   });
-  it("should be authorized to get the bookings endpoint with user that is a member", async () => {});
+  it("should be authorized to get the booking endpoint with user that is a member", async () => {});
 });
