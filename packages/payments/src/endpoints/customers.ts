@@ -1,8 +1,8 @@
 import { type PayloadHandler } from "payload";
 
-import { stripe } from "../lib/stripe";
+import { stripe } from "@repo/shared-utils";
 
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 
 const logs = process.env.LOGS_STRIPE_PROXY === "1";
 

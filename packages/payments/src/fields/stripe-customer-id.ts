@@ -1,4 +1,5 @@
 import { Field } from "payload";
+
 import { checkRole } from "@repo/roles/src/check-role";
 
 export const StripeCustomerId: Field = {
@@ -10,7 +11,13 @@ export const StripeCustomerId: Field = {
   },
   admin: {
     components: {
-      Field: "@repo/payments/src/components/customer-select#CustomerSelect",
+      Field: {
+        path: "@repo/ui/src/components/ui/custom-select#CustomSelect",
+        clientProps: {
+          apiUrl: `/api/users/stripe-customers`,
+          dataLabel: "customer",
+        },
+      },
     },
     position: "sidebar",
   },

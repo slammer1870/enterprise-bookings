@@ -1,6 +1,6 @@
 import type { FieldHook } from "payload";
 
-import type { User } from "../../types";
+import type { User } from "@repo/shared-types";
 
 // ensure the first user created is an admin
 // 1. lookup a single user on create as succinctly as possible

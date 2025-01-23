@@ -62,12 +62,18 @@ export const config: Config = {
     payloadCloudPlugin(),
     bookingsPlugin({
       enabled: true,
-      paymentMethods: {
-        stripeSecretKey: process.env.STRIPE_SECRET_KEY || "secretkey",
-        allowedDropIns: true,
-      },
-      childrenEnabled: false,
+      paymentEnabled: false,
     }),
-    // storage-adapter-placeholder
   ],
+  custom: {
+    plugins: [
+      {
+        name: "payments",
+        options: {
+          stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+          dropIns: true,
+        },
+      },
+    ],
+  },
 };

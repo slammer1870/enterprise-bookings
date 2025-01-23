@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
+    "@repo/typescript-config": "workspace:*",
     "qs": "^6.14.0",
-    "@repo/typescript-config": "workspace:*"
+    "stripe": "^17.5.0"
   },
   "devDependencies": {
     "@types/qs": "^6.9.18"

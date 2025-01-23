@@ -480,6 +480,9 @@ importers:
       '@repo/roles':
         specifier: workspace:*
         version: link:../roles
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../ui
       payload:
         specifier: ^3.18.0
         version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
@@ -490,6 +493,12 @@ importers:
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -543,6 +552,8 @@ importers:
         specifier: 5.7.3
         version: 5.7.3
 
+  packages/shared-types: {}
+
   packages/shared-utils:
     dependencies:
       '@repo/typescript-config':
@@ -551,6 +562,9 @@ importers:
       qs:
         specifier: ^6.14.0
         version: 6.14.0
+      stripe:
+        specifier: ^17.5.0
+        version: 17.5.0
     devDependencies:
       '@types/qs':
         specifier: ^6.9.18
@@ -636,6 +650,9 @@ importers:
       next:
         specifier: ^15.1.5
         version: 15.1.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(sass@1.77.4)
+      payload:
+        specifier: ^3.18.0
+        version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
       react:
         specifier: 19.0.0
         version: 19.0.0

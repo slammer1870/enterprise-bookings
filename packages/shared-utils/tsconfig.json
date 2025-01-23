@@ -1,11 +1,12 @@
 {
   "extends": "@repo/typescript-config/package.json",
-  "include": ["src"],
-  "exclude": ["node_modules"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
       "@repo/shared-utils": ["src/index.ts"]
     }
-  }
+  },
+  "version": "0.0.1"
 }

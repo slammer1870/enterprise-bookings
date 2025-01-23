@@ -1,19 +1,15 @@
 export type PluginTypes = {
   /**
    * Enable or disable plugin
-   * @default false
+   * @default true
    */
-  enabled: boolean;
+  enabled?: boolean;
 
   /**
-   * Add payment methods
+   * Enable or disable payment
+   * @default false
    */
-  paymentMethods: {
-    stripeSecretKey?: string;
-    allowedDropIns?: boolean;
-    allowedPlans?: boolean;
-    allowedPasses?: boolean;
-  };
+  paymentsEnabled?: boolean;
 
   /**
    * Enable or disable children

@@ -1,9 +1,11 @@
 import { CollectionConfig, SelectField } from "payload";
 
-import { ensureFirstUserIsAdmin } from "../hooks/users/ensureFirstUserIsAdmin";
-import { createStripeCustomer } from "../hooks/users/createStripeCustomer";
+import { StripeCustomerId } from "../fields/stripe-customer-id";
 
-import { customersProxy } from "../endpoints/stripe-customers";
+import { ensureFirstUserIsAdmin } from "../hooks/ensure-first-user-is-admin";
+import { createStripeCustomer } from "../hooks/create-stripe-customer";
+
+import { customersProxy } from "../endpoints/customers";
 
 import { checkRole } from "@repo/shared-utils/src/check-role";
 
@@ -59,39 +61,12 @@ export const modifyUsersCollection = (
   );
 
   if (!existingStripeCustomerIdField) {
-    fields.push({
-      name: "stripeCustomerID",
-      type: "text",
-      label: "Stripe Customer",
-      access: {
-        read: ({ req: { user } }) => checkRole(["admin"], user as any),
-      },
-      admin: {
-        components: {
-          Field: {
-            path: "@repo/bookings/src/components/custom-select#CustomSelect",
-            clientProps: {
-              apiUrl: `/api/users/stripe-customers`,
-              dataLabel: "customer",
-            },
-          },
-        },
-        position: "sidebar",
-      },
-    });
+    fields.push(StripeCustomerId);
   }
 
   const hooks = existingCollectionConfig.hooks || {};
 
   hooks.beforeChange = [...(hooks.beforeChange || []), createStripeCustomer];
-
-  const endpoints = existingCollectionConfig.endpoints || [];
-
-  endpoints.push({
-    path: "/stripe-customers",
-    method: "get",
-    handler: customersProxy,
-  });
 
   return {
     ...existingCollectionConfig,

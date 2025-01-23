@@ -1,0 +1,1 @@
+export { paymentsPlugin } from "./plugin";
