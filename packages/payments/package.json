@@ -1,6 +1,7 @@
 {
   "name": "@repo/payments",
   "version": "0.0.1",
+  "main": "./src/index.ts",
   "scripts": {
     "test": "vitest --hook-timeout=100000"
   },

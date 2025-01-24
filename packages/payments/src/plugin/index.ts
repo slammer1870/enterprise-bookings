@@ -45,9 +45,9 @@ export const paymentsPlugin = (): Plugin => (incomingConfig: Config) => {
     handler: customersProxy,
   });
 
-  const dropIn = pluginConfig?.options?.dropIn;
+  const dropIns = pluginConfig?.options?.dropIns;
 
-  if (dropIn) {
+  if (dropIns) {
     collections.push(dropInsCollection);
   }
 

@@ -12,6 +12,7 @@ import { Media } from './collections/Media'
 
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
+import { paymentsPlugin } from '@repo/payments'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -43,10 +44,22 @@ export default buildConfig({
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',
     }),
+    paymentsPlugin(),
     bookingsPlugin({
       enabled: true,
-      paymentsEnabled: false,
+      paymentsEnabled: true,
       childrenEnabled: false,
     }),
   ],
+  custom: {
+    plugins: [
+      {
+        name: 'payments',
+        options: {
+          stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+          dropIns: true,
+        },
+      },
+    ],
+  },
 })
