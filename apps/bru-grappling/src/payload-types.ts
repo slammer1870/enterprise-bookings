@@ -13,6 +13,7 @@ export interface Config {
   collections: {
     media: Media;
     users: User;
+    'drop-ins': DropIn;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
@@ -21,6 +22,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    'drop-ins': {
+      allowedClasses: 'class-options';
+    };
     lessons: {
       bookings: 'bookings';
     };
@@ -28,6 +32,7 @@ export interface Config {
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
@@ -108,6 +113,41 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  price: number;
+  priceType: 'trial' | 'normal';
+  allowedClasses?: {
+    docs?: (number | ClassOption)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  paymentMethods?: {
+    allowedDropIns?: (number | DropIn)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons".
  */
 export interface Lesson {
@@ -130,22 +170,6 @@ export interface Lesson {
    * Status of the lesson
    */
   bookingStatus?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  paymentMethods?: {};
   updatedAt: string;
   createdAt: string;
 }
@@ -175,6 +199,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
       } | null)
     | ({
         relationTo: 'lessons';
@@ -268,6 +296,19 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  name?: T;
+  price?: T;
+  priceType?: T;
+  allowedClasses?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons_select".
  */
 export interface LessonsSelect<T extends boolean = true> {
@@ -291,7 +332,11 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
-  paymentMethods?: T | {};
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIns?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

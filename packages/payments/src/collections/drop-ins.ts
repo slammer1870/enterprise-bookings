@@ -31,13 +31,13 @@ export const dropInsCollection: CollectionConfig = {
       defaultValue: "normal",
       required: true,
     },
-    // {
-    //   name: "allowedClasses",
-    //   label: "Allowed Classes",
-    //   type: "join",
-    //   collection: "class-options",
-    //   on: "paymentMethods.allowedDropIns",
-    // },
+    {
+      name: "allowedClasses",
+      label: "Allowed Classes",
+      type: "join",
+      collection: "class-options",
+      on: "paymentMethods.allowedDropIns",
+    },
     {
       name: "active",
       label: "Active",

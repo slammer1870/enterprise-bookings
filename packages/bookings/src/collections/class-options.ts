@@ -61,13 +61,13 @@ export const classOptionsCollection = (
     };
     if (
       incomingConfig.custom?.plugins?.find((p: any) => p.name === "payments")
-        ?.options?.allowedDropIns
+        ?.options?.dropIns
     ) {
       paymentMethods.fields.push({
         name: "allowedDropIns",
         label: "Allowed Drop Ins",
         type: "relationship",
-        relationTo: "drops-ins" as CollectionSlug,
+        relationTo: "drop-ins" as CollectionSlug,
         hasMany: true,
         required: false,
       });
