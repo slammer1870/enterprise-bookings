@@ -56,8 +56,6 @@ describe("Payments tests", () => {
 
     const data = await response.json();
 
-    console.log(data);
-
     expect(response.status).toBe(200);
   });
 });
