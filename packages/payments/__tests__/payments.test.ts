@@ -54,8 +54,6 @@ describe("Payments tests", () => {
       })
       .then(() => restClient.GET("/stripe/customers"));
 
-    const data = await response.json();
-
     expect(response.status).toBe(200);
   });
 });

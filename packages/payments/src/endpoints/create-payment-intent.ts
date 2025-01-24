@@ -1,8 +1,8 @@
 "use server";
 
 import { stripe, formatAmountForStripe } from "@repo/shared-utils";
+
 import { APIError, PayloadHandler } from "payload";
-import Stripe from "stripe";
 
 export const createPaymentIntent: PayloadHandler = async (
   req
@@ -17,7 +17,7 @@ export const createPaymentIntent: PayloadHandler = async (
     throw new APIError("Unauthorized", 401);
   }
 
-  const { price, quantity = 1, lesson_id } = await req.json();
+  const { price, quantity = 1, lessonId } = await req.json();
 
   let amount: number = price;
 
@@ -26,23 +26,22 @@ export const createPaymentIntent: PayloadHandler = async (
   }
 
   const metadata: { [key: string]: string } = {};
-  if (lesson_id) {
-    metadata.lesson_id = lesson_id;
-    metadata.user_id = user.id.toString();
+  if (lessonId) {
+    metadata.lessonId = lessonId;
+    metadata.userId = user.id.toString();
   }
 
-  const paymentIntent: Stripe.PaymentIntent =
-    await stripe.paymentIntents.create({
-      amount: formatAmountForStripe(amount, "eur"),
-      automatic_payment_methods: { enabled: true },
-      currency: "eur",
-      receipt_email: user.email,
-      customer: user.stripeCustomerID || undefined,
-      metadata: metadata,
-    });
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: formatAmountForStripe(amount, "eur"),
+    automatic_payment_methods: { enabled: true },
+    currency: "eur",
+    receipt_email: user.email,
+    customer: user.stripeCustomerId || undefined,
+    metadata: metadata,
+  });
 
   return new Response(
-    JSON.stringify({ client_secret: paymentIntent.client_secret as string }),
+    JSON.stringify({ clientSecret: paymentIntent.client_secret as string }),
     {
       status: 200,
     }
