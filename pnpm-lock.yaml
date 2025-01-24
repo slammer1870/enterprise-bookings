@@ -490,6 +490,15 @@ importers:
         specifier: ^17.5.0
         version: 17.5.0
     devDependencies:
+      '@payloadcms/db-postgres':
+        specifier: ^3.18.0
+        version: 3.18.0(payload@3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3))(react@19.0.0)(types-react@19.0.0-rc.1)
+      '@payloadcms/payload-cloud':
+        specifier: ^3.18.0
+        version: 3.18.0(payload@3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3))
+      '@payloadcms/richtext-lexical':
+        specifier: ^3.18.0
+        version: 3.18.0(2zdu42x4dczidia72hu6e4lekq)
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
@@ -499,6 +508,9 @@ importers:
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../shared-utils
+      '@repo/testing-config':
+        specifier: workspace:*
+        version: link:../testing-config
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -517,9 +529,15 @@ importers:
       eslint-config-next:
         specifier: 15.1.5
         version: 15.1.5(eslint@9.18.0(jiti@1.21.7))(typescript@5.7.3)
+      sharp:
+        specifier: 0.33.5
+        version: 0.33.5
       typescript:
         specifier: 5.7.3
         version: 5.7.3
+      vitest:
+        specifier: ^3.0.3
+        version: 3.0.3(@types/node@22.10.7)(jiti@1.21.7)(sass@1.77.4)(tsx@4.19.2)(yaml@2.7.0)
 
   packages/roles:
     dependencies:

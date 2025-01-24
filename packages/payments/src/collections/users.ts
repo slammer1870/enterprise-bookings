@@ -1,11 +1,9 @@
 import { CollectionConfig, SelectField } from "payload";
 
-import { StripeCustomerId } from "../fields/stripe-customer-id";
+import { stripeCustomerId } from "../fields/stripe-customer-id";
 
 import { ensureFirstUserIsAdmin } from "../hooks/ensure-first-user-is-admin";
 import { createStripeCustomer } from "../hooks/create-stripe-customer";
-
-import { customersProxy } from "../endpoints/customers";
 
 import { checkRole } from "@repo/shared-utils/src/check-role";
 
@@ -61,12 +59,15 @@ export const modifyUsersCollection = (
   );
 
   if (!existingStripeCustomerIdField) {
-    fields.push(StripeCustomerId);
+    fields.push(stripeCustomerId);
   }
 
   const hooks = existingCollectionConfig.hooks || {};
 
-  hooks.beforeChange = [...(hooks.beforeChange || []), createStripeCustomer];
+  if (!hooks.beforeChange) {
+    hooks.beforeChange = [];
+  }
+  hooks.beforeChange.push(createStripeCustomer);
 
   return {
     ...existingCollectionConfig,

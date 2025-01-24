@@ -2,7 +2,7 @@ import { Field } from "payload";
 
 import { checkRole } from "@repo/roles/src/check-role";
 
-export const StripeCustomerId: Field = {
+export const stripeCustomerId: Field = {
   name: "stripeCustomerId",
   type: "text",
   label: "Stripe Customer",
@@ -14,7 +14,7 @@ export const StripeCustomerId: Field = {
       Field: {
         path: "@repo/ui/src/components/ui/custom-select#CustomSelect",
         clientProps: {
-          apiUrl: `/api/users/stripe-customers`,
+          apiUrl: `/api/stripe/customers`,
           dataLabel: "customer",
         },
       },

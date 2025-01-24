@@ -22,7 +22,7 @@ export const paymentsPlugin = (): Plugin => (incomingConfig: Config) => {
     throw new Error("Stripe secret key is not set");
   }
 
-  const collections = config.collections || [];
+  let collections = config.collections || [];
 
   const endpoints = config.endpoints || [];
 
@@ -34,10 +34,13 @@ export const paymentsPlugin = (): Plugin => (incomingConfig: Config) => {
     throw new Error("Users collection not found");
   }
 
-  collections.push(modifyUsersCollection(usersCollection));
+  collections = [
+    ...(collections.filter((collection) => collection.slug !== "users") || []),
+    modifyUsersCollection(usersCollection),
+  ];
 
   endpoints.push({
-    path: "/customers",
+    path: "/stripe/customers",
     method: "get",
     handler: customersProxy,
   });
