@@ -25,6 +25,9 @@
       "cache": false,
       "persistent": true
     },
-    "test": {}
+    "test": {},
+    "db:reset": {
+      "cache": false
+    }
   }
 }
