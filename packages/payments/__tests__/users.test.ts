@@ -35,7 +35,7 @@ describe("Payments tests", () => {
     restClient = new NextRESTClient(builtConfig);
   });
 
-  it("should should register a first user as an admin", async () => {
+  it("should should register a first user as an admin and create a stripe customer", async () => {
     const response = await restClient.POST("/users", {
       body: JSON.stringify({
         email: "test@example.com",
@@ -55,7 +55,7 @@ describe("Payments tests", () => {
 
     expect(payloadUser.stripeCustomerId).not.toBeNull();
   });
-  it("should should register a second user as a customer", async () => {
+  it("should should register a second user as a customer and create a stripe customer", async () => {
     const response = await restClient.POST("/users", {
       body: JSON.stringify({
         email: "test2@example.com",
@@ -72,5 +72,7 @@ describe("Payments tests", () => {
     });
 
     expect(payloadUser.roles).not.toContain("admin");
+
+    expect(payloadUser.stripeCustomerId).not.toBeNull();
   });
 });

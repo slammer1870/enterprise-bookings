@@ -14,6 +14,9 @@ jobs:
     env: # Add this section to define environment variables
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings # Ensure this matches your config
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_REMOTE_ONLY: true
 
     services:
       postgres:
