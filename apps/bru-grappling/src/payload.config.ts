@@ -13,8 +13,8 @@ import { Media } from './collections/Media'
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
-import { bookingsConfig } from './configs/bookings'
-import { paymentsConfig } from './configs/payments'
+import { bookingsConfig } from './plugin-configs/bookings'
+import { paymentsConfig } from './plugin-configs/payments'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)

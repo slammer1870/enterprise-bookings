@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "../src";
-import { bookingsConfig } from "./configs/bookings";
+import { bookingsConfig } from "./plugin-configs/bookings";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);

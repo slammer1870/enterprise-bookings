@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { paymentsPlugin } from "../src";
-import { paymentsConfig } from "./configs/payments";
+import { paymentsConfig } from "./plugin-configs/payments";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
