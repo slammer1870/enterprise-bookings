@@ -28,6 +28,9 @@ export const config: Config = {
         useAsTitle: "email",
       },
       auth: true,
+      access: {
+        create: () => true,
+      },
       fields: [
         // Email added by default
         // Add more fields as needed

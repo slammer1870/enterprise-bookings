@@ -55,7 +55,7 @@ export const modifyUsersCollection = (
   }
 
   const existingStripeCustomerIdField = fields.find(
-    (field) => "stripeCustomerID" in field
+    (field) => "stripeCustomerId" in field
   );
 
   if (!existingStripeCustomerIdField) {
