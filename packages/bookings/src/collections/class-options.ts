@@ -1,9 +1,9 @@
 import type { CollectionConfig, CollectionSlug, Config, Field } from "payload";
 
-import { PluginTypes } from "../types";
+import { BookingsPluginConfig } from "../types";
 
 export const classOptionsCollection = (
-  pluginOptions: PluginTypes,
+  pluginOptions: BookingsPluginConfig,
   incomingConfig: Config
 ): CollectionConfig => {
   const config: CollectionConfig = {
@@ -61,7 +61,7 @@ export const classOptionsCollection = (
     };
     if (
       incomingConfig.custom?.plugins?.find((p: any) => p.name === "payments")
-        ?.options?.dropIns
+        ?.options?.dropInsEnabled
     ) {
       paymentMethods.fields.push({
         name: "allowedDropIns",

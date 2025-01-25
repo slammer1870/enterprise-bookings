@@ -43,7 +43,7 @@ export const dropInsCollection = (incomingConfig: Config): CollectionConfig => {
 
   if (
     incomingConfig.custom?.plugins?.find(
-      (plugin: any) => plugin.name === "lessons"
+      (plugin: any) => plugin.name === "bookings"
     )?.config?.options?.paymentsEnabled
   ) {
     dropInConfig.fields.push({

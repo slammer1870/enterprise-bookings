@@ -1,4 +1,4 @@
-export type PluginTypes = {
+export type BookingsPluginConfig = {
   /**
    * Enable or disable plugin
    * @default true

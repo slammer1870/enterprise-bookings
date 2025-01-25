@@ -40,8 +40,6 @@ describe("Booking tests", () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
 
-    console.log("installedPlugins", builtConfig.custom.installedPlugins);
-
     user = (await payload.create({
       collection: "users",
       data: {

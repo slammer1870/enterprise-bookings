@@ -5,53 +5,56 @@ import { dropInsCollection } from "../collections/drop-ins";
 
 import { customersProxy } from "../endpoints/customers";
 
-export const paymentsPlugin = (): Plugin => (incomingConfig: Config) => {
-  let config = { ...incomingConfig };
+import { PaymentsPluginConfig } from "../types";
 
-  const pluginConfig = config.custom?.plugins?.find(
-    (p: any) => p.name === "payments"
-  );
+export const paymentsPlugin =
+  (pluginOptions: PaymentsPluginConfig): Plugin =>
+  (incomingConfig: Config) => {
+    let config = { ...incomingConfig };
 
-  if (!pluginConfig) {
-    throw new Error("Payments plugin is not enabled");
-  }
+    if (!pluginOptions.enabled) {
+      return config;
+    }
 
-  const stripeSecretKey = pluginConfig?.options?.stripeSecretKey;
+    const pluginConfig = config.custom?.plugins?.find(
+      (p: any) => p.name === "payments"
+    );
 
-  if (!stripeSecretKey) {
-    throw new Error("Stripe secret key is not set");
-  }
+    if (!pluginConfig) {
+      throw new Error("Payments plugin config not in custom plugins");
+    }
 
-  let collections = config.collections || [];
+    let collections = config.collections || [];
 
-  const endpoints = config.endpoints || [];
+    const endpoints = config.endpoints || [];
 
-  const usersCollection = collections.find(
-    (collection) => collection.slug === "users"
-  );
+    const usersCollection = collections.find(
+      (collection) => collection.slug === "users"
+    );
 
-  if (!usersCollection) {
-    throw new Error("Users collection not found");
-  }
+    if (!usersCollection) {
+      throw new Error("Users collection not found");
+    }
 
-  collections = [
-    ...(collections.filter((collection) => collection.slug !== "users") || []),
-    modifyUsersCollection(usersCollection),
-  ];
+    collections = [
+      ...(collections.filter((collection) => collection.slug !== "users") ||
+        []),
+      modifyUsersCollection(usersCollection),
+    ];
 
-  endpoints.push({
-    path: "/stripe/customers",
-    method: "get",
-    handler: customersProxy,
-  });
+    endpoints.push({
+      path: "/stripe/customers",
+      method: "get",
+      handler: customersProxy,
+    });
 
-  const dropIns = pluginConfig?.options?.dropIns;
+    const dropInsEnabled = pluginOptions.dropInsEnabled;
 
-  if (dropIns) {
-    collections.push(dropInsCollection(config));
-  }
+    if (dropInsEnabled) {
+      collections.push(dropInsCollection(config));
+    }
 
-  config.collections = collections;
-  config.endpoints = endpoints;
-  return config;
-};
+    config.collections = collections;
+    config.endpoints = endpoints;
+    return config;
+  };

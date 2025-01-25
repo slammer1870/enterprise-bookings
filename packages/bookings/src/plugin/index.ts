@@ -1,13 +1,12 @@
-import type { CollectionConfig, Config, Plugin } from "payload";
-
-import { PluginTypes } from "../types";
+import type { Config, Plugin } from "payload";
 
 import { lessonsCollection } from "../collections/lessons";
 import { bookingsCollection } from "../collections/bookings";
 import { classOptionsCollection } from "../collections/class-options";
+import { BookingsPluginConfig } from "../types";
 
 export const bookingsPlugin =
-  (pluginOptions: PluginTypes): Plugin =>
+  (pluginOptions: BookingsPluginConfig): Plugin =>
   (incomingConfig: Config) => {
     let config = { ...incomingConfig };
 

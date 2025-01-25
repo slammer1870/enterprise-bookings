@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "../src";
+import { bookingsConfig } from "./configs/bookings";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -58,21 +59,12 @@ export const config: Config = {
     },
   }),
   sharp,
-  plugins: [
-    payloadCloudPlugin(),
-    bookingsPlugin({
-      enabled: true,
-      paymentEnabled: false,
-    }),
-  ],
+  plugins: [payloadCloudPlugin(), bookingsPlugin(bookingsConfig)],
   custom: {
     plugins: [
       {
-        name: "payments",
-        options: {
-          stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-          dropIns: true,
-        },
+        name: "bookings",
+        options: bookingsConfig,
       },
     ],
   },
