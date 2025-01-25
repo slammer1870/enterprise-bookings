@@ -1,48 +1,59 @@
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, Config } from "payload";
 
-export const dropInsCollection: CollectionConfig = {
-  slug: "drop-ins",
-  labels: {
-    singular: "Drop In",
-    plural: "Drop Ins",
-  },
-  admin: {
-    useAsTitle: "name",
-    group: "Products",
-  },
-  fields: [
-    {
-      name: "name",
-      label: "Name",
-      type: "text",
-      required: true,
+export const dropInsCollection = (incomingConfig: Config): CollectionConfig => {
+  const dropInConfig: CollectionConfig = {
+    slug: "drop-ins",
+    labels: {
+      singular: "Drop In",
+      plural: "Drop Ins",
     },
-    {
-      name: "price",
-      label: "Price",
-      type: "number",
-      required: true,
+    admin: {
+      useAsTitle: "name",
+      group: "Products",
     },
-    {
-      name: "priceType",
-      label: "Price Type",
-      type: "select",
-      options: ["trial", "normal"],
-      defaultValue: "normal",
-      required: true,
-    },
-    {
+    fields: [
+      {
+        name: "name",
+        label: "Name",
+        type: "text",
+        required: true,
+      },
+      {
+        name: "price",
+        label: "Price",
+        type: "number",
+        required: true,
+      },
+      {
+        name: "priceType",
+        label: "Price Type",
+        type: "select",
+        options: ["trial", "normal"],
+        defaultValue: "normal",
+        required: true,
+      },
+      {
+        name: "active",
+        label: "Active",
+        type: "checkbox",
+        defaultValue: true,
+      },
+    ],
+  };
+
+  if (
+    incomingConfig.custom?.plugins?.find(
+      (plugin: any) => plugin.name === "lessons"
+    )?.config?.options?.paymentsEnabled
+  ) {
+    dropInConfig.fields.push({
       name: "allowedClasses",
       label: "Allowed Classes",
       type: "join",
       collection: "class-options",
       on: "paymentMethods.allowedDropIns",
-    },
-    {
-      name: "active",
-      label: "Active",
-      type: "checkbox",
-      defaultValue: true,
-    },
-  ],
+    });
+  }
+
+  return dropInConfig;
 };

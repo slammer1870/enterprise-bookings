@@ -48,7 +48,7 @@ export const paymentsPlugin = (): Plugin => (incomingConfig: Config) => {
   const dropIns = pluginConfig?.options?.dropIns;
 
   if (dropIns) {
-    collections.push(dropInsCollection);
+    collections.push(dropInsCollection(config));
   }
 
   config.collections = collections;
