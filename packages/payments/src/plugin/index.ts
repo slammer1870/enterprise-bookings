@@ -1,4 +1,4 @@
-import type { Config, Field, GroupField, Plugin } from "payload";
+import type { CollectionSlug, Config, GroupField, Plugin } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 import { dropInsCollection } from "../collections/drop-ins";
@@ -50,6 +50,7 @@ export const paymentsPlugin =
 
     const dropInsEnabled = pluginOptions.dropInsEnabled;
 
+    //TODO: Refactor this to allow for multipe payment methods more efficiently
     if (dropInsEnabled) {
       const dropIns = dropInsCollection(config);
 
@@ -67,7 +68,7 @@ export const paymentsPlugin =
             name: "allowedDropIns",
             label: "Allowed Drop Ins",
             type: "relationship",
-            relationTo: dropIns.slug,
+            relationTo: dropIns.slug as CollectionSlug,
             hasMany: true,
             required: false,
           });
@@ -86,5 +87,6 @@ export const paymentsPlugin =
 
     config.collections = collections;
     config.endpoints = endpoints;
+
     return config;
   };

@@ -12,6 +12,7 @@ export const modifyUsersCollection = (
 ): CollectionConfig => {
   const fields = existingCollectionConfig.fields || [];
 
+  //TODO: Refactor this to create separate roles plugin
   const existingRolesField = fields.find(
     (field) => "roles" in field
   ) as SelectField;
