@@ -46,8 +46,8 @@ export default buildConfig({
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',
     }),
-    paymentsPlugin(paymentsConfig),
     bookingsPlugin(bookingsConfig),
+    paymentsPlugin(paymentsConfig),
   ],
   custom: {
     plugins: [

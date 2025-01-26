@@ -1,4 +1,4 @@
-import type { Config, Plugin } from "payload";
+import type { Config, Field, GroupField, Plugin } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 import { dropInsCollection } from "../collections/drop-ins";
@@ -51,7 +51,37 @@ export const paymentsPlugin =
     const dropInsEnabled = pluginOptions.dropInsEnabled;
 
     if (dropInsEnabled) {
-      collections.push(dropInsCollection(config));
+      const dropIns = dropInsCollection(config);
+
+      const classOptions = collections.find(
+        (collection) => collection.slug === "class-options"
+      );
+
+      if (classOptions) {
+        const paymentMethods = classOptions.fields.find(
+          (field) => field.type == "group" && field.name == "paymentMethods"
+        ) as GroupField;
+
+        if (paymentMethods) {
+          paymentMethods.fields.push({
+            name: "allowedDropIns",
+            label: "Allowed Drop Ins",
+            type: "relationship",
+            relationTo: dropIns.slug,
+            hasMany: true,
+            required: false,
+          });
+
+          dropIns.fields.push({
+            name: "allowedClasses",
+            label: "Allowed Classes",
+            type: "join",
+            collection: "class-options",
+            on: "paymentMethods.allowedDropIns",
+          });
+        }
+      }
+      collections.push(dropIns);
     }
 
     config.collections = collections;

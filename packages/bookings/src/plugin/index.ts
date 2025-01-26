@@ -25,7 +25,7 @@ export const bookingsPlugin =
     let collections = config.collections || [];
 
     collections.push(lessonsCollection);
-    collections.push(classOptionsCollection(pluginOptions, config));
+    collections.push(classOptionsCollection(pluginOptions));
     collections.push(bookingsCollection);
 
     config.collections = collections;

@@ -1,10 +1,9 @@
-import type { CollectionConfig, CollectionSlug, Config, Field } from "payload";
+import type { CollectionConfig, GroupField } from "payload";
 
 import { BookingsPluginConfig } from "../types";
 
 export const classOptionsCollection = (
-  pluginOptions: BookingsPluginConfig,
-  incomingConfig: Config
+  pluginOptions: BookingsPluginConfig
 ): CollectionConfig => {
   const config: CollectionConfig = {
     slug: "class-options",
@@ -53,25 +52,12 @@ export const classOptionsCollection = (
   }
 
   if (pluginOptions.paymentsEnabled) {
-    const paymentMethods: Field = {
+    const paymentMethods: GroupField = {
       name: "paymentMethods",
       label: "Payment Methods",
       type: "group",
       fields: [],
     };
-    if (
-      incomingConfig.custom?.plugins?.find((p: any) => p.name === "payments")
-        ?.options?.dropInsEnabled
-    ) {
-      paymentMethods.fields.push({
-        name: "allowedDropIns",
-        label: "Allowed Drop Ins",
-        type: "relationship",
-        relationTo: "drop-ins" as CollectionSlug,
-        hasMany: true,
-        required: false,
-      });
-    }
 
     config.fields.push(paymentMethods);
   }

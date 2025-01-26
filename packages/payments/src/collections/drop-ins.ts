@@ -41,19 +41,5 @@ export const dropInsCollection = (incomingConfig: Config): CollectionConfig => {
     ],
   };
 
-  if (
-    incomingConfig.custom?.plugins?.find(
-      (plugin: any) => plugin.name === "bookings"
-    )?.config?.options?.paymentsEnabled
-  ) {
-    dropInConfig.fields.push({
-      name: "allowedClasses",
-      label: "Allowed Classes",
-      type: "join",
-      collection: "class-options",
-      on: "paymentMethods.allowedDropIns",
-    });
-  }
-
   return dropInConfig;
 };
