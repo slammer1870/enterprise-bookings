@@ -1,11 +1,13 @@
 {
   "name": "@repo/roles",
   "version": "0.0.1",
+  "main": "./src/index.ts",
   "dependencies": {
     "payload": "^3.18.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
     "@types/react": "npm:types-react@19.0.0-rc.1",
@@ -13,5 +15,6 @@
     "eslint": "^9.18.0",
     "eslint-config-next": "15.1.5",
     "typescript": "5.7.3"
-  }
+  },
+  "type": "module"
 }

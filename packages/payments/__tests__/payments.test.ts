@@ -35,7 +35,7 @@ describe("Payments tests", () => {
     restClient = new NextRESTClient(builtConfig);
   });
 
-  it("should should get the customers endpoint", async () => {
+  it("should should fail to get the customers endpoint if the user is not an admin", async () => {
     const user = await payload.create({
       collection: "users",
       data: {
@@ -54,6 +54,6 @@ describe("Payments tests", () => {
       })
       .then(() => restClient.GET("/stripe/customers"));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(401);
   });
 });

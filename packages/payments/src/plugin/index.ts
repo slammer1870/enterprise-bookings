@@ -50,38 +50,35 @@ export const paymentsPlugin =
 
     const dropInsEnabled = pluginOptions.dropInsEnabled;
 
+    const paymentMethodsGroup = collections
+      .find((collection) => collection.slug === "class-options")
+      ?.fields.find(
+        (field) => field.type == "group" && field.name == "paymentMethods"
+      ) as GroupField | undefined;
+
     //TODO: Refactor this to allow for multipe payment methods more efficiently
     if (dropInsEnabled) {
       const dropIns = dropInsCollection(config);
 
-      const classOptions = collections.find(
-        (collection) => collection.slug === "class-options"
-      );
+      if (paymentMethodsGroup) {
+        paymentMethodsGroup.fields.push({
+          name: "allowedDropIns",
+          label: "Allowed Drop Ins",
+          type: "relationship",
+          relationTo: dropIns.slug as CollectionSlug,
+          hasMany: true,
+          required: false,
+        });
 
-      if (classOptions) {
-        const paymentMethods = classOptions.fields.find(
-          (field) => field.type == "group" && field.name == "paymentMethods"
-        ) as GroupField;
-
-        if (paymentMethods) {
-          paymentMethods.fields.push({
-            name: "allowedDropIns",
-            label: "Allowed Drop Ins",
-            type: "relationship",
-            relationTo: dropIns.slug as CollectionSlug,
-            hasMany: true,
-            required: false,
-          });
-
-          dropIns.fields.push({
-            name: "allowedClasses",
-            label: "Allowed Classes",
-            type: "join",
-            collection: "class-options",
-            on: "paymentMethods.allowedDropIns",
-          });
-        }
+        dropIns.fields.push({
+          name: "allowedClasses",
+          label: "Allowed Classes",
+          type: "join",
+          collection: "class-options",
+          on: "paymentMethods.allowedDropIns",
+        });
       }
+
       collections.push(dropIns);
     }
 

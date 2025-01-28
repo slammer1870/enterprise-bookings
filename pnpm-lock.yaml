@@ -44,6 +44,9 @@ importers:
       '@repo/payments':
         specifier: workspace:*
         version: link:../../packages/payments
+      '@repo/roles':
+        specifier: workspace:*
+        version: link:../../packages/roles
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -554,6 +557,9 @@ importers:
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config

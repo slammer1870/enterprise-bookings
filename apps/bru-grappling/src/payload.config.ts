@@ -13,6 +13,8 @@ import { Media } from './collections/Media'
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
+import { rolesPlugin } from '@repo/roles'
+
 import { bookingsConfig } from './plugin-configs/bookings'
 import { paymentsConfig } from './plugin-configs/payments'
 
@@ -41,6 +43,9 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    rolesPlugin({
+      enabled: true,
+    }),
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
