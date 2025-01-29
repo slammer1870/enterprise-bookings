@@ -21,6 +21,16 @@
       "cache": false,
       "persistent": true
     },
-    "test": {}
+    "generate:importmap": {
+      "cache": false,
+      "persistent": true
+    },
+    "test": {},
+    "payload": {
+      "cache": false
+    },
+    "db:reset": {
+      "cache": false
+    }
   }
 }

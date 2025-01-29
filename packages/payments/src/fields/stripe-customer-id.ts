@@ -1,7 +1,8 @@
 import { Field } from "payload";
-import { checkRole } from "@repo/roles/src/check-role";
 
-export const StripeCustomerId: Field = {
+import { checkRole } from "@repo/shared-utils";
+
+export const stripeCustomerId: Field = {
   name: "stripeCustomerId",
   type: "text",
   label: "Stripe Customer",
@@ -10,8 +11,17 @@ export const StripeCustomerId: Field = {
   },
   admin: {
     components: {
-      Field: "@repo/payments/src/components/customer-select#CustomerSelect",
+      Field: {
+        path: "@repo/ui/components/ui/custom-select#CustomSelect",
+        clientProps: {
+          apiUrl: `/api/stripe/customers`,
+          dataLabel: "customer",
+        },
+      },
     },
     position: "sidebar",
+    condition: ({ user }) => {
+      return !user ? false : true;
+    },
   },
 };

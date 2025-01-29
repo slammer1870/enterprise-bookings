@@ -3,7 +3,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@repo/ui/*": ["./src/*"]
+      "@repo/ui/*": ["./src/*"],
+      "@repo/ui/hooks/*": ["./src/hooks/*"],
+      "@repo/ui/hooks/use-confirm": ["./src/hooks/use-confirm.ts"],
+      "@repo/ui/components/*": ["./src/components/*"]
     }
   },
   "include": ["src"],

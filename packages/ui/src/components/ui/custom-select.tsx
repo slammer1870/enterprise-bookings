@@ -3,19 +3,20 @@
 import type { TextFieldClientProps } from "payload";
 
 import {
-  useFormFields,
   CopyToClipboard,
-  useField,
   SelectInput,
+  useField,
+  useFormFields,
 } from "@payloadcms/ui";
 
 import * as React from "react";
 
-export const CustomerSelect: React.FC<TextFieldClientProps> = ({
-  field,
-  path,
-}) => {
-  const { label } = field;
+export const CustomSelect: React.FC<
+  TextFieldClientProps & { apiUrl: string; dataLabel: string }
+> = (props) => {
+  const { path, field, apiUrl, dataLabel } = props;
+
+  const { label, name } = field;
 
   const { value, setValue } = useField<string>({ path });
 
@@ -31,19 +32,19 @@ export const CustomerSelect: React.FC<TextFieldClientProps> = ({
   });
 
   React.useEffect(() => {
-    const getStripeCustomers = async () => {
+    const getStripeOptions = async () => {
       try {
-        const customersFetch = await fetch(`/api/stripe/customers`, {
+        const optionsFetch = await fetch(apiUrl, {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
         });
 
-        const res = await customersFetch.json();
+        const res = await optionsFetch.json();
 
         if (res?.data) {
-          const fetchedCustomers = res.data.reduce(
+          const fetchedOptions = res.data.reduce(
             (
               acc: { label: any; value: any }[],
               item: { name: any; email: any; id: any }
@@ -56,24 +57,24 @@ export const CustomerSelect: React.FC<TextFieldClientProps> = ({
             },
             [
               {
-                label: "Select a customer",
+                label: `Select a ${dataLabel}`,
                 value: "",
               },
             ]
           );
-          setOptions(fetchedCustomers);
+          setOptions(fetchedOptions);
         }
       } catch (error) {
         console.error(error); // eslint-disable-line no-console
       }
     };
 
-    getStripeCustomers();
+    void getStripeOptions();
   }, []);
 
   const href = `https://dashboard.stripe.com/${
-    process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-  }customers/${selectFieldValue}`;
+    process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+  }${dataLabel}/${selectFieldValue}`;
 
   return (
     <div>
@@ -86,11 +87,11 @@ export const CustomerSelect: React.FC<TextFieldClientProps> = ({
           marginBottom: "0.75rem",
         }}
       >
-        {`Select the related Stripe customer or `}
+        {`Select the related Stripe data or `}
         <a
           href={`https://dashboard.stripe.com/${
-            process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-          }customers/create`}
+            process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+          }${dataLabel}/create`}
           rel="noopener noreferrer"
           style={{ color: "var(--theme-text" }}
           target="_blank"
@@ -101,7 +102,7 @@ export const CustomerSelect: React.FC<TextFieldClientProps> = ({
       </p>
       <SelectInput
         path={path}
-        name={path}
+        name={name}
         options={options}
         value={value}
         onChange={(e: any) => setValue(e?.value)}
@@ -132,8 +133,8 @@ export const CustomerSelect: React.FC<TextFieldClientProps> = ({
           >
             <a
               href={`https://dashboard.stripe.com/${
-                process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-              }customers/${selectFieldValue}`}
+                process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+              }${dataLabel}/${selectFieldValue}`}
               rel="noreferrer noopener"
               target="_blank"
             >

@@ -1,21 +1,34 @@
 {
   "name": "@repo/payments",
   "version": "0.0.1",
-  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest --hook-timeout=100000"
+  },
   "dependencies": {
-    "@payloadcms/ui": "^3.2.2",
+    "@payloadcms/ui": "^3.18.0",
     "@repo/roles": "workspace:*",
-    "payload": "^3.2.1",
-    "stripe": "^17.4.0"
+    "@repo/ui": "workspace:*",
+    "payload": "^3.18.0",
+    "stripe": "^17.5.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
+    "@payloadcms/db-postgres": "^3.18.0",
+    "@payloadcms/payload-cloud": "^3.18.0",
+    "@payloadcms/richtext-lexical": "^3.18.0",
+    "@repo/shared-utils": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^20",
-    "@types/react": "18.3.1",
-    "@types/react-dom": "18.3.0",
-    "eslint": "^8",
-    "eslint-config-next": "15.0.3",
-    "typescript": "5.5.4"
-  }
+    "@types/node": "^22.10.7",
+    "@types/react": "npm:types-react@19.0.0-rc.1",
+    "@types/react-dom": "npm:types-react-dom@19.0.0-rc.1",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "15.1.5",
+    "sharp": "0.33.5",
+    "typescript": "5.7.3",
+    "vitest": "^3.0.3"
+  },
+  "type": "module"
 }

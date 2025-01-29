@@ -2,7 +2,7 @@ import type { User } from "./types";
 
 export const checkRole = (
   allRoles: User["roles"] = [],
-  user?: User
+  user: User | null
 ): boolean => {
   if (user) {
     if (

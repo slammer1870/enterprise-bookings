@@ -58,6 +58,13 @@ export const modifyAuthCollection = (
   endpoints.push(sendMagicLink(pluginOptions));
   endpoints.push(verifyMagicLink(pluginOptions));
 
+  // /////////////////////////////////////
+  // modify access
+  // /////////////////////////////////////
+
+  const access = existingCollectionConfig.access || {};
+  access.create = () => true;
+
   return {
     ...existingCollectionConfig,
     fields,
@@ -69,5 +76,6 @@ export const modifyAuthCollection = (
         : {}),
       strategies,
     },
+    access,
   };
 };

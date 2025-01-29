@@ -1,0 +1,45 @@
+import type { CollectionConfig, Config } from "payload";
+
+export const dropInsCollection = (incomingConfig: Config): CollectionConfig => {
+  const dropInConfig: CollectionConfig = {
+    slug: "drop-ins",
+    labels: {
+      singular: "Drop In",
+      plural: "Drop Ins",
+    },
+    admin: {
+      useAsTitle: "name",
+      group: "Products",
+    },
+    fields: [
+      {
+        name: "name",
+        label: "Name",
+        type: "text",
+        required: true,
+      },
+      {
+        name: "price",
+        label: "Price",
+        type: "number",
+        required: true,
+      },
+      {
+        name: "priceType",
+        label: "Price Type",
+        type: "select",
+        options: ["trial", "normal"],
+        defaultValue: "normal",
+        required: true,
+      },
+      {
+        name: "active",
+        label: "Active",
+        type: "checkbox",
+        defaultValue: true,
+      },
+    ],
+  };
+
+  return dropInConfig;
+};

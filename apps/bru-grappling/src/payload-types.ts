@@ -12,15 +12,30 @@ export interface Config {
   };
   collections: {
     media: Media;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
     users: User;
+    'drop-ins': DropIn;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
+    'drop-ins': {
+      allowedClasses: 'class-options';
+    };
+  };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -78,11 +93,87 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  lockOutTime: number;
+  location: string;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  paymentMethods?: {
+    allowedDropIns?: (number | DropIn)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  price: number;
+  priceType: 'trial' | 'normal';
+  active?: boolean | null;
+  allowedClasses?: {
+    docs?: (number | ClassOption)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
   id: number;
+  roles?: ('customer' | 'admin')[] | null;
   name: string;
+  stripeCustomerId?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -106,8 +197,24 @@ export interface PayloadLockedDocument {
         value: number | Media;
       } | null)
     | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
+      } | null)
+    | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -171,10 +278,56 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIns?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  roles?: T;
   name?: T;
+  stripeCustomerId?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -184,6 +337,19 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  name?: T;
+  price?: T;
+  priceType?: T;
+  active?: T;
+  allowedClasses?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
