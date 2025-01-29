@@ -20,8 +20,5 @@ export const stripeCustomerId: Field = {
       },
     },
     position: "sidebar",
-    condition: ({ user }) => {
-      return !user ? false : true;
-    },
   },
 };

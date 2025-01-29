@@ -34,11 +34,6 @@ export const modifyUsersCollection = (
       read: ({ req: { user } }) => checkRole([firstUserRole], user as any),
       update: ({ req: { user } }) => checkRole([firstUserRole], user as any),
     },
-    admin: {
-      condition: ({ user }) => {
-        return !user ? false : true;
-      },
-    },
     hooks: {
       beforeChange: [
         async ({ value, operation, req }) => {
