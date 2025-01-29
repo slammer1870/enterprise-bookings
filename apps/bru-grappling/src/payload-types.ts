@@ -171,6 +171,7 @@ export interface Booking {
  */
 export interface User {
   id: number;
+  roles?: ('customer' | 'admin')[] | null;
   name: string;
   stripeCustomerId?: string | null;
   updatedAt: string;
@@ -324,6 +325,7 @@ export interface BookingsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  roles?: T;
   name?: T;
   stripeCustomerId?: T;
   updatedAt?: T;

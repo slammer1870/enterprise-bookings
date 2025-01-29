@@ -26,6 +26,9 @@
       "persistent": true
     },
     "test": {},
+    "payload": {
+      "cache": false
+    },
     "db:reset": {
       "cache": false
     }

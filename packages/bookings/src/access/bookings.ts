@@ -18,6 +18,7 @@ export const isAdminOrMember: Access = async ({
     const lesson = (await req.payload.findByID({
       collection: "lessons",
       id: lessonId,
+      depth: 3,
     })) as unknown as Lesson;
 
     if (!lesson) return false;
@@ -37,6 +38,8 @@ export const isAdminOrMember: Access = async ({
     // Check if the lesson has an allowed plan payment method
     if (lesson.classOption.paymentMethods?.allowedPlans) {
       //TODO: Check if the user has a subscription plan that is allowed for this lesson
+
+      //This could just hit an API endpoint to check if the user has a subscription plan that is allowed for this lesson
       return false;
     }
 

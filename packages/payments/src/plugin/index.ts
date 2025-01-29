@@ -16,14 +16,6 @@ export const paymentsPlugin =
       return config;
     }
 
-    const pluginConfig = config.custom?.plugins?.find(
-      (p: any) => p.name === "payments"
-    );
-
-    if (!pluginConfig) {
-      throw new Error("Payments plugin config not in custom plugins");
-    }
-
     let collections = config.collections || [];
 
     const endpoints = config.endpoints || [];
@@ -59,6 +51,12 @@ export const paymentsPlugin =
     //TODO: Refactor this to allow for multipe payment methods more efficiently
     if (dropInsEnabled) {
       const dropIns = dropInsCollection(config);
+
+      //TODO: Refactor to get list of slugs from plugin options and attach to dropIns collection/join field on slug
+
+      //Ensure collection for slug exists
+
+      //Ensure payment method group exists
 
       if (paymentMethodsGroup) {
         paymentMethodsGroup.fields.push({
