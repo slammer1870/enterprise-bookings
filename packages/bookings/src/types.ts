@@ -9,7 +9,11 @@ export type BookingsPluginConfig = {
    * Enable or disable payment
    * @default false
    */
-  paymentsEnabled?: boolean;
+  paymentsMethods?: {
+    dropIns: boolean;
+    plans: boolean;
+    classePasses: boolean;
+  };
 
   /**
    * Enable or disable children

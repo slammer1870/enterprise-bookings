@@ -52,7 +52,14 @@ describe("Booking tests", () => {
     const response = await restClient.GET("/bookings");
     expect(response.status).toBe(403);
   });
-  it("should be authorized to create a booking endpoint with user", async () => {
+  it("should be authorized to create a booking endpoint with user that is not an admin because the lesson has no payment methods", async () => {
+    const userWithoutPaymentMethods = await payload.create({
+      collection: "users",
+      data: {
+        email: "user@test.com",
+        password: "test",
+      },
+    });
     const classOptionWithoutPaymentMethods = await payload.create({
       collection: "class-options",
       data: {
@@ -76,7 +83,7 @@ describe("Booking tests", () => {
     const response = await restClient
       .login({
         credentials: {
-          email: user.email,
+          email: userWithoutPaymentMethods.email,
           password: "test",
         },
       })
@@ -84,7 +91,7 @@ describe("Booking tests", () => {
         restClient.POST("/bookings", {
           body: JSON.stringify({
             lesson: lesson.id,
-            user: user.id,
+            user: userWithoutPaymentMethods.id,
             status: "confirmed",
           }),
         })
@@ -92,63 +99,127 @@ describe("Booking tests", () => {
 
     expect(response.status).toBe(201);
   });
-  // it("should be unauthorized to create a booking with user that is not admin or member", async () => {
-  //   user = (await payload.create({
-  //     collection: "users",
-  //     data: {
-  //       email: "customer@test.com",
-  //       password: "test",
-  //     },
-  //   })) as unknown as User;
-  //   const dropIn = await payload.create({
-  //     collection: "drop-ins",
-  //     data: {
-  //       name: "Drop In",
-  //       price: 10,
-  //     },
-  //   });
-  //
-  //   const classOption = await payload.create({
-  //     collection: "class-options",
-  //     data: {
-  //       name: "Test Class Option",
-  //       places: 4,
-  //       description: "Test Class Option",
-  //       paymentMethods: {
-  //         allowedDropIns: [dropIn.id],
-  //       },
-  //     },
-  //   });
-  //
-  //   const lesson = await payload.create({
-  //     collection: "lessons",
-  //     data: {
-  //       date: new Date(),
-  //       startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-  //       endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-  //       classOption: classOption.id,
-  //       location: "Test Location",
-  //     },
-  //   });
-  //
-  //   const response = await restClient
-  //     .login({
-  //       credentials: {
-  //         email: user.email,
-  //         password: "test",
-  //       },
-  //     })
-  //     .then(() =>
-  //       restClient.POST("/bookings", {
-  //         body: JSON.stringify({
-  //           lesson: lesson.id,
-  //           user: user.id,
-  //           status: "confirmed",
-  //         }),
-  //       })
-  //     );
-  //
-  //   expect(response.status).toBe(403);
-  // });
-  it("should be authorized to get the booking endpoint with user that is a member", async () => {});
+  it("should be unauthorized to create a booking endpoint with user that is not an admin because the lesson has payment methods", async () => {
+    const userWithoutPaymentMethods = await payload.create({
+      collection: "users",
+      data: {
+        email: "userwithoutpaymentmethods@test.com",
+        password: "test",
+      },
+    });
+
+    const dropIn = await payload.create({
+      collection: "drop-ins",
+      data: {
+        name: "Drop In",
+        price: 10,
+      },
+    });
+
+    const classOptionWithPaymentMethods = await payload.create({
+      collection: "class-options",
+      data: {
+        name: "Test Class Option",
+        places: 4,
+        description: "Test Class Option",
+        paymentMethods: {
+          allowedDropIns: [dropIn.id],
+        },
+      },
+    });
+
+    const lesson = await payload.create({
+      collection: "lessons",
+      data: {
+        date: new Date(),
+        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        classOption: classOptionWithPaymentMethods.id,
+        location: "Test Location",
+      },
+    });
+
+    const response = await restClient
+      .login({
+        credentials: {
+          email: userWithoutPaymentMethods.email,
+          password: "test",
+        },
+      })
+      .then(() =>
+        restClient.POST("/bookings", {
+          body: JSON.stringify({
+            lesson: lesson.id,
+            user: userWithoutPaymentMethods.id,
+            status: "confirmed",
+          }),
+        })
+      );
+
+    expect(response.status).toBe(403);
+  });
+  it("should be unauthorized to create a booking because lesson is full", async () => {
+    const user1 = await payload.create({
+      collection: "users",
+      data: {
+        email: "user1@test.com",
+        password: "test",
+      },
+    });
+    const user2 = await payload.create({
+      collection: "users",
+      data: {
+        email: "user2@test.com",
+        password: "test",
+      },
+    });
+
+    const classOption = await payload.create({
+      collection: "class-options",
+      data: {
+        name: "Test Class Option",
+        places: 1,
+        description: "Test Class Option",
+      },
+    });
+
+    const lesson = await payload.create({
+      collection: "lessons",
+      data: {
+        date: new Date(),
+        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        classOption: classOption.id,
+        location: "Test Location",
+      },
+    });
+
+    const booking1 = await payload.create({
+      collection: "bookings",
+      data: {
+        lesson: lesson.id,
+        user: user1.id,
+        status: "confirmed",
+      },
+    });
+
+    const response = await restClient
+      .login({
+        credentials: {
+          email: user2.email,
+          password: "test",
+        },
+      })
+      .then(() =>
+        restClient.POST("/bookings", {
+          body: JSON.stringify({
+            lesson: lesson.id,
+            user: user2.id,
+            status: "confirmed",
+          }),
+        })
+      );
+
+    expect(response.status).toBe(403);
+  });
 });
