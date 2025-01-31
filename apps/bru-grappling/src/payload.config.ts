@@ -48,6 +48,9 @@ export default buildConfig({
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',
     }),
+    paymentsPlugin({
+      enabled: true,
+    }),
     bookingsPlugin({
       enabled: true,
       paymentsMethods: {
@@ -55,9 +58,6 @@ export default buildConfig({
         plans: false,
         classePasses: false,
       },
-    }),
-    paymentsPlugin({
-      enabled: true,
     }),
   ],
 })
