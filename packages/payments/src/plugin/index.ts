@@ -40,6 +40,8 @@ export const paymentsPlugin =
       handler: customersProxy,
     });
 
+    collections.push(dropInsCollection);
+
     config.collections = collections;
     config.endpoints = endpoints;
 

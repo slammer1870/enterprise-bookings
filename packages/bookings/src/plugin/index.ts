@@ -1,10 +1,8 @@
-import type { Config, Plugin } from "payload";
+import type { CollectionSlug, Config, Plugin } from "payload";
 
 import { lessonsCollection } from "../collections/lessons";
 import { bookingsCollection } from "../collections/bookings";
 import { classOptionsCollection } from "../collections/class-options";
-
-import { dropInsCollection } from "../collections/payment-methods/drop-ins";
 
 import { BookingsPluginConfig } from "../types";
 
@@ -28,8 +26,28 @@ export const bookingsPlugin =
     collections.push(bookings);
 
     if (pluginOptions.paymentsMethods?.dropIns) {
-      const dropIns = dropInsCollection(pluginOptions);
-      collections.push(dropIns);
+      const dropIns = config.collections?.find(
+        (collection) => collection.slug === "drop-ins"
+      );
+
+      if (!dropIns) {
+        throw new Error(
+          "Drop-ins collection not found, please enable the payments plugin"
+        );
+      }
+
+      dropIns.fields.push({
+        name: "allowedClasses",
+        label: "Allowed Classes",
+        type: "relationship",
+        relationTo: "class-options" as CollectionSlug,
+        hasMany: true,
+      });
+
+      collections = [
+        ...collections.filter((c) => c.slug !== "drop-ins"),
+        dropIns,
+      ];
     }
 
     config.collections = collections;

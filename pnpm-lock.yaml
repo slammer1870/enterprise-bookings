@@ -582,6 +582,12 @@ importers:
         specifier: 5.7.3
         version: 5.7.3
 
+  packages/shared-services:
+    dependencies:
+      payload:
+        specifier: ^3.18.0
+        version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
+
   packages/shared-types: {}
 
   packages/shared-utils:
@@ -14362,7 +14368,7 @@ snapshots:
   tsx@4.19.2:
     dependencies:
       esbuild: 0.23.1
-      get-tsconfig: 4.8.1
+      get-tsconfig: 4.10.0
     optionalDependencies:
       fsevents: 2.3.3
 

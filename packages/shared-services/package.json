@@ -1,0 +1,8 @@
+{
+  "name": "shared-services",
+  "version": "0.0.1",
+  "private": true,
+  "peerDependencies": {
+    "payload": "^3.18.0"
+  }
+}

@@ -71,6 +71,17 @@ export const classOptionsCollection = (
         required: false,
       });
     }
+
+    if (pluginOptions.paymentsMethods?.plans) {
+      paymentMethods.fields.push({
+        name: "allowedPlans",
+        label: "Allowed Plans",
+        type: "relationship",
+        relationTo: "plans" as CollectionSlug,
+        hasMany: true,
+        required: false,
+      });
+    }
   }
 
   return config;
