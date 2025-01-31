@@ -1,4 +1,4 @@
-import type { CollectionSlug, Config, GroupField, Plugin } from "payload";
+import type { Config, Plugin } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 import { dropInsCollection } from "../collections/drop-ins";
@@ -6,6 +6,7 @@ import { dropInsCollection } from "../collections/drop-ins";
 import { customersProxy } from "../endpoints/customers";
 
 import { PaymentsPluginConfig } from "../types";
+import { createPaymentIntent } from "../endpoints/create-payment-intent";
 
 export const paymentsPlugin =
   (pluginOptions: PaymentsPluginConfig): Plugin =>
@@ -38,6 +39,12 @@ export const paymentsPlugin =
       path: "/stripe/customers",
       method: "get",
       handler: customersProxy,
+    });
+
+    endpoints.push({
+      path: "/stripe/create-payment-intent",
+      method: "post",
+      handler: createPaymentIntent,
     });
 
     collections.push(dropInsCollection);

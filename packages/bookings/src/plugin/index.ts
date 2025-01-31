@@ -1,4 +1,4 @@
-import type { CollectionSlug, Config, Plugin } from "payload";
+import type { CollectionSlug, Config, Field, Plugin } from "payload";
 
 import { lessonsCollection } from "../collections/lessons";
 import { bookingsCollection } from "../collections/bookings";
@@ -25,6 +25,14 @@ export const bookingsPlugin =
     collections.push(classOptions);
     collections.push(bookings);
 
+    const allowedClassesField: Field = {
+      name: "allowedClasses",
+      label: "Allowed Classes",
+      type: "relationship",
+      relationTo: "class-options" as CollectionSlug,
+      hasMany: true,
+    };
+
     if (pluginOptions.paymentsMethods?.dropIns) {
       const dropIns = config.collections?.find(
         (collection) => collection.slug === "drop-ins"
@@ -36,13 +44,7 @@ export const bookingsPlugin =
         );
       }
 
-      dropIns.fields.push({
-        name: "allowedClasses",
-        label: "Allowed Classes",
-        type: "relationship",
-        relationTo: "class-options" as CollectionSlug,
-        hasMany: true,
-      });
+      dropIns.fields.push(allowedClassesField);
 
       collections = [
         ...collections.filter((c) => c.slug !== "drop-ins"),
