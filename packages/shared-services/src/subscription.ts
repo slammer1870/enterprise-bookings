@@ -1,4 +1,4 @@
-import { Payload, User } from "payload";
+import { Payload } from "payload";
 
 export const hasActiveSubscription = async (
   userId: number,
