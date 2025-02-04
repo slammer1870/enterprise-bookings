@@ -1,4 +1,4 @@
-import type { CollectionConfig, GroupField } from "payload";
+import type { CollectionConfig, CollectionSlug, GroupField } from "payload";
 
 import { BookingsPluginConfig } from "../types";
 
@@ -51,7 +51,7 @@ export const classOptionsCollection = (
     });
   }
 
-  if (pluginOptions.paymentsEnabled) {
+  if (pluginOptions.paymentsMethods) {
     const paymentMethods: GroupField = {
       name: "paymentMethods",
       label: "Payment Methods",
@@ -60,6 +60,28 @@ export const classOptionsCollection = (
     };
 
     config.fields.push(paymentMethods);
+
+    if (pluginOptions.paymentsMethods?.dropIns) {
+      paymentMethods.fields.push({
+        name: "allowedDropIns",
+        label: "Allowed Drop Ins",
+        type: "relationship",
+        relationTo: "drop-ins" as CollectionSlug,
+        hasMany: true,
+        required: false,
+      });
+    }
+
+    if (pluginOptions.paymentsMethods?.plans) {
+      paymentMethods.fields.push({
+        name: "allowedPlans",
+        label: "Allowed Plans",
+        type: "relationship",
+        relationTo: "plans" as CollectionSlug,
+        hasMany: true,
+        required: false,
+      });
+    }
   }
 
   return config;

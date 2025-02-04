@@ -1,8 +1,9 @@
-import type { Config, Plugin } from "payload";
+import type { CollectionSlug, Config, Field, Plugin } from "payload";
 
 import { lessonsCollection } from "../collections/lessons";
 import { bookingsCollection } from "../collections/bookings";
 import { classOptionsCollection } from "../collections/class-options";
+
 import { BookingsPluginConfig } from "../types";
 
 export const bookingsPlugin =
@@ -14,19 +15,42 @@ export const bookingsPlugin =
       return config;
     }
 
-    if (pluginOptions.paymentsEnabled) {
-      if (!config.custom?.plugins?.some((p: any) => p.name === "payments")) {
-        throw new Error(
-          "Payments plugin with custom config is required to enable payments in bookings plugin"
-        );
-      }
-    }
-
     let collections = config.collections || [];
 
-    collections.push(lessonsCollection);
-    collections.push(classOptionsCollection(pluginOptions));
-    collections.push(bookingsCollection);
+    const lessons = lessonsCollection;
+    const classOptions = classOptionsCollection(pluginOptions);
+    const bookings = bookingsCollection;
+
+    collections.push(lessons);
+    collections.push(classOptions);
+    collections.push(bookings);
+
+    const allowedClassesField: Field = {
+      name: "allowedClasses",
+      label: "Allowed Classes",
+      type: "relationship",
+      relationTo: "class-options" as CollectionSlug,
+      hasMany: true,
+    };
+
+    if (pluginOptions.paymentsMethods?.dropIns) {
+      const dropIns = config.collections?.find(
+        (collection) => collection.slug === "drop-ins"
+      );
+
+      if (!dropIns) {
+        throw new Error(
+          "Drop-ins collection not found, please enable the payments plugin"
+        );
+      }
+
+      dropIns.fields.push(allowedClassesField);
+
+      collections = [
+        ...collections.filter((c) => c.slug !== "drop-ins"),
+        dropIns,
+      ];
+    }
 
     config.collections = collections;
 

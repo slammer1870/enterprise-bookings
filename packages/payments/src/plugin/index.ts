@@ -1,4 +1,4 @@
-import type { CollectionSlug, Config, GroupField, Plugin } from "payload";
+import type { Config, Plugin } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 import { dropInsCollection } from "../collections/drop-ins";
@@ -6,6 +6,7 @@ import { dropInsCollection } from "../collections/drop-ins";
 import { customersProxy } from "../endpoints/customers";
 
 import { PaymentsPluginConfig } from "../types";
+import { createPaymentIntent } from "../endpoints/create-payment-intent";
 
 export const paymentsPlugin =
   (pluginOptions: PaymentsPluginConfig): Plugin =>
@@ -40,45 +41,13 @@ export const paymentsPlugin =
       handler: customersProxy,
     });
 
-    const dropInsEnabled = pluginOptions.dropInsEnabled;
+    endpoints.push({
+      path: "/stripe/create-payment-intent",
+      method: "post",
+      handler: createPaymentIntent,
+    });
 
-    const paymentMethodsGroup = collections
-      .find((collection) => collection.slug === "class-options")
-      ?.fields.find(
-        (field) => field.type == "group" && field.name == "paymentMethods"
-      ) as GroupField | undefined;
-
-    //TODO: Refactor this to allow for multipe payment methods more efficiently
-    if (dropInsEnabled) {
-      const dropIns = dropInsCollection(config);
-
-      //TODO: Refactor to get list of slugs from plugin options and attach to dropIns collection/join field on slug
-
-      //Ensure collection for slug exists
-
-      //Ensure payment method group exists
-
-      if (paymentMethodsGroup) {
-        paymentMethodsGroup.fields.push({
-          name: "allowedDropIns",
-          label: "Allowed Drop Ins",
-          type: "relationship",
-          relationTo: dropIns.slug as CollectionSlug,
-          hasMany: true,
-          required: false,
-        });
-
-        dropIns.fields.push({
-          name: "allowedClasses",
-          label: "Allowed Classes",
-          type: "join",
-          collection: "class-options",
-          on: "paymentMethods.allowedDropIns",
-        });
-      }
-
-      collections.push(dropIns);
-    }
+    collections.push(dropInsCollection);
 
     config.collections = collections;
     config.endpoints = endpoints;

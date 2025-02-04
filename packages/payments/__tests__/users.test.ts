@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { buildConfig, getPayload } from "payload";
 
@@ -20,6 +20,17 @@ import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient"
 
 let payload: Payload;
 let restClient: NextRESTClient;
+
+// Mock Stripe API
+vi.mock("@repo/shared-utils", () => ({
+  checkRole: vi.fn(),
+  stripe: {
+    customers: {
+      list: vi.fn().mockResolvedValue({ data: [] }),
+      create: vi.fn().mockResolvedValue({ id: "cus_12345" }),
+    },
+  },
+}));
 
 describe("Payments tests", () => {
   beforeAll(async () => {
@@ -51,6 +62,8 @@ describe("Payments tests", () => {
       id: data.doc.id,
     });
 
-    expect(payloadUser.stripeCustomerId).not.toBeNull();
+    expect(response.status).toBe(201);
+
+    expect(payloadUser.stripeCustomerId).toBe("cus_12345");
   });
 });

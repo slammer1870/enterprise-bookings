@@ -15,9 +15,6 @@ import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { rolesPlugin } from '@repo/roles'
 
-import { bookingsConfig } from './plugin-configs/bookings'
-import { paymentsConfig } from './plugin-configs/payments'
-
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -51,19 +48,16 @@ export default buildConfig({
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',
     }),
-    bookingsPlugin(bookingsConfig),
-    paymentsPlugin(paymentsConfig),
+    paymentsPlugin({
+      enabled: true,
+    }),
+    bookingsPlugin({
+      enabled: true,
+      paymentsMethods: {
+        dropIns: true,
+        plans: false,
+        classePasses: false,
+      },
+    }),
   ],
-  custom: {
-    plugins: [
-      {
-        name: 'payments',
-        options: paymentsConfig,
-      },
-      {
-        name: 'bookings',
-        options: bookingsConfig,
-      },
-    ],
-  },
 })

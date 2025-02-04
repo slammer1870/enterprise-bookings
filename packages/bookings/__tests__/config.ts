@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "../src";
-import { bookingsConfig } from "./plugin-configs/bookings";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -59,13 +58,15 @@ export const config: Config = {
     },
   }),
   sharp,
-  plugins: [payloadCloudPlugin(), bookingsPlugin(bookingsConfig)],
-  custom: {
-    plugins: [
-      {
-        name: "bookings",
-        options: bookingsConfig,
+  plugins: [
+    payloadCloudPlugin(),
+    bookingsPlugin({
+      enabled: true,
+      paymentsMethods: {
+        dropIns: false,
+        plans: false,
+        classePasses: false,
       },
-    ],
-  },
+    }),
+  ],
 };

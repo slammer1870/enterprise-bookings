@@ -39,7 +39,12 @@ export const isAdminOrMember: Access = async ({
     if (lesson.classOption.paymentMethods?.allowedPlans) {
       //TODO: Check if the user has a subscription plan that is allowed for this lesson
 
-      //This could just hit an API endpoint to check if the user has a subscription plan that is allowed for this lesson
+      //Import check if the user has a subscription plan that is allowed for this lesson from shared-services
+
+      //TODO: Import check if the user has a subscription plan that is allowed for this lesson from shared-services
+
+      
+
       return false;
     }
 
