@@ -1,4 +1,4 @@
-import { CollectionConfig } from "payload";
+import { CollectionConfig, CollectionSlug } from "payload";
 
 import { checkRole } from "@repo/shared-utils";
 
@@ -14,13 +14,13 @@ export const subscriptionsCollection: CollectionConfig = {
     {
       name: "user",
       type: "relationship",
-      relationTo: "users",
+      relationTo: "users" as CollectionSlug,
       required: true,
     },
     {
       name: "plan",
       type: "relationship",
-      relationTo: "plans",
+      relationTo: "plans" as CollectionSlug,
       required: true,
     },
     {

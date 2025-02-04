@@ -4,8 +4,6 @@ import { checkRole } from "@repo/shared-utils";
 
 import { beforeProductChange } from "../hooks/before-product-change";
 
-import { isSubscribed } from "../hooks/is-subscribed";
-
 export const plansCollection: CollectionConfig = {
   slug: "plans",
   labels: {
@@ -103,28 +101,6 @@ export const plansCollection: CollectionConfig = {
         rows: 10,
       },
       label: "Price JSON",
-    },
-    {
-      name: "isSubscribed",
-      label: "Subscribed To",
-      admin: {
-        description: "If the user is subscribed to this plan",
-      },
-      access: {
-        create: () => false,
-        update: () => false,
-      },
-      type: "checkbox",
-      hooks: {
-        beforeChange: [
-          ({ siblingData }) => {
-            // Mutate the sibling data to prevent DB storage
-            // eslint-disable-next-line no-param-reassign
-            siblingData.subscribedTo = undefined;
-          },
-        ],
-        afterRead: [isSubscribed],
-      },
     },
   ],
   hooks: {

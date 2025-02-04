@@ -9,6 +9,7 @@
     "@payloadcms/richtext-lexical": "^3.18.0",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
+    "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
     "@repo/roles": "workspace:*",
     "@repo/ui": "workspace:*",

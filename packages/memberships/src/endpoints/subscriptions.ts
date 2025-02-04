@@ -41,7 +41,7 @@ export const subscriptionsProxy: PayloadHandler = async (
     const subscriptions = await stripe.subscriptions.list({
       limit: 100,
       expand: ["data.customer"],
-      customer: stripeUser.stripeCustomerID || "",
+      customer: stripeUser.stripeCustomerId || "",
     });
 
     return new Response(JSON.stringify(subscriptions), {

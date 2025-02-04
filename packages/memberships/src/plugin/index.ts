@@ -65,8 +65,8 @@ export const membershipsPlugin =
       handler: createCustomerPortal,
     });
 
-    collections.push(plansCollection);
     collections.push(subscriptionsCollection);
+    collections.push(plansCollection);
 
     config.collections = collections;
     config.endpoints = endpoints;
