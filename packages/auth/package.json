@@ -15,7 +15,7 @@
     "node-mocks-http": "^1.16.2",
     "payload": "^3.18.0",
     "sharp": "0.33.5",
-    "stripe": "^17.5.0"
+    "stripe": "^17.6.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

@@ -1,17 +1,9 @@
 {
-  "name": "@repo/payments",
+  "name": "@repo/memberships",
   "version": "0.0.1",
-  "main": "./src/index.ts",
-  "scripts": {
-    "test": "vitest --hook-timeout=100000"
-  },
-  "dependencies": {
-    "@payloadcms/ui": "^3.18.0",
-    "@repo/roles": "workspace:*",
-    "@repo/ui": "workspace:*",
-    "payload": "^3.18.0",
-    "stripe": "^17.6.0"
-  },
+  "main": "src/index.ts",
+  "private": true,
+  "dependencies": {},
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@payloadcms/db-postgres": "^3.18.0",
