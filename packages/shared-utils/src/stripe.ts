@@ -6,7 +6,7 @@ export const stripe = new Stripe(
   process.env.STRIPE_SECRET_KEY || "sk_test_1txjIPtYBUuqu9QKdSrdL9ml",
   {
     // https://github.com/stripe/stripe-node#configuration
-    apiVersion: "2024-12-18.acacia",
+    apiVersion: "2025-01-27.acacia",
   }
 );
 
