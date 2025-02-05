@@ -3,6 +3,8 @@ import { AccessArgs } from "payload";
 import { Access } from "payload";
 import { Booking, Lesson, User } from "../types";
 
+import { hasReachedSubscriptionLimit } from "@repo/shared-services";
+
 export const isAdminOrMember: Access = async ({
   req,
   data,
@@ -43,9 +45,31 @@ export const isAdminOrMember: Access = async ({
 
       //TODO: Import check if the user has a subscription plan that is allowed for this lesson from shared-services
 
-      
+      try {
+        const userSubscription = await req.payload.find({
+          collection: "subscriptions",
+          where: {
+            user: { equals: user.id },
+            status: { equals: "active" },
+            endDate: { greater_than: new Date() },
+          },
+          limit: 1,
+        });
 
-      return false;
+        if (userSubscription.docs.length === 0) return false;
+
+        const subscription = userSubscription.docs[0];
+        const reachedLimit = await hasReachedSubscriptionLimit(
+          subscription,
+          req.payload
+        );
+        if (reachedLimit) return false;
+
+        return true;
+      } catch (error) {
+        console.error("Error checking subscription:", error);
+        return false;
+      }
     }
 
     // Check if the lesson has an allowed drop in payment method

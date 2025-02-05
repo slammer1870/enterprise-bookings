@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "@repo/bookings";
+import { membershipsPlugin } from "@repo/memberships";
 import { paymentsPlugin } from "@repo/payments";
 import { rolesPlugin } from "@repo/roles";
 
@@ -66,6 +67,9 @@ export const config: Config = {
       enabled: true,
     }),
     paymentsPlugin({
+      enabled: true,
+    }),
+    membershipsPlugin({
       enabled: true,
     }),
     bookingsPlugin({

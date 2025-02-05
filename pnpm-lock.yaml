@@ -404,6 +404,9 @@ importers:
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../shared-services
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../shared-utils
@@ -498,6 +501,9 @@ importers:
       '@repo/bookings':
         specifier: workspace:*
         version: link:../bookings
+      '@repo/memberships':
+        specifier: workspace:*
+        version: link:../memberships
       '@repo/payments':
         specifier: workspace:*
         version: link:../payments
@@ -690,6 +696,10 @@ importers:
       payload:
         specifier: ^3.18.0
         version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
 
   packages/shared-types: {}
 

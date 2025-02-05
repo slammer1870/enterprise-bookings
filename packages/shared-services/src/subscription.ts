@@ -1,4 +1,4 @@
-import { Payload } from "payload";
+import { Payload, Where } from "payload";
 
 export const hasActiveSubscription = async (
   userId: number,
@@ -23,12 +23,28 @@ export const hasActiveSubscription = async (
   }
 };
 
-/*
-const hasReachedSubscriptionLimit = async (
-  subscription: Subscription & { user: User },
+const query = (
+  subscription: any,
+  plan: any,
+  intervalStartDate: Date
+): Where => {
+  return {
+    user: { equals: subscription.user.id },
+    "lesson.classOption.paymentMethods.allowedPlans": {
+      contains: plan.id,
+    },
+    createdAt: {
+      greater_than: intervalStartDate,
+    },
+    status: { equals: "confirmed" },
+  };
+};
+
+export const hasReachedSubscriptionLimit = async (
+  subscription: any,
   payload: Payload
 ): Promise<boolean> => {
-  let plan: Plan;
+  let plan: any;
 
   if (typeof subscription.plan === "number") {
     plan = await payload.findByID({
@@ -45,19 +61,18 @@ const hasReachedSubscriptionLimit = async (
 
   const intervalStartDate = getIntervalStartDate(
     plan.interval,
-    plan.interval_count || 1,
+    plan.intervalCount || 1,
     new Date()
   );
 
+  // TODO: add a check to see if the subscription is a drop in or free
+  // if it is, then we need to check the drop in limit
+  // if it is not, then we need to check the sessions limit
+
   const bookings = await payload.find({
     collection: "bookings",
-    where: {
-      user: { equals: subscription.user.id },
-      createdAt: {
-        greater_than: intervalStartDate,
-      },
-      status: { equals: "confirmed" },
-    },
+    where: query(subscription, plan, intervalStartDate),
+    depth: 5,
   });
 
   if (bookings.docs.length >= plan.sessions) {
@@ -94,4 +109,3 @@ const getIntervalStartDate = (
 
   return startDate;
 };
-*/

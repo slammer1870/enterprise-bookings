@@ -48,7 +48,7 @@ export const plansCollection: CollectionConfig = {
           },
         },
         {
-          name: "interval_count",
+          name: "intervalCount",
           label: "Per",
           type: "number",
           admin: {
@@ -73,7 +73,7 @@ export const plansCollection: CollectionConfig = {
       ],
     },
     {
-      name: "stripeProductID",
+      name: "stripeProductId",
       type: "text",
       label: "Stripe Plan",
       access: {

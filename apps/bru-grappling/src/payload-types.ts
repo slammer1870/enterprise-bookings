@@ -12,29 +12,33 @@ export interface Config {
   };
   collections: {
     media: Media;
+    users: User;
+    subscriptions: Subscription;
+    plans: Plan;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
-    users: User;
     'drop-ins': DropIn;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    users: {
+      userSubscription: 'subscriptions';
+    };
     lessons: {
       bookings: 'bookings';
-    };
-    'drop-ins': {
-      allowedClasses: 'class-options';
     };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -93,6 +97,78 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  roles?: ('customer' | 'admin')[] | null;
+  name: string;
+  stripeCustomerId?: string | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  start_date?: string | null;
+  end_date?: string | null;
+  stripeSubscriptionID?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Number of sessions included in this plan
+   */
+  sessions?: number | null;
+  /**
+   * Number of sessions per interval
+   */
+  interval_count?: number | null;
+  /**
+   * How often the sessions are included
+   */
+  interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  stripeProductID?: string | null;
+  priceJSON?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons".
  */
 export interface Lesson {
@@ -132,6 +208,7 @@ export interface ClassOption {
   description: string;
   paymentMethods?: {
     allowedDropIns?: (number | DropIn)[] | null;
+    allowedPlans?: (number | Plan)[] | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -146,10 +223,7 @@ export interface DropIn {
   price: number;
   priceType: 'trial' | 'normal';
   active?: boolean | null;
-  allowedClasses?: {
-    docs?: (number | ClassOption)[] | null;
-    hasNextPage?: boolean | null;
-  } | null;
+  allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -167,26 +241,6 @@ export interface Booking {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  roles?: ('customer' | 'admin')[] | null;
-  name: string;
-  stripeCustomerId?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -195,6 +249,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null)
+    | ({
+        relationTo: 'subscriptions';
+        value: number | Subscription;
+      } | null)
+    | ({
+        relationTo: 'plans';
+        value: number | Plan;
       } | null)
     | ({
         relationTo: 'lessons';
@@ -207,10 +273,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'bookings';
         value: number | Booking;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
       } | null)
     | ({
         relationTo: 'drop-ins';
@@ -278,6 +340,59 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  roles?: T;
+  name?: T;
+  stripeCustomerId?: T;
+  userSubscription?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  user?: T;
+  plan?: T;
+  status?: T;
+  start_date?: T;
+  end_date?: T;
+  stripeSubscriptionID?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans_select".
+ */
+export interface PlansSelect<T extends boolean = true> {
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessions?: T;
+  interval_count?: T;
+  interval?: T;
+  stripeProductID?: T;
+  priceJSON?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons_select".
  */
 export interface LessonsSelect<T extends boolean = true> {
@@ -305,6 +420,7 @@ export interface ClassOptionsSelect<T extends boolean = true> {
     | T
     | {
         allowedDropIns?: T;
+        allowedPlans?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -319,24 +435,6 @@ export interface BookingsSelect<T extends boolean = true> {
   status?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  roles?: T;
-  name?: T;
-  stripeCustomerId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

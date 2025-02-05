@@ -44,7 +44,7 @@ export const subscriptionsCollection: CollectionConfig = {
       type: "row",
       fields: [
         {
-          name: "start_date",
+          name: "startDate",
           type: "date",
           admin: {
             date: {
@@ -53,7 +53,7 @@ export const subscriptionsCollection: CollectionConfig = {
           },
         },
         {
-          name: "end_date",
+          name: "endDate",
           type: "date",
           admin: {
             date: {
@@ -64,7 +64,7 @@ export const subscriptionsCollection: CollectionConfig = {
       ],
     },
     {
-      name: "stripeSubscriptionID",
+      name: "stripeSubscriptionId",
       type: "text",
       label: "Stripe Subscription ID",
       access: {
