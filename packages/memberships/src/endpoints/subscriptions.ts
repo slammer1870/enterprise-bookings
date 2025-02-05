@@ -23,21 +23,11 @@ export const subscriptionsProxy: PayloadHandler = async (
     ); // Ensure to return a Response object
   }
 
-  if (!req.json) {
-    if (logs) req.payload.logger.error({ err: `Request body is undefined` });
-    return new Response(JSON.stringify("Request body is undefined"), {
-      status: 400,
-    });
-  }
-
-  const { user } = await req.json();
-
-  const stripeUser = await req.payload.findByID({
-    collection: "users",
-    id: user,
-  });
-
   try {
+    const stripeUser = await req.payload.findByID({
+      collection: "users",
+      id: req.user.id,
+    });
     const subscriptions = await stripe.subscriptions.list({
       limit: 100,
       expand: ["data.customer"],
