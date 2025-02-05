@@ -36,6 +36,20 @@ vi.mock("../src/endpoints/create-checkout-session", () => ({
   ),
 }));
 
+// Mock the createCustomerPortal function
+vi.mock("../src/endpoints/create-customer-portal", () => ({
+  createCustomerPortal: vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        url: "https://mock-customer-portal.stripe.com",
+      }),
+      {
+        status: 200,
+      }
+    )
+  ),
+}));
+
 describe("Users tests", () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
@@ -83,5 +97,36 @@ describe("Users tests", () => {
     expect(response.status).toBe(200);
 
     expect(data.url).toBe("https://mock-checkout.stripe.com");
+  });
+
+  it("should return a customer portal url", async () => {
+    const user = await payload.create({
+      collection: "users",
+      data: {
+        email: "test1@example.com",
+        password: "password",
+        stripeCustomerId: "cus_mockId",
+      },
+    });
+
+    const response = await restClient
+      .login({
+        credentials: {
+          email: user.email,
+          password: "password",
+        },
+      })
+      .then(() =>
+        restClient.POST("/stripe/create-customer-portal", {
+          body: JSON.stringify({
+            user_id: user.id,
+          }),
+        })
+      );
+
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.url).toBe("https://mock-customer-portal.stripe.com");
   });
 });
