@@ -13,6 +13,7 @@ import { Media } from './collections/Media'
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
+import { membershipsPlugin } from '@repo/memberships'
 import { rolesPlugin } from '@repo/roles'
 
 const filename = fileURLToPath(import.meta.url)
@@ -51,11 +52,14 @@ export default buildConfig({
     paymentsPlugin({
       enabled: true,
     }),
+    membershipsPlugin({
+      enabled: true,
+    }),
     bookingsPlugin({
       enabled: true,
       paymentsMethods: {
         dropIns: true,
-        plans: false,
+        plans: true,
         classePasses: false,
       },
     }),

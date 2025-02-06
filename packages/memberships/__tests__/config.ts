@@ -7,10 +7,7 @@ import { Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
-import { bookingsPlugin } from "@repo/bookings";
-import { membershipsPlugin } from "@repo/memberships";
-import { paymentsPlugin } from "@repo/payments";
-import { rolesPlugin } from "@repo/roles";
+import { membershipsPlugin } from "../src";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -30,6 +27,9 @@ export const config: Config = {
         useAsTitle: "email",
       },
       auth: true,
+      access: {
+        create: () => true,
+      },
       fields: [
         // Email added by default
         // Add more fields as needed
@@ -61,24 +61,5 @@ export const config: Config = {
     },
   }),
   sharp,
-  plugins: [
-    payloadCloudPlugin(),
-    rolesPlugin({
-      enabled: true,
-    }),
-    paymentsPlugin({
-      enabled: true,
-    }),
-    membershipsPlugin({
-      enabled: true,
-    }),
-    bookingsPlugin({
-      enabled: true,
-      paymentsMethods: {
-        dropIns: true,
-        plans: false,
-        classePasses: false,
-      },
-    }),
-  ],
+  plugins: [payloadCloudPlugin(), membershipsPlugin({ enabled: true })],
 };

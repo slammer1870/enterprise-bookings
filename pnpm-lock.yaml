@@ -41,6 +41,9 @@ importers:
       '@repo/bookings':
         specifier: workspace:*
         version: link:../../packages/bookings
+      '@repo/memberships':
+        specifier: workspace:*
+        version: link:../../packages/memberships
       '@repo/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -298,8 +301,8 @@ importers:
         specifier: 0.33.5
         version: 0.33.5
       stripe:
-        specifier: ^17.5.0
-        version: 17.5.0
+        specifier: ^17.6.0
+        version: 17.6.0
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -392,8 +395,8 @@ importers:
         specifier: ^1.7.2
         version: 1.7.2(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       stripe:
-        specifier: ^17.5.0
-        version: 17.5.0
+        specifier: ^17.6.0
+        version: 17.6.0
       zod:
         specifier: ^3.24.1
         version: 3.24.1
@@ -401,6 +404,9 @@ importers:
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../shared-services
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../shared-utils
@@ -495,6 +501,9 @@ importers:
       '@repo/bookings':
         specifier: workspace:*
         version: link:../bookings
+      '@repo/memberships':
+        specifier: workspace:*
+        version: link:../memberships
       '@repo/payments':
         specifier: workspace:*
         version: link:../payments
@@ -523,6 +532,64 @@ importers:
         specifier: ^3.0.3
         version: 3.0.3(@types/node@22.10.7)(jiti@1.21.7)(sass@1.77.4)(tsx@4.19.2)(yaml@2.7.0)
 
+  packages/memberships:
+    dependencies:
+      next:
+        specifier: ^15.1.5
+        version: 15.1.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(sass@1.77.4)
+      payload:
+        specifier: ^3.18.0
+        version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
+    devDependencies:
+      '@payloadcms/db-postgres':
+        specifier: ^3.18.0
+        version: 3.18.0(payload@3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3))(react@19.0.0)(types-react@19.0.0-rc.1)
+      '@payloadcms/payload-cloud':
+        specifier: ^3.18.0
+        version: 3.18.0(payload@3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3))
+      '@payloadcms/richtext-lexical':
+        specifier: ^3.18.0
+        version: 3.18.0(2zdu42x4dczidia72hu6e4lekq)
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
+      '@repo/testing-config':
+        specifier: workspace:*
+        version: link:../testing-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.10.7
+        version: 22.10.7
+      '@types/react':
+        specifier: npm:types-react@19.0.0-rc.1
+        version: types-react@19.0.0-rc.1
+      '@types/react-dom':
+        specifier: npm:types-react-dom@19.0.0-rc.1
+        version: types-react-dom@19.0.0-rc.1
+      eslint:
+        specifier: ^9.18.0
+        version: 9.18.0(jiti@1.21.7)
+      eslint-config-next:
+        specifier: 15.1.5
+        version: 15.1.5(eslint@9.18.0(jiti@1.21.7))(typescript@5.7.3)
+      sharp:
+        specifier: 0.33.5
+        version: 0.33.5
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vitest:
+        specifier: ^3.0.3
+        version: 3.0.3(@types/node@22.10.7)(jiti@1.21.7)(sass@1.77.4)(tsx@4.19.2)(yaml@2.7.0)
+
   packages/payments:
     dependencies:
       '@payloadcms/ui':
@@ -538,8 +605,8 @@ importers:
         specifier: ^3.18.0
         version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
       stripe:
-        specifier: ^17.5.0
-        version: 17.5.0
+        specifier: ^17.6.0
+        version: 17.6.0
     devDependencies:
       '@payloadcms/db-postgres':
         specifier: ^3.18.0
@@ -629,6 +696,10 @@ importers:
       payload:
         specifier: ^3.18.0
         version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
+    devDependencies:
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
 
   packages/shared-types: {}
 
@@ -6498,10 +6569,6 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
-
-  stripe@17.5.0:
-    resolution: {integrity: sha512-kcyeAkDFjGsVl17FqnG7q/+xIjt0ZjOo9Dm+q8deAvs2Xe4iAHrhxyoP4etUVFc+/LZJANjIPVR+ZOnt9hr/Ug==}
-    engines: {node: '>=12.*'}
 
   stripe@17.6.0:
     resolution: {integrity: sha512-+HB6+SManp0gSRB0dlPmXO+io18krlAe0uimXhhIkL/RG/VIRigkfoM3QDJPkqbuSW0XsA6uzsivNCJU1ELEDA==}
@@ -14161,11 +14228,6 @@ snapshots:
   strip-json-comments@2.0.1: {}
 
   strip-json-comments@3.1.1: {}
-
-  stripe@17.5.0:
-    dependencies:
-      '@types/node': 22.10.7
-      qs: 6.14.0
 
   stripe@17.6.0:
     dependencies:
