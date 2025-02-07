@@ -5,7 +5,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@repo/shared-utils": ["src/index.ts"]
+      "@repo/shared-services": ["src/index.ts"]
     }
   },
   "version": "0.0.1"

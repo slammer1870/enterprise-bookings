@@ -12,6 +12,7 @@ export interface Config {
   };
   collections: {
     media: Media;
+    pages: Page;
     users: User;
     subscriptions: Subscription;
     plans: Plan;
@@ -33,6 +34,7 @@ export interface Config {
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
@@ -97,6 +99,38 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  slug: string;
+  layout?: (HeroBlock | ContentBlock)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock".
+ */
+export interface HeroBlock {
+  title?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ContentBlock".
+ */
+export interface ContentBlock {
+  title?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'content';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -128,9 +162,9 @@ export interface Subscription {
   user: number | User;
   plan: number | Plan;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  start_date?: string | null;
-  end_date?: string | null;
-  stripeSubscriptionID?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  stripeSubscriptionId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -157,12 +191,12 @@ export interface Plan {
   /**
    * Number of sessions per interval
    */
-  interval_count?: number | null;
+  intervalCount?: number | null;
   /**
    * How often the sessions are included
    */
   interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-  stripeProductID?: string | null;
+  stripeProductId?: string | null;
   priceJSON?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -249,6 +283,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
       } | null)
     | ({
         relationTo: 'users';
@@ -340,6 +378,40 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        hero?: T | HeroBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock_select".
+ */
+export interface HeroBlockSelect<T extends boolean = true> {
+  title?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ContentBlock_select".
+ */
+export interface ContentBlockSelect<T extends boolean = true> {
+  title?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -365,9 +437,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   user?: T;
   plan?: T;
   status?: T;
-  start_date?: T;
-  end_date?: T;
-  stripeSubscriptionID?: T;
+  startDate?: T;
+  endDate?: T;
+  stripeSubscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -384,9 +456,9 @@ export interface PlansSelect<T extends boolean = true> {
         id?: T;
       };
   sessions?: T;
-  interval_count?: T;
+  intervalCount?: T;
   interval?: T;
-  stripeProductID?: T;
+  stripeProductId?: T;
   priceJSON?: T;
   updatedAt?: T;
   createdAt?: T;
