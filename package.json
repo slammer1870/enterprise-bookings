@@ -20,6 +20,7 @@
     "lint": "turbo lint",
     "syncpack": "syncpack",
     "test": "turbo run test",
-    "ui": "pnpm --filter @repo/ui ui"
+    "ui": "pnpm --filter @repo/ui ui",
+    "payload": "turbo run payload"
   }
 }
