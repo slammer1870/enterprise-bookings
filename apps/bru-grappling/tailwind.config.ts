@@ -7,7 +7,7 @@ export default {
     '../../packages/ui/src/**/*{.js,.ts,.jsx,.tsx}',
   ], // tell tailwind where to look
   corePlugins: {
-    preflight: false, // Disable Tailwind’s CSS reset
+    preflight: true, // Disable Tailwind’s CSS reset
   },
   darkMode: ['selector', '[data-theme="dark"]', '.dark', 'class'],
   theme: {

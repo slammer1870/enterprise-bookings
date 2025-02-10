@@ -115,6 +115,7 @@ export interface Page {
  */
 export interface HeroBlock {
   title?: string | null;
+  backgroundImage?: (number | null) | Media;
   id?: string | null;
   blockName?: string | null;
   blockType: 'hero';
@@ -398,6 +399,7 @@ export interface PagesSelect<T extends boolean = true> {
  */
 export interface HeroBlockSelect<T extends boolean = true> {
   title?: T;
+  backgroundImage?: T;
   id?: T;
   blockName?: T;
 }

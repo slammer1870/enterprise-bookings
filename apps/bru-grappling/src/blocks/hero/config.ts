@@ -8,5 +8,10 @@ export const Hero: Block = {
       name: 'title',
       type: 'text',
     },
+    {
+      name: 'backgroundImage',
+      type: 'upload',
+      relationTo: 'media',
+    },
   ],
 }
