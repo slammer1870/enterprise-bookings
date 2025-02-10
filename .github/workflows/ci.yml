@@ -60,7 +60,7 @@ jobs:
           echo "Postgres is up!"
 
       - name: Run database migrations
-        run: pnpm run payload migrate
+        run: pnpm run payload -- migrate
 
       - name: Debug Database URI
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
