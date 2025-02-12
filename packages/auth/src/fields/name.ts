@@ -5,6 +5,7 @@ export const name: Field = {
   label: "Name",
   type: "text",
   required: true,
+  defaultValue: "",
   access: {
     read: () => true,
   },

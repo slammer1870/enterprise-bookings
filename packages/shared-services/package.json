@@ -1,12 +1,13 @@
 {
   "name": "@repo/shared-services",
   "version": "0.0.1",
-  "private": true,
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*"
+  },
   "main": "src/index.ts",
   "peerDependencies": {
     "payload": "^3.18.0"
   },
-  "devDependencies": {
-    "@repo/typescript-config": "workspace:*"
-  }
+  "private": true,
+  "type": "module"
 }

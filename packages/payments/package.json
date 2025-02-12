@@ -1,10 +1,6 @@
 {
   "name": "@repo/payments",
   "version": "0.0.1",
-  "main": "./src/index.ts",
-  "scripts": {
-    "test": "vitest --hook-timeout=100000"
-  },
   "dependencies": {
     "@payloadcms/ui": "^3.18.0",
     "@repo/roles": "workspace:*",
@@ -13,12 +9,12 @@
     "stripe": "^17.6.0"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
     "@payloadcms/db-postgres": "^3.18.0",
     "@payloadcms/payload-cloud": "^3.18.0",
     "@payloadcms/richtext-lexical": "^3.18.0",
-    "@repo/shared-utils": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
     "@repo/shared-types": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
@@ -29,6 +25,10 @@
     "sharp": "0.33.5",
     "typescript": "5.7.3",
     "vitest": "^3.0.3"
+  },
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest --hook-timeout=100000"
   },
   "type": "module"
 }

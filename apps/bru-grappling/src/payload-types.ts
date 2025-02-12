@@ -128,9 +128,9 @@ export interface Subscription {
   user: number | User;
   plan: number | Plan;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  start_date?: string | null;
-  end_date?: string | null;
-  stripeSubscriptionID?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  stripeSubscriptionId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -157,12 +157,12 @@ export interface Plan {
   /**
    * Number of sessions per interval
    */
-  interval_count?: number | null;
+  intervalCount?: number | null;
   /**
    * How often the sessions are included
    */
   interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-  stripeProductID?: string | null;
+  stripeProductId?: string | null;
   priceJSON?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -365,9 +365,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   user?: T;
   plan?: T;
   status?: T;
-  start_date?: T;
-  end_date?: T;
-  stripeSubscriptionID?: T;
+  startDate?: T;
+  endDate?: T;
+  stripeSubscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -384,9 +384,9 @@ export interface PlansSelect<T extends boolean = true> {
         id?: T;
       };
   sessions?: T;
-  interval_count?: T;
+  intervalCount?: T;
   interval?: T;
-  stripeProductID?: T;
+  stripeProductId?: T;
   priceJSON?: T;
   updatedAt?: T;
   createdAt?: T;

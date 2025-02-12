@@ -20,8 +20,7 @@
     "payload": "^3.18.0",
     "react-day-picker": "8.10.1",
     "react-hook-form": "^7.54.2",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss": "^3.4.17",
+    "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.1"
   },
@@ -35,10 +34,12 @@
     "@types/react": "npm:types-react@19.0.0-rc.1",
     "@types/react-dom": "npm:types-react-dom@19.0.0-rc.1",
     "eslint": "^9.18.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
     "typescript": "5.7.3"
   },
   "exports": {
-    "./globals.css": "./src/globals.css",
+    "./globals.css": "./src/styles/globals.css",
     "./postcss.config": "./postcss.config.mjs",
     "./tailwind.config": "./tailwind.config.ts",
     "./lib/*": "./src/lib/*.ts",
