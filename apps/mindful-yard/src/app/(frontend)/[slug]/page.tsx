@@ -4,7 +4,7 @@ import { getPayload, RequiredDataFromCollectionSlug } from 'payload'
 
 import config from '@/payload.config'
 
-import { RenderBlocks } from '@/block/render-blocks'
+import { RenderBlocks } from '@/blocks/render-blocks'
 
 export async function generateStaticParams() {
   const payload = await getPayload({ config })

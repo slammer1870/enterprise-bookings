@@ -115,6 +115,14 @@ export interface HeroBlock {
   tagline?: string | null;
   image?: (number | null) | Media;
   video?: (number | null) | Media;
+  cta?:
+    | {
+        text?: string | null;
+        variant?: ('default' | 'outline') | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'hero';
@@ -236,6 +244,14 @@ export interface HeroBlockSelect<T extends boolean = true> {
   tagline?: T;
   image?: T;
   video?: T;
+  cta?:
+    | T
+    | {
+        text?: T;
+        variant?: T;
+        url?: T;
+        id?: T;
+      };
   id?: T;
   blockName?: T;
 }

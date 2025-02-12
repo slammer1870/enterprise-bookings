@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Play } from 'lucide-react'
-import { Dialog, DialogContent } from '@repo/ui/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@repo/ui/components/ui/dialog'
 import { Button } from '@repo/ui/components/ui/button'
 
 interface VideoModalProps {
@@ -32,8 +32,9 @@ export function VideoModal({ imageSrc, videoSrc, imageAlt }: VideoModalProps) {
         </Button>
       </div>
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogTitle className="sr-only">Video</DialogTitle>
         <DialogContent className="p-0 w-auto">
-          <video src={videoSrc} controls autoPlay className="max-w-screen-sm max-h-[80vh] mx-auto">
+          <video src={videoSrc} controls autoPlay className="max-w-[80vw] max-h-[80vh] mx-auto">
             Your browser does not support the video tag.
           </video>
         </DialogContent>

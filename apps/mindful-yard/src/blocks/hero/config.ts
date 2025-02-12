@@ -18,5 +18,24 @@ export const Hero: Block = {
       type: 'upload',
       relationTo: 'media',
     },
+    {
+      name: 'cta',
+      type: 'array',
+      fields: [
+        {
+          name: 'text',
+          type: 'text',
+        },
+        {
+          name: 'variant',
+          type: 'select',
+          options: ['default', 'outline'],
+        },
+        {
+          name: 'url',
+          type: 'text',
+        },
+      ],
+    },
   ],
 }

@@ -1,6 +1,6 @@
 import { CollectionConfig } from 'payload'
 
-import { Hero } from '@/block/hero/config'
+import { Hero } from '@/blocks/hero/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
