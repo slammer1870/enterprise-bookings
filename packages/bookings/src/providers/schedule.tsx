@@ -1,8 +1,10 @@
-import { getLessonsQuery } from "@repo/shared-utils";
+import { getActiveBookingsQuery, getLessonsQuery } from "@repo/shared-utils";
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 import { Lesson } from "../types";
 import { toast } from "sonner";
+
+import { useConfirm } from "@repo/ui/components/ui/use-confirm";
 
 import { useRouter } from "next/navigation";
 
@@ -12,7 +14,7 @@ type ScheduleContextType = {
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
   checkIn: (lessonId: number, userId: string) => void;
-  cancelBooking: (lessonId: number) => void;
+  cancelBooking: (lessonId: number, userId: number) => Promise<void>;
 };
 
 const ScheduleContext = createContext<ScheduleContextType | undefined>(
@@ -26,9 +28,14 @@ export const ScheduleProvider: React.FC<{
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [lessons, setLessons] = useState<Lesson[]>([]);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const router = useRouter();
+
+  const [ConfirmationDialog, confirm] = useConfirm(
+    "Are you sure you want to cancel your booking?",
+    "This action cannot be undone"
+  );
 
   const getLessons = async () => {
     const query = getLessonsQuery(selectedDate);
@@ -88,12 +95,25 @@ export const ScheduleProvider: React.FC<{
     }
   };
 
-  const cancelBooking = (lessonId: number) => {
-    setLessons((prevLessons) =>
-      prevLessons.map((lesson) =>
-        lesson.id === lessonId ? { ...lesson, bookingStatus: "active" } : lesson
-      )
-    );
+  const cancelBooking = async (lessonId: number, userId: number) => {
+    const query = getActiveBookingsQuery(userId, lessonId);
+
+    const response = await fetch(`/api/bookings${query}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      toast.error(data.errors[0].message || "An error occurred");
+      throw new Error(data.errors[0].message || "An error occurred");
+    }
+
+    const updatedLessons = await getLessons();
+
+    setLessons(updatedLessons);
+
+    toast.success("Booking cancelled");
   };
 
   return (

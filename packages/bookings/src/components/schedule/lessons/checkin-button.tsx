@@ -14,10 +14,14 @@ import { getActiveBookingsQuery } from "@repo/shared-utils";
 
 import { useSchedule } from "../../../providers/schedule";
 
+import { useState } from "react";
+
 export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   const router = useRouter();
 
-  const { checkIn } = useSchedule();
+  const [loading, setLoading] = useState(false);
+
+  const { checkIn, cancelBooking } = useSchedule();
 
   const status = lesson.bookingStatus;
 
@@ -50,7 +54,10 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "active":
         case "trialable":
           // Perform check-in logic here
+          setLoading(true);
           checkIn(lesson.id, user.id);
+          setLoading(false);
+
           break;
         case "closed":
           toast.error("Class is closed for check-in");
@@ -62,18 +69,9 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "booked":
           const ok = await confirm();
           if (ok) {
-            const query = getActiveBookingsQuery(user.id, lesson.id);
-
-            const response = await fetch(`/api/bookings${query}`, {
-              method: "DELETE",
-              credentials: "include",
-            });
-
-            if (!response.ok) {
-              const data = await response.json();
-              toast.error(data.errors[0].message || "An error occurred");
-              throw new Error(data.errors[0].message || "An error occurred");
-            }
+            setLoading(true);
+            cancelBooking(lesson.id, user.id);
+            setLoading(false);
           }
           break;
         default:
@@ -99,17 +97,19 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         onClick={handleClick}
         className={`w-full p-2 uppercase border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
       >
-        {status === "closed"
-          ? "Closed"
-          : status === "waitlist"
-            ? "Join the waitlist"
-            : status === "trialable"
-              ? "Book Trial Class"
-              : status === "active"
-                ? lesson.classOption.type === "child"
-                  ? "Check Child In"
-                  : "Check In"
-                : "Cancel Booking"}
+        {loading
+          ? "Loading..."
+          : status === "closed"
+            ? "Closed"
+            : status === "waitlist"
+              ? "Join the waitlist"
+              : status === "trialable"
+                ? "Book Trial Class"
+                : status === "active"
+                  ? lesson.classOption.type === "child"
+                    ? "Check Child In"
+                    : "Check In"
+                  : "Cancel Booking"}
       </Button>
       <ConfirmationDialog />
     </>

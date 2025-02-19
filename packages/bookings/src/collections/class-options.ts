@@ -11,6 +11,9 @@ export const classOptionsCollection = (
       singular: "Class Option",
       plural: "Class Options",
     },
+    access: {
+      read: () => true,
+    },
     admin: {
       group: "Bookings",
       useAsTitle: "name",

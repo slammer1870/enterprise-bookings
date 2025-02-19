@@ -153,7 +153,7 @@ export const lessonsCollection: CollectionConfig = {
           name: "location",
           label: "Location",
           type: "text",
-          required: true,
+          required: false,
         },
       ],
     },
