@@ -1,6 +1,7 @@
-import '@repo/ui/globals.css'
+import './globals.css'
 
 import { Roboto } from 'next/font/google'
+import { Toaster } from 'sonner'
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -13,7 +14,10 @@ const roboto = Roboto({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html>
-      <body className={roboto.className}>{children}</body>
+      <body className={roboto.className}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   )
 }

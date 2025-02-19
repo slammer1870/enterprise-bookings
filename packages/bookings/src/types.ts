@@ -28,6 +28,8 @@ export type Lesson = {
   startTime: string;
   endTime: string;
   classOption: ClassOption;
+  location: string;
+  user: User;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
   bookingStatus: "active" | "waitlist" | "closed" | "booked" | "trialable";
@@ -47,6 +49,7 @@ export interface User {
   name?: string;
   email: string;
   roles?: string[];
+  image?: { url: string };
 }
 
 export interface ClassOption {

@@ -7,16 +7,19 @@ export const Hero: Block = {
     {
       name: 'tagline',
       type: 'text',
+      required: true,
     },
     {
       name: 'image',
       type: 'upload',
       relationTo: 'media',
+      required: true,
     },
     {
       name: 'video',
       type: 'upload',
       relationTo: 'media',
+      required: false,
     },
     {
       name: 'cta',

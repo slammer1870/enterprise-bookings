@@ -1,6 +1,7 @@
 import { CollectionConfig } from 'payload'
 
 import { Hero } from '@/blocks/hero/config'
+import { Schedule } from '@/blocks/schedule/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -21,7 +22,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero],
+      blocks: [Hero, Schedule],
     },
   ],
 }

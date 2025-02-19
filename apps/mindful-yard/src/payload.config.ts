@@ -11,6 +11,8 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
+import { bookingsPlugin } from '@repo/bookings/src'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -35,6 +37,9 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    bookingsPlugin({
+      enabled: true,
+    }),
     // storage-adapter-placeholder
   ],
 })

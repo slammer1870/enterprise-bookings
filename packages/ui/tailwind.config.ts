@@ -8,6 +8,7 @@ const config = {
     "src/components/**/*.{ts,tsx}",
     "src/blocks/**/*.{ts,tsx}",
     "../../packages/ui/src/components/**/*.{ts,tsx}",
+    "../../packages/bookings/src/components/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {

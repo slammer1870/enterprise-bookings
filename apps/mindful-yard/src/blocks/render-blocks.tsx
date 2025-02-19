@@ -4,8 +4,11 @@ import type { Page } from '@/payload-types'
 
 import { HeroBlock } from './hero'
 
+import { ScheduleBlock } from './schedule'
+
 const blockComponents = {
   hero: HeroBlock,
+  schedule: ScheduleBlock,
 }
 
 export const RenderBlocks: React.FC<{
