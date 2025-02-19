@@ -9,6 +9,8 @@ import { LessonList } from "./lessons/lesson-list";
 export const Schedule = () => {
   const { lessons, isLoading, selectedDate, setSelectedDate } = useSchedule();
 
+  console.log("Schedule Lessons", lessons);
+
   return (
     <div>
       <ToggleDate date={selectedDate} setDate={setSelectedDate} />

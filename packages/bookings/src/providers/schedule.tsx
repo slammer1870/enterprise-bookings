@@ -28,20 +28,27 @@ export const ScheduleProvider: React.FC<{
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const query = getLessonsQuery(selectedDate);
-
   const router = useRouter();
+
+  const getLessons = async () => {
+    const query = getLessonsQuery(selectedDate);
+
+    const data = await fetch(`/api/lessons${query}`, {
+      method: "GET",
+    });
+
+    const lessons = await data.json();
+
+    return lessons.docs;
+  };
 
   useEffect(() => {
     const fetchLessons = async () => {
       setIsLoading(true);
-      const data = await fetch(`/api/lessons${query}`, {
-        method: "GET",
-      });
 
-      const lessons = await data.json();
+      const lessons = await getLessons();
 
-      setLessons(lessons.docs);
+      setLessons(lessons);
       setIsLoading(false);
     };
 
@@ -63,18 +70,16 @@ export const ScheduleProvider: React.FC<{
         },
       });
 
-      const data = await response.json();
-
-      const newLesson = data.doc.lesson;
-
       if (!response.ok) {
+        const data = await response.json();
+
         toast.error(data.errors[0].message || "An error occurred");
         router.push("/bookings");
       }
 
-      setLessons(
-        lessons.map((lesson) => (lesson.id === lessonId ? newLesson : lesson))
-      );
+      const updatedLessons = await getLessons();
+
+      setLessons(updatedLessons);
 
       toast.success("Booking confirmed");
     } catch (error) {
