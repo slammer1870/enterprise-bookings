@@ -70,8 +70,6 @@ export const ScheduleProvider: React.FC<{
 
       const bookingData = await booking.json();
 
-      console.log(bookingData);
-
       if (bookingData.docs.length > 0) {
         const updatedBooking = await fetch(`/api/bookings${query}`, {
           method: "PATCH",
