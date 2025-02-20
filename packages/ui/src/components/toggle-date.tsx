@@ -25,7 +25,7 @@ export function ToggleDate(props: ToggleDateProps) {
             transform="translate(0 15) rotate(-90)"
           />
         </svg>
-        <p className="text-xl">{date.toDateString()}</p>
+        <p className="text-lg">{date.toDateString()}</p>
         <svg
           onClick={() => handleChange(+1)}
           viewBox="0 0 13 15"

@@ -84,7 +84,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   };
 
   const buttonStyles = {
-    closed: "bg-muted",
+    closed: "bg-muted text-muted-foreground ",
     waitlist: "bg-accent",
     trialable: "bg-secondary",
     active: "bg-primary",
@@ -95,7 +95,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     <>
       <Button
         onClick={handleClick}
-        className={`w-full p-2 uppercase border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
+        className={`w-full p-2 border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
       >
         {loading
           ? "Loading..."
