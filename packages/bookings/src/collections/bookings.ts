@@ -1,6 +1,6 @@
 import { APIError, CollectionConfig } from "payload";
 
-import { isAdminOrMember } from "../access/bookings";
+import { isAdminOrMember, isAdminOrOwnsBooking } from "../access/bookings";
 
 export const bookingsCollection: CollectionConfig = {
   slug: "bookings",
@@ -13,6 +13,7 @@ export const bookingsCollection: CollectionConfig = {
   access: {
     //TODO: Add read, update and delete access control
     create: isAdminOrMember,
+    update: isAdminOrOwnsBooking,
   },
   fields: [
     {
@@ -55,6 +56,22 @@ export const bookingsCollection: CollectionConfig = {
         }
 
         return data;
+      },
+      async ({ req, data, operation }) => {
+        if (operation === "create") {
+          const booking = await req.payload.find({
+            collection: "bookings",
+            where: {
+              lesson: data?.lesson,
+              user: data?.user,
+            },
+            depth: 1,
+          });
+
+          if (booking.docs.length > 0) {
+            throw new APIError("A booking already exists for this lesson", 400);
+          }
+        }
       },
     ],
   },

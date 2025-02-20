@@ -55,7 +55,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "trialable":
           // Perform check-in logic here
           setLoading(true);
-          checkIn(lesson.id, user.id);
+          await checkIn(lesson.id, user.id);
           setLoading(false);
 
           break;
@@ -70,7 +70,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           const ok = await confirm();
           if (ok) {
             setLoading(true);
-            cancelBooking(lesson.id, user.id);
+            await cancelBooking(lesson.id, user.id);
             setLoading(false);
           }
           break;
