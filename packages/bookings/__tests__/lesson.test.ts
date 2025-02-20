@@ -135,10 +135,34 @@ describe("Lesson tests", () => {
     expect(data.remainingCapacity).toBe(3);
   });
   it("should have a booking status of waitlist", async () => {
-    const user = await payload.create({
+    const user1 = await payload.create({
       collection: "users",
       data: {
-        email: "waitlist@test.com",
+        email: "waitlis1t@test.com",
+        password: "test",
+      },
+    });
+
+    const user2 = await payload.create({
+      collection: "users",
+      data: {
+        email: "waitlis2t@test.com",
+        password: "test",
+      },
+    });
+
+    const user3 = await payload.create({
+      collection: "users",
+      data: {
+        email: "waitlis3t@test.com",
+        password: "test",
+      },
+    });
+
+    const user4 = await payload.create({
+      collection: "users",
+      data: {
+        email: "waitlis4t@test.com",
         password: "test",
       },
     });
@@ -157,7 +181,7 @@ describe("Lesson tests", () => {
     const booking1 = await payload.create({
       collection: "bookings",
       data: {
-        user: user.id,
+        user: user1.id,
         lesson: lesson.id,
         status: "confirmed",
       },
@@ -165,7 +189,7 @@ describe("Lesson tests", () => {
     const booking2 = await payload.create({
       collection: "bookings",
       data: {
-        user: user.id,
+        user: user2.id,
         lesson: lesson.id,
         status: "confirmed",
       },
@@ -173,7 +197,7 @@ describe("Lesson tests", () => {
     const booking3 = await payload.create({
       collection: "bookings",
       data: {
-        user: user.id,
+        user: user3.id,
         lesson: lesson.id,
         status: "confirmed",
       },
@@ -181,7 +205,7 @@ describe("Lesson tests", () => {
     const booking4 = await payload.create({
       collection: "bookings",
       data: {
-        user: user.id,
+        user: user4.id,
         lesson: lesson.id,
         status: "confirmed",
       },

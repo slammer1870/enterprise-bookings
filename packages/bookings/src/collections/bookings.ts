@@ -59,17 +59,27 @@ export const bookingsCollection: CollectionConfig = {
       },
       async ({ req, data, operation }) => {
         if (operation === "create") {
+          console.log("data", data);
           const booking = await req.payload.find({
             collection: "bookings",
             where: {
-              lesson: data?.lesson,
-              user: data?.user,
+              lesson: {
+                equals: data?.lesson,
+              },
+              user: {
+                equals: data?.user,
+              },
             },
-            depth: 1,
+            depth: 3,
           });
 
+          console.log(booking.docs[0]);
+
           if (booking.docs.length > 0) {
-            throw new APIError("A booking already exists for this lesson", 400);
+            throw new APIError(
+              "A booking with this user already exists for this lesson",
+              400
+            );
           }
         }
       },

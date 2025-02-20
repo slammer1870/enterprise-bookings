@@ -107,6 +107,9 @@ describe("Booking tests", () => {
         password: "test",
       },
     });
+
+    console.log(user1);
+
     const user2 = await payload.create({
       collection: "users",
       data: {
@@ -114,6 +117,8 @@ describe("Booking tests", () => {
         password: "test",
       },
     });
+
+    console.log(user2);
 
     const classOption = await payload.create({
       collection: "class-options",

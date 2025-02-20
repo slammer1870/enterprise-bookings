@@ -1,14 +1,13 @@
+import React, { createContext, useContext, useState, useEffect } from "react";
+
 import {
   getActiveBookingsQuery,
   getBookingsQuery,
   getLessonsQuery,
 } from "@repo/shared-utils";
-import React, { createContext, useContext, useState, useEffect } from "react";
 
 import { Lesson } from "../types";
 import { toast } from "sonner";
-
-import { useConfirm } from "@repo/ui/components/ui/use-confirm";
 
 import { useRouter } from "next/navigation";
 
@@ -35,11 +34,6 @@ export const ScheduleProvider: React.FC<{
   const [isLoading, setIsLoading] = useState(true);
 
   const router = useRouter();
-
-  const [ConfirmationDialog, confirm] = useConfirm(
-    "Are you sure you want to cancel your booking?",
-    "This action cannot be undone"
-  );
 
   const getLessons = async () => {
     const query = getLessonsQuery(selectedDate);
