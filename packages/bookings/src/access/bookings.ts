@@ -109,11 +109,12 @@ export const renderCreateAccess = (
 export const renderUpdateAccess = (
   pluginOptions: BookingsPluginConfig
 ): Access => {
-  return async ({ req }: AccessArgs<Booking>) => {
+  return async ({ req, id }: AccessArgs<Booking>) => {
     const searchParams = req.searchParams;
 
-    const lessonId = searchParams.get("where[and][0][lesson][equals]");
-    const userId = searchParams.get("where[and][1][user][equals]");
+    const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
+    const userId =
+      searchParams.get("where[and][1][user][equals]") || req.user?.id;
 
     if (!lessonId || !userId) return false;
 

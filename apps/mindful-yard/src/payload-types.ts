@@ -136,6 +136,7 @@ export interface ScheduleBlock {
 export interface User {
   id: number;
   name: string;
+  roles?: ('customer' | 'admin')[] | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -341,6 +342,7 @@ export interface ScheduleBlockSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  roles?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

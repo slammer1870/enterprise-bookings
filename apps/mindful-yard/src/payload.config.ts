@@ -13,6 +13,7 @@ import { Pages } from './collections/Pages'
 
 import { bookingsPlugin } from '@repo/bookings/src'
 import { magicLinkPlugin } from '@repo/auth/src'
+import { rolesPlugin } from '@repo/roles/src'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -42,6 +43,9 @@ export default buildConfig({
     magicLinkPlugin({
       enabled: true,
       serverURL: 'http://localhost:3000',
+    }),
+    rolesPlugin({
+      enabled: true,
     }),
     bookingsPlugin({
       enabled: true,
