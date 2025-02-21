@@ -87,6 +87,17 @@ export const renderCreateAccess = (
         }
       }
 
+      if (pluginOptions.paymentsMethods?.dropIns) {
+        // Check if the lesson has an allowed drop in payment method
+        if (
+          lesson.classOption.paymentMethods?.allowedDropIns?.length &&
+          lesson.classOption.paymentMethods?.allowedDropIns?.length > 0
+        ) {
+          //TODO: Check if the user has a drop in payment method that is allowed for this lesson
+          return false;
+        }
+      }
+
       return true;
     } catch (error) {
       console.error(error);
