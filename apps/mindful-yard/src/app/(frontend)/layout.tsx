@@ -3,6 +3,8 @@ import './globals.css'
 import { Roboto } from 'next/font/google'
 import { Toaster } from 'sonner'
 
+import { AuthProvider } from '@repo/auth/src/providers/auth'
+
 const roboto = Roboto({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
@@ -11,13 +13,23 @@ const roboto = Roboto({
   variable: '--font-roboto',
 })
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+  unauthenticated,
+}: {
+  children: React.ReactNode
+  unauthenticated: React.ReactNode
+}) {
   return (
     <html>
-      <body className={roboto.className}>
-        {children}
-        <Toaster />
-      </body>
+      <AuthProvider>
+        <body className={roboto.className}>
+          {children}
+          {unauthenticated}
+          <div id="modal-root" />
+          <Toaster />
+        </body>
+      </AuthProvider>
     </html>
   )
 }

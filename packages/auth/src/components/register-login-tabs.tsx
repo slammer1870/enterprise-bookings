@@ -1,0 +1,31 @@
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui/components/ui/tabs";
+
+import RegisterForm from "./register-form";
+
+import LoginForm from "./login-form";
+
+interface RegisterLoginTabsProps {
+  value: "login" | "register";
+}
+
+export function RegisterLoginTabs({ value }: RegisterLoginTabsProps) {
+  return (
+    <Tabs defaultValue={value} className="w-[400px] px-4">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="register">Register</TabsTrigger>
+        <TabsTrigger value="login">Login</TabsTrigger>
+      </TabsList>
+      <TabsContent value="register">
+        <RegisterForm />
+      </TabsContent>
+      <TabsContent value="login">
+        <LoginForm />
+      </TabsContent>
+    </Tabs>
+  );
+}

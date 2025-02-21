@@ -12,6 +12,7 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
 import { bookingsPlugin } from '@repo/bookings/src'
+import { magicLinkPlugin } from '@repo/auth/src'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -38,6 +39,10 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    magicLinkPlugin({
+      enabled: true,
+      serverURL: 'http://localhost:3000',
+    }),
     bookingsPlugin({
       enabled: true,
     }),
