@@ -1,7 +1,6 @@
 {
   "name": "@repo/memberships",
   "version": "0.0.1",
-  "dependencies": {},
   "devDependencies": {
     "@payloadcms/db-postgres": "^3.18.0",
     "@payloadcms/payload-cloud": "^3.18.0",
@@ -12,8 +11,8 @@
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
-    "@types/react": "npm:types-react@19.0.0-rc.1",
-    "@types/react-dom": "npm:types-react-dom@19.0.0-rc.1",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
     "eslint": "^9.18.0",
     "eslint-config-next": "15.1.5",
     "sharp": "0.33.5",

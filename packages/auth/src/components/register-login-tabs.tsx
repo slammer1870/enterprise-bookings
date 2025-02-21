@@ -16,9 +16,13 @@ interface RegisterLoginTabsProps {
 export function RegisterLoginTabs({ value }: RegisterLoginTabsProps) {
   return (
     <Tabs defaultValue={value} className="w-[400px] px-4">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="register">Register</TabsTrigger>
-        <TabsTrigger value="login">Login</TabsTrigger>
+      <TabsList className="w-full">
+        <TabsTrigger value="register" className="w-full">
+          Register
+        </TabsTrigger>
+        <TabsTrigger value="login" className="w-full">
+          Login
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="register">
         <RegisterForm />
