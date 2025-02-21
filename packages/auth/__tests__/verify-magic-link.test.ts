@@ -40,7 +40,6 @@ describe("Verify Magic Link", async () => {
   it("should verify a magic link to log in a user", async () => {
     const fieldsToSign = {
       id: createdUser.id,
-      email: createdUser.email,
       collection: "users",
     };
 
