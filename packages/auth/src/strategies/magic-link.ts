@@ -48,7 +48,7 @@ export const magicLink = (pluginOptions: PluginTypes): AuthStrategy => ({
       });
 
       return {
-        user: user as unknown as AuthStrategyResult["user"],
+        user: user.docs[0] as unknown as AuthStrategyResult["user"],
       };
     } catch (error) {
       console.log("error", error);

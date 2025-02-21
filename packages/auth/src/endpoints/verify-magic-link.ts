@@ -9,6 +9,8 @@ import jwt from "jsonwebtoken";
 
 import { PluginTypes } from "../types";
 
+import { User } from "@repo/shared-types";
+
 export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/verify-magic-link",
   method: "get",
@@ -40,13 +42,15 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         headers: req.headers,
       });
 
-      if (!authenticated?.user) {
+      const user = authenticated?.user as User;
+
+      if (!user) {
         throw new APIError("Invalid token", 400);
       }
 
       const fieldsToSign = {
-        id: authenticated.user.id,
-        email: authenticated.user.email,
+        id: user.id,
+        email: user.email,
         collection: authCollectionSlug,
       };
 

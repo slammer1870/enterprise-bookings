@@ -26,7 +26,7 @@ export default buildConfig({
   },
   collections: [Users, Media, Pages],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || 'sectretd',
+  secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },

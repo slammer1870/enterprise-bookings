@@ -55,5 +55,7 @@ describe("Verify Magic Link", async () => {
     expect(response.status).toBe(302);
 
     expect(response.headers.get("Location")).toBe("/dashboard");
+
+    expect(response.headers.get("Set-Cookie")).toContain("payload-token");
   });
 });

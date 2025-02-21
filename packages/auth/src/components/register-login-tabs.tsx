@@ -16,7 +16,7 @@ interface RegisterLoginTabsProps {
 export function RegisterLoginTabs({ value }: RegisterLoginTabsProps) {
   return (
     <Tabs defaultValue={value} className="w-[400px] px-4">
-      <TabsList className="w-full">
+      <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="register" className="w-full">
           Register
         </TabsTrigger>

@@ -31,6 +31,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   );
 
   const handleClick = async () => {
+    setLoading(true);
+
     const data = await fetch("/api/users/me", {
       credentials: "include",
     });
@@ -39,10 +41,10 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
 
     if (!user) {
       toast.info("Please sign in to continue");
-      router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
+      setLoading(false);
+      return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
         scroll: false,
       });
-      return;
     }
 
     if (lesson.classOption.type === "child") {
@@ -54,7 +56,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "active":
         case "trialable":
           // Perform check-in logic here
-          setLoading(true);
+
           await checkIn(lesson.id, user.id);
           setLoading(false);
 
@@ -76,10 +78,12 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           break;
         default:
           toast.error("Unknown status");
+          setLoading(false);
       }
     } catch (error) {
       console.error("Error checking in:", error);
       toast.error("Failed to check in");
+      setLoading(false);
     }
   };
 
