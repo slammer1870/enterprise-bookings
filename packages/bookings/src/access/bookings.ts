@@ -31,7 +31,7 @@ export const renderCreateAccess = (
 
       if (checkRole(["admin"], user)) return true;
 
-      if (lesson.bookingStatus !== "active") {
+      if (lesson.bookingStatus !== "active" || "trialable") {
         return false;
       }
 
@@ -148,7 +148,9 @@ export const renderUpdateAccess = (
 
       if (req.user?.id !== user.id) return false;
 
-      if (lesson.bookingStatus !== "active") return false;
+      if (lesson.bookingStatus !== "active" || "trialable") {
+        return false;
+      }
 
       if (req.data?.status === "cancelled") return true;
 
@@ -235,7 +237,7 @@ export const isAdminOrMember: Access = async ({
 
     if (checkRole(["admin"], user)) return true;
 
-    if (lesson.bookingStatus !== "active") {
+    if (lesson.bookingStatus !== "active" || "trialable") {
       return false;
     }
 
@@ -334,7 +336,9 @@ export const isAdminOrOwnsBooking: Access = async ({
 
     if (req.user?.id !== user.id) return false;
 
-    if (lesson.bookingStatus !== "active") return false;
+    if (lesson.bookingStatus !== "active" || "trialable") {
+      return false;
+    }
 
     if (req.data?.status === "cancelled") return true;
 
