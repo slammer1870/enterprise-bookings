@@ -63,7 +63,7 @@ jobs:
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
       - name: Run database migrations
-        run: pnpm run payload -- migrate # Add this step to run migrations before tests
+        run: pnpm run db:migrate # Add this step to run migrations before tests
 
       - name: Run tests
         run: pnpm test

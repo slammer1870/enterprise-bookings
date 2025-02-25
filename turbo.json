@@ -31,6 +31,9 @@
     },
     "db:reset": {
       "cache": false
+    },
+    "db:migrate": {
+      "cache": false
     }
   }
 }

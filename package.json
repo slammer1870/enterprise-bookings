@@ -21,6 +21,6 @@
     "syncpack": "syncpack",
     "test": "turbo run test",
     "ui": "pnpm --filter @repo/ui ui",
-    "payload": "pnpm run payload"
+    "db:migrate": "turbo run payload -- migrate"
   }
 }
