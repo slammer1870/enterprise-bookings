@@ -145,7 +145,7 @@ export const renderUpdateAccess = (
           depth: 3,
         });
 
-        booking = bookingQuery.docs[0] as Booking;
+        booking = bookingQuery.docs[0] as Booking | null;
       }
 
       if (!booking) return false;
