@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 
 export function Modal({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const dialogRef = useRef(null)
+  const dialogRef = useRef<HTMLDialogElement | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
     // @ts-ignore
     if (!dialogRef.current?.open) {
       // @ts-ignore
@@ -19,6 +21,8 @@ export function Modal({ children }: { children: React.ReactNode }) {
   function onDismiss() {
     router.back()
   }
+
+  if (!isMounted) return null; // Prevent rendering on the server
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
@@ -36,6 +40,6 @@ export function Modal({ children }: { children: React.ReactNode }) {
         </button>
       </dialog>
     </div>,
-    document.getElementById('modal-root')!,
+    document.getElementById('modal-root')!
   )
 }

@@ -126,7 +126,7 @@ export const renderUpdateAccess = (
 
     if (!lessonId) return false;
 
-    let booking: Booking | null;
+    let booking: Booking | undefined;
 
     try {
       if (id) {
@@ -145,7 +145,7 @@ export const renderUpdateAccess = (
           depth: 3,
         });
 
-        booking = bookingQuery.docs[0] as Booking | null;
+        booking = bookingQuery.docs[0] as Booking | undefined;
       }
 
       if (!booking) return false;

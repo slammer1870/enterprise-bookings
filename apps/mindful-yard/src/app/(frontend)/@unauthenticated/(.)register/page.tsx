@@ -1,3 +1,5 @@
+'use client'
+
 import { RegisterLoginTabs } from '@repo/auth/src/components/register-login-tabs'
 import { Modal } from './modal'
 
