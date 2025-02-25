@@ -38,7 +38,7 @@ export type Lesson = {
 export interface Booking {
   id: number;
   user: User;
-  lesson: number | Lesson;
+  lesson: Lesson;
   status: "pending" | "confirmed" | "cancelled" | "waiting";
   updatedAt: string;
   createdAt: string;

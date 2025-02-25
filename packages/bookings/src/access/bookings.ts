@@ -31,7 +31,11 @@ export const renderCreateAccess = (
 
       if (checkRole(["admin"], user)) return true;
 
-      if (lesson.bookingStatus !== "active" || "trialable") {
+      if (
+        lesson.bookingStatus === "closed" ||
+        lesson.bookingStatus === "waitlist" ||
+        lesson.bookingStatus === "booked"
+      ) {
         return false;
       }
 
@@ -113,32 +117,45 @@ export const renderUpdateAccess = (
     const searchParams = req.searchParams;
 
     const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
+
     const userId =
       searchParams.get("where[and][1][user][equals]") || req.user?.id;
 
-    if (!lessonId || !userId) return false;
+    if (!lessonId) return false;
+
+    let booking: Booking | null;
 
     try {
-      const booking = await req.payload.find({
-        collection: "bookings",
-        where: {
-          lesson: { equals: lessonId },
-          user: { equals: userId },
-        },
-        depth: 3,
-      });
+      if (id) {
+        booking = (await req.payload.findByID({
+          collection: "bookings",
+          id,
+          depth: 3,
+        })) as unknown as Booking;
+      } else {
+        const bookingQuery = await req.payload.find({
+          collection: "bookings",
+          where: {
+            lesson: { equals: lessonId },
+            user: { equals: userId },
+          },
+          depth: 3,
+        });
 
-      if (booking.docs.length === 0) return false;
+        booking = bookingQuery.docs[0] as Booking;
+      }
+
+      if (!booking) return false;
 
       const lesson = (await req.payload.findByID({
         collection: "lessons",
-        id: lessonId,
+        id: booking.lesson.id,
         depth: 3,
       })) as unknown as Lesson;
 
       const user = (await req.payload.findByID({
         collection: "users",
-        id: userId,
+        id: userId || booking.user.id,
         depth: 3,
       })) as unknown as User;
 

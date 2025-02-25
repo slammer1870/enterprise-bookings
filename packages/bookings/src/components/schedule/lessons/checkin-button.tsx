@@ -16,6 +16,16 @@ import { useSchedule } from "../../../providers/schedule";
 
 import { useState } from "react";
 
+type ButtonVariant =
+  | "ghost"
+  | "outline"
+  | "secondary"
+  | "destructive"
+  | "default"
+  | "link"
+  | null
+  | undefined;
+
 export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   const router = useRouter();
 
@@ -39,14 +49,6 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
 
     const { user } = await data.json();
 
-    if (!user) {
-      toast.info("Please sign in to continue");
-      setLoading(false);
-      return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
-        scroll: false,
-      });
-    }
-
     if (lesson.classOption.type === "child") {
       router.push(`/bookings/children/${lesson.id}`);
     }
@@ -56,6 +58,13 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "active":
         case "trialable":
           // Perform check-in logic here
+          if (!user) {
+            toast.info("Please sign in to continue");
+            setLoading(false);
+            return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
+              scroll: false,
+            });
+          }
 
           await checkIn(lesson.id, user.id);
           setLoading(false);
@@ -63,12 +72,28 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           break;
         case "closed":
           toast.error("Class is closed for check-in");
+          setLoading(false);
           break;
         case "waitlist":
+          if (!user) {
+            toast.info("Please sign in to continue");
+            setLoading(false);
+            return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
+              scroll: false,
+            });
+          }
           toast.info("You are on the waitlist");
+          setLoading(false);
           break;
 
         case "booked":
+          if (!user) {
+            toast.info("Please sign in to continue");
+            setLoading(false);
+            return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
+              scroll: false,
+            });
+          }
           const ok = await confirm();
           if (ok) {
             setLoading(true);
@@ -95,11 +120,21 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     booked: "bg-destructive",
   };
 
+  const buttonVariant: Record<Lesson["bookingStatus"], ButtonVariant> = {
+    closed: "ghost",
+    waitlist: "outline",
+    trialable: "secondary",
+    active: "default",
+    booked: "destructive",
+  };
+
   return (
     <>
       <Button
         onClick={handleClick}
-        className={`w-full p-2 border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
+        variant={buttonVariant[status as keyof typeof buttonVariant]}
+        //className={`w-full p-2 border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
+        className="w-full"
       >
         {loading
           ? "Loading..."

@@ -97,6 +97,10 @@ describe("Booking tests", () => {
         })
       );
 
+    const data = await response.json();
+
+    console.log("response", data);
+
     expect(response.status).toBe(201);
   });
   it("should be unauthorized to create a booking because lesson is full", async () => {
@@ -108,8 +112,6 @@ describe("Booking tests", () => {
       },
     });
 
-    console.log(user1);
-
     const user2 = await payload.create({
       collection: "users",
       data: {
@@ -117,8 +119,6 @@ describe("Booking tests", () => {
         password: "test",
       },
     });
-
-    console.log(user2);
 
     const classOption = await payload.create({
       collection: "class-options",
