@@ -19,7 +19,7 @@ export interface Lesson {
     docs?: (number | Booking)[] | null;
     hasNextPage?: boolean | null;
   } | null;
-  bookingStatus?: string | null;
+  bookingStatus: "active" | "closed" | "waitlist" | "booked" | "trialable";
   updatedAt: string;
   createdAt: string;
 }
