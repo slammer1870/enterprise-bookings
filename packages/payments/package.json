@@ -6,7 +6,7 @@
     "@repo/roles": "workspace:*",
     "@repo/ui": "workspace:*",
     "payload": "^3.18.0",
-    "stripe": "^17.6.0"
+    "stripe": "^17.7.0"
   },
   "devDependencies": {
     "@payloadcms/db-postgres": "^3.18.0",
