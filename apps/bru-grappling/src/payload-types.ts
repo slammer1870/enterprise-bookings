@@ -177,7 +177,7 @@ export interface Lesson {
   startTime: string;
   endTime: string;
   lockOutTime: number;
-  location: string;
+  location?: string | null;
   classOption: number | ClassOption;
   /**
    * The number of places remaining

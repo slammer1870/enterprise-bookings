@@ -1,5 +1,5 @@
 {
-  "id": "e2e80435-a5ef-4ad1-9ada-8b0f43e0d2bb",
+  "id": "26dcc63f-e616-4654-9f59-a473328a25be",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -733,7 +733,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-02-21T12:37:18.791Z'"
+          "default": "'2025-02-25T15:04:09.902Z'"
         },
         "start_time": {
           "name": "start_time",
