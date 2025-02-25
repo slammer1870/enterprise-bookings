@@ -1,7 +1,10 @@
 import { AccessArgs, CollectionSlug } from "payload";
 
 import { Access } from "payload";
-import { Booking, BookingsPluginConfig, Lesson, User } from "../types";
+
+import { BookingsPluginConfig } from "../types";
+
+import { Booking, Lesson, User } from "@repo/shared-types";
 
 import { hasReachedSubscriptionLimit } from "@repo/shared-services";
 

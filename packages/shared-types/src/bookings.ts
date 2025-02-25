@@ -43,8 +43,8 @@ export interface ClassOption {
 
 export interface Booking {
   id: number;
-  user: number | User;
-  lesson: number | Lesson;
+  user: User;
+  lesson: Lesson;
   status: "pending" | "confirmed" | "cancelled" | "waiting";
   updatedAt: string;
   createdAt: string;

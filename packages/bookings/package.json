@@ -27,6 +27,7 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/shared-services": "workspace:*",
+    "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
