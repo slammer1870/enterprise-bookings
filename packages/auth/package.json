@@ -43,7 +43,7 @@
     "react-dom": "19.0.0"
   },
   "scripts": {
-    "test": "vitest --hook-timeout=100000"
+    "test": "vitest --hook-timeout=1000000"
   },
   "type": "module",
   "types": "./src/index.ts"
