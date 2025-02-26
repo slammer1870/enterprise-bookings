@@ -21,31 +21,33 @@ export const paymentsPlugin =
 
     const endpoints = config.endpoints || [];
 
-    const usersCollection = collections.find(
-      (collection) => collection.slug === "users"
-    );
+    if (pluginOptions.acceptedPaymentMethods?.card) {
+      const usersCollection = collections.find(
+        (collection) => collection.slug === "users"
+      );
 
-    if (!usersCollection) {
-      throw new Error("Users collection not found");
+      if (!usersCollection) {
+        throw new Error("Users collection not found");
+      }
+
+      collections = [
+        ...(collections.filter((collection) => collection.slug !== "users") ||
+          []),
+        modifyUsersCollection(usersCollection),
+      ];
+
+      endpoints.push({
+        path: "/stripe/customers",
+        method: "get",
+        handler: customersProxy,
+      });
+
+      endpoints.push({
+        path: "/stripe/create-payment-intent",
+        method: "post",
+        handler: createPaymentIntent,
+      });
     }
-
-    collections = [
-      ...(collections.filter((collection) => collection.slug !== "users") ||
-        []),
-      modifyUsersCollection(usersCollection),
-    ];
-
-    endpoints.push({
-      path: "/stripe/customers",
-      method: "get",
-      handler: customersProxy,
-    });
-
-    endpoints.push({
-      path: "/stripe/create-payment-intent",
-      method: "post",
-      handler: createPaymentIntent,
-    });
 
     collections.push(dropInsCollection);
 

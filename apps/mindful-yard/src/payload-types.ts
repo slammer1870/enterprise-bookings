@@ -17,6 +17,7 @@ export interface Config {
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
+    'drop-ins': DropIn;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -33,6 +34,7 @@ export interface Config {
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -187,6 +189,31 @@ export interface ClassOption {
    */
   places: number;
   description: string;
+  paymentMethods?: {
+    allowedDropIns?: (number | DropIn)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  active: boolean;
+  price: number;
+  priceType: 'trial' | 'normal';
+  adjustable?: boolean | null;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        id?: string | null;
+      }[]
+    | null;
+  allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -232,6 +259,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'bookings';
         value: number | Booking;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -378,6 +409,11 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIns?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -389,6 +425,27 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  name?: T;
+  active?: T;
+  price?: T;
+  priceType?: T;
+  adjustable?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        id?: T;
+      };
+  allowedClasses?: T;
   updatedAt?: T;
   createdAt?: T;
 }

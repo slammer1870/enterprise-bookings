@@ -51,6 +51,10 @@ export default buildConfig({
     }),
     paymentsPlugin({
       enabled: true,
+      acceptedPaymentMethods: {
+        card: true,
+        cash: true,
+      },
     }),
     membershipsPlugin({
       enabled: true,

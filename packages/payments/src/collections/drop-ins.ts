@@ -18,6 +18,13 @@ export const dropInsCollection: CollectionConfig = {
       required: true,
     },
     {
+      name: "active",
+      label: "Active",
+      type: "checkbox",
+      defaultValue: true,
+      required: true,
+    },
+    {
       name: "price",
       label: "Price",
       type: "number",
@@ -31,11 +38,49 @@ export const dropInsCollection: CollectionConfig = {
       defaultValue: "normal",
       required: true,
     },
+
     {
-      name: "active",
-      label: "Active",
+      name: "adjustable",
+      label: "Adjustable",
       type: "checkbox",
-      defaultValue: true,
+      defaultValue: false,
+      admin: {
+        condition: (data) => data?.priceType === "normal",
+      },
+    },
+    {
+      name: "discountTiers",
+      label: "Discount Tiers",
+      type: "array",
+      admin: {
+        condition: (data) => data?.adjustable,
+      },
+      fields: [
+        {
+          name: "minQuantity",
+          label: "Min Quantity",
+          type: "number",
+          required: true,
+        },
+        {
+          name: "discountPercent",
+          label: "Discount Percent",
+          type: "number",
+          required: true,
+        },
+      ],
     },
   ],
+  hooks: {
+    beforeChange: [
+      async ({ data }) => {
+        if (
+          (data?.priceType === "trial" && data?.adjustable) ||
+          (data?.priceType === "trial" && data?.discountTiers)
+        ) {
+          return false;
+        }
+      },
+    ],
+  },
 };

@@ -10,6 +10,7 @@
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
     "@repo/roles": "workspace:*",
+    "@repo/payments": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*",
     "cross-env": "^7.0.3",
