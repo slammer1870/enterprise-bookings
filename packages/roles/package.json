@@ -22,8 +22,5 @@
     "vitest": "^3.0.3"
   },
   "main": "./src/index.ts",
-  "type": "module",
-  "scripts": {
-    "test": "vitest"
-  }
+  "type": "module"
 }
