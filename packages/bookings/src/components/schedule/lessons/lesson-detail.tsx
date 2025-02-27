@@ -50,7 +50,7 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
           </span>
         )}
       </div>
-      <div className="w-1/4">
+      <div className="w-full md:w-1/4">
         <CheckInButton lesson={lesson} />
       </div>
     </div>

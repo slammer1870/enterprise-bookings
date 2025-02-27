@@ -11,6 +11,8 @@ import { toast } from "sonner";
 
 import { useRouter } from "next/navigation";
 
+import { checkInAction, cancelBookingAction } from "../actions/bookings";
+
 type ScheduleContextType = {
   lessons: Lesson[];
   isLoading: boolean;
@@ -61,56 +63,15 @@ export const ScheduleProvider: React.FC<{
   }, [selectedDate]);
 
   const checkIn = async (lessonId: number, userId: number) => {
-    const query = getBookingsQuery(userId, lessonId);
     try {
-      const booking = await fetch(`/api/bookings${query}`, {
-        method: "GET",
-        credentials: "include",
-      });
+      const result = await checkInAction(lessonId, userId);
 
-      const bookingData = await booking.json();
-
-      if (bookingData.docs.length > 0) {
-        const updatedBooking = await fetch(`/api/bookings${query}`, {
-          method: "PATCH",
-          credentials: "include",
-          body: JSON.stringify({
-            status: "confirmed",
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!updatedBooking.ok) {
-          const data = await updatedBooking.json();
-
-          toast.error(data.errors[0].message || "An error occurred");
-          return router.push(`/bookings/${lessonId}`);
-        }
-      } else {
-        const response = await fetch(`/api/bookings`, {
-          method: "POST",
-          credentials: "include",
-          body: JSON.stringify({
-            lesson: lessonId,
-            user: userId,
-            status: "confirmed",
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-
-          toast.error(data.errors[0].message || "An error occurred");
-          return router.push(`/bookings/${lessonId}`);
-        }
+      if (!result.success) {
+        toast.error(result.error);
+        return router.push(`/bookings/${lessonId}`);
       }
-      const updatedLessons = await getLessons();
 
+      const updatedLessons = await getLessons();
       setLessons(updatedLessons);
 
       toast.success("Booking confirmed");
@@ -121,28 +82,15 @@ export const ScheduleProvider: React.FC<{
   };
 
   const cancelBooking = async (lessonId: number, userId: number) => {
-    const query = getActiveBookingsQuery(userId, lessonId);
-
     try {
-      const response = await fetch(`/api/bookings${query}`, {
-        method: "PATCH",
-        credentials: "include",
-        body: JSON.stringify({
-          status: "cancelled",
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const result = await cancelBookingAction(lessonId, userId);
 
-      if (!response.ok) {
-        const data = await response.json();
-        toast.error(data.errors[0].message || "An error occurred");
-        throw new Error(data.errors[0].message || "An error occurred");
+      if (!result.success) {
+        toast.error(result.error);
+        throw new Error(result.error);
       }
 
       const updatedLessons = await getLessons();
-
       setLessons(updatedLessons);
 
       toast.success("Booking cancelled");
