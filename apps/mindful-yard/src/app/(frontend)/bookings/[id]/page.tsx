@@ -6,7 +6,9 @@ import { Lesson } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-export default async function BookingPage({ params }: { params: { id: number } }) {
+import { BookingForm } from '@repo/bookings/src/components/ui/booking-form'
+
+export default async function BookingPage({ params }: { params: Promise<{ id: number }> }) {
   const { id } = await params
 
   const { token, user } = await getMeUser({ nullUserRedirect: '/login' })
@@ -30,8 +32,8 @@ export default async function BookingPage({ params }: { params: { id: number } }
   }
 
   return (
-    <div>
-      <h1>Booking {id}</h1>
+    <div className="container mx-auto max-w-screen-sm px-4 py-8">
+      <BookingForm lesson={lessonData} name={user.name || ''} />
     </div>
   )
 }
