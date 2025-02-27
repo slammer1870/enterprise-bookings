@@ -78,7 +78,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-02-25T15:04:09.902Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-02-27T17:10:32.925Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 60 NOT NULL,
@@ -115,12 +115,21 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
+  CREATE TABLE IF NOT EXISTS "drop_ins_discount_tiers" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"min_quantity" numeric,
+  	"discount_percent" numeric
+  );
+  
   CREATE TABLE IF NOT EXISTS "drop_ins" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"name" varchar NOT NULL,
+  	"is_active" boolean DEFAULT true NOT NULL,
   	"price" numeric NOT NULL,
   	"price_type" "enum_drop_ins_price_type" DEFAULT 'normal' NOT NULL,
-  	"active" boolean DEFAULT true,
+  	"adjustable" boolean DEFAULT false,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
@@ -240,6 +249,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "drop_ins_discount_tiers" ADD CONSTRAINT "drop_ins_discount_tiers_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."drop_ins"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "drop_ins_rels" ADD CONSTRAINT "drop_ins_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."drop_ins"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -348,6 +363,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "bookings_lesson_idx" ON "bookings" USING btree ("lesson_id");
   CREATE INDEX IF NOT EXISTS "bookings_updated_at_idx" ON "bookings" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "bookings_created_at_idx" ON "bookings" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "drop_ins_discount_tiers_order_idx" ON "drop_ins_discount_tiers" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "drop_ins_discount_tiers_parent_id_idx" ON "drop_ins_discount_tiers" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "drop_ins_updated_at_idx" ON "drop_ins" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "drop_ins_created_at_idx" ON "drop_ins" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "drop_ins_rels_order_idx" ON "drop_ins_rels" USING btree ("order");
@@ -391,6 +408,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "class_options" CASCADE;
   DROP TABLE "class_options_rels" CASCADE;
   DROP TABLE "bookings" CASCADE;
+  DROP TABLE "drop_ins_discount_tiers" CASCADE;
   DROP TABLE "drop_ins" CASCADE;
   DROP TABLE "drop_ins_rels" CASCADE;
   DROP TABLE "payload_locked_documents" CASCADE;

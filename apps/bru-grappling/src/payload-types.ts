@@ -220,9 +220,17 @@ export interface ClassOption {
 export interface DropIn {
   id: number;
   name: string;
+  isActive: boolean;
   price: number;
   priceType: 'trial' | 'normal';
-  active?: boolean | null;
+  adjustable?: boolean | null;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        id?: string | null;
+      }[]
+    | null;
   allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;
@@ -442,9 +450,17 @@ export interface BookingsSelect<T extends boolean = true> {
  */
 export interface DropInsSelect<T extends boolean = true> {
   name?: T;
+  isActive?: T;
   price?: T;
   priceType?: T;
-  active?: T;
+  adjustable?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        id?: T;
+      };
   allowedClasses?: T;
   updatedAt?: T;
   createdAt?: T;

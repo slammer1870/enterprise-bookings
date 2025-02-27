@@ -1,10 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-import {
-  getActiveBookingsQuery,
-  getBookingsQuery,
-  getLessonsQuery,
-} from "@repo/shared-utils";
+import { getLessonsQuery } from "@repo/shared-utils";
 
 import { Lesson } from "../types";
 import { toast } from "sonner";

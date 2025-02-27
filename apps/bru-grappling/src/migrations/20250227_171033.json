@@ -1,5 +1,5 @@
 {
-  "id": "a287d34c-53b8-4776-8367-5913ea1d12be",
+  "id": "1e0fd710-76b1-4a67-8c33-b8966a5a9f2d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -733,7 +733,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-02-27T07:41:28.812Z'"
+          "default": "'2025-02-27T17:10:32.925Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -1340,8 +1340,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "active": {
-          "name": "active",
+        "is_active": {
+          "name": "is_active",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

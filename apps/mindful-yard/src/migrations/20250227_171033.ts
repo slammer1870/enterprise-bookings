@@ -5,6 +5,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
    CREATE TYPE "public"."enum_pages_blocks_hero_cta_variant" AS ENUM('default', 'outline');
   CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
   CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+  CREATE TYPE "public"."enum_drop_ins_price_type" AS ENUM('trial', 'normal');
   CREATE TABLE IF NOT EXISTS "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
@@ -80,7 +81,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-02-25T15:04:09.890Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-02-27T17:10:32.910Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 60 NOT NULL,
@@ -99,6 +100,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
+  CREATE TABLE IF NOT EXISTS "class_options_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"drop_ins_id" integer
+  );
+  
   CREATE TABLE IF NOT EXISTS "bookings" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"user_id" integer NOT NULL,
@@ -106,6 +115,33 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"status" "enum_bookings_status" NOT NULL,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "drop_ins_discount_tiers" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"min_quantity" numeric,
+  	"discount_percent" numeric
+  );
+  
+  CREATE TABLE IF NOT EXISTS "drop_ins" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"is_active" boolean DEFAULT true NOT NULL,
+  	"price" numeric NOT NULL,
+  	"price_type" "enum_drop_ins_price_type" DEFAULT 'normal' NOT NULL,
+  	"adjustable" boolean DEFAULT false,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "drop_ins_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"class_options_id" integer
   );
   
   CREATE TABLE IF NOT EXISTS "payload_locked_documents" (
@@ -125,7 +161,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"users_id" integer,
   	"lessons_id" integer,
   	"class_options_id" integer,
-  	"bookings_id" integer
+  	"bookings_id" integer,
+  	"drop_ins_id" integer
   );
   
   CREATE TABLE IF NOT EXISTS "payload_preferences" (
@@ -195,6 +232,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "class_options_rels" ADD CONSTRAINT "class_options_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."class_options"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "class_options_rels" ADD CONSTRAINT "class_options_rels_drop_ins_fk" FOREIGN KEY ("drop_ins_id") REFERENCES "public"."drop_ins"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -202,6 +251,24 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   DO $$ BEGIN
    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_lesson_id_lessons_id_fk" FOREIGN KEY ("lesson_id") REFERENCES "public"."lessons"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "drop_ins_discount_tiers" ADD CONSTRAINT "drop_ins_discount_tiers_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."drop_ins"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "drop_ins_rels" ADD CONSTRAINT "drop_ins_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."drop_ins"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "drop_ins_rels" ADD CONSTRAINT "drop_ins_rels_class_options_fk" FOREIGN KEY ("class_options_id") REFERENCES "public"."class_options"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
@@ -249,6 +316,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_drop_ins_fk" FOREIGN KEY ("drop_ins_id") REFERENCES "public"."drop_ins"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_preferences"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -285,10 +358,22 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "lessons_created_at_idx" ON "lessons" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "class_options_updated_at_idx" ON "class_options" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "class_options_created_at_idx" ON "class_options" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_order_idx" ON "class_options_rels" USING btree ("order");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_parent_idx" ON "class_options_rels" USING btree ("parent_id");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_path_idx" ON "class_options_rels" USING btree ("path");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_drop_ins_id_idx" ON "class_options_rels" USING btree ("drop_ins_id");
   CREATE INDEX IF NOT EXISTS "bookings_user_idx" ON "bookings" USING btree ("user_id");
   CREATE INDEX IF NOT EXISTS "bookings_lesson_idx" ON "bookings" USING btree ("lesson_id");
   CREATE INDEX IF NOT EXISTS "bookings_updated_at_idx" ON "bookings" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "bookings_created_at_idx" ON "bookings" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "drop_ins_discount_tiers_order_idx" ON "drop_ins_discount_tiers" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "drop_ins_discount_tiers_parent_id_idx" ON "drop_ins_discount_tiers" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "drop_ins_updated_at_idx" ON "drop_ins" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "drop_ins_created_at_idx" ON "drop_ins" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "drop_ins_rels_order_idx" ON "drop_ins_rels" USING btree ("order");
+  CREATE INDEX IF NOT EXISTS "drop_ins_rels_parent_idx" ON "drop_ins_rels" USING btree ("parent_id");
+  CREATE INDEX IF NOT EXISTS "drop_ins_rels_path_idx" ON "drop_ins_rels" USING btree ("path");
+  CREATE INDEX IF NOT EXISTS "drop_ins_rels_class_options_id_idx" ON "drop_ins_rels" USING btree ("class_options_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_global_slug_idx" ON "payload_locked_documents" USING btree ("global_slug");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_updated_at_idx" ON "payload_locked_documents" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_created_at_idx" ON "payload_locked_documents" USING btree ("created_at");
@@ -301,6 +386,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_lessons_id_idx" ON "payload_locked_documents_rels" USING btree ("lessons_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_class_options_id_idx" ON "payload_locked_documents_rels" USING btree ("class_options_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_bookings_id_idx" ON "payload_locked_documents_rels" USING btree ("bookings_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_drop_ins_id_idx" ON "payload_locked_documents_rels" USING btree ("drop_ins_id");
   CREATE INDEX IF NOT EXISTS "payload_preferences_key_idx" ON "payload_preferences" USING btree ("key");
   CREATE INDEX IF NOT EXISTS "payload_preferences_updated_at_idx" ON "payload_preferences" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "payload_preferences_created_at_idx" ON "payload_preferences" USING btree ("created_at");
@@ -323,7 +409,11 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "users" CASCADE;
   DROP TABLE "lessons" CASCADE;
   DROP TABLE "class_options" CASCADE;
+  DROP TABLE "class_options_rels" CASCADE;
   DROP TABLE "bookings" CASCADE;
+  DROP TABLE "drop_ins_discount_tiers" CASCADE;
+  DROP TABLE "drop_ins" CASCADE;
+  DROP TABLE "drop_ins_rels" CASCADE;
   DROP TABLE "payload_locked_documents" CASCADE;
   DROP TABLE "payload_locked_documents_rels" CASCADE;
   DROP TABLE "payload_preferences" CASCADE;
@@ -331,5 +421,6 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "payload_migrations" CASCADE;
   DROP TYPE "public"."enum_pages_blocks_hero_cta_variant";
   DROP TYPE "public"."enum_users_roles";
-  DROP TYPE "public"."enum_bookings_status";`)
+  DROP TYPE "public"."enum_bookings_status";
+  DROP TYPE "public"."enum_drop_ins_price_type";`)
 }
