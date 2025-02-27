@@ -18,7 +18,7 @@ export const dropInsCollection: CollectionConfig = {
       required: true,
     },
     {
-      name: "active",
+      name: "isActive",
       label: "Active",
       type: "checkbox",
       defaultValue: true,

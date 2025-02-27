@@ -1,8 +1,12 @@
 "use server";
 
 import { stripe, formatAmountForStripe } from "@repo/shared-utils";
+
 import { calculateQuantityDiscount } from "../utils/discount";
+
 import { APIError, PayloadHandler } from "payload";
+
+import { DropIn, User } from "@repo/shared-types";
 
 export const createPaymentIntent: PayloadHandler = async (
   req
@@ -11,7 +15,7 @@ export const createPaymentIntent: PayloadHandler = async (
     throw new APIError("Invalid request body", 400);
   }
 
-  const { user } = req;
+  const { user } = req as { user: User };
 
   if (!user) {
     throw new APIError("Unauthorized", 401);
@@ -30,17 +34,17 @@ export const createPaymentIntent: PayloadHandler = async (
   // Apply quantity-based discount if a dropInId is provided
   if (dropInId) {
     try {
-      const dropIn = await req.payload.findByID({
+      const dropIn = (await req.payload.findByID({
         collection: "drop-ins",
         id: dropInId,
-      });
+      })) as DropIn;
 
       if (dropIn) {
         discountResult = calculateQuantityDiscount(
           price,
           quantity,
           dropIn.priceType,
-          dropIn.discountTiers
+          dropIn.discountTiers || []
         );
 
         amount = discountResult.totalAmount;

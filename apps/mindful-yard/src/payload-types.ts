@@ -202,7 +202,7 @@ export interface ClassOption {
 export interface DropIn {
   id: number;
   name: string;
-  active: boolean;
+  isActive: boolean;
   price: number;
   priceType: 'trial' | 'normal';
   adjustable?: boolean | null;
@@ -434,7 +434,7 @@ export interface BookingsSelect<T extends boolean = true> {
  */
 export interface DropInsSelect<T extends boolean = true> {
   name?: T;
-  active?: T;
+  isActive?: T;
   price?: T;
   priceType?: T;
   adjustable?: T;

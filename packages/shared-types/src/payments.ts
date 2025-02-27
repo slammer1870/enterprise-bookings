@@ -3,13 +3,17 @@ import { ClassOption } from "./bookings";
 export interface DropIn {
   id: number;
   name: string;
+  isActive: boolean;
   price: number;
   priceType: "trial" | "normal";
-  allowedClasses?: {
-    docs?: (number | ClassOption)[] | null;
-    hasNextPage?: boolean | null;
-  } | null;
-  active?: boolean | null;
+  adjustable?: boolean | null;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+      }[]
+    | null;
+  allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -29,20 +33,6 @@ export interface Plan {
   stripeProductId?: string | null;
   priceJSON?: string | null;
   isSubscribed?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-
-export interface DropIn {
-  id: number;
-  name: string;
-  price: number;
-  priceType: "trial" | "normal";
-  allowedClasses?: {
-    docs?: (number | ClassOption)[] | null;
-    hasNextPage?: boolean | null;
-  } | null;
-  active?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
