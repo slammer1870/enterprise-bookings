@@ -1,4 +1,4 @@
-import { Booking, ClassOption, DropIn } from "../types";
+import { Booking, ClassOption, DropIn } from "@repo/shared-types";
 import { FieldHook, User } from "payload";
 
 export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
@@ -17,10 +17,8 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
   const classOptions = classOptionsQuery.docs as ClassOption[];
 
-  const trialable = classOptions.some((option) =>
-    option.paymentMethods?.allowedDropIns?.some(
-      (dropIn: DropIn) => dropIn.priceType === "trial"
-    )
+  const trialable = classOptions.some(
+    (option) => option.paymentMethods?.allowedDropIns?.priceType === "trial"
   );
 
   const currentTime = new Date();

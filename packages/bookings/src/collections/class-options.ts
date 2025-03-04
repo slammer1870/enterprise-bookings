@@ -70,7 +70,7 @@ export const classOptionsCollection = (
         label: "Allowed Drop Ins",
         type: "relationship",
         relationTo: "drop-ins" as CollectionSlug,
-        hasMany: true,
+        hasMany: false,
         required: false,
       });
     }

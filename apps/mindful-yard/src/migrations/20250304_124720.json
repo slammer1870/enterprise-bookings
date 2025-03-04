@@ -1,5 +1,5 @@
 {
-  "id": "adbc1212-7baf-4f41-8e9f-038c4ee5e435",
+  "id": "9566bde2-8ca3-4d39-9311-705cd000f341",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -821,7 +821,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-02-27T17:10:32.910Z'"
+          "default": "'2025-03-04T12:47:19.803Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -965,6 +965,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "payment_methods_allowed_drop_ins_id": {
+          "name": "payment_methods_allowed_drop_ins_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp(3) with time zone",
@@ -981,6 +987,21 @@
         }
       },
       "indexes": {
+        "class_options_payment_methods_payment_methods_allowed_drop_ins_idx": {
+          "name": "class_options_payment_methods_payment_methods_allowed_drop_ins_idx",
+          "columns": [
+            {
+              "expression": "payment_methods_allowed_drop_ins_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "class_options_updated_at_idx": {
           "name": "class_options_updated_at_idx",
           "columns": [
@@ -1012,135 +1033,18 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.class_options_rels": {
-      "name": "class_options_rels",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "order": {
-          "name": "order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "parent_id": {
-          "name": "parent_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "path": {
-          "name": "path",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "drop_ins_id": {
-          "name": "drop_ins_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "class_options_rels_order_idx": {
-          "name": "class_options_rels_order_idx",
-          "columns": [
-            {
-              "expression": "order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "class_options_rels_parent_idx": {
-          "name": "class_options_rels_parent_idx",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "class_options_rels_path_idx": {
-          "name": "class_options_rels_path_idx",
-          "columns": [
-            {
-              "expression": "path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "class_options_rels_drop_ins_id_idx": {
-          "name": "class_options_rels_drop_ins_id_idx",
-          "columns": [
-            {
-              "expression": "drop_ins_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
       "foreignKeys": {
-        "class_options_rels_parent_fk": {
-          "name": "class_options_rels_parent_fk",
-          "tableFrom": "class_options_rels",
-          "tableTo": "class_options",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "class_options_rels_drop_ins_fk": {
-          "name": "class_options_rels_drop_ins_fk",
-          "tableFrom": "class_options_rels",
+        "class_options_payment_methods_allowed_drop_ins_id_drop_ins_id_fk": {
+          "name": "class_options_payment_methods_allowed_drop_ins_id_drop_ins_id_fk",
+          "tableFrom": "class_options",
           "tableTo": "drop_ins",
           "columnsFrom": [
-            "drop_ins_id"
+            "payment_methods_allowed_drop_ins_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1316,13 +1220,21 @@
           "name": "min_quantity",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "discount_percent": {
           "name": "discount_percent",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "enum_drop_ins_discount_tiers_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'normal'"
         }
       },
       "indexes": {
@@ -1378,6 +1290,89 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.drop_ins_payment_methods": {
+      "name": "drop_ins_payment_methods",
+      "schema": "",
+      "columns": {
+        "order": {
+          "name": "order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "enum_drop_ins_payment_methods",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "drop_ins_payment_methods_order_idx": {
+          "name": "drop_ins_payment_methods_order_idx",
+          "columns": [
+            {
+              "expression": "order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "drop_ins_payment_methods_parent_idx": {
+          "name": "drop_ins_payment_methods_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "drop_ins_payment_methods_parent_fk": {
+          "name": "drop_ins_payment_methods_parent_fk",
+          "tableFrom": "drop_ins_payment_methods",
+          "tableTo": "drop_ins",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.drop_ins": {
       "name": "drop_ins",
       "schema": "",
@@ -1406,14 +1401,6 @@
           "type": "numeric",
           "primaryKey": false,
           "notNull": true
-        },
-        "price_type": {
-          "name": "price_type",
-          "type": "enum_drop_ins_price_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'normal'"
         },
         "adjustable": {
           "name": "adjustable",
@@ -2353,12 +2340,20 @@
         "waiting"
       ]
     },
-    "public.enum_drop_ins_price_type": {
-      "name": "enum_drop_ins_price_type",
+    "public.enum_drop_ins_discount_tiers_type": {
+      "name": "enum_drop_ins_discount_tiers_type",
       "schema": "public",
       "values": [
-        "trial",
-        "normal"
+        "normal",
+        "trial"
+      ]
+    },
+    "public.enum_drop_ins_payment_methods": {
+      "name": "enum_drop_ins_payment_methods",
+      "schema": "public",
+      "values": [
+        "cash",
+        "card"
       ]
     }
   },

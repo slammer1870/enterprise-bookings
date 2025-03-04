@@ -31,44 +31,58 @@ export const dropInsCollection: CollectionConfig = {
       required: true,
     },
     {
-      name: "priceType",
-      label: "Price Type",
-      type: "select",
-      options: ["trial", "normal"],
-      defaultValue: "normal",
-      required: true,
-    },
-
-    {
       name: "adjustable",
       label: "Adjustable",
       type: "checkbox",
       defaultValue: false,
-      admin: {
-        condition: (data) => data?.priceType === "normal",
-      },
+      required: true,
     },
     {
       name: "discountTiers",
       label: "Discount Tiers",
       type: "array",
-      admin: {
-        condition: (data) => data?.adjustable,
-      },
       fields: [
         {
           name: "minQuantity",
           label: "Min Quantity",
           type: "number",
+          min: 1,
           required: true,
         },
         {
           name: "discountPercent",
           label: "Discount Percent",
           type: "number",
+          min: 0,
+          required: true,
+        },
+        {
+          name: "type",
+          label: "Type",
+          type: "select",
+          options: [
+            {
+              label: "Normal Discount",
+              value: "normal",
+            },
+            {
+              label: "Trial Discount (Can only be used on first booking)",
+              value: "trial",
+            },
+          ],
+          defaultValue: "normal",
           required: true,
         },
       ],
+    },
+    {
+      name: "paymentMethods",
+      label: "Payment Methods",
+      type: "select",
+      options: ["cash", "card"],
+      defaultValue: ["cash"],
+      hasMany: true,
+      required: true,
     },
   ],
   hooks: {

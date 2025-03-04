@@ -41,6 +41,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   );
 
   const handleClick = async () => {
+    if (loading) return;
+
     setLoading(true);
 
     const data = await fetch("/api/users/me", {
@@ -48,6 +50,14 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     });
 
     const { user } = await data.json();
+
+    if (!user) {
+      toast.info("Please sign in to continue");
+      setLoading(false);
+      return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
+        scroll: false,
+      });
+    }
 
     if (lesson.classOption.type === "child") {
       router.push(`/bookings/children/${lesson.id}`);
@@ -58,13 +68,6 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "active":
         case "trialable":
           // Perform check-in logic here
-          if (!user) {
-            toast.info("Please sign in to continue");
-            setLoading(false);
-            return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
-              scroll: false,
-            });
-          }
 
           await checkIn(lesson.id, user.id);
           setLoading(false);
@@ -75,25 +78,11 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           setLoading(false);
           break;
         case "waitlist":
-          if (!user) {
-            toast.info("Please sign in to continue");
-            setLoading(false);
-            return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
-              scroll: false,
-            });
-          }
           toast.info("You are on the waitlist");
           setLoading(false);
           break;
 
         case "booked":
-          if (!user) {
-            toast.info("Please sign in to continue");
-            setLoading(false);
-            return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
-              scroll: false,
-            });
-          }
           const ok = await confirm();
           if (ok) {
             setLoading(true);
@@ -135,6 +124,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         variant={buttonVariant[status as keyof typeof buttonVariant]}
         //className={`w-full p-2 border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
         className="w-full"
+        disabled={loading}
       >
         {loading
           ? "Loading..."

@@ -11,6 +11,7 @@ export interface DropIn {
     | {
         minQuantity: number;
         discountPercent: number;
+        priceType: "trial" | "normal";
       }[]
     | null;
   allowedClasses?: (number | ClassOption)[] | null;

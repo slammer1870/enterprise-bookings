@@ -51,11 +51,13 @@ describe("Booking tests", () => {
       collection: "drop-ins",
       data: {
         name: "Drop In",
-        description: "Drop In",
+        isActive: true,
         price: 10,
-        type: "normal",
+        adjustable: false,
+        paymentMethods: ["cash"],
       },
     });
+    console.log(dropIn);
     const classOption = await payload.create({
       collection: "class-options",
       data: {
@@ -63,7 +65,7 @@ describe("Booking tests", () => {
         places: 1,
         description: "Test Class Option",
         paymentMethods: {
-          allowedDropIns: [dropIn.id],
+          allowedDropIns: dropIn.id,
         },
       },
     });
@@ -122,7 +124,7 @@ describe("Booking tests", () => {
         places: 1,
         description: "Test Class Option",
         paymentMethods: {
-          allowedDropIns: [dropIn.id],
+          allowedDropIns: dropIn.id,
         },
       },
     });

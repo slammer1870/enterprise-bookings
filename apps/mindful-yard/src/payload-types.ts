@@ -190,7 +190,7 @@ export interface ClassOption {
   places: number;
   description: string;
   paymentMethods?: {
-    allowedDropIns?: (number | DropIn)[] | null;
+    allowedDropIns?: (number | null) | DropIn;
   };
   updatedAt: string;
   createdAt: string;
@@ -204,15 +204,16 @@ export interface DropIn {
   name: string;
   isActive: boolean;
   price: number;
-  priceType: 'trial' | 'normal';
   adjustable?: boolean | null;
   discountTiers?:
     | {
         minQuantity: number;
         discountPercent: number;
+        type: 'normal' | 'trial';
         id?: string | null;
       }[]
     | null;
+  paymentMethods: ('cash' | 'card')[];
   allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;
@@ -436,15 +437,16 @@ export interface DropInsSelect<T extends boolean = true> {
   name?: T;
   isActive?: T;
   price?: T;
-  priceType?: T;
   adjustable?: T;
   discountTiers?:
     | T
     | {
         minQuantity?: T;
         discountPercent?: T;
+        type?: T;
         id?: T;
       };
+  paymentMethods?: T;
   allowedClasses?: T;
   updatedAt?: T;
   createdAt?: T;

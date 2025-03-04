@@ -13,15 +13,15 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
 
   const { token, user } = await getMeUser({ nullUserRedirect: '/login' })
 
-  const lesson = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=3`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=3`, {
     headers: {
       Authorization: `JWT ${token}`,
     },
   })
 
-  const lessonData: Lesson = await lesson.json()
+  const lesson: Lesson = await response.json()
 
-  if (lessonData.bookingStatus === 'booked') {
+  if (lesson.bookingStatus === 'booked') {
     redirect('/dashboard')
   }
 
@@ -33,7 +33,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
 
   return (
     <div className="container mx-auto max-w-screen-sm px-4 py-8">
-      <BookingForm lesson={lessonData} name={user.name || ''} />
+      <BookingForm lesson={lesson} name={user.name || ''} />
     </div>
   )
 }

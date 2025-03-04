@@ -31,7 +31,7 @@ export interface ClassOption {
   description: string;
   type: "adult" | "child";
   paymentMethods?: {
-    allowedDropIns?: DropIn[];
+    allowedDropIns?: DropIn;
     allowedPlans?: Plan[];
   };
 }
