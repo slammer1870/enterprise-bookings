@@ -63,7 +63,6 @@ export const bookingsCollection = (
         },
         async ({ req, data, operation }) => {
           if (operation === "create") {
-            console.log("data", data);
             const booking = await req.payload.find({
               collection: "bookings",
               where: {
@@ -76,8 +75,6 @@ export const bookingsCollection = (
               },
               depth: 3,
             });
-
-            console.log(booking.docs[0]);
 
             if (booking.docs.length > 0) {
               throw new APIError(
