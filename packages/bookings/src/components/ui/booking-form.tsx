@@ -1,5 +1,7 @@
 import { Lesson } from "@repo/shared-types";
+
 import { format } from "date-fns";
+
 import { Card, CardContent } from "@repo/ui/components/ui/card";
 
 export function BookingForm(props: { lesson: Lesson; name: string }) {

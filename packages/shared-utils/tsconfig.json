@@ -6,7 +6,6 @@
     "baseUrl": ".",
     "paths": {
       "@repo/shared-utils": ["src/index.ts"]
-    },
-    "version": "0.0.1"
+    }
   }
 }

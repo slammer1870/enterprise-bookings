@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 import { getLessonsQuery } from "@repo/shared-utils";
 
-import { Lesson } from "../types";
+import { Lesson } from "@repo/shared-types";
+
 import { toast } from "sonner";
 
 import { useRouter } from "next/navigation";

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useForm } from "react-hook-form";
 
-import { Booking } from "../../types";
+import { Booking } from "@repo/shared-types";
 
 import { Button } from "@repo/ui/components/ui/button";
 

@@ -783,6 +783,9 @@ importers:
 
   packages/shared-utils:
     dependencies:
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config

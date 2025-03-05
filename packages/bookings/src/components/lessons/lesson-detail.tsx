@@ -1,18 +1,11 @@
 "use client";
 
-import { BookingsCount } from "../bookings/bookings-count";
-
 import { BookingList } from "../bookings/booking-list";
 
-import {
-  CollapsibleContent,
-  CollapsibleTrigger,
-  Collapsible,
-} from "@repo/ui/components/ui/collapsible";
-
-import { Lesson, Booking, ClassOption } from "../../types";
+import { Lesson, Booking, ClassOption } from "@repo/shared-types";
 
 import { ManageLesson } from "./manage-lesson";
+
 import { Button } from "@repo/ui/components/ui/button";
 
 import {
@@ -26,16 +19,9 @@ import {
 
 import { format } from "date-fns";
 
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { ChevronUp } from "lucide-react";
-
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@repo/ui/components/ui/dropdown-menu";
 
 import { useState } from "react";
 

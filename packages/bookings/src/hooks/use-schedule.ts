@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Lesson } from "../types";
+import { Lesson } from "@repo/shared-types";
 
 import { getLessonsQuery } from "@repo/shared-utils";
 

@@ -1,4 +1,4 @@
-import { Booking } from "../../types";
+import { Booking } from "@repo/shared-types";
 
 export const BookingDetail = ({ booking }: { booking: Booking }) => {
   return (

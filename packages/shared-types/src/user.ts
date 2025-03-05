@@ -4,4 +4,7 @@ export interface User {
   email: string;
   roles?: string[];
   stripeCustomerId?: string;
+  image?: {
+    url: string;
+  };
 }

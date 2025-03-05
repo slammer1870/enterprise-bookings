@@ -2,6 +2,9 @@ import { CollectionConfig } from "payload";
 import { getRemainingCapacity } from "../hooks/remaining-capacity";
 import { getBookingStatus } from "../hooks/booking-status";
 
+import { checkRole } from "@repo/shared-utils/src/check-role";
+import type { User } from "@repo/shared-types/";
+
 export const lessonsCollection: CollectionConfig = {
   slug: "lessons",
   labels: {
@@ -10,6 +13,9 @@ export const lessonsCollection: CollectionConfig = {
   },
   access: {
     read: () => true,
+    create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   },
   admin: {
     group: "Bookings",

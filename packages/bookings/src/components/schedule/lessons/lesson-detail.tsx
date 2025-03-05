@@ -4,7 +4,7 @@ import Image from "next/image";
 
 import { format } from "date-fns";
 
-import { Lesson } from "../../../types";
+import { Lesson } from "@repo/shared-types";
 
 import CheckInButton from "./checkin-button";
 

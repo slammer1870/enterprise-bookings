@@ -8,9 +8,7 @@ import { Button } from "@repo/ui/components/ui/button";
 
 import { useConfirm } from "@repo/ui/components/ui/use-confirm";
 
-import { Lesson } from "../../../types";
-
-import { getActiveBookingsQuery } from "@repo/shared-utils";
+import { Lesson } from "@repo/shared-types";
 
 import { useSchedule } from "../../../providers/schedule";
 

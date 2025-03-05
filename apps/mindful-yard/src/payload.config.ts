@@ -50,10 +50,7 @@ export default buildConfig({
     }),
     paymentsPlugin({
       enabled: true,
-      acceptedPaymentMethods: {
-        card: false,
-        cash: true,
-      },
+      acceptedPaymentMethods: ['cash'],
     }),
     bookingsPlugin({
       enabled: true,

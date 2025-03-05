@@ -21,7 +21,7 @@ export const paymentsPlugin =
 
     const endpoints = config.endpoints || [];
 
-    if (pluginOptions.acceptedPaymentMethods?.card) {
+    if (pluginOptions.acceptedPaymentMethods?.includes("card")) {
       const usersCollection = collections.find(
         (collection) => collection.slug === "users"
       );
@@ -49,7 +49,7 @@ export const paymentsPlugin =
       });
     }
 
-    collections.push(dropInsCollection);
+    collections.push(dropInsCollection(pluginOptions));
 
     config.collections = collections;
     config.endpoints = endpoints;

@@ -2,6 +2,8 @@ import { CollectionConfig, CollectionSlug } from "payload";
 
 import { checkRole } from "@repo/shared-utils";
 
+import { User } from "@repo/shared-types";
+
 import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
 
 export const subscriptionsCollection: CollectionConfig = {
@@ -68,7 +70,7 @@ export const subscriptionsCollection: CollectionConfig = {
       type: "text",
       label: "Stripe Subscription ID",
       access: {
-        read: ({ req: { user } }) => checkRole(["admin"], user as any),
+        read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
       },
       unique: true,
       admin: {

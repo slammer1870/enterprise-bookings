@@ -213,7 +213,7 @@ export interface DropIn {
         id?: string | null;
       }[]
     | null;
-  paymentMethods: ('cash' | 'card')[];
+  paymentMethods: 'cash'[];
   allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;

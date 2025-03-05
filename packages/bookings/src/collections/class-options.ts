@@ -1,7 +1,8 @@
 import type { CollectionConfig, CollectionSlug, GroupField } from "payload";
 
 import { BookingsPluginConfig } from "../types";
-
+import { checkRole } from "@repo/shared-utils/src/check-role";
+import type { User } from "@repo/shared-types/";
 export const classOptionsCollection = (
   pluginOptions: BookingsPluginConfig
 ): CollectionConfig => {
@@ -13,6 +14,9 @@ export const classOptionsCollection = (
     },
     access: {
       read: () => true,
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
     },
     admin: {
       group: "Bookings",

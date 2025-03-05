@@ -1,5 +1,6 @@
-import { Booking, ClassOption, DropIn } from "@repo/shared-types";
-import { FieldHook, User } from "payload";
+import { Booking, ClassOption, User } from "@repo/shared-types";
+
+import { FieldHook } from "payload";
 
 export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   if (context.triggerAfterChange === false) {

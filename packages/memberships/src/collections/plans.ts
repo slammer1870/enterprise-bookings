@@ -4,6 +4,8 @@ import { checkRole } from "@repo/shared-utils";
 
 import { beforeProductChange } from "../hooks/before-product-change";
 
+import { User } from "@repo/shared-types";
+
 export const plansCollection: CollectionConfig = {
   slug: "plans",
   labels: {
@@ -77,7 +79,7 @@ export const plansCollection: CollectionConfig = {
       type: "text",
       label: "Stripe Plan",
       access: {
-        read: ({ req: { user } }) => checkRole(["admin"], user as any),
+        read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
       },
       admin: {
         components: {
