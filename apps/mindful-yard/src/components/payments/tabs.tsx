@@ -1,14 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 
-import { CashPayment } from '@repo/payments/src/components/cash-payment'
-
-import { ClassOption, DropIn, Lesson, Plan } from '@repo/shared-types'
-
-//import { PlanList } from './plans/PlanList'
-
-const paymentBlocks = {
-  cash: CashPayment,
-}
+import { Lesson } from '@repo/shared-types'
+import { DropInPayment } from './drop-ins'
 
 export function PaymentTabs({
   paymentMethods,
@@ -20,15 +13,15 @@ export function PaymentTabs({
   }
 
   return (
-    <Tabs defaultValue="cash" className="w-full">
+    <Tabs defaultValue="drop-in" className="w-full">
       <TabsList className="flex w-full justify-around gap-4">
-        {paymentMethods.map((method) => (
-          <TabsTrigger key={method} value={method} className="w-full">
-            {method}
-          </TabsTrigger>
-        ))}
+        <TabsTrigger className="w-full" value="drop-in">
+          Drop In
+        </TabsTrigger>
       </TabsList>
-      <TabsContent value="cash">Cash Payment</TabsContent>
+      <TabsContent value="drop-in">
+        <DropInPayment />
+      </TabsContent>
     </Tabs>
   )
 }

@@ -6,14 +6,14 @@ import { Lesson } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { BookingForm } from '@repo/bookings/src/components/ui/booking-form'
+import { SaunaPaymentForm } from '@/components/payments/sauna-payment-form'
 
 export default async function BookingPage({ params }: { params: Promise<{ id: number }> }) {
   const { id } = await params
 
   const { token, user } = await getMeUser({ nullUserRedirect: '/login' })
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=3`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=5`, {
     headers: {
       Authorization: `JWT ${token}`,
     },
@@ -21,19 +21,19 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
 
   const lesson: Lesson = await response.json()
 
-  if (lesson.bookingStatus === 'booked') {
-    redirect('/dashboard')
-  }
+  if (lesson.bookingStatus == 'active' || lesson.bookingStatus == 'trialable') {
+    const checkIn = await checkInAction(id, user.id)
 
-  const checkIn = await checkInAction(id, user.id)
-
-  if (checkIn.success) {
-    redirect('/dashboard')
+    if (checkIn.success) {
+      redirect('/dashboard')
+    }
+  } else {
+    redirect('/')
   }
 
   return (
-    <div className="container mx-auto max-w-screen-sm px-4 py-8">
-      <BookingForm lesson={lesson} name={user.name || ''} />
+    <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8">
+      <SaunaPaymentForm />
     </div>
   )
 }

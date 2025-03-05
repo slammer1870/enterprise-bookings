@@ -1,13 +1,6 @@
 import { Lesson } from "@repo/shared-types";
 import { format } from "date-fns";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@repo/ui/components/ui/card";
+import { Card, CardContent } from "@repo/ui/components/ui/card";
 
 export function BookingForm(props: { lesson: Lesson; name: string }) {
   const { lesson, name } = props;
@@ -15,9 +8,8 @@ export function BookingForm(props: { lesson: Lesson; name: string }) {
   return (
     <>
       <Card>
-        <CardHeader className="text-2xl">Your booking information</CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 pt-4">
             <div className="flex flex-col items-start">
               <p className="text-lg font-medium mb-1">Attendee</p>
               <span>{name}</span>

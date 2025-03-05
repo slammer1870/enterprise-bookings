@@ -204,7 +204,7 @@ export interface DropIn {
   name: string;
   isActive: boolean;
   price: number;
-  adjustable?: boolean | null;
+  adjustable: boolean;
   discountTiers?:
     | {
         minQuantity: number;

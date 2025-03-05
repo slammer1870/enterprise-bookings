@@ -26,7 +26,7 @@ export async function checkInAction(lessonId: number, userId: number) {
 
     const bookingData = await booking.json();
 
-    if (bookingData.docs.length > 0) {
+    if (bookingData.totalDocs > 0) {
       // Update existing booking
       const updatedBooking = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings${query}`,
