@@ -5,7 +5,8 @@ import { config } from "./config.js";
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
-import { calculateQuantityDiscount } from "../src/utils/discount";
+import { calculateQuantityDiscount, DiscountTier } from "../src/utils/discount";
+import { DropIn } from "@repo/shared-types";
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -43,12 +44,12 @@ describe("Discount calculation tests", () => {
 
   describe("calculateQuantityDiscount utility", () => {
     it("should not apply discount for single quantity purchase", () => {
-      const discountTiers = [
-        { minQuantity: 3, discountPercent: 10 },
-        { minQuantity: 5, discountPercent: 15 },
+      const discountTiers: DiscountTier[] = [
+        { minQuantity: 3, discountPercent: 10, type: "normal" },
+        { minQuantity: 5, discountPercent: 15, type: "normal" },
       ];
 
-      const result = calculateQuantityDiscount(100, 1, "normal", discountTiers);
+      const result = calculateQuantityDiscount(100, 1, discountTiers);
 
       expect(result.discountApplied).toBe(false);
       expect(result.originalPrice).toBe(100);
@@ -58,12 +59,12 @@ describe("Discount calculation tests", () => {
     });
 
     it("should apply the correct discount tier for qualifying quantity", () => {
-      const discountTiers = [
-        { minQuantity: 3, discountPercent: 10 },
-        { minQuantity: 5, discountPercent: 15 },
+      const discountTiers: DiscountTier[] = [
+        { minQuantity: 3, discountPercent: 10, type: "normal" },
+        { minQuantity: 5, discountPercent: 15, type: "normal" },
       ];
 
-      const result = calculateQuantityDiscount(100, 3, "normal", discountTiers);
+      const result = calculateQuantityDiscount(100, 3, discountTiers);
 
       expect(result.discountApplied).toBe(true);
       expect(result.originalPrice).toBe(100);
@@ -73,12 +74,12 @@ describe("Discount calculation tests", () => {
     });
 
     it("should apply the highest qualifying discount tier", () => {
-      const discountTiers = [
-        { minQuantity: 3, discountPercent: 10 },
-        { minQuantity: 5, discountPercent: 15 },
+      const discountTiers: DiscountTier[] = [
+        { minQuantity: 3, discountPercent: 10, type: "normal" },
+        { minQuantity: 5, discountPercent: 15, type: "normal" },
       ];
 
-      const result = calculateQuantityDiscount(100, 5, "normal", discountTiers);
+      const result = calculateQuantityDiscount(100, 5, discountTiers);
 
       expect(result.discountApplied).toBe(true);
       expect(result.originalPrice).toBe(100);
@@ -88,12 +89,12 @@ describe("Discount calculation tests", () => {
     });
 
     it("should not apply discount for trial price type", () => {
-      const discountTiers = [
-        { minQuantity: 3, discountPercent: 10 },
-        { minQuantity: 5, discountPercent: 15 },
+      const discountTiers: DiscountTier[] = [
+        { minQuantity: 3, discountPercent: 10, type: "trial" },
+        { minQuantity: 5, discountPercent: 15, type: "trial" },
       ];
 
-      const result = calculateQuantityDiscount(50, 5, "trial", discountTiers);
+      const result = calculateQuantityDiscount(50, 5, discountTiers);
 
       expect(result.discountApplied).toBe(false);
       expect(result.originalPrice).toBe(50);
@@ -103,7 +104,7 @@ describe("Discount calculation tests", () => {
     });
 
     it("should handle missing discount tiers", () => {
-      const result = calculateQuantityDiscount(100, 5, "normal");
+      const result = calculateQuantityDiscount(100, 5);
 
       expect(result.discountApplied).toBe(false);
       expect(result.originalPrice).toBe(100);
@@ -115,7 +116,7 @@ describe("Discount calculation tests", () => {
 
   describe("Payment intent with discounts", () => {
     let user;
-    let dropIn;
+    let dropIn: DropIn;
 
     beforeAll(async () => {
       // Create test user
@@ -129,20 +130,19 @@ describe("Discount calculation tests", () => {
       });
 
       // Create test drop-in with discount tiers
-      dropIn = await payload.create({
+      dropIn = (await payload.create({
         collection: "drop-ins",
         data: {
           name: "Test Drop-In Class",
           price: 100,
-          priceType: "normal",
-          active: true,
+          isActive: true,
           adjustable: true,
           discountTiers: [
-            { minQuantity: 3, discountPercent: 10 },
-            { minQuantity: 5, discountPercent: 15 },
+            { minQuantity: 3, discountPercent: 10, type: "normal" },
+            { minQuantity: 5, discountPercent: 15, type: "normal" },
           ],
         },
-      });
+      })) as DropIn;
     });
 
     it("should apply discount when creating payment intent", async () => {
@@ -180,8 +180,12 @@ describe("Discount calculation tests", () => {
         data: {
           name: "Trial Drop-In Class",
           price: 50,
-          priceType: "trial",
           active: true,
+          adjustable: true,
+          discountTiers: [
+            { minQuantity: 3, discountPercent: 10, type: "trial" },
+            { minQuantity: 5, discountPercent: 15, type: "trial" },
+          ],
         },
       });
 

@@ -20,6 +20,7 @@ import { config } from "./config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { DropIn, User } from "@repo/shared-types";
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -38,16 +39,16 @@ describe("Booking tests", () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
 
-    user = await payload.create({
+    user = (await payload.create({
       collection: "users",
       data: {
         email: "test@test.com",
         password: "test",
       },
-    });
+    })) as User;
   });
   it("should be authorised to create a booking because user is admin", async () => {
-    const dropIn = await payload.create({
+    const dropIn = (await payload.create({
       collection: "drop-ins",
       data: {
         name: "Drop In",
@@ -56,8 +57,8 @@ describe("Booking tests", () => {
         adjustable: false,
         paymentMethods: ["cash"],
       },
-    });
-    console.log(dropIn);
+    })) as DropIn;
+
     const classOption = await payload.create({
       collection: "class-options",
       data: {
@@ -114,7 +115,8 @@ describe("Booking tests", () => {
         name: "Drop In 1",
         description: "Drop In 1",
         price: 10,
-        type: "normal",
+        isActive: true,
+        paymentMethods: ["cash"],
       },
     });
     const classOption = await payload.create({

@@ -18,7 +18,7 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
-import { ClassOption, Lesson } from "../src/types.js";
+import { ClassOption, Lesson } from "@repo/shared-types";
 
 let payload: Payload;
 let restClient: NextRESTClient;

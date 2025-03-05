@@ -1,6 +1,7 @@
 export type DiscountTier = {
   minQuantity: number;
   discountPercent: number;
+  type: "normal" | "trial" ;
 };
 
 export type DiscountResult = {
@@ -23,7 +24,6 @@ export type DiscountResult = {
 export const calculateQuantityDiscount = (
   price: number,
   quantity: number = 1,
-  priceType: string = "normal",
   discountTiers?: DiscountTier[]
 ): DiscountResult => {
   // Default values if no discount applies
@@ -34,8 +34,7 @@ export const calculateQuantityDiscount = (
 
   // Only apply discounts for normal price type with valid discount tiers
   if (
-    priceType === "normal" &&
-    quantity > 1 &&
+    quantity >= 1 &&
     Array.isArray(discountTiers) &&
     discountTiers.length > 0
   ) {
@@ -49,7 +48,7 @@ export const calculateQuantityDiscount = (
       (tier) => quantity >= tier.minQuantity
     );
 
-    if (applicableTier) {
+    if (applicableTier && applicableTier.type === "normal") {
       const discountMultiplier = (100 - applicableTier.discountPercent) / 100;
       discountedPrice = price * discountMultiplier;
       totalAmount = discountedPrice * quantity;

@@ -37,13 +37,12 @@ export const createPaymentIntent: PayloadHandler = async (
       const dropIn = (await req.payload.findByID({
         collection: "drop-ins",
         id: dropInId,
-      })) as DropIn;
+      })) as unknown as DropIn;
 
       if (dropIn) {
         discountResult = calculateQuantityDiscount(
           price,
           quantity,
-          dropIn.priceType,
           dropIn.discountTiers || []
         );
 

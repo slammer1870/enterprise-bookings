@@ -21,7 +21,7 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
 
-import { User } from "../src/types";
+import { User } from "@repo/shared-types";
 
 let payload: Payload;
 let restClient: NextRESTClient;

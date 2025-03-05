@@ -68,7 +68,7 @@ export const config: Config = {
     }),
     paymentsPlugin({
       enabled: true,
-      acceptedPaymentMethods: "cash",
+      acceptedPaymentMethods: ["cash"],
     }),
     membershipsPlugin({
       enabled: true,
