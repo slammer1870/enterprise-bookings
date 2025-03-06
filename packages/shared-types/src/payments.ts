@@ -10,6 +10,7 @@ export interface DropIn {
   discountTiers?:
     | {
         minQuantity: number;
+        maxQuantity: number;
         discountPercent: number;
         type: "trial" | "normal";
       }[]
