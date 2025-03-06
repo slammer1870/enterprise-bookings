@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@repo/ui/comp
 import { calculateQuantityDiscount } from '@repo/payments/src/utils/discount'
 
 type Attendee = {
+  id: string
   name: string
   email: string
 }
@@ -44,6 +45,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   const router = useRouter()
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [loading, setLoading] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   // Use lesson data for booking details
   const [bookingDetails, setBookingDetails] = useState({
@@ -62,7 +64,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
 
   // Initialize with one attendee (the primary booker)
   const [attendees, setAttendees] = useState<Attendee[]>([
-    { name: user.name || '', email: user.email || '' },
+    { id: 'primary-user', name: user.name || '', email: user.email || '' },
   ])
 
   // Calculate total price based on number of attendees
@@ -76,28 +78,56 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   const addAttendee = () => {
     // Check against remaining capacity
     if (bookingDetails.adjustableQuantity && attendees.length < remainingCapacity) {
-      setAttendees([...attendees, { name: '', email: '' }])
+      setAttendees([...attendees, { id: `attendee-${Date.now()}-${attendees.length}`, name: '', email: '' }])
     }
   }
 
-  const removeAttendee = (email: string) => {
+  const removeAttendee = (id: string) => {
     // Always keep at least one attendee
     if (attendees.length > 1) {
-      setAttendees(attendees.filter((attendee) => attendee.email !== email))
+      setAttendees(attendees.filter((attendee) => attendee.id !== id))
     }
   }
 
-  const updateAttendee = (email: string, field: keyof Attendee, value: string) => {
+  // Check for duplicate emails
+  const isDuplicateEmail = (email: string, currentId: string): boolean => {
+    if (!email) return false; // Empty emails don't count as duplicates
+    return attendees.some(attendee => 
+      attendee.id !== currentId && 
+      attendee.email.toLowerCase() === email.toLowerCase()
+    );
+  };
+
+  const updateAttendee = (id: string, field: keyof Omit<Attendee, 'id'>, value: string) => {
     setAttendees(
       attendees.map((attendee) =>
-        attendee.email === email ? { ...attendee, [field]: value } : attendee,
+        attendee.id === id ? { ...attendee, [field]: value } : attendee,
       ),
     )
   }
 
+  // Check if form is valid (no duplicate emails)
+  const hasValidForm = (): boolean => {
+    // Check for empty required fields
+    const hasEmptyFields = attendees.some(a => !a.name || !a.email);
+    
+    // Check for duplicate emails
+    const hasDuplicateEmails = attendees.some(a => 
+      isDuplicateEmail(a.email, a.id)
+    );
+    
+    return !hasEmptyFields && !hasDuplicateEmails;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    
+    // Validate form before submission
+    if (!hasValidForm()) {
+      return;
+    }
+    
+    setLoading(true);
 
     try {
       // In a real implementation, this would create a payment and booking
@@ -202,7 +232,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
           </CardHeader>
           <CardContent className="space-y-6">
             {attendees.map((attendee, index) => (
-              <div key={index} className="space-y-4">
+              <div key={attendee.id} className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">
                     {index === 0 ? 'Primary Guest' : `Guest ${index + 1}`}
@@ -211,7 +241,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeAttendee(attendee.email)}
+                      onClick={() => removeAttendee(attendee.id)}
                       className="h-8 w-8 p-0"
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
@@ -221,11 +251,11 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
 
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor={`name-${attendee.email}`}>Full Name</Label>
+                    <Label htmlFor={`name-${attendee.id}`}>Full Name</Label>
                     <Input
-                      id={`name-${attendee.email}`}
+                      id={`name-${attendee.id}`}
                       value={attendee.name}
-                      onChange={(e) => updateAttendee(attendee.email, 'name', e.target.value)}
+                      onChange={(e) => updateAttendee(attendee.id, 'name', e.target.value)}
                       placeholder="John Doe"
                       disabled={index === 0}
                       required
@@ -233,16 +263,24 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor={`email-${attendee.email}`}>Email</Label>
-                    <Input
-                      id={`email-${attendee.email}`}
-                      type="email"
-                      value={attendee.email}
-                      onChange={(e) => updateAttendee(attendee.email, 'email', e.target.value)}
-                      placeholder="john@example.com"
-                      disabled={index === 0}
-                      required
-                    />
+                    <Label htmlFor={`email-${attendee.id}`}>Email</Label>
+                    <div>
+                      <Input
+                        id={`email-${attendee.id}`}
+                        type="email"
+                        value={attendee.email}
+                        onChange={(e) => updateAttendee(attendee.id, 'email', e.target.value)}
+                        placeholder="john@example.com"
+                        disabled={index === 0}
+                        required
+                        className={isDuplicateEmail(attendee.email, attendee.id) ? "border-red-500" : ""}
+                      />
+                      {isDuplicateEmail(attendee.email, attendee.id) && (
+                        <p className="text-xs text-red-500 mt-1">
+                          This email is already used by another attendee
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -274,37 +312,93 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
           </CardContent>
         </Card>
 
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full" variant="default">
+            <Button
+              className="w-full"
+              variant="default"
+              disabled={!hasValidForm()}
+            >
               Complete Booking
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogTitle>Dialog</DialogTitle>
-          </DialogContent>
-        </Dialog>
+          <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+            <DialogTitle>Complete Your Booking</DialogTitle>
 
-        {/* Payment Form */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle>Payment Details</CardTitle>
-            <CardDescription>
-              Complete your booking by providing payment information
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Booking Summary in Dialog */}
+            <div className="space-y-4 py-4">
+              <h3 className="font-semibold">Booking Details</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Date:</span>
+                  <span>{format(bookingDetails.date, 'EEEE, MMMM d, yyyy')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Time:</span>
+                  <span>
+                    {format(bookingDetails.startTime, 'HH:mmaa')} -{' '}
+                    {format(bookingDetails.endTime, 'HH:mmaa')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Sauna Type:</span>
+                  <span>Traditional Wood-Fired</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <h3 className="font-semibold">Attendees</h3>
+              <div className="space-y-1 text-sm">
+                {attendees.map((attendee, index) => (
+                  <div key={index} className="flex justify-between">
+                    <span>{index === 0 ? 'Primary Guest:' : `Guest ${index + 1}:`}</span>
+                    <span>{attendee.name}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span>Price per person</span>
+                  <span>€{bookingDetails.price.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Number of guests</span>
+                  <span>{attendees.length}</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex justify-between items-center text-lg font-semibold">
+                <span>Total</span>
+                <div className="flex items-center gap-2">
+                  {priceCalculation.discountApplied && (
+                    <span className="line-through text-red-400">
+                      €{priceCalculation.totalAmountBeforeDiscount.toFixed(2)}
+                    </span>
+                  )}
+                  <span>€{priceCalculation.totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Payment Methods */}
+              <h3 className="font-semibold">Payment Method</h3>
               <RadioGroup
                 defaultValue="card"
                 value={paymentMethod}
                 onValueChange={setPaymentMethod}
-                className="grid grid-cols-3 gap-4"
+                className="grid grid-cols-2 gap-4"
               >
                 <div>
-                  <RadioGroupItem value="card" id="card" className="peer sr-only" />
+                  <RadioGroupItem value="card" id="dialog-card" className="peer sr-only" />
                   <Label
-                    htmlFor="card"
+                    htmlFor="dialog-card"
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
                   >
                     <svg
@@ -324,9 +418,9 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                   </Label>
                 </div>
                 <div>
-                  <RadioGroupItem value="paypal" id="paypal" className="peer sr-only" />
+                  <RadioGroupItem value="cash" id="dialog-cash" className="peer sr-only" />
                   <Label
-                    htmlFor="paypal"
+                    htmlFor="dialog-cash"
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
                   >
                     <svg
@@ -339,33 +433,11 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                       strokeLinejoin="round"
                       className="mb-3 h-6 w-6"
                     >
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                      <rect width="18" height="12" x="3" y="11" rx="2" />
+                      <rect width="20" height="12" x="2" y="6" rx="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <path d="M6 12h.01M18 12h.01" />
                     </svg>
-                    PayPal
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="apple" id="apple" className="peer sr-only" />
-                  <Label
-                    htmlFor="apple"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mb-3 h-6 w-6"
-                    >
-                      <path d="M12 2a10 10 0 1 0 10 10" />
-                      <path d="M12 12v10" />
-                      <path d="M12 12 4 4" />
-                    </svg>
-                    Apple Pay
+                    Cash
                   </Label>
                 </div>
               </RadioGroup>
@@ -373,44 +445,45 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
               {paymentMethod === 'card' && (
                 <div className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Cardholder Name</Label>
-                    <Input id="name" placeholder="John Doe" required />
+                    <Label htmlFor="dialog-name">Cardholder Name</Label>
+                    <Input id="dialog-name" placeholder="John Doe" required />
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="card-number">Card Number</Label>
-                    <Input id="card-number" placeholder="1234 5678 9012 3456" required />
+                    <Label htmlFor="dialog-card-number">Card Number</Label>
+                    <Input id="dialog-card-number" placeholder="1234 5678 9012 3456" required />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="expiry">Expiry Date</Label>
-                      <Input id="expiry" placeholder="MM/YY" required />
+                      <Label htmlFor="dialog-expiry">Expiry Date</Label>
+                      <Input id="dialog-expiry" placeholder="MM/YY" required />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="cvc">CVC</Label>
-                      <Input id="cvc" placeholder="123" required />
+                      <Label htmlFor="dialog-cvc">CVC</Label>
+                      <Input id="dialog-cvc" placeholder="123" required />
                     </div>
                   </div>
                 </div>
               )}
 
               <div className="grid gap-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" placeholder="+1 (555) 123-4567" required />
+                <Label htmlFor="dialog-phone">Phone Number</Label>
+                <Input id="dialog-phone" placeholder="+1 (555) 123-4567" required />
               </div>
-            </form>
-          </CardContent>
-          <CardFooter>
+            </div>
+
             <Button
               className="w-full bg-amber-600 hover:bg-amber-700"
               onClick={handleSubmit}
-              disabled={loading || attendees.some((a) => !a.name || !a.email)}
+              disabled={loading}
             >
-              {loading ? 'Processing...' : `Pay €${priceCalculation.totalAmount.toFixed(2)}`}
+              {loading
+                ? 'Processing...'
+                : `Confirm and Pay €${priceCalculation.totalAmount.toFixed(2)}`}
             </Button>
-          </CardFooter>
-        </Card>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
