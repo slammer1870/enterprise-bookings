@@ -32,8 +32,8 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
   }
 
   return (
-    <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8">
-      <SaunaPaymentForm />
+    <div className="container mx-auto max-w-screen-xl flex flex-col gap-4 px-4 py-8">
+      <SaunaPaymentForm lesson={lesson} user={user} />
     </div>
   )
 }

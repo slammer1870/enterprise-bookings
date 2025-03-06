@@ -4,7 +4,8 @@ import type React from 'react'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarIcon, Clock, Flame, ThermometerSun, Users, Plus, Trash2 } from 'lucide-react'
+import { CalendarIcon, Clock, Flame, Users, Plus, Trash2 } from 'lucide-react'
+import { Lesson, User } from '@repo/shared-types'
 
 import { Button } from '@repo/ui/components/ui/button'
 import {
@@ -15,56 +16,81 @@ import {
   CardHeader,
   CardTitle,
 } from '@repo/ui/components/ui/card'
+
 import { Separator } from '@repo/ui/components/ui/separator'
+
 import { Label } from '@repo/ui/components/ui/label'
+
 import { RadioGroup, RadioGroupItem } from '@repo/ui/components/ui/radio-group'
+
 import { Input } from '@repo/ui/components/ui/input'
+
 import { format } from 'date-fns'
 
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@repo/ui/components/ui/dialog'
+import { calculateQuantityDiscount } from '@repo/payments/src/utils/discount'
+
 type Attendee = {
-  id: string
   name: string
   email: string
 }
 
-export const SaunaPaymentForm = () => {
+type SaunaPaymentFormProps = {
+  lesson: Lesson
+  user: User
+}
+
+export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   const router = useRouter()
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [loading, setLoading] = useState(false)
 
-  // Initial booking details
+  // Use lesson data for booking details
   const [bookingDetails, setBookingDetails] = useState({
-    date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-    time: '18:00 - 20:00',
-    duration: 2,
-    pricePerPerson: 30,
-    currency: 'USD',
+    date: new Date(lesson.date || Date.now()),
+    startTime: lesson.startTime || '18:00',
+    endTime: lesson.endTime || '20:00',
+    price: lesson.classOption.paymentMethods?.allowedDropIns?.price || 0,
+    currency: 'EUR',
+    maxCapacity: lesson.remainingCapacity,
+    currentAttendees: lesson.bookings?.length || 0,
+    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIns?.adjustable || false,
   })
 
+  // Calculate remaining capacity
+  const remainingCapacity = bookingDetails.maxCapacity - bookingDetails.currentAttendees
+
   // Initialize with one attendee (the primary booker)
-  const [attendees, setAttendees] = useState<Attendee[]>([{ id: '1', name: '', email: '' }])
+  const [attendees, setAttendees] = useState<Attendee[]>([
+    { name: user.name || '', email: user.email || '' },
+  ])
 
   // Calculate total price based on number of attendees
-  const totalPrice = attendees.length * bookingDetails.pricePerPerson * bookingDetails.duration
+
+  const priceCalculation = calculateQuantityDiscount(
+    lesson.classOption.paymentMethods?.allowedDropIns?.price || 0,
+    attendees.length,
+    lesson.classOption.paymentMethods?.allowedDropIns?.discountTiers || [],
+  )
 
   const addAttendee = () => {
-    // Maximum 8 people for safety and comfort
-    if (attendees.length < 8) {
-      setAttendees([...attendees, { id: Date.now().toString(), name: '', email: '' }])
+    // Check against remaining capacity
+    if (bookingDetails.adjustableQuantity && attendees.length < remainingCapacity) {
+      setAttendees([...attendees, { name: '', email: '' }])
     }
   }
 
-  const removeAttendee = (id: string) => {
+  const removeAttendee = (email: string) => {
     // Always keep at least one attendee
     if (attendees.length > 1) {
-      setAttendees(attendees.filter((attendee) => attendee.id !== id))
+      setAttendees(attendees.filter((attendee) => attendee.email !== email))
     }
   }
 
-  const updateAttendee = (id: string, field: keyof Attendee, value: string) => {
+  const updateAttendee = (email: string, field: keyof Attendee, value: string) => {
     setAttendees(
       attendees.map((attendee) =>
-        attendee.id === id ? { ...attendee, [field]: value } : attendee,
+        attendee.email === email ? { ...attendee, [field]: value } : attendee,
       ),
     )
   }
@@ -73,18 +99,32 @@ export const SaunaPaymentForm = () => {
     e.preventDefault()
     setLoading(true)
 
-    // In a real implementation, this would create a Stripe payment intent
-    // and send the attendee information to your backend
+    try {
+      // In a real implementation, this would create a payment and booking
+      // with the attendee information and lesson ID
+      const bookingData = {
+        lessonId: lesson.id,
+        attendees: attendees,
+        paymentMethod,
+        totalPrice: priceCalculation.totalAmount,
+      }
 
-    setTimeout(() => {
-      setLoading(false)
+      // Here you would make the API request to create the booking
+      console.log('Booking data:', bookingData)
+
       // Simulate successful payment
-      router.push('/booking-confirmed')
-    }, 1500)
+      setTimeout(() => {
+        setLoading(false)
+        router.push('/booking-confirmed')
+      }, 1500)
+    } catch (error) {
+      setLoading(false)
+      console.error('Error processing booking:', error)
+    }
   }
 
   return (
-    <div className="flex flex-col gap-8 max-w-5xl mx-auto">
+    <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
       {/* Booking Summary */}
       <Card className="bg-white">
         <CardHeader>
@@ -102,13 +142,10 @@ export const SaunaPaymentForm = () => {
             <div className="flex items-center">
               <Clock className="h-5 w-5 mr-2 text-amber-600" />
               <span className="font-medium">Time:</span>
-              <span className="ml-2">{bookingDetails.time}</span>
-            </div>
-
-            <div className="flex items-center">
-              <ThermometerSun className="h-5 w-5 mr-2 text-amber-600" />
-              <span className="font-medium">Duration:</span>
-              <span className="ml-2">{bookingDetails.duration} hours</span>
+              <span className="ml-2">
+                {format(bookingDetails.startTime, 'HH:mmaa')} -{' '}
+                {format(bookingDetails.endTime, 'HH:mmaa')}
+              </span>
             </div>
 
             <div className="flex items-center">
@@ -131,11 +168,7 @@ export const SaunaPaymentForm = () => {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span>Price per person</span>
-              <span>${bookingDetails.pricePerPerson.toFixed(2)}/hour</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>Duration</span>
-              <span>{bookingDetails.duration} hours</span>
+              <span>€{bookingDetails.price.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span>Number of guests</span>
@@ -147,7 +180,14 @@ export const SaunaPaymentForm = () => {
 
           <div className="flex justify-between items-center text-lg font-semibold">
             <span>Total</span>
-            <span>${totalPrice.toFixed(2)}</span>
+            <div className="flex items-center gap-2">
+              {priceCalculation.discountApplied && (
+                <span className="line-through text-red-400">
+                  €{priceCalculation.totalAmountBeforeDiscount.toFixed(2)}
+                </span>
+              )}
+              <span>€{priceCalculation.totalAmount.toFixed(2)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -162,7 +202,7 @@ export const SaunaPaymentForm = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {attendees.map((attendee, index) => (
-              <div key={attendee.id} className="space-y-4">
+              <div key={index} className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">
                     {index === 0 ? 'Primary Guest' : `Guest ${index + 1}`}
@@ -171,7 +211,7 @@ export const SaunaPaymentForm = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeAttendee(attendee.id)}
+                      onClick={() => removeAttendee(attendee.email)}
                       className="h-8 w-8 p-0"
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
@@ -181,24 +221,26 @@ export const SaunaPaymentForm = () => {
 
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor={`name-${attendee.id}`}>Full Name</Label>
+                    <Label htmlFor={`name-${attendee.email}`}>Full Name</Label>
                     <Input
-                      id={`name-${attendee.id}`}
+                      id={`name-${attendee.email}`}
                       value={attendee.name}
-                      onChange={(e) => updateAttendee(attendee.id, 'name', e.target.value)}
+                      onChange={(e) => updateAttendee(attendee.email, 'name', e.target.value)}
                       placeholder="John Doe"
+                      disabled={index === 0}
                       required
                     />
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor={`email-${attendee.id}`}>Email</Label>
+                    <Label htmlFor={`email-${attendee.email}`}>Email</Label>
                     <Input
-                      id={`email-${attendee.id}`}
+                      id={`email-${attendee.email}`}
                       type="email"
                       value={attendee.email}
-                      onChange={(e) => updateAttendee(attendee.id, 'email', e.target.value)}
+                      onChange={(e) => updateAttendee(attendee.email, 'email', e.target.value)}
                       placeholder="john@example.com"
+                      disabled={index === 0}
                       required
                     />
                   </div>
@@ -208,27 +250,40 @@ export const SaunaPaymentForm = () => {
               </div>
             ))}
 
-            <div className="flex justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addAttendee}
-                disabled={attendees.length >= 8}
-                className="flex items-center"
-              >
-                <Plus className="mr-1 h-4 w-4" />
-                Add Guest
-              </Button>
-            </div>
+            {bookingDetails.adjustableQuantity && attendees.length < remainingCapacity && (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addAttendee}
+                  disabled={attendees.length >= remainingCapacity}
+                  className="flex items-center"
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add Guest
+                </Button>
+              </div>
+            )}
 
-            {attendees.length >= 8 && (
+            {attendees.length >= remainingCapacity && (
               <p className="text-sm text-muted-foreground text-center">
-                Maximum capacity reached (8 guests)
+                Maximum capacity reached ({remainingCapacity} available spots)
               </p>
             )}
           </CardContent>
         </Card>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="w-full" variant="default">
+              Complete Booking
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogTitle>Dialog</DialogTitle>
+          </DialogContent>
+        </Dialog>
 
         {/* Payment Form */}
         <Card className="bg-white">
@@ -352,7 +407,7 @@ export const SaunaPaymentForm = () => {
               onClick={handleSubmit}
               disabled={loading || attendees.some((a) => !a.name || !a.email)}
             >
-              {loading ? 'Processing...' : `Pay $${totalPrice.toFixed(2)}`}
+              {loading ? 'Processing...' : `Pay €${priceCalculation.totalAmount.toFixed(2)}`}
             </Button>
           </CardFooter>
         </Card>

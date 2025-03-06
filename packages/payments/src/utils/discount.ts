@@ -1,12 +1,14 @@
 export type DiscountTier = {
   minQuantity: number;
+  maxQuantity: number;
   discountPercent: number;
-  type: "normal" | "trial" ;
+  type: "normal" | "trial";
 };
 
 export type DiscountResult = {
   originalPrice: number;
   discountedPrice: number;
+  totalAmountBeforeDiscount: number;
   totalAmount: number;
   discountApplied: boolean;
   appliedDiscountPercent?: number;
@@ -28,6 +30,7 @@ export const calculateQuantityDiscount = (
 ): DiscountResult => {
   // Default values if no discount applies
   let discountedPrice = price;
+  let totalAmountBeforeDiscount = price * quantity;
   let totalAmount = price * quantity;
   let discountApplied = false;
   let appliedDiscountPercent: number | undefined = undefined;
@@ -45,7 +48,7 @@ export const calculateQuantityDiscount = (
 
     // Find the first tier where quantity meets or exceeds minQuantity
     const applicableTier = sortedTiers.find(
-      (tier) => quantity >= tier.minQuantity
+      (tier) => quantity >= tier.minQuantity && quantity <= tier.maxQuantity
     );
 
     if (applicableTier && applicableTier.type === "normal") {
@@ -60,6 +63,7 @@ export const calculateQuantityDiscount = (
   return {
     originalPrice: price,
     discountedPrice,
+    totalAmountBeforeDiscount,
     totalAmount,
     discountApplied,
     ...(discountApplied ? { appliedDiscountPercent } : {}),

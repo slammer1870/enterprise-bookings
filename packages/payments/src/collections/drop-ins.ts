@@ -1,4 +1,9 @@
-import type { CollectionConfig, Config } from "payload";
+import type {
+  CollectionConfig,
+  Config,
+  NumberFieldSingleValidation,
+  NumberFieldManyValidation,
+} from "payload";
 import { PaymentsPluginConfig } from "../types";
 
 export const dropInsCollection = (
@@ -51,6 +56,15 @@ export const dropInsCollection = (
             label: "Min Quantity",
             type: "number",
             min: 1,
+            defaultValue: 1,
+            required: true,
+          },
+          {
+            name: "maxQuantity",
+            label: "Max Quantity",
+            type: "number",
+            min: 1,
+            defaultValue: 1,
             required: true,
           },
           {
@@ -78,6 +92,18 @@ export const dropInsCollection = (
             required: true,
           },
         ],
+        validate: (value) => {
+          const discountTiers = value as {
+            minQuantity: number;
+            maxQuantity: number;
+          }[];
+          if (
+            discountTiers.some((tier) => tier.maxQuantity < tier.minQuantity)
+          ) {
+            return "Max quantity must be greater than min quantity";
+          }
+          return true;
+        },
       },
       {
         name: "paymentMethods",
