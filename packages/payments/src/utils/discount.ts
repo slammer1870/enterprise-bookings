@@ -1,19 +1,4 @@
-export type DiscountTier = {
-  minQuantity: number;
-  maxQuantity: number;
-  discountPercent: number;
-  type: "normal" | "trial";
-};
-
-export type DiscountResult = {
-  originalPrice: number;
-  discountedPrice: number;
-  totalAmountBeforeDiscount: number;
-  totalAmount: number;
-  discountApplied: boolean;
-  appliedDiscountPercent?: number;
-};
-
+import { DiscountTier, DiscountResult } from "@repo/shared-types";
 /**
  * Calculates quantity-based discounts for drop-in classes
  *
@@ -48,10 +33,14 @@ export const calculateQuantityDiscount = (
 
     // Find the first tier where quantity meets or exceeds minQuantity
     const applicableTier = sortedTiers.find(
-      (tier) => quantity >= tier.minQuantity && quantity <= tier.maxQuantity
+      (tier) => quantity >= tier.minQuantity
     );
 
-    if (applicableTier && applicableTier.type === "normal") {
+    if (
+      applicableTier &&
+      applicableTier.type === "normal" &&
+      applicableTier.discountPercent > 0
+    ) {
       const discountMultiplier = (100 - applicableTier.discountPercent) / 100;
       discountedPrice = price * discountMultiplier;
       totalAmount = discountedPrice * quantity;

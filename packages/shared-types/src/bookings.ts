@@ -35,3 +35,27 @@ export interface ClassOption {
     allowedPlans?: Plan[];
   };
 }
+
+export type Attendee = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type BookingDetails = {
+  date: Date;
+  startTime: string;
+  endTime: string;
+  price: number;
+  currency: string;
+  maxCapacity: number;
+  currentAttendees: number;
+  adjustableQuantity: boolean;
+};
+
+export type BookingFormData = {
+  lessonId: number;
+  attendees: Attendee[];
+  paymentMethod: string;
+  totalPrice: number;
+};

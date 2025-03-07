@@ -60,14 +60,6 @@ export const dropInsCollection = (
             required: true,
           },
           {
-            name: "maxQuantity",
-            label: "Max Quantity",
-            type: "number",
-            min: 1,
-            defaultValue: 1,
-            required: true,
-          },
-          {
             name: "discountPercent",
             label: "Discount Percent",
             type: "number",
@@ -95,13 +87,14 @@ export const dropInsCollection = (
         validate: (value) => {
           const discountTiers = value as {
             minQuantity: number;
-            maxQuantity: number;
           }[];
-          if (
-            discountTiers.some((tier) => tier.maxQuantity < tier.minQuantity)
-          ) {
-            return "Max quantity must be greater than min quantity";
+          // Check for uniqueness of minQuantity
+          const quantities = discountTiers.map((tier) => tier.minQuantity);
+          const uniqueQuantities = new Set(quantities);
+          if (quantities.length !== uniqueQuantities.size) {
+            return "Min quantity must be unique across all discount tiers";
           }
+
           return true;
         },
       },

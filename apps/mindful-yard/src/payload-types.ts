@@ -208,7 +208,6 @@ export interface DropIn {
   discountTiers?:
     | {
         minQuantity: number;
-        maxQuantity: number;
         discountPercent: number;
         type: 'normal' | 'trial';
         id?: string | null;
@@ -443,7 +442,6 @@ export interface DropInsSelect<T extends boolean = true> {
     | T
     | {
         minQuantity?: T;
-        maxQuantity?: T;
         discountPercent?: T;
         type?: T;
         id?: T;
