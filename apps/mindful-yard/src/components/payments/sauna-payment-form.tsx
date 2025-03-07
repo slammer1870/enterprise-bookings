@@ -37,7 +37,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
     price: lesson.classOption.paymentMethods?.allowedDropIns?.price || 0,
     currency: 'EUR',
     maxCapacity: lesson.remainingCapacity,
-    currentAttendees: lesson.bookings?.length || 0,
+    currentAttendees: lesson.bookings?.docs?.length || 0,
     adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIns?.adjustable || false,
   }
 

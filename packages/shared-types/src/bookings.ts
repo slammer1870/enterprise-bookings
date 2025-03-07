@@ -10,7 +10,7 @@ export type Lesson = {
   classOption: ClassOption;
   location: string;
   user: User;
-  bookings: Booking[];
+  bookings: { docs: Booking[] };
   remainingCapacity: number;
   bookingStatus: "active" | "waitlist" | "closed" | "booked" | "trialable";
 };
