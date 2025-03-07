@@ -15,6 +15,7 @@ export interface DropIn {
         type: "trial" | "normal";
       }[]
     | null;
+  paymentMethods: string[];
   allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;

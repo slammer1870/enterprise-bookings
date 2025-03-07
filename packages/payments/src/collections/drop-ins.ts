@@ -88,6 +88,10 @@ export const dropInsCollection = (
           const discountTiers = value as {
             minQuantity: number;
           }[];
+
+          if (!discountTiers) {
+            return true;
+          }
           // Check for uniqueness of minQuantity
           const quantities = discountTiers.map((tier) => tier.minQuantity);
           const uniqueQuantities = new Set(quantities);
