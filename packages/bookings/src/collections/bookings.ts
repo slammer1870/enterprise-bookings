@@ -1,4 +1,4 @@
-import { APIError, CollectionConfig } from "payload";
+import { APIError, CollectionConfig, CollectionSlug } from "payload";
 
 import { renderCreateAccess, renderUpdateAccess } from "../access/bookings";
 import { BookingsPluginConfig } from "../types";
@@ -136,7 +136,7 @@ export const bookingsCollection = (
     config.fields.push({
       name: "transaction",
       type: "relationship",
-      relationTo: "transactions",
+      relationTo: "transactions" as CollectionSlug,
     });
   }
 
