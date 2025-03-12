@@ -45,6 +45,7 @@ import { Label } from "@repo/ui/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export function EditBooking({ booking }: { booking: Booking }) {
   const [open, setOpen] = useState(false);
@@ -142,7 +143,16 @@ export function EditBooking({ booking }: { booking: Booking }) {
                 )}
               />
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex items-center justify-end gap-2">
+              {booking?.transaction ? (
+                <Link
+                  href={`/admin/collections/transactions/${booking?.transaction?.id}`}
+                >
+                  <Button variant="outline">View Transaction</Button>
+                </Link>
+              ) : (
+                <span className="text-sm text-gray-500"></span>
+              )}
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 Save
               </Button>

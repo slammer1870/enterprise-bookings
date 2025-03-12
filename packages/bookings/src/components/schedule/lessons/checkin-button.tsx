@@ -85,8 +85,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           if (ok) {
             setLoading(true);
             await cancelBooking(lesson.id, user.id);
-            setLoading(false);
           }
+          setLoading(false);
           break;
         default:
           toast.error("Unknown status");

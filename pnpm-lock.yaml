@@ -181,6 +181,9 @@ importers:
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../../packages/shared-services
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -771,9 +774,15 @@ importers:
 
   packages/shared-services:
     dependencies:
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       payload:
         specifier: ^3.18.0
         version: 3.18.0(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
+      qs-esm:
+        specifier: ^7.0.2
+        version: 7.0.2
     devDependencies:
       '@repo/typescript-config':
         specifier: workspace:*
@@ -789,6 +798,9 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      crypto:
+        specifier: ^1.0.1
+        version: 1.0.1
       qs:
         specifier: ^6.14.0
         version: 6.14.0
@@ -4098,6 +4110,10 @@ packages:
 
   crypt@0.0.2:
     resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
+
+  crypto@1.0.1:
+    resolution: {integrity: sha512-VxBKmeNcqQdiUQUW2Tzq0t377b54N2bMtXO/qiLa+6eRRmmC4qT3D4OnTGoT/U6O9aklQ/jTwbOtRMTTY8G0Ig==}
+    deprecated: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
 
   cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -11576,6 +11592,8 @@ snapshots:
       which: 2.0.2
 
   crypt@0.0.2: {}
+
+  crypto@1.0.1: {}
 
   cssesc@3.0.0: {}
 

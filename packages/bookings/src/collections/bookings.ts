@@ -6,7 +6,7 @@ import { BookingsPluginConfig } from "../types";
 export const bookingsCollection = (
   pluginOptions: BookingsPluginConfig
 ): CollectionConfig => {
-  return {
+  const config: CollectionConfig = {
     slug: "bookings",
     defaultSort: "updatedAt",
     admin: {
@@ -85,6 +85,60 @@ export const bookingsCollection = (
           }
         },
       ],
+      afterChange: [
+        async ({ req, operation, doc }) => {
+          if (operation === "update" && doc.status === "cancelled") {
+            // Don't block the response by running this asynchronously
+            Promise.resolve().then(async () => {
+              try {
+                if (!doc.transaction || !req.user) return;
+
+                if (doc.transaction.createdBy.id !== req.user.id) {
+                  return;
+                }
+
+                await req.payload.update({
+                  collection: "bookings",
+                  where: {
+                    and: [
+                      {
+                        transaction: {
+                          equals: doc.transaction.id,
+                        },
+                      },
+                      {
+                        status: {
+                          not_equals: "cancelled",
+                        },
+                      },
+                    ],
+                  },
+                  data: {
+                    status: "cancelled",
+                  },
+                });
+              } catch (error) {
+                console.error(
+                  "Error in bookings afterChange background task:",
+                  error
+                );
+              }
+            });
+          }
+
+          return doc;
+        },
+      ],
     },
   };
+
+  if (pluginOptions.paymentsMethods) {
+    config.fields.push({
+      name: "transaction",
+      type: "relationship",
+      relationTo: "transactions",
+    });
+  }
+
+  return config;
 };

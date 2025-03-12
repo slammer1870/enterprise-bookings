@@ -17,9 +17,11 @@ import { PaymentDetailsForm } from '@repo/payments/src/components/ui/payment-det
 // Import our hooks and services
 import { useAttendees } from '@repo/bookings/src/hooks/use-attendees'
 import { usePayment } from '@repo/payments/src/hooks/use-payment'
-import { createBooking } from '@repo/bookings/src/services/booking-service'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@repo/ui/components/ui/tabs'
+
+import { createCashBooking } from '../../actions/bookings'
+
 type SaunaPaymentFormProps = {
   lesson: Lesson
   user: User
@@ -76,11 +78,12 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
         lessonId: lesson.id,
         attendees: attendees,
         totalPrice: priceCalculation.totalAmount,
-        paymentMethod: paymentMethod || '',
+        paymentMethod: 'cash',
+        userId: user.id,
       }
-
       // Create the booking
-      const result = await createBooking(bookingData)
+
+      const result = await createCashBooking(bookingData)
 
       if (result.success) {
         router.push('/booking-confirmed')

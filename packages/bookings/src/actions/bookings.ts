@@ -109,11 +109,12 @@ export async function cancelBookingAction(lessonId: number, userId: number) {
       }
     );
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const data = await response.json();
       return {
         success: false,
-        error: data.errors[0].message || "An error occurred",
+        error: data.errors?.[0]?.message || "An error occurred",
       };
     }
 

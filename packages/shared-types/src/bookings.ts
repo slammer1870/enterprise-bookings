@@ -1,6 +1,6 @@
 import { User } from "./user";
 
-import { DropIn, Plan } from "./payments";
+import { DropIn, Plan, Transaction } from "./payments";
 
 export type Lesson = {
   id: number;
@@ -22,6 +22,7 @@ export interface Booking {
   status: "pending" | "confirmed" | "cancelled" | "waiting";
   updatedAt: string;
   createdAt: string;
+  transaction?: Transaction;
 }
 
 export interface ClassOption {

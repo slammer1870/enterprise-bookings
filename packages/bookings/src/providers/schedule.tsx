@@ -79,14 +79,20 @@ export const ScheduleProvider: React.FC<{
   };
 
   const cancelBooking = async (lessonId: number, userId: number) => {
+    console.log("cancelling booking");
     try {
       const result = await cancelBookingAction(lessonId, userId);
+
+      console.log("result", result);
 
       if (!result.success) {
         toast.error(result.error);
         throw new Error(result.error);
       }
 
+      // Add a small delay to allow background operations to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       const updatedLessons = await getLessons();
       setLessons(updatedLessons);
 

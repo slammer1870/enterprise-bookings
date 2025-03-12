@@ -64,6 +64,7 @@ export const modifyAuthCollection = (
 
   const access = existingCollectionConfig.access || {};
   access.create = () => true;
+  access.read = () => true;
 
   return {
     ...existingCollectionConfig,

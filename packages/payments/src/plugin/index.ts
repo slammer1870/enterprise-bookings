@@ -7,6 +7,7 @@ import { customersProxy } from "../endpoints/customers";
 
 import { PaymentsPluginConfig } from "../types";
 import { createPaymentIntent } from "../endpoints/create-payment-intent";
+import { transactionsCollection } from "../collections/transactions";
 
 export const paymentsPlugin =
   (pluginOptions: PaymentsPluginConfig): Plugin =>
@@ -50,6 +51,7 @@ export const paymentsPlugin =
     }
 
     collections.push(dropInsCollection(pluginOptions));
+    collections.push(transactionsCollection);
 
     config.collections = collections;
     config.endpoints = endpoints;

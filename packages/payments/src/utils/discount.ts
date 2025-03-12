@@ -49,6 +49,11 @@ export const calculateQuantityDiscount = (
     }
   }
 
+  // Round monetary values to 2 decimal places
+  discountedPrice = Number(discountedPrice.toFixed(2));
+  totalAmountBeforeDiscount = Number(totalAmountBeforeDiscount.toFixed(2));
+  totalAmount = Number(totalAmount.toFixed(2));
+
   return {
     originalPrice: price,
     discountedPrice,

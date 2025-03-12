@@ -1,5 +1,7 @@
 import { ClassOption } from "./bookings";
 
+import { User } from "./user";
+
 export interface DropIn {
   id: number;
   name: string;
@@ -38,4 +40,13 @@ export interface Plan {
   isSubscribed?: boolean | null;
   updatedAt: string;
   createdAt: string;
+}
+
+export interface Transaction {
+  id: number;
+  amount: number;
+  status: "pending" | "completed" | "failed";
+  createdAt: string;
+  paymentMethod: "cash" | "card";
+  createdBy: User;
 }
