@@ -38,11 +38,6 @@ export function PaymentDetailsForm({ paymentMethod }: PaymentDetailsFormProps) {
           </div>
         </div>
       )}
-
-      <div className="grid gap-2">
-        <Label htmlFor="phone">Phone Number</Label>
-        <Input id="phone" placeholder="+1 (555) 123-4567" required />
-      </div>
     </div>
   );
 }

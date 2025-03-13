@@ -56,7 +56,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
   const transaction = await payload.create({
     collection: 'transactions',
     data: {
-      amount: bookingData.totalPrice,
+      amount: totalPrice,
       paymentMethod: 'cash',
       currency: 'EUR',
       status: 'pending',
