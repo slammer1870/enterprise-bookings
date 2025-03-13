@@ -50,6 +50,7 @@ export default buildConfig({
     }),
     paymentsPlugin({
       enabled: true,
+      enableDropIns: true,
       acceptedPaymentMethods: ['cash'],
     }),
     bookingsPlugin({

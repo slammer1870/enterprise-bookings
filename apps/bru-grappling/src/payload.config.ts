@@ -51,6 +51,7 @@ export default buildConfig({
     }),
     paymentsPlugin({
       enabled: true,
+      enableDropIns: true,
       acceptedPaymentMethods: ['card'],
     }),
     membershipsPlugin({

@@ -50,7 +50,10 @@ export const paymentsPlugin =
       });
     }
 
-    collections.push(dropInsCollection(pluginOptions));
+    if (pluginOptions.enableDropIns) {
+      collections.push(dropInsCollection(pluginOptions));
+    }
+
     collections.push(transactionsCollection);
 
     config.collections = collections;

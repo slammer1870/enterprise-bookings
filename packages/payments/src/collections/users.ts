@@ -2,7 +2,6 @@ import { CollectionConfig, SelectField } from "payload";
 
 import { stripeCustomerId } from "../fields/stripe-customer-id";
 
-import { ensureFirstUserIsAdmin } from "../hooks/ensure-first-user-is-admin";
 import { createStripeCustomer } from "../hooks/create-stripe-customer";
 
 import { checkRole } from "@repo/shared-utils/src/check-role";
