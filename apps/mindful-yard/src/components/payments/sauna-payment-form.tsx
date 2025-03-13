@@ -99,7 +99,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   }
 
   return (
-    <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+    <div className="grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
       {/* Booking Summary */}
       <BookingSummary
         bookingDetails={bookingDetails}
@@ -142,7 +142,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
               <DialogTitle>Complete Your Booking</DialogTitle>
 
               {/* Booking Summary in Dialog */}
-              <div className="space-y-4 py-4">
+              <div className="space-y-2">
                 <h3 className="font-semibold">Booking Details</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -214,11 +214,11 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
               </div>
 
               <Button
-                className="w-full bg-amber-600 hover:bg-amber-700"
+                className="w-full bg-amber-600 hover:bg-amber-700 -mt-4"
                 onClick={handleSubmit}
                 disabled={loading}
               >
-                {loading ? 'Processing...' : `Complete Booking`}
+                {loading ? 'Processing...' : `Confirm Booking`}
               </Button>
             </DialogContent>
           </Dialog>

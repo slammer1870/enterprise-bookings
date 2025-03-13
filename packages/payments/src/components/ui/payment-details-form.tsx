@@ -9,9 +9,9 @@ interface PaymentDetailsFormProps {
 
 export function PaymentDetailsForm({ paymentMethod }: PaymentDetailsFormProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {paymentMethod === "card" && (
-        <div className="space-y-4">
+        <div className="space-y-2">
           <div className="grid gap-2">
             <Label htmlFor="name">Cardholder Name</Label>
             <Input id="name" placeholder="John Doe" required />

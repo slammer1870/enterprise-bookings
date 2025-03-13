@@ -15,7 +15,7 @@ export function PaymentMethodSelector({
   methods,
 }: PaymentMethodSelectorProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <h3 className="font-semibold">Payment Method</h3>
       <RadioGroup
         value={value}
