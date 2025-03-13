@@ -100,7 +100,7 @@ export interface Page {
   id: number;
   title: string;
   slug: string;
-  layout?: (HeroBlock | ScheduleBlock)[] | null;
+  layout?: (HeroBlock | ScheduleBlock | LocationBlock | FrequentlyAskedQuestions)[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -132,6 +132,36 @@ export interface ScheduleBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LocationBlock".
+ */
+export interface LocationBlock {
+  image?: (number | null) | Media;
+  location_group?: {
+    location_text?: string | null;
+    location_link?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'location';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Frequently Asked Questions".
+ */
+export interface FrequentlyAskedQuestions {
+  faqs?:
+    | {
+        question?: string | null;
+        answer?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'faqs';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -358,6 +388,8 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         hero?: T | HeroBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        faqs?: T | FrequentlyAskedQuestionsSelect<T>;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -388,6 +420,36 @@ export interface HeroBlockSelect<T extends boolean = true> {
 export interface ScheduleBlockSelect<T extends boolean = true> {
   id?: T;
   blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LocationBlock_select".
+ */
+export interface LocationBlockSelect<T extends boolean = true> {
+  image?: T;
+  location_group?:
+    | T
+    | {
+        location_text?: T;
+        location_link?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "Frequently Asked Questions_select".
+ */
+export interface FrequentlyAskedQuestionsSelect {
+  faqs?:
+    | boolean
+    | {
+        question?: boolean;
+        answer?: boolean;
+        id?: boolean;
+      };
+  id?: boolean;
+  blockName?: boolean;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
