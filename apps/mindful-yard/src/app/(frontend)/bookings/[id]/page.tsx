@@ -11,7 +11,9 @@ import { SaunaPaymentForm } from '@/components/payments/sauna-payment-form'
 export default async function BookingPage({ params }: { params: Promise<{ id: number }> }) {
   const { id } = await params
 
-  const { token, user } = await getMeUser({ nullUserRedirect: '/login' })
+  const { token, user } = await getMeUser({
+    nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
+  })
 
   const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=5`, {
     headers: {

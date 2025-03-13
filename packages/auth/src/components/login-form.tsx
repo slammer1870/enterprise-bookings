@@ -62,7 +62,7 @@ export default function LoginForm() {
       try {
         await magicLink({
           email: data.email,
-          callbackUrl: callbackUrl.current || "/dashboard",
+          callbackUrl: callbackUrl.current || "/",
         }).then(() => {
           router.push("/magic-link-sent");
         });
@@ -77,13 +77,13 @@ export default function LoginForm() {
 
   return (
     <Card className="rounded-none border-0 shadow-none">
-      <CardHeader className="p-2">
+      <CardHeader>
         <CardTitle className="text-2xl">Log in to your account</CardTitle>
         <CardDescription>
           Enter your email below to log in to your account
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 p-2">
+      <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -109,24 +109,6 @@ export default function LoginForm() {
             </Button>
           </form>
         </Form>
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="text-muted-foreground bg-white px-2">
-              Or continue with
-            </span>
-          </div>
-        </div>
-        <Button variant="outline" className="w-full">
-          {/* <FaGoogle className="mr-2 h-4 w-4" /> */}
-          Google
-        </Button>
-        <Button variant="outline" className="w-full">
-          {/* <FaGithub className="mr-2 h-4 w-4" /> */}
-          Github
-        </Button>
       </CardContent>
     </Card>
   );

@@ -42,7 +42,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         headers: req.headers,
       });
 
-      const user = authenticated?.user as User;
+      const user = authenticated?.user as User | null;
 
       if (!user) {
         throw new APIError("Invalid token", 400);
@@ -73,7 +73,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       // success redirect
       // /////////////////////////////////////
 
-      const url: string = callbackUrl ? (callbackUrl as string) : "/dashboard";
+      const url: string = callbackUrl ? (callbackUrl as string) : "/";
 
       return new Response(null, {
         headers: {

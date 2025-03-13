@@ -148,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       },
       body: JSON.stringify({
         email: args.email,
-        callbackUrl: args.callbackUrl,
+        callbackUrl: args.callbackUrl || "/",
       }),
     });
 

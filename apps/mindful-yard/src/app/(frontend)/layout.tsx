@@ -5,6 +5,8 @@ import { Toaster } from 'sonner'
 
 import { AuthProvider } from '@repo/auth/src/providers/auth'
 
+import Navbar from '@/components/navbar'
+import Footer from '@/components/footer'
 const roboto = Roboto({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
@@ -24,8 +26,10 @@ export default function RootLayout({
     <html>
       <AuthProvider>
         <body className={roboto.className}>
+          <Navbar />
           {children}
           {unauthenticated}
+          <Footer />
           <div id="modal-root" />
           <Toaster />
         </body>
