@@ -19,6 +19,13 @@ export function useAttendees({
     { id: "primary-user", name: user.name || "", email: user.email || "" },
   ]);
 
+  // Validate email format
+  const isValidEmail = useCallback((email: string): boolean => {
+    if (!email) return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }, []);
+
   // Check for duplicate emails
   const isDuplicateEmail = useCallback(
     (email: string, currentId: string): boolean => {
@@ -42,8 +49,11 @@ export function useAttendees({
       isDuplicateEmail(a.email, a.id)
     );
 
-    return !hasEmptyFields && !hasDuplicateEmails;
-  }, [attendees, isDuplicateEmail]);
+    // Check for invalid email formats
+    const hasInvalidEmails = attendees.some((a) => !isValidEmail(a.email));
+
+    return !hasEmptyFields && !hasDuplicateEmails && !hasInvalidEmails;
+  }, [attendees, isDuplicateEmail, isValidEmail]);
 
   return {
     attendees,
@@ -51,5 +61,6 @@ export function useAttendees({
     remainingCapacity,
     hasValidForm,
     isDuplicateEmail,
+    isValidEmail,
   };
 }
