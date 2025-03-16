@@ -5,7 +5,8 @@ import { config } from "./config.js";
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
-import { calculateQuantityDiscount, DiscountTier } from "../src/utils/discount";
+import { calculateQuantityDiscount } from "../src/utils/discount";
+import type { DiscountTier } from "@repo/shared-types";
 import { DropIn } from "@repo/shared-types";
 
 let payload: Payload;

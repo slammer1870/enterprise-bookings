@@ -62,9 +62,9 @@ describe("Booking tests", () => {
     const classOption = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option",
+        name: "Test Class Option 1",
         places: 1,
-        description: "Test Class Option",
+        description: "Test Class Option 1",
         paymentMethods: {
           allowedDropIns: dropIn.id,
         },
@@ -122,9 +122,9 @@ describe("Booking tests", () => {
     const classOption = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option 1",
+        name: "Test Class Option 2",
         places: 1,
-        description: "Test Class Option",
+        description: "Test Class Option 2",
         paymentMethods: {
           allowedDropIns: dropIn.id,
         },
@@ -193,9 +193,9 @@ describe("Booking tests", () => {
     const classOption = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option 2",
+        name: "Test Class Option 3",
         places: 1,
-        description: "Test Class Option 2",
+        description: "Test Class Option 3",
         paymentMethods: {
           allowedPlans: [plan.id],
         },
@@ -264,9 +264,9 @@ describe("Booking tests", () => {
     const classOption = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option 2",
+        name: "Test Class Option 4",
         places: 1,
-        description: "Test Class Option 2",
+        description: "Test Class Option 4",
         paymentMethods: {
           allowedPlans: [plan.id],
         },
@@ -344,9 +344,9 @@ describe("Booking tests", () => {
     const classOptionWithPlan = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option 2",
+        name: "Test Class Option 5",
         places: 1,
-        description: "Test Class Option 2",
+        description: "Test Class Option 5",
         paymentMethods: {
           allowedPlans: [plan.id],
         },
@@ -355,9 +355,9 @@ describe("Booking tests", () => {
     const classOptionWithoutPlan = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option 3",
+        name: "Test Class Option 6",
         places: 1,
-        description: "Test Class Option 3",
+        description: "Test Class Option 6",
       },
     });
 

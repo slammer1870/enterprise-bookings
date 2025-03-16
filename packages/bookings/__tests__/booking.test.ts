@@ -63,7 +63,7 @@ describe("Booking tests", () => {
     const classOptionWithoutPaymentMethods = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option",
+        name: "Test Class Option 1",
         places: 4,
         description: "Test Class Option",
       },
@@ -121,9 +121,9 @@ describe("Booking tests", () => {
     const classOption = await payload.create({
       collection: "class-options",
       data: {
-        name: "Test Class Option",
+        name: "Test Class Option 2",
         places: 1,
-        description: "Test Class Option",
+        description: "Test Class Option 2",
       },
     });
 
