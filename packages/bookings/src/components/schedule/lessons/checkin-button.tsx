@@ -35,7 +35,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
 
   const [ConfirmationDialog, confirm] = useConfirm(
     "Are you sure you want to cancel your booking?",
-    "This action cannot be undone"
+    "Bookings can be cancelled up to 24 hours before the session begins."
   );
 
   const handleClick = async () => {

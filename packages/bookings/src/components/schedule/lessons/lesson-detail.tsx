@@ -27,11 +27,11 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
             </>
           )}
         </div>
-        {lesson.user && (
-          <div className="flex items-center justify-start py-2">
-            {lesson.user.image && (
+        {lesson.instructor && (
+          <div className="flex items-center justify-start">
+            {lesson.instructor.image && (
               <Image
-                src={(lesson.user.image.url as string) || ""}
+                src={(lesson.instructor.image.url as string) || ""}
                 alt={lesson.classOption.name}
                 height={100}
                 width={100}
@@ -39,9 +39,7 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
                 className="mr-4 h-12 w-12 rounded-full"
               />
             )}
-            <div className="flex flex-col gap-1 items-start justify-start py-2">
-              <span>{lesson.user.name}</span>
-            </div>
+            <span>{lesson.instructor.name}</span>
           </div>
         )}
         {lesson.bookingStatus !== "closed" && (

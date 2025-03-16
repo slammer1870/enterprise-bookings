@@ -27,6 +27,7 @@ export const classOptionsCollection = (
         name: "name",
         label: "Name",
         type: "text",
+        unique: true,
         required: true,
       },
       {

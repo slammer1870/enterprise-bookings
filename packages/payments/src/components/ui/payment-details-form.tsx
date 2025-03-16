@@ -38,6 +38,14 @@ export function PaymentDetailsForm({ paymentMethod }: PaymentDetailsFormProps) {
           </div>
         </div>
       )}
+      {paymentMethod === "cash" && (
+        <div className="my-4">
+          <p className="text-sm font-medium">
+            Please note, we do not have a card machine so please ensure you
+            bring cash for payment.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

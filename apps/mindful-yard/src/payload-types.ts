@@ -207,6 +207,7 @@ export interface Lesson {
   endTime: string;
   lockOutTime: number;
   location?: string | null;
+  instructor?: (number | null) | User;
   classOption: number | ClassOption;
   /**
    * The number of places remaining
@@ -491,6 +492,7 @@ export interface LessonsSelect<T extends boolean = true> {
   endTime?: T;
   lockOutTime?: T;
   location?: T;
+  instructor?: T;
   classOption?: T;
   remainingCapacity?: T;
   bookings?: T;

@@ -25,6 +25,15 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    meta: {
+      icons: [
+        {
+          rel: 'icon',
+          type: 'image/png',
+          url: '/logos/mindful.png',
+        },
+      ],
+    },
   },
   collections: [Users, Media, Pages],
   editor: lexicalEditor(),

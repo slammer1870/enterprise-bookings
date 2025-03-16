@@ -26,7 +26,7 @@ export default function AuthenticaedAvatar({ user }: { user: User }) {
           <AvatarImage src={user.image?.url} alt="User Avatar" className="cursor-pointer" />
           <AvatarFallback>
             <div className="flex h-full w-full items-center justify-center rounded-full bg-gray-200 cursor-pointer">
-              {user.name?.charAt(0) || 'U'}
+              <UserIcon className="w-4 h-4" />
             </div>
           </AvatarFallback>
         </Avatar>

@@ -10,6 +10,7 @@
     "@payloadcms/ui": "^3.18.0",
     "@repo/roles": "workspace:*",
     "@repo/shared-types": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",

@@ -161,6 +161,13 @@ export const lessonsCollection: CollectionConfig = {
           type: "text",
           required: false,
         },
+        {
+          name: "instructor",
+          label: "Instructor",
+          type: "relationship",
+          relationTo: "users",
+          required: false,
+        },
       ],
     },
     {
