@@ -20,10 +20,13 @@ import { config } from "./config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { DropIn, User } from "@repo/shared-types";
 
 let payload: Payload;
 let restClient: NextRESTClient;
 let user: any;
+
+const TEST_TIMEOUT = 30000; // 15 seconds
 
 describe("Booking tests", () => {
   beforeAll(async () => {
@@ -38,373 +41,396 @@ describe("Booking tests", () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
 
-    user = await payload.create({
+    user = (await payload.create({
       collection: "users",
       data: {
         email: "test@test.com",
         password: "test",
       },
-    });
-  });
-  it("should be authorised to create a booking because user is admin", async () => {
-    const dropIn = await payload.create({
-      collection: "drop-ins",
-      data: {
-        name: "Drop In",
-        description: "Drop In",
-        price: 10,
-        type: "normal",
-      },
-    });
-    const classOption = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option",
-        places: 1,
-        description: "Test Class Option",
-        paymentMethods: {
-          allowedDropIns: [dropIn.id],
+    })) as User;
+  }, TEST_TIMEOUT);
+  it(
+    "should be authorised to create a booking because user is admin",
+    async () => {
+      const dropIn = (await payload.create({
+        collection: "drop-ins",
+        data: {
+          name: "Drop In",
+          isActive: true,
+          price: 10,
+          adjustable: false,
+          paymentMethods: ["cash"],
         },
-      },
-    });
+      })) as DropIn;
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 1",
+          places: 1,
+          description: "Test Class Option 1",
+          paymentMethods: {
+            allowedDropIns: dropIn.id,
+          },
+        },
+      });
 
-    const response = await restClient
-      .login({
-        credentials: {
-          email: user.email,
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              lesson: lesson.id,
+              user: user.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      expect(response.status).toBe(201);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should fail to create a booking because user is not admin",
+    async () => {
+      const user2 = await payload.create({
+        collection: "users",
+        data: {
+          email: "test2@test.com",
           password: "test",
         },
-      })
-      .then(() =>
-        restClient.POST("/bookings", {
-          body: JSON.stringify({
-            lesson: lesson.id,
-            user: user.id,
-            status: "confirmed",
-          }),
-        })
-      );
-
-    expect(response.status).toBe(201);
-  });
-  it("should fail to create a booking because user is not admin", async () => {
-    const user2 = await payload.create({
-      collection: "users",
-      data: {
-        email: "test2@test.com",
-        password: "test",
-      },
-    });
-    const dropIn = await payload.create({
-      collection: "drop-ins",
-      data: {
-        name: "Drop In 1",
-        description: "Drop In 1",
-        price: 10,
-        type: "normal",
-      },
-    });
-    const classOption = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option 1",
-        places: 1,
-        description: "Test Class Option",
-        paymentMethods: {
-          allowedDropIns: [dropIn.id],
+      });
+      const dropIn = await payload.create({
+        collection: "drop-ins",
+        data: {
+          name: "Drop In 1",
+          description: "Drop In 1",
+          price: 10,
+          isActive: true,
+          paymentMethods: ["cash"],
         },
-      },
-    });
+      });
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 2",
+          places: 1,
+          description: "Test Class Option 2",
+          paymentMethods: {
+            allowedDropIns: dropIn.id,
+          },
+        },
+      });
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
 
-    const response = await restClient
-      .login({
-        credentials: {
-          email: user2.email,
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user2.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              lesson: lesson.id,
+              user: user2.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      expect(response.status).toBe(403);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should create a booking because user is member of a subscription",
+    async () => {
+      const user3 = await payload.create({
+        collection: "users",
+        data: {
+          email: "test6@test.com",
           password: "test",
         },
-      })
-      .then(() =>
-        restClient.POST("/bookings", {
-          body: JSON.stringify({
-            lesson: lesson.id,
-            user: user2.id,
-            status: "confirmed",
-          }),
-        })
-      );
+      });
 
-    expect(response.status).toBe(403);
-  });
-  it("should create a booking because user is member of a subscription", async () => {
-    const user3 = await payload.create({
-      collection: "users",
-      data: {
-        email: "test6@test.com",
-        password: "test",
-      },
-    });
-
-    const plan = await payload.create({
-      collection: "plans",
-      data: {
-        name: "Test Plan",
-        price: 10,
-        interval: "month",
-        intervalCount: 1,
-      },
-    });
-
-    const subscription = await payload.create({
-      collection: "subscriptions",
-      data: {
-        user: user3.id,
-        plan: plan.id,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    const classOption = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option 2",
-        places: 1,
-        description: "Test Class Option 2",
-        paymentMethods: {
-          allowedPlans: [plan.id],
+      const plan = await payload.create({
+        collection: "plans",
+        data: {
+          name: "Test Plan",
+          price: 10,
+          interval: "month",
+          intervalCount: 1,
         },
-      },
-    });
+      });
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      const subscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: user3.id,
+          plan: plan.id,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
 
-    const response = await restClient
-      .login({
-        credentials: {
-          email: user3.email,
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 3",
+          places: 1,
+          description: "Test Class Option 3",
+          paymentMethods: {
+            allowedPlans: [plan.id],
+          },
+        },
+      });
+
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user3.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              lesson: lesson.id,
+              user: user3.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      expect(response.status).toBe(201);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should fail to create a booking because user has reached subscription limit",
+    async () => {
+      const user3 = await payload.create({
+        collection: "users",
+        data: {
+          email: "test3@test.com",
           password: "test",
         },
-      })
-      .then(() =>
-        restClient.POST("/bookings", {
-          body: JSON.stringify({
-            lesson: lesson.id,
-            user: user3.id,
-            status: "confirmed",
-          }),
-        })
-      );
+      });
 
-    expect(response.status).toBe(201);
-  });
-  it("should fail to create a booking because user has reached subscription limit", async () => {
-    const user3 = await payload.create({
-      collection: "users",
-      data: {
-        email: "test3@test.com",
-        password: "test",
-      },
-    });
-
-    const plan = await payload.create({
-      collection: "plans",
-      data: {
-        name: "Test Plan",
-        price: 10,
-        interval: "month",
-        intervalCount: 1,
-      },
-    });
-
-    const subscription = await payload.create({
-      collection: "subscriptions",
-      data: {
-        user: user3.id,
-        plan: plan.id,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    const classOption = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option 2",
-        places: 1,
-        description: "Test Class Option 2",
-        paymentMethods: {
-          allowedPlans: [plan.id],
+      const plan = await payload.create({
+        collection: "plans",
+        data: {
+          name: "Test Plan",
+          price: 10,
+          interval: "month",
+          intervalCount: 1,
         },
-      },
-    });
+      });
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      const subscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: user3.id,
+          plan: plan.id,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
 
-    const booking = await payload.create({
-      collection: "bookings",
-      data: {
-        lesson: lesson.id,
-        user: user3.id,
-        status: "confirmed",
-      },
-    });
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 4",
+          places: 1,
+          description: "Test Class Option 4",
+          paymentMethods: {
+            allowedPlans: [plan.id],
+          },
+        },
+      });
 
-    const response = await restClient
-      .login({
-        credentials: {
-          email: user3.email,
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      const booking = await payload.create({
+        collection: "bookings",
+        data: {
+          lesson: lesson.id,
+          user: user3.id,
+          status: "confirmed",
+        },
+      });
+
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user3.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              lesson: lesson.id,
+              user: user3.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      expect(response.status).toBe(403);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should create a booking even though user has multipe bookings users hasnt reached subscription limit becuase one of the bookings is not in the subscription",
+    async () => {
+      const user3 = await payload.create({
+        collection: "users",
+        data: {
+          email: "test4@test.com",
           password: "test",
         },
-      })
-      .then(() =>
-        restClient.POST("/bookings", {
-          body: JSON.stringify({
-            lesson: lesson.id,
-            user: user3.id,
-            status: "confirmed",
-          }),
-        })
-      );
+      });
 
-    expect(response.status).toBe(403);
-  });
-  it("should create a booking even though user has multipe bookings users hasnt reached subscription limit becuase one of the bookings is not in the subscription", async () => {
-    const user3 = await payload.create({
-      collection: "users",
-      data: {
-        email: "test4@test.com",
-        password: "test",
-      },
-    });
-
-    const plan = await payload.create({
-      collection: "plans",
-      data: {
-        name: "Test Plan",
-        price: 10,
-        interval: "month",
-        intervalCount: 1,
-      },
-    });
-
-    const subscription = await payload.create({
-      collection: "subscriptions",
-      data: {
-        user: user3.id,
-        plan: plan.id,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    const classOptionWithPlan = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option 2",
-        places: 1,
-        description: "Test Class Option 2",
-        paymentMethods: {
-          allowedPlans: [plan.id],
+      const plan = await payload.create({
+        collection: "plans",
+        data: {
+          name: "Test Plan",
+          price: 10,
+          interval: "month",
+          intervalCount: 1,
         },
-      },
-    });
-    const classOptionWithoutPlan = await payload.create({
-      collection: "class-options",
-      data: {
-        name: "Test Class Option 3",
-        places: 1,
-        description: "Test Class Option 3",
-      },
-    });
+      });
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOptionWithPlan.id,
-        location: "Test Location",
-      },
-    });
-
-    const lesson1 = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 5 * 60 * 60 * 1000),
-        classOption: classOptionWithoutPlan.id,
-        location: "Test Location",
-      },
-    });
-
-    const booking = await payload.create({
-      collection: "bookings",
-      data: {
-        lesson: lesson1.id,
-        user: user3.id,
-        status: "confirmed",
-      },
-    });
-
-    const response = await restClient
-      .login({
-        credentials: {
-          email: user3.email,
-          password: "test",
+      const subscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: user3.id,
+          plan: plan.id,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
-      })
-      .then(() =>
-        restClient.POST("/bookings", {
-          body: JSON.stringify({
-            lesson: lesson.id,
-            user: user3.id,
-            status: "confirmed",
-          }),
-        })
-      );
+      });
 
-    expect(response.status).toBe(201);
-  });
+      const classOptionWithPlan = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 5",
+          places: 1,
+          description: "Test Class Option 5",
+          paymentMethods: {
+            allowedPlans: [plan.id],
+          },
+        },
+      });
+      const classOptionWithoutPlan = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 6",
+          places: 1,
+          description: "Test Class Option 6",
+        },
+      });
+
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOptionWithPlan.id,
+          location: "Test Location",
+        },
+      });
+
+      const lesson1 = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 5 * 60 * 60 * 1000),
+          classOption: classOptionWithoutPlan.id,
+          location: "Test Location",
+        },
+      });
+
+      const booking = await payload.create({
+        collection: "bookings",
+        data: {
+          lesson: lesson1.id,
+          user: user3.id,
+          status: "confirmed",
+        },
+      });
+
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user3.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              lesson: lesson.id,
+              user: user3.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      expect(response.status).toBe(201);
+    },
+    TEST_TIMEOUT
+  );
 });

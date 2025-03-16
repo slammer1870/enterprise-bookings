@@ -68,6 +68,8 @@ export const config: Config = {
     }),
     paymentsPlugin({
       enabled: true,
+      enableDropIns: true,
+      acceptedPaymentMethods: ["cash"],
     }),
     membershipsPlugin({
       enabled: true,

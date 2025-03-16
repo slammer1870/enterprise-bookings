@@ -62,11 +62,6 @@ export const config: Config = {
     payloadCloudPlugin(),
     bookingsPlugin({
       enabled: true,
-      paymentsMethods: {
-        dropIns: false,
-        plans: false,
-        classePasses: false,
-      },
     }),
   ],
 };

@@ -9,6 +9,12 @@ import sharp from 'sharp'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { Pages } from './collections/Pages'
+
+import { bookingsPlugin } from '@repo/bookings/src'
+import { magicLinkPlugin } from '@repo/auth/src'
+import { rolesPlugin } from '@repo/roles/src'
+import { paymentsPlugin } from '@repo/payments/src'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -19,21 +25,51 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    meta: {
+      icons: [
+        {
+          rel: 'icon',
+          type: 'image/png',
+          url: '/logos/mindful.png',
+        },
+      ],
+    },
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Pages],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || '',
+  secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI || '',
+      connectionString:
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
     },
   }),
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    magicLinkPlugin({
+      enabled: true,
+      serverURL: 'http://localhost:3000',
+    }),
+    rolesPlugin({
+      enabled: true,
+    }),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: true,
+      acceptedPaymentMethods: ['cash'],
+    }),
+    bookingsPlugin({
+      enabled: true,
+      paymentsMethods: {
+        dropIns: true,
+        plans: false,
+        classePasses: false,
+      },
+    }),
     // storage-adapter-placeholder
   ],
 })

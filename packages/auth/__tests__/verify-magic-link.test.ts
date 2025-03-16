@@ -40,7 +40,6 @@ describe("Verify Magic Link", async () => {
   it("should verify a magic link to log in a user", async () => {
     const fieldsToSign = {
       id: createdUser.id,
-      email: createdUser.email,
       collection: "users",
     };
 
@@ -55,5 +54,7 @@ describe("Verify Magic Link", async () => {
     expect(response.status).toBe(302);
 
     expect(response.headers.get("Location")).toBe("/dashboard");
+
+    expect(response.headers.get("Set-Cookie")).toContain("payload-token");
   });
 });

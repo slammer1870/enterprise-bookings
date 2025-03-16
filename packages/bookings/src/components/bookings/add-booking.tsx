@@ -15,7 +15,8 @@ import {
 
 import { Button } from "@repo/ui/components/ui/button";
 
-import { User } from "../../types";
+import { User } from "@repo/shared-types";
+
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";

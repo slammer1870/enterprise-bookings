@@ -1,6 +1,4 @@
-import { Payload } from "payload";
-
-import { Lesson } from "../../types";
+import { Lesson } from "@repo/shared-types";
 
 import { LessonDetail } from "./lesson-detail";
 

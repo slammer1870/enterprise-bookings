@@ -34,17 +34,12 @@ export const magicLink = (pluginOptions: PluginTypes): AuthStrategy => ({
     try {
       const decoded = jwt.verify(token, payload.secret) as {
         id: string;
-        email: string;
       };
 
       // Create a Payload login response
-      const user = await payload.find({
+      const user = await payload.findByID({
         collection: authCollectionSlug,
-        where: {
-          email: {
-            equals: decoded.email,
-          },
-        },
+        id: decoded.id,
       });
 
       return {

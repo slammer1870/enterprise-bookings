@@ -11,6 +11,8 @@ import { email } from "../fields/email";
 import { magicLink } from "../strategies/magic-link";
 import { register } from "../endpoints/register";
 
+import { adminOrUser } from "../access/admin-or-user";
+
 export const modifyAuthCollection = (
   pluginOptions: PluginTypes,
   existingCollectionConfig: CollectionConfig
@@ -64,6 +66,7 @@ export const modifyAuthCollection = (
 
   const access = existingCollectionConfig.access || {};
   access.create = () => true;
+  access.read = adminOrUser;
 
   return {
     ...existingCollectionConfig,

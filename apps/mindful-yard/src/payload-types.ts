@@ -11,16 +11,32 @@ export interface Config {
     users: UserAuthOperations;
   };
   collections: {
-    users: User;
     media: Media;
+    pages: Page;
+    users: User;
+    transactions: Transaction;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
+    'drop-ins': DropIn;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
+  };
   collectionsSelect: {
-    users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -59,23 +75,6 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
@@ -95,18 +94,230 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  slug: string;
+  layout?:
+    | (
+        | HeroBlock
+        | ScheduleBlock
+        | LocationBlock
+        | {
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
+          }
+      )[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock".
+ */
+export interface HeroBlock {
+  tagline: string;
+  image: number | Media;
+  video?: (number | null) | Media;
+  cta?:
+    | {
+        text?: string | null;
+        variant?: ('default' | 'outline') | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScheduleBlock".
+ */
+export interface ScheduleBlock {
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'schedule';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LocationBlock".
+ */
+export interface LocationBlock {
+  image?: (number | null) | Media;
+  location_group?: {
+    location_text?: string | null;
+    location_link?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'location';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  name: string;
+  roles?: ('customer' | 'admin')[] | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[] | null;
+    hasNextPage?: boolean | null;
+  } | null;
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  paymentMethods?: {
+    allowedDropIns?: (number | null) | DropIn;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  isActive: boolean;
+  price: number;
+  adjustable: boolean;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        type: 'normal' | 'trial';
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethods: 'cash'[];
+  allowedClasses?: (number | ClassOption)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  transaction?: (number | null) | Transaction;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
     | ({
-        relationTo: 'media';
-        value: number | Media;
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -152,21 +363,6 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
@@ -182,6 +378,176 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        hero?: T | HeroBlockSelect<T>;
+        schedule?: T | ScheduleBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        faqs?:
+          | T
+          | {
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroBlock_select".
+ */
+export interface HeroBlockSelect<T extends boolean = true> {
+  tagline?: T;
+  image?: T;
+  video?: T;
+  cta?:
+    | T
+    | {
+        text?: T;
+        variant?: T;
+        url?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScheduleBlock_select".
+ */
+export interface ScheduleBlockSelect<T extends boolean = true> {
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LocationBlock_select".
+ */
+export interface LocationBlockSelect<T extends boolean = true> {
+  image?: T;
+  location_group?:
+    | T
+    | {
+        location_text?: T;
+        location_link?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  roles?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIns?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  transaction?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  name?: T;
+  isActive?: T;
+  price?: T;
+  adjustable?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        type?: T;
+        id?: T;
+      };
+  paymentMethods?: T;
+  allowedClasses?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

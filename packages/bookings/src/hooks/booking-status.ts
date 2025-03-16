@@ -1,27 +1,21 @@
-import { Booking, ClassOption, DropIn } from "../types";
-import { FieldHook, User } from "payload";
+import { Booking, ClassOption, User } from "@repo/shared-types";
+
+import { FieldHook } from "payload";
 
 export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   if (context.triggerAfterChange === false) {
     return;
   }
 
-  const classOptionsQuery = await req.payload.find({
+  const classOption = (await req.payload.findByID({
     collection: "class-options",
-    depth: 2,
-    where: {
-      id: { equals: data?.classOption },
-    },
-    limit: 1,
-  });
+    id: data?.classOption,
+  })) as unknown as ClassOption;
 
-  const classOptions = classOptionsQuery.docs as ClassOption[];
-
-  const trialable = classOptions.some((option) =>
-    option.paymentMethods?.allowedDropIns?.some(
-      (dropIn: DropIn) => dropIn.priceType === "trial"
-    )
-  );
+  const trialable =
+    classOption.paymentMethods?.allowedDropIns?.discountTiers?.some(
+      (tier) => tier.type === "trial"
+    );
 
   const currentTime = new Date();
 
@@ -66,7 +60,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   }
 
   // TODO implement waitlist
-  if (bookingQuery.totalDocs >= (classOptions[0] as ClassOption).places) {
+  if (bookingQuery.totalDocs >= classOption.places) {
     return "waitlist";
   }
 

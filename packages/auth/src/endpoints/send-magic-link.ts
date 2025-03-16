@@ -43,7 +43,6 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
     try {
       const fieldsToSign = {
         id: id,
-        email: email,
         collection: authCollectionSlug,
       };
 

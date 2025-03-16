@@ -1,13 +1,14 @@
 import React from "react";
 
 import Link from "next/link";
+
 import { redirect } from "next/navigation";
 
 import { DatePicker } from "@repo/ui/components/ui/date-picker";
 
 import { Button } from "@payloadcms/ui";
 
-import { Lesson } from "../../types";
+import { Lesson } from "@repo/shared-types";
 
 import { getLessonsQuery } from "@repo/shared-utils";
 

@@ -1,4 +1,4 @@
-import { Payload, Where } from "payload";
+import { Payload, Where, CollectionSlug } from "payload";
 
 export const hasActiveSubscription = async (
   userId: number,
@@ -6,7 +6,7 @@ export const hasActiveSubscription = async (
 ): Promise<boolean> => {
   try {
     const userSubscription = await payload.find({
-      collection: "subscriptions",
+      collection: "subscriptions" as CollectionSlug,
       where: {
         user: { equals: userId },
         status: { equals: "active" },
@@ -48,7 +48,7 @@ export const hasReachedSubscriptionLimit = async (
 
   if (typeof subscription.plan === "number") {
     plan = await payload.findByID({
-      collection: "plans",
+      collection: "plans" as CollectionSlug,
       id: subscription.plan,
     });
   } else {
@@ -70,7 +70,7 @@ export const hasReachedSubscriptionLimit = async (
   // if it is not, then we need to check the sessions limit
 
   const bookings = await payload.find({
-    collection: "bookings",
+    collection: "bookings" as CollectionSlug,
     where: query(subscription, plan, intervalStartDate),
     depth: 5,
   });

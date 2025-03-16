@@ -2,12 +2,16 @@ import { Field } from "payload";
 
 import { checkRole } from "@repo/shared-utils";
 
+import { User } from "@repo/shared-types";
+
 export const stripeCustomerId: Field = {
   name: "stripeCustomerId",
   type: "text",
   label: "Stripe Customer",
   access: {
-    read: ({ req: { user } }) => checkRole(["admin"], user as any),
+    read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   },
   admin: {
     components: {

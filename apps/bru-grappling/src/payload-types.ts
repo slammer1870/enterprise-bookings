@@ -12,6 +12,7 @@ export interface Config {
   };
   collections: {
     media: Media;
+    transactions: Transaction;
     users: User;
     subscriptions: Subscription;
     plans: Plan;
@@ -33,6 +34,7 @@ export interface Config {
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
@@ -97,6 +99,20 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -128,9 +144,9 @@ export interface Subscription {
   user: number | User;
   plan: number | Plan;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  start_date?: string | null;
-  end_date?: string | null;
-  stripeSubscriptionID?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  stripeSubscriptionId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -157,12 +173,12 @@ export interface Plan {
   /**
    * Number of sessions per interval
    */
-  interval_count?: number | null;
+  intervalCount?: number | null;
   /**
    * How often the sessions are included
    */
   interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-  stripeProductID?: string | null;
+  stripeProductId?: string | null;
   priceJSON?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -177,7 +193,8 @@ export interface Lesson {
   startTime: string;
   endTime: string;
   lockOutTime: number;
-  location: string;
+  location?: string | null;
+  instructor?: (number | null) | User;
   classOption: number | ClassOption;
   /**
    * The number of places remaining
@@ -207,7 +224,7 @@ export interface ClassOption {
   places: number;
   description: string;
   paymentMethods?: {
-    allowedDropIns?: (number | DropIn)[] | null;
+    allowedDropIns?: (number | null) | DropIn;
     allowedPlans?: (number | Plan)[] | null;
   };
   updatedAt: string;
@@ -220,9 +237,18 @@ export interface ClassOption {
 export interface DropIn {
   id: number;
   name: string;
+  isActive: boolean;
   price: number;
-  priceType: 'trial' | 'normal';
-  active?: boolean | null;
+  adjustable: boolean;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        type: 'normal' | 'trial';
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethods: 'card'[];
   allowedClasses?: (number | ClassOption)[] | null;
   updatedAt: string;
   createdAt: string;
@@ -236,6 +262,7 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  transaction?: (number | null) | Transaction;
   updatedAt: string;
   createdAt: string;
 }
@@ -249,6 +276,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
       } | null)
     | ({
         relationTo: 'users';
@@ -340,6 +371,19 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -365,9 +409,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   user?: T;
   plan?: T;
   status?: T;
-  start_date?: T;
-  end_date?: T;
-  stripeSubscriptionID?: T;
+  startDate?: T;
+  endDate?: T;
+  stripeSubscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -384,9 +428,9 @@ export interface PlansSelect<T extends boolean = true> {
         id?: T;
       };
   sessions?: T;
-  interval_count?: T;
+  intervalCount?: T;
   interval?: T;
-  stripeProductID?: T;
+  stripeProductId?: T;
   priceJSON?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -401,6 +445,7 @@ export interface LessonsSelect<T extends boolean = true> {
   endTime?: T;
   lockOutTime?: T;
   location?: T;
+  instructor?: T;
   classOption?: T;
   remainingCapacity?: T;
   bookings?: T;
@@ -433,6 +478,7 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -442,9 +488,18 @@ export interface BookingsSelect<T extends boolean = true> {
  */
 export interface DropInsSelect<T extends boolean = true> {
   name?: T;
+  isActive?: T;
   price?: T;
-  priceType?: T;
-  active?: T;
+  adjustable?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        type?: T;
+        id?: T;
+      };
+  paymentMethods?: T;
   allowedClasses?: T;
   updatedAt?: T;
   createdAt?: T;

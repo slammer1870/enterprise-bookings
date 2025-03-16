@@ -19,7 +19,7 @@ export const bookingsPlugin =
 
     const lessons = lessonsCollection;
     const classOptions = classOptionsCollection(pluginOptions);
-    const bookings = bookingsCollection;
+    const bookings = bookingsCollection(pluginOptions);
 
     collections.push(lessons);
     collections.push(classOptions);

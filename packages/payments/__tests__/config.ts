@@ -62,7 +62,14 @@ export const config: Config = {
     },
   }),
   sharp,
-  plugins: [payloadCloudPlugin(), paymentsPlugin(paymentsConfig)],
+  plugins: [
+    payloadCloudPlugin(),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: true,
+      acceptedPaymentMethods: ["cash", "card"],
+    }),
+  ],
   custom: {
     plugins: [
       {

@@ -1,4 +1,4 @@
-import { Booking } from "../../types";
+import { Booking } from "@repo/shared-types";
 
 import { BookingDetail } from "./booking-detail";
 import { EditBooking } from "./edit-booking";

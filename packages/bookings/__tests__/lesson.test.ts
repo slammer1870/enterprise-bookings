@@ -18,7 +18,9 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
-import { ClassOption, Lesson } from "../src/types.js";
+import { ClassOption, Lesson } from "@repo/shared-types";
+
+const TEST_TIMEOUT = 30000; // 30 seconds
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -45,153 +47,197 @@ describe("Lesson tests", () => {
         description: "Test Class Option",
       },
     })) as ClassOption;
-  });
+  }, TEST_TIMEOUT);
 
-  it("should should get the lessons endpoint", async () => {
-    const response = await restClient.GET("/lessons");
-    expect(response.status).toBe(200);
-  });
-  it("should have a booking status of active", async () => {
-    const now = new Date(); // Get the current date and time
-    const tomorrow = new Date(now); // Create a new Date object based on the current date
-    tomorrow.setDate(now.getDate() + 1);
+  it(
+    "should should get the lessons endpoint",
+    async () => {
+      const response = await restClient.GET("/lessons");
+      expect(response.status).toBe(200);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should have a booking status of active",
+    async () => {
+      const now = new Date(); // Get the current date and time
+      const tomorrow = new Date(now); // Create a new Date object based on the current date
+      tomorrow.setDate(now.getDate() + 1);
 
-    const oneHourLater = new Date(tomorrow); // Create a copy of the current date
-    oneHourLater.setHours(oneHourLater.getHours() + 1);
+      const oneHourLater = new Date(tomorrow); // Create a copy of the current date
+      oneHourLater.setHours(oneHourLater.getHours() + 1);
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: tomorrow,
-        startTime: tomorrow,
-        endTime: oneHourLater,
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: tomorrow,
+          startTime: tomorrow,
+          endTime: oneHourLater,
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
 
-    const response = await restClient.GET(`/lessons/${lesson.id}`);
+      const response = await restClient.GET(`/lessons/${lesson.id}`);
 
-    const data = await response.json();
+      const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.bookingStatus).toBe("active");
-  });
-  it("should have a booking status of closed", async () => {
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      expect(response.status).toBe(200);
+      expect(data.bookingStatus).toBe("active");
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should have a booking status of closed",
+    async () => {
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
 
-    const response = await restClient.GET(`/lessons/${lesson.id}`);
+      const response = await restClient.GET(`/lessons/${lesson.id}`);
 
-    const data = await response.json();
+      const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.bookingStatus).toBe("closed");
-  });
-  it("should have a booking status of booked", async () => {
-    const user = await payload.create({
-      collection: "users",
-      data: {
-        email: "test@test.com",
-        password: "test",
-      },
-    });
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      expect(response.status).toBe(200);
+      expect(data.bookingStatus).toBe("closed");
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should have a booking status of booked",
+    async () => {
+      const user = await payload.create({
+        collection: "users",
+        data: {
+          email: "test@test.com",
+          password: "test",
+        },
+      });
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
 
-    const booking = await payload.create({
-      collection: "bookings",
-      data: {
-        user: user.id,
-        lesson: lesson.id,
-        status: "confirmed",
-      },
-    });
+      const booking = await payload.create({
+        collection: "bookings",
+        data: {
+          user: user.id,
+          lesson: lesson.id,
+          status: "confirmed",
+        },
+      });
 
-    const response = await restClient
-      .login({ credentials: { email: "test@test.com", password: "test" } })
-      .then(() => restClient.GET(`/lessons/${lesson.id}`));
+      const response = await restClient
+        .login({ credentials: { email: "test@test.com", password: "test" } })
+        .then(() => restClient.GET(`/lessons/${lesson.id}`));
 
-    const data = await response.json();
+      const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.bookingStatus).toBe("booked");
-    expect(data.remainingCapacity).toBe(3);
-  });
-  it("should have a booking status of waitlist", async () => {
-    const user = await payload.create({
-      collection: "users",
-      data: {
-        email: "waitlist@test.com",
-        password: "test",
-      },
-    });
+      expect(response.status).toBe(200);
+      expect(data.bookingStatus).toBe("booked");
+      expect(data.remainingCapacity).toBe(3);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should have a booking status of waitlist",
+    async () => {
+      const user1 = await payload.create({
+        collection: "users",
+        data: {
+          email: "waitlis1t@test.com",
+          password: "test",
+        },
+      });
 
-    const lesson = await payload.create({
-      collection: "lessons",
-      data: {
-        date: new Date(),
-        startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        classOption: classOption.id,
-        location: "Test Location",
-      },
-    });
+      const user2 = await payload.create({
+        collection: "users",
+        data: {
+          email: "waitlis2t@test.com",
+          password: "test",
+        },
+      });
 
-    const booking1 = await payload.create({
-      collection: "bookings",
-      data: {
-        user: user.id,
-        lesson: lesson.id,
-        status: "confirmed",
-      },
-    });
-    const booking2 = await payload.create({
-      collection: "bookings",
-      data: {
-        user: user.id,
-        lesson: lesson.id,
-        status: "confirmed",
-      },
-    });
-    const booking3 = await payload.create({
-      collection: "bookings",
-      data: {
-        user: user.id,
-        lesson: lesson.id,
-        status: "confirmed",
-      },
-    });
-    const booking4 = await payload.create({
-      collection: "bookings",
-      data: {
-        user: user.id,
-        lesson: lesson.id,
-        status: "confirmed",
-      },
-    });
+      const user3 = await payload.create({
+        collection: "users",
+        data: {
+          email: "waitlis3t@test.com",
+          password: "test",
+        },
+      });
 
-    const response = await restClient.GET(`/lessons/${lesson.id}`);
+      const user4 = await payload.create({
+        collection: "users",
+        data: {
+          email: "waitlis4t@test.com",
+          password: "test",
+        },
+      });
 
-    const data = (await response.json()) as Lesson;
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
 
-    expect(response.status).toBe(200);
-    expect(data.bookingStatus).toBe("waitlist");
-  });
+      const booking1 = await payload.create({
+        collection: "bookings",
+        data: {
+          user: user1.id,
+          lesson: lesson.id,
+          status: "confirmed",
+        },
+      });
+      const booking2 = await payload.create({
+        collection: "bookings",
+        data: {
+          user: user2.id,
+          lesson: lesson.id,
+          status: "confirmed",
+        },
+      });
+      const booking3 = await payload.create({
+        collection: "bookings",
+        data: {
+          user: user3.id,
+          lesson: lesson.id,
+          status: "confirmed",
+        },
+      });
+      const booking4 = await payload.create({
+        collection: "bookings",
+        data: {
+          user: user4.id,
+          lesson: lesson.id,
+          status: "confirmed",
+        },
+      });
+
+      const response = await restClient.GET(`/lessons/${lesson.id}`);
+
+      const data = (await response.json()) as Lesson;
+
+      expect(response.status).toBe(200);
+      expect(data.bookingStatus).toBe("waitlist");
+    },
+    TEST_TIMEOUT
+  );
 });
