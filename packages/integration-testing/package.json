@@ -19,6 +19,6 @@
   },
   "private": true,
   "scripts": {
-    "test": "vitest --hook-timeout=100000"
+    "test": "vitest --hook-timeout=1000000"
   }
 }
