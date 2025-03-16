@@ -12,6 +12,7 @@ export interface Config {
   };
   collections: {
     media: Media;
+    transactions: Transaction;
     users: User;
     subscriptions: Subscription;
     plans: Plan;
@@ -33,6 +34,7 @@ export interface Config {
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
@@ -94,6 +96,20 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -178,6 +194,7 @@ export interface Lesson {
   endTime: string;
   lockOutTime: number;
   location?: string | null;
+  instructor?: (number | null) | User;
   classOption: number | ClassOption;
   /**
    * The number of places remaining
@@ -245,6 +262,7 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  transaction?: (number | null) | Transaction;
   updatedAt: string;
   createdAt: string;
 }
@@ -258,6 +276,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
       } | null)
     | ({
         relationTo: 'users';
@@ -349,6 +371,19 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -410,6 +445,7 @@ export interface LessonsSelect<T extends boolean = true> {
   endTime?: T;
   lockOutTime?: T;
   location?: T;
+  instructor?: T;
   classOption?: T;
   remainingCapacity?: T;
   bookings?: T;
@@ -442,6 +478,7 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }
