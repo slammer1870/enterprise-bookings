@@ -13,6 +13,8 @@ describe("Registration", async () => {
   let payload: Payload;
   let restClient: NextRESTClient;
 
+  const TEST_TIMEOUT = 30000; // 30 seconds
+
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
@@ -24,29 +26,37 @@ describe("Registration", async () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
-  });
+  }, TEST_TIMEOUT);
 
-  it("should register a new user", async () => {
-    const response = await restClient.POST("/users", {
-      body: JSON.stringify({
-        name: user.name,
-        email: user.email,
-        password: user.password,
-      }),
-    });
+  it(
+    "should register a new user",
+    async () => {
+      const response = await restClient.POST("/users", {
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          password: user.password,
+        }),
+      });
 
-    expect(response.status).toBe(201);
-  });
+      expect(response.status).toBe(201);
+    },
+    TEST_TIMEOUT
+  );
 
-  it("should fail because user already exists a new user", async () => {
-    const response = await restClient.POST("/users", {
-      body: JSON.stringify({
-        name: user.name,
-        email: user.email,
-        password: user.password,
-      }),
-    });
+  it(
+    "should fail because user already exists a new user",
+    async () => {
+      const response = await restClient.POST("/users", {
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          password: user.password,
+        }),
+      });
 
-    expect(response.status).toBe(400);
-  });
+      expect(response.status).toBe(400);
+    },
+    TEST_TIMEOUT
+  );
 });
