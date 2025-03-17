@@ -1,4 +1,8 @@
 // storage-adapter-import-placeholder
+import dotenv from 'dotenv'
+
+dotenv.config()
+
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
