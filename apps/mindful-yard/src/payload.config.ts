@@ -43,8 +43,7 @@ export default buildConfig({
   },
   db: postgresAdapter({
     pool: {
-      connectionString:
-        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
+      connectionString: process.env.DATABASE_URI,
     },
   }),
   sharp,
@@ -52,7 +51,7 @@ export default buildConfig({
     payloadCloudPlugin(),
     magicLinkPlugin({
       enabled: true,
-      serverURL: 'http://localhost:3000',
+      serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
     }),
     rolesPlugin({
       enabled: true,
