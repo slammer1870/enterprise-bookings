@@ -196,6 +196,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.4.7
       graphql:
         specifier: ^16.10.0
         version: 16.10.0
