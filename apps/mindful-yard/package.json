@@ -7,6 +7,7 @@
     "@payloadcms/next": "^3.18.0",
     "@payloadcms/payload-cloud": "^3.18.0",
     "@payloadcms/richtext-lexical": "^3.18.0",
+    "@payloadcms/storage-vercel-blob": "^3.28.1",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
     "@repo/payments": "workspace:*",

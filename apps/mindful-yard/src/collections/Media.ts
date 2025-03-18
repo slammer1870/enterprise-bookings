@@ -6,10 +6,7 @@ export const Media: CollectionConfig = {
     staticDir: 'media',
   },
   access: {
-    create: () => true,
     read: () => true,
-    update: () => true,
-    delete: () => true,
   },
   fields: [
     {
