@@ -28,11 +28,7 @@ export const HeroBlock = (props: HeroBlockProps) => {
         <HeroLogo />
         <div>
           <div className="my-6">
-            <VideoModal
-              imageSrc={image.url || ''}
-              videoSrc={video.url || ''}
-              imageAlt={image.alt || ''}
-            />
+            <VideoModal image={image || ''} videoSrc={video.url || ''} />
           </div>
         </div>
         <p className="text-xl text-center">{tagline}</p>

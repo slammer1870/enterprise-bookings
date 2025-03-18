@@ -1,8 +1,4 @@
 // storage-adapter-import-placeholder
-import dotenv from 'dotenv'
-
-dotenv.config()
-
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
@@ -22,8 +18,6 @@ import { paymentsPlugin } from '@repo/payments/src'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
-
-console.log('DATABASE_URI', process.env.DATABASE_URI)
 
 export default buildConfig({
   admin: {
