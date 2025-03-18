@@ -6,6 +6,7 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from '@repo/ui/compon
 import { Button } from '@repo/ui/components/ui/button'
 import Image from 'next/image'
 import { Media } from '@/payload-types'
+
 interface VideoModalProps {
   image: Media
   videoSrc: string
