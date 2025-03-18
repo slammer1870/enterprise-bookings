@@ -2,7 +2,9 @@ import type { CollectionConfig } from 'payload'
 
 export const Media: CollectionConfig = {
   slug: 'media',
-  upload: true,
+  upload: {
+    staticDir: path.resolve(dirname, '../../public/media'),
+  },
   access: {
     create: () => true,
     read: () => true,
