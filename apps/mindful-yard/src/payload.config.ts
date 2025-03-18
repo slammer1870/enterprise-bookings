@@ -19,6 +19,8 @@ import { paymentsPlugin } from '@repo/payments/src'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+console.log('DATABASE_URI IN PAYLOAD CONFIG', process.env.DATABASE_URI)
+
 export default buildConfig({
   admin: {
     user: Users.slug,
