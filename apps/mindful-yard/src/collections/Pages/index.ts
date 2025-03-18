@@ -4,6 +4,9 @@ import { Hero } from '@/blocks/hero/config'
 import { Schedule } from '@/blocks/schedule/config'
 import { Location } from '@/blocks/location/config'
 import { Faqs } from '@/blocks/faqs/config'
+
+import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
+
 export const Pages: CollectionConfig = {
   slug: 'pages',
   access: {
@@ -26,4 +29,8 @@ export const Pages: CollectionConfig = {
       blocks: [Hero, Schedule, Location, Faqs],
     },
   ],
+  hooks: {
+    afterChange: [revalidatePage],
+    afterDelete: [revalidateDelete],
+  },
 }
