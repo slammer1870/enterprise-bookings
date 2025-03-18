@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "dependencies": {
     "@payloadcms/db-postgres": "^3.18.0",
-    "@payloadcms/db-vercel-postgres": "^3.28.1",
+    "@payloadcms/db-vercel-postgres": "^3.18.0",
     "@payloadcms/next": "^3.18.0",
     "@payloadcms/payload-cloud": "^3.18.0",
     "@payloadcms/richtext-lexical": "^3.18.0",
-    "@payloadcms/storage-vercel-blob": "^3.28.1",
+    "@payloadcms/storage-vercel-blob": "^3.18.0",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
     "@repo/payments": "workspace:*",
