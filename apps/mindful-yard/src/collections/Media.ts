@@ -29,7 +29,7 @@ export const Media: CollectionConfig = {
       },
     ],
     adminThumbnail: 'thumbnail',
-    mimeTypes: ['image/*'],
+    mimeTypes: ['image/*', 'video/*', 'audio/*'],
   },
   access: {
     create: () => true,
