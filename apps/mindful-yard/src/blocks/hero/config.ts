@@ -19,7 +19,7 @@ export const Hero: Block = {
       name: 'video',
       type: 'upload',
       relationTo: 'media',
-      required: false,
+      required: true,
     },
     {
       name: 'cta',

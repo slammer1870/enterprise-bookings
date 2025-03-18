@@ -129,7 +129,7 @@ export interface Page {
 export interface HeroBlock {
   tagline: string;
   image: number | Media;
-  video?: (number | null) | Media;
+  video: number | Media;
   cta?:
     | {
         text?: string | null;
