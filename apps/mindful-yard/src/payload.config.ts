@@ -43,7 +43,7 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: vercelPostgresAdapter(),
+  db: vercelPostgresAdapter(), //automatically created by vercel
   sharp,
   plugins: [
     payloadCloudPlugin(),
