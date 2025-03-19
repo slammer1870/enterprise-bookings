@@ -14,7 +14,7 @@
     "@repo/roles": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
-    "@repo/ui": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
     "cross-env": "^7.0.3",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
