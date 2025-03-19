@@ -12,6 +12,7 @@ export const LogoutButton = () => {
   const handleLogout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     await logout()
+    router.refresh()
   }
 
   return (

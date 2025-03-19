@@ -16,6 +16,8 @@ import { magicLinkPlugin } from '@repo/auth/src'
 import { rolesPlugin } from '@repo/roles/src'
 import { paymentsPlugin } from '@repo/payments/src'
 
+import { resendAdapter } from '@payloadcms/email-resend'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -37,6 +39,11 @@ export default buildConfig({
   },
   collections: [Users, Media, Pages],
   editor: lexicalEditor(),
+  email: resendAdapter({
+    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
+    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
+    apiKey: process.env.RESEND_API_KEY || '',
+  }),
   secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),

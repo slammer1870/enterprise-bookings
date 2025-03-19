@@ -160,6 +160,9 @@ importers:
       '@payloadcms/db-postgres':
         specifier: ^3.18.0
         version: 3.18.0(@neondatabase/serverless@0.9.5)(@types/react@19.0.0)(@vercel/postgres@0.9.0)(payload@3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5))(react@19.0.0)
+      '@payloadcms/email-resend':
+        specifier: ^3.28.1
+        version: 3.28.1(payload@3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5))
       '@payloadcms/next':
         specifier: ^3.18.0
         version: 3.18.0(@types/react@19.0.0)(graphql@16.10.0)(monaco-editor@0.52.2)(next@15.1.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(sass@1.77.4))(payload@3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5))(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)
@@ -2340,6 +2343,12 @@ packages:
     engines: {node: ^18.20.2 || >=20.9.0}
     peerDependencies:
       payload: 3.18.0
+
+  '@payloadcms/email-resend@3.28.1':
+    resolution: {integrity: sha512-ZPimiay+objXbMfOyWQO28UIAQNOD9mGufbcJjHMFWM2LkHW5q270F2M4CrZ6zQjsENgcA4qUPlf7zcXf+FAkA==}
+    engines: {node: ^18.20.2 || >=20.9.0}
+    peerDependencies:
+      payload: 3.28.1
 
   '@payloadcms/graphql@3.18.0':
     resolution: {integrity: sha512-ktWKKEU/B7PDHUNAIt1rn4MUrVOIEWkWbvjAZONFCA6FMnD319QxISXE2UIjEPyiaRls8+7E4w3u8e6mHaIq2w==}
@@ -9412,6 +9421,10 @@ snapshots:
   '@payloadcms/email-nodemailer@3.18.0(payload@3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5))':
     dependencies:
       nodemailer: 6.9.16
+      payload: 3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5)
+
+  '@payloadcms/email-resend@3.28.1(payload@3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5))':
+    dependencies:
       payload: 3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5)
 
   '@payloadcms/graphql@3.18.0(graphql@16.10.0)(payload@3.18.0(bufferutil@4.0.9)(graphql@16.10.0)(monaco-editor@0.52.2)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.7.3)(utf-8-validate@6.0.5))(typescript@5.7.3)':

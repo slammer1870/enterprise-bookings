@@ -57,8 +57,8 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
       req.payload.sendEmail({
         to: email,
-        from: "no-reply@example.com",
-        subject: `Magic Link ${magicLink}`,
+        from: process.env.DEFAULT_FROM_ADDRESS,
+        subject: "Sign in Link",
         html: `<a href="${magicLink}">Click here to login</a>`,
       });
 
