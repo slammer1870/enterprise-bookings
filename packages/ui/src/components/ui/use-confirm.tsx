@@ -5,13 +5,16 @@ import { JSX, useState } from "react";
 import { Button } from "@repo/ui/components/ui/button";
 
 import {
-  Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/ui/dialog";
+
+import {
+  AdminDialog,
+  AdminDialogContent,
+} from "@repo/ui/components/ui/admin-dialog";
 
 export const useConfirm = (
   title: string,
@@ -41,8 +44,8 @@ export const useConfirm = (
   };
 
   const ConfirmationDialog = () => (
-    <Dialog open={promise !== null}>
-      <DialogContent>
+    <AdminDialog open={promise !== null}>
+      <AdminDialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{message}</DialogDescription>
@@ -59,8 +62,8 @@ export const useConfirm = (
             Confirm
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 
   return [ConfirmationDialog, confirm];

@@ -21,6 +21,11 @@ import {
 } from "@repo/ui/components/ui/dialog";
 
 import {
+  AdminDialog,
+  AdminDialogContent,
+} from "@repo/ui/components/ui/admin-dialog";
+
+import {
   Form,
   FormControl,
   FormField,
@@ -91,13 +96,13 @@ export function EditBooking({ booking }: { booking: Booking }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <AdminDialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Manage Booking
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <AdminDialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Booking</DialogTitle>
           <DialogDescription>
@@ -159,7 +164,7 @@ export function EditBooking({ booking }: { booking: Booking }) {
             </DialogFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </AdminDialogContent>
+    </AdminDialog>
   );
 }
