@@ -5,6 +5,7 @@ export const transactionsCollection: CollectionConfig = {
   admin: {
     useAsTitle: "amount",
     group: "Payments",
+    
   },
   fields: [
     {
