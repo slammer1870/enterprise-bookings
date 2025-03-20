@@ -193,6 +193,9 @@ importers:
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared-utils
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
