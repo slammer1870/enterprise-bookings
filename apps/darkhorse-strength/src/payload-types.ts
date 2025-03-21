@@ -68,6 +68,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    pages: Page;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -76,6 +77,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -150,6 +152,136 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  slug: string;
+  layout?:
+    | (
+        | {
+            heading: string;
+            subheading: string;
+            backgroundImage: number | Media;
+            ctaLink: string;
+            ctaTitle: string;
+            ctaDescription: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            title: string;
+            teamImage: number | Media;
+            teamMembers?:
+              | {
+                  name: string;
+                  imageSrc: number | Media;
+                  bio: string;
+                  id?: string | null;
+                }[]
+              | null;
+            aboutTitle: string;
+            aboutContent?:
+              | {
+                  paragraph: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'team';
+          }
+        | {
+            title: string;
+            description: string;
+            timeSlots?:
+              | {
+                  time: string;
+                  monday?: string | null;
+                  tuesday?: string | null;
+                  wednesday?: string | null;
+                  thursday?: string | null;
+                  friday?: string | null;
+                  saturday?: string | null;
+                  sunday?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            legend: {
+              root: {
+                type: string;
+                children: {
+                  type: string;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'timetable';
+          }
+        | {
+            title: string;
+            description: string;
+            videos?:
+              | {
+                  youtubeId: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'testimonials';
+          }
+        | {
+            title: string;
+            description: string;
+            pricingOptions?:
+              | {
+                  title: string;
+                  price: string;
+                  features?:
+                    | {
+                        feature: string;
+                        id?: string | null;
+                      }[]
+                    | null;
+                  note?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'pricing';
+          }
+        | {
+            locationTitle: string;
+            locationDescription: string;
+            mapEmbedUrl: string;
+            address: string;
+            email: string;
+            phone: string;
+            contactTitle: string;
+            contactDescription: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'contact';
+          }
+      )[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -162,6 +294,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -237,6 +373,127 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              heading?: T;
+              subheading?: T;
+              backgroundImage?: T;
+              ctaLink?: T;
+              ctaTitle?: T;
+              ctaDescription?: T;
+              id?: T;
+              blockName?: T;
+            };
+        team?:
+          | T
+          | {
+              title?: T;
+              teamImage?: T;
+              teamMembers?:
+                | T
+                | {
+                    name?: T;
+                    imageSrc?: T;
+                    bio?: T;
+                    id?: T;
+                  };
+              aboutTitle?: T;
+              aboutContent?:
+                | T
+                | {
+                    paragraph?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        timetable?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              timeSlots?:
+                | T
+                | {
+                    time?: T;
+                    monday?: T;
+                    tuesday?: T;
+                    wednesday?: T;
+                    thursday?: T;
+                    friday?: T;
+                    saturday?: T;
+                    sunday?: T;
+                    id?: T;
+                  };
+              legend?: T;
+              id?: T;
+              blockName?: T;
+            };
+        testimonials?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              videos?:
+                | T
+                | {
+                    youtubeId?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        pricing?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              pricingOptions?:
+                | T
+                | {
+                    title?: T;
+                    price?: T;
+                    features?:
+                      | T
+                      | {
+                          feature?: T;
+                          id?: T;
+                        };
+                    note?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        contact?:
+          | T
+          | {
+              locationTitle?: T;
+              locationDescription?: T;
+              mapEmbedUrl?: T;
+              address?: T;
+              email?: T;
+              phone?: T;
+              contactTitle?: T;
+              contactDescription?: T;
+              id?: T;
+              blockName?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
