@@ -28,7 +28,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, Team, Timetable, Testimonials, Pricing, Contact],
+      blocks: [Hero],
     },
   ],
   hooks: {

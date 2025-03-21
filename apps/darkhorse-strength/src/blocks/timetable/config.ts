@@ -75,7 +75,6 @@ export const Timetable: Block = {
       type: 'richText',
       required: true,
       label: 'Legend Text',
-      defaultValue: '<strong>SGPT:</strong> Small Group Personal Training',
     },
   ],
 }

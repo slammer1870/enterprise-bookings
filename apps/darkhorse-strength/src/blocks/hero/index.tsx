@@ -1,13 +1,15 @@
 import React from 'react'
 import Link from 'next/link'
 
+import type { Media } from '@/payload-types'
+
 type HeroProps = {
   heading: string
   subheading: string
   ctaLink: string
   ctaTitle: string
   ctaDescription: string
-  backgroundImage: string
+  backgroundImage: Media
 }
 
 export const HeroBlock: React.FC<HeroProps> = ({
@@ -21,7 +23,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
   return (
     <div
       className="mb-12 grid min-h-screen grid-rows-2 bg-gray-900 bg-opacity-80 bg-cover bg-center bg-blend-overlay"
-      style={{ backgroundImage: `url(${backgroundImage})` }}
+      style={{ backgroundImage: `url(${backgroundImage.url})` }}
     >
       <div className="container row-span-1 mx-auto flex flex-col items-start justify-center px-4 pt-12 lg:row-span-2">
         <h1 className="mb-2 text-2xl font-medium uppercase text-white md:text-4xl">{heading}</h1>
