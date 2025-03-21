@@ -41,7 +41,7 @@ export default async function Page({ params: paramsPromise }: Args) {
 
   const { slug = 'home' } = await paramsPromise
 
-  let page: RequiredDataFromCollectionSlug<'pages'> | null
+  //let page: RequiredDataFromCollectionSlug<'pages'> | null
 
   const result = await payload.find({
     collection: 'pages',
@@ -55,7 +55,7 @@ export default async function Page({ params: paramsPromise }: Args) {
     },
   })
 
-  page = result.docs?.[0] || null
+  const page = result.docs?.[0] || null
 
   if (!page) {
     return notFound()
