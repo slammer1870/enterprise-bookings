@@ -27,7 +27,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
     const user = await req.payload.find({
       collection: authCollectionSlug,
-      where: { email: { equals: email } },
+      where: { email: { equals: email.toLowerCase() } },
     });
 
     if (!user || user.totalDocs === 0) {
@@ -56,7 +56,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       }`;
 
       req.payload.sendEmail({
-        to: email,
+        to: email.toLowerCase(),
         from: process.env.DEFAULT_FROM_ADDRESS,
         subject: "Sign in Link",
         html: `<a href="${magicLink}">Click here to login</a>`,

@@ -50,7 +50,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
       const fieldsToSign = {
         id: user.id,
-        email: user.email,
+        email: user.email.toLowerCase(),
         collection: authCollectionSlug,
       };
 
