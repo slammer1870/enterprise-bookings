@@ -55,7 +55,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         url && `&callbackUrl=${url}`
       }`;
 
-      req.payload.sendEmail({
+      await req.payload.sendEmail({
         to: email.toLowerCase(),
         from: process.env.DEFAULT_FROM_ADDRESS,
         subject: "Sign in Link",
