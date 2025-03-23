@@ -1,16 +1,17 @@
 import React from 'react'
 import Image from 'next/image'
+import type { Media } from '@/payload-types'
 
 type TeamMember = {
   name: string
   title: string
-  imageSrc: string
+  image: Media
   bio: string
 }
 
 type TeamProps = {
   title: string
-  teamImage: string
+  teamImage: Media
   teamMembers: TeamMember[]
   aboutTitle: string
   aboutContent: string[]
@@ -30,7 +31,7 @@ export const TeamBlock: React.FC<TeamProps> = ({
         <div className="mx-auto">
           <div className="h-80 overflow-hidden rounded-lg md:h-64">
             <Image
-              src={teamImage}
+              src={teamImage.url || ''}
               alt="Team image"
               width={1800}
               height={1900}
@@ -43,7 +44,7 @@ export const TeamBlock: React.FC<TeamProps> = ({
               <div key={index} className="mb-8 text-center lg:w-1/4 lg:py-8 lg:pr-8">
                 <div className="inline-flex h-32 w-32 items-center justify-center rounded-full bg-gray-200 text-gray-400">
                   <Image
-                    src={member.imageSrc}
+                    src={member.image.url || ''}
                     alt={member.name}
                     width={500}
                     height={500}
