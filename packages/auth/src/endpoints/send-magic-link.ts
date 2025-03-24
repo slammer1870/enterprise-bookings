@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 
 import { PluginTypes } from "../types";
 
+import { render } from "@react-email/components";
+import { MagicLinkEmail } from "../email/sign-in";
+
 export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/send-magic-link",
   method: "post",
@@ -55,11 +58,31 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         url && `&callbackUrl=${url}`
       }`;
 
+      const emailHtml = await render(
+        MagicLinkEmail({
+          magicLink,
+          userName: user.docs[0]?.name,
+          appName: pluginOptions.appName,
+          expiryTime: "15 minutes",
+        })
+      );
+
       await req.payload.sendEmail({
         to: email.toLowerCase(),
         from: process.env.DEFAULT_FROM_ADDRESS,
-        subject: "Sign in Link",
-        html: `<a href="${magicLink}">Click here to login</a>`,
+        subject: `Sign in to ${pluginOptions.appName} - ${new Date().toLocaleString(
+          "en-IE",
+          {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }
+        )}`,
+        html: emailHtml,
       });
 
       return new Response(JSON.stringify("Magic Link Sent"), { status: 200 }); // Ensure to return a Response object

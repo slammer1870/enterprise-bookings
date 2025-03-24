@@ -17,4 +17,9 @@ export interface PluginTypes {
    * @default "users"
    */
   authCollection?: string;
+
+  /**
+   * Name of the app
+   */
+  appName: string;
 }

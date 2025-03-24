@@ -59,6 +59,7 @@ export default buildConfig({
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
+      appName: 'The Mindful Yard',
     }),
     rolesPlugin({
       enabled: true,
