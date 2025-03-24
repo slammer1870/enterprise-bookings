@@ -27,7 +27,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
     const checkIn = await checkInAction(id, user.id)
 
     if (checkIn.success) {
-      redirect('/dashboard')
+      redirect('/')
     }
   } else {
     redirect('/')

@@ -148,7 +148,7 @@ export const bookingsCollection = (
                       },
                     });
 
-                    emailData.numberOfGuests = bookings.docs.length;
+                    emailData.numberOfGuests = bookings.totalDocs;
                   }
                 }
 

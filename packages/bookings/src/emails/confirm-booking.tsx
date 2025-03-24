@@ -117,7 +117,7 @@ export const BookingConfirmationEmail = ({
 
                 <Row style={detailRow}>
                   <Column style={detailLabel}>Number of guests:</Column>
-                  <Column style={detailValue}>{numberOfGuests || 1}</Column>
+                  <Column style={detailValue}>{numberOfGuests}</Column>
                 </Row>
 
                 <Hr style={divider} />
