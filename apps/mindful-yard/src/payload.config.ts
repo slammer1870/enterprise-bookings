@@ -30,8 +30,8 @@ export default buildConfig({
     meta: {
       icons: [
         {
-          rel: 'icon',
           type: 'image/png',
+          rel: 'icon',
           url: '/assets/favicon.ico',
         },
       ],
