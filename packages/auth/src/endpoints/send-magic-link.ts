@@ -61,7 +61,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       const emailHtml = await render(
         MagicLinkEmail({
           magicLink,
-          userName: user.docs[0]?.name,
+          userName: user.docs[0]?.name || "",
           appName: pluginOptions.appName,
           expiryTime: "15 minutes",
         })
