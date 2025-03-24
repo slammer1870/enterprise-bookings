@@ -15,6 +15,11 @@ const roboto = Roboto({
   variable: '--font-roboto',
 })
 
+export const metadata = {
+  title: 'Mindful Yard',
+  description: 'Mindful Yard',
+}
+
 export default function RootLayout({
   children,
   unauthenticated,
