@@ -6,7 +6,7 @@
   },
   "main": "src/index.ts",
   "peerDependencies": {
-    "payload": "^3.18.0"
+    "payload": "*"
   },
   "dependencies": {
     "@repo/shared-utils": "workspace:*",

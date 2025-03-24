@@ -30,7 +30,7 @@ export interface ClassOption {
   name: string;
   places: number;
   description: string;
-  type: "adult" | "child";
+  type?: "adult" | "child";
   paymentMethods?: {
     allowedDropIns?: DropIn;
     allowedPlans?: Plan[];

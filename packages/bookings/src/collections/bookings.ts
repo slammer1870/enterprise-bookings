@@ -2,6 +2,9 @@ import { APIError, CollectionConfig, CollectionSlug } from "payload";
 
 import { renderCreateAccess, renderUpdateAccess } from "../access/bookings";
 import { BookingsPluginConfig } from "../types";
+import { Lesson, Transaction, Booking, User } from "@repo/shared-types";
+import { render } from "@react-email/components";
+import { BookingConfirmationEmail } from "../emails/confirm-booking";
 
 export const bookingsCollection = (
   pluginOptions: BookingsPluginConfig
@@ -87,6 +90,72 @@ export const bookingsCollection = (
       ],
       afterChange: [
         async ({ req, operation, doc }) => {
+          if (doc.status === "confirmed") {
+            Promise.resolve().then(async () => {
+              try {
+                // Get user details for the email
+                const user = await req.payload.findByID({
+                  collection: "users",
+                  id: doc.user,
+                });
+
+                // Get lesson details for the email
+                const lesson = await req.payload.findByID({
+                  collection: "lessons",
+                  id: doc.lesson,
+                  depth: 1,
+                });
+
+                // Prepare email data
+                const emailData = {
+                  user,
+                  lesson,
+                  booking: doc as Booking,
+                } as {
+                  user: User;
+                  lesson: Lesson;
+                  booking: Booking;
+                  transaction?: Transaction;
+                };
+
+                // If there's a transaction associated with this booking, add transaction details
+                if (doc.transaction) {
+                  const transaction = (await req.payload.findByID({
+                    collection: "transactions",
+                    id: doc.transaction,
+                  })) as Transaction;
+
+                  if (transaction) {
+                    emailData.transaction = {
+                      id: transaction.id as number,
+                      amount: transaction.amount,
+                      status: transaction.status,
+                      createdAt: transaction.createdAt,
+                      paymentMethod: transaction.paymentMethod,
+                      createdBy: transaction.createdBy,
+                    };
+                  }
+                }
+
+                const bookingEmail = render(
+                  BookingConfirmationEmail(emailData)
+                );
+
+                // Send confirmation email
+                await req.payload.sendEmail({
+                  to: user.email,
+                  subject: "Your Booking Confirmation",
+                  react: bookingEmail,
+                });
+              } catch (error) {
+                console.error(
+                  "Error sending booking confirmation email:",
+                  error
+                );
+              }
+            });
+          }
+
           if (operation === "update" && doc.status === "cancelled") {
             // Don't block the response by running this asynchronously
             Promise.resolve().then(async () => {
@@ -132,7 +201,7 @@ export const bookingsCollection = (
     },
   };
 
-  if (pluginOptions.paymentsMethods) {
+  if (pluginOptions.paymentMethods) {
     config.fields.push({
       name: "transaction",
       type: "relationship",

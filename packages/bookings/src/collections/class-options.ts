@@ -59,7 +59,7 @@ export const classOptionsCollection = (
     });
   }
 
-  if (pluginOptions.paymentsMethods) {
+  if (pluginOptions.paymentMethods) {
     const paymentMethods: GroupField = {
       name: "paymentMethods",
       label: "Payment Methods",
@@ -69,7 +69,7 @@ export const classOptionsCollection = (
 
     config.fields.push(paymentMethods);
 
-    if (pluginOptions.paymentsMethods?.dropIns) {
+    if (pluginOptions.paymentMethods?.dropIns) {
       paymentMethods.fields.push({
         name: "allowedDropIns",
         label: "Allowed Drop Ins",
@@ -80,7 +80,7 @@ export const classOptionsCollection = (
       });
     }
 
-    if (pluginOptions.paymentsMethods?.plans) {
+    if (pluginOptions.paymentMethods?.plans) {
       paymentMethods.fields.push({
         name: "allowedPlans",
         label: "Allowed Plans",

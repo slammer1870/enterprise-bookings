@@ -2,9 +2,9 @@
   "name": "@repo/integration-testing",
   "version": "0.0.1",
   "devDependencies": {
-    "@payloadcms/db-postgres": "^3.18.0",
-    "@payloadcms/payload-cloud": "^3.18.0",
-    "@payloadcms/richtext-lexical": "^3.18.0",
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/payload-cloud": "*",
+    "@payloadcms/richtext-lexical": "*",
     "@repo/bookings": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
@@ -13,7 +13,7 @@
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "payload": "^3.18.0",
+    "payload": "*",
     "sharp": "0.33.5",
     "vitest": "^3.0.3"
   },
