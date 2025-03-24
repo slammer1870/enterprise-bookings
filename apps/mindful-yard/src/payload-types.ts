@@ -263,6 +263,9 @@ export interface Lesson {
   date: string;
   startTime: string;
   endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
   lockOutTime: number;
   location?: string | null;
   instructor?: (number | null) | User;

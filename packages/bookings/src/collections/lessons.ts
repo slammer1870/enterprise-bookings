@@ -151,9 +151,13 @@ export const lessonsCollection: CollectionConfig = {
         {
           name: "lockOutTime",
           label: "Lock Out Time (minutes)",
+          admin: {
+            description:
+              "The time in minutes before the lesson will be closed for new bookings.",
+          },
           type: "number",
           required: true,
-          defaultValue: 60,
+          defaultValue: 0,
         },
         {
           name: "location",
