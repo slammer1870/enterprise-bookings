@@ -32,7 +32,7 @@ export default buildConfig({
         {
           rel: 'icon',
           type: 'image/png',
-          url: '/logos/mindful.png',
+          url: '/assets/favicon.ico',
         },
       ],
     },
