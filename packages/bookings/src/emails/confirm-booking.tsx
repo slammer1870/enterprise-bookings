@@ -20,15 +20,15 @@ import * as React from "react";
 interface BookingConfirmationEmailProps {
   user: User;
   lesson: Lesson;
-  booking: Booking;
   transaction?: Transaction;
+  numberOfGuests?: number;
 }
 
 export const BookingConfirmationEmail = ({
   user,
   lesson,
-  booking,
   transaction,
+  numberOfGuests,
 }: BookingConfirmationEmailProps) => {
   const formattedDate = new Date(lesson.date).toLocaleDateString("en-US", {
     weekday: "long",
@@ -67,11 +67,6 @@ export const BookingConfirmationEmail = ({
               <Hr style={divider} />
 
               <Row style={detailRow}>
-                <Column style={detailLabel}>Booking ID:</Column>
-                <Column style={detailValue}>{booking.id}</Column>
-              </Row>
-
-              <Row style={detailRow}>
                 <Column style={detailLabel}>Lesson:</Column>
                 <Column style={detailValue}>{lesson.classOption.name}</Column>
               </Row>
@@ -85,7 +80,15 @@ export const BookingConfirmationEmail = ({
                 <Row style={detailRow}>
                   <Column style={detailLabel}>Time:</Column>
                   <Column style={detailValue}>
-                    {lesson.startTime} - {lesson.endTime}
+                    {new Date(lesson.startTime).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    -{" "}
+                    {new Date(lesson.endTime).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </Column>
                 </Row>
               )}
@@ -113,13 +116,15 @@ export const BookingConfirmationEmail = ({
                 <Hr style={divider} />
 
                 <Row style={detailRow}>
-                  <Column style={detailLabel}>Amount:</Column>
-                  <Column style={detailValue}>{formattedAmount}</Column>
+                  <Column style={detailLabel}>Number of guests:</Column>
+                  <Column style={detailValue}>{numberOfGuests || 1}</Column>
                 </Row>
 
+                <Hr style={divider} />
+
                 <Row style={detailRow}>
-                  <Column style={detailLabel}>Status:</Column>
-                  <Column style={detailValue}>Paid</Column>
+                  <Column style={detailLabel}>Amount:</Column>
+                  <Column style={detailValue}>{formattedAmount}</Column>
                 </Row>
               </Section>
             )}

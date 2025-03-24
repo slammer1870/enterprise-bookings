@@ -18,6 +18,8 @@
     "postcss": "^8.4.47",
     "qs": "^6.14.0",
     "qs-esm": "^7.0.2",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "react-email": "^3.0.7",
     "react-hook-form": "^7.54.2",
     "sharp": "0.33.5",

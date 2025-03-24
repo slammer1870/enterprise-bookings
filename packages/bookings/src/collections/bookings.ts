@@ -96,13 +96,13 @@ export const bookingsCollection = (
                 // Get user details for the email
                 const user = await req.payload.findByID({
                   collection: "users",
-                  id: doc.user,
+                  id: doc.user.id,
                 });
 
                 // Get lesson details for the email
                 const lesson = await req.payload.findByID({
                   collection: "lessons",
-                  id: doc.lesson,
+                  id: doc.lesson.id,
                   depth: 1,
                 });
 
@@ -116,13 +116,14 @@ export const bookingsCollection = (
                   lesson: Lesson;
                   booking: Booking;
                   transaction?: Transaction;
+                  numberOfGuests?: number;
                 };
 
                 // If there's a transaction associated with this booking, add transaction details
                 if (doc.transaction) {
                   const transaction = (await req.payload.findByID({
                     collection: "transactions",
-                    id: doc.transaction,
+                    id: doc.transaction.id,
                   })) as Transaction;
 
                   if (transaction) {
@@ -134,10 +135,24 @@ export const bookingsCollection = (
                       paymentMethod: transaction.paymentMethod,
                       createdBy: transaction.createdBy,
                     };
+
+                    const bookings = await req.payload.find({
+                      collection: "bookings",
+                      where: {
+                        transaction: {
+                          equals: doc.transaction.id,
+                        },
+                        status: {
+                          equals: "confirmed",
+                        },
+                      },
+                    });
+
+                    emailData.numberOfGuests = bookings.docs.length;
                   }
                 }
 
-                const bookingEmail = render(
+                const bookingEmail = await render(
                   BookingConfirmationEmail(emailData)
                 );
 
@@ -145,7 +160,7 @@ export const bookingsCollection = (
                 await req.payload.sendEmail({
                   to: user.email,
                   subject: "Your Booking Confirmation",
-                  react: bookingEmail,
+                  html: bookingEmail,
                 });
               } catch (error) {
                 console.error(
