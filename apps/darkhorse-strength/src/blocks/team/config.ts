@@ -34,7 +34,7 @@ export const Team: Block = {
           label: 'Name and Credentials',
         },
         {
-          name: 'imageSrc',
+          name: 'image',
           type: 'upload',
           relationTo: 'media',
           required: true,

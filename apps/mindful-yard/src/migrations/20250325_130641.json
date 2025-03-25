@@ -1,5 +1,5 @@
 {
-  "id": "b618b9a9-5585-46a2-9883-3fa3e6311e92",
+  "id": "11584d00-2f16-4bdc-ac74-6ec531949d4c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1166,7 +1166,8 @@
           "type": "enum_transactions_currency",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'EUR'"
         },
         "status": {
           "name": "status",
@@ -1286,7 +1287,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-25T12:51:29.904Z'"
+          "default": "'2025-03-25T13:06:41.537Z'"
         },
         "start_time": {
           "name": "start_time",

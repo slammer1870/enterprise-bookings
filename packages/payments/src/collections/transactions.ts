@@ -5,7 +5,6 @@ export const transactionsCollection: CollectionConfig = {
   admin: {
     useAsTitle: "amount",
     group: "Payments",
-    
   },
   fields: [
     {
@@ -17,6 +16,7 @@ export const transactionsCollection: CollectionConfig = {
       name: "currency",
       type: "select",
       options: ["EUR", "USD"],
+      defaultValue: "EUR",
       required: true,
     },
     {

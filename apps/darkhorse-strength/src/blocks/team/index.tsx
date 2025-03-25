@@ -31,7 +31,7 @@ export const TeamBlock: React.FC<TeamProps> = ({
         <div className="mx-auto">
           <div className="h-80 overflow-hidden rounded-lg md:h-64">
             <Image
-              src={teamImage.url || ''}
+              src={teamImage.url || '/placeholder.svg'}
               alt="Team image"
               width={1800}
               height={1900}
@@ -40,11 +40,11 @@ export const TeamBlock: React.FC<TeamProps> = ({
             />
           </div>
           <div className="mt-10 flex flex-col lg:flex-row">
-            {teamMembers.map((member, index) => (
+            {teamMembers.map((member: TeamMember, index: number) => (
               <div key={index} className="mb-8 text-center lg:w-1/4 lg:py-8 lg:pr-8">
                 <div className="inline-flex h-32 w-32 items-center justify-center rounded-full bg-gray-200 text-gray-400">
                   <Image
-                    src={member.image.url || ''}
+                    src={member.image.url || '/placeholder.svg'}
                     alt={member.name}
                     width={500}
                     height={500}
@@ -66,7 +66,7 @@ export const TeamBlock: React.FC<TeamProps> = ({
             <div className="mt-12 flex flex-col items-start justify-center border-t border-gray-200 pt-12 lg:mt-4 lg:w-2/4 lg:border-l lg:border-t-0 lg:py-8 lg:pl-8 lg:pt-4 lg:text-left">
               <h5 className="mb-4 text-3xl font-medium uppercase">{aboutTitle}</h5>
               <div className="mb-4 text-base leading-relaxed">
-                {aboutContent.map((paragraph, index) => (
+                {aboutContent.map((paragraph: string, index: number) => (
                   <p key={index} className="mb-2">
                     {paragraph}
                   </p>
