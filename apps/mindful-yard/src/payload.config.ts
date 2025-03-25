@@ -51,7 +51,7 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString:
-        process.env.DATABASE_URI || 'postgres://postgres:mindfulyard@localhost:5432/mindfulyard',
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
     },
   }),
   sharp,
