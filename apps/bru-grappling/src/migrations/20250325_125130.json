@@ -1,5 +1,5 @@
 {
-  "id": "fcbf2b9c-23a7-4bbd-8fda-612a5000fd0c",
+  "id": "aacfa835-1c41-4636-959e-b61a18b8fa9c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -858,7 +858,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-20T15:49:40.413Z'"
+          "default": "'2025-03-25T12:51:30.108Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -877,7 +877,7 @@
           "type": "numeric",
           "primaryKey": false,
           "notNull": true,
-          "default": 60
+          "default": 0
         },
         "location": {
           "name": "location",
