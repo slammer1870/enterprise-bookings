@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 
 import { PluginTypes } from "../types";
 
+import { render } from "@react-email/components";
+import { MagicLinkEmail } from "../email/sign-in";
+import { User } from "@repo/shared-types";
+
 export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/send-magic-link",
   method: "post",
@@ -25,16 +29,20 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
     const authCollectionSlug = (pluginOptions.authCollection ||
       "users") as CollectionSlug;
 
-    const user = await req.payload.find({
+    let user: User | null = null;
+
+    const userQuery = await req.payload.find({
       collection: authCollectionSlug,
-      where: { email: { equals: email } },
+      where: { email: { equals: email.toLowerCase() } },
     });
 
-    if (!user || user.totalDocs === 0) {
+    if (!userQuery || userQuery.totalDocs === 0) {
       throw new APIError("User not found", 400);
     }
 
-    const id = user.docs[0]?.id;
+    user = userQuery.docs[0] as User;
+
+    const id = user.id;
 
     if (!id) {
       throw new APIError("Error getting user", 400);
@@ -55,11 +63,31 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         url && `&callbackUrl=${url}`
       }`;
 
-      req.payload.sendEmail({
-        to: email,
+      const emailHtml = await render(
+        MagicLinkEmail({
+          magicLink,
+          userName: user?.name as string | "",
+          appName: pluginOptions.appName,
+          expiryTime: "15 minutes",
+        })
+      );
+
+      await req.payload.sendEmail({
+        to: email.toLowerCase(),
         from: process.env.DEFAULT_FROM_ADDRESS,
-        subject: "Sign in Link",
-        html: `<a href="${magicLink}">Click here to login</a>`,
+        subject: `Sign in to ${pluginOptions.appName} - ${new Date().toLocaleString(
+          "en-IE",
+          {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }
+        )}`,
+        html: emailHtml,
       });
 
       return new Response(JSON.stringify("Magic Link Sent"), { status: 200 }); // Ensure to return a Response object

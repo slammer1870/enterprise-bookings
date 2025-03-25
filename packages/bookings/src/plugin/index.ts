@@ -33,7 +33,7 @@ export const bookingsPlugin =
       hasMany: true,
     };
 
-    if (pluginOptions.paymentsMethods?.dropIns) {
+    if (pluginOptions.paymentMethods?.dropIns) {
       const dropIns = config.collections?.find(
         (collection) => collection.slug === "drop-ins"
       );

@@ -23,6 +23,7 @@ export function VideoModal({ image, videoSrc }: VideoModalProps) {
         width={image.width || 0}
         height={image.height || 0}
         className="w-full h-auto aspect-video"
+        priority
       />
       <div
         className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center transition-opacity hover:bg-opacity-50 p-4"

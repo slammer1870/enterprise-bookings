@@ -157,8 +157,8 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Sauna Type:</span>
-                    <span>Traditional Wood-Fired</span>
+                    <span>Booking Type:</span>
+                    <span>{lesson.classOption.name}</span>
                   </div>
                 </div>
 

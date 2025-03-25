@@ -16,6 +16,7 @@ export const transactionsCollection: CollectionConfig = {
       name: "currency",
       type: "select",
       options: ["EUR", "USD"],
+      defaultValue: "EUR",
       required: true,
     },
     {

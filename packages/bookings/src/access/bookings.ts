@@ -46,7 +46,7 @@ export const renderCreateAccess = (
         return false;
       }
 
-      if (pluginOptions.paymentsMethods?.plans) {
+      if (pluginOptions.paymentMethods?.plans) {
         // Check if the lesson has an allowed plan payment method
         if (lesson.classOption.paymentMethods?.allowedPlans) {
           //TODO: Check if the user has a subscription plan that is allowed for this lesson
@@ -82,7 +82,7 @@ export const renderCreateAccess = (
           }
         }
 
-        if (pluginOptions.paymentsMethods?.dropIns) {
+        if (pluginOptions.paymentMethods?.dropIns) {
           // Check if the lesson has an allowed drop in payment method
           if (lesson.classOption.paymentMethods?.allowedDropIns) {
             //TODO: Check if the user has a drop in payment method that is allowed for this lesson
@@ -91,7 +91,7 @@ export const renderCreateAccess = (
         }
       }
 
-      if (pluginOptions.paymentsMethods?.dropIns) {
+      if (pluginOptions.paymentMethods?.dropIns) {
         // Check if the lesson has an allowed drop in payment method
         if (lesson.classOption.paymentMethods?.allowedDropIns) {
           //TODO: Check if the user has a drop in payment method that is allowed for this lesson
@@ -175,7 +175,7 @@ export const renderUpdateAccess = (
         return false;
       }
 
-      if (pluginOptions.paymentsMethods?.plans) {
+      if (pluginOptions.paymentMethods?.plans) {
         // Check if the lesson has an allowed plan payment method
         if (lesson.classOption.paymentMethods?.allowedPlans) {
           //TODO: Check if the user has a subscription plan that is allowed for this lesson
@@ -211,7 +211,7 @@ export const renderUpdateAccess = (
           }
         }
 
-        if (pluginOptions.paymentsMethods?.dropIns) {
+        if (pluginOptions.paymentMethods?.dropIns) {
           // Check if the lesson has an allowed drop in payment method
           if (lesson.classOption.paymentMethods?.allowedDropIns) {
             //TODO: Check if the user has a drop in payment method that is allowed for this lesson
@@ -220,7 +220,7 @@ export const renderUpdateAccess = (
         }
       }
 
-      if (pluginOptions.paymentsMethods?.dropIns) {
+      if (pluginOptions.paymentMethods?.dropIns) {
         // Check if the lesson has an allowed drop in payment method
         if (lesson.classOption.paymentMethods?.allowedDropIns) {
           //TODO: Check if the user has a drop in payment method that is allowed for this lesson

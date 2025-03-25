@@ -13,6 +13,8 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "ci": "turbo run ci",
+    "db:migrate": "turbo run payload -- migrate",
     "dev": "turbo dev",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "generate:importmap": "turbo run generate:importmap",
@@ -20,8 +22,6 @@
     "lint": "turbo lint",
     "syncpack": "syncpack",
     "test": "turbo run test",
-    "ui": "pnpm --filter @repo/ui ui",
-    "db:migrate": "turbo run payload -- migrate",
-    "ci": "turbo run ci"
+    "ui": "pnpm --filter @repo/ui ui"
   }
 }

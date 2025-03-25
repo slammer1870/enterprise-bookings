@@ -2,24 +2,28 @@
   "name": "@repo/bookings",
   "version": "0.0.1",
   "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
-    "@payloadcms/db-postgres": "^3.18.0",
-    "@payloadcms/next": "^3.18.0",
-    "@payloadcms/payload-cloud": "^3.18.0",
-    "@payloadcms/richtext-lexical": "^3.18.0",
+    "@hookform/resolvers": "4.1.0",
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/next": "*",
+    "@payloadcms/payload-cloud": "*",
+    "@payloadcms/richtext-lexical": "*",
     "@payloadcms/ui": "^3.18.0",
+    "@react-email/components": "^0.0.34",
     "@testcontainers/postgresql": "^10.16.0",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
-    "lucide-react": "^0.473.0",
-    "next": "^15.1.5",
+    "lucide-react": "0.475.0",
+    "next": "15.2.2",
     "pg": "^8.13.1",
     "postcss": "^8.4.47",
     "qs": "^6.14.0",
     "qs-esm": "^7.0.2",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-email": "^3.0.7",
     "react-hook-form": "^7.54.2",
     "sharp": "0.33.5",
-    "sonner": "^1.7.2",
+    "sonner": "2.0.1",
     "stripe": "^17.7.0",
     "tailwindcss": "^3.4.14",
     "zod": "^3.24.1"
@@ -40,13 +44,13 @@
     "@types/react-dom": "19.0.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
-    "eslint-config-next": "15.1.5",
+    "eslint-config-next": "15.1.7",
     "typescript": "5.7.3",
     "vitest": "^3.0.3"
   },
   "main": "./src/index.ts",
   "peerDependencies": {
-    "payload": "^3.18.0"
+    "payload": "*"
   },
   "scripts": {
     "test": "vitest --hook-timeout=10000000"

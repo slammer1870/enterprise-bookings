@@ -30,9 +30,9 @@ export default buildConfig({
     meta: {
       icons: [
         {
-          rel: 'icon',
           type: 'image/png',
-          url: '/logos/mindful.png',
+          rel: 'icon',
+          url: '/assets/favicon.ico',
         },
       ],
     },
@@ -50,18 +50,20 @@ export default buildConfig({
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI,
+      connectionString:
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
     },
   }),
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    rolesPlugin({
+      enabled: true,
+    }),
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
-    }),
-    rolesPlugin({
-      enabled: true,
+      appName: 'The Mindful Yard',
     }),
     paymentsPlugin({
       enabled: true,
@@ -70,10 +72,10 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      paymentsMethods: {
+      paymentMethods: {
         dropIns: true,
         plans: false,
-        classePasses: false,
+        classPasses: false,
       },
     }),
   ],

@@ -27,7 +27,7 @@ export const register = (pluginOptions: PluginTypes): Endpoint => ({
       collection: authCollectionSlug,
       where: {
         email: {
-          equals: email,
+          equals: email.toLowerCase(),
         },
       },
     });
@@ -46,7 +46,7 @@ export const register = (pluginOptions: PluginTypes): Endpoint => ({
         collection: authCollectionSlug,
         data: {
           name: name,
-          email: email,
+          email: email.toLowerCase(),
           hash: hash,
           salt: salt,
           password: randomPassword,

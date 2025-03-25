@@ -48,6 +48,7 @@ export default buildConfig({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',
+      appName: 'Brú Grappling',
     }),
     paymentsPlugin({
       enabled: true,
@@ -59,10 +60,10 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      paymentsMethods: {
+      paymentMethods: {
         dropIns: true,
         plans: true,
-        classePasses: false,
+        classPasses: false,
       },
     }),
   ],

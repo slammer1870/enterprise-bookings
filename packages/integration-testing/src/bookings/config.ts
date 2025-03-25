@@ -76,10 +76,10 @@ export const config: Config = {
     }),
     bookingsPlugin({
       enabled: true,
-      paymentsMethods: {
+      paymentMethods: {
         dropIns: true,
         plans: false,
-        classePasses: false,
+        classPasses: false,
       },
     }),
   ],
