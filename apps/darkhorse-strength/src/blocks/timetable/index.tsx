@@ -76,7 +76,7 @@ export const TimetableBlock: React.FC<TimetableProps> = ({
               ))}
             </tbody>
           </table>
-          <p className="py-4 text-sm" dangerouslySetInnerHTML={{ __html: legend }}></p>
+          <p className="py-4 text-sm font-medium">{legend}</p>
         </div>
       </div>
     </section>
