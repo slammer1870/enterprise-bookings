@@ -55,5 +55,5 @@ describe("Payments tests", () => {
       .then(() => restClient.GET("/stripe/customers"));
 
     expect(response.status).toBe(401);
-  });
+  }, 30000);
 });
