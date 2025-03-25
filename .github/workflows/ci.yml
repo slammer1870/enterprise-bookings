@@ -66,8 +66,8 @@ jobs:
       - name: Debug Database URI
         run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
 
-      - name: Run tests
-        run: pnpm test
-
       - name: Build the project
         run: pnpm run ci
+
+      - name: Run tests
+        run: pnpm test
