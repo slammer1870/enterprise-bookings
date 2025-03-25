@@ -47,6 +47,7 @@ export type BookingDetails = {
   date: Date;
   startTime: string;
   endTime: string;
+  bookingType: string;
   price: number;
   currency: string;
   maxCapacity: number;

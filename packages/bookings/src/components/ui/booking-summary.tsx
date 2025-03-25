@@ -65,7 +65,7 @@ export function BookingSummary({
           <div className="flex items-center">
             <Flame className="h-5 w-5 mr-2 text-amber-600" />
             <span className="font-medium">Sauna Type:</span>
-            <span className="ml-2">Traditional Wood-Fired</span>
+            <span className="ml-2">{bookingDetails.bookingType}</span>
           </div>
         </div>
 
