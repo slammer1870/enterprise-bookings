@@ -143,17 +143,41 @@ export interface Page {
   title: string;
   slug: string;
   layout?:
-    | {
-        heading: string;
-        subheading: string;
-        backgroundImage: number | Media;
-        ctaLink: string;
-        ctaTitle: string;
-        ctaDescription: string;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'hero';
-      }[]
+    | (
+        | {
+            heading: string;
+            subheading: string;
+            backgroundImage: number | Media;
+            ctaLink: string;
+            ctaTitle: string;
+            ctaDescription: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            title: string;
+            teamImage: number | Media;
+            teamMembers?:
+              | {
+                  name: string;
+                  image: number | Media;
+                  bio: string;
+                  id?: string | null;
+                }[]
+              | null;
+            aboutTitle: string;
+            aboutContent?:
+              | {
+                  paragraph: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'team';
+          }
+      )[]
     | null;
   updatedAt: string;
   createdAt: string;
@@ -274,6 +298,29 @@ export interface PagesSelect<T extends boolean = true> {
               ctaLink?: T;
               ctaTitle?: T;
               ctaDescription?: T;
+              id?: T;
+              blockName?: T;
+            };
+        team?:
+          | T
+          | {
+              title?: T;
+              teamImage?: T;
+              teamMembers?:
+                | T
+                | {
+                    name?: T;
+                    image?: T;
+                    bio?: T;
+                    id?: T;
+                  };
+              aboutTitle?: T;
+              aboutContent?:
+                | T
+                | {
+                    paragraph?: T;
+                    id?: T;
+                  };
               id?: T;
               blockName?: T;
             };
