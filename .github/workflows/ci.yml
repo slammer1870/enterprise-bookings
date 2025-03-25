@@ -48,6 +48,9 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm
 
+      - name: Verify pnpm version
+        run: pnpm -v
+
       - name: Install dependencies
         run: pnpm install
 
