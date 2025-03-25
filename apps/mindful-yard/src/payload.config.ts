@@ -57,13 +57,13 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    rolesPlugin({
+      enabled: true,
+    }),
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
       appName: 'The Mindful Yard',
-    }),
-    rolesPlugin({
-      enabled: true,
     }),
     paymentsPlugin({
       enabled: true,

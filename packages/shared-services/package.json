@@ -1,16 +1,16 @@
 {
   "name": "@repo/shared-services",
   "version": "0.0.1",
+  "dependencies": {
+    "@repo/shared-utils": "workspace:*",
+    "qs-esm": "^7.0.2"
+  },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*"
   },
   "main": "src/index.ts",
   "peerDependencies": {
     "payload": "*"
-  },
-  "dependencies": {
-    "@repo/shared-utils": "workspace:*",
-    "qs-esm": "^7.0.2"
   },
   "private": true,
   "type": "module"

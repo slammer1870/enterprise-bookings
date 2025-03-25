@@ -93,7 +93,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-03-25T13:30:23.752Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-03-25T13:51:54.819Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 0 NOT NULL,
