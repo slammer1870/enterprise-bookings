@@ -60,10 +60,10 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      paymentsMethods: {
+      paymentMethods: {
         dropIns: true,
         plans: true,
-        classePasses: false,
+        classPasses: false,
       },
     }),
   ],
