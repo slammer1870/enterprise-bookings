@@ -56,7 +56,10 @@ export const rolesPlugin =
         }
 
         // Check if the user doesn't have the admin role
-        if (!firstUser?.roles || !firstUser.roles.includes("admin")) {
+        if (
+          firstUser?.roles?.length === 0 ||
+          !firstUser.roles.includes("admin")
+        ) {
           // Add the admin role to the first user
           await payload.update({
             collection: "users",
