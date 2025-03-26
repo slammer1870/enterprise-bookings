@@ -64,7 +64,7 @@ export const ScheduleProvider: React.FC<{
       const result = await checkInAction(lessonId, userId);
 
       if (!result.success) {
-        toast.error(result.error);
+        //toast.error(result.error);
         return router.push(`/bookings/${lessonId}`);
       }
 
@@ -91,8 +91,8 @@ export const ScheduleProvider: React.FC<{
       }
 
       // Add a small delay to allow background operations to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const updatedLessons = await getLessons();
       setLessons(updatedLessons);
 
