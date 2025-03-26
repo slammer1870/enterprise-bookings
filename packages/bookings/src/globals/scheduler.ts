@@ -1,13 +1,9 @@
-import { GlobalConfig, Field, Payload, PayloadHandler } from "payload";
-import {
-  formatISO,
-  addDays,
-  parseISO,
-  isWithinInterval,
-  addWeeks,
-  format,
-} from "date-fns";
+import { GlobalConfig, Field, Payload } from "payload";
+import { formatISO, addDays, format } from "date-fns";
 
+import { checkRole } from "@repo/shared-utils";
+
+import { User } from "@repo/shared-types";
 // Define the lesson slot fields once to reuse across all days
 const createLessonSlotFields = (): Field[] => {
   return [
@@ -146,7 +142,10 @@ const weekdays = [
 ];
 
 // Function to generate lessons from the schedule
-const generateLessonsFromSchedule = async (payload: Payload, doc: any) => {
+export const generateLessonsFromSchedule = async (
+  payload: Payload,
+  doc: any
+) => {
   const {
     startDate,
     endDate,
@@ -169,6 +168,8 @@ const generateLessonsFromSchedule = async (payload: Payload, doc: any) => {
 
   const clearExisting = generateOptions?.clearExisting;
 
+  console.log("clearExisting", clearExisting);
+
   if (clearExisting) {
     await payload.delete({
       collection: "lessons",
@@ -176,17 +177,12 @@ const generateLessonsFromSchedule = async (payload: Payload, doc: any) => {
         and: [
           {
             date: {
-              greater_than_equal: formatISO(start, { representation: "date" }),
+              greater_than_equal: start.toISOString(),
             },
           },
           {
             date: {
-              less_than_equal: formatISO(end, { representation: "date" }),
-            },
-          },
-          {
-            "bookings.0": {
-              exists: false,
+              less_than_equal: end.toISOString(),
             },
           },
         ],
@@ -301,20 +297,19 @@ const generateLessonsFromSchedule = async (payload: Payload, doc: any) => {
           const newLesson = await payload.create({
             collection: "lessons",
             data: {
-              date: currentDate,
-              startTime: lessonStartTime,
-              endTime: lessonEndTime,
+              date: currentDate.toISOString(),
+              startTime: lessonStartTime.toISOString(),
+              endTime: lessonEndTime.toISOString(),
               classOption: slot.classOption || defaultClassOption,
               location: slot.location,
               instructor: slot.instructor,
               lockOutTime: slot.lockOutTime ?? lockOutTime ?? 0,
-              notes: slot.notes,
             },
           });
 
           created.push({
             id: newLesson.id,
-            date: format(currentDate, "yyyy-MM-dd"),
+            date: currentDate.toISOString(),
             time: `${format(lessonStartTime, "HH:mm")} - ${format(lessonEndTime, "HH:mm")}`,
           });
         } catch (error) {
@@ -326,34 +321,6 @@ const generateLessonsFromSchedule = async (payload: Payload, doc: any) => {
     currentDate = addDays(currentDate, 1);
   }
 
-  // Store generation results in the document for reporting
-  try {
-    const schedulerDoc = await payload.findGlobal({
-      slug: "scheduler",
-    });
-
-    if (schedulerDoc) {
-      await payload.updateGlobal({
-        slug: "scheduler",
-        data: {
-          generationResults: {
-            lastGenerated: new Date(),
-            created: created.length,
-            skipped: skipped.length,
-            conflicts: conflicts.length,
-            details: JSON.stringify({
-              created,
-              skipped,
-              conflicts,
-            }),
-          },
-        },
-      });
-    }
-  } catch (error) {
-    console.error("Error updating generation results:", error);
-  }
-
   return { created, skipped, conflicts };
 };
 
@@ -363,6 +330,10 @@ export const schedulerGlobal: GlobalConfig = {
   admin: {
     group: "Bookings",
     description: "Create recurring lessons across your weekly schedule",
+  },
+  access: {
+    read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   },
   fields: [
     {
@@ -494,84 +465,15 @@ export const schedulerGlobal: GlobalConfig = {
         },
       ],
     },
-    //UI Button to generate lessons goes here
   ],
   hooks: {
     afterChange: [
-      async ({ req, doc }) => {
-        // Generate lessons only when explicitly requested
-        if (req.method === "POST" || req.method === "PUT") {
-          await generateLessonsFromSchedule(req.payload, doc);
-        }
+      ({ req, doc }) => {
+        // Only generate lessons on create, not on update to avoid circular references
+        generateLessonsFromSchedule(req.payload, doc);
+
         return doc;
       },
     ],
   },
-  endpoints: [
-    {
-      path: "/regenerate",
-      method: "post",
-      handler: async (req): Promise<Response> => {
-        try {
-          if (!req.json) {
-            return new Response(
-              JSON.stringify({ error: "Invalid request body" }),
-              { status: 400 }
-            );
-          }
-
-          const { id } = await req.json();
-          if (!id) {
-            return new Response(
-              JSON.stringify({ error: "Scheduler ID is required" }),
-              { status: 400 }
-            );
-          }
-
-          const scheduler = await req.payload.findGlobal({
-            slug: "scheduler",
-          });
-
-          const { clearExisting } = await req.json();
-
-          // Optionally clear existing future lessons before regenerating
-          if (clearExisting) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            await req.payload.delete({
-              collection: "lessons",
-              where: {
-                and: [
-                  {
-                    date: {
-                      greater_than_equal: today,
-                    },
-                  },
-                  {
-                    bookings: {
-                      exists: false,
-                    },
-                  },
-                  // Optionally add filters to only delete lessons from this scheduler
-                ],
-              },
-            });
-          }
-
-          const results = await generateLessonsFromSchedule(
-            req.payload,
-            scheduler
-          );
-          return new Response(JSON.stringify(results), { status: 200 });
-        } catch (error) {
-          console.error("Error regenerating lessons:", error);
-          return new Response(
-            JSON.stringify({ error: "Failed to regenerate lessons" }),
-            { status: 500 }
-          );
-        }
-      },
-    },
-  ],
 };
