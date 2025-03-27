@@ -13,7 +13,7 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
-    "ci": "turbo run ci --filter=darkhorse-strength^... --filter=mindful-yard^... --filter=bru-grappling^...",
+    "ci": "turbo run ci",
     "db:migrate": "turbo run payload -- migrate",
     "dev": "turbo dev",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
