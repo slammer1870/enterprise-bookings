@@ -42,7 +42,7 @@
       "cache": false
     },
     "ci": {
-      "dependsOn": ["^ci"],
+      "dependsOn": ["^ci", "^build"],
       "cache": false
     }
   }
