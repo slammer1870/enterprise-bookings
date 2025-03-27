@@ -44,15 +44,6 @@
     "ci": {
       "dependsOn": ["^ci"],
       "cache": false
-    },
-    "ci:bru-grappling": {},
-    "ci:mindful-yard": {
-      "dependsOn": ["^bru-grappling#ci"],
-      "cache": false
-    },
-    "ci:darkhorse-strength": {
-      "dependsOn": ["^mindful-yard#ci"],
-      "cache": false
     }
   }
 }
