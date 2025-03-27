@@ -18,6 +18,8 @@ import { paymentsPlugin } from '@repo/payments/src'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
+import { migrations } from './migrations'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -53,6 +55,7 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
     },
+    prodMigrations: migrations,
   }),
   sharp,
   plugins: [
