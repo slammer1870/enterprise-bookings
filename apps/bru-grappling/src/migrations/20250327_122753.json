@@ -1,5 +1,5 @@
 {
-  "id": "a95864bb-817c-4be7-98ad-76ae5b23e8f8",
+  "id": "78c968ae-13eb-4fea-bb06-2c2ec58d31c7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -859,7 +859,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-25T14:21:19.562Z'"
+          "default": "'2025-03-27T12:27:53.517Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -2627,6 +2627,1986 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_monday_slots_skip_dates": {
+      "name": "scheduler_schedule_monday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_monday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_monday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_monday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_monday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_monday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_monday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_monday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_monday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_monday_slots": {
+      "name": "scheduler_schedule_monday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_monday_slots_order_idx": {
+          "name": "scheduler_schedule_monday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_monday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_monday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_monday_slots_class_option_idx": {
+          "name": "scheduler_schedule_monday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_monday_slots_instructor_idx": {
+          "name": "scheduler_schedule_monday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_monday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_monday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_monday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_monday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_monday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_monday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_monday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_monday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_monday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_tuesday_slots_skip_dates": {
+      "name": "scheduler_schedule_tuesday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_tuesday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_tuesday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_tuesday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_tuesday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_tuesday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_tuesday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_tuesday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_tuesday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_tuesday_slots": {
+      "name": "scheduler_schedule_tuesday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_tuesday_slots_order_idx": {
+          "name": "scheduler_schedule_tuesday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_tuesday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_tuesday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_tuesday_slots_class_option_idx": {
+          "name": "scheduler_schedule_tuesday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_tuesday_slots_instructor_idx": {
+          "name": "scheduler_schedule_tuesday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_tuesday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_tuesday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_tuesday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_tuesday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_tuesday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_tuesday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_tuesday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_tuesday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_tuesday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_wednesday_slots_skip_dates": {
+      "name": "scheduler_schedule_wednesday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_wednesday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_wednesday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_wednesday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_wednesday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_wednesday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_wednesday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_wednesday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_wednesday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_wednesday_slots": {
+      "name": "scheduler_schedule_wednesday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_wednesday_slots_order_idx": {
+          "name": "scheduler_schedule_wednesday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_wednesday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_wednesday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_wednesday_slots_class_option_idx": {
+          "name": "scheduler_schedule_wednesday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_wednesday_slots_instructor_idx": {
+          "name": "scheduler_schedule_wednesday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_wednesday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_wednesday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_wednesday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_wednesday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_wednesday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_wednesday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_wednesday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_wednesday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_wednesday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_thursday_slots_skip_dates": {
+      "name": "scheduler_schedule_thursday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_thursday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_thursday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_thursday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_thursday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_thursday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_thursday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_thursday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_thursday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_thursday_slots": {
+      "name": "scheduler_schedule_thursday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_thursday_slots_order_idx": {
+          "name": "scheduler_schedule_thursday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_thursday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_thursday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_thursday_slots_class_option_idx": {
+          "name": "scheduler_schedule_thursday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_thursday_slots_instructor_idx": {
+          "name": "scheduler_schedule_thursday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_thursday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_thursday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_thursday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_thursday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_thursday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_thursday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_thursday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_thursday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_thursday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_friday_slots_skip_dates": {
+      "name": "scheduler_schedule_friday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_friday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_friday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_friday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_friday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_friday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_friday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_friday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_friday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_friday_slots": {
+      "name": "scheduler_schedule_friday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_friday_slots_order_idx": {
+          "name": "scheduler_schedule_friday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_friday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_friday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_friday_slots_class_option_idx": {
+          "name": "scheduler_schedule_friday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_friday_slots_instructor_idx": {
+          "name": "scheduler_schedule_friday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_friday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_friday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_friday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_friday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_friday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_friday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_friday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_friday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_friday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_saturday_slots_skip_dates": {
+      "name": "scheduler_schedule_saturday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_saturday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_saturday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_saturday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_saturday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_saturday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_saturday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_saturday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_saturday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_saturday_slots": {
+      "name": "scheduler_schedule_saturday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_saturday_slots_order_idx": {
+          "name": "scheduler_schedule_saturday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_saturday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_saturday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_saturday_slots_class_option_idx": {
+          "name": "scheduler_schedule_saturday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_saturday_slots_instructor_idx": {
+          "name": "scheduler_schedule_saturday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_saturday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_saturday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_saturday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_saturday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_saturday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_saturday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_saturday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_saturday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_saturday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_sunday_slots_skip_dates": {
+      "name": "scheduler_schedule_sunday_slots_skip_dates",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_sunday_slots_skip_dates_order_idx": {
+          "name": "scheduler_schedule_sunday_slots_skip_dates_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_sunday_slots_skip_dates_parent_id_idx": {
+          "name": "scheduler_schedule_sunday_slots_skip_dates_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_sunday_slots_skip_dates_parent_id_fk": {
+          "name": "scheduler_schedule_sunday_slots_skip_dates_parent_id_fk",
+          "tableFrom": "scheduler_schedule_sunday_slots_skip_dates",
+          "tableTo": "scheduler_schedule_sunday_slots",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler_schedule_sunday_slots": {
+      "name": "scheduler_schedule_sunday_slots",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "class_option_id": {
+          "name": "class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "instructor_id": {
+          "name": "instructor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_schedule_sunday_slots_order_idx": {
+          "name": "scheduler_schedule_sunday_slots_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_sunday_slots_parent_id_idx": {
+          "name": "scheduler_schedule_sunday_slots_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_sunday_slots_class_option_idx": {
+          "name": "scheduler_schedule_sunday_slots_class_option_idx",
+          "columns": [
+            {
+              "expression": "class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "scheduler_schedule_sunday_slots_instructor_idx": {
+          "name": "scheduler_schedule_sunday_slots_instructor_idx",
+          "columns": [
+            {
+              "expression": "instructor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_schedule_sunday_slots_class_option_id_class_options_id_fk": {
+          "name": "scheduler_schedule_sunday_slots_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler_schedule_sunday_slots",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_sunday_slots_instructor_id_users_id_fk": {
+          "name": "scheduler_schedule_sunday_slots_instructor_id_users_id_fk",
+          "tableFrom": "scheduler_schedule_sunday_slots",
+          "tableTo": "users",
+          "columnsFrom": [
+            "instructor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "scheduler_schedule_sunday_slots_parent_id_fk": {
+          "name": "scheduler_schedule_sunday_slots_parent_id_fk",
+          "tableFrom": "scheduler_schedule_sunday_slots",
+          "tableTo": "scheduler",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scheduler": {
+      "name": "scheduler",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'2025-03-27T12:27:53.518Z'"
+        },
+        "lock_out_time": {
+          "name": "lock_out_time",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "default_class_option_id": {
+          "name": "default_class_option_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "schedule_monday_is_active": {
+          "name": "schedule_monday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "schedule_tuesday_is_active": {
+          "name": "schedule_tuesday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "schedule_wednesday_is_active": {
+          "name": "schedule_wednesday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "schedule_thursday_is_active": {
+          "name": "schedule_thursday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "schedule_friday_is_active": {
+          "name": "schedule_friday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "schedule_saturday_is_active": {
+          "name": "schedule_saturday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "schedule_sunday_is_active": {
+          "name": "schedule_sunday_is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "generate_options_clear_existing": {
+          "name": "generate_options_clear_existing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "generation_results_last_generated": {
+          "name": "generation_results_last_generated",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation_results_created": {
+          "name": "generation_results_created",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation_results_skipped": {
+          "name": "generation_results_skipped",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation_results_conflicts": {
+          "name": "generation_results_conflicts",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "generation_results_details": {
+          "name": "generation_results_details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "scheduler_default_class_option_idx": {
+          "name": "scheduler_default_class_option_idx",
+          "columns": [
+            {
+              "expression": "default_class_option_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "scheduler_default_class_option_id_class_options_id_fk": {
+          "name": "scheduler_default_class_option_id_class_options_id_fk",
+          "tableFrom": "scheduler",
+          "tableTo": "class_options",
+          "columnsFrom": [
+            "default_class_option_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

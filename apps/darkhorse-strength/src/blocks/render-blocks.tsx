@@ -11,11 +11,11 @@ import { ContactBlock } from './contact'
 
 const blockComponents = {
   hero: HeroBlock,
-  team: TeamBlock,
-  timetable: TimetableBlock,
-  testimonials: TestimonialsBlock,
-  pricing: PricingBlock,
-  contact: ContactBlock,
+  //team: TeamBlock,
+  //timetable: TimetableBlock,
+  //testimonials: TestimonialsBlock,
+  //pricing: PricingBlock,
+  //contact: ContactBlock,
 }
 
 export const RenderBlocks: React.FC<{

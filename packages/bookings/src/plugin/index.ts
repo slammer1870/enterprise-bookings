@@ -6,6 +6,8 @@ import { classOptionsCollection } from "../collections/class-options";
 
 import { BookingsPluginConfig } from "../types";
 
+import { schedulerGlobal } from "../globals/scheduler";
+
 export const bookingsPlugin =
   (pluginOptions: BookingsPluginConfig): Plugin =>
   (incomingConfig: Config) => {
@@ -51,6 +53,12 @@ export const bookingsPlugin =
         dropIns,
       ];
     }
+
+    const globals = config.globals || [];
+
+    globals.push(schedulerGlobal);
+
+    config.globals = globals;
 
     config.collections = collections;
 
