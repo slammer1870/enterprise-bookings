@@ -58,7 +58,7 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
     },
-    prodMigrations: migrations,
+    //prodMigrations: migrations,
   }),
   sharp,
   plugins: [
