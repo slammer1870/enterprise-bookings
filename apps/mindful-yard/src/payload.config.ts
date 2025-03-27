@@ -38,6 +38,9 @@ export default buildConfig({
         },
       ],
     },
+    timezones: {
+      defaultTimezone: 'Europe/Dublin',
+    },
   },
   collections: [Users, Media, Pages],
   editor: lexicalEditor(),

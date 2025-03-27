@@ -668,7 +668,7 @@ export interface Scheduler {
   /**
    * Default class type to use when creating lessons (can be overridden per slot)
    */
-  defaultClassOption?: (number | null) | ClassOption;
+  defaultClassOption: number | ClassOption;
   /**
    * Set up your recurring lessons for each day of the week
    */

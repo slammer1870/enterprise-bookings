@@ -154,6 +154,7 @@ export const generateLessonsFromSchedule = async (
     defaultClassOption,
     lockOutTime,
   } = doc;
+  console.log("doc", doc);
   if (!startDate || !endDate || !schedule) {
     return;
   }
@@ -168,8 +169,6 @@ export const generateLessonsFromSchedule = async (
 
   const clearExisting = generateOptions?.clearExisting;
 
-  console.log("clearExisting", clearExisting);
-
   if (clearExisting) {
     await payload.delete({
       collection: "lessons",
@@ -177,12 +176,12 @@ export const generateLessonsFromSchedule = async (
         and: [
           {
             date: {
-              greater_than_equal: start.toISOString(),
+              greater_than_equal: start.toUTCString(),
             },
           },
           {
             date: {
-              less_than_equal: end.toISOString(),
+              less_than_equal: end.toUTCString(),
             },
           },
         ],
@@ -258,6 +257,14 @@ export const generateLessonsFromSchedule = async (
         lessonEndTime.setSeconds(0);
         lessonEndTime.setMilliseconds(0);
 
+        // Add these lines to ensure consistent timezone handling
+        const finalStartTime = new Date(
+          formatISO(lessonStartTime, { representation: "complete" })
+        );
+        const finalEndTime = new Date(
+          formatISO(lessonEndTime, { representation: "complete" })
+        );
+
         // Check for conflicts with existing lessons
         const existingLessons = await payload.find({
           collection: "lessons",
@@ -275,13 +282,12 @@ export const generateLessonsFromSchedule = async (
 
           // Check if this lesson overlaps with an existing one
           if (
-            (lessonStartTime <= existingEnd &&
-              lessonEndTime >= existingStart) ||
-            (existingStart <= lessonEndTime && existingEnd >= lessonStartTime)
+            (finalStartTime <= existingEnd && finalEndTime >= existingStart) ||
+            (existingStart <= finalEndTime && existingEnd >= finalStartTime)
           ) {
             conflicts.push({
               date: format(currentDate, "yyyy-MM-dd"),
-              proposedTime: `${format(lessonStartTime, "HH:mm")} - ${format(lessonEndTime, "HH:mm")}`,
+              proposedTime: `${format(finalStartTime, "HH:mm")} - ${format(finalEndTime, "HH:mm")}`,
               conflictTime: `${format(existingStart, "HH:mm")} - ${format(existingEnd, "HH:mm")}`,
               lessonId: existing.id,
             });
@@ -297,20 +303,20 @@ export const generateLessonsFromSchedule = async (
           const newLesson = await payload.create({
             collection: "lessons",
             data: {
-              date: currentDate.toISOString(),
-              startTime: lessonStartTime.toISOString(),
-              endTime: lessonEndTime.toISOString(),
+              date: currentDate.toUTCString(),
+              startTime: finalStartTime.toUTCString(),
+              endTime: finalEndTime.toUTCString(),
               classOption: slot.classOption || defaultClassOption,
               location: slot.location,
-              instructor: slot.instructor,
+              instructor: slot.instructor?.id,
               lockOutTime: slot.lockOutTime ?? lockOutTime ?? 0,
             },
           });
 
           created.push({
             id: newLesson.id,
-            date: currentDate.toISOString(),
-            time: `${format(lessonStartTime, "HH:mm")} - ${format(lessonEndTime, "HH:mm")}`,
+            date: currentDate.toUTCString(),
+            time: `${format(finalStartTime, "HH:mm")} - ${format(finalEndTime, "HH:mm")}`,
           });
         } catch (error) {
           console.error("Error creating lesson:", error);
@@ -386,6 +392,7 @@ export const schedulerGlobal: GlobalConfig = {
       label: "Default Class Option",
       type: "relationship",
       relationTo: "class-options",
+      required: true,
       admin: {
         description:
           "Default class type to use when creating lessons (can be overridden per slot)",
