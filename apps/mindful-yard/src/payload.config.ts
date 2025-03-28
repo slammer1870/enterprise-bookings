@@ -20,7 +20,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
-import { migrations } from './migrations'
+//import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
