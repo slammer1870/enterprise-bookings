@@ -35,6 +35,7 @@ export const BookingConfirmationEmail = ({
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "Europe/Dublin"
   });
 
   // Format transaction amount if exists
@@ -83,11 +84,13 @@ export const BookingConfirmationEmail = ({
                     {new Date(lesson.startTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
+                      timeZone: "Europe/Dublin"
                     })}{" "}
                     -{" "}
                     {new Date(lesson.endTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
+                      timeZone: "Europe/Dublin"
                     })}
                   </Column>
                 </Row>
