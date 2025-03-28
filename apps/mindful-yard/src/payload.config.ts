@@ -16,6 +16,8 @@ import { magicLinkPlugin } from '@repo/auth/src'
 import { rolesPlugin } from '@repo/roles/src'
 import { paymentsPlugin } from '@repo/payments/src'
 
+import { seoPlugin } from '@payloadcms/plugin-seo'
+
 import { resendAdapter } from '@payloadcms/email-resend'
 
 import { migrations } from './migrations'
@@ -83,6 +85,12 @@ export default buildConfig({
         plans: false,
         classPasses: false,
       },
+    }),
+    seoPlugin({
+      collections: ['pages'],
+      uploadsCollection: 'media',
+      generateTitle: ({ doc }) => `The Mindful Yard — ${doc.title}`,
+      generateDescription: ({ doc }) => doc.excerpt,
     }),
   ],
 })
