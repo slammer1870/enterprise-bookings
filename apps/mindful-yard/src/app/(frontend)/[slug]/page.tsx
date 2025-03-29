@@ -6,6 +6,8 @@ import config from '@/payload.config'
 
 import { RenderBlocks } from '@/blocks/render-blocks'
 
+import type { Metadata } from 'next'
+
 export async function generateStaticParams() {
   const payload = await getPayload({ config })
   const pages = await payload.find({
@@ -36,7 +38,7 @@ type Args = {
   }>
 }
 
-export async function generateMetadata({ params: paramsPromise }: Args) {
+export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
   const payload = await getPayload({ config })
   const { slug = 'home' } = await paramsPromise
 
@@ -64,10 +66,10 @@ export async function generateMetadata({ params: paramsPromise }: Args) {
     description: page.meta?.description,
     openGraph: {
       title: page.meta?.title || page.title,
-      description: page.meta?.description,
+      description: page.meta?.description || '',
       images:
         page.meta?.image && typeof page.meta.image === 'object'
-          ? [{ url: page.meta.image.url }]
+          ? [{ url: page.meta.image.url || '' }]
           : [],
     },
   }
