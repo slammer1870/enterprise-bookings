@@ -85,6 +85,9 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
             minute: "2-digit",
             second: "2-digit",
             hour12: false,
+            timeZone:
+              req.payload.config.admin.timezones.defaultTimezone ||
+              "Europe/Dublin",
           }
         )}`,
         html: emailHtml,
