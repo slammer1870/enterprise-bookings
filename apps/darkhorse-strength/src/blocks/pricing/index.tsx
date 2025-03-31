@@ -3,7 +3,7 @@ import React from 'react'
 type PricingOption = {
   title: string
   price: string
-  features: string[]
+  features: { feature: string }[]
   note: string
 }
 
@@ -51,7 +51,7 @@ export const PricingBlock: React.FC<PricingProps> = ({
                           <path d="M20 6L9 17l-5-5"></path>
                         </svg>
                       </span>
-                      {feature}
+                      {feature.feature}
                     </p>
                   ))}
                   <p className="mt-3 text-xs text-gray-500">{option.note}</p>
