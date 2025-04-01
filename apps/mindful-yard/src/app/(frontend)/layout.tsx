@@ -25,7 +25,7 @@ export default function RootLayout({
   unauthenticated: React.ReactNode
 }) {
   return (
-    <html>
+    <html lang="en">
       <PlausibleProvider domain="mindfulyard.ie">
         <AuthProvider>
           <body className={roboto.className}>
