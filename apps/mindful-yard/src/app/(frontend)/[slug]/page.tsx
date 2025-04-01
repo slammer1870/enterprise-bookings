@@ -62,7 +62,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   }
 
   return {
-    title: page.title,
+    title: page.meta?.title || page.title,
     description: page.meta?.description,
     openGraph: {
       title: page.meta?.title || page.title,
