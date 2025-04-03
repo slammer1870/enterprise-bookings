@@ -1,10 +1,21 @@
 import { CollectionConfig } from "payload";
 
+import { checkRole } from "@repo/shared-utils";
+
+import { User } from "@repo/shared-types";
+
 export const transactionsCollection: CollectionConfig = {
   slug: "transactions",
   admin: {
     useAsTitle: "amount",
     group: "Payments",
+    hidden: true,
+  },
+  access: {
+    read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   },
   fields: [
     {

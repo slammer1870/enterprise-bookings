@@ -72,6 +72,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
           ? [{ url: page.meta.image.url || '' }]
           : [],
     },
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SERVER_URL || ''),
   }
 }
 
