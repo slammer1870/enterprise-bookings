@@ -8,8 +8,7 @@ export const transactionsCollection: CollectionConfig = {
   slug: "transactions",
   admin: {
     useAsTitle: "amount",
-    group: "Payments",
-    hidden: true,
+    group: false,
   },
   access: {
     read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
