@@ -5,8 +5,14 @@ import { getPayload } from 'payload'
 import crypto from 'crypto'
 
 import config from '@payload-config'
-import { Lesson } from '@repo/shared-types'
+
+import { Lesson, Transaction } from '@repo/shared-types'
+
 import { generatePasswordSaltHash } from '@repo/auth/src/utils/password'
+
+import { render } from '@react-email/components'
+
+import { BookingConfirmationEmail } from '@repo/bookings/src/emails/confirm-booking'
 
 const payload = await getPayload({
   config,
@@ -64,74 +70,86 @@ export const createCashBooking = async (bookingData: BookingData) => {
     },
   })
 
-  const bookings = await Promise.all(
-    attendees.map(async (attendee) => {
-      let user: any
-      let booking: any
+  const bookings = attendees.map(async (attendee) => {
+    let user: any
+    let booking: any
 
-      const userResult = await payload.find({
+    const userResult = await payload.find({
+      collection: 'users',
+      where: {
+        email: {
+          equals: attendee.email,
+        },
+      },
+    })
+
+    user = userResult.docs?.[0]
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(32).toString('hex')
+      const { hash, salt } = await generatePasswordSaltHash({
+        password: randomPassword,
+      })
+      user = await payload.create({
         collection: 'users',
-        where: {
-          email: {
-            equals: attendee.email,
-          },
-        },
-      })
-
-      user = userResult.docs?.[0]
-
-      if (!user) {
-        const randomPassword = crypto.randomBytes(32).toString('hex')
-        const { hash, salt } = await generatePasswordSaltHash({
+        data: {
+          name: attendee.name,
+          email: attendee.email,
+          hash,
+          salt,
           password: randomPassword,
-        })
-        user = await payload.create({
-          collection: 'users',
-          data: {
-            name: attendee.name,
-            email: attendee.email,
-            hash,
-            salt,
-            password: randomPassword,
-          },
-        })
-      }
-
-      const bookingResult = await payload.find({
-        collection: 'bookings',
-        where: {
-          lesson: {
-            equals: lessonId,
-          },
-          user: {
-            equals: user.id,
-          },
         },
       })
+    }
 
-      booking = bookingResult.docs?.[0]
+    const bookingResult = await payload.find({
+      collection: 'bookings',
+      where: {
+        lesson: {
+          equals: lessonId,
+        },
+        user: {
+          equals: user.id,
+        },
+      },
+    })
 
-      if (!booking) {
-        booking = await payload.create({
-          collection: 'bookings',
-          data: {
-            lesson: lessonId,
-            user: user.id,
-            status: 'confirmed',
-            transaction: transaction.id,
-          },
-        })
-      } else {
-        await payload.update({
-          collection: 'bookings',
-          id: booking.id,
-          data: { status: 'confirmed', transaction: transaction.id },
-        })
-      }
+    booking = bookingResult.docs?.[0]
 
-      return booking
+    if (!booking) {
+      booking = await payload.create({
+        collection: 'bookings',
+        data: {
+          lesson: lessonId,
+          user: user.id,
+          status: 'confirmed',
+          transaction: transaction.id,
+        },
+      })
+    } else {
+      await payload.update({
+        collection: 'bookings',
+        id: booking.id,
+        data: { status: 'confirmed', transaction: transaction.id },
+      })
+    }
+
+    return booking
+  })
+
+  const emailConfirmation = await render(
+    BookingConfirmationEmail({
+      lesson,
+      transaction: transaction as Transaction,
+      numberOfGuests: attendees.length,
     }),
   )
+
+  await payload.sendEmail({
+    to: attendees.map((attendee) => attendee.email),
+    subject: 'Booking confirmed',
+    html: emailConfirmation,
+  })
 
   return {
     success: true,

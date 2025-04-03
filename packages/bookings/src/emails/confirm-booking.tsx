@@ -18,14 +18,12 @@ import { Booking, Lesson, Transaction, User } from "@repo/shared-types";
 import * as React from "react";
 
 interface BookingConfirmationEmailProps {
-  user: User;
   lesson: Lesson;
   transaction?: Transaction;
   numberOfGuests?: number;
 }
 
 export const BookingConfirmationEmail = ({
-  user,
   lesson,
   transaction,
   numberOfGuests,
@@ -35,7 +33,7 @@ export const BookingConfirmationEmail = ({
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: "Europe/Dublin"
+    timeZone: "Europe/Dublin",
   });
 
   // Format transaction amount if exists
@@ -55,7 +53,7 @@ export const BookingConfirmationEmail = ({
           <Section style={content}>
             <Heading style={heading}>Booking Confirmation</Heading>
 
-            <Text style={paragraph}>Hi {user.name || "there"},</Text>
+            <Text style={paragraph}>Hi there,</Text>
 
             <Text style={paragraph}>
               Thank you for your booking. Your reservation has been confirmed!
@@ -84,13 +82,13 @@ export const BookingConfirmationEmail = ({
                     {new Date(lesson.startTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin"
+                      timeZone: "Europe/Dublin",
                     })}{" "}
                     -{" "}
                     {new Date(lesson.endTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin"
+                      timeZone: "Europe/Dublin",
                     })}
                   </Column>
                 </Row>

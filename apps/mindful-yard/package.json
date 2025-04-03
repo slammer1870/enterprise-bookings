@@ -9,6 +9,7 @@
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/plugin-seo": "3.31.0",
     "@payloadcms/richtext-lexical": "*",
+    "@react-email/components": "^0.0.34",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
     "@repo/payments": "workspace:*",
