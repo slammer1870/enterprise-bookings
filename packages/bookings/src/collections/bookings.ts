@@ -96,8 +96,6 @@ export const bookingsCollection = (
               try {
                 if (!doc.transaction || !req.user) return;
 
-                console.log(doc.transaction, req.user);
-
                 const transaction = await req.payload.findByID({
                   collection: "transactions",
                   id: doc.transaction,
