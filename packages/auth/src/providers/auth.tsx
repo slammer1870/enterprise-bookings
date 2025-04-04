@@ -20,6 +20,7 @@ type ResetPassword = (args: {
 type ForgotPassword = (args: { email: string }) => Promise<void>; // eslint-disable-line no-unused-vars
 
 type Create = (args: {
+  name?: string;
   email: string;
   password: string;
   passwordConfirm: string;
@@ -68,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name: args.name,
           email: args.email,
           password: args.password,
           passwordConfirm: args.passwordConfirm,

@@ -256,6 +256,7 @@ export interface Page {
  */
 export interface User {
   id: number;
+  name: string;
   roles?: ('customer' | 'admin')[] | null;
   updatedAt: string;
   createdAt: string;
@@ -473,6 +474,7 @@ export interface PagesSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
   roles?: T;
   updatedAt?: T;
   createdAt?: T;
