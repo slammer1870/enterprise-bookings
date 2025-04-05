@@ -13,6 +13,8 @@ import { Pages } from './collections/Pages'
 
 import { rolesPlugin } from '@repo/roles'
 import { magicLinkPlugin } from '@repo/auth'
+import { bookingsPlugin } from '@repo/bookings'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -45,6 +47,9 @@ export default buildConfig({
       authCollection: 'users',
     }),
     rolesPlugin({
+      enabled: true,
+    }),
+    bookingsPlugin({
       enabled: true,
     }),
     // storage-adapter-placeholder
