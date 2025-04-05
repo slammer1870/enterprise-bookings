@@ -72,7 +72,6 @@ export default function UserPassLoginForm() {
           router.push(callbackUrl.current || "/dashboard");
         });
       } catch (error: any) {
-        console.log(error);
         if (
           error.message?.includes("email") ||
           error.message?.includes("user")

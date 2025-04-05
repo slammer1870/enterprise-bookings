@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [status, setStatus] = useState<undefined | "loggedOut" | "loggedIn">();
   const create = useCallback<Create>(async (args) => {
     try {
-      const res = await fetch(`/api/users/create`, {
+      const res = await fetch(`/api/users`, {
         method: "POST",
         credentials: "include",
         headers: {
