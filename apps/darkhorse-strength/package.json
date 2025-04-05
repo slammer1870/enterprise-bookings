@@ -8,6 +8,7 @@
     "@payloadcms/payload-cloud": "latest",
     "@payloadcms/richtext-lexical": "latest",
     "@repo/auth": "workspace:*",
+    "@repo/bookings": "workspace:*",
     "@repo/roles": "workspace:*",
     "@repo/ui": "workspace:*",
     "cross-env": "^7.0.3",
