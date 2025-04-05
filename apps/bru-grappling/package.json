@@ -15,7 +15,7 @@
     "@repo/ui": "workspace:*",
     "cross-env": "^7.0.3",
     "graphql": "^16.10.0",
-    "next": "15.2.2",
+    "next": "15.2.4",
     "payload": "*",
     "react": "19.0.0",
     "react-dom": "19.0.0",

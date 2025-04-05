@@ -14,7 +14,7 @@ import { Pages } from './collections/Pages'
 import { rolesPlugin } from '@repo/roles'
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
-
+import { paymentsPlugin } from '@repo/payments'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -48,6 +48,11 @@ export default buildConfig({
     }),
     rolesPlugin({
       enabled: true,
+    }),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: false,
+      acceptedPaymentMethods: ['card'],
     }),
     bookingsPlugin({
       enabled: true,

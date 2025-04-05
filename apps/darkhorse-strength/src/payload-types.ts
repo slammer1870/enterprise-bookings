@@ -70,6 +70,7 @@ export interface Config {
     media: Media;
     pages: Page;
     users: User;
+    transactions: Transaction;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
@@ -86,6 +87,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
@@ -268,6 +270,7 @@ export interface User {
   id: number;
   name: string;
   roles?: ('customer' | 'admin')[] | null;
+  stripeCustomerId?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -278,6 +281,20 @@ export interface User {
   loginAttempts?: number | null;
   lockUntil?: string | null;
   password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -356,6 +373,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
       } | null)
     | ({
         relationTo: 'lessons';
@@ -557,6 +578,7 @@ export interface PagesSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
   roles?: T;
+  stripeCustomerId?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -566,6 +588,19 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

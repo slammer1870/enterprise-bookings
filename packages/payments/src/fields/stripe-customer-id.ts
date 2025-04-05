@@ -8,6 +8,7 @@ export const stripeCustomerId: Field = {
   name: "stripeCustomerId",
   type: "text",
   label: "Stripe Customer",
+  defaultValue: "",
   access: {
     read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
     update: ({ req: { user } }) => checkRole(["admin"], user as User | null),

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "dependencies": {
     "@repo/ui": "workspace:*",
-    "next": "15.2.2",
+    "next": "15.2.4",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
