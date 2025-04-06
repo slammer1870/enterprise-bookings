@@ -135,6 +135,9 @@ importers:
       '@repo/bookings':
         specifier: workspace:*
         version: link:../../packages/bookings
+      '@repo/memberships':
+        specifier: workspace:*
+        version: link:../../packages/memberships
       '@repo/payments':
         specifier: workspace:*
         version: link:../../packages/payments

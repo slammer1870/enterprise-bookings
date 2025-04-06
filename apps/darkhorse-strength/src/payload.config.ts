@@ -15,6 +15,8 @@ import { rolesPlugin } from '@repo/roles'
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
+import { membershipsPlugin } from '@repo/memberships'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -54,8 +56,16 @@ export default buildConfig({
       enableDropIns: false,
       acceptedPaymentMethods: ['card'],
     }),
+    membershipsPlugin({
+      enabled: true,
+    }),
     bookingsPlugin({
       enabled: true,
+      paymentMethods: {
+        dropIns: false,
+        plans: true,
+        classPasses: false,
+      },
     }),
     // storage-adapter-placeholder
   ],
