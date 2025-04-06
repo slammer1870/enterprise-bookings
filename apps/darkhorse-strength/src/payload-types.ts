@@ -69,8 +69,10 @@ export interface Config {
   collections: {
     media: Media;
     pages: Page;
-    users: User;
     transactions: Transaction;
+    users: User;
+    subscriptions: Subscription;
+    plans: Plan;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
@@ -79,6 +81,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    users: {
+      userSubscription: 'subscriptions';
+    };
     lessons: {
       bookings: 'bookings';
     };
@@ -86,8 +91,10 @@ export interface Config {
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
@@ -264,6 +271,20 @@ export interface Page {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
@@ -271,6 +292,11 @@ export interface User {
   name: string;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -284,15 +310,49 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
+ * via the `definition` "subscriptions".
  */
-export interface Transaction {
+export interface Subscription {
   id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  stripeSubscriptionId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Number of sessions included in this plan
+   */
+  sessions?: number | null;
+  /**
+   * Number of sessions per interval
+   */
+  intervalCount?: number | null;
+  /**
+   * How often the sessions are included
+   */
+  interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  stripeProductId?: string | null;
+  priceJSON?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -340,6 +400,9 @@ export interface ClassOption {
    */
   places: number;
   description: string;
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -352,6 +415,7 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  transaction?: (number | null) | Transaction;
   updatedAt: string;
   createdAt: string;
 }
@@ -371,12 +435,20 @@ export interface PayloadLockedDocument {
         value: number | Page;
       } | null)
     | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
     | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
+        relationTo: 'subscriptions';
+        value: number | Subscription;
+      } | null)
+    | ({
+        relationTo: 'plans';
+        value: number | Plan;
       } | null)
     | ({
         relationTo: 'lessons';
@@ -573,12 +645,26 @@ export interface PagesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
   roles?: T;
   stripeCustomerId?: T;
+  userSubscription?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -591,14 +677,35 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
+ * via the `definition` "subscriptions_select".
  */
-export interface TransactionsSelect<T extends boolean = true> {
-  amount?: T;
-  currency?: T;
+export interface SubscriptionsSelect<T extends boolean = true> {
+  user?: T;
+  plan?: T;
   status?: T;
-  paymentMethod?: T;
-  createdBy?: T;
+  startDate?: T;
+  endDate?: T;
+  stripeSubscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans_select".
+ */
+export interface PlansSelect<T extends boolean = true> {
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessions?: T;
+  intervalCount?: T;
+  interval?: T;
+  stripeProductId?: T;
+  priceJSON?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -628,6 +735,11 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedPlans?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -639,6 +751,7 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }
