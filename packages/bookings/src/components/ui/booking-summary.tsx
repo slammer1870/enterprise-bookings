@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarIcon, Clock, Flame, Users } from "lucide-react";
+import { CalendarIcon, Clock, ClipboardCheck, Users } from "lucide-react";
 import { format } from "date-fns";
 import { BookingDetails } from "@repo/shared-types";
 import {
@@ -15,7 +15,7 @@ import { Separator } from "@repo/ui/components/ui/separator";
 interface BookingSummaryProps {
   bookingDetails: BookingDetails;
   attendeesCount: number;
-  priceCalculation: {
+  priceCalculation?: {
     totalAmount: number;
     totalAmountBeforeDiscount: number;
     discountApplied: boolean;
@@ -33,12 +33,12 @@ export function BookingSummary({
     <Card className="bg-white">
       <CardHeader>
         <CardTitle>Booking Summary</CardTitle>
-        <CardDescription>Review your sauna session details</CardDescription>
+        <CardDescription>Review your booking summary details</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3">
           <div className="flex items-center">
-            <CalendarIcon className="h-5 w-5 mr-2 text-amber-600" />
+            <CalendarIcon className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Date:</span>
             <span className="ml-2">
               {format(bookingDetails.date, "EEEE, MMMM d, yyyy")}
@@ -46,7 +46,7 @@ export function BookingSummary({
           </div>
 
           <div className="flex items-center">
-            <Clock className="h-5 w-5 mr-2 text-amber-600" />
+            <Clock className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Time:</span>
             <span className="ml-2">
               {format(bookingDetails.startTime, "HH:mmaa")} -{" "}
@@ -55,7 +55,7 @@ export function BookingSummary({
           </div>
 
           <div className="flex items-center">
-            <Users className="h-5 w-5 mr-2 text-amber-600" />
+            <Users className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Guests:</span>
             <span className="ml-2">
               {attendeesCount} {attendeesCount === 1 ? "person" : "people"}
@@ -63,38 +63,39 @@ export function BookingSummary({
           </div>
 
           <div className="flex items-center">
-            <Flame className="h-5 w-5 mr-2 text-amber-600" />
-            <span className="font-medium">Sauna Type:</span>
+            <ClipboardCheck className="h-5 w-5 mr-2 text-primary" />
+            <span className="font-medium">Booking Type:</span>
             <span className="ml-2">{bookingDetails.bookingType}</span>
           </div>
         </div>
 
-        <Separator />
-
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span>Price per person</span>
-            <span>€{bookingDetails.price.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span>Number of guests</span>
-            <span>{attendeesCount}</span>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex justify-between items-center text-lg font-semibold">
-          <span>Total</span>
-          <div className="flex items-center gap-2">
-            {priceCalculation.discountApplied && (
-              <span className="line-through text-red-400">
-                €{priceCalculation.totalAmountBeforeDiscount.toFixed(2)}
-              </span>
-            )}
-            <span>€{priceCalculation.totalAmount.toFixed(2)}</span>
-          </div>
-        </div>
+        {priceCalculation && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Price per person</span>
+                <span>€{bookingDetails.price?.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Number of guests</span>
+                <span>{attendeesCount}</span>
+              </div>
+            </div>
+            <Separator />
+            <div className="flex justify-between items-center text-lg font-semibold">
+              <span>Total</span>
+              <div className="flex items-center gap-2">
+                {priceCalculation.discountApplied && (
+                  <span className="line-through text-red-400">
+                    €{priceCalculation.totalAmountBeforeDiscount.toFixed(2)}
+                  </span>
+                )}
+                <span>€{priceCalculation.totalAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

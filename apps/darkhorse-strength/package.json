@@ -12,6 +12,7 @@
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
     "@repo/roles": "workspace:*",
+    "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*",
     "cross-env": "^7.0.3",
     "graphql": "^16.10.0",

@@ -76,24 +76,10 @@ export default function UserPassRegisterForm() {
           router.push("/dashboard");
         });
       } catch (error: any) {
-        if (
-          error.message?.includes("email") ||
-          error.message?.includes("user")
-        ) {
-          form.setError("email", {
-            message: "Email already in use",
-          });
-        } else if (error.message?.includes("password")) {
-          form.setError("password", {
-            message: "Password must be at least 8 characters",
-          });
-        } else {
-          form.setError("root", {
-            message:
-              error.message ||
-              "An unexpected error occurred. Please try again.",
-          });
-        }
+        form.setError("root", {
+          message:
+            error.message || "An unexpected error occurred. Please try again.",
+        });
       }
     },
     [create, router]
@@ -109,7 +95,7 @@ export default function UserPassRegisterForm() {
       </CardHeader>
       <CardContent>
         {form.formState.errors.root && (
-          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm flex flex-col gap-2 justify-between items-end">
+          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
             {form.formState.errors.root.message}
           </div>
         )}
