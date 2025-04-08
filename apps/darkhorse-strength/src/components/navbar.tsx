@@ -4,11 +4,12 @@ import React, { useEffect, useState } from 'react'
 
 import Link from 'next/link'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { useAuth } from '@repo/auth/src/providers/auth'
 
 const Navbar: React.FC = () => {
+  const router = useRouter()
   const [scroll, setScroll] = useState<boolean>(false)
   const [open, setOpen] = useState<boolean>(false)
 
@@ -153,7 +154,7 @@ const Navbar: React.FC = () => {
               {user && (
                 <li
                   className="ml-9 mt-4 cursor-pointer rounded bg-[#FECE7E] px-2 py-1 text-center text-gray-700 md:mt-0 md:ml-16 md:w-auto"
-                  onClick={() => logout()}
+                  onClick={() => logout().then(() => router.push('/'))}
                 >
                   Logout
                 </li>

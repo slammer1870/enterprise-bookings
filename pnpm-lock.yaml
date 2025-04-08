@@ -144,6 +144,9 @@ importers:
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui

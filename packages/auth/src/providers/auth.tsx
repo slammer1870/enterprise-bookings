@@ -82,10 +82,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(data?.loginUser?.user);
         setStatus("loggedIn");
       } else {
-        throw new Error("Invalid login");
+        const { errors } = await res.json();
+        throw new Error(
+          errors[0].message || "An error occurred while registering user."
+        );
       }
     } catch (e) {
-      throw new Error("An error occurred while attempting to login.");
+      throw new Error(e || "An error occurred while attempting to login.");
     }
   }, []);
 
@@ -135,9 +138,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return user;
       }
 
-      throw new Error("Invalid login");
+      const { user, errors } = await res.json();
+
+      throw new Error(errors[0].message || "Invalid login");
     } catch (e) {
-      throw new Error("An error occurred while attempting to login.");
+      throw new Error(e || "An error occurred while attempting to login.");
     }
   }, []);
 

@@ -80,24 +80,10 @@ function LoginFormContent() {
           router.push(callbackUrl.current || "/dashboard");
         });
       } catch (error: any) {
-        if (
-          error.message?.includes("email") ||
-          error.message?.includes("user")
-        ) {
-          form.setError("email", {
-            message: "Invalid email or user not found",
-          });
-        } else if (error.message?.includes("password")) {
-          form.setError("password", {
-            message: "Invalid password",
-          });
-        } else {
-          form.setError("root", {
-            message:
-              error.message ||
-              "An unexpected error occurred. Please try again.",
-          });
-        }
+        form.setError("root", {
+          message:
+            error.message || "An unexpected error occurred. Please try again.",
+        });
       }
     },
     [login, router, form]
@@ -113,11 +99,8 @@ function LoginFormContent() {
       </CardHeader>
       <CardContent>
         {form.formState.errors.root && (
-          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm flex flex-col gap-2 justify-between items-end">
+          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
             {form.formState.errors.root.message}
-            <Link href="/forgot-password" className="underline">
-              Click here to reset your password
-            </Link>
           </div>
         )}
         <Form {...form}>
@@ -140,7 +123,15 @@ function LoginFormContent() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Password</FormLabel>
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm font-light"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <FormControl>
                     <Input
                       type="password"
