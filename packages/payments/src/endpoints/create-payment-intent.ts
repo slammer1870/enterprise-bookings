@@ -4,7 +4,7 @@ import { stripe, formatAmountForStripe } from "@repo/shared-utils";
 
 import { calculateQuantityDiscount } from "../utils/discount";
 
-import { APIError, PayloadHandler } from "payload";
+import { APIError, CollectionSlug, PayloadHandler } from "payload";
 
 import { DropIn, User } from "@repo/shared-types";
 
@@ -35,7 +35,7 @@ export const createPaymentIntent: PayloadHandler = async (
   if (dropInId) {
     try {
       const dropIn = (await req.payload.findByID({
-        collection: "drop-ins",
+        collection: "drop-ins" as CollectionSlug,
         id: dropInId,
       })) as unknown as DropIn;
 
