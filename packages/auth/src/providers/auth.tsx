@@ -88,7 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         );
       }
     } catch (e) {
-      throw new Error(e || "An error occurred while attempting to login.");
+      throw new Error(
+        (e as string) || "An error occurred while attempting to login."
+      );
     }
   }, []);
 
@@ -142,7 +144,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       throw new Error(errors[0].message || "Invalid login");
     } catch (e) {
-      throw new Error(e || "An error occurred while attempting to login.");
+      throw new Error(
+        (e as string) || "An error occurred while attempting to login."
+      );
     }
   }, []);
 
