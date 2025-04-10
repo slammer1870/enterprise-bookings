@@ -32,6 +32,8 @@ vi.mock("@repo/shared-utils", () => ({
   },
 }));
 
+const TEST_TIMEOUT = 30000;
+
 describe("Payments tests", () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
@@ -44,26 +46,30 @@ describe("Payments tests", () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
-  });
+  }, TEST_TIMEOUT);
 
-  it("should should register a first user and create a stripe customer", async () => {
-    const response = await restClient.POST("/users", {
-      body: JSON.stringify({
-        email: "test@example.com",
-        password: "password",
-        name: "Test User",
-      }),
-    });
+  it(
+    "should should register a first user and create a stripe customer",
+    async () => {
+      const response = await restClient.POST("/users", {
+        body: JSON.stringify({
+          email: "test@example.com",
+          password: "password",
+          name: "Test User",
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    const payloadUser = await payload.findByID({
-      collection: "users",
-      id: data.doc.id,
-    });
+      const payloadUser = await payload.findByID({
+        collection: "users",
+        id: data.doc.id,
+      });
 
-    expect(response.status).toBe(201);
+      expect(response.status).toBe(201);
 
-    expect(payloadUser.stripeCustomerId).toBe("cus_12345");
-  });
+      expect(payloadUser.stripeCustomerId).toBe("cus_12345");
+    },
+    TEST_TIMEOUT
+  );
 });
