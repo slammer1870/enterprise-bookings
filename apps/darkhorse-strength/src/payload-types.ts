@@ -353,6 +353,10 @@ export interface Plan {
   interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
   stripeProductId?: string | null;
   priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
   updatedAt: string;
   createdAt: string;
 }
@@ -706,6 +710,7 @@ export interface PlansSelect<T extends boolean = true> {
   interval?: T;
   stripeProductId?: T;
   priceJSON?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -1,5 +1,7 @@
 import { Payload, Where, CollectionSlug } from "payload";
 
+import { Plan } from "@repo/shared-types";
+
 export const hasActiveSubscription = async (
   userId: number,
   payload: Payload
@@ -10,7 +12,7 @@ export const hasActiveSubscription = async (
       where: {
         user: { equals: userId },
         status: { equals: "active" },
-        end_date: { greater_than: new Date() },
+        endDate: { greater_than: new Date() },
       },
       limit: 1,
       depth: 3,
@@ -46,14 +48,18 @@ export const hasReachedSubscriptionLimit = async (
 ): Promise<boolean> => {
   let plan: any;
 
+  console.log(subscription);
+
   if (typeof subscription.plan === "number") {
     plan = await payload.findByID({
       collection: "plans" as CollectionSlug,
       id: subscription.plan,
     });
   } else {
-    plan = subscription.plan;
+    plan = subscription.plan as Plan;
   }
+
+  console.log(plan);
 
   if (!plan.sessions) {
     return false;

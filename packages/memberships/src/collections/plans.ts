@@ -104,6 +104,16 @@ export const plansCollection: CollectionConfig = {
       },
       label: "Price JSON",
     },
+    {
+      name: "status",
+      type: "select",
+      options: ["active", "inactive"],
+      defaultValue: "active",
+      admin: {
+        description: "Status of the plan",
+      },
+      required: true,
+    },
   ],
   hooks: {
     beforeChange: [beforeProductChange],
