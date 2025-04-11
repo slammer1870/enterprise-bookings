@@ -81,7 +81,8 @@ export const renderCreateAccess = (
 
             const reachedLimit = await hasReachedSubscriptionLimit(
               subscription,
-              req.payload
+              req.payload,
+              new Date(lesson.startTime)
             );
             if (reachedLimit) return false;
 
@@ -220,7 +221,8 @@ export const renderUpdateAccess = (
 
             const reachedLimit = await hasReachedSubscriptionLimit(
               subscription,
-              req.payload
+              req.payload,
+              new Date(lesson.startTime)
             );
             if (reachedLimit) return false;
 
