@@ -16,6 +16,8 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
+import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
+
 export default async function BookingPage({ params }: { params: Promise<{ id: number }> }) {
   const { id } = await params
 
@@ -103,22 +105,17 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
                   membership below
                 </p>
               )}
-              {allowedPlans?.map((plan) => (
-                <div key={plan.id}>
-                  <h2>{plan.name}</h2>
-                </div>
-              ))}
+              <PlanList plans={allowedPlans || []} />
             </>
           ) : (
             <>
               {subscription.status == 'unpaid' && <p>Please pay your subscription to continue</p>}
-              {(await hasReachedSubscriptionLimit(subscription, payload)) && (
-                <p>You have reached your subscription limit, please upgrade to continue</p>
-              )}
-              <div>
-                <h2>Subscription</h2>
-                <p>Click here to amend your subscription</p>
-              </div>
+              {(await hasReachedSubscriptionLimit(
+                subscription,
+                payload,
+                new Date(lesson.date),
+              )) && <p>You have reached your subscription limit, please upgrade to continue</p>}
+              <p>You are subscribed to this plan</p>
             </>
           )}
         </TabsContent>
