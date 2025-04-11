@@ -4,7 +4,7 @@ export const transactionsCollection: CollectionConfig = {
   slug: "transactions",
   admin: {
     useAsTitle: "amount",
-    group: "Payments",
+    group: false,
   },
   fields: [
     {
