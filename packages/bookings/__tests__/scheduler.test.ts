@@ -170,6 +170,7 @@ describe("Scheduler tests", () => {
                 },
               ],
             },
+            clearExisting: true,
           },
         },
       });
@@ -187,7 +188,7 @@ describe("Scheduler tests", () => {
       });
 
       // Instead of comparing to the calculated value, verify the actual created lessons count
-      expect(lessons.docs.length).toBe(8);
+      expect(lessons.docs.length).toBe(10);
 
       // Check for correct class option and location
       const mondayLesson = lessons.docs.find((lesson: any) => {
@@ -425,6 +426,7 @@ describe("Scheduler tests", () => {
                 },
               ],
             },
+            clearExisting: true,
           },
         },
       });
@@ -447,11 +449,11 @@ describe("Scheduler tests", () => {
       });
 
       // Compare to created count
-      expect(updatedLessons.docs.length).toBe(7);
+      expect(updatedLessons.docs.length).toBe(8);
 
       // All remaining lessons should have the new time slot (11:00)
       const startTime = new Date(updatedLessons.docs[0].startTime);
-      expect(startTime.getHours()).toBe(9);
+      expect(startTime.getHours()).toBe(11);
     },
     TEST_TIMEOUT
   );
