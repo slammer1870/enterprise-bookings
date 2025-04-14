@@ -3,9 +3,11 @@
   "version": "0.0.1",
   "devDependencies": {
     "@payloadcms/db-postgres": "*",
+    "@payloadcms/plugin-stripe": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
     "@repo/eslint-config": "workspace:*",
+    "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
