@@ -90,94 +90,19 @@ export const bookingsCollection = (
       ],
       afterChange: [
         async ({ req, operation, doc }) => {
-          if (doc.status === "confirmed") {
-            Promise.resolve().then(async () => {
-              try {
-                // Get user details for the email
-                const user = await req.payload.findByID({
-                  collection: "users",
-                  id: doc.user.id,
-                });
-
-                // Get lesson details for the email
-                const lesson = await req.payload.findByID({
-                  collection: "lessons",
-                  id: doc.lesson.id,
-                  depth: 1,
-                });
-
-                // Prepare email data
-                const emailData = {
-                  user,
-                  lesson,
-                  booking: doc as Booking,
-                } as {
-                  user: User;
-                  lesson: Lesson;
-                  booking: Booking;
-                  transaction?: Transaction;
-                  numberOfGuests?: number;
-                };
-
-                // If there's a transaction associated with this booking, add transaction details
-                if (doc.transaction) {
-                  const transaction = (await req.payload.findByID({
-                    collection: "transactions",
-                    id: doc.transaction.id,
-                  })) as Transaction;
-
-                  if (transaction) {
-                    emailData.transaction = {
-                      id: transaction.id as number,
-                      amount: transaction.amount,
-                      status: transaction.status,
-                      createdAt: transaction.createdAt,
-                      paymentMethod: transaction.paymentMethod,
-                      createdBy: transaction.createdBy,
-                    };
-
-                    const bookings = await req.payload.find({
-                      collection: "bookings",
-                      where: {
-                        transaction: {
-                          equals: doc.transaction.id,
-                        },
-                        status: {
-                          equals: "confirmed",
-                        },
-                      },
-                    });
-
-                    emailData.numberOfGuests = bookings.totalDocs;
-                  }
-                }
-
-                const bookingEmail = await render(
-                  BookingConfirmationEmail(emailData)
-                );
-
-                // Send confirmation email
-                await req.payload.sendEmail({
-                  to: user.email,
-                  subject: "Your Booking Confirmation",
-                  html: bookingEmail,
-                });
-              } catch (error) {
-                console.error(
-                  "Error sending booking confirmation email:",
-                  error
-                );
-              }
-            });
-          }
-
           if (operation === "update" && doc.status === "cancelled") {
             // Don't block the response by running this asynchronously
             Promise.resolve().then(async () => {
               try {
                 if (!doc.transaction || !req.user) return;
 
-                if (doc.transaction.createdBy.id !== req.user.id) {
+                const transaction = (await req.payload.findByID({
+                  collection: "transactions",
+                  id: doc.transaction,
+                  depth: 3,
+                })) as Transaction;
+
+                if (transaction.createdBy?.id !== req.user.id) {
                   return;
                 }
 
@@ -187,7 +112,7 @@ export const bookingsCollection = (
                     and: [
                       {
                         transaction: {
-                          equals: doc.transaction.id,
+                          equals: transaction.id,
                         },
                       },
                       {

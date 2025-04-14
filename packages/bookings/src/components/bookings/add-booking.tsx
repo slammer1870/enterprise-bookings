@@ -48,7 +48,7 @@ export const AddBooking = ({ lessonId }: { lessonId: number }) => {
     const fetchUsers = async (): Promise<User[]> => {
       try {
         setIsLoading(true);
-        const usersResponse = await fetch(`/api/users`, {
+        const usersResponse = await fetch(`/api/users?limit=10000`, {
           credentials: "include",
         });
         const usersData = await usersResponse.json();

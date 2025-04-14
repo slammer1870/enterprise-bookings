@@ -1,10 +1,7 @@
-import type {
-  CollectionConfig,
-  Config,
-  NumberFieldSingleValidation,
-  NumberFieldManyValidation,
-} from "payload";
+import type { CollectionConfig } from "payload";
 import { PaymentsPluginConfig } from "../types";
+import { checkRole } from "@repo/shared-utils";
+import { User } from "@repo/shared-types";
 
 export const dropInsCollection = (
   pluginOptions: PaymentsPluginConfig
@@ -18,6 +15,12 @@ export const dropInsCollection = (
     admin: {
       useAsTitle: "name",
       group: "Products",
+    },
+    access: {
+      //read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
     },
     fields: [
       {

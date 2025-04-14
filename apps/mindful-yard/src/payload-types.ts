@@ -100,8 +100,12 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    scheduler: Scheduler;
+  };
+  globalsSelect: {
+    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
+  };
   locale: null;
   user: User & {
     collection: 'users';
@@ -175,6 +179,14 @@ export interface Page {
           }
       )[]
     | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -466,6 +478,13 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
       };
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -640,6 +659,467 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Create recurring lessons across your weekly schedule
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler".
+ */
+export interface Scheduler {
+  id: number;
+  /**
+   * When this schedule becomes active
+   */
+  startDate?: string | null;
+  /**
+   * When this schedule stops generating lessons
+   */
+  endDate?: string | null;
+  /**
+   * Minutes before start time when booking closes (can be overridden per slot)
+   */
+  lockOutTime?: number | null;
+  /**
+   * Default class type to use when creating lessons (can be overridden per slot)
+   */
+  defaultClassOption: number | ClassOption;
+  /**
+   * Set up your recurring lessons for each day of the week
+   */
+  schedule?: {
+    monday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    tuesday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    wednesday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    thursday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    friday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    saturday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    sunday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+  };
+  /**
+   * Configure how lessons are generated from this schedule
+   */
+  generateOptions?: {
+    /**
+     * Clear existing lessons within the specified date range before generating new ones
+     */
+    clearExisting?: boolean | null;
+  };
+  /**
+   * Results from the last lesson generation
+   */
+  generationResults?: {
+    lastGenerated?: string | null;
+    created?: number | null;
+    skipped?: number | null;
+    conflicts?: number | null;
+    details?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler_select".
+ */
+export interface SchedulerSelect<T extends boolean = true> {
+  startDate?: T;
+  endDate?: T;
+  lockOutTime?: T;
+  defaultClassOption?: T;
+  schedule?:
+    | T
+    | {
+        monday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        tuesday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        wednesday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        thursday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        friday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        saturday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        sunday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+      };
+  generateOptions?:
+    | T
+    | {
+        clearExisting?: T;
+      };
+  generationResults?:
+    | T
+    | {
+        lastGenerated?: T;
+        created?: T;
+        skipped?: T;
+        conflicts?: T;
+        details?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

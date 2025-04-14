@@ -5,6 +5,8 @@ import { Toaster } from 'sonner'
 
 import { AuthProvider } from '@repo/auth/src/providers/auth'
 
+import PlausibleProvider from 'next-plausible'
+
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
 const roboto = Roboto({
@@ -15,11 +17,6 @@ const roboto = Roboto({
   variable: '--font-roboto',
 })
 
-export const metadata = {
-  title: 'Mindful Yard',
-  description: 'Mindful Yard',
-}
-
 export default function RootLayout({
   children,
   unauthenticated,
@@ -28,17 +25,19 @@ export default function RootLayout({
   unauthenticated: React.ReactNode
 }) {
   return (
-    <html>
-      <AuthProvider>
-        <body className={roboto.className}>
-          <Navbar />
-          {children}
-          {unauthenticated}
-          <Footer />
-          <div id="modal-root" />
-          <Toaster />
-        </body>
-      </AuthProvider>
+    <html lang="en">
+      <PlausibleProvider domain="mindfulyard.ie">
+        <AuthProvider>
+          <body className={roboto.className}>
+            <Navbar />
+            {children}
+            {unauthenticated}
+            <Footer />
+            <div id="modal-root" />
+            <Toaster />
+          </body>
+        </AuthProvider>
+      </PlausibleProvider>
     </html>
   )
 }

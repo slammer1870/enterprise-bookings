@@ -15,7 +15,7 @@ export const createPaymentIntent: PayloadHandler = async (
     throw new APIError("Invalid request body", 400);
   }
 
-  const { user } = req as { user: User };
+  const { user } = req as unknown as { user: User };
 
   if (!user) {
     throw new APIError("Unauthorized", 401);
