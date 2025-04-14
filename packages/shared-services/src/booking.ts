@@ -13,7 +13,7 @@ export const createBookingOrUpdateBooking = async (
   if (existingBooking.totalDocs > 0) {
     return payload.update({
       collection: "bookings",
-      id: existingBooking.docs[0].id,
+      id: existingBooking.docs[0]?.id,
       data: booking,
     });
   }
