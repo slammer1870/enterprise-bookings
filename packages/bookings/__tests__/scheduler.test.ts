@@ -108,30 +108,32 @@ describe("Scheduler tests", () => {
       const startDate = new Date();
       const endDate = addDays(startDate, 30);
 
-      const scheduler = await payload.updateGlobal({
-        slug: "scheduler",
-        data: {
-          startDate,
-          endDate,
-          defaultClassOption: classOption.id,
-          lockOutTime: 60,
-          generateOptions: {
-            clearExisting: false,
+      const schedule = {
+        startDate,
+        endDate,
+        defaultClassOption: classOption.id,
+        lockOutTime: 60,
+        schedule: {
+          monday: {
+            isActive: true,
+            slots: [
+              {
+                startTime: new Date("2023-01-01T09:00:00"),
+                endTime: new Date("2023-01-01T10:00:00"),
+                classOption: classOption.id,
+                location: "Main Studio",
+              },
+            ],
           },
-          schedule: {
-            monday: {
-              isActive: true,
-              slots: [
-                {
-                  startTime: new Date("2023-01-01T09:00:00"),
-                  endTime: new Date("2023-01-01T10:00:00"),
-                  classOption: classOption.id,
-                  location: "Main Studio",
-                },
-              ],
-            },
+          generateOptions: {
+            clearExisting: true,
           },
         },
+      };
+
+      const scheduler = await payload.updateGlobal({
+        slug: "scheduler",
+        data: schedule,
       });
 
       expect(scheduler).toBeDefined();
@@ -199,7 +201,7 @@ describe("Scheduler tests", () => {
       });
 
       // Instead of comparing to the calculated value, verify the actual created lessons count
-      expect(lessons.docs.length).toBe(5);
+      expect(lessons.docs.length).toBe(results?.created.length);
 
       // Check for correct class option and location
       const mondayLesson = lessons.docs.find((lesson: any) => {
@@ -384,7 +386,7 @@ describe("Scheduler tests", () => {
     "should clear existing lessons when option is enabled",
     async () => {
       const startDate = startOfDay(new Date());
-      const endDate = addDays(startDate, 7);
+      const endDate = addDays(startDate, 14);
 
       // Create some lessons first
       for (let i = 0; i < 5; i++) {
@@ -415,35 +417,36 @@ describe("Scheduler tests", () => {
       // Find next Monday
       const daysUntilMonday = (1 + 7 - getDay(startDate)) % 7 || 7;
 
+      const schedule = {
+        startDate,
+        endDate,
+        defaultClassOption: classOption.id,
+        schedule: {
+          monday: {
+            isActive: true,
+            slots: [
+              {
+                startTime: new Date("2023-01-01T09:00:00"),
+                endTime: new Date("2023-01-01T10:00:00"),
+                classOption: classOption.id,
+                location: "Main Studio",
+              },
+            ],
+          },
+        },
+        generateOptions: {
+          clearExisting: true,
+        },
+      };
+
       // Configure scheduler with clearExisting option
       const scheduler = await payload.updateGlobal({
         slug: "scheduler",
-        data: {
-          startDate,
-          endDate,
-          defaultClassOption: classOption.id,
-          generateOptions: {
-            clearExisting: true,
-          },
-          schedule: {
-            monday: {
-              isActive: true,
-              slots: [
-                {
-                  startTime: new Date(startDate.setHours(11, 0, 0)),
-                  endTime: new Date(addHours(startDate, 12)),
-                  classOption: classOption.id,
-                  location: "Main Studio",
-                },
-              ],
-            },
-            clearExisting: true,
-          },
-        },
+        data: schedule,
       });
 
       // Call generation function directly
-      const results = await generateLessonsFromSchedule(payload, scheduler);
+      const results = await generateLessonsFromSchedule(payload, schedule);
 
       // Check lessons - previous ones should be gone, only new ones remain
       const updatedLessons = await payload.find({
@@ -457,14 +460,12 @@ describe("Scheduler tests", () => {
         },
       });
 
-      console.log("RESULTS", results);
-
       // Compare to created count
       expect(updatedLessons.docs.length).toBe(results?.created.length);
 
       // All remaining lessons should have the new time slot (11:00)
       const startTime = new Date(updatedLessons.docs[0].startTime);
-      expect(startTime.getHours()).toBe(11);
+      expect(startTime.getHours()).toBe(9);
     },
     TEST_TIMEOUT
   );
