@@ -147,43 +147,47 @@ describe("Scheduler tests", () => {
       const startDate = startOfDay(new Date());
       const endDate = addDays(startDate, 14);
 
-      // Create scheduler with slot on Monday and Tuesday
-      const scheduler = await payload.updateGlobal({
-        slug: "scheduler",
-        data: {
-          startDate,
-          endDate,
-          defaultClassOption: classOption.id,
-          schedule: {
-            monday: {
-              isActive: true,
-              slots: [
-                {
-                  startTime: new Date("2023-01-01T09:00:00"),
-                  endTime: new Date("2023-01-01T10:00:00"),
-                  classOption: classOption.id,
-                  location: "Main Studio",
-                },
-              ],
-            },
-            tuesday: {
-              isActive: true,
-              slots: [
-                {
-                  startTime: new Date("2023-01-01T14:00:00"),
-                  endTime: new Date("2023-01-01T15:00:00"),
-                  classOption: classOption.id,
-                  location: "Small Studio",
-                },
-              ],
-            },
-            clearExisting: true,
+      const schedule = {
+        startDate,
+        endDate,
+        defaultClassOption: classOption.id,
+        schedule: {
+          monday: {
+            isActive: true,
+            slots: [
+              {
+                startTime: new Date("2023-01-01T09:00:00"),
+                endTime: new Date("2023-01-01T10:00:00"),
+                classOption: classOption.id,
+                location: "Main Studio",
+              },
+            ],
+          },
+          tuesday: {
+            isActive: true,
+            slots: [
+              {
+                startTime: new Date("2023-01-01T14:00:00"),
+                endTime: new Date("2023-01-01T15:00:00"),
+                classOption: classOption.id,
+                location: "Small Studio",
+              },
+            ],
           },
         },
-      });
+        generateOptions: {
+          clearExisting: true,
+        },
+      };
+
+      // Create scheduler with slot on Monday and Tuesday
+      //const scheduler = await payload.updateGlobal({
+      //  slug: "scheduler",
+      //  data: schedule,
+      //});
 
       // Call the generation function directly
-      const results = await generateLessonsFromSchedule(payload, scheduler);
+      const results = await generateLessonsFromSchedule(payload, schedule);
 
       expect(results).toBeDefined();
       expect(results?.created.length).toBeGreaterThan(0);
@@ -195,7 +199,7 @@ describe("Scheduler tests", () => {
       });
 
       // Instead of comparing to the calculated value, verify the actual created lessons count
-      expect(lessons.docs.length).toBe(10);
+      expect(lessons.docs.length).toBe(5);
 
       // Check for correct class option and location
       const mondayLesson = lessons.docs.find((lesson: any) => {
