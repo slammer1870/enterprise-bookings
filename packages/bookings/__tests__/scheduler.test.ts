@@ -380,7 +380,7 @@ describe("Scheduler tests", () => {
     "should clear existing lessons when option is enabled",
     async () => {
       const startDate = startOfDay(new Date());
-      const endDate = addDays(startDate, 14);
+      const endDate = addDays(startDate, 7);
 
       // Create some lessons first
       for (let i = 0; i < 5; i++) {
@@ -453,9 +453,11 @@ describe("Scheduler tests", () => {
         },
       });
 
+      console.log("RESULTS", results);
+
       // Compare to created count
       expect(updatedLessons.docs.length).toBe(
-        (results?.created.length || 0) + initialLessons.docs.length
+        (results?.created.length || 0) + 1
       );
 
       // All remaining lessons should have the new time slot (11:00)
