@@ -14,7 +14,7 @@ type TeamProps = {
   teamImage: Media
   teamMembers: TeamMember[]
   aboutTitle: string
-  aboutContent: string[]
+  aboutContent: Array<string | { id: string, paragraph: string }>
 }
 
 export const TeamBlock: React.FC<TeamProps> = ({
@@ -66,9 +66,9 @@ export const TeamBlock: React.FC<TeamProps> = ({
             <div className="mt-12 flex flex-col items-start justify-center border-t border-gray-200 pt-12 lg:mt-4 lg:w-2/4 lg:border-l lg:border-t-0 lg:py-8 lg:pl-8 lg:pt-4 lg:text-left">
               <h5 className="mb-4 text-3xl font-medium uppercase">{aboutTitle}</h5>
               <div className="mb-4 text-base leading-relaxed">
-                {aboutContent.map((paragraph: string, index: number) => (
+                {aboutContent.map((content, index: number) => (
                   <p key={index} className="mb-2">
-                    {paragraph}
+                    {typeof content === 'string' ? content : content.paragraph}
                   </p>
                 ))}
               </div>

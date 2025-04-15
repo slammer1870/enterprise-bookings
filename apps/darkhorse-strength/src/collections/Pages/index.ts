@@ -11,6 +11,10 @@ import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
+  admin: {
+    useAsTitle: 'title',
+    group: 'Website',
+  },
   access: {
     read: () => true,
   },
@@ -28,7 +32,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero],
+      blocks: [Hero, Team, Timetable, Testimonials, Pricing, Contact],
     },
   ],
   hooks: {

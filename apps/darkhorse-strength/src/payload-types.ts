@@ -69,16 +69,35 @@ export interface Config {
   collections: {
     media: Media;
     pages: Page;
+    transactions: Transaction;
     users: User;
+    subscriptions: Subscription;
+    plans: Plan;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    users: {
+      userSubscription: 'subscriptions';
+    };
+    lessons: {
+      bookings: 'bookings';
+    };
+  };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -143,18 +162,124 @@ export interface Page {
   title: string;
   slug: string;
   layout?:
-    | {
-        heading: string;
-        subheading: string;
-        backgroundImage: number | Media;
-        ctaLink: string;
-        ctaTitle: string;
-        ctaDescription: string;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'hero';
-      }[]
+    | (
+        | {
+            heading: string;
+            subheading: string;
+            backgroundImage: number | Media;
+            ctaLink: string;
+            ctaTitle: string;
+            ctaDescription: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            title: string;
+            teamImage: number | Media;
+            teamMembers?:
+              | {
+                  name: string;
+                  image: number | Media;
+                  bio: string;
+                  id?: string | null;
+                }[]
+              | null;
+            aboutTitle: string;
+            aboutContent?:
+              | {
+                  paragraph: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'team';
+          }
+        | {
+            title: string;
+            description: string;
+            timeSlots?:
+              | {
+                  time: string;
+                  monday?: string | null;
+                  tuesday?: string | null;
+                  wednesday?: string | null;
+                  thursday?: string | null;
+                  friday?: string | null;
+                  saturday?: string | null;
+                  sunday?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            legend: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'timetable';
+          }
+        | {
+            title: string;
+            description: string;
+            videos?:
+              | {
+                  youtubeId: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'testimonials';
+          }
+        | {
+            title: string;
+            description: string;
+            pricingOptions?:
+              | {
+                  title: string;
+                  price: string;
+                  features?:
+                    | {
+                        feature: string;
+                        id?: string | null;
+                      }[]
+                    | null;
+                  note?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'pricing';
+          }
+        | {
+            locationTitle: string;
+            locationDescription: string;
+            mapEmbedUrl: string;
+            address: string;
+            email: string;
+            phone: string;
+            contactTitle: string;
+            contactDescription: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'contact';
+          }
+      )[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -164,7 +289,14 @@ export interface Page {
  */
 export interface User {
   id: number;
+  name: string;
   roles?: ('customer' | 'admin')[] | null;
+  stripeCustomerId?: string | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -175,6 +307,121 @@ export interface User {
   loginAttempts?: number | null;
   lockUntil?: string | null;
   password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  stripeSubscriptionId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Number of sessions included in this plan
+   */
+  sessions?: number | null;
+  /**
+   * Number of sessions per interval
+   */
+  intervalCount?: number | null;
+  /**
+   * How often the sessions are included
+   */
+  interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  stripeProductId?: string | null;
+  priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  transaction?: (number | null) | Transaction;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -192,8 +439,32 @@ export interface PayloadLockedDocument {
         value: number | Page;
       } | null)
     | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'subscriptions';
+        value: number | Subscription;
+      } | null)
+    | ({
+        relationTo: 'plans';
+        value: number | Plan;
+      } | null)
+    | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -277,7 +548,115 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        team?:
+          | T
+          | {
+              title?: T;
+              teamImage?: T;
+              teamMembers?:
+                | T
+                | {
+                    name?: T;
+                    image?: T;
+                    bio?: T;
+                    id?: T;
+                  };
+              aboutTitle?: T;
+              aboutContent?:
+                | T
+                | {
+                    paragraph?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        timetable?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              timeSlots?:
+                | T
+                | {
+                    time?: T;
+                    monday?: T;
+                    tuesday?: T;
+                    wednesday?: T;
+                    thursday?: T;
+                    friday?: T;
+                    saturday?: T;
+                    sunday?: T;
+                    id?: T;
+                  };
+              legend?: T;
+              id?: T;
+              blockName?: T;
+            };
+        testimonials?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              videos?:
+                | T
+                | {
+                    youtubeId?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        pricing?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              pricingOptions?:
+                | T
+                | {
+                    title?: T;
+                    price?: T;
+                    features?:
+                      | T
+                      | {
+                          feature?: T;
+                          id?: T;
+                        };
+                    note?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        contact?:
+          | T
+          | {
+              locationTitle?: T;
+              locationDescription?: T;
+              mapEmbedUrl?: T;
+              address?: T;
+              email?: T;
+              phone?: T;
+              contactTitle?: T;
+              contactDescription?: T;
+              id?: T;
+              blockName?: T;
+            };
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -286,7 +665,10 @@ export interface PagesSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
   roles?: T;
+  stripeCustomerId?: T;
+  userSubscription?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -296,6 +678,87 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  user?: T;
+  plan?: T;
+  status?: T;
+  startDate?: T;
+  endDate?: T;
+  stripeSubscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans_select".
+ */
+export interface PlansSelect<T extends boolean = true> {
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessions?: T;
+  intervalCount?: T;
+  interval?: T;
+  stripeProductId?: T;
+  priceJSON?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedPlans?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  transaction?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

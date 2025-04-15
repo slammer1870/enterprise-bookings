@@ -19,7 +19,7 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
     return newDoc;
   }
 
-  if (!data.stripeProductID) {
+  if (!data.stripeProductId) {
     if (logs)
       payload.logger.info(
         `No Stripe product assigned to this document, skipping product 'beforeChange' hook`
@@ -30,7 +30,7 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
   if (logs) payload.logger.info(`Looking up product from Stripe...`);
 
   try {
-    const stripeProduct = await stripe.products.retrieve(data.stripeProductID, {
+    const stripeProduct = await stripe.products.retrieve(data.stripeProductId, {
       expand: ["default_price"],
     });
     if (logs)

@@ -4,7 +4,7 @@ import { Access } from "payload";
 
 import { BookingsPluginConfig } from "../types";
 
-import { Booking, Lesson, User } from "@repo/shared-types";
+import { Booking, Lesson, User, Subscription } from "@repo/shared-types";
 
 import { hasReachedSubscriptionLimit } from "@repo/shared-services";
 
@@ -68,10 +68,21 @@ export const renderCreateAccess = (
 
             if (userSubscription.docs.length === 0) return false;
 
-            const subscription = userSubscription.docs[0];
+            const subscription = userSubscription.docs[0] as Subscription;
+
+            if (
+              (subscription.endDate &&
+                new Date(subscription.endDate) <= new Date()) ||
+              (subscription.endDate &&
+                new Date(subscription.endDate) <= new Date(lesson.startTime))
+            ) {
+              return false;
+            }
+
             const reachedLimit = await hasReachedSubscriptionLimit(
               subscription,
-              req.payload
+              req.payload,
+              new Date(lesson.startTime)
             );
             if (reachedLimit) return false;
 
@@ -185,7 +196,7 @@ export const renderUpdateAccess = (
           //TODO: Import check if the user has a subscription plan that is allowed for this lesson from shared-services
 
           try {
-            const userSubscription = await req.payload.find({
+            const userSubscription = (await req.payload.find({
               collection: "subscriptions" as CollectionSlug,
               where: {
                 user: { equals: user.id },
@@ -193,14 +204,25 @@ export const renderUpdateAccess = (
                 endDate: { greater_than: new Date() },
               },
               limit: 1,
-            });
+            })) as unknown as { docs: Subscription[] };
 
             if (userSubscription.docs.length === 0) return false;
 
-            const subscription = userSubscription.docs[0];
+            const subscription = userSubscription.docs[0] as Subscription;
+
+            if (
+              (subscription.endDate &&
+                new Date(subscription.endDate) <= new Date()) ||
+              (subscription.endDate &&
+                new Date(subscription.endDate) >= new Date(lesson.startTime))
+            ) {
+              return false;
+            }
+
             const reachedLimit = await hasReachedSubscriptionLimit(
               subscription,
-              req.payload
+              req.payload,
+              new Date(lesson.startTime)
             );
             if (reachedLimit) return false;
 

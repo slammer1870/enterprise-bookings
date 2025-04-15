@@ -20,6 +20,7 @@ type ResetPassword = (args: {
 type ForgotPassword = (args: { email: string }) => Promise<void>; // eslint-disable-line no-unused-vars
 
 type Create = (args: {
+  name?: string;
   email: string;
   password: string;
   passwordConfirm: string;
@@ -61,13 +62,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [status, setStatus] = useState<undefined | "loggedOut" | "loggedIn">();
   const create = useCallback<Create>(async (args) => {
     try {
-      const res = await fetch(`/api/users/create`, {
+      const res = await fetch(`/api/users`, {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name: args.name,
           email: args.email,
           password: args.password,
           passwordConfirm: args.passwordConfirm,
@@ -80,10 +82,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(data?.loginUser?.user);
         setStatus("loggedIn");
       } else {
-        throw new Error("Invalid login");
+        const { errors } = await res.json();
+        throw new Error(
+          errors[0].message || "An error occurred while registering user."
+        );
       }
     } catch (e) {
-      throw new Error("An error occurred while attempting to login.");
+      throw new Error(
+        (e as string) || "An error occurred while attempting to login."
+      );
     }
   }, []);
 
@@ -133,9 +140,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return user;
       }
 
-      throw new Error("Invalid login");
+      const { user, errors } = await res.json();
+
+      throw new Error(errors[0].message || "Invalid login");
     } catch (e) {
-      throw new Error("An error occurred while attempting to login.");
+      throw new Error(
+        (e as string) || "An error occurred while attempting to login."
+      );
     }
   }, []);
 

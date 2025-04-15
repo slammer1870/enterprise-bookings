@@ -38,6 +38,7 @@ export interface Plan {
   stripeProductId?: string | null;
   priceJSON?: string | null;
   isSubscribed?: boolean | null;
+  status: "active" | "inactive";
   updatedAt: string;
   createdAt: string;
 }

@@ -154,7 +154,6 @@ export const generateLessonsFromSchedule = async (
     defaultClassOption,
     lockOutTime,
   } = doc;
-  console.log("doc", doc);
   if (!startDate || !endDate || !schedule) {
     return;
   }

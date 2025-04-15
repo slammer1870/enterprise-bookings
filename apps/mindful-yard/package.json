@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@payloadcms/db-postgres": "*",
-    "@payloadcms/email-resend": "^3.28.1",
+    "@payloadcms/email-resend": "3.31.0",
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/plugin-seo": "3.31.0",
@@ -24,7 +24,7 @@
     "dotenv": "^16.4.7",
     "graphql": "^16.10.0",
     "lucide-react": "0.475.0",
-    "next": "15.2.2",
+    "next": "15.2.4",
     "next-plausible": "^3.12.4",
     "payload": "*",
     "pnpm": "^10.7.0",

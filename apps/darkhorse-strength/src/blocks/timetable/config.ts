@@ -72,7 +72,7 @@ export const Timetable: Block = {
     },
     {
       name: 'legend',
-      type: 'richText',
+      type: 'text',
       required: true,
       label: 'Legend Text',
     },

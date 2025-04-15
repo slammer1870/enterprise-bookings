@@ -98,11 +98,21 @@ export const plansCollection: CollectionConfig = {
       name: "priceJSON",
       type: "textarea",
       admin: {
-        hidden: true,
+        hidden: false,
         readOnly: true,
         rows: 10,
       },
       label: "Price JSON",
+    },
+    {
+      name: "status",
+      type: "select",
+      options: ["active", "inactive"],
+      defaultValue: "active",
+      admin: {
+        description: "Status of the plan",
+      },
+      required: true,
     },
   ],
   hooks: {

@@ -12,6 +12,10 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
 import { rolesPlugin } from '@repo/roles'
+import { magicLinkPlugin } from '@repo/auth'
+import { bookingsPlugin } from '@repo/bookings'
+import { paymentsPlugin } from '@repo/payments'
+import { membershipsPlugin } from '@repo/memberships'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -38,8 +42,30 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    magicLinkPlugin({
+      enabled: true,
+      appName: 'Darkhorse Strength',
+      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
+      authCollection: 'users',
+    }),
     rolesPlugin({
       enabled: true,
+    }),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: false,
+      acceptedPaymentMethods: ['card'],
+    }),
+    membershipsPlugin({
+      enabled: true,
+    }),
+    bookingsPlugin({
+      enabled: true,
+      paymentMethods: {
+        dropIns: false,
+        plans: true,
+        classPasses: false,
+      },
     }),
     // storage-adapter-placeholder
   ],

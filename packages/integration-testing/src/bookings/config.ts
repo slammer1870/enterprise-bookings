@@ -69,7 +69,7 @@ export const config: Config = {
     paymentsPlugin({
       enabled: true,
       enableDropIns: true,
-      acceptedPaymentMethods: ["cash"],
+      acceptedPaymentMethods: ["cash", "card"],
     }),
     membershipsPlugin({
       enabled: true,
@@ -78,7 +78,7 @@ export const config: Config = {
       enabled: true,
       paymentMethods: {
         dropIns: true,
-        plans: false,
+        plans: true,
         classPasses: false,
       },
     }),
