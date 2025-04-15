@@ -18,7 +18,14 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
 import { ClassOption, Lesson, User } from "@repo/shared-types";
-import { addDays, subDays, startOfDay, formatISO, getDay } from "date-fns";
+import {
+  addDays,
+  subDays,
+  startOfDay,
+  formatISO,
+  getDay,
+  addHours,
+} from "date-fns";
 
 // Import the generation function directly
 import { generateLessonsFromSchedule } from "../src/globals/scheduler";
@@ -419,8 +426,8 @@ describe("Scheduler tests", () => {
               isActive: true,
               slots: [
                 {
-                  startTime: new Date("2023-01-01T11:00:00"),
-                  endTime: new Date("2023-01-01T12:00:00"),
+                  startTime: new Date(startDate.setHours(11, 0, 0)),
+                  endTime: new Date(addHours(startDate, 12)),
                   classOption: classOption.id,
                   location: "Main Studio",
                 },
