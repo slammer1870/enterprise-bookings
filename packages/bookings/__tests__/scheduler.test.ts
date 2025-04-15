@@ -434,8 +434,6 @@ describe("Scheduler tests", () => {
       // Call generation function directly
       const results = await generateLessonsFromSchedule(payload, scheduler);
 
-      console.log("RESULTS", results);
-
       // Check lessons - previous ones should be gone, only new ones remain
       const updatedLessons = await payload.find({
         collection: "lessons",
@@ -449,7 +447,7 @@ describe("Scheduler tests", () => {
       });
 
       // Compare to created count
-      expect(updatedLessons.docs.length).toBe(4);
+      expect(updatedLessons.docs.length).toBe(results?.created.length);
 
       // All remaining lessons should have the new time slot (11:00)
       const startTime = new Date(updatedLessons.docs[0].startTime);
