@@ -395,10 +395,10 @@ describe("Scheduler tests", () => {
           data: {
             date: formatISO(addDays(startDate, i), { representation: "date" }),
             startTime: new Date(
-              addDays(startDate, i).setHours(9, 0, 0)
+              addDays(startDate, i).setHours(22, 0, 0)
             ).toISOString(),
             endTime: new Date(
-              addDays(startDate, i).setHours(10, 0, 0)
+              addDays(startDate, i).setHours(23, 0, 0)
             ).toISOString(),
             classOption: classOption.id,
             location: "Test Studio",
@@ -440,10 +440,10 @@ describe("Scheduler tests", () => {
       };
 
       // Configure scheduler with clearExisting option
-      const scheduler = await payload.updateGlobal({
-        slug: "scheduler",
-        data: schedule,
-      });
+      //const scheduler = await payload.updateGlobal({
+      //  slug: "scheduler",
+      //  data: schedule,
+      //});
 
       // Call generation function directly
       const results = await generateLessonsFromSchedule(payload, schedule);
