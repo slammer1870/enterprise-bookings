@@ -1,0 +1,18 @@
+{
+  "name": "@repo/e2e-mindful-yard",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev:e2e": "playwright test",
+    "e2e": "start-server-and-test \"(cd ../../apps/mindful-yard && npm run start)\" http://localhost:3000 \"playwright test\""
+  },
+  "dependencies": {
+    "playwright": "^1.51.1",
+    "start-server-and-test": "^2.0.11",
+    "mindful-yard": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.51.1",
+    "@repo/typescript-config": "workspace:*"
+  }
+}
