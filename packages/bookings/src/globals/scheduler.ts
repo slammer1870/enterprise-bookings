@@ -180,12 +180,12 @@ export const generateLessonsFromSchedule = async (
         and: [
           {
             date: {
-              greater_than_equal: start.toUTCString(),
+              greater_than_equal: start.toISOString(),
             },
           },
           {
             date: {
-              less_than_equal: end.toUTCString(),
+              less_than_equal: end.toISOString(),
             },
           },
         ],
