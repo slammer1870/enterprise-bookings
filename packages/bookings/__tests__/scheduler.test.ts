@@ -27,6 +27,8 @@ import {
   addHours,
 } from "date-fns";
 
+import { TZDate } from "@date-fns/tz";
+
 // Import the generation function directly
 import { generateLessonsFromSchedule } from "../src/globals/scheduler";
 
@@ -426,8 +428,8 @@ describe("Scheduler tests", () => {
             isActive: true,
             slots: [
               {
-                startTime: new Date("2023-01-01T09:00:00"),
-                endTime: new Date("2023-01-01T10:00:00"),
+                startTime: new TZDate("2023-01-01T09:00:00", "Europe/Dublin"),
+                endTime: new TZDate("2023-01-01T10:00:00", "Europe/Dublin"),
                 classOption: classOption.id,
                 location: "Main Studio",
               },
