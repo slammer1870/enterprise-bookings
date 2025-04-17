@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import Image from 'next/image'
+
 import HeroLogo from '@/logos/hero-logo'
 
 import { VideoModal } from '@/components/video-modal'
@@ -28,7 +30,17 @@ export const HeroBlock = (props: HeroBlockProps) => {
         <HeroLogo />
         <div>
           <div className="my-6">
-            <VideoModal image={image} videoSrc={video.url || ''} />
+            <div className="relative">
+              <Image
+                src={image.url || '/placeholder.svg'}
+                alt={image.alt || ''}
+                width={image.width || 0}
+                height={image.height || 0}
+                className="w-full h-auto aspect-video"
+                priority
+              />
+              <VideoModal videoSrc={video.url || ''} />
+            </div>
           </div>
         </div>
         <p className="text-xl text-center">{tagline}</p>
