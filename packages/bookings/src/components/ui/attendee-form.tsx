@@ -117,7 +117,7 @@ export function AttendeeForm({
 
               <div className="grid gap-2">
                 <Label htmlFor={`email-${attendee.id}`}>
-                  Email (for their booking confirmation)
+                  Email (for booking confirmation)
                 </Label>
                 <div>
                   <Input
