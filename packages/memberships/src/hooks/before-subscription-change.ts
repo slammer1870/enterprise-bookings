@@ -19,7 +19,7 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
     return newDoc;
   }
 
-  if (!data.stripeSubscriptionID) {
+  if (!data.stripeSubscriptionId) {
     if (logs)
       payload.logger.info(
         `No Stripe product assigned to this document, skipping product 'beforeChange' hook`
@@ -31,7 +31,7 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
 
   try {
     const stripeSubscription = await stripe.subscriptions.retrieve(
-      data.stripeSubscriptionID
+      data.stripeSubscriptionId
     );
     if (logs)
       payload.logger.info(

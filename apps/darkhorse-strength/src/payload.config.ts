@@ -16,6 +16,7 @@ import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
+import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -66,6 +67,9 @@ export default buildConfig({
         plans: true,
         classPasses: false,
       },
+    }),
+    stripePlugin({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
     }),
     // storage-adapter-placeholder
   ],
