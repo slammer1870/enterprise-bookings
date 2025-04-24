@@ -210,14 +210,18 @@ export const renderUpdateAccess = (
 
             const subscription = userSubscription.docs[0] as Subscription;
 
+            console.log("PRE DATE CHECK");
+
             if (
               (subscription.endDate &&
                 new Date(subscription.endDate) <= new Date()) ||
               (subscription.endDate &&
-                new Date(subscription.endDate) >= new Date(lesson.startTime))
+                new Date(subscription.endDate) <= new Date(lesson.startTime))
             ) {
               return false;
             }
+
+            console.log("PASSING DATE CHECK");
 
             const reachedLimit = await hasReachedSubscriptionLimit(
               subscription,
