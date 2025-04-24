@@ -23,6 +23,8 @@ export const createCheckoutSession: PayloadHandler = async (
 
   const { price, quantity = 1, metadata } = await req.json();
 
+  console.log("METADATA FROM ENDPOINT", metadata);
+
   try {
     const checkoutSession: Stripe.Checkout.Session =
       await stripe.checkout.sessions.create({
@@ -36,7 +38,9 @@ export const createCheckoutSession: PayloadHandler = async (
         customer: user.stripeCustomerId || undefined,
         success_url: `${(await headers()).get("origin")}`,
         cancel_url: `${(await headers()).get("origin")}`,
-        metadata: metadata,
+        subscription_data: {
+          metadata: metadata,
+        },
       });
 
     return new Response(

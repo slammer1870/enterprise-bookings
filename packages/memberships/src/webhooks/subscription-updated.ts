@@ -17,7 +17,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
   try {
     const user = await payload.find({
       collection: "users",
-      where: { stripeCustomerID: { equals: customer } },
+      where: { stripeCustomerId: { equals: customer } },
       limit: 1,
     });
 
@@ -27,7 +27,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
     const plan = await payload.find({
       collection: "plans",
-      where: { stripePlanID: { equals: planId } },
+      where: { stripeProductId: { equals: planId } },
       limit: 1,
     });
 
@@ -38,8 +38,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     const subscription = await payload.find({
       collection: "subscriptions",
       where: {
-        user: { equals: user.docs[0]?.id },
-        stripeSubscriptionID: { equals: event.data.object.id },
+        stripeSubscriptionId: { equals: event.data.object.id },
       },
     });
 
@@ -83,6 +82,6 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       }
     }
   } catch (error) {
-    console.error("Error creating subscription", error);
+    console.error("Error updating subscription", error);
   }
 };

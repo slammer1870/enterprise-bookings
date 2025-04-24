@@ -12,12 +12,14 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
   const planId = event.data.object.items.data[0]?.plan?.product;
 
+  console.log(event.data.object);
+
   const { lesson_id } = event.data.object.metadata;
 
   try {
     const user = await payload.find({
       collection: "users",
-      where: { stripeCustomerID: { equals: customer } },
+      where: { stripeCustomerId: { equals: customer } },
       limit: 1,
     });
 
@@ -27,7 +29,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
     const plan = await payload.find({
       collection: "plans",
-      where: { stripePlanID: { equals: planId } },
+      where: { stripeProductId: { equals: planId } },
       limit: 1,
     });
 
@@ -41,7 +43,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
         user: user.docs[0]?.id,
         plan: plan.docs[0]?.id,
         status: "active",
-        stripeSubscriptionID: event.data.object.id,
+        stripeSubscriptionId: event.data.object.id,
       },
     });
 
