@@ -8,7 +8,13 @@ import { Lesson } from "@repo/shared-types";
 
 import CheckInButton from "./checkin-button";
 
-export function LessonDetail({ lesson }: { lesson: Lesson }) {
+export function LessonDetail({
+  lesson,
+  checkinButton,
+}: {
+  lesson: Lesson;
+  checkinButton: React.ReactNode;
+}) {
   return (
     <div
       className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"

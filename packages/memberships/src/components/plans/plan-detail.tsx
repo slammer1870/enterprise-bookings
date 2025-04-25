@@ -28,14 +28,10 @@ export const PlanDetail = ({ plan }: { plan: Plan }) => {
 
   const params = useParams();
 
-  console.log("PARAMS", params);
-
   const metadata =
     pathname.split("/")[1] === "bookings" && params.id
       ? { lesson_id: params.id as string }
       : undefined;
-
-  console.log("METADATA", metadata);
 
   return (
     <Card>
