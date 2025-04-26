@@ -27,6 +27,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
     const subscription = await payload.find({
       collection: "subscriptions",
+      depth: 2,
       where: {
         stripeSubscriptionId: { equals: event.data.object.id },
       },
@@ -43,6 +44,22 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         status: event.data.object.status,
       },
     });
+
+    const plan = await payload.find({
+      collection: "plans",
+      where: { stripeProductId: { equals: planId } },
+      limit: 1,
+    });
+
+    if (plan.docs[0]?.id) {
+      await payload.update({
+        collection: "subscriptions",
+        id: subscription.docs[0]?.id as string,
+        data: {
+          plan: plan.docs[0]?.id,
+        },
+      });
+    }
 
     if (lesson_id) {
       const booking = await payload.find({

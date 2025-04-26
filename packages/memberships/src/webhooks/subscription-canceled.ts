@@ -49,6 +49,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       id: subscription.docs[0]?.id as string,
       data: {
         status: "canceled",
+        endDate: new Date().toISOString(),
       },
     });
   } catch (error) {

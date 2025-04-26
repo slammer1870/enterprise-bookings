@@ -37,7 +37,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
       throw new Error("Plan not found");
     }
 
-    const subscription = await payload.create({
+    await payload.create({
       collection: "subscriptions",
       data: {
         user: user.docs[0]?.id,
