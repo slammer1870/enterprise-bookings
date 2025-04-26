@@ -25,16 +25,6 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       throw new Error("User not found");
     }
 
-    const plan = await payload.find({
-      collection: "plans",
-      where: { stripeProductId: { equals: planId } },
-      limit: 1,
-    });
-
-    if (plan.totalDocs === 0) {
-      throw new Error("Plan not found");
-    }
-
     const subscription = await payload.find({
       collection: "subscriptions",
       where: {
