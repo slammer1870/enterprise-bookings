@@ -4,7 +4,7 @@ import { Access } from "payload";
 
 import { BookingsPluginConfig } from "../types";
 
-import { Booking, Lesson, User, Subscription } from "@repo/shared-types";
+import { Booking, Lesson, User, Subscription, Plan } from "@repo/shared-types";
 
 import { hasReachedSubscriptionLimit } from "@repo/shared-services";
 
@@ -63,12 +63,23 @@ export const renderCreateAccess = (
                 status: { equals: "active" },
                 endDate: { greater_than: new Date() },
               },
+              depth: 2,
               limit: 1,
             });
 
             if (userSubscription.docs.length === 0) return false;
 
-            const subscription = userSubscription.docs[0] as Subscription;
+            const subscription = userSubscription.docs[0] as Subscription & {
+              plan: Plan;
+            };
+
+            if (
+              !lesson.classOption.paymentMethods.allowedPlans.some(
+                (plan) => plan.id == subscription.plan.id
+              )
+            ) {
+              return false;
+            }
 
             if (
               (subscription.endDate &&
@@ -203,14 +214,23 @@ export const renderUpdateAccess = (
                 status: { equals: "active" },
                 endDate: { greater_than: new Date() },
               },
+              depth: 2,
               limit: 1,
             })) as unknown as { docs: Subscription[] };
 
             if (userSubscription.docs.length === 0) return false;
 
-            const subscription = userSubscription.docs[0] as Subscription;
+            const subscription = userSubscription.docs[0] as Subscription & {
+              plan: Plan;
+            };
 
-            console.log("PRE DATE CHECK");
+            if (
+              !lesson.classOption.paymentMethods.allowedPlans.some(
+                (plan) => plan.id == subscription.plan.id
+              )
+            ) {
+              return false;
+            }
 
             if (
               (subscription.endDate &&

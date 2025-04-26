@@ -12,14 +12,12 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
   const planId = event.data.object.items.data[0]?.plan?.product;
 
-  console.log(event.data.object);
-
   const { lesson_id } = event.data.object.metadata;
 
   try {
     const user = await payload.find({
       collection: "users",
-      where: { stripeCustomerId: { equals: customer } },
+      where: { stripeCustomerId: { equals: customer as string } },
       limit: 1,
     });
 
@@ -29,7 +27,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
     const plan = await payload.find({
       collection: "plans",
-      where: { stripeProductId: { equals: planId } },
+      where: { stripeProductId: { equals: planId as string } },
       limit: 1,
     });
 
@@ -40,10 +38,10 @@ export const subscriptionCreated: StripeWebhookHandler<{
     await payload.create({
       collection: "subscriptions",
       data: {
-        user: user.docs[0]?.id,
-        plan: plan.docs[0]?.id,
+        user: user.docs[0]?.id as string,
+        plan: plan.docs[0]?.id as string,
         status: "active",
-        stripeSubscriptionId: event.data.object.id,
+        stripeSubscriptionId: event.data.object.id as string,
       },
     });
 
@@ -51,8 +49,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
       const booking = await payload.find({
         collection: "bookings",
         where: {
-          user: { equals: user.docs[0]?.id },
-          lesson: { equals: lesson_id },
+          user: { equals: user.docs[0]?.id as string },
+          lesson: { equals: lesson_id as string },
         },
         limit: 1,
       });
@@ -61,8 +59,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson_id,
-            user: user.docs[0]?.id,
+            lesson: lesson_id as string,
+            user: user.docs[0]?.id as string,
             status: "confirmed",
           },
         });

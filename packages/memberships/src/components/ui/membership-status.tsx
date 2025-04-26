@@ -11,7 +11,9 @@ type SubscriptionWithDates = Subscription & {
 };
 
 type MembershipStatusProps = {
-  subscription: Subscription;
+  subscription: Subscription & {
+    plan: Plan;
+  };
   allowedPlans: Plan[];
   lesson: Lesson;
   payload: BasePayload;
@@ -74,7 +76,9 @@ export const MembershipStatus = ({
   }
 
   // Check if current plan is allowed for this lesson
-  const isAllowedPlan = allowedPlans?.includes(subscription.plan as Plan);
+  const isAllowedPlan = allowedPlans?.some(
+    (plan) => plan.id == subscription.plan.id
+  );
   if (!isAllowedPlan) {
     return (
       <>
@@ -83,7 +87,9 @@ export const MembershipStatus = ({
           class. Please upgrade to one of the following plans:
         </p>
         <PlanList
-          plans={allowedPlans.filter((plan) => plan !== subscription.plan)}
+          plans={allowedPlans.filter(
+            (plan) => plan.id !== subscription.plan.id
+          )}
         />
       </>
     );
