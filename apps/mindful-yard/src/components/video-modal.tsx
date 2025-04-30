@@ -4,27 +4,17 @@ import { useState } from 'react'
 import { Play, X } from 'lucide-react'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@repo/ui/components/ui/dialog'
 import { Button } from '@repo/ui/components/ui/button'
-import Image from 'next/image'
 import { Media } from '@/payload-types'
 
 interface VideoModalProps {
-  image: Media
   videoSrc: string
 }
 
-export function VideoModal({ image, videoSrc }: VideoModalProps) {
+export function VideoModal({ videoSrc }: VideoModalProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
-    <div className="relative">
-      <Image
-        src={image.url || '/placeholder.svg'}
-        alt={image.alt || ''}
-        width={image.width || 0}
-        height={image.height || 0}
-        className="w-full h-auto aspect-video"
-        priority
-      />
+    <>
       <div
         className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center transition-opacity hover:bg-opacity-50 p-4"
         onClick={() => setIsModalOpen(true)}
@@ -51,6 +41,6 @@ export function VideoModal({ image, videoSrc }: VideoModalProps) {
           </video>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

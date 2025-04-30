@@ -1,6 +1,8 @@
 import { GlobalConfig, Field, Payload } from "payload";
 import { formatISO, addDays, format } from "date-fns";
 
+import { TZDate } from "@date-fns/tz";
+
 import { checkRole } from "@repo/shared-utils";
 
 import { User } from "@repo/shared-types";
@@ -158,6 +160,9 @@ export const generateLessonsFromSchedule = async (
     return;
   }
 
+  const timeZone =
+    payload.config.admin.timezones.defaultTimezone || "Europe/Dublin";
+
   const start = new Date(startDate);
   const end = new Date(endDate);
 
@@ -175,12 +180,12 @@ export const generateLessonsFromSchedule = async (
         and: [
           {
             date: {
-              greater_than_equal: start.toUTCString(),
+              greater_than_equal: start.toISOString(),
             },
           },
           {
             date: {
-              less_than_equal: end.toUTCString(),
+              less_than_equal: end.toISOString(),
             },
           },
         ],
@@ -241,27 +246,29 @@ export const generateLessonsFromSchedule = async (
         // Create the start and end times for this lesson
         if (!slot.startTime || !slot.endTime) continue;
 
-        const startTimeObj = new Date(slot.startTime);
-        const endTimeObj = new Date(slot.endTime);
+        const startTimeObj = new TZDate(slot.startTime, timeZone);
+        const endTimeObj = new TZDate(slot.endTime, timeZone);
 
-        const lessonStartTime = new Date(currentDate);
+        const lessonStartTime = new TZDate(currentDate, timeZone);
         lessonStartTime.setHours(startTimeObj.getHours());
         lessonStartTime.setMinutes(startTimeObj.getMinutes());
         lessonStartTime.setSeconds(0);
         lessonStartTime.setMilliseconds(0);
 
-        const lessonEndTime = new Date(currentDate);
+        const lessonEndTime = new TZDate(currentDate, timeZone);
         lessonEndTime.setHours(endTimeObj.getHours());
         lessonEndTime.setMinutes(endTimeObj.getMinutes());
         lessonEndTime.setSeconds(0);
         lessonEndTime.setMilliseconds(0);
 
         // Add these lines to ensure consistent timezone handling
-        const finalStartTime = new Date(
-          formatISO(lessonStartTime, { representation: "complete" })
+        const finalStartTime = new TZDate(
+          formatISO(lessonStartTime, { representation: "complete" }),
+          timeZone
         );
-        const finalEndTime = new Date(
-          formatISO(lessonEndTime, { representation: "complete" })
+        const finalEndTime = new TZDate(
+          formatISO(lessonEndTime, { representation: "complete" }),
+          timeZone
         );
 
         // Check for conflicts with existing lessons
@@ -276,8 +283,8 @@ export const generateLessonsFromSchedule = async (
 
         let hasConflict = false;
         for (const existing of existingLessons.docs) {
-          const existingStart = new Date(existing.startTime);
-          const existingEnd = new Date(existing.endTime);
+          const existingStart = new TZDate(existing.startTime, timeZone);
+          const existingEnd = new TZDate(existing.endTime, timeZone);
 
           // Check if this lesson overlaps with an existing one
           if (
@@ -302,9 +309,9 @@ export const generateLessonsFromSchedule = async (
           const newLesson = await payload.create({
             collection: "lessons",
             data: {
-              date: currentDate.toUTCString(),
-              startTime: finalStartTime.toUTCString(),
-              endTime: finalEndTime.toUTCString(),
+              date: currentDate.toISOString(),
+              startTime: finalStartTime.toISOString(),
+              endTime: finalEndTime.toISOString(),
               classOption: slot.classOption || defaultClassOption,
               location: slot.location,
               instructor: slot.instructor?.id,
