@@ -23,10 +23,6 @@ export const createCheckoutSession: PayloadHandler = async (
 
   const { price, quantity = 1, metadata } = await req.json();
 
-  console.log("METADATA FROM ENDPOINT", metadata);
-
-  console.log("origin", (await headers()).get("origin"));
-
   const origin =
     (await headers()).get("origin") ||
     process.env.NEXT_PUBLIC_SERVER_URL ||

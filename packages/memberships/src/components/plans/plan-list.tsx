@@ -10,7 +10,7 @@ type PlanListProps = {
   onAction: (
     planId: string,
     metadata?: { [key: string]: string | undefined }
-  ) => void;
+  ) => Promise<void>;
 };
 
 export const PlanList = ({ plans, actionLabel, onAction }: PlanListProps) => {

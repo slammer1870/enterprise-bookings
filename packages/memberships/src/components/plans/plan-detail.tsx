@@ -12,19 +12,19 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, Loader2 } from "lucide-react";
 
 import { Price } from "../price";
 
 import { Button } from "@repo/ui/components/ui/button";
-
+import { useState } from "react";
 type PlanDetailProps = {
   plan: Plan;
   actionLabel: string;
   onAction: (
     planId: string,
     metadata?: { [key: string]: string | undefined }
-  ) => void;
+  ) => Promise<void>;
 };
 
 export const PlanDetail = ({
@@ -32,6 +32,7 @@ export const PlanDetail = ({
   actionLabel,
   onAction,
 }: PlanDetailProps) => {
+  const [loading, setLoading] = useState(false);
   const priceData = plan.priceJSON
     ? JSON.parse(plan.priceJSON as string)
     : null;
@@ -46,8 +47,13 @@ export const PlanDetail = ({
       ? { lesson_id: params.id as string }
       : undefined;
 
-  const handleAction = () => {
-    onAction(id, metadata);
+  const handleAction = async () => {
+    setLoading(true);
+    try {
+      await onAction(id, metadata);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,7 +76,9 @@ export const PlanDetail = ({
         ))}
       </CardContent>
       <CardFooter>
-        <Button onClick={handleAction}>{actionLabel}</Button>
+        <Button onClick={handleAction} disabled={loading} className="w-full">
+          {loading ? "Loading..." : actionLabel}
+        </Button>
       </CardFooter>
     </Card>
   );

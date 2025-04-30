@@ -16,7 +16,7 @@ import config from '@payload-config'
 
 import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
-import { Plan } from '@repo/shared-types'
+import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
@@ -122,8 +122,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
       const data = await response.json()
 
-      console.log('data', data)
-
       if (data.url) {
         redirect(data.url)
       } else {
@@ -160,7 +158,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
                   <div>
                     {!allowedPlans.some((plan) => plan.id === subscription.plan.id) ? (
                       <>
-                        <p>
+                        <p className="text-sm text-muted-foreground mb-2">
                           You do not have a plan that allows you to book into this lesson, please
                           upgrade your plan to continue
                         </p>
@@ -172,17 +170,30 @@ export default async function BookingPage({ params }: BookingPageProps) {
                       </>
                     ) : (
                       <>
-                        {subscription.status === 'unpaid' && (
-                          <p>Please pay your subscription to continue</p>
-                        )}
-                        {new Date(subscription.endDate) < new Date(lesson.date) && (
-                          <p>{`Please wait for your subscription to renew on ${new Date(subscription.endDate).toLocaleDateString()} before booking again`}</p>
-                        )}
                         {(await hasReachedSubscriptionLimit(
                           subscription,
                           payload,
                           new Date(lesson.startTime),
-                        )) && <p>You have reached the limit of your subscription</p>}
+                        )) && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            You have reached the limit of your subscription
+                          </p>
+                        )}
+                        {subscription.status === 'unpaid' && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Please pay your subscription to continue
+                          </p>
+                        )}
+                        {new Date(subscription.endDate) < new Date(lesson.date) && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {`Your subscription will renew on ${new Date(subscription.endDate).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}
+                          </p>
+                        )}
+                        <PlanDetail
+                          plan={subscription.plan}
+                          actionLabel="Manage Subscription"
+                          onAction={handlePlanPurchase}
+                        />
                       </>
                     )}
                   </div>
