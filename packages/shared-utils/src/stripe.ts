@@ -3,9 +3,9 @@
 import Stripe from "stripe";
 
 export const stripe = new Stripe(
-  process.env.STRIPE_SECRET_KEY || "sk_test_1txjIPtYBUuqu9QKdSrdL9ml",
+  process.env.STRIPE_SECRET_KEY ||
+    "sk_test_51RJd8wQ1eJoLeXYetPtC4B7zSH6dj3xNhj4GcScG6xZ6TjaUxowuXYnW16w52e65cfRKirNlElrVsqixRti9Ovnf00ZZLGOPxf",
   {
-    // https://github.com/stripe/stripe-node#configuration
     apiVersion: "2025-02-24.acacia",
   }
 );

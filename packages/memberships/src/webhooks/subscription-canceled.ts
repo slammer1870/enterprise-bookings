@@ -46,7 +46,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
 
     await payload.update({
       collection: "subscriptions",
-      id: subscription.docs[0]?.id as string,
+      id: subscription.docs[0]?.id as number,
       data: {
         status: "canceled",
         endDate: new Date().toISOString(),

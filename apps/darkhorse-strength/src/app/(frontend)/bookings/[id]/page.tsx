@@ -107,7 +107,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
     const subscription = subscriptionQuery.docs[0]
 
     const handlePlanPurchase = async (
-      planId: string,
+      planId?: string,
       metadata?: { [key: string]: string | undefined },
     ) => {
       'use server'

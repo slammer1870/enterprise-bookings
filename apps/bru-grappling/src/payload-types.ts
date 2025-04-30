@@ -241,6 +241,10 @@ export interface Plan {
   interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
   stripeProductId?: string | null;
   priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
   updatedAt: string;
   createdAt: string;
 }
@@ -290,7 +294,6 @@ export interface ClassOption {
   description: string;
   paymentMethods?: {
     allowedDropIns?: (number | null) | DropIn;
-    allowedPlans?: (number | Plan)[] | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -497,6 +500,7 @@ export interface PlansSelect<T extends boolean = true> {
   interval?: T;
   stripeProductId?: T;
   priceJSON?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -530,7 +534,6 @@ export interface ClassOptionsSelect<T extends boolean = true> {
     | T
     | {
         allowedDropIns?: T;
-        allowedPlans?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -624,7 +627,7 @@ export interface Scheduler {
   /**
    * Default class type to use when creating lessons (can be overridden per slot)
    */
-  defaultClassOption?: (number | null) | ClassOption;
+  defaultClassOption: number | ClassOption;
   /**
    * Set up your recurring lessons for each day of the week
    */

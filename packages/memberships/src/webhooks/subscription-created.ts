@@ -38,8 +38,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
     await payload.create({
       collection: "subscriptions",
       data: {
-        user: user.docs[0]?.id as string,
-        plan: plan.docs[0]?.id as string,
+        user: user.docs[0]?.id as number,
+        plan: plan.docs[0]?.id as number,
         status: "active",
         stripeSubscriptionId: event.data.object.id as string,
       },
@@ -49,8 +49,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
       const booking = await payload.find({
         collection: "bookings",
         where: {
-          user: { equals: user.docs[0]?.id as string },
-          lesson: { equals: lesson_id as string },
+          user: { equals: user.docs[0]?.id as number },
+          lesson: { equals: lesson_id as unknown as number },
         },
         limit: 1,
       });
@@ -59,15 +59,15 @@ export const subscriptionCreated: StripeWebhookHandler<{
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson_id as string,
-            user: user.docs[0]?.id as string,
+            lesson: lesson_id as unknown as number,
+            user: user.docs[0]?.id as number,
             status: "confirmed",
           },
         });
       } else {
         await payload.update({
           collection: "bookings",
-          id: booking.docs[0]?.id as string,
+          id: booking.docs[0]?.id as number,
           data: { status: "confirmed" },
         });
       }
