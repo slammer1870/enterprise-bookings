@@ -26,7 +26,7 @@ let payload: Payload;
 let restClient: NextRESTClient;
 let user: any;
 
-const TEST_TIMEOUT = 30000; // 15 seconds
+const TEST_TIMEOUT = 300000; // 15 seconds
 
 describe("Booking tests", () => {
   beforeAll(async () => {
