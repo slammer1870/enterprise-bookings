@@ -38,7 +38,14 @@ export const createCustomerPortal: PayloadHandler = async (
         return_url: `${origin}/dashboard`,
       });
 
-    return redirect(portalSession.url);
+    return new Response(
+      JSON.stringify({
+        url: portalSession.url,
+      }),
+      {
+        status: 200,
+      }
+    );
   } catch (error) {
     console.log("ERROR", error);
     return new Response(

@@ -78,7 +78,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
     // Handle active/trialable status
     if (['active', 'trialable'].includes(lesson.bookingStatus)) {
-      const checkIn = await checkInAction(id, user.id)
+      const checkIn = await checkInAction(lesson.id, user.id)
       if (checkIn.success) {
         redirect('/dashboard')
       }
@@ -133,10 +133,16 @@ export default async function BookingPage({ params }: BookingPageProps) {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
         {
+          method: 'POST',
           headers: { Authorization: `JWT ${token}` },
         },
       )
-      redirect(response.url)
+      const data = await response.json()
+
+      if (data.url) {
+        redirect(data.url)
+      } else {
+      }
     }
 
     return (
@@ -190,11 +196,13 @@ export default async function BookingPage({ params }: BookingPageProps) {
                             You have reached the limit of your subscription
                           </p>
                         )}
-                        {subscription.status === 'unpaid' && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Please pay your subscription to continue
-                          </p>
-                        )}
+                        {subscription.status === 'unpaid' ||
+                          (subscription.status === 'past_due' && (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Your Subscription is past due. Please pay your subscription to
+                              continue.
+                            </p>
+                          ))}
                         {new Date(subscription.endDate) < new Date(lesson.date) && (
                           <p className="text-sm text-muted-foreground mb-2">
                             {`Your subscription will renew on ${new Date(subscription.endDate).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}

@@ -28,8 +28,8 @@ export const createCheckoutSession: PayloadHandler = async (
     process.env.NEXT_PUBLIC_SERVER_URL ||
     "http://localhost:3000";
 
-  const successUrl = `${origin}/success`;
-  const cancelUrl = `${origin}/cancel`;
+  const successUrl = `${origin}/dashboard`;
+  const cancelUrl = `${origin}/dashboard`;
 
   try {
     const checkoutSession: Stripe.Checkout.Session =
