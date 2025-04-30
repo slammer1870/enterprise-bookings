@@ -26,11 +26,16 @@ export const createCustomerPortal: PayloadHandler = async (
     throw new APIError("User has no Stripe customer ID", 400);
   }
 
+  const origin =
+    (await headers()).get("origin") ||
+    process.env.NEXT_PUBLIC_SERVER_URL ||
+    "http://localhost:3000";
+
   try {
     const portalSession: Stripe.BillingPortal.Session =
       await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId as string,
-        return_url: `${(await headers()).get("origin")}`,
+        return_url: `${origin}/dashboard`,
       });
 
     return redirect(portalSession.url);

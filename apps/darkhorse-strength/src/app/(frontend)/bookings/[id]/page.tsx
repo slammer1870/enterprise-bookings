@@ -128,6 +128,17 @@ export default async function BookingPage({ params }: BookingPageProps) {
       }
     }
 
+    const handleSubscriptionManagement = async () => {
+      'use server'
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
+        {
+          headers: { Authorization: `JWT ${token}` },
+        },
+      )
+      redirect(response.url)
+    }
+
     return (
       <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-[80vh] pt-24">
         <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
@@ -192,7 +203,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
                         <PlanDetail
                           plan={subscription.plan}
                           actionLabel="Manage Subscription"
-                          onAction={handlePlanPurchase}
+                          onAction={handleSubscriptionManagement}
                         />
                       </>
                     )}
