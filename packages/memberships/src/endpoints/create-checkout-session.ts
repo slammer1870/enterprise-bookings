@@ -25,6 +25,16 @@ export const createCheckoutSession: PayloadHandler = async (
 
   console.log("METADATA FROM ENDPOINT", metadata);
 
+  console.log("origin", (await headers()).get("origin"));
+
+  const origin =
+    (await headers()).get("origin") ||
+    process.env.NEXT_PUBLIC_SERVER_URL ||
+    "http://localhost:3000";
+
+  const successUrl = `${origin}/success`;
+  const cancelUrl = `${origin}/cancel`;
+
   try {
     const checkoutSession: Stripe.Checkout.Session =
       await stripe.checkout.sessions.create({
@@ -36,8 +46,8 @@ export const createCheckoutSession: PayloadHandler = async (
           },
         ],
         customer: user.stripeCustomerId || undefined,
-        success_url: `${(await headers()).get("origin")}`,
-        cancel_url: `${(await headers()).get("origin")}`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         subscription_data: {
           metadata: metadata,
         },

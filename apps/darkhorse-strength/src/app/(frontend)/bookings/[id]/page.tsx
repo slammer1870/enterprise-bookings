@@ -14,8 +14,9 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { MembershipStatus } from '@repo/memberships/src/components/ui/membership-status'
-
+import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
+import { hasReachedSubscriptionLimit } from '@repo/shared-services'
+import { Plan } from '@repo/shared-types'
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
@@ -105,6 +106,30 @@ export default async function BookingPage({ params }: BookingPageProps) {
     const subscriptionQuery = await getSubscriptionData(payload, user.id)
     const subscription = subscriptionQuery.docs[0]
 
+    const handlePlanPurchase = async (
+      planId: string,
+      metadata?: { [key: string]: string | undefined },
+    ) => {
+      'use server'
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-checkout-session`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ price: planId, quantity: 1, metadata }),
+          headers: { Authorization: `JWT ${token}` },
+        },
+      )
+
+      const data = await response.json()
+
+      console.log('data', data)
+
+      if (data.url) {
+        redirect(data.url)
+      } else {
+      }
+    }
+
     return (
       <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-[80vh] pt-24">
         <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
@@ -119,12 +144,51 @@ export default async function BookingPage({ params }: BookingPageProps) {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="membership">
-            <MembershipStatus
-              subscription={subscription}
-              allowedPlans={allowedPlans || []}
-              lesson={lesson}
-              payload={payload}
-            />
+            {!allowedPlans ? (
+              <p className="text-sm text-muted-foreground">
+                No plans are available for this lesson
+              </p>
+            ) : (
+              <div>
+                {!subscription ? (
+                  <PlanList
+                    plans={allowedPlans}
+                    actionLabel="Subscribe"
+                    onAction={handlePlanPurchase}
+                  />
+                ) : (
+                  <div>
+                    {!allowedPlans.some((plan) => plan.id === subscription.plan.id) ? (
+                      <>
+                        <p>
+                          You do not have a plan that allows you to book into this lesson, please
+                          upgrade your plan to continue
+                        </p>
+                        <PlanList
+                          plans={allowedPlans.filter((plan) => plan.id !== subscription.plan.id)}
+                          actionLabel="Upgrade"
+                          onAction={handlePlanPurchase}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        {subscription.status === 'unpaid' && (
+                          <p>Please pay your subscription to continue</p>
+                        )}
+                        {new Date(subscription.endDate) < new Date(lesson.date) && (
+                          <p>{`Please wait for your subscription to renew on ${new Date(subscription.endDate).toLocaleDateString()} before booking again`}</p>
+                        )}
+                        {(await hasReachedSubscriptionLimit(
+                          subscription,
+                          payload,
+                          new Date(lesson.startTime),
+                        )) && <p>You have reached the limit of your subscription</p>}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

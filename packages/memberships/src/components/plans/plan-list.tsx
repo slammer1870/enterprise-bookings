@@ -1,14 +1,28 @@
-import { Button } from "@repo/ui/components/ui/button";
+"use client";
+
 import { Plan } from "@repo/shared-types";
 
 import { PlanDetail } from "./plan-detail";
 
-export const PlanList = ({ plans }: { plans: Plan[] }) => {
+type PlanListProps = {
+  plans: Plan[];
+  actionLabel: string;
+  onAction: (
+    planId: string,
+    metadata?: { [key: string]: string | undefined }
+  ) => void;
+};
+
+export const PlanList = ({ plans, actionLabel, onAction }: PlanListProps) => {
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {plans.map((plan) => (
         <div key={plan.id}>
-          <PlanDetail plan={plan} />
+          <PlanDetail
+            plan={plan}
+            actionLabel={actionLabel}
+            onAction={onAction}
+          />
         </div>
       ))}
     </div>
