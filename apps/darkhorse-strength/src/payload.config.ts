@@ -18,7 +18,6 @@ import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
-import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
 import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
