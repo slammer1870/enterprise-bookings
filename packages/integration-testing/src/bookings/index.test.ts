@@ -310,8 +310,8 @@ describe("Booking tests", () => {
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 14 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 15 * 60 * 60 * 1000),
+          startTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 5 * 60 * 60 * 1000),
           classOption: classOption.id,
           location: "Test Location",
         },
