@@ -642,6 +642,9 @@ importers:
 
   packages/e2e-mindful-yard:
     dependencies:
+      jsonwebtoken:
+        specifier: ^9.0.2
+        version: 9.0.2
       mindful-yard:
         specifier: workspace:*
         version: link:../../apps/mindful-yard
@@ -658,6 +661,9 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@types/jsonwebtoken':
+        specifier: ^9.0.5
+        version: 9.0.9
 
   packages/eslint-config:
     dependencies:

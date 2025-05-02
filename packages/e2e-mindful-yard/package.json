@@ -9,10 +9,12 @@
   "dependencies": {
     "playwright": "^1.51.1",
     "start-server-and-test": "^2.0.11",
-    "mindful-yard": "workspace:*"
+    "mindful-yard": "workspace:*",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@playwright/test": "1.51.1",
-    "@repo/typescript-config": "workspace:*"
+    "@repo/typescript-config": "workspace:*",
+    "@types/jsonwebtoken": "^9.0.5"
   }
 }
