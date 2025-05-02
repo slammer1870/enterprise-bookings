@@ -2,19 +2,23 @@
   "name": "@repo/e2e-mindful-yard",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev:e2e": "playwright test",
     "e2e": "start-server-and-test \"(cd ../../apps/mindful-yard && npm run start)\" http://localhost:3000 \"playwright test\""
   },
   "dependencies": {
-    "playwright": "^1.51.1",
-    "start-server-and-test": "^2.0.11",
+    "@payloadcms/db-postgres": "*",
+    "dotenv": "^16.4.7",
+    "jsonwebtoken": "^9.0.2",
     "mindful-yard": "workspace:*",
-    "jsonwebtoken": "^9.0.2"
+    "payload": "*",
+    "playwright": "^1.51.1",
+    "start-server-and-test": "^2.0.11"
   },
   "devDependencies": {
     "@playwright/test": "1.51.1",
     "@repo/typescript-config": "workspace:*",
-    "@types/jsonwebtoken": "^9.0.5"
+    "@types/jsonwebtoken": "^9.0.7"
   }
 }

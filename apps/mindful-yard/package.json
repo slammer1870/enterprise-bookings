@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "dependencies": {
     "@payloadcms/db-postgres": "*",
-    "@payloadcms/email-resend": "3.31.0",
+    "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
-    "@payloadcms/plugin-seo": "3.31.0",
+    "@payloadcms/plugin-seo": "^3.33.0",
     "@payloadcms/richtext-lexical": "*",
     "@react-email/components": "^0.0.34",
     "@repo/auth": "workspace:*",

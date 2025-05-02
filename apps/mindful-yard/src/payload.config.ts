@@ -51,7 +51,7 @@ export default buildConfig({
     defaultFromName: process.env.DEFAULT_FROM_NAME || '',
     apiKey: process.env.RESEND_API_KEY || '',
   }),
-  secret: process.env.PAYLOAD_SECRET || 'sectre',
+  secret: process.env.PAYLOAD_SECRET || 'payload-secret-key',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },

@@ -37,6 +37,8 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       const magicLinkStrategy =
         req.payload.authStrategies?.[magicLinkStrategyIndex];
 
+      console.log("MAGIC LINK PAYLOAD", req.payload.secret);
+
       const authenticated = await magicLinkStrategy?.authenticate({
         payload: req.payload,
         headers: req.headers,
