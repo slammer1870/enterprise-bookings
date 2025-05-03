@@ -5,7 +5,7 @@ import crypto from "crypto";
 const randomSuffix = crypto.randomBytes(4).toString("hex");
 const testUser = {
   name: "Test Registration User",
-  email: `test.registration.${randomSuffix}@example.com`,
+  email: `test.registration.${randomSuffix}@extample.com`,
   password: "Password123!",
   passwordConfirm: "Password123!",
 };
