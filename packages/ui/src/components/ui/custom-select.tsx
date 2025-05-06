@@ -14,6 +14,7 @@ import * as React from "react";
 export const CustomSelect: React.FC<
   TextFieldClientProps & { apiUrl: string; dataLabel: string }
 > = (props) => {
+  console.log("props are", props);
   const { path, field, apiUrl, dataLabel } = props;
 
   const { label, name } = field;

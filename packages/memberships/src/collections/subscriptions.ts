@@ -79,7 +79,7 @@ export const subscriptionsCollection: CollectionConfig = {
             path: "@repo/ui/components/ui/custom-select#CustomSelect",
             clientProps: {
               apiUrl: `/api/stripe/subscriptions`,
-              dataLabel: "subscription",
+              dataLabel: "subscriptions",
             },
           },
         },
