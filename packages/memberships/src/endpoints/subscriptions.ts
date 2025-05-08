@@ -24,14 +24,9 @@ export const subscriptionsProxy: PayloadHandler = async (
   }
 
   try {
-    const stripeUser = await req.payload.findByID({
-      collection: "users",
-      id: req.user.id,
-    });
     const subscriptions = await stripe.subscriptions.list({
       limit: 100,
       expand: ["data.customer"],
-      customer: stripeUser.stripeCustomerId || "",
     });
 
     return new Response(JSON.stringify(subscriptions), {

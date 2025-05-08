@@ -1,5 +1,5 @@
 {
-  "id": "26b146c0-07a5-4fbb-a675-07b8111bbe54",
+  "id": "51de1624-651b-40bb-ba75-0ba24079aad7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -880,6 +880,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "meta_title": {
+          "name": "meta_title",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_description": {
+          "name": "meta_description",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_image_id": {
+          "name": "meta_image_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp(3) with time zone",
@@ -896,6 +914,21 @@
         }
       },
       "indexes": {
+        "pages_meta_meta_image_idx": {
+          "name": "pages_meta_meta_image_idx",
+          "columns": [
+            {
+              "expression": "meta_image_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "pages_updated_at_idx": {
           "name": "pages_updated_at_idx",
           "columns": [
@@ -927,7 +960,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "pages_meta_image_id_media_id_fk": {
+          "name": "pages_meta_image_id_media_id_fk",
+          "tableFrom": "pages",
+          "tableTo": "media",
+          "columnsFrom": [
+            "meta_image_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1287,7 +1334,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:07.716Z'"
+          "default": "'2025-04-30T19:42:38.320Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -3005,14 +3052,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -3263,14 +3310,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -3521,14 +3568,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -3779,14 +3826,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -4037,14 +4084,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -4295,14 +4342,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -4553,14 +4600,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -4717,14 +4764,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "end_date": {
           "name": "end_date",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false,
-          "default": "'2025-03-27T12:57:08.056Z'"
+          "default": "'2025-04-30T19:42:38.330Z'"
         },
         "lock_out_time": {
           "name": "lock_out_time",
@@ -4737,7 +4784,7 @@
           "name": "default_class_option_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "schedule_monday_is_active": {
           "name": "schedule_monday_is_active",

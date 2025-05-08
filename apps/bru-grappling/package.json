@@ -6,6 +6,7 @@
     "@payloadcms/db-postgres": "*",
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
+    "@payloadcms/plugin-stripe": "*",
     "@payloadcms/richtext-lexical": "*",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",

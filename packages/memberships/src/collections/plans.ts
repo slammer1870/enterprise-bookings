@@ -87,7 +87,7 @@ export const plansCollection: CollectionConfig = {
             path: "@repo/ui/components/ui/custom-select#CustomSelect",
             clientProps: {
               apiUrl: `/api/stripe/plans`,
-              dataLabel: "plan",
+              dataLabel: "products",
             },
           },
         },

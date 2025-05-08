@@ -23,5 +23,10 @@
     "syncpack": "syncpack",
     "test": "turbo run test",
     "ui": "pnpm --filter @repo/ui ui"
+  },
+  "pnpm": {
+    "overrides": {
+      "stripe": "17.7.0"
+    }
   }
 }

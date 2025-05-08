@@ -1,6 +1,6 @@
 {
-  "extends": "@repo/typescript-config/package.json",
-  "include": ["src/**/*"],
+  "extends": "@repo/typescript-config/base.json",
+  "include": ["src/*"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "baseUrl": ".",

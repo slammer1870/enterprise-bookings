@@ -2,7 +2,7 @@
   "name": "@repo/payments",
   "version": "0.0.1",
   "dependencies": {
-    "@payloadcms/ui": "3.33.0",
+    "@payloadcms/ui": "*",
     "@repo/roles": "workspace:*",
     "@repo/ui": "workspace:*",
     "payload": "*",

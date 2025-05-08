@@ -37,10 +37,14 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
       payload.logger.info(
         `Found subscription from Stripe: ${stripeSubscription.id}`
       );
-    newDoc.start_date = new Date(
+    payload.logger.info(
+      "Subscription start date:",
+      stripeSubscription.current_period_start
+    );
+    newDoc.startDate = new Date(
       stripeSubscription.current_period_start * 1000
     ).toISOString();
-    newDoc.end_date = new Date(
+    newDoc.endDate = new Date(
       stripeSubscription.current_period_end * 1000
     ).toISOString();
     newDoc.status = stripeSubscription.status;

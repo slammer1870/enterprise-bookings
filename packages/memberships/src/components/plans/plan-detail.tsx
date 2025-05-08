@@ -12,13 +12,27 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-import { CircleCheck } from "lucide-react";
-
-import { CheckoutSessionButton } from "../checkout-session-button";
+import { CircleCheck, Loader2 } from "lucide-react";
 
 import { Price } from "../price";
 
-export const PlanDetail = ({ plan }: { plan: Plan }) => {
+import { Button } from "@repo/ui/components/ui/button";
+import { useState } from "react";
+type PlanDetailProps = {
+  plan: Plan;
+  actionLabel: string;
+  onAction: (
+    planId?: string,
+    metadata?: { [key: string]: string | undefined }
+  ) => Promise<void>;
+};
+
+export const PlanDetail = ({
+  plan,
+  actionLabel,
+  onAction,
+}: PlanDetailProps) => {
+  const [loading, setLoading] = useState(false);
   const priceData = plan.priceJSON
     ? JSON.parse(plan.priceJSON as string)
     : null;
@@ -32,6 +46,15 @@ export const PlanDetail = ({ plan }: { plan: Plan }) => {
     pathname.split("/")[1] === "bookings" && params.id
       ? { lesson_id: params.id as string }
       : undefined;
+
+  const handleAction = async () => {
+    setLoading(true);
+    try {
+      await onAction(id, metadata);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Card>
@@ -53,13 +76,9 @@ export const PlanDetail = ({ plan }: { plan: Plan }) => {
         ))}
       </CardContent>
       <CardFooter>
-        {id && (
-          <CheckoutSessionButton
-            stripePriceID={id}
-            cta="Subscribe"
-            metadata={metadata}
-          />
-        )}
+        <Button onClick={handleAction} disabled={loading} className="w-full">
+          {loading ? "Loading..." : actionLabel}
+        </Button>
       </CardFooter>
     </Card>
   );

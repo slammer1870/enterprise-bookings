@@ -23,6 +23,14 @@ export const createCheckoutSession: PayloadHandler = async (
 
   const { price, quantity = 1, metadata } = await req.json();
 
+  const origin =
+    (await headers()).get("origin") ||
+    process.env.NEXT_PUBLIC_SERVER_URL ||
+    "http://localhost:3000";
+
+  const successUrl = `${origin}/dashboard`;
+  const cancelUrl = `${origin}/dashboard`;
+
   try {
     const checkoutSession: Stripe.Checkout.Session =
       await stripe.checkout.sessions.create({
@@ -34,9 +42,11 @@ export const createCheckoutSession: PayloadHandler = async (
           },
         ],
         customer: user.stripeCustomerId || undefined,
-        success_url: `${(await headers()).get("origin")}`,
-        cancel_url: `${(await headers()).get("origin")}`,
-        metadata: metadata,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        subscription_data: {
+          metadata: metadata,
+        },
       });
 
     return new Response(

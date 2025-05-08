@@ -3,8 +3,8 @@ import { Plan } from "./payments";
 
 export interface Subscription {
   id: number;
-  user: number | User;
-  plan: number | Plan;
+  user: User;
+  plan: Plan;
   status:
     | "incomplete"
     | "incomplete_expired"

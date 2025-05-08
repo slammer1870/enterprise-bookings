@@ -85,6 +85,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"id" serial PRIMARY KEY NOT NULL,
   	"title" varchar NOT NULL,
   	"slug" varchar NOT NULL,
+  	"meta_title" varchar,
+  	"meta_description" varchar,
+  	"meta_image_id" integer,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
@@ -123,7 +126,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.106Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.320Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 0 NOT NULL,
@@ -245,8 +248,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -265,8 +268,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -285,8 +288,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -305,8 +308,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -325,8 +328,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -345,8 +348,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -365,8 +368,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -376,10 +379,10 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "scheduler" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"start_date" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z',
-  	"end_date" timestamp(3) with time zone DEFAULT '2025-03-27T12:27:53.367Z',
+  	"start_date" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z',
+  	"end_date" timestamp(3) with time zone DEFAULT '2025-04-30T19:42:38.330Z',
   	"lock_out_time" numeric DEFAULT 0,
-  	"default_class_option_id" integer,
+  	"default_class_option_id" integer NOT NULL,
   	"schedule_monday_is_active" boolean DEFAULT true,
   	"schedule_tuesday_is_active" boolean DEFAULT true,
   	"schedule_wednesday_is_active" boolean DEFAULT true,
@@ -447,6 +450,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   DO $$ BEGIN
    ALTER TABLE "pages_blocks_faqs" ADD CONSTRAINT "pages_blocks_faqs_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages" ADD CONSTRAINT "pages_meta_image_id_media_id_fk" FOREIGN KEY ("meta_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
@@ -785,6 +794,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "pages_blocks_faqs_order_idx" ON "pages_blocks_faqs" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "pages_blocks_faqs_parent_id_idx" ON "pages_blocks_faqs" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_faqs_path_idx" ON "pages_blocks_faqs" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "pages_meta_meta_image_idx" ON "pages" USING btree ("meta_image_id");
   CREATE INDEX IF NOT EXISTS "pages_updated_at_idx" ON "pages" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "pages_created_at_idx" ON "pages" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "users_roles_order_idx" ON "users_roles" USING btree ("order");

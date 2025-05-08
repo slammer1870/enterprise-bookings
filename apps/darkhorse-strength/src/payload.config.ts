@@ -2,6 +2,8 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { stripePlugin } from '@payloadcms/plugin-stripe'
+
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -16,7 +18,10 @@ import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
-import { stripePlugin } from '@payloadcms/plugin-stripe'
+
+import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
+import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
+import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -69,7 +74,15 @@ export default buildConfig({
       },
     }),
     stripePlugin({
-      stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
+      stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      isTestKey: Boolean(process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY),
+      rest: false,
+      webhooks: {
+        'customer.subscription.created': subscriptionCreated,
+        'customer.subscription.updated': subscriptionUpdated,
+        'customer.subscription.deleted': subscriptionCanceled,
+      },
     }),
     // storage-adapter-placeholder
   ],

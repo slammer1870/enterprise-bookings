@@ -4,7 +4,7 @@ import { Access } from "payload";
 
 import { BookingsPluginConfig } from "../types";
 
-import { Booking, Lesson, User, Subscription } from "@repo/shared-types";
+import { Booking, Lesson, User, Subscription, Plan } from "@repo/shared-types";
 
 import { hasReachedSubscriptionLimit } from "@repo/shared-services";
 
@@ -48,7 +48,10 @@ export const renderCreateAccess = (
 
       if (pluginOptions.paymentMethods?.plans) {
         // Check if the lesson has an allowed plan payment method
-        if (lesson.classOption.paymentMethods?.allowedPlans) {
+        if (
+          lesson.classOption.paymentMethods?.allowedPlans &&
+          lesson.classOption.paymentMethods?.allowedPlans.length > 0
+        ) {
           //TODO: Check if the user has a subscription plan that is allowed for this lesson
 
           //Import check if the user has a subscription plan that is allowed for this lesson from shared-services
@@ -63,12 +66,23 @@ export const renderCreateAccess = (
                 status: { equals: "active" },
                 endDate: { greater_than: new Date() },
               },
+              depth: 2,
               limit: 1,
             });
 
             if (userSubscription.docs.length === 0) return false;
 
-            const subscription = userSubscription.docs[0] as Subscription;
+            const subscription = userSubscription.docs[0] as Subscription & {
+              plan: Plan;
+            };
+
+            if (
+              !lesson.classOption.paymentMethods.allowedPlans.some(
+                (plan) => plan.id == subscription.plan.id
+              )
+            ) {
+              return false;
+            }
 
             if (
               (subscription.endDate &&
@@ -92,19 +106,12 @@ export const renderCreateAccess = (
             return false;
           }
         }
-
-        if (pluginOptions.paymentMethods?.dropIns) {
-          // Check if the lesson has an allowed drop in payment method
-          if (lesson.classOption.paymentMethods?.allowedDropIns) {
-            //TODO: Check if the user has a drop in payment method that is allowed for this lesson
-            return false;
-          }
-        }
       }
 
       if (pluginOptions.paymentMethods?.dropIns) {
         // Check if the lesson has an allowed drop in payment method
         if (lesson.classOption.paymentMethods?.allowedDropIns) {
+          console.log("ALLOWED DROP IN", lesson.classOption.paymentMethods);
           //TODO: Check if the user has a drop in payment method that is allowed for this lesson
           return false;
         }
@@ -188,7 +195,10 @@ export const renderUpdateAccess = (
 
       if (pluginOptions.paymentMethods?.plans) {
         // Check if the lesson has an allowed plan payment method
-        if (lesson.classOption.paymentMethods?.allowedPlans) {
+        if (
+          lesson.classOption.paymentMethods?.allowedPlans &&
+          lesson.classOption.paymentMethods?.allowedPlans.length > 0
+        ) {
           //TODO: Check if the user has a subscription plan that is allowed for this lesson
 
           //Import check if the user has a subscription plan that is allowed for this lesson from shared-services
@@ -203,21 +213,34 @@ export const renderUpdateAccess = (
                 status: { equals: "active" },
                 endDate: { greater_than: new Date() },
               },
+              depth: 2,
               limit: 1,
             })) as unknown as { docs: Subscription[] };
 
             if (userSubscription.docs.length === 0) return false;
 
-            const subscription = userSubscription.docs[0] as Subscription;
+            const subscription = userSubscription.docs[0] as Subscription & {
+              plan: Plan;
+            };
+
+            if (
+              !lesson.classOption.paymentMethods.allowedPlans.some(
+                (plan) => plan.id == subscription.plan.id
+              )
+            ) {
+              return false;
+            }
 
             if (
               (subscription.endDate &&
                 new Date(subscription.endDate) <= new Date()) ||
               (subscription.endDate &&
-                new Date(subscription.endDate) >= new Date(lesson.startTime))
+                new Date(subscription.endDate) <= new Date(lesson.startTime))
             ) {
               return false;
             }
+
+            console.log("PASSING DATE CHECK");
 
             const reachedLimit = await hasReachedSubscriptionLimit(
               subscription,
@@ -229,14 +252,6 @@ export const renderUpdateAccess = (
             return true;
           } catch (error) {
             console.error("Error checking subscription:", error);
-            return false;
-          }
-        }
-
-        if (pluginOptions.paymentMethods?.dropIns) {
-          // Check if the lesson has an allowed drop in payment method
-          if (lesson.classOption.paymentMethods?.allowedDropIns) {
-            //TODO: Check if the user has a drop in payment method that is allowed for this lesson
             return false;
           }
         }

@@ -62,7 +62,7 @@ export default buildConfig({
       enabled: true,
       paymentMethods: {
         dropIns: true,
-        plans: true,
+        plans: false,
         classPasses: false,
       },
     }),
