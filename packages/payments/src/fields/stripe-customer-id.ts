@@ -20,7 +20,7 @@ export const stripeCustomerId: Field = {
         path: "@repo/ui/components/ui/custom-select#CustomSelect",
         clientProps: {
           apiUrl: `/api/stripe/customers`,
-          dataLabel: "customer",
+          dataLabel: "customers",
         },
       },
     },

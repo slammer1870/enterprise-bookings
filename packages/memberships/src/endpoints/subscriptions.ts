@@ -25,7 +25,7 @@ export const subscriptionsProxy: PayloadHandler = async (
 
   try {
     const subscriptions = await stripe.subscriptions.list({
-      limit: 100,
+      limit: 10000,
       expand: ["data.customer"],
     });
 
