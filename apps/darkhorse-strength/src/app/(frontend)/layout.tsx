@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@repo/auth/src/providers/auth'
 
 import Navbar from '@/components/navbar'
+import Footer from '@/components/footer'
 //import Footer from '@/components/footer'
 
 export const metadata = {
@@ -21,7 +22,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           <main>
             <Navbar />
             {children}
-            {/* <Footer /> */}
+            <Footer />
           </main>
         </body>
       </AuthProvider>

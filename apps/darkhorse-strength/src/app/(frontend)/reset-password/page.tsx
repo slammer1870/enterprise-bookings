@@ -1,4 +1,4 @@
-import { ForgotPasswordForm } from '@repo/auth/src/components/forgot-password-form'
+import { ResetPasswordForm } from '@repo/auth/src/components/reset-password-form'
 
 import { getMeUser } from '@repo/auth/src/utils/get-me-user'
 
@@ -7,7 +7,7 @@ export default async function ForgotPassword() {
 
   return (
     <div className="flex justify-center items-center h-screen">
-      <ForgotPasswordForm />
+      <ResetPasswordForm />
     </div>
   )
 }
