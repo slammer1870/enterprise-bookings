@@ -146,7 +146,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
     }
 
     return (
-      <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-[80vh] pt-24">
+      <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
         <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
         <div className="">
           <h4 className="font-medium">Payment Methods</h4>
