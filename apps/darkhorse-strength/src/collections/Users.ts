@@ -15,7 +15,6 @@ export const Users: CollectionConfig = {
           <!doctype html>
           <html>
             <body>
-              <h1>Here is my custom email template!</h1>
               <p>Hello, ${args.user.email}!</p>
               <p>Click below to reset your password.</p>
               <p>
