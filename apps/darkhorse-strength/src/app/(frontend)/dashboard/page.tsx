@@ -81,7 +81,7 @@ export default async function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto pt-24 px-4">
+    <div className="container mx-auto pt-24 px-4 min-h-screen">
       <h1 className="text-3xl font-bold">Dashboard</h1>
       <p className="text-sm text-gray-500">Welcome {user.name}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
