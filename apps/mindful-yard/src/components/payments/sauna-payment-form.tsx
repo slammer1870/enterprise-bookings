@@ -9,7 +9,7 @@ import { Separator } from '@repo/ui/components/ui/separator'
 import { format } from 'date-fns'
 
 // Import our new components
-import { AttendeeForm } from '@repo/bookings/src/components/ui/attendee-form'
+import { PriceForm } from '@repo/bookings/src/components/ui/price-form'
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 import { PaymentMethodSelector } from '@repo/payments/src/components/ui/payment-method-selector'
 import { PaymentDetailsForm } from '@repo/payments/src/components/ui/payment-details-form'
@@ -46,7 +46,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   }
 
   // Use our custom hooks
-  const { attendees, setAttendees, remainingCapacity, hasValidForm } = useAttendees({
+  const { attendees, setAttendees, remainingCapacity } = useAttendees({
     user,
     maxCapacity: bookingDetails.maxCapacity,
     currentAttendees: bookingDetails.currentAttendees,
@@ -67,11 +67,6 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Validate form before submission
-    if (!hasValidForm()) {
-      return
-    }
 
     setLoading(true)
 
@@ -102,11 +97,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   return (
     <div className="grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
       {/* Booking Summary */}
-      <BookingSummary
-        bookingDetails={bookingDetails}
-        attendeesCount={attendees.length}
-        priceCalculation={priceCalculation}
-      />
+      <BookingSummary bookingDetails={bookingDetails} attendeesCount={attendees.length} />
 
       <Tabs defaultValue="drop-in" className="w-full">
         <TabsList className="w-full">
@@ -121,21 +112,24 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
             </TabsTrigger>
           )}
         </TabsList>
-        <TabsContent value="drop-in">
-          <div className="my-4">
-            <AttendeeForm
-              attendees={attendees}
-              setAttendees={setAttendees}
-              remainingCapacity={remainingCapacity}
-              adjustableQuantity={bookingDetails.adjustableQuantity}
-            />
-          </div>
+        <TabsContent value="drop-in" className="flex flex-col gap-4">
+          <PriceForm
+            price={bookingDetails.price}
+            attendeesCount={attendees.length}
+            discountApplied={priceCalculation.discountApplied}
+            totalAmount={priceCalculation.totalAmount}
+            totalAmountBeforeDiscount={priceCalculation.totalAmountBeforeDiscount}
+            remainingCapacity={remainingCapacity}
+            attendees={attendees}
+            setAttendees={setAttendees}
+            adjustableQuantity={bookingDetails.adjustableQuantity}
+          />
           {/* Attendees and Payment Form */}
           {/* Attendees Section */}
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-full" variant="default" disabled={!hasValidForm()}>
+              <Button className="w-full" variant="default">
                 Complete Booking
               </Button>
             </DialogTrigger>
@@ -161,18 +155,6 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                     <span>Booking Type:</span>
                     <span>{lesson.classOption.name}</span>
                   </div>
-                </div>
-
-                <Separator />
-
-                <h3 className="font-semibold">Attendees</h3>
-                <div className="space-y-1 text-sm">
-                  {attendees.map((attendee, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{index === 0 ? 'Primary Guest:' : `Guest ${index + 1}:`}</span>
-                      <span>{attendee.name}</span>
-                    </div>
-                  ))}
                 </div>
 
                 <Separator />
