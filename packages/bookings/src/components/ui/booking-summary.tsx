@@ -10,24 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/ui/card";
-import { Separator } from "@repo/ui/components/ui/separator";
 
 interface BookingSummaryProps {
   bookingDetails: BookingDetails;
   attendeesCount: number;
-  priceCalculation?: {
-    totalAmount: number;
-    totalAmountBeforeDiscount: number;
-    discountApplied: boolean;
-  };
-  compact?: boolean;
 }
 
 export function BookingSummary({
   bookingDetails,
   attendeesCount,
-  priceCalculation,
-  compact = false,
 }: BookingSummaryProps) {
   return (
     <Card className="bg-white">
@@ -68,34 +59,6 @@ export function BookingSummary({
             <span className="ml-2">{bookingDetails.bookingType}</span>
           </div>
         </div>
-
-        {priceCalculation && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Price per person</span>
-                <span>€{bookingDetails.price?.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Number of guests</span>
-                <span>{attendeesCount}</span>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex justify-between items-center text-lg font-semibold">
-              <span>Total</span>
-              <div className="flex items-center gap-2">
-                {priceCalculation.discountApplied && (
-                  <span className="line-through text-red-400">
-                    €{priceCalculation.totalAmountBeforeDiscount.toFixed(2)}
-                  </span>
-                )}
-                <span>€{priceCalculation.totalAmount.toFixed(2)}</span>
-              </div>
-            </div>
-          </>
-        )}
       </CardContent>
     </Card>
   );
