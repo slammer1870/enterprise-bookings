@@ -1,0 +1,24 @@
+{
+  "name": "@repo/website",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "peerDependencies": {
+    "@payloadcms/plugin-form-builder": "*",
+    "@payloadcms/richtext-lexical": "*",
+    "payload": "*",
+    "react": "*",
+    "react-dom": "*",
+    "react-hook-form": "*",
+    "next": "*"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0"
+  },
+  "dependencies": {
+    "@repo/ui": "workspace:*"
+  }
+}

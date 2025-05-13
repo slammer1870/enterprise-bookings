@@ -6,6 +6,9 @@ import { Timetable } from '@/blocks/timetable/config'
 import { Testimonials } from '@/blocks/testimonials/config'
 import { Pricing } from '@/blocks/pricing/config'
 import { Contact } from '@/blocks/contact/config'
+import { Groups } from '@/blocks/groups/config'
+
+import { FormBlock } from '@repo/website/src/blocks/form/config'
 
 import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
 
@@ -32,7 +35,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, Team, Timetable, Testimonials, Pricing, Contact],
+      blocks: [Hero, Team, Timetable, Testimonials, Pricing, Contact, Groups, FormBlock],
     },
   ],
   hooks: {

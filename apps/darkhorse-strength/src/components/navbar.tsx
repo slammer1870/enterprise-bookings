@@ -24,10 +24,6 @@ const Navbar: React.FC = () => {
     }
   }
 
-  if (isBrowser) {
-    window.addEventListener('scroll', handleScroll)
-  }
-
   useEffect(() => {
     if (isBrowser) {
       handleScroll()
@@ -37,7 +33,7 @@ const Navbar: React.FC = () => {
         window.removeEventListener('scroll', handleScroll)
       }
     }
-  }, [pathname])
+  }, [pathname, isBrowser, handleScroll])
 
   const { user, status, logout } = useAuth()
 

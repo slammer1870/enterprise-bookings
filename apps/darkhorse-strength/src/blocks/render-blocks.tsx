@@ -8,6 +8,9 @@ import { TimetableBlock } from './timetable'
 import { TestimonialsBlock } from './testimonials'
 import { PricingBlock } from './pricing'
 import { ContactBlock } from './contact'
+import { GroupsBlock } from './groups'
+
+import { FormBlock } from '@repo/website/src/blocks/form/index'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -16,6 +19,8 @@ const blockComponents = {
   testimonials: TestimonialsBlock,
   pricing: PricingBlock,
   contact: ContactBlock,
+  groups: GroupsBlock,
+  'form-block': FormBlock,
 }
 
 export const RenderBlocks: React.FC<{

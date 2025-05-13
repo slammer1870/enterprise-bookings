@@ -10,6 +10,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
   CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
   CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+  CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
   CREATE TABLE IF NOT EXISTS "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
@@ -151,6 +152,45 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"block_name" varchar
   );
   
+  CREATE TABLE IF NOT EXISTS "pages_blocks_groups_benefits" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" varchar NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"icon_id" integer NOT NULL,
+  	"text" varchar NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "pages_blocks_groups_features" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" varchar NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"image_id" integer NOT NULL,
+  	"title" varchar NOT NULL,
+  	"description" varchar NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "pages_blocks_groups" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"hero_image_id" integer NOT NULL,
+  	"cta_title" varchar NOT NULL,
+  	"cta_description" varchar NOT NULL,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "pages_blocks_form_block" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"form_id" integer NOT NULL,
+  	"enable_intro" boolean,
+  	"intro_content" jsonb,
+  	"block_name" varchar
+  );
+  
   CREATE TABLE IF NOT EXISTS "pages" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"title" varchar NOT NULL,
@@ -226,7 +266,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.952Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 0 NOT NULL,
@@ -264,6 +304,164 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
+  CREATE TABLE IF NOT EXISTS "forms_blocks_checkbox" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"required" boolean,
+  	"default_value" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_country" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_email" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_message" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"message" jsonb,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_number" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"default_value" numeric,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_select_options" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" varchar NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"label" varchar NOT NULL,
+  	"value" varchar NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_select" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"default_value" varchar,
+  	"placeholder" varchar,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_state" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_text" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"default_value" varchar,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_blocks_textarea" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"label" varchar,
+  	"width" numeric,
+  	"default_value" varchar,
+  	"required" boolean,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms_emails" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"email_to" varchar,
+  	"cc" varchar,
+  	"bcc" varchar,
+  	"reply_to" varchar,
+  	"email_from" varchar,
+  	"subject" varchar DEFAULT 'You''''ve received a new message.' NOT NULL,
+  	"message" jsonb
+  );
+  
+  CREATE TABLE IF NOT EXISTS "forms" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"title" varchar NOT NULL,
+  	"submit_button_label" varchar,
+  	"confirmation_type" "enum_forms_confirmation_type" DEFAULT 'message',
+  	"confirmation_message" jsonb,
+  	"redirect_url" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "form_submissions_submission_data" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"field" varchar NOT NULL,
+  	"value" varchar NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "form_submissions" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"form_id" integer NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
   CREATE TABLE IF NOT EXISTS "payload_locked_documents" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"global_slug" varchar,
@@ -284,7 +482,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"plans_id" integer,
   	"lessons_id" integer,
   	"class_options_id" integer,
-  	"bookings_id" integer
+  	"bookings_id" integer,
+  	"forms_id" integer,
+  	"form_submissions_id" integer
   );
   
   CREATE TABLE IF NOT EXISTS "payload_preferences" (
@@ -322,8 +522,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -342,8 +542,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -362,8 +562,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -382,8 +582,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -402,8 +602,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -422,8 +622,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -442,8 +642,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.953Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -453,8 +653,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "scheduler" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"start_date" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.952Z',
-  	"end_date" timestamp(3) with time zone DEFAULT '2025-04-30T19:44:01.952Z',
+  	"start_date" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z',
+  	"end_date" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z',
   	"lock_out_time" numeric DEFAULT 0,
   	"default_class_option_id" integer NOT NULL,
   	"schedule_monday_is_active" boolean DEFAULT true,
@@ -565,6 +765,54 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups_benefits" ADD CONSTRAINT "pages_blocks_groups_benefits_icon_id_media_id_fk" FOREIGN KEY ("icon_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups_benefits" ADD CONSTRAINT "pages_blocks_groups_benefits_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_groups"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups_features" ADD CONSTRAINT "pages_blocks_groups_features_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups_features" ADD CONSTRAINT "pages_blocks_groups_features_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_groups"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups" ADD CONSTRAINT "pages_blocks_groups_hero_image_id_media_id_fk" FOREIGN KEY ("hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups" ADD CONSTRAINT "pages_blocks_groups_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_form_block" ADD CONSTRAINT "pages_blocks_form_block_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "pages_blocks_form_block" ADD CONSTRAINT "pages_blocks_form_block_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "transactions" ADD CONSTRAINT "transactions_created_by_id_users_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -637,6 +885,84 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "forms_blocks_checkbox" ADD CONSTRAINT "forms_blocks_checkbox_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_country" ADD CONSTRAINT "forms_blocks_country_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_email" ADD CONSTRAINT "forms_blocks_email_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_message" ADD CONSTRAINT "forms_blocks_message_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_number" ADD CONSTRAINT "forms_blocks_number_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_select_options" ADD CONSTRAINT "forms_blocks_select_options_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms_blocks_select"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_select" ADD CONSTRAINT "forms_blocks_select_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_state" ADD CONSTRAINT "forms_blocks_state_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_text" ADD CONSTRAINT "forms_blocks_text_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_blocks_textarea" ADD CONSTRAINT "forms_blocks_textarea_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "forms_emails" ADD CONSTRAINT "forms_emails_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "form_submissions_submission_data" ADD CONSTRAINT "form_submissions_submission_data_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."form_submissions"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "form_submissions" ADD CONSTRAINT "form_submissions_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_locked_documents"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -692,6 +1018,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   DO $$ BEGIN
    ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_bookings_fk" FOREIGN KEY ("bookings_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_forms_fk" FOREIGN KEY ("forms_id") REFERENCES "public"."forms"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_form_submissions_fk" FOREIGN KEY ("form_submissions_id") REFERENCES "public"."form_submissions"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
@@ -918,6 +1256,20 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "pages_blocks_contact_order_idx" ON "pages_blocks_contact" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "pages_blocks_contact_parent_id_idx" ON "pages_blocks_contact" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_contact_path_idx" ON "pages_blocks_contact" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_benefits_order_idx" ON "pages_blocks_groups_benefits" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_benefits_parent_id_idx" ON "pages_blocks_groups_benefits" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_benefits_icon_idx" ON "pages_blocks_groups_benefits" USING btree ("icon_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_features_order_idx" ON "pages_blocks_groups_features" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_features_parent_id_idx" ON "pages_blocks_groups_features" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_features_image_idx" ON "pages_blocks_groups_features" USING btree ("image_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_order_idx" ON "pages_blocks_groups" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_parent_id_idx" ON "pages_blocks_groups" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_path_idx" ON "pages_blocks_groups" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_hero_image_idx" ON "pages_blocks_groups" USING btree ("hero_image_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_order_idx" ON "pages_blocks_form_block" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_parent_id_idx" ON "pages_blocks_form_block" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_path_idx" ON "pages_blocks_form_block" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_form_idx" ON "pages_blocks_form_block" USING btree ("form_id");
   CREATE INDEX IF NOT EXISTS "pages_updated_at_idx" ON "pages" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "pages_created_at_idx" ON "pages" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "transactions_created_by_idx" ON "transactions" USING btree ("created_by_id");
@@ -953,6 +1305,44 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "bookings_transaction_idx" ON "bookings" USING btree ("transaction_id");
   CREATE INDEX IF NOT EXISTS "bookings_updated_at_idx" ON "bookings" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "bookings_created_at_idx" ON "bookings" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_checkbox_order_idx" ON "forms_blocks_checkbox" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_checkbox_parent_id_idx" ON "forms_blocks_checkbox" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_checkbox_path_idx" ON "forms_blocks_checkbox" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_country_order_idx" ON "forms_blocks_country" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_country_parent_id_idx" ON "forms_blocks_country" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_country_path_idx" ON "forms_blocks_country" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_email_order_idx" ON "forms_blocks_email" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_email_parent_id_idx" ON "forms_blocks_email" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_email_path_idx" ON "forms_blocks_email" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_message_order_idx" ON "forms_blocks_message" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_message_parent_id_idx" ON "forms_blocks_message" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_message_path_idx" ON "forms_blocks_message" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_number_order_idx" ON "forms_blocks_number" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_number_parent_id_idx" ON "forms_blocks_number" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_number_path_idx" ON "forms_blocks_number" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_select_options_order_idx" ON "forms_blocks_select_options" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_select_options_parent_id_idx" ON "forms_blocks_select_options" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_select_order_idx" ON "forms_blocks_select" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_select_parent_id_idx" ON "forms_blocks_select" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_select_path_idx" ON "forms_blocks_select" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_state_order_idx" ON "forms_blocks_state" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_state_parent_id_idx" ON "forms_blocks_state" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_state_path_idx" ON "forms_blocks_state" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_text_order_idx" ON "forms_blocks_text" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_text_parent_id_idx" ON "forms_blocks_text" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_text_path_idx" ON "forms_blocks_text" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_textarea_order_idx" ON "forms_blocks_textarea" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_textarea_parent_id_idx" ON "forms_blocks_textarea" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_blocks_textarea_path_idx" ON "forms_blocks_textarea" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "forms_emails_order_idx" ON "forms_emails" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "forms_emails_parent_id_idx" ON "forms_emails" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "forms_updated_at_idx" ON "forms" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "forms_created_at_idx" ON "forms" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "form_submissions_submission_data_order_idx" ON "form_submissions_submission_data" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "form_submissions_submission_data_parent_id_idx" ON "form_submissions_submission_data" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "form_submissions_form_idx" ON "form_submissions" USING btree ("form_id");
+  CREATE INDEX IF NOT EXISTS "form_submissions_updated_at_idx" ON "form_submissions" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "form_submissions_created_at_idx" ON "form_submissions" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_global_slug_idx" ON "payload_locked_documents" USING btree ("global_slug");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_updated_at_idx" ON "payload_locked_documents" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_created_at_idx" ON "payload_locked_documents" USING btree ("created_at");
@@ -968,6 +1358,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_lessons_id_idx" ON "payload_locked_documents_rels" USING btree ("lessons_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_class_options_id_idx" ON "payload_locked_documents_rels" USING btree ("class_options_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_bookings_id_idx" ON "payload_locked_documents_rels" USING btree ("bookings_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_forms_id_idx" ON "payload_locked_documents_rels" USING btree ("forms_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_form_submissions_id_idx" ON "payload_locked_documents_rels" USING btree ("form_submissions_id");
   CREATE INDEX IF NOT EXISTS "payload_preferences_key_idx" ON "payload_preferences" USING btree ("key");
   CREATE INDEX IF NOT EXISTS "payload_preferences_updated_at_idx" ON "payload_preferences" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "payload_preferences_created_at_idx" ON "payload_preferences" USING btree ("created_at");
@@ -1037,6 +1429,10 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "pages_blocks_pricing_pricing_options" CASCADE;
   DROP TABLE "pages_blocks_pricing" CASCADE;
   DROP TABLE "pages_blocks_contact" CASCADE;
+  DROP TABLE "pages_blocks_groups_benefits" CASCADE;
+  DROP TABLE "pages_blocks_groups_features" CASCADE;
+  DROP TABLE "pages_blocks_groups" CASCADE;
+  DROP TABLE "pages_blocks_form_block" CASCADE;
   DROP TABLE "pages" CASCADE;
   DROP TABLE "transactions" CASCADE;
   DROP TABLE "users_roles" CASCADE;
@@ -1048,6 +1444,20 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "class_options" CASCADE;
   DROP TABLE "class_options_rels" CASCADE;
   DROP TABLE "bookings" CASCADE;
+  DROP TABLE "forms_blocks_checkbox" CASCADE;
+  DROP TABLE "forms_blocks_country" CASCADE;
+  DROP TABLE "forms_blocks_email" CASCADE;
+  DROP TABLE "forms_blocks_message" CASCADE;
+  DROP TABLE "forms_blocks_number" CASCADE;
+  DROP TABLE "forms_blocks_select_options" CASCADE;
+  DROP TABLE "forms_blocks_select" CASCADE;
+  DROP TABLE "forms_blocks_state" CASCADE;
+  DROP TABLE "forms_blocks_text" CASCADE;
+  DROP TABLE "forms_blocks_textarea" CASCADE;
+  DROP TABLE "forms_emails" CASCADE;
+  DROP TABLE "forms" CASCADE;
+  DROP TABLE "form_submissions_submission_data" CASCADE;
+  DROP TABLE "form_submissions" CASCADE;
   DROP TABLE "payload_locked_documents" CASCADE;
   DROP TABLE "payload_locked_documents_rels" CASCADE;
   DROP TABLE "payload_preferences" CASCADE;
@@ -1075,5 +1485,6 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_subscriptions_status";
   DROP TYPE "public"."enum_plans_interval";
   DROP TYPE "public"."enum_plans_status";
-  DROP TYPE "public"."enum_bookings_status";`)
+  DROP TYPE "public"."enum_bookings_status";
+  DROP TYPE "public"."enum_forms_confirmation_type";`)
 }

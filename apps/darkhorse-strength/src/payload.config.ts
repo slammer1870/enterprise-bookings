@@ -4,6 +4,7 @@ import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { resendAdapter } from '@payloadcms/email-resend'
+import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -90,6 +91,7 @@ export default buildConfig({
         'customer.subscription.deleted': subscriptionCanceled,
       },
     }),
+    formBuilderPlugin({}),
     // storage-adapter-placeholder
   ],
 })
