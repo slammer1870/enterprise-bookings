@@ -143,7 +143,7 @@ const Navbar: React.FC = () => {
                 <Link href="/dashboard">
                   <li>
                     <Button
-                      variant="outline"
+                      variant="default"
                       onClick={handleOpen}
                       className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-12 md:w-auto border-none"
                     >
@@ -153,11 +153,14 @@ const Navbar: React.FC = () => {
                 </Link>
               )}
               {user && (
-                <li
-                  className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-16 md:w-auto"
-                  onClick={() => logout().then(() => router.push('/'))}
-                >
-                  Logout
+                <li>
+                  <Button
+                    variant="outline"
+                    onClick={() => logout().then(() => router.push('/'))}
+                    className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-16 md:w-auto border-none"
+                  >
+                    Logout
+                  </Button>
                 </li>
               )}
             </ul>

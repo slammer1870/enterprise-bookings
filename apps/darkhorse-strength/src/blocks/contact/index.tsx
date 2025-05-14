@@ -77,7 +77,7 @@ export const ContactBlock: React.FC<ContactProps> = ({
                 <h2 className="title-font text-xs font-semibold tracking-widest text-foreground">
                   EMAIL
                 </h2>
-                <a className="leading-relaxed text-primary">{email}</a>
+                <a className="leading-relaxed text-blue-500">{email}</a>
                 <h2 className="title-font mt-4 text-xs font-semibold tracking-widest text-foreground">
                   PHONE
                 </h2>

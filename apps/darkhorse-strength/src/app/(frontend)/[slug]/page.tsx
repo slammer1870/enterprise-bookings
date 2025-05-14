@@ -6,6 +6,13 @@ import config from '@/payload.config'
 
 import { RenderBlocks } from '@/blocks/render-blocks'
 
+import { generateMetadataFunction } from '@repo/website/src/utils/generate-metadata'
+
+export async function generateMetadata({ params: paramsPromise }: Args) {
+  const payload = await getPayload({ config })
+  return generateMetadataFunction({ params: paramsPromise, payload })
+}
+
 export async function generateStaticParams() {
   const payload = await getPayload({ config })
   const pages = await payload.find({
