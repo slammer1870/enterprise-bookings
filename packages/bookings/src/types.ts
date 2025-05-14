@@ -1,3 +1,7 @@
+import { CollectionConfig, Field } from "payload";
+
+export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
+
 export type BookingsPluginConfig = {
   /**
    * Enable or disable plugin
@@ -20,4 +24,8 @@ export type BookingsPluginConfig = {
    * @default false
    */
   childrenEnabled?: boolean;
+
+  lessonOverrides?: {
+    fields?: FieldsOverride;
+  } & Partial<Omit<CollectionConfig, "fields">>;
 };

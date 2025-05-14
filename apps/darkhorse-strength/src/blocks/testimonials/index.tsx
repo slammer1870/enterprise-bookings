@@ -17,9 +17,9 @@ export const TestimonialsBlock: React.FC<TestimonialsProps> = ({
 }) => {
   return (
     <section>
-      <div className="container mx-auto px-4 py-12 text-gray-900">
+      <div className="container mx-auto px-4 py-12 text-foreground">
         <div className="mb-4 flex w-full flex-col">
-          <h5 className="mb-4 text-3xl font-medium uppercase">{title}</h5>
+          <h5 className="mb-4 text-3xl font-medium">{title}</h5>
           <p className="text-base leading-relaxed">{description}</p>
         </div>
         <div className="grid grid-cols-1 grid-rows-2 gap-4 md:grid-cols-2 md:grid-rows-1">

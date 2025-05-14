@@ -4,6 +4,7 @@ import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { resendAdapter } from '@payloadcms/email-resend'
+import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -23,6 +24,7 @@ import { membershipsPlugin } from '@repo/memberships'
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
 import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
+import { Booking } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -78,6 +80,21 @@ export default buildConfig({
         plans: true,
         classPasses: false,
       },
+      lessonOverrides: {
+        hooks: {
+          afterChange: [
+            async ({ doc, req }) => {
+              if (
+                doc.bookings &&
+                doc.bookings.filter((booking: Booking) => booking.status === 'confirmed').length > 0
+              ) {
+                doc.lockOutTime = 0
+                return doc
+              }
+            },
+          ],
+        },
+      },
     }),
     stripePlugin({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
@@ -90,6 +107,7 @@ export default buildConfig({
         'customer.subscription.deleted': subscriptionCanceled,
       },
     }),
+    formBuilderPlugin({}),
     // storage-adapter-placeholder
   ],
 })

@@ -8,6 +8,8 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { useAuth } from '@repo/auth/src/providers/auth'
 
+import { Button } from '@repo/ui/components/ui/button'
+
 const Navbar: React.FC = () => {
   const router = useRouter()
   const [scroll, setScroll] = useState<boolean>(false)
@@ -16,17 +18,15 @@ const Navbar: React.FC = () => {
   const pathname = usePathname()
   const isBrowser: boolean = typeof window !== 'undefined'
 
-  const handleScroll = (): void => {
+  const { user, logout } = useAuth()
+
+  const handleScroll = React.useCallback((): void => {
     if (window.scrollY >= 10 || pathname !== '/') {
       setScroll(true)
     } else {
       setScroll(false)
     }
-  }
-
-  if (isBrowser) {
-    window.addEventListener('scroll', handleScroll)
-  }
+  }, [pathname])
 
   useEffect(() => {
     if (isBrowser) {
@@ -37,9 +37,7 @@ const Navbar: React.FC = () => {
         window.removeEventListener('scroll', handleScroll)
       }
     }
-  }, [pathname])
-
-  const { user, status, logout } = useAuth()
+  }, [pathname, isBrowser, handleScroll])
 
   const handleOpen = (): void => {
     setOpen(!open)
@@ -48,10 +46,10 @@ const Navbar: React.FC = () => {
   return (
     <nav
       className={`transform ${
-        scroll ? `bg-black` : `bg-transparent`
+        scroll ? `bg-foreground` : `bg-transparent`
       } fixed z-50 w-full transition-all duration-300 ease-in-out`}
     >
-      <div className="container mx-auto flex items-center justify-between px-4 py-2 uppercase md:text-white">
+      <div className="container mx-auto flex items-center justify-between px-4 py-2 md:text-foreground">
         <Link href="/">
           <img src="/logoBW.svg" alt="Logo" className="h-16" />
         </Link>
@@ -70,7 +68,7 @@ const Navbar: React.FC = () => {
                   x1="39.598"
                   transform="translate(1.414 1.414) rotate(45)"
                   fill="none"
-                  stroke="#707070"
+                  stroke="currentColor"
                   strokeWidth="3"
                 />
                 <line
@@ -79,7 +77,7 @@ const Navbar: React.FC = () => {
                   x1="39.598"
                   transform="translate(1.414 29.414) rotate(-45)"
                   fill="none"
-                  stroke="#707070"
+                  stroke="currentColor"
                   strokeWidth="3"
                 />
               </svg>
@@ -91,7 +89,7 @@ const Navbar: React.FC = () => {
                   x1="34"
                   transform="translate(0 2)"
                   fill="none"
-                  stroke="#fff"
+                  stroke="currentColor"
                   strokeWidth="3"
                 />
                 <line
@@ -100,7 +98,7 @@ const Navbar: React.FC = () => {
                   x1="34"
                   transform="translate(0 16)"
                   fill="none"
-                  stroke="#fff"
+                  stroke="currentColor"
                   strokeWidth="3"
                 />
                 <line
@@ -109,7 +107,7 @@ const Navbar: React.FC = () => {
                   x1="34"
                   transform="translate(0 30)"
                   fill="none"
-                  stroke="#fff"
+                  stroke="currentColor"
                   strokeWidth="3"
                 />
               </svg>
@@ -118,15 +116,15 @@ const Navbar: React.FC = () => {
           <div
             className={`${
               open ? 'block' : 'hidden'
-            } absolute top-0 z-20 h-screen w-screen bg-black opacity-50 md:hidden`}
+            } absolute top-0 z-20 h-screen w-screen bg-background/50 md:hidden`}
             onClick={handleOpen}
           ></div>
           <div
             className={`transform ${
               open ? '-translate-x-0' : 'translate-x-full'
-            } fixed right-0 top-0 z-30 flex h-screen w-1/2 items-start bg-white transition-all duration-300 ease-in-out md:relative md:flex md:h-auto md:w-full md:translate-x-0 md:flex-row md:items-center md:bg-transparent md:py-0`}
+            } fixed right-0 top-0 z-30 flex h-screen w-1/2 items-start bg-background transition-all duration-300 ease-in-out md:relative md:flex md:h-auto md:w-full md:translate-x-0 md:flex-row md:items-center md:bg-transparent md:py-0`}
           >
-            <ul className="mt-20 flex flex-col text-sm font-light md:relative md:mt-0 md:flex md:h-auto md:w-full md:flex-row md:items-center md:justify-end md:bg-transparent md:px-0 md:py-0 md:text-base">
+            <ul className="mt-20 flex flex-col text-sm font-light md:relative md:mt-0 md:flex md:h-auto md:w-full md:flex-row md:items-center md:justify-end md:bg-transparent md:px-0 md:py-0 md:text-base text-secondary">
               <Link href="/personal-training">
                 <li className="ml-9 mt-4 cursor-pointer md:mt-0 md:ml-16" onClick={handleOpen}>
                   Personal Training
@@ -143,20 +141,26 @@ const Navbar: React.FC = () => {
                 </Link>
               ) : (
                 <Link href="/dashboard">
-                  <li
-                    className="ml-9 mt-4 cursor-pointer rounded bg-[#FECE7E] px-2 py-1 text-center text-gray-700 md:mt-0 md:ml-12 md:w-auto"
-                    onClick={handleOpen}
-                  >
-                    Members
+                  <li>
+                    <Button
+                      variant="default"
+                      onClick={handleOpen}
+                      className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-12 md:w-auto border-none"
+                    >
+                      Members
+                    </Button>
                   </li>
                 </Link>
               )}
               {user && (
-                <li
-                  className="ml-9 mt-4 cursor-pointer rounded bg-[#FECE7E] px-2 py-1 text-center text-gray-700 md:mt-0 md:ml-16 md:w-auto"
-                  onClick={() => logout().then(() => router.push('/'))}
-                >
-                  Logout
+                <li>
+                  <Button
+                    variant="outline"
+                    onClick={() => logout().then(() => router.push('/'))}
+                    className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-16 md:w-auto border-none"
+                  >
+                    Logout
+                  </Button>
                 </li>
               )}
             </ul>

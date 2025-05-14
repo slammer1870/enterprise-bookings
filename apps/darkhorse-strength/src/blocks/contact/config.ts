@@ -52,19 +52,12 @@ export const Contact: Block = {
       defaultValue: '087 974 8058',
     },
     {
-      name: 'contactTitle',
-      type: 'text',
+      name: 'form',
+      type: 'relationship',
+      relationTo: 'forms',
+      hasMany: false,
       required: true,
-      label: 'Contact Form Title',
-      defaultValue: 'Contact Us',
-    },
-    {
-      name: 'contactDescription',
-      type: 'textarea',
-      required: true,
-      label: 'Contact Form Description',
-      defaultValue:
-        'Do you have any questions? Fill in our contact form and we will get back to you as soon as possible!',
+      label: 'Contact Form',
     },
   ],
 }

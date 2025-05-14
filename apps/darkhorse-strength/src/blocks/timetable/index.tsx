@@ -26,52 +26,52 @@ export const TimetableBlock: React.FC<TimetableProps> = ({
 }) => {
   return (
     <section>
-      <div className="container mx-auto px-5 py-12 text-gray-900">
+      <div className="container mx-auto px-5 py-12 text-foreground">
         <div className="mb-4 flex w-full flex-col">
-          <h5 className="mb-4 text-3xl font-medium uppercase">{title}</h5>
+          <h5 className="mb-4 text-3xl font-medium">{title}</h5>
           <p className="text-base leading-relaxed">{description}</p>
         </div>
         <div className="mx-auto w-full overflow-auto">
           <table className="whitespace-no-wrap w-full table-auto text-left">
             <thead>
               <tr>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Time
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Monday
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Tuesday
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Wednesday
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Thursday
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Friday
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Saturday
                 </th>
-                <th className="title-font bg-gray-100 px-4 py-3 text-sm font-medium tracking-wider text-gray-900">
+                <th className="title-font bg-muted px-4 py-3 text-sm font-medium tracking-wider text-muted-foreground">
                   Sunday
                 </th>
               </tr>
             </thead>
             <tbody>
               {timeSlots.map((slot, index) => (
-                <tr key={index} className={index > 0 ? 'border-t-2 border-gray-200' : ''}>
+                <tr key={index} className={index > 0 ? 'border-t-2 border-border' : ''}>
                   <td className="px-4 py-3">{slot.time}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.monday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.tuesday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.wednesday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.thursday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.friday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.saturday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.sunday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.monday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.tuesday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.wednesday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.thursday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.friday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.saturday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.sunday}</td>
                 </tr>
               ))}
             </tbody>

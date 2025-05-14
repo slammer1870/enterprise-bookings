@@ -1,6 +1,6 @@
 import type { CollectionSlug, Config, Field, Plugin } from "payload";
 
-import { lessonsCollection } from "../collections/lessons";
+import { generateLessonCollection } from "../collections/lessons";
 import { bookingsCollection } from "../collections/bookings";
 import { classOptionsCollection } from "../collections/class-options";
 
@@ -19,7 +19,7 @@ export const bookingsPlugin =
 
     let collections = config.collections || [];
 
-    const lessons = lessonsCollection;
+    const lessons = generateLessonCollection(pluginOptions);
     const classOptions = classOptionsCollection(pluginOptions);
     const bookings = bookingsCollection(pluginOptions);
 
