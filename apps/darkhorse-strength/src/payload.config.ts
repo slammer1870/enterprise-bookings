@@ -5,6 +5,7 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -110,6 +111,12 @@ export default buildConfig({
       },
     }),
     formBuilderPlugin({}),
+    seoPlugin({
+      collections: ['pages'],
+      uploadsCollection: 'media',
+      generateTitle: ({ doc }) => `The Mindful Yard — ${doc.title}`,
+      generateDescription: ({ doc }) => doc.excerpt,
+    }),
     // storage-adapter-placeholder
   ],
 })
