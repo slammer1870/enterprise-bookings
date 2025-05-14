@@ -2,6 +2,7 @@
 
 import { FormBlock } from '@repo/website/src/blocks/form'
 import React, { useState } from 'react'
+import type { Form } from '@payloadcms/plugin-form-builder/types'
 
 type ContactProps = {
   locationTitle: string
@@ -12,7 +13,16 @@ type ContactProps = {
   phone: string
   contactTitle: string
   contactDescription: string
-  form: any
+  form: Form & {
+    fields: Array<{
+      name: string
+      label: string
+      type: string
+      required?: boolean
+      blockType?: string
+      defaultValue?: string
+    }>
+  }
 }
 
 export const ContactBlock: React.FC<ContactProps> = ({

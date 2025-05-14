@@ -18,13 +18,15 @@ const Navbar: React.FC = () => {
   const pathname = usePathname()
   const isBrowser: boolean = typeof window !== 'undefined'
 
-  const handleScroll = (): void => {
+  const { user, logout } = useAuth()
+
+  const handleScroll = React.useCallback((): void => {
     if (window.scrollY >= 10 || pathname !== '/') {
       setScroll(true)
     } else {
       setScroll(false)
     }
-  }
+  }, [pathname])
 
   useEffect(() => {
     if (isBrowser) {
@@ -36,8 +38,6 @@ const Navbar: React.FC = () => {
       }
     }
   }, [pathname, isBrowser, handleScroll])
-
-  const { user, status, logout } = useAuth()
 
   const handleOpen = (): void => {
     setOpen(!open)
