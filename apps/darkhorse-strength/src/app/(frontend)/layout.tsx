@@ -8,8 +8,8 @@ import Footer from '@/components/footer'
 //import Footer from '@/components/footer'
 
 export const metadata = {
-  description: 'A blank template using Payload in a Next.js app.',
-  title: 'Payload Blank Template',
+  description: 'Small Group Personal Training in a Private Facility located in Bray, Co. Wicklow',
+  title: 'Dark Horse Strength and Performance',
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
