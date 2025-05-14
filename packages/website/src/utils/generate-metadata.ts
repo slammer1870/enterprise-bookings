@@ -43,6 +43,8 @@ export async function generateMetadataFunction({
           ? [{ url: page.meta.image.url || "" }]
           : [],
     },
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SERVER_URL || ""),
+    metadataBase: process.env.NEXT_PUBLIC_SERVER_URL
+      ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
+      : undefined,
   };
 }

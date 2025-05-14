@@ -174,24 +174,53 @@ export const generateLessonsFromSchedule = async (
   const clearExisting = generateOptions?.clearExisting;
 
   if (clearExisting) {
-    await payload.delete({
-      collection: "lessons",
-      where: {
-        and: [
-          {
-            date: {
-              greater_than_equal: start.toISOString(),
+    try {
+      // First find lessons that have no bookings
+      const lessons = await payload.find({
+        collection: "lessons",
+        where: {
+          and: [
+            {
+              date: {
+                greater_than_equal: start.toISOString(),
+              },
+            },
+            {
+              date: {
+                less_than_equal: end.toISOString(),
+              },
+            },
+          ],
+        },
+        depth: 2,
+        limit: 1000000,
+      });
+
+      // Filter lessons that have no bookings
+      const lessonsToDelete = lessons.docs.reduce((acc: any[], lesson: any) => {
+        if (!lesson.bookings?.docs || lesson.bookings.docs.length === 0) {
+          acc.push(lesson.id);
+        }
+        return acc;
+      }, []);
+
+      console.log("LESSONS TO DELETE", lessonsToDelete);
+
+      if (lessonsToDelete.length > 0) {
+        await payload.delete({
+          collection: "lessons",
+          where: {
+            id: {
+              in: lessonsToDelete,
             },
           },
-          {
-            date: {
-              less_than_equal: end.toISOString(),
-            },
-          },
-        ],
-      },
-    });
+        });
+      }
+    } catch (error) {
+      console.error("Error clearing existing lessons:", error);
+    }
   }
+
   // Map day names to day numbers (0 = Sunday, 1 = Monday, etc.)
   const dayMap: Record<string, number> = {
     sunday: 0,
