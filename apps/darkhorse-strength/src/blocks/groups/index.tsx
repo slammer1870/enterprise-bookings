@@ -1,5 +1,5 @@
 import React from 'react'
-import Image from "next/legacy/image"
+import Image from "next/image"
 
 interface Media {
   url: string
@@ -39,9 +39,11 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
             className="rounded"
             src={heroImage.url}
             alt={heroImage.alt}
-            layout="fill"
-            objectFit="cover"
-          />
+            fill
+            sizes="100vw"
+            style={{
+              objectFit: "cover"
+            }} />
         </div>
         <div className="md:col-span-1 md:text-xl">
           <h3 className="mb-4 text-xl font-medium md:text-2xl">Who is this for?</h3>
@@ -49,7 +51,15 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
             {benefits?.map((benefit, index) => (
               <div key={index} className="flex items-center">
                 <div className="p-6">
-                  <Image src={benefit.icon.url} alt={benefit.icon.alt} width={40} height={40} />
+                  <Image
+                    src={benefit.icon.url}
+                    alt={benefit.icon.alt}
+                    width={40}
+                    height={40}
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto"
+                    }} />
                 </div>
                 <p className="mb-2 font-light">{benefit.text}</p>
               </div>
@@ -72,13 +82,16 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
               alt={feature.image.alt}
               width={600}
               height={600}
-              objectFit="cover"
-            />
+              style={{
+                maxWidth: "100%",
+                height: "auto",
+                objectFit: "cover"
+              }} />
             <h5 className="my-2 text-2xl">{feature.title}</h5>
             <p className="text-gray-700">{feature.description}</p>
           </div>
         ))}
       </div>
     </div>
-  )
+  );
 }
