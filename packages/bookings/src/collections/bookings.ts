@@ -49,13 +49,16 @@ export const bookingsCollection = (
     hooks: {
       beforeValidate: [
         async ({ req, data }) => {
-          const lesson = await req.payload.findByID({
+          const lesson = (await req.payload.findByID({
             collection: "lessons",
             id: data?.lesson,
-            depth: 1,
-          });
+            depth: 3,
+          })) as Lesson;
 
-          const open = (lesson.remainingCapacity as number) > 0;
+          const open =
+            lesson.bookings.docs.filter(
+              (booking: Booking) => booking.status === "confirmed"
+            ).length < lesson.classOption.places;
 
           //Prevent booking if the lesson is fully booked
           if (!open && data?.status === "confirmed") {
@@ -63,29 +66,6 @@ export const bookingsCollection = (
           }
 
           return data;
-        },
-        async ({ req, data, operation }) => {
-          if (operation === "create") {
-            const booking = await req.payload.find({
-              collection: "bookings",
-              where: {
-                lesson: {
-                  equals: data?.lesson,
-                },
-                user: {
-                  equals: data?.user,
-                },
-              },
-              depth: 3,
-            });
-
-            if (booking.docs.length > 0) {
-              throw new APIError(
-                "A booking with this user already exists for this lesson",
-                400
-              );
-            }
-          }
         },
       ],
       afterChange: [
