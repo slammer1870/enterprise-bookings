@@ -22,6 +22,8 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 
+import { RichText } from "../../components/rich-text";
+
 export type Value = unknown;
 
 export interface Property {
@@ -162,57 +164,66 @@ export const FormBlock: React.FC<
 
   return (
     <div className="max-w-screen-sm mx-auto">
-      {formMethods.formState.errors.root && (
-        <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
-          {formMethods.formState.errors.root.message}
-        </div>
+      {enableIntro && introContent && !hasSubmitted && (
+        <RichText className="text-center" content={introContent} />
       )}
-      <Form {...formMethods}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {formFromProps.fields.map((fieldBlock: FormField, index) => {
-            const {
-              name,
-              label,
-              required: requiredFromProps,
-              type: typeFromProps,
-              defaultValue,
-            } = fieldBlock;
-            return (
-              <FormField
-                key={index}
-                control={control}
-                name={name}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium capitalize">
-                      {label}
-                    </FormLabel>
-                    <FormControl>
-                      {fieldBlock.blockType === "textarea" ? (
-                        <Textarea
-                          required={requiredFromProps}
-                          placeholder={fieldBlock.defaultValue}
-                          {...field}
-                        />
-                      ) : (
-                        <Input
-                          type={fieldBlock.blockType as string}
-                          required={requiredFromProps}
-                          placeholder={fieldBlock.defaultValue}
-                          {...field}
-                        />
-                      )}
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            );
-          })}
-          <Button type="submit" disabled={formMethods.formState.isSubmitting}>
-            {submitButtonLabel || "Submit"}
-          </Button>
-        </form>
-      </Form>
+      {!isLoading && hasSubmitted && confirmationType === "message" && (
+        <RichText className="text-center" content={confirmationMessage} />
+      )}
+      {isLoading && !hasSubmitted && <p>Loading, please wait...</p>}
+      {error && <div>{`${error.status || "500"}: ${error.message || ""}`}</div>}
+      {!hasSubmitted && (
+        <Form {...formMethods}>
+          <form
+            id={formID}
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-4"
+          >
+            {formFromProps.fields.map((fieldBlock: FormField, index) => {
+              const {
+                name,
+                label,
+                required: requiredFromProps,
+                type: typeFromProps,
+                defaultValue,
+              } = fieldBlock;
+              return (
+                <FormField
+                  key={index}
+                  control={control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium capitalize">
+                        {label}
+                      </FormLabel>
+                      <FormControl>
+                        {fieldBlock.blockType === "textarea" ? (
+                          <Textarea
+                            required={requiredFromProps}
+                            placeholder={fieldBlock.defaultValue}
+                            {...field}
+                          />
+                        ) : (
+                          <Input
+                            type={fieldBlock.blockType as string}
+                            required={requiredFromProps}
+                            placeholder={fieldBlock.defaultValue}
+                            {...field}
+                          />
+                        )}
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              );
+            })}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : submitButtonLabel || "Submit"}
+            </Button>
+          </form>
+        </Form>
+      )}
     </div>
   );
 };

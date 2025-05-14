@@ -266,8 +266,7 @@ export interface Page {
             address: string;
             email: string;
             phone: string;
-            contactTitle: string;
-            contactDescription: string;
+            form: number | Form;
             id?: string | null;
             blockName?: string | null;
             blockType: 'contact';
@@ -892,8 +891,7 @@ export interface PagesSelect<T extends boolean = true> {
               address?: T;
               email?: T;
               phone?: T;
-              contactTitle?: T;
-              contactDescription?: T;
+              form?: T;
               id?: T;
               blockName?: T;
             };

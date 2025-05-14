@@ -1,5 +1,6 @@
 'use client'
 
+import { FormBlock } from '@repo/website/src/blocks/form'
 import React, { useState } from 'react'
 
 type ContactProps = {
@@ -11,6 +12,7 @@ type ContactProps = {
   phone: string
   contactTitle: string
   contactDescription: string
+  form: any
 }
 
 export const ContactBlock: React.FC<ContactProps> = ({
@@ -22,6 +24,7 @@ export const ContactBlock: React.FC<ContactProps> = ({
   phone = '087 974 8058',
   contactTitle = 'Contact Us',
   contactDescription = 'Do you have any questions? Fill in our contact form and we will get back to you as soon as possible!',
+  form,
 }) => {
   const [tos, setTos] = useState(false)
 
@@ -76,88 +79,7 @@ export const ContactBlock: React.FC<ContactProps> = ({
         <div className="md:w-1/2 md:pl-12 lg:pl-36">
           <h5 className="mb-4 text-3xl font-medium uppercase">{contactTitle}</h5>
           <p className="mb-4 text-gray-700">{contactDescription}</p>
-          <form onSubmit={handleSubmit}>
-            <div className="-mx-3 mb-4 flex flex-wrap">
-              <div className="mb-3 w-full px-3">
-                <label
-                  className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-700"
-                  htmlFor="name"
-                >
-                  Name
-                </label>
-                <input
-                  className="block w-full appearance-none rounded border border-gray-200 bg-gray-200 py-3 px-4 leading-tight text-gray-700 focus:border-gray-500 focus:bg-white focus:outline-none"
-                  id="grid-last-name"
-                  type="text"
-                  placeholder="Name"
-                  name="name"
-                  required
-                />
-              </div>
-              <div className="mb-3 w-full px-3 md:mb-0">
-                <label
-                  className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-700"
-                  htmlFor="email"
-                >
-                  Email
-                </label>
-                <input
-                  className="mb-3 block w-full appearance-none rounded border border-gray-200 bg-gray-200 py-3 px-4 leading-tight text-gray-700 focus:border-gray-500 focus:bg-white focus:outline-none"
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  name="email"
-                  required
-                />
-              </div>
-              <div className="mb-3 w-full px-3">
-                <label
-                  htmlFor="tel"
-                  className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-700"
-                >
-                  Phone Number <span className="text-gray-500">(optional)</span>
-                </label>
-                <input
-                  type="tel"
-                  id="tel"
-                  name="tel"
-                  placeholder="Phone Number"
-                  className="block w-full appearance-none rounded border border-gray-200 bg-gray-200 py-3 px-4 leading-tight text-gray-700 focus:border-gray-500 focus:bg-white focus:outline-none"
-                />
-              </div>
-              <div className="mb-3 w-full px-3">
-                <label
-                  className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-700"
-                  htmlFor="grid-password"
-                >
-                  Message
-                </label>
-                <textarea
-                  className="mb-3 block w-full appearance-none rounded border border-gray-200 bg-gray-200 py-3 px-4 leading-tight text-gray-700 focus:border-gray-500 focus:bg-white focus:outline-none"
-                  rows={4}
-                  cols={50}
-                  name="message"
-                  id="message"
-                  placeholder="Message"
-                  required
-                />
-              </div>
-              <div className="relative mb-4 px-3">
-                <input type="checkbox" id="gdpr" name="gdpr" className="mr-2" required />
-                <label className="mt-3 text-xs text-gray-500 lg:text-base">
-                  I consent to Dark Horse Strength&apos;s{' '}
-                  <span className="underline cursor-pointer" onClick={handleTos}>
-                    terms of service
-                  </span>
-                </label>
-              </div>
-              <div className="flex w-full pr-4">
-                <button className="ml-auto rounded bg-[#FECE7E] px-4 py-2 uppercase text-white">
-                  Contact Us
-                </button>
-              </div>
-            </div>
-          </form>
+          <FormBlock enableIntro={false} form={form} />
         </div>
       </div>
     </>
