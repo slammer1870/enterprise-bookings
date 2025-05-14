@@ -1,5 +1,5 @@
 import React from 'react'
-import Image from 'next/image'
+import Image from "next/image"
 import type { Media } from '@/payload-types'
 
 type TeamMember = {
@@ -35,9 +35,12 @@ export const TeamBlock: React.FC<TeamProps> = ({
               alt="Team image"
               width={1800}
               height={1900}
-              objectFit="cover"
-              objectPosition="bottom"
-            />
+              style={{
+                maxWidth: "100%",
+                height: "auto",
+                objectFit: "cover",
+                objectPosition: "bottom"
+              }} />
           </div>
           <div className="mt-10 flex flex-col lg:flex-row">
             {teamMembers.map((member: TeamMember, index: number) => (
@@ -48,10 +51,13 @@ export const TeamBlock: React.FC<TeamProps> = ({
                     alt={member.name}
                     width={500}
                     height={500}
-                    objectFit="cover"
-                    objectPosition="center"
                     className="z-10 rounded-full"
-                  />
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      objectFit: "cover",
+                      objectPosition: "center"
+                    }} />
                 </div>
                 <div className="flex flex-col items-center justify-center">
                   <h2 className="title-font mt-4 text-lg font-medium text-gray-900">
@@ -77,5 +83,5 @@ export const TeamBlock: React.FC<TeamProps> = ({
         </div>
       </div>
     </section>
-  )
+  );
 }
