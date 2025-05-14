@@ -24,6 +24,7 @@ import { membershipsPlugin } from '@repo/memberships'
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
 import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
+import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
 import { Booking } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
@@ -105,6 +106,7 @@ export default buildConfig({
         'customer.subscription.created': subscriptionCreated,
         'customer.subscription.updated': subscriptionUpdated,
         'customer.subscription.deleted': subscriptionCanceled,
+        'product.updated': productUpdated,
       },
     }),
     formBuilderPlugin({}),
