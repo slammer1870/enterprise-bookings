@@ -24,6 +24,7 @@ import { membershipsPlugin } from '@repo/memberships'
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
 import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
+import { Booking } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -78,6 +79,21 @@ export default buildConfig({
         dropIns: false,
         plans: true,
         classPasses: false,
+      },
+      lessonOverrides: {
+        hooks: {
+          afterChange: [
+            async ({ doc, req }) => {
+              if (
+                doc.bookings &&
+                doc.bookings.filter((booking: Booking) => booking.status === 'confirmed').length > 0
+              ) {
+                doc.lockOutTime = 0
+                return doc
+              }
+            },
+          ],
+        },
       },
     }),
     stripePlugin({
