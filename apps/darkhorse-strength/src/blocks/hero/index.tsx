@@ -22,21 +22,21 @@ export const HeroBlock: React.FC<HeroProps> = ({
 }) => {
   return (
     <div
-      className="mb-12 grid min-h-screen grid-rows-2 bg-gray-900 bg-opacity-80 bg-cover bg-center bg-blend-overlay"
+      className="mb-12 grid min-h-screen grid-rows-2 bg-foreground/70 bg-cover bg-center bg-blend-overlay"
       style={{ backgroundImage: `url(${backgroundImage.url})` }}
     >
       <div className="container row-span-1 mx-auto flex flex-col items-start justify-center px-4 pt-12 lg:row-span-2">
-        <h1 className="mb-2 text-2xl font-medium uppercase text-white md:text-4xl">{heading}</h1>
-        <h3 className="text-xl text-[#FECE7E] md:text-2xl">{subheading}</h3>
+        <h1 className="mb-2 text-2xl font-medium text-background md:text-4xl">{heading}</h1>
+        <h3 className="text-xl text-primary md:text-2xl">{subheading}</h3>
       </div>
-      <div className="row-span-1 flex h-auto w-full flex-col justify-center bg-[#BA4343] text-white lg:flex-row">
+      <div className="row-span-1 flex h-auto w-full flex-col justify-center bg-destructive text-destructive-foreground lg:flex-row">
         <Link href={ctaLink}>
           <div className="bg-opacity-85 w-full cursor-pointer px-4 lg:py-16">
             <div className="container relative mx-auto h-full p-4">
-              <h5 className="mb-2 text-xl uppercase md:text-2xl lg:mb-4">{ctaTitle}</h5>
+              <h5 className="mb-2 text-xl  md:text-2xl lg:mb-4">{ctaTitle}</h5>
               <p className="flex flex-col pb-8 md:text-lg">{ctaDescription}</p>
               <div className="absolute bottom-0 right-0 flex items-center p-4">
-                <span className="text-sm font-medium uppercase lg:text-base">More Information</span>
+                <span className="text-sm font-medium lg:text-base">More Information</span>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 22.26 14.352"
@@ -48,7 +48,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
                     x2="19.591"
                     transform="translate(0 7.153)"
                     fill="none"
-                    stroke="#fff"
+                    stroke="currentColor"
                     strokeWidth="2"
                   />
                   <line
@@ -58,7 +58,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
                     y2="7.167"
                     transform="translate(14.385 0.707)"
                     fill="none"
-                    stroke="#fff"
+                    stroke="currentColor"
                     strokeWidth="2"
                   />
                   <line
@@ -68,7 +68,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
                     y2="7.167"
                     transform="translate(21.553 6.478) rotate(90)"
                     fill="none"
-                    stroke="#fff"
+                    stroke="currentColor"
                     strokeWidth="2"
                   />
                 </svg>

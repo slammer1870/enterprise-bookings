@@ -19,26 +19,26 @@ export const PricingBlock: React.FC<PricingProps> = ({
   pricingOptions = [],
 }) => {
   return (
-    <section className="body-font text-gray-600">
+    <section className="body-font text-muted-foreground">
       <div className="container mx-auto px-4 py-12">
         <div className="mb-4 flex w-full flex-col text-left">
-          <h1 className="mb-2 text-3xl font-medium uppercase text-gray-900">{title}</h1>
+          <h1 className="mb-2 text-3xl font-medium text-foreground">{title}</h1>
           <p className="text-base leading-relaxed lg:w-2/3">{description}</p>
         </div>
         <div className="mx-auto w-full overflow-auto">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {pricingOptions.map((option, index) => (
-              <div key={index} className="col-span-1 w-full rounded-md border">
+              <div key={index} className="col-span-1 w-full rounded-md border border-border">
                 <div className="relative flex h-full flex-col overflow-hidden rounded p-6">
                   <h2 className="title-font mb-1 text-xl font-medium tracking-widest">
                     {option.title}
                   </h2>
-                  <h1 className="mb-4 border-b border-gray-200 pb-4 text-4xl leading-none text-gray-900">
+                  <h1 className="mb-4 border-b border-border pb-4 text-4xl leading-none text-foreground">
                     {option.price}
                   </h1>
                   {option.features.map((feature, idx) => (
-                    <p key={idx} className="mb-2 flex items-center text-gray-600">
-                      <span className="mr-2 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-400 text-white">
+                    <p key={idx} className="mb-2 flex items-center text-muted-foreground">
+                      <span className="mr-2 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                         <svg
                           fill="none"
                           stroke="currentColor"
@@ -54,7 +54,7 @@ export const PricingBlock: React.FC<PricingProps> = ({
                       {feature.feature}
                     </p>
                   ))}
-                  <p className="mt-3 text-xs text-gray-500">{option.note}</p>
+                  <p className="mt-3 text-xs text-muted-foreground">{option.note}</p>
                 </div>
               </div>
             ))}

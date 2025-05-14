@@ -32,7 +32,7 @@ interface GroupsBlockProps {
 export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, features, cta }) => {
   return (
     <div className="container mx-auto p-4 pt-28">
-      <h1 className="mb-4 text-2xl font-medium uppercase md:mb-8 md:text-3xl">Personal Training</h1>
+      <h1 className="mb-4 text-2xl font-medium md:mb-8 md:text-3xl">Personal Training</h1>
       <div className="grid-cols-1 grid-rows-4 gap-4 md:grid md:grid-cols-2 md:grid-rows-2 md:gap-x-40 md:gap-y-12">
         <div className="relative row-span-1 mb-6 aspect-video md:col-span-1">
           <Image
@@ -44,7 +44,7 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
           />
         </div>
         <div className="md:col-span-1 md:text-xl">
-          <h3 className="mb-4 text-xl font-medium uppercase md:text-2xl">Who is this for?</h3>
+          <h3 className="mb-4 text-xl font-medium md:text-2xl">Who is this for?</h3>
           <div className="mb-6 md:pr-12 lg:pr-24">
             {benefits?.map((benefit, index) => (
               <div key={index} className="flex items-center">
@@ -58,7 +58,9 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
         </div>
         <div className="md:pt-10">
           <h5 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h5>
-          <p className="mb-8 text-xl font-light text-gray-700 md:text-2xl">{cta.description}</p>
+          <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
+            {cta.description}
+          </p>
         </div>
       </div>
       <div className="mt-12 flex flex-wrap">

@@ -41,9 +41,9 @@ export const ContactBlock: React.FC<ContactProps> = ({
     <>
       <div className="container mx-auto flex flex-wrap px-4 py-12 sm:flex-nowrap">
         <div className="mb-24 md:w-1/2">
-          <h5 className="mb-4 text-3xl font-medium uppercase">{locationTitle}</h5>
-          <p className="mb-4 text-gray-700">{locationDescription}</p>
-          <div className="relative flex items-end justify-start overflow-hidden rounded-lg bg-gray-300 p-10">
+          <h5 className="mb-4 text-3xl font-medium">{locationTitle}</h5>
+          <p className="mb-4 text-muted-foreground">{locationDescription}</p>
+          <div className="relative flex items-end justify-start overflow-hidden rounded-lg bg-muted p-10">
             <iframe
               width="100%"
               height="100%"
@@ -56,19 +56,19 @@ export const ContactBlock: React.FC<ContactProps> = ({
               src={mapEmbedUrl}
               style={{ filter: ' contrast(1.2) opacity(0.4)' }}
             />
-            <div className="relative flex flex-wrap rounded bg-white py-6 shadow-md">
+            <div className="relative flex flex-wrap rounded bg-background py-6 shadow-md">
               <div className="px-6 lg:w-1/2">
-                <h2 className="title-font text-xs font-semibold tracking-widest text-gray-900">
+                <h2 className="title-font text-xs font-semibold tracking-widest text-foreground">
                   ADDRESS
                 </h2>
                 <p className="mt-1">{address}</p>
               </div>
               <div className="mt-4 px-6 lg:mt-0 lg:w-1/2">
-                <h2 className="title-font text-xs font-semibold tracking-widest text-gray-900">
+                <h2 className="title-font text-xs font-semibold tracking-widest text-foreground">
                   EMAIL
                 </h2>
-                <a className="leading-relaxed text-indigo-500">{email}</a>
-                <h2 className="title-font mt-4 text-xs font-semibold tracking-widest text-gray-900">
+                <a className="leading-relaxed text-primary">{email}</a>
+                <h2 className="title-font mt-4 text-xs font-semibold tracking-widest text-foreground">
                   PHONE
                 </h2>
                 <p className="leading-relaxed">{phone}</p>
@@ -77,8 +77,8 @@ export const ContactBlock: React.FC<ContactProps> = ({
           </div>
         </div>
         <div className="md:w-1/2 md:pl-12 lg:pl-36">
-          <h5 className="mb-4 text-3xl font-medium uppercase">{contactTitle}</h5>
-          <p className="mb-4 text-gray-700">{contactDescription}</p>
+          <h5 className="mb-4 text-3xl font-medium">{contactTitle}</h5>
+          <p className="mb-4 text-muted-foreground">{contactDescription}</p>
           <FormBlock enableIntro={false} form={form} />
         </div>
       </div>

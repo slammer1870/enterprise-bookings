@@ -165,10 +165,10 @@ export const FormBlock: React.FC<
   return (
     <div className="max-w-screen-sm mx-auto">
       {enableIntro && introContent && !hasSubmitted && (
-        <RichText className="text-center" content={introContent} />
+        <RichText className="text-center my-4" content={introContent} />
       )}
       {!isLoading && hasSubmitted && confirmationType === "message" && (
-        <RichText className="text-center" content={confirmationMessage} />
+        <RichText className="text-center my-4" content={confirmationMessage} />
       )}
       {isLoading && !hasSubmitted && <p>Loading, please wait...</p>}
       {error && <div>{`${error.status || "500"}: ${error.message || ""}`}</div>}
