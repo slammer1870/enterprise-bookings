@@ -49,7 +49,7 @@ const Navbar: React.FC = () => {
         scroll ? `bg-foreground` : `bg-transparent`
       } fixed z-50 w-full transition-all duration-300 ease-in-out`}
     >
-      <div className="container mx-auto flex items-center justify-between px-4 py-2 md:text-foreground">
+      <div className="container mx-auto flex items-center justify-between px-4 py-2 text-background md:text-foreground">
         <Link href="/">
           <img src="/logoBW.svg" alt="Logo" className="h-16" />
         </Link>
@@ -61,13 +61,14 @@ const Navbar: React.FC = () => {
                 width="30.829"
                 height="30.829"
                 viewBox="0 0 30.829 30.829"
+                className="text-foreground"
               >
                 <line
                   id="Line_25"
                   data-name="Line 25"
                   x1="39.598"
                   transform="translate(1.414 1.414) rotate(45)"
-                  fill="none"
+                  fill="inherit"
                   stroke="currentColor"
                   strokeWidth="3"
                 />
@@ -82,7 +83,13 @@ const Navbar: React.FC = () => {
                 />
               </svg>
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="34" height="32" viewBox="0 0 34 32">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="34"
+                height="32"
+                viewBox="0 0 34 32"
+                className="text-background"
+              >
                 <line
                   id="Line_1"
                   data-name="Line 1"
@@ -124,16 +131,19 @@ const Navbar: React.FC = () => {
               open ? '-translate-x-0' : 'translate-x-full'
             } fixed right-0 top-0 z-30 flex h-screen w-1/2 items-start bg-background transition-all duration-300 ease-in-out md:relative md:flex md:h-auto md:w-full md:translate-x-0 md:flex-row md:items-center md:bg-transparent md:py-0`}
           >
-            <ul className="mt-20 flex flex-col text-sm font-light md:relative md:mt-0 md:flex md:h-auto md:w-full md:flex-row md:items-center md:justify-end md:bg-transparent md:px-0 md:py-0 md:text-base text-secondary">
+            <ul className="mt-20 flex flex-col text-sm font-light md:relative md:mt-0 md:flex md:h-auto md:w-full md:flex-row md:items-center md:justify-end md:bg-transparent md:px-0 md:py-0 md:text-base text-foreground">
               <Link href="/personal-training">
-                <li className="ml-9 mt-4 cursor-pointer md:mt-0 md:ml-16" onClick={handleOpen}>
+                <li
+                  className="ml-9 mt-4 cursor-pointer md:mt-0 md:ml-16 text-foreground md:text-background"
+                  onClick={handleOpen}
+                >
                   Personal Training
                 </li>
               </Link>
               {user ? (
                 <Link href="/dashboard">
                   <li
-                    className="ml-9 mt-4 cursor-pointer rounded md:mt-0 md:ml-16"
+                    className="ml-9 mt-4 cursor-pointer md:mt-0 md:ml-16 text-foreground md:text-background"
                     onClick={handleOpen}
                   >
                     Dashboard
