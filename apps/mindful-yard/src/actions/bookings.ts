@@ -72,7 +72,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
       },
     })) as Transaction
 
-    attendees.map(async (attendee) => {
+    for (attendee in attendees) {
       await payload.create({
         collection: 'bookings',
         data: {
@@ -82,7 +82,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
           transaction: transaction.id,
         },
       })
-    })
+    }
 
     const emailConfirmation = await render(
       BookingConfirmationEmail({
