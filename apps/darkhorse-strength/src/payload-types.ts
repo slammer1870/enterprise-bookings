@@ -294,6 +294,7 @@ export interface Page {
             cta: {
               title: string;
               description: string;
+              form: number | Form;
             };
             id?: string | null;
             blockName?: string | null;
@@ -935,6 +936,7 @@ export interface PagesSelect<T extends boolean = true> {
                 | {
                     title?: T;
                     description?: T;
+                    form?: T;
                   };
               id?: T;
               blockName?: T;

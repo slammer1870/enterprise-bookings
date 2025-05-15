@@ -342,6 +342,10 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  /**
+   * Associated transaction for this booking
+   */
+  transaction?: (number | null) | Transaction;
   updatedAt: string;
   createdAt: string;
 }
@@ -596,6 +600,7 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }

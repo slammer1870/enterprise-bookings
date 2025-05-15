@@ -33,8 +33,6 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
     redirect('/')
   }
 
-  console.log('lesson', lesson)
-
   return (
     <div className="container mx-auto max-w-screen-xl flex flex-col gap-4 px-4 py-8 min-h-[80vh]">
       <SaunaPaymentForm lesson={lesson} user={user} />
