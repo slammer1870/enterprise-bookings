@@ -118,40 +118,33 @@ export default buildConfig({
 
               const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
 
-              const lessonQuery = await req.payload.find({
-                collection: 'lessons',
-                where: {
-                  id: {
-                    equals: lessonId,
-                  },
-                },
-                depth: 2,
-              })
-
-              const lesson = lessonQuery.docs[0] as Lesson
-
-              if (
-                lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
-              ) {
-                await req.payload.update({
+              Promise.resolve().then(async () => {
+                const lessonQuery = await req.payload.findByID({
                   collection: 'lessons',
-                  where: {
-                    id: {
-                      equals: lessonId,
+                  id: lessonId,
+                  depth: 2,
+                })
+
+                const lesson = lessonQuery as Lesson
+
+                if (
+                  lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
+                ) {
+                  await req.payload.update({
+                    collection: 'lessons',
+                    id: lessonId,
+                    data: {
+                      lockOutTime: 0,
                     },
-                  },
-                  data: {
-                    lockOutTime: 0,
-                  },
-                })
-              } else {
-                await req.payload.update({
-                  collection: 'lessons',
-                  where: { id: { equals: lessonId } },
-                  data: { lockOutTime: lesson.originalLockOutTime },
-                })
-              }
-
+                  })
+                } else {
+                  await req.payload.update({
+                    collection: 'lessons',
+                    id: lessonId,
+                    data: { lockOutTime: lesson.originalLockOutTime },
+                  })
+                }
+              })
               return doc
             },
           ],
