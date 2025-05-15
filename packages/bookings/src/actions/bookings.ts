@@ -29,7 +29,7 @@ export async function checkInAction(lessonId: number, userId: number) {
     if (bookingData.totalDocs > 0) {
       // Update existing booking
       const updatedBooking = await fetch(
-        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings${query}`,
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings/${bookingData.docs[0].id}`,
         {
           method: "PATCH",
           body: JSON.stringify({
@@ -81,7 +81,8 @@ export async function checkInAction(lessonId: number, userId: number) {
     console.error("Error checking in:", error);
     return {
       success: false,
-      error: "Failed to check in",
+      error:
+        error instanceof Error ? error.message : "An unknown error occurred",
     };
   }
 }
@@ -95,8 +96,36 @@ export async function cancelBookingAction(lessonId: number, userId: number) {
   try {
     const query = getActiveBookingsQuery(userId, lessonId);
 
-    const response = await fetch(
+    // First find the specific booking
+    const findResponse = await fetch(
       `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings${query}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `JWT ${token}`,
+        },
+      }
+    );
+
+    const findData = await findResponse.json();
+
+    if (!findResponse.ok) {
+      return {
+        success: false,
+        error: "Failed to find booking",
+      };
+    }
+
+    // If no booking exists, we can consider this a success since the end goal is achieved
+    if (findData.totalDocs === 0) {
+      return { success: true };
+    }
+
+    const bookingId = findData.docs[0].id;
+
+    // Then update the specific booking
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings/${bookingId}`,
       {
         method: "PATCH",
         body: JSON.stringify({

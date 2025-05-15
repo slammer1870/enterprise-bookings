@@ -13,6 +13,7 @@ export type Lesson = {
   bookings: { docs: Booking[] };
   remainingCapacity: number;
   bookingStatus: "active" | "waitlist" | "closed" | "booked" | "trialable";
+  originalLockOutTime?: number;
 };
 
 export interface Booking {
@@ -32,7 +33,7 @@ export interface ClassOption {
   description: string;
   type?: "adult" | "child";
   paymentMethods?: {
-    allowedDropIns?: DropIn;
+    allowedDropIn?: DropIn;
     allowedPlans?: Plan[];
   };
 }

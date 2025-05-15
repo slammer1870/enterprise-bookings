@@ -26,7 +26,17 @@ import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription
 import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
 import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
-import { Booking } from '@repo/shared-types'
+
+import { Booking, Lesson, User } from '@repo/shared-types'
+
+import {
+  bookingCreateMembershipDropinAccess,
+  bookingUpdateMembershipDropinAccess,
+} from '@repo/shared-services/src/access/booking-membership-dropin'
+
+import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+
+import { checkRole } from '@repo/shared-utils'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -67,6 +77,82 @@ export default buildConfig({
     rolesPlugin({
       enabled: true,
     }),
+    bookingsPlugin({
+      enabled: true,
+      lessonOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'originalLockOutTime',
+            type: 'number',
+            admin: {
+              hidden: true,
+            },
+          },
+        ],
+        hooks: ({ defaultHooks }) => ({
+          ...(defaultHooks.beforeOperation || []),
+          beforeOperation: [
+            async ({ args, operation }) => {
+              if (operation === 'create') {
+                args.data.originalLockOutTime = args.data.lockOutTime
+              }
+
+              return args
+            },
+          ],
+        }),
+      },
+      bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...(defaultHooks.afterChange || []),
+          afterChange: [
+            async ({ req, doc, context }) => {
+              if (context.triggerAfterChange === false) {
+                return
+              }
+
+              const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
+
+              Promise.resolve().then(async () => {
+                const lessonQuery = await req.payload.findByID({
+                  collection: 'lessons',
+                  id: lessonId,
+                  depth: 2,
+                })
+
+                const lesson = lessonQuery as Lesson
+
+                if (
+                  lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
+                ) {
+                  await req.payload.update({
+                    collection: 'lessons',
+                    id: lessonId,
+                    data: {
+                      lockOutTime: 0,
+                    },
+                  })
+                } else {
+                  await req.payload.update({
+                    collection: 'lessons',
+                    id: lessonId,
+                    data: { lockOutTime: lesson.originalLockOutTime },
+                  })
+                }
+              })
+              return doc
+            },
+          ],
+        }),
+        access: {
+          read: isAdminOrOwner,
+          create: bookingCreateMembershipDropinAccess,
+          update: bookingUpdateMembershipDropinAccess,
+          delete: ({ req }) => checkRole(['admin'], req.user as User),
+        },
+      },
+    }),
     paymentsPlugin({
       enabled: true,
       enableDropIns: false,
@@ -74,29 +160,7 @@ export default buildConfig({
     }),
     membershipsPlugin({
       enabled: true,
-    }),
-    bookingsPlugin({
-      enabled: true,
-      paymentMethods: {
-        dropIns: false,
-        plans: true,
-        classPasses: false,
-      },
-      lessonOverrides: {
-        hooks: {
-          afterChange: [
-            async ({ doc, req }) => {
-              if (
-                doc.bookings &&
-                doc.bookings.filter((booking: Booking) => booking.status === 'confirmed').length > 0
-              ) {
-                doc.lockOutTime = 0
-                return doc
-              }
-            },
-          ],
-        },
-      },
+      paymentMethodSlugs: ['class-options'],
     }),
     stripePlugin({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,

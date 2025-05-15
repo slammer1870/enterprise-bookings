@@ -9,6 +9,7 @@
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
     "@repo/roles": "workspace:*",
+    "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",

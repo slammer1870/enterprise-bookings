@@ -37,12 +37,12 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
     startTime: lesson.startTime,
     endTime: lesson.endTime,
     bookingType: lesson.classOption.name,
-    price: lesson.classOption.paymentMethods?.allowedDropIns?.price || 0,
+    price: lesson.classOption.paymentMethods?.allowedDropIn?.price || 0,
     currency: 'EUR',
     maxCapacity: lesson.remainingCapacity,
     currentAttendees:
       lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
-    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIns?.adjustable || false,
+    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
   }
 
   // Use our custom hooks
@@ -52,13 +52,13 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
     currentAttendees: bookingDetails.currentAttendees,
   })
 
-  const dropInPaymentOptions = lesson.classOption.paymentMethods?.allowedDropIns?.paymentMethods
+  const dropInPaymentOptions = lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods
   const membershipPaymentOptions = lesson.classOption.paymentMethods?.allowedPlans?.length
 
   const { paymentMethod, setPaymentMethod, loading, setLoading, calculatePrice } = usePayment({
     basePrice: bookingDetails.price,
-    discountTiers: lesson.classOption.paymentMethods?.allowedDropIns?.discountTiers || [],
-    paymentMethods: lesson.classOption.paymentMethods?.allowedDropIns?.paymentMethods || [],
+    discountTiers: lesson.classOption.paymentMethods?.allowedDropIn?.discountTiers || [],
+    paymentMethods: lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods || [],
   })
 
   // Calculate price based on attendees

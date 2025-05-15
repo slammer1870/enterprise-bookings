@@ -20,6 +20,15 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
+import { Transaction, User } from '@repo/shared-types'
+
+import {
+  bookingCreateDropinAccess,
+  bookingUpdateDropinAccess,
+} from '@repo/shared-services/src/access/booking-dropin'
+import { checkRole } from '@repo/shared-utils'
+import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+
 //import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -73,18 +82,73 @@ export default buildConfig({
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
       appName: 'The Mindful Yard',
     }),
+    bookingsPlugin({
+      enabled: true,
+      bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [
+            ...(defaultHooks.afterChange || []),
+            async ({ req, operation, doc }) => {
+              if (operation === 'update' && doc.status === 'cancelled') {
+                // Don't block the response by running this asynchronously
+                Promise.resolve().then(async () => {
+                  try {
+                    if (!doc.transaction || !req.user) return
+
+                    const transaction = (await req.payload.findByID({
+                      collection: 'transactions',
+                      id: doc.transaction,
+                      depth: 3,
+                    })) as Transaction
+
+                    if (transaction.createdBy?.id !== req.user.id) {
+                      return
+                    }
+
+                    await req.payload.update({
+                      collection: 'bookings',
+                      where: {
+                        and: [
+                          {
+                            transaction: {
+                              equals: transaction.id,
+                            },
+                          },
+                          {
+                            status: {
+                              not_equals: 'cancelled',
+                            },
+                          },
+                        ],
+                      },
+                      data: {
+                        status: 'cancelled',
+                      },
+                    })
+                  } catch (error) {
+                    console.error('Error in bookings afterChange background task:', error)
+                  }
+                })
+              }
+
+              return doc
+            },
+          ],
+        }),
+        access: {
+          read: isAdminOrOwner,
+          create: bookingCreateDropinAccess,
+          update: bookingUpdateDropinAccess,
+          delete: ({ req }) => checkRole(['admin'], req.user as User),
+        },
+      },
+    }),
     paymentsPlugin({
       enabled: true,
       enableDropIns: true,
       acceptedPaymentMethods: ['cash'],
-    }),
-    bookingsPlugin({
-      enabled: true,
-      paymentMethods: {
-        dropIns: true,
-        plans: false,
-        classPasses: false,
-      },
+      paymentMethodSlugs: ['class-options'],
     }),
     seoPlugin({
       collections: ['pages'],

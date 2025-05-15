@@ -2,14 +2,7 @@ import {
   CollectionConfig,
   Field,
   Labels,
-  Access,
-  PayloadRequest,
   CollectionAdminOptions,
-  CollectionAfterChangeHook,
-  CollectionAfterDeleteHook,
-  CollectionAfterErrorHook,
-  CollectionRefreshHook,
-  CollectionBeforeDeleteHook,
 } from "payload";
 
 import { getRemainingCapacity } from "../hooks/remaining-capacity";
@@ -18,25 +11,7 @@ import { checkRole } from "@repo/shared-utils/src/check-role";
 import type { User } from "@repo/shared-types/";
 import type { BookingsPluginConfig } from "../types";
 
-type AccessControls =
-  | {
-      admin?: ({ req }: { req: PayloadRequest }) => boolean | Promise<boolean>;
-      create?: Access;
-      delete?: Access;
-      read?: Access;
-      readVersions?: Access;
-      unlock?: Access;
-      update?: Access;
-    }
-  | undefined;
-
-type HooksConfig = {
-  afterChange?: CollectionAfterChangeHook[];
-  afterDelete?: CollectionAfterDeleteHook[];
-  afterError?: CollectionAfterErrorHook[];
-  refresh?: CollectionRefreshHook[];
-  beforeDelete?: CollectionBeforeDeleteHook[];
-};
+import { AccessControls, HooksConfig } from "../types";
 
 export const lessonsCollection: CollectionConfig = {
   slug: "lessons",
@@ -509,7 +484,10 @@ export const generateLessonCollection = (config: BookingsPluginConfig) => {
       ...(config?.lessonOverrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.lessonOverrides?.hooks || defaultHooks),
+      ...(config?.lessonOverrides?.hooks &&
+      typeof config?.lessonOverrides?.hooks === "function"
+        ? config.lessonOverrides.hooks({ defaultHooks })
+        : defaultHooks),
     },
     fields:
       config?.lessonOverrides?.fields &&

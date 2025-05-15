@@ -17,7 +17,7 @@ export const dropInsCollection = (
       group: "Products",
     },
     access: {
-      //read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
       create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
       update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
       delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
@@ -28,6 +28,12 @@ export const dropInsCollection = (
         label: "Name",
         type: "text",
         required: true,
+      },
+      {
+        name: "description",
+        label: "Description",
+        type: "textarea",
+        required: false,
       },
       {
         name: "isActive",
@@ -41,6 +47,7 @@ export const dropInsCollection = (
         label: "Price",
         type: "number",
         required: true,
+        min: 0,
       },
       {
         name: "adjustable",
@@ -67,6 +74,7 @@ export const dropInsCollection = (
             label: "Discount Percent",
             type: "number",
             min: 0,
+            max: 100,
             required: true,
           },
           {
@@ -82,6 +90,10 @@ export const dropInsCollection = (
                 label: "Trial Discount (Can only be used on first booking)",
                 value: "trial",
               },
+              {
+                label: "Bulk Discount",
+                value: "bulk",
+              },
             ],
             defaultValue: "normal",
             required: true,
@@ -90,16 +102,25 @@ export const dropInsCollection = (
         validate: (value) => {
           const discountTiers = value as {
             minQuantity: number;
+            discountPercent: number;
+            type: string;
           }[];
 
           if (!discountTiers) {
             return true;
           }
+
           // Check for uniqueness of minQuantity
           const quantities = discountTiers.map((tier) => tier.minQuantity);
           const uniqueQuantities = new Set(quantities);
           if (quantities.length !== uniqueQuantities.size) {
             return "Min quantity must be unique across all discount tiers";
+          }
+
+          // Check for ascending order of minQuantity
+          const sortedQuantities = [...quantities].sort((a, b) => a - b);
+          if (JSON.stringify(quantities) !== JSON.stringify(sortedQuantities)) {
+            return "Min quantities must be in ascending order";
           }
 
           return true;

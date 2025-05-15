@@ -48,49 +48,5 @@ export const classOptionsCollection = (
     ],
   };
 
-  if (pluginOptions.childrenEnabled) {
-    config.fields.push({
-      name: "type",
-      label: "Class Type",
-      type: "select",
-      options: ["adult", "child"],
-      defaultValue: "adult",
-      required: true,
-    });
-  }
-
-  if (pluginOptions.paymentMethods) {
-    const paymentMethods: GroupField = {
-      name: "paymentMethods",
-      label: "Payment Methods",
-      type: "group",
-      fields: [],
-    };
-
-    config.fields.push(paymentMethods);
-
-    if (pluginOptions.paymentMethods?.dropIns) {
-      paymentMethods.fields.push({
-        name: "allowedDropIns",
-        label: "Allowed Drop Ins",
-        type: "relationship",
-        relationTo: "drop-ins" as CollectionSlug,
-        hasMany: false,
-        required: false,
-      });
-    }
-
-    if (pluginOptions.paymentMethods?.plans) {
-      paymentMethods.fields.push({
-        name: "allowedPlans",
-        label: "Allowed Plans",
-        type: "relationship",
-        relationTo: "plans" as CollectionSlug,
-        hasMany: true,
-        required: false,
-      });
-    }
-  }
-
   return config;
 };

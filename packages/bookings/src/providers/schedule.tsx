@@ -34,7 +34,7 @@ export const ScheduleProvider: React.FC<{
 
   const router = useRouter();
 
-  const getLessons = async () => {
+  const getLessons = async (): Promise<Lesson[]> => {
     const query = getLessonsQuery(selectedDate);
 
     const data = await fetch(`/api/lessons${query}`, {
@@ -43,7 +43,7 @@ export const ScheduleProvider: React.FC<{
 
     const lessons = await data.json();
 
-    return lessons.docs;
+    return lessons.docs as Lesson[];
   };
 
   useEffect(() => {
