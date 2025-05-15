@@ -1,8 +1,8 @@
 import type { CollectionSlug, Config, Field, Plugin } from "payload";
 
 import { generateLessonCollection } from "../collections/lessons";
-import { bookingsCollection } from "../collections/bookings";
 import { classOptionsCollection } from "../collections/class-options";
+import { generateBookingCollection } from "../collections/bookings";
 
 import { BookingsPluginConfig } from "../types";
 
@@ -21,7 +21,7 @@ export const bookingsPlugin =
 
     const lessons = generateLessonCollection(pluginOptions);
     const classOptions = classOptionsCollection(pluginOptions);
-    const bookings = bookingsCollection(pluginOptions);
+    const bookings = generateBookingCollection(pluginOptions);
 
     collections.push(lessons);
     collections.push(classOptions);

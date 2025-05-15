@@ -20,6 +20,8 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
+import { Transaction } from '@repo/shared-types'
+
 //import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
@@ -84,6 +86,59 @@ export default buildConfig({
         dropIns: true,
         plans: false,
         classPasses: false,
+      },
+      bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [
+            ...(defaultHooks.afterChange || []),
+            async ({ req, operation, doc }) => {
+              if (operation === 'update' && doc.status === 'cancelled') {
+                // Don't block the response by running this asynchronously
+                Promise.resolve().then(async () => {
+                  try {
+                    if (!doc.transaction || !req.user) return
+
+                    const transaction = (await req.payload.findByID({
+                      collection: 'transactions',
+                      id: doc.transaction,
+                      depth: 3,
+                    })) as Transaction
+
+                    if (transaction.createdBy?.id !== req.user.id) {
+                      return
+                    }
+
+                    await req.payload.update({
+                      collection: 'bookings',
+                      where: {
+                        and: [
+                          {
+                            transaction: {
+                              equals: transaction.id,
+                            },
+                          },
+                          {
+                            status: {
+                              not_equals: 'cancelled',
+                            },
+                          },
+                        ],
+                      },
+                      data: {
+                        status: 'cancelled',
+                      },
+                    })
+                  } catch (error) {
+                    console.error('Error in bookings afterChange background task:', error)
+                  }
+                })
+              }
+
+              return doc
+            },
+          ],
+        }),
       },
     }),
     seoPlugin({

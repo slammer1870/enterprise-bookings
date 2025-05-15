@@ -1,133 +1,118 @@
-import { APIError, CollectionConfig, CollectionSlug } from "payload";
+import {
+  APIError,
+  CollectionConfig,
+  CollectionSlug,
+  Field,
+  Labels,
+} from "payload";
 
-import { renderCreateAccess, renderUpdateAccess } from "../access/bookings";
-import { BookingsPluginConfig } from "../types";
+import { bookingCreateAccess, bookingUpdateAccess } from "../access/bookings";
+import { BookingsPluginConfig, HooksConfig, AccessControls } from "../types";
 import { Lesson, Transaction, Booking, User } from "@repo/shared-types";
-import { render } from "@react-email/components";
-import { BookingConfirmationEmail } from "../emails/confirm-booking";
+import { checkRole } from "@repo/shared-utils/src/check-role";
 
-export const bookingsCollection = (
-  pluginOptions: BookingsPluginConfig
-): CollectionConfig => {
-  const config: CollectionConfig = {
+const defaultFields: Field[] = [
+  {
+    name: "user",
+    label: "User",
+    type: "relationship",
+    relationTo: "users",
+    required: true,
+  },
+  {
+    name: "lesson",
+    label: "Lesson",
+    type: "relationship",
+    relationTo: "lessons",
+    maxDepth: 3,
+    required: true,
+  },
+  {
+    name: "status",
+    label: "Status",
+    type: "select",
+    options: ["pending", "confirmed", "cancelled", "waiting"],
+    required: true,
+  },
+];
+
+const defaultLabels: Labels = {
+  singular: "Booking",
+  plural: "Bookings",
+};
+
+const defaultAccess: AccessControls = {
+  read: ({ req }) => checkRole(["admin"], req.user as User),
+  create: bookingCreateAccess,
+  update: bookingUpdateAccess,
+  delete: ({ req }) => checkRole(["admin"], req.user as User),
+};
+
+const defaultAdmin = {
+  useAsTitle: "user",
+  group: "Bookings",
+  hidden: true,
+};
+
+const defaultHooks: HooksConfig = {
+  beforeValidate: [
+    async ({ req, data }) => {
+      const lesson = (await req.payload.findByID({
+        collection: "lessons",
+        id: data?.lesson,
+        depth: 3,
+      })) as Lesson;
+
+      const open =
+        lesson.bookings.docs.filter(
+          (booking: Booking) => booking.status === "confirmed"
+        ).length < lesson.classOption.places;
+
+      //Prevent booking if the lesson is fully booked
+      if (!open && data?.status === "confirmed") {
+        throw new APIError("This lesson is fully booked", 400);
+      }
+
+      return data;
+    },
+  ],
+  afterChange: [],
+};
+
+export const generateBookingCollection = (config: BookingsPluginConfig) => {
+  const bookingConfig: CollectionConfig = {
+    ...(config?.bookingOverrides || {}),
     slug: "bookings",
     defaultSort: "updatedAt",
-    admin: {
-      useAsTitle: "user",
-      group: "Bookings",
-      hidden: true,
+    labels: {
+      ...(config?.bookingOverrides?.labels || defaultLabels),
     },
     access: {
-      //TODO: Add read, update and delete access control
-      create: renderCreateAccess(pluginOptions),
-      update: renderUpdateAccess(pluginOptions),
+      ...(config?.bookingOverrides?.access || defaultAccess),
     },
-    fields: [
-      {
-        name: "user",
-        label: "User",
-        type: "relationship",
-        relationTo: "users",
-        required: true,
-      },
-      {
-        name: "lesson",
-        label: "Lesson",
-        type: "relationship",
-        relationTo: "lessons",
-        maxDepth: 3,
-        required: true,
-      },
-      {
-        name: "status",
-        label: "Status",
-        type: "select",
-        options: ["pending", "confirmed", "cancelled", "waiting"],
-        required: true,
-      },
-    ],
+    admin: {
+      ...(config?.bookingOverrides?.admin || defaultAdmin),
+    },
     hooks: {
-      beforeValidate: [
-        async ({ req, data }) => {
-          const lesson = (await req.payload.findByID({
-            collection: "lessons",
-            id: data?.lesson,
-            depth: 3,
-          })) as Lesson;
-
-          const open =
-            lesson.bookings.docs.filter(
-              (booking: Booking) => booking.status === "confirmed"
-            ).length < lesson.classOption.places;
-
-          //Prevent booking if the lesson is fully booked
-          if (!open && data?.status === "confirmed") {
-            throw new APIError("This lesson is fully booked", 400);
-          }
-
-          return data;
-        },
-      ],
-      afterChange: [
-        async ({ req, operation, doc }) => {
-          if (operation === "update" && doc.status === "cancelled") {
-            // Don't block the response by running this asynchronously
-            Promise.resolve().then(async () => {
-              try {
-                if (!doc.transaction || !req.user) return;
-
-                const transaction = (await req.payload.findByID({
-                  collection: "transactions",
-                  id: doc.transaction,
-                  depth: 3,
-                })) as Transaction;
-
-                if (transaction.createdBy?.id !== req.user.id) {
-                  return;
-                }
-
-                await req.payload.update({
-                  collection: "bookings",
-                  where: {
-                    and: [
-                      {
-                        transaction: {
-                          equals: transaction.id,
-                        },
-                      },
-                      {
-                        status: {
-                          not_equals: "cancelled",
-                        },
-                      },
-                    ],
-                  },
-                  data: {
-                    status: "cancelled",
-                  },
-                });
-              } catch (error) {
-                console.error(
-                  "Error in bookings afterChange background task:",
-                  error
-                );
-              }
-            });
-          }
-
-          return doc;
-        },
-      ],
+      ...(config?.bookingOverrides?.hooks &&
+      typeof config?.bookingOverrides?.hooks === "function"
+        ? config.bookingOverrides.hooks({ defaultHooks })
+        : defaultHooks),
     },
+    fields:
+      config?.bookingOverrides?.fields &&
+      typeof config?.bookingOverrides?.fields === "function"
+        ? config.bookingOverrides.fields({ defaultFields })
+        : defaultFields,
   };
 
-  if (pluginOptions.paymentMethods) {
-    config.fields.push({
+  if (config.paymentMethods) {
+    bookingConfig.fields.push({
       name: "transaction",
       type: "relationship",
       relationTo: "transactions" as CollectionSlug,
     });
   }
 
-  return config;
+  return bookingConfig;
 };

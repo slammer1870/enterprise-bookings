@@ -26,7 +26,8 @@ import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription
 import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
 import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
-import { Booking } from '@repo/shared-types'
+
+import { Booking, Lesson } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -83,19 +84,78 @@ export default buildConfig({
         classPasses: false,
       },
       lessonOverrides: {
-        hooks: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'originalLockOutTime',
+            type: 'number',
+            defaultValue: 0,
+            admin: {
+              hidden: true,
+            },
+          },
+        ],
+        hooks: ({ defaultHooks }) => ({
+          ...(defaultHooks.afterChange || []),
           afterChange: [
-            async ({ doc, req }) => {
-              if (
-                doc.bookings &&
-                doc.bookings.filter((booking: Booking) => booking.status === 'confirmed').length > 0
-              ) {
-                doc.lockOutTime = 0
-                return doc
+            async ({ operation, doc }) => {
+              if (operation === 'create') {
+                doc.originalLockOutTime = doc.lockOutTime
               }
+              return doc
             },
           ],
-        },
+        }),
+      },
+      bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...(defaultHooks.afterChange || []),
+          afterChange: [
+            async ({ req, doc, context }) => {
+              if (context.triggerAfterChange === false) {
+                return
+              }
+
+              const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
+
+              const lessonQuery = await req.payload.find({
+                collection: 'lessons',
+                where: {
+                  id: {
+                    equals: lessonId,
+                  },
+                },
+                depth: 2,
+              })
+
+              const lesson = lessonQuery.docs[0] as Lesson
+
+              if (
+                lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
+              ) {
+                await req.payload.update({
+                  collection: 'lessons',
+                  where: {
+                    id: {
+                      equals: lessonId,
+                    },
+                  },
+                  data: {
+                    lockOutTime: 0,
+                  },
+                })
+              } else {
+                await req.payload.update({
+                  collection: 'lessons',
+                  where: { id: { equals: lessonId } },
+                  data: { lockOutTime: lesson.originalLockOutTime },
+                })
+              }
+
+              return doc
+            },
+          ],
+        }),
       },
     }),
     stripePlugin({

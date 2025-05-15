@@ -29,7 +29,7 @@ export async function checkInAction(lessonId: number, userId: number) {
     if (bookingData.totalDocs > 0) {
       // Update existing booking
       const updatedBooking = await fetch(
-        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings${query}`,
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings/${bookingData.docs[0].id}`,
         {
           method: "PATCH",
           body: JSON.stringify({
@@ -81,7 +81,8 @@ export async function checkInAction(lessonId: number, userId: number) {
     console.error("Error checking in:", error);
     return {
       success: false,
-      error: "Failed to check in",
+      error:
+        error instanceof Error ? error.message : "An unknown error occurred",
     };
   }
 }
