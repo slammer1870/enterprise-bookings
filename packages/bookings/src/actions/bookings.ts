@@ -96,8 +96,36 @@ export async function cancelBookingAction(lessonId: number, userId: number) {
   try {
     const query = getActiveBookingsQuery(userId, lessonId);
 
-    const response = await fetch(
+    // First find the specific booking
+    const findResponse = await fetch(
       `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings${query}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `JWT ${token}`,
+        },
+      }
+    );
+
+    const findData = await findResponse.json();
+
+    if (!findResponse.ok) {
+      return {
+        success: false,
+        error: "Failed to find booking",
+      };
+    }
+
+    // If no booking exists, we can consider this a success since the end goal is achieved
+    if (findData.totalDocs === 0) {
+      return { success: true };
+    }
+
+    const bookingId = findData.docs[0].id;
+
+    // Then update the specific booking
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings/${bookingId}`,
       {
         method: "PATCH",
         body: JSON.stringify({

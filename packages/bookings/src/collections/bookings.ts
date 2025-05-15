@@ -6,7 +6,11 @@ import {
   Labels,
 } from "payload";
 
-import { bookingCreateAccess, bookingUpdateAccess } from "../access/bookings";
+import {
+  bookingCreateAccess,
+  bookingUpdateAccess,
+  isAdminOrOwner,
+} from "../access/bookings";
 import { BookingsPluginConfig, HooksConfig, AccessControls } from "../types";
 import { Lesson, Transaction, Booking, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils/src/check-role";
@@ -42,7 +46,7 @@ const defaultLabels: Labels = {
 };
 
 const defaultAccess: AccessControls = {
-  read: ({ req }) => checkRole(["admin"], req.user as User),
+  read: ({ req }) => isAdminOrOwner({ req }),
   create: bookingCreateAccess,
   update: bookingUpdateAccess,
   delete: ({ req }) => checkRole(["admin"], req.user as User),
