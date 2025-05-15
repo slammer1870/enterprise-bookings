@@ -65,13 +65,13 @@ export const TimetableBlock: React.FC<TimetableProps> = ({
               {timeSlots.map((slot, index) => (
                 <tr key={index} className={index > 0 ? 'border-t-2 border-border' : ''}>
                   <td className="px-4 py-3">{slot.time}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.monday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.tuesday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.wednesday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.thursday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.friday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.saturday}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-primary">{slot.sunday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.monday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.tuesday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.wednesday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.thursday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.friday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.saturday}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-blue-500">{slot.sunday}</td>
                 </tr>
               ))}
             </tbody>
