@@ -198,13 +198,16 @@ export const generateLessonsFromSchedule = async (
 
       // Filter lessons that have no bookings
       const lessonsToDelete = lessons.docs.reduce((acc: any[], lesson: any) => {
-        if (!lesson.bookings?.docs || lesson.bookings.docs.length === 0) {
+        if (
+          !lesson.bookings?.docs ||
+          !lesson.bookings.docs.some(
+            (booking: any) => booking.status === "confirmed"
+          )
+        ) {
           acc.push(lesson.id);
         }
         return acc;
       }, []);
-
-      console.log("LESSONS TO DELETE", lessonsToDelete);
 
       if (lessonsToDelete.length > 0) {
         await payload.delete({
