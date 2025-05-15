@@ -81,6 +81,13 @@ export const Groups: Block = {
           required: true,
           label: 'CTA Description',
         },
+        {
+          name: 'form',
+          type: 'relationship',
+          relationTo: 'forms',
+          required: true,
+          label: 'Form',
+        },
       ],
     },
   ],

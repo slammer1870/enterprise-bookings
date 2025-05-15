@@ -15,7 +15,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
     nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
   })
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=5`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=6`, {
     headers: {
       Authorization: `JWT ${token}`,
     },
@@ -32,6 +32,8 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
   } else {
     redirect('/')
   }
+
+  console.log('lesson', lesson)
 
   return (
     <div className="container mx-auto max-w-screen-xl flex flex-col gap-4 px-4 py-8 min-h-[80vh]">

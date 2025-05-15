@@ -70,11 +70,11 @@ export interface Config {
     media: Media;
     pages: Page;
     users: User;
-    transactions: Transaction;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
     'drop-ins': DropIn;
+    transactions: Transaction;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -83,16 +83,19 @@ export interface Config {
     lessons: {
       bookings: 'bookings';
     };
+    'drop-ins': {
+      'class-optionsPaymentMethods': 'class-options';
+    };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
-    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -254,20 +257,6 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons".
  */
 export interface Lesson {
@@ -311,7 +300,7 @@ export interface ClassOption {
   places: number;
   description: string;
   paymentMethods?: {
-    allowedDropIns?: (number | null) | DropIn;
+    allowedDropIn?: (number | null) | DropIn;
   };
   updatedAt: string;
   createdAt: string;
@@ -323,6 +312,7 @@ export interface ClassOption {
 export interface DropIn {
   id: number;
   name: string;
+  description?: string | null;
   isActive: boolean;
   price: number;
   adjustable: boolean;
@@ -330,12 +320,16 @@ export interface DropIn {
     | {
         minQuantity: number;
         discountPercent: number;
-        type: 'normal' | 'trial';
+        type: 'normal' | 'trial' | 'bulk';
         id?: string | null;
       }[]
     | null;
   paymentMethods: 'cash'[];
-  allowedClasses?: (number | ClassOption)[] | null;
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -348,7 +342,20 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  transaction?: (number | null) | Transaction;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -372,10 +379,6 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
-      } | null)
-    | ({
         relationTo: 'lessons';
         value: number | Lesson;
       } | null)
@@ -390,6 +393,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drop-ins';
         value: number | DropIn;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -549,19 +556,6 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  amount?: T;
-  currency?: T;
-  status?: T;
-  paymentMethod?: T;
-  createdBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons_select".
  */
 export interface LessonsSelect<T extends boolean = true> {
@@ -589,7 +583,7 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   paymentMethods?:
     | T
     | {
-        allowedDropIns?: T;
+        allowedDropIn?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -602,7 +596,6 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
-  transaction?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -612,6 +605,7 @@ export interface BookingsSelect<T extends boolean = true> {
  */
 export interface DropInsSelect<T extends boolean = true> {
   name?: T;
+  description?: T;
   isActive?: T;
   price?: T;
   adjustable?: T;
@@ -624,7 +618,20 @@ export interface DropInsSelect<T extends boolean = true> {
         id?: T;
       };
   paymentMethods?: T;
-  allowedClasses?: T;
+  'class-optionsPaymentMethods'?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }
