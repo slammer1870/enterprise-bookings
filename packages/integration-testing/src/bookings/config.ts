@@ -11,6 +11,14 @@ import { bookingsPlugin } from "@repo/bookings";
 import { membershipsPlugin } from "@repo/memberships";
 import { paymentsPlugin } from "@repo/payments";
 import { rolesPlugin } from "@repo/roles";
+import { checkRole } from "../../../shared-utils/src/check-role";
+import { isAdminOrOwner } from "@repo/bookings/src/access/bookings";
+import { Booking, Lesson, User } from "@repo/shared-types";
+
+import {
+  bookingCreateMembershipDropinAccess,
+  bookingUpdateMembershipDropinAccess,
+} from "@repo/shared-services/src/access/booking-membership-dropin";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -66,21 +74,70 @@ export const config: Config = {
     rolesPlugin({
       enabled: true,
     }),
+    bookingsPlugin({
+      enabled: true,
+      bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...(defaultHooks.afterChange || []),
+          afterChange: [
+            async ({ req, doc, context }) => {
+              if (context.triggerAfterChange === false) {
+                return;
+              }
+
+              const lessonId =
+                typeof doc.lesson === "object" ? doc.lesson.id : doc.lesson;
+
+              Promise.resolve().then(async () => {
+                const lessonQuery = await req.payload.findByID({
+                  collection: "lessons",
+                  id: lessonId,
+                  depth: 2,
+                });
+
+                const lesson = lessonQuery as Lesson;
+
+                if (
+                  lesson?.bookings?.docs?.some(
+                    (booking: Booking) => booking.status === "confirmed"
+                  )
+                ) {
+                  await req.payload.update({
+                    collection: "lessons",
+                    id: lessonId,
+                    data: {
+                      lockOutTime: 0,
+                    },
+                  });
+                } else {
+                  await req.payload.update({
+                    collection: "lessons",
+                    id: lessonId,
+                    data: { lockOutTime: lesson.originalLockOutTime },
+                  });
+                }
+              });
+              return doc;
+            },
+          ],
+        }),
+        access: {
+          read: isAdminOrOwner,
+          create: bookingCreateMembershipDropinAccess,
+          update: bookingUpdateMembershipDropinAccess,
+          delete: ({ req }) => checkRole(["admin"], req.user as User),
+        },
+      },
+    }),
     paymentsPlugin({
       enabled: true,
       enableDropIns: true,
       acceptedPaymentMethods: ["cash", "card"],
+      paymentMethodSlugs: ["class-options"],
     }),
     membershipsPlugin({
       enabled: true,
-    }),
-    bookingsPlugin({
-      enabled: true,
-      paymentMethods: {
-        dropIns: true,
-        plans: true,
-        classPasses: false,
-      },
+      paymentMethodSlugs: ["class-options"],
     }),
   ],
 };

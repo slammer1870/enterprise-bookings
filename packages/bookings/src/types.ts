@@ -12,11 +12,24 @@ import {
   CollectionAfterOperationHook,
   CollectionBeforeOperationHook,
 } from "payload";
+import { Lesson, User } from "@repo/shared-types";
 
 export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (args: {
   defaultHooks: HooksConfig;
 }) => HooksConfig;
+
+export type AccessControlHook = {
+  name: string;
+  hook: (args: {
+    req: PayloadRequest;
+    data?: any;
+    id?: string;
+    lesson: Lesson;
+    user: User | null;
+    access: boolean;
+  }) => Promise<boolean>;
+};
 
 export type BookingsPluginConfig = {
   /**
@@ -26,20 +39,14 @@ export type BookingsPluginConfig = {
   enabled?: boolean;
 
   /**
-   * Enable or disable payment
-   * @default false
-   */
-  paymentMethods?: {
-    dropIns: boolean;
-    plans: boolean;
-    classPasses: boolean;
-  };
-
-  /**
    * Enable or disable children
    * @default false
    */
   childrenEnabled?: boolean;
+
+  /**
+   * Access control hooks for modifying booking access
+   */
 
   lessonOverrides?: {
     fields?: FieldsOverride;

@@ -20,7 +20,14 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
-import { Transaction } from '@repo/shared-types'
+import { Transaction, User } from '@repo/shared-types'
+
+import {
+  bookingCreateDropinAccess,
+  bookingUpdateDropinAccess,
+} from '@repo/shared-services/src/access/booking-dropin'
+import { checkRole } from '@repo/shared-utils'
+import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 
 //import { migrations } from './migrations'
 
@@ -75,18 +82,8 @@ export default buildConfig({
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
       appName: 'The Mindful Yard',
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: true,
-      acceptedPaymentMethods: ['cash'],
-    }),
     bookingsPlugin({
       enabled: true,
-      paymentMethods: {
-        dropIns: true,
-        plans: false,
-        classPasses: false,
-      },
       bookingOverrides: {
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
@@ -139,7 +136,19 @@ export default buildConfig({
             },
           ],
         }),
+        access: {
+          read: isAdminOrOwner,
+          create: bookingCreateDropinAccess,
+          update: bookingUpdateDropinAccess,
+          delete: ({ req }) => checkRole(['admin'], req.user as User),
+        },
       },
+    }),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: true,
+      acceptedPaymentMethods: ['cash'],
+      paymentMethodSlugs: ['class-options'],
     }),
     seoPlugin({
       collections: ['pages'],

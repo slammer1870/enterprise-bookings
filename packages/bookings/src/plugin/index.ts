@@ -35,25 +35,6 @@ export const bookingsPlugin =
       hasMany: true,
     };
 
-    if (pluginOptions.paymentMethods?.dropIns) {
-      const dropIns = config.collections?.find(
-        (collection) => collection.slug === "drop-ins"
-      );
-
-      if (!dropIns) {
-        throw new Error(
-          "Drop-ins collection not found, please enable the payments plugin"
-        );
-      }
-
-      dropIns.fields.push(allowedClassesField);
-
-      collections = [
-        ...collections.filter((c) => c.slug !== "drop-ins"),
-        dropIns,
-      ];
-    }
-
     const globals = config.globals || [];
 
     globals.push(schedulerGlobal);

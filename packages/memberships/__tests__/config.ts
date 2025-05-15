@@ -61,5 +61,10 @@ export const config: Config = {
     },
   }),
   sharp,
-  plugins: [payloadCloudPlugin(), membershipsPlugin({ enabled: true })],
+  plugins: [
+    payloadCloudPlugin(),
+    membershipsPlugin({
+      enabled: true,
+    }),
+  ],
 };

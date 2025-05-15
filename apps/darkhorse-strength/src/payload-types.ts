@@ -69,13 +69,13 @@ export interface Config {
   collections: {
     media: Media;
     pages: Page;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
     transactions: Transaction;
     users: User;
     subscriptions: Subscription;
     plans: Plan;
-    lessons: Lesson;
-    'class-options': ClassOption;
-    bookings: Booking;
     forms: Form;
     'form-submissions': FormSubmission;
     'payload-locked-documents': PayloadLockedDocument;
@@ -83,23 +83,26 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
     users: {
       userSubscription: 'subscriptions';
     };
-    lessons: {
-      bookings: 'bookings';
+    plans: {
+      'class-optionsPaymentMethods': 'class-options';
     };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
-    lessons: LessonsSelect<false> | LessonsSelect<true>;
-    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
-    bookings: BookingsSelect<false> | BookingsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -507,15 +510,34 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
+ * via the `definition` "lessons".
  */
-export interface Transaction {
+export interface Lesson {
   id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  originalLockOutTime?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -593,39 +615,11 @@ export interface Plan {
    * Status of the plan
    */
   status: 'active' | 'inactive';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the lesson will be closed for new bookings.
-   */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | User;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  originalLockOutTime?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -656,7 +650,20 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  transaction?: (number | null) | Transaction;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -693,6 +700,18 @@ export interface PayloadLockedDocument {
         value: number | Page;
       } | null)
     | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
+      } | null)
+    | ({
         relationTo: 'transactions';
         value: number | Transaction;
       } | null)
@@ -707,18 +726,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'plans';
         value: number | Plan;
-      } | null)
-    | ({
-        relationTo: 'lessons';
-        value: number | Lesson;
-      } | null)
-    | ({
-        relationTo: 'class-options';
-        value: number | ClassOption;
-      } | null)
-    | ({
-        relationTo: 'bookings';
-        value: number | Booking;
       } | null)
     | ({
         relationTo: 'forms';
@@ -954,6 +961,52 @@ export interface PagesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  originalLockOutTime?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedPlans?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions_select".
  */
 export interface TransactionsSelect<T extends boolean = true> {
@@ -1016,53 +1069,7 @@ export interface PlansSelect<T extends boolean = true> {
   stripeProductId?: T;
   priceJSON?: T;
   status?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons_select".
- */
-export interface LessonsSelect<T extends boolean = true> {
-  date?: T;
-  startTime?: T;
-  endTime?: T;
-  lockOutTime?: T;
-  location?: T;
-  instructor?: T;
-  classOption?: T;
-  remainingCapacity?: T;
-  bookings?: T;
-  bookingStatus?: T;
-  originalLockOutTime?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options_select".
- */
-export interface ClassOptionsSelect<T extends boolean = true> {
-  name?: T;
-  places?: T;
-  description?: T;
-  paymentMethods?:
-    | T
-    | {
-        allowedPlans?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings_select".
- */
-export interface BookingsSelect<T extends boolean = true> {
-  user?: T;
-  lesson?: T;
-  status?: T;
-  transaction?: T;
+  'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }

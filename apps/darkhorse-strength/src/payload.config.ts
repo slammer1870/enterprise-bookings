@@ -27,7 +27,16 @@ import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
 import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
 
-import { Booking, Lesson } from '@repo/shared-types'
+import { Booking, Lesson, User } from '@repo/shared-types'
+
+import {
+  bookingCreateMembershipDropinAccess,
+  bookingUpdateMembershipDropinAccess,
+} from '@repo/shared-services/src/access/booking-membership-dropin'
+
+import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+
+import { checkRole } from '@repo/shared-utils'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -68,21 +77,8 @@ export default buildConfig({
     rolesPlugin({
       enabled: true,
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: false,
-      acceptedPaymentMethods: ['card'],
-    }),
-    membershipsPlugin({
-      enabled: true,
-    }),
     bookingsPlugin({
       enabled: true,
-      paymentMethods: {
-        dropIns: false,
-        plans: true,
-        classPasses: false,
-      },
       lessonOverrides: {
         fields: ({ defaultFields }) => [
           ...defaultFields,
@@ -149,7 +145,22 @@ export default buildConfig({
             },
           ],
         }),
+        access: {
+          read: isAdminOrOwner,
+          create: bookingCreateMembershipDropinAccess,
+          update: bookingUpdateMembershipDropinAccess,
+          delete: ({ req }) => checkRole(['admin'], req.user as User),
+        },
       },
+    }),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: false,
+      acceptedPaymentMethods: ['card'],
+    }),
+    membershipsPlugin({
+      enabled: true,
+      paymentMethodSlugs: ['class-options'],
     }),
     stripePlugin({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,

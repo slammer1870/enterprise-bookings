@@ -97,7 +97,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
     maxCapacity: lesson.remainingCapacity,
     currentAttendees:
       lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
-    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIns?.adjustable || false,
+    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
   }
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(

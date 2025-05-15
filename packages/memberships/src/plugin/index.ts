@@ -1,4 +1,4 @@
-import type { Config, Plugin } from "payload";
+import type { Config, Plugin, GroupField, CollectionSlug } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 
@@ -67,6 +67,58 @@ export const membershipsPlugin =
 
     collections.push(subscriptionsCollection);
     collections.push(plansCollection);
+
+    pluginOptions.paymentMethodSlugs?.map((slug) => {
+      const collection = collections.find(
+        (collection) => collection.slug === slug
+      );
+
+      if (!collection) {
+        throw new Error(`Collection ${slug} not found`);
+      }
+
+      const paymentMethodsField = collection.fields.find(
+        (field) => field.type === "group" && field.name === "paymentMethods"
+      ) as GroupField;
+
+      if (!paymentMethodsField) {
+        collection.fields.push({
+          name: "paymentMethods",
+          label: "Payment Methods",
+          type: "group",
+          fields: [
+            {
+              name: "allowedPlans",
+              type: "relationship",
+              relationTo: "plans" as CollectionSlug,
+              hasMany: true,
+            },
+          ],
+        });
+      } else {
+        paymentMethodsField.fields.push({
+          name: "allowedPlans",
+          type: "relationship",
+          relationTo: "plans" as CollectionSlug,
+          hasMany: true,
+        });
+      }
+
+      plansCollection.fields.push({
+        name: `${slug}PaymentMethods`,
+        label: `${collection.labels?.singular} Payment Methods`,
+        type: "join",
+        collection: slug as CollectionSlug,
+        on: "paymentMethods.allowedPlans",
+        hasMany: true,
+      });
+
+      collections = collections.filter(
+        (collection) => collection.slug !== "plans"
+      );
+
+      collections.push(plansCollection);
+    });
 
     config.collections = collections;
     config.endpoints = endpoints;

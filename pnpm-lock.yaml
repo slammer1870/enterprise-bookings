@@ -168,6 +168,9 @@ importers:
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -742,6 +745,9 @@ importers:
       '@repo/roles':
         specifier: workspace:*
         version: link:../roles
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../shared-services
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../shared-types

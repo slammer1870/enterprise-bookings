@@ -13,7 +13,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   })) as unknown as ClassOption;
 
   const trialable =
-    classOption.paymentMethods?.allowedDropIns?.discountTiers?.some(
+    classOption.paymentMethods?.allowedDropIn?.discountTiers?.some(
       (tier) => tier.type === "trial"
     );
 

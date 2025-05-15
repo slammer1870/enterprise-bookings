@@ -110,13 +110,5 @@ export const generateBookingCollection = (config: BookingsPluginConfig) => {
         : defaultFields,
   };
 
-  if (config.paymentMethods) {
-    bookingConfig.fields.push({
-      name: "transaction",
-      type: "relationship",
-      relationTo: "transactions" as CollectionSlug,
-    });
-  }
-
   return bookingConfig;
 };

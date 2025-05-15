@@ -1,16 +1,8 @@
-import { AccessArgs, CollectionSlug } from "payload";
-
-import { Access } from "payload";
-
-import { BookingsPluginConfig } from "../types";
-
-import { Booking, Lesson, User, Subscription, Plan } from "@repo/shared-types";
-
-import { hasReachedSubscriptionLimit } from "@repo/shared-services";
-
+import { Booking, Lesson, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
+import { AccessArgs } from "payload";
 
-export const bookingCreateAccess = async ({
+export const bookingCreateDropinAccess = async ({
   req,
   data,
 }: AccessArgs<Booking>) => {
@@ -46,6 +38,12 @@ export const bookingCreateAccess = async ({
       return false;
     }
 
+    // Check if the lesson has an allowed plan payment method
+
+    if (lesson.classOption.paymentMethods?.allowedDropIn) {
+      return false;
+    }
+
     return true;
   } catch (error) {
     console.error(error);
@@ -53,10 +51,9 @@ export const bookingCreateAccess = async ({
   }
 };
 
-export const bookingUpdateAccess = async ({
+export const bookingUpdateDropinAccess = async ({
   req,
   id,
-  data,
 }: AccessArgs<Booking>) => {
   const searchParams = req.searchParams;
 
@@ -122,19 +119,15 @@ export const bookingUpdateAccess = async ({
       return false;
     }
 
+    // Check if the lesson has an allowed drop in payment method
+    if (lesson.classOption.paymentMethods?.allowedDropIn) {
+      //TODO: Check if the user has a drop in payment method that is allowed for this lesson
+      return false;
+    }
+
     return true;
   } catch (error) {
-    console.error("Error in bookingUpdateAccess:", error);
+    console.error(error);
     return false;
   }
-};
-
-export const isAdminOrOwner = ({ req }: AccessArgs<Booking>) => {
-  if (!req.user) return false;
-
-  if (checkRole(["admin"], req.user as User)) return true;
-
-  return {
-    user: { equals: req.user?.id },
-  };
 };
