@@ -85,6 +85,19 @@ export default buildConfig({
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'transaction',
+            label: 'Transaction',
+            type: 'relationship',
+            relationTo: 'transactions',
+            admin: {
+              position: 'sidebar',
+              description: 'Associated transaction for this booking'
+            }
+          },
+        ],
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
           afterChange: [
