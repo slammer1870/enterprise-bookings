@@ -30,7 +30,16 @@ interface GroupsBlockProps {
   benefits?: Benefit[]
   features?: Feature[]
   cta: CTA
-  form: Form
+  form: Form & {
+    fields: Array<{
+      name: string
+      label: string
+      type: string
+      required?: boolean
+      blockType?: string
+      defaultValue?: string
+    }>
+  }
 }
 
 export const GroupsBlock: React.FC<GroupsBlockProps> = ({
@@ -83,7 +92,7 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({
           <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
             {cta.description}
           </p>
-          <FormBlock form={form} />
+          <FormBlock enableIntro={false} form={form} />
         </div>
       </div>
       <div className="mt-12 flex flex-wrap">
