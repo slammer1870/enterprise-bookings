@@ -1,5 +1,8 @@
 import React from 'react'
-import Image from "next/image"
+import Image from 'next/image'
+
+import { FormBlock } from '@repo/website/src/blocks/form'
+import type { Form } from '@payloadcms/plugin-form-builder/types'
 
 interface Media {
   url: string
@@ -27,9 +30,16 @@ interface GroupsBlockProps {
   benefits?: Benefit[]
   features?: Feature[]
   cta: CTA
+  form: Form
 }
 
-export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, features, cta }) => {
+export const GroupsBlock: React.FC<GroupsBlockProps> = ({
+  heroImage,
+  benefits,
+  features,
+  cta,
+  form,
+}) => {
   return (
     <div className="container mx-auto p-4 pt-28">
       <h1 className="mb-4 text-2xl font-medium md:mb-8 md:text-3xl">Personal Training</h1>
@@ -42,8 +52,9 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
             fill
             sizes="100vw"
             style={{
-              objectFit: "cover"
-            }} />
+              objectFit: 'cover',
+            }}
+          />
         </div>
         <div className="md:col-span-1 md:text-xl">
           <h3 className="mb-4 text-xl font-medium md:text-2xl">Who is this for?</h3>
@@ -57,9 +68,10 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
                     width={40}
                     height={40}
                     style={{
-                      maxWidth: "100%",
-                      height: "auto"
-                    }} />
+                      maxWidth: '100%',
+                      height: 'auto',
+                    }}
+                  />
                 </div>
                 <p className="mb-2 font-light">{benefit.text}</p>
               </div>
@@ -71,6 +83,7 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
           <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
             {cta.description}
           </p>
+          <FormBlock form={form} />
         </div>
       </div>
       <div className="mt-12 flex flex-wrap">
@@ -83,15 +96,16 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
               width={600}
               height={600}
               style={{
-                maxWidth: "100%",
-                height: "auto",
-                objectFit: "cover"
-              }} />
+                maxWidth: '100%',
+                height: 'auto',
+                objectFit: 'cover',
+              }}
+            />
             <h5 className="my-2 text-2xl">{feature.title}</h5>
             <p className="text-gray-700">{feature.description}</p>
           </div>
         ))}
       </div>
     </div>
-  );
+  )
 }
