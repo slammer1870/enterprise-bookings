@@ -10,6 +10,7 @@ import {
   CollectionBeforeValidateHook,
   PayloadRequest,
   CollectionAfterOperationHook,
+  CollectionBeforeOperationHook,
 } from "payload";
 
 export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
@@ -70,4 +71,5 @@ export type HooksConfig = {
   refresh?: CollectionRefreshHook[];
   beforeDelete?: CollectionBeforeDeleteHook[];
   beforeValidate?: CollectionBeforeValidateHook[];
+  beforeOperation?: CollectionBeforeOperationHook[];
 };

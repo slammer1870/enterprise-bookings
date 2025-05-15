@@ -7,6 +7,8 @@ import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
 //import Footer from '@/components/footer'
 
+import { Toaster } from 'sonner'
+
 export const metadata = {
   description: 'Small Group Personal Training in a Private Facility located in Bray, Co. Wicklow',
   title: 'Dark Horse Strength and Performance',
@@ -24,6 +26,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             {children}
             <Footer />
           </main>
+          <Toaster />
         </body>
       </AuthProvider>
     </html>

@@ -89,20 +89,20 @@ export default buildConfig({
           {
             name: 'originalLockOutTime',
             type: 'number',
-            defaultValue: 0,
             admin: {
               hidden: true,
             },
           },
         ],
         hooks: ({ defaultHooks }) => ({
-          ...(defaultHooks.afterChange || []),
-          afterChange: [
-            async ({ operation, doc }) => {
+          ...(defaultHooks.beforeOperation || []),
+          beforeOperation: [
+            async ({ args, operation }) => {
               if (operation === 'create') {
-                doc.originalLockOutTime = doc.lockOutTime
+                args.data.originalLockOutTime = args.data.lockOutTime
               }
-              return doc
+
+              return args
             },
           ],
         }),

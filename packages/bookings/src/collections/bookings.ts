@@ -1,5 +1,6 @@
 import {
   APIError,
+  CollectionAdminOptions,
   CollectionConfig,
   CollectionSlug,
   Field,
@@ -52,10 +53,9 @@ const defaultAccess: AccessControls = {
   delete: ({ req }) => checkRole(["admin"], req.user as User),
 };
 
-const defaultAdmin = {
+const defaultAdmin: CollectionAdminOptions = {
   useAsTitle: "user",
-  group: "Bookings",
-  hidden: true,
+  group: false,
 };
 
 const defaultHooks: HooksConfig = {
