@@ -72,7 +72,8 @@ export const createCashBooking = async (bookingData: BookingData) => {
       },
     })) as Transaction
 
-    for (attendee in attendees) {
+    // Create a booking for each attendee
+    for (const attendee of attendees) {
       await payload.create({
         collection: 'bookings',
         data: {
