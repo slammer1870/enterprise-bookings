@@ -37,6 +37,7 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
       payload.logger.info(`Found product from Stripe: ${stripeProduct.name}`);
     // newDoc.name = stripeProduct.name;
     newDoc.priceJSON = stripeProduct.default_price;
+    newDoc.status = stripeProduct.active ? "active" : "inactive";
   } catch (error: unknown) {
     payload.logger.error(`Error fetching product from Stripe: ${error}`);
     return newDoc;
