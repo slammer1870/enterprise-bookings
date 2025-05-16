@@ -16,6 +16,8 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
+import { Posts } from '@repo/website/src/collections/posts'
+
 import { rolesPlugin } from '@repo/roles'
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
@@ -48,7 +50,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Pages],
+  collections: [Users, Media, Pages, Posts],
   editor: lexicalEditor(),
   email: resendAdapter({
     defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
@@ -176,9 +178,9 @@ export default buildConfig({
     }),
     formBuilderPlugin({}),
     seoPlugin({
-      collections: ['pages'],
+      collections: ['pages', 'posts'],
       uploadsCollection: 'media',
-      generateTitle: ({ doc }) => `The Mindful Yard — ${doc.title}`,
+      generateTitle: ({ doc }) => `Darkhorse Strength — ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
     }),
     // storage-adapter-placeholder

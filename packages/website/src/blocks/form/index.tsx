@@ -22,7 +22,7 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Button } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 
-import { RichText } from "../../components/rich-text";
+import { RichText } from "@payloadcms/richtext-lexical/react";
 
 export type Value = unknown;
 
@@ -51,8 +51,20 @@ export type FormBlockType = {
     fields: FormField[];
   };
   introContent?: {
+    root: {
+      type: string;
+      children: {
+        type: string;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
     [k: string]: unknown;
-  }[];
+  };
 };
 
 export const FormBlock: React.FC<
@@ -165,10 +177,10 @@ export const FormBlock: React.FC<
   return (
     <div className="max-w-screen-sm mx-auto">
       {enableIntro && introContent && !hasSubmitted && (
-        <RichText className="text-center my-4" content={introContent} />
+        <RichText className="text-center my-4" data={introContent} />
       )}
       {!isLoading && hasSubmitted && confirmationType === "message" && (
-        <RichText className="text-center my-4" content={confirmationMessage} />
+        <RichText className="text-center my-4" data={confirmationMessage} />
       )}
       {isLoading && !hasSubmitted && <p>Loading, please wait...</p>}
       {error && <div>{`${error.status || "500"}: ${error.message || ""}`}</div>}
