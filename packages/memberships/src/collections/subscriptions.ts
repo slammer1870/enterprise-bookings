@@ -63,6 +63,16 @@ export const subscriptionsCollection: CollectionConfig = {
             },
           },
         },
+        {
+          name: "cancelAt",
+          type: "date",
+          admin: {
+            date: {
+              pickerAppearance: "dayOnly",
+            },
+          },
+          required: false,
+        },
       ],
     },
     {

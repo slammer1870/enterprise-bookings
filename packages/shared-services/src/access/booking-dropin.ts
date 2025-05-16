@@ -2,6 +2,8 @@ import { Booking, Lesson, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
 import { AccessArgs } from "payload";
 
+import { validateLessonStatus } from "../lesson";
+
 export const bookingCreateDropinAccess = async ({
   req,
   data,
@@ -26,17 +28,7 @@ export const bookingCreateDropinAccess = async ({
 
     if (checkRole(["admin"], user)) return true;
 
-    if (
-      lesson.bookingStatus === "closed" ||
-      lesson.bookingStatus === "waitlist" ||
-      lesson.bookingStatus === "booked"
-    ) {
-      return false;
-    }
-
-    if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-      return false;
-    }
+    if (!validateLessonStatus(lesson)) return false;
 
     // Check if the lesson has an allowed plan payment method
 

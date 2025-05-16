@@ -674,7 +674,7 @@ describe("Booking tests", () => {
     TEST_TIMEOUT
   );
   it(
-    "should fail because lesson is after subscription end date",
+    "should fail because lesson is after subscription cancel date",
     async () => {
       const user3 = await payload.create({
         collection: "users",
@@ -702,7 +702,7 @@ describe("Booking tests", () => {
           plan: plan.id,
           status: "active",
           startDate: new Date(),
-          endDate: new Date(Date.now() + 1 * 60 * 60 * 1000),
+          cancelAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
         },
       });
 

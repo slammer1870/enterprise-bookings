@@ -50,6 +50,28 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       data: {
         status: "canceled",
         endDate: new Date().toISOString(),
+        cancelAt: event.data.object.cancel_at 
+          ? new Date(event.data.object.cancel_at * 1000).toISOString()
+          : new Date().toISOString(),
+      },
+    });
+
+    await payload.update({
+      collection: "bookings",
+      where: {
+        user: { equals: user.docs[0]?.id as number },
+        "lesson.classOption.paymentMethods.allowedPlans": {
+          contains: plan.docs[0]?.id as number,
+        },
+        "lesson.startTime": {
+          greater_than: new Date(),
+        },
+        status: {
+          equals: "confirmed",
+        },
+      },
+      data: {
+        status: "cancelled",
       },
     });
   } catch (error) {

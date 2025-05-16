@@ -642,6 +642,7 @@ export interface Subscription {
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
+  cancelAt?: string | null;
   stripeSubscriptionId?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -1152,6 +1153,7 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   status?: T;
   startDate?: T;
   endDate?: T;
+  cancelAt?: T;
   stripeSubscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;

@@ -201,9 +201,9 @@ export default async function BookingPage({ params }: BookingPageProps) {
                             Your Subscription is past due. Please pay your subscription to continue.
                           </p>
                         ))}
-                      {new Date(subscription.endDate) < new Date(lesson.date) && (
+                      {new Date(subscription.cancelAt) < new Date(lesson.date) && (
                         <p className="text-sm text-muted-foreground mb-2">
-                          {`Your subscription will renew on ${new Date(subscription.endDate).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}
+                          {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}
                         </p>
                       )}
                       <PlanDetail

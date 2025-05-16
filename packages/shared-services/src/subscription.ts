@@ -1,6 +1,6 @@
 import { Payload, Where, CollectionSlug } from "payload";
 
-import { Plan } from "@repo/shared-types";
+import { Lesson, Plan, Subscription, User } from "@repo/shared-types";
 
 export const hasActiveSubscription = async (
   userId: number,
@@ -85,6 +85,71 @@ export const hasReachedSubscriptionLimit = async (
   }
 
   return false;
+};
+
+// Helper function to check user subscription
+export const checkUserSubscription = async (
+  user: User,
+  lesson: Lesson,
+  payload: any
+): Promise<boolean> => {
+  try {
+    const userSubscription = await payload.find({
+      collection: "subscriptions" as CollectionSlug,
+      where: {
+        and: [
+          {
+            user: { equals: user.id },
+            status: { equals: "active" },
+          },
+          {
+            or: [
+              { cancelAt: { greater_than: new Date() } },
+              { cancelAt: { exists: false } },
+              { cancelAt: { equals: null } },
+            ],
+          },
+        ],
+      },
+      depth: 2,
+      limit: 1,
+    });
+
+    if (userSubscription.docs.length === 0) return false;
+
+    const subscription = userSubscription.docs[0] as Subscription & {
+      plan: Plan;
+    };
+
+    if (
+      !lesson.classOption.paymentMethods?.allowedPlans?.some(
+        (plan) => plan.id == subscription.plan.id
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      (subscription.cancelAt &&
+        new Date(subscription.cancelAt) <= new Date()) ||
+      (subscription.cancelAt &&
+        new Date(subscription.cancelAt) <= new Date(lesson.startTime))
+    ) {
+      return false;
+    }
+
+    const reachedLimit = await hasReachedSubscriptionLimit(
+      subscription,
+      payload,
+      new Date(lesson.startTime)
+    );
+    if (reachedLimit) return false;
+
+    return true;
+  } catch (error) {
+    console.error("Error checking subscription:", error);
+    return false;
+  }
 };
 
 function getFirstHourOfDay(date: Date): Date {

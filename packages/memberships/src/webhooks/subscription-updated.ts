@@ -42,6 +42,9 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       id: subscription.docs[0]?.id as number,
       data: {
         status: event.data.object.status,
+        cancelAt: event.data.object.cancel_at
+          ? new Date(event.data.object.cancel_at * 1000).toISOString()
+          : null,
       },
     });
 
