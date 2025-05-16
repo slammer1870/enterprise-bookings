@@ -67,13 +67,13 @@ const defaultHooks: HooksConfig = {
         depth: 3,
       })) as Lesson;
 
-      const open =
+      const closed =
         lesson.bookings.docs.filter(
           (booking: Booking) => booking.status === "confirmed"
-        ).length < lesson.classOption.places;
+        ).length >= lesson.classOption.places;
 
       //Prevent booking if the lesson is fully booked
-      if (!open && data?.status === "confirmed") {
+      if (closed && data?.status === "confirmed") {
         throw new APIError("This lesson is fully booked", 400);
       }
 
