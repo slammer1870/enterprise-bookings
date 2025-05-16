@@ -6,6 +6,7 @@
   "peerDependencies": {
     "@payloadcms/plugin-form-builder": "*",
     "@payloadcms/richtext-lexical": "*",
+    "@payloadcms/plugin-seo": "*",
     "payload": "*",
     "react": "*",
     "react-dom": "*",
@@ -19,6 +20,7 @@
     "@types/react-dom": "19.0.0"
   },
   "dependencies": {
+    "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*"
   }
 }

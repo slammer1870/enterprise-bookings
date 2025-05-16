@@ -1,2 +1,2 @@
-export * from "./booking";
+export * from "./lesson";
 export * from "./subscription";

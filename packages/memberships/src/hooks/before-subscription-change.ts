@@ -48,6 +48,12 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
       stripeSubscription.current_period_end * 1000
     ).toISOString();
     newDoc.status = stripeSubscription.status;
+
+    if (stripeSubscription.cancel_at) {
+      newDoc.cancelAt = new Date(
+        stripeSubscription.cancel_at * 1000
+      ).toISOString();
+    }
   } catch (error: unknown) {
     payload.logger.error(`Error fetching product from Stripe: ${error}`);
     return newDoc;
