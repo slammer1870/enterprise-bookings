@@ -78,3 +78,28 @@ export const getActiveBookingsQuery = (
 
   return stringifiedQuery;
 };
+
+export const getInactiveBookingsQuery = (
+  userId: number | undefined,
+  lessonId: number
+) => {
+  const query = {
+    depth: 2,
+    limit: 1,
+    where: {
+      and: [
+        { lesson: { equals: lessonId } },
+        { user: { equals: userId } },
+        {
+          status: {
+            not_equals: "confirmed",
+          },
+        },
+      ],
+    },
+  };
+
+  const stringifiedQuery = qs.stringify(query, { addQueryPrefix: true });
+
+  return stringifiedQuery;
+};
