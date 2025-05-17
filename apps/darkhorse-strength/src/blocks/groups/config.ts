@@ -1,5 +1,7 @@
 import { Block } from 'payload'
 
+import { FormBlock } from '@repo/website/src/blocks/form/config'
+
 export const Groups: Block = {
   slug: 'groups',
   labels: {
@@ -85,6 +87,7 @@ export const Groups: Block = {
           name: 'form',
           type: 'relationship',
           relationTo: 'forms',
+          hasMany: false,
           required: true,
           label: 'Form',
         },

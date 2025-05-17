@@ -85,8 +85,10 @@ export const FormBlock: React.FC<
     introContent,
   } = props;
 
+  console.log(formFromProps);
+
   const formMethods = useForm({
-    defaultValues: buildInitialFormState(formFromProps.fields || []),
+    defaultValues: buildInitialFormState(formFromProps?.fields || []),
   });
   const {
     control,
@@ -191,7 +193,7 @@ export const FormBlock: React.FC<
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-4"
           >
-            {formFromProps.fields?.map((fieldBlock: FormField, index) => {
+            {formFromProps?.fields.map((fieldBlock: FormField, index) => {
               const {
                 name,
                 label,
@@ -218,7 +220,7 @@ export const FormBlock: React.FC<
                           />
                         ) : (
                           <Input
-                            type={fieldBlock.blockType as string}
+                            type={typeFromProps}
                             required={requiredFromProps}
                             placeholder={fieldBlock.defaultValue}
                             {...field}

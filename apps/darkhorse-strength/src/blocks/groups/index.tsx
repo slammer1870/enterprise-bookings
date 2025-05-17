@@ -23,13 +23,6 @@ interface Feature {
 interface CTA {
   title: string
   description: string
-}
-
-interface GroupsBlockProps {
-  heroImage: Media
-  benefits?: Benefit[]
-  features?: Feature[]
-  cta: CTA
   form: Form & {
     fields: Array<{
       name: string
@@ -42,12 +35,18 @@ interface GroupsBlockProps {
   }
 }
 
+interface GroupsBlockProps {
+  heroImage: Media
+  benefits?: Benefit[]
+  features?: Feature[]
+  cta: CTA
+}
+
 export const GroupsBlock: React.FC<GroupsBlockProps> = ({
   heroImage,
   benefits,
   features,
   cta,
-  form,
 }) => {
   return (
     <div className="container mx-auto p-4 pt-28">
@@ -92,7 +91,7 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({
           <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
             {cta.description}
           </p>
-          <FormBlock enableIntro={false} form={form} />
+          <FormBlock enableIntro={false} form={cta.form} />
         </div>
       </div>
       <div className="mt-12 flex flex-wrap">
