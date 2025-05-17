@@ -81,14 +81,14 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
             ))}
           </div>
         </div>
-        <div className="md:pt-10 flex flex-col items-center justify-between gap-4 md:flex-row w-full col-span-1 md:col-span-2">
-          <div className="md:w-1/2">
+        <div className="md:pt-10 flex flex-col items-start md:items-center justify-between gap-4 md:flex-row w-full col-span-1 md:col-span-2">
+          <div className="">
             <h3 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h3>
             <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
               {cta.description}
             </p>
           </div>
-          <div className="md:w-1/2">
+          <div className="w-full lg:w-1/3">
             <FormBlock enableIntro={false} form={cta.form} />
           </div>
         </div>
