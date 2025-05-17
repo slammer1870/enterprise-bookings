@@ -5,7 +5,6 @@ import { checkUserSubscription } from "./subscription";
 export const validateLessonStatus = (lesson: Lesson): boolean => {
   if (
     lesson.bookingStatus === "closed" ||
-    lesson.bookingStatus === "waitlist" ||
     lesson.bookingStatus === "booked"
   ) {
     return false;

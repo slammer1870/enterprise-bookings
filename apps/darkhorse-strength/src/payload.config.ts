@@ -111,42 +111,14 @@ export default buildConfig({
           afterChange: [
             ...(defaultHooks.afterChange || []),
             async ({ req, doc, context }) => {
-              console.log('Booking afterChange hook called with:', {
-                docId: doc.id,
-                lesson: doc.lesson,
-                lessonType: typeof doc.lesson,
-                context,
-              })
-
               if (context.triggerAfterChange === false) {
-                console.log('Skipping hook due to triggerAfterChange flag')
                 return
               }
 
-              try {
-                // Handle different possible formats of lesson ID
-                let lessonId: number
+              const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
 
-                if (typeof doc.lesson === 'string') {
-                  // If it's a string, try to parse it as JSON first
-                  try {
-                    const parsed = JSON.parse(doc.lesson)
-                    lessonId = Number(parsed.id)
-                  } catch {
-                    // If not JSON, try to parse as number directly
-                    lessonId = Number(doc.lesson)
-                  }
-                } else if (typeof doc.lesson === 'object' && doc.lesson !== null) {
-                  // If it's an object, get the ID
-                  lessonId = Number(doc.lesson.id)
-                } else {
-                  return doc
-                }
-
-                if (isNaN(lessonId)) {
-                  return doc
-                }
-
+              Promise.resolve().then(async () => {
+                console.log('This promise is called')
                 const lessonQuery = await req.payload.findByID({
                   collection: 'lessons',
                   id: lessonId,
@@ -154,17 +126,10 @@ export default buildConfig({
                 })
 
                 const lesson = lessonQuery as Lesson
-                console.log('Found lesson:', {
-                  id: lesson.id,
-                  hasConfirmedBookings: lesson?.bookings?.docs?.some(
-                    (booking: Booking) => booking.status === 'confirmed',
-                  ),
-                })
 
                 if (
                   lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
                 ) {
-                  console.log('Setting lockOutTime to 0')
                   await req.payload.update({
                     collection: 'lessons',
                     id: lessonId,
@@ -173,17 +138,13 @@ export default buildConfig({
                     },
                   })
                 } else {
-                  console.log('Restoring original lockOutTime:', lesson.originalLockOutTime)
                   await req.payload.update({
                     collection: 'lessons',
                     id: lessonId,
                     data: { lockOutTime: lesson.originalLockOutTime },
                   })
                 }
-              } catch (error) {
-                console.error('Error in booking afterChange hook:', error)
-              }
-
+              })
               return doc
             },
           ],

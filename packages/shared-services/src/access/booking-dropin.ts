@@ -30,6 +30,10 @@ export const bookingCreateDropinAccess = async ({
 
     if (!validateLessonStatus(lesson)) return false;
 
+    if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
+      return true;
+    }
+
     // Check if the lesson has an allowed plan payment method
 
     if (lesson.classOption.paymentMethods?.allowedDropIn) {
