@@ -76,8 +76,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           setLoading(false);
           break;
         case "waitlist":
-          setLoading(false);
           await joinWaitlist(lesson.id, user.id);
+          setLoading(false);
           break;
 
         case "booked":
