@@ -8,7 +8,11 @@ import { toast } from "sonner";
 
 import { useRouter } from "next/navigation";
 
-import { checkInAction, cancelBookingAction } from "../actions/bookings";
+import {
+  checkInAction,
+  cancelBookingAction,
+  joinWaitlistAction,
+} from "../actions/bookings";
 
 type ScheduleContextType = {
   lessons: Lesson[];
@@ -17,6 +21,7 @@ type ScheduleContextType = {
   setSelectedDate: (date: Date) => void;
   checkIn: (lessonId: number, userId: number) => Promise<void>;
   cancelBooking: (lessonId: number, userId: number) => Promise<void>;
+  joinWaitlist: (lessonId: number, userId: number) => Promise<void>;
 };
 
 const ScheduleContext = createContext<ScheduleContextType | undefined>(
@@ -100,6 +105,27 @@ export const ScheduleProvider: React.FC<{
     }
   };
 
+  const joinWaitlist = async (lessonId: number, userId: number) => {
+    try {
+      const result = await joinWaitlistAction(lessonId, userId);
+      if (!result.success) {
+        toast.error(result.error);
+        throw new Error(result.error);
+      }
+
+      // Add a small delay to allow background operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const updatedLessons = await getLessons();
+      setLessons(updatedLessons);
+
+      toast.success("You have been added to the waitlist");
+    } catch (error) {
+      console.error("Error joining waitlist:", error);
+      toast.error("Failed to join waitlist");
+    }
+  };
+
   return (
     <ScheduleContext.Provider
       value={{
@@ -109,6 +135,7 @@ export const ScheduleProvider: React.FC<{
         setSelectedDate,
         checkIn,
         cancelBooking,
+        joinWaitlist,
       }}
     >
       {children}
