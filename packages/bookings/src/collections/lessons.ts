@@ -13,9 +13,6 @@ import type { BookingsPluginConfig } from "../types";
 
 import { AccessControls, HooksConfig } from "../types";
 
-import { render } from "@react-email/components";
-import { WaitlistNotificationEmail } from "../emails/waitlist-notification";
-
 export const lessonsCollection: CollectionConfig = {
   slug: "lessons",
   labels: {
@@ -471,7 +468,6 @@ const defaultHooks: HooksConfig = {
       });
     },
   ],
-  afterChange: [],
 };
 
 export const generateLessonCollection = (config: BookingsPluginConfig) => {

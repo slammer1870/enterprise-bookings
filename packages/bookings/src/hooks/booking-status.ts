@@ -26,6 +26,9 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       lesson: {
         equals: data?.id,
       },
+      status: {
+        equals: "confirmed",
+      },
     },
     context: {
       // set a flag to prevent from running again
@@ -35,6 +38,19 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
   const bookings = bookingQuery.docs as unknown as Booking[];
 
+  // Check if user is defined and if there are bookings for the user
+  if (
+    req.user &&
+    bookings.some(
+      (booking: Booking) =>
+        (booking.user as unknown as User).id ===
+        (req.user as unknown as User).id
+    ) &&
+    new Date(data?.startTime) >= currentTime
+  ) {
+    return "booked";
+  }
+
   // Check if the lesson is closed based on lock-out time
   if (
     new Date(data?.startTime).getTime() - data?.lockOutTime * 60000 <=
@@ -43,36 +59,8 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     return "closed";
   }
 
-  // Check if user is defined and if there are bookings for the user
-  if (
-    req.user &&
-    bookings.some(
-      (booking: Booking) =>
-        (booking.user as unknown as User).id ===
-          (req.user as unknown as User).id && booking.status === "confirmed"
-    )
-  ) {
-    return "booked";
-  }
-
-  if (
-    req.user &&
-    bookings.some(
-      (booking: Booking) =>
-        (booking.user as unknown as User).id ===
-          (req.user as unknown as User).id && booking.status === "waiting"
-    ) &&
-    bookings.filter((booking: Booking) => booking.status === "confirmed")
-      .length >= classOption.places
-  ) {
-    return "waiting";
-  }
-
   // TODO implement waitlist
-  if (
-    bookings.filter((booking: Booking) => booking.status === "confirmed")
-      .length >= classOption.places
-  ) {
+  if (bookingQuery.totalDocs >= classOption.places) {
     return "waitlist";
   }
 

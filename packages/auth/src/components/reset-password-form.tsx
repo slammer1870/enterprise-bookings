@@ -40,7 +40,7 @@ export const ResetPasswordForm = () => {
 
   const searchParams = useSearchParams();
 
-  const token = useRef(searchParams?.get("token"));
+  const token = useRef(searchParams.get("token"));
 
   if (!token.current) {
     router.push("/login");
