@@ -2,6 +2,7 @@ import {
   APIError,
   CollectionAdminOptions,
   CollectionConfig,
+  CollectionSlug,
   Field,
   Labels,
 } from "payload";
@@ -11,15 +12,9 @@ import {
   bookingUpdateAccess,
   isAdminOrOwner,
 } from "../access/bookings";
-
 import { BookingsPluginConfig, HooksConfig, AccessControls } from "../types";
-
-import { Lesson, Booking, User } from "@repo/shared-types";
-
+import { Lesson, Transaction, Booking, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils/src/check-role";
-
-import { render } from "@react-email/components";
-import { WaitlistNotificationEmail } from "../emails/waitlist-notification";
 
 const defaultFields: Field[] = [
   {
@@ -79,57 +74,13 @@ const defaultHooks: HooksConfig = {
 
       //Prevent booking if the lesson is fully booked
       if (closed && data?.status === "confirmed") {
-        throw new APIError("This lesson is fully booked", 403);
+        throw new APIError("This lesson is fully booked", 400);
       }
 
       return data;
     },
   ],
-  afterChange: [
-    async ({ req, doc, context }) => {
-      if (context.triggerAfterChange) {
-        return;
-      }
-
-      // Ensure we're passing the lesson ID as a number
-      const lessonId =
-        typeof doc.lesson === "object" ? doc.lesson.id : doc.lesson;
-
-      const lesson = (await req.payload.findByID({
-        collection: "lessons",
-        id: lessonId,
-        depth: 3,
-      })) as Lesson;
-
-      if (doc.status === "cancelled" && lesson.remainingCapacity === 0) {
-        const bookingsQuery = await req.payload.find({
-          collection: "bookings",
-          where: {
-            lesson: { equals: lesson.id },
-            status: { equals: "waiting" },
-          },
-          depth: 3,
-        });
-
-        const bookings = bookingsQuery.docs as Booking[];
-
-        const emailTemplate = await render(
-          WaitlistNotificationEmail({
-            lesson: lesson,
-            dashboardUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
-          })
-        );
-
-        bookings.forEach(async (booking) => {
-          await req.payload.sendEmail({
-            to: booking.user.email,
-            subject: "Lesson is now available",
-            html: emailTemplate,
-          });
-        });
-      }
-    },
-  ],
+  afterChange: [],
 };
 
 export const generateBookingCollection = (config: BookingsPluginConfig) => {

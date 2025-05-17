@@ -49,7 +49,7 @@ export default function UserPassLoginForm() {
 function LoginFormContent() {
   const searchParams = useSearchParams();
 
-  const callbackUrl = useRef(searchParams?.get("callbackUrl"));
+  const callbackUrl = useRef(searchParams.get("callbackUrl"));
 
   const router = useRouter();
 

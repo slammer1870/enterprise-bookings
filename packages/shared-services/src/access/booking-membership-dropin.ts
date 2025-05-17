@@ -30,10 +30,6 @@ export const bookingCreateMembershipDropinAccess = async ({
 
     if (checkRole(["admin"], user)) return true;
 
-    if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
-      return true;
-    }
-
     if (!validateLessonStatus(lesson)) return false;
 
     return await validateLessonPaymentMethods(lesson, user, req.payload);

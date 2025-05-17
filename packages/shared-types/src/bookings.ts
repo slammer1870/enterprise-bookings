@@ -12,13 +12,7 @@ export type Lesson = {
   instructor: User;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
-  bookingStatus:
-    | "active"
-    | "waitlist"
-    | "waiting"
-    | "closed"
-    | "booked"
-    | "trialable";
+  bookingStatus: "active" | "waitlist" | "closed" | "booked" | "trialable";
   originalLockOutTime?: number;
 };
 

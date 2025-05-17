@@ -94,7 +94,7 @@ export async function cancelBookingAction(lessonId: number, userId: number) {
   const cookieStore = await cookies();
   const token = cookieStore.get("payload-token")?.value;
   try {
-    const query = getBookingsQuery(userId, lessonId);
+    const query = getActiveBookingsQuery(userId, lessonId);
 
     // First find the specific booking
     const findResponse = await fetch(
@@ -153,47 +153,6 @@ export async function cancelBookingAction(lessonId: number, userId: number) {
     return {
       success: false,
       error: "Failed to cancel booking",
-    };
-  }
-}
-
-export async function joinWaitlistAction(lessonId: number, userId: number) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("payload-token")?.value;
-
-  try {
-    // Create new booking
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/bookings`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          lesson: lessonId,
-          user: userId,
-          status: "waiting",
-        }),
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `JWT ${token}`,
-        },
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.errors?.[0]?.message || "An error occurred",
-      };
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error joining waitlist:", error);
-    return {
-      success: false,
-      error: "Failed to join waitlist",
     };
   }
 }

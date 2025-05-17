@@ -43,7 +43,7 @@ export const PlanDetail = ({
   const params = useParams();
 
   const metadata =
-    pathname && pathname.split("/")[1] === "bookings" && params?.id
+    pathname.split("/")[1] === "bookings" && params.id
       ? { lesson_id: params.id as string }
       : undefined;
 

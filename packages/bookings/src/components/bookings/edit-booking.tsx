@@ -140,7 +140,6 @@ export function EditBooking({ booking }: { booking: Booking }) {
                           <SelectItem value="confirmed">Confirmed</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="cancelled">Cancelled</SelectItem>
-                          <SelectItem value="waiting">Waiting List</SelectItem>
                         </SelectGroup>
                       </SelectContent>
                     </Select>

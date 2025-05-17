@@ -29,7 +29,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
 
   const [loading, setLoading] = useState(false);
 
-  const { checkIn, cancelBooking, joinWaitlist } = useSchedule();
+  const { checkIn, cancelBooking } = useSchedule();
 
   const status = lesson.bookingStatus;
 
@@ -76,21 +76,13 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           setLoading(false);
           break;
         case "waitlist":
+          toast.info("You are on the waitlist");
           setLoading(false);
-          await joinWaitlist(lesson.id, user.id);
           break;
 
         case "booked":
           const ok = await confirm();
           if (ok) {
-            setLoading(true);
-            await cancelBooking(lesson.id, user.id);
-          }
-          setLoading(false);
-          break;
-        case "waiting":
-          const ok2 = await confirm();
-          if (ok2) {
             setLoading(true);
             await cancelBooking(lesson.id, user.id);
           }
@@ -121,7 +113,6 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     trialable: "secondary",
     active: "default",
     booked: "destructive",
-    waiting: "destructive",
   };
 
   return (
@@ -138,16 +129,14 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           : status === "closed"
             ? "Closed"
             : status === "waitlist"
-              ? "Join the Waitlist"
+              ? "Join the waitlist"
               : status === "trialable"
                 ? "Book Trial Class"
-                : status === "waiting"
-                  ? "Leave the Waitlist"
-                  : status === "active"
-                    ? lesson.classOption.type === "child"
-                      ? "Check Child In"
-                      : "Check In"
-                    : "Cancel Booking"}
+                : status === "active"
+                  ? lesson.classOption.type === "child"
+                    ? "Check Child In"
+                    : "Check In"
+                  : "Cancel Booking"}
       </Button>
       <ConfirmationDialog />
     </>
