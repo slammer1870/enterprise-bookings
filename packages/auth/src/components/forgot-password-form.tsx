@@ -42,9 +42,6 @@ export const ForgotPasswordForm = () => {
 };
 
 function ForgotPasswordFormContent() {
-  const searchParams = useSearchParams();
-
-  const callbackUrl = useRef(searchParams.get("callbackUrl"));
 
   const router = useRouter();
 

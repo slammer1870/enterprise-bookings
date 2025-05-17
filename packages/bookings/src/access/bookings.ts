@@ -34,9 +34,12 @@ export const bookingCreateAccess = async ({
 
     if (checkRole(["admin"], user)) return true;
 
+    if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
+      return true;
+    }
+
     if (
       lesson.bookingStatus === "closed" ||
-      lesson.bookingStatus === "waitlist" ||
       lesson.bookingStatus === "booked"
     ) {
       return false;

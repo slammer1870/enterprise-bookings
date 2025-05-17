@@ -9,7 +9,7 @@ import { RichText } from '@payloadcms/richtext-lexical/react'
 
 import { Post } from '@repo/shared-types'
 
-import { generateMetadataFunction } from '@repo/website/src/utils/generate-metadata'
+import { generatePostMetadataFunction } from '@repo/website/src/utils/generate-post-metadata'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 
@@ -72,7 +72,7 @@ export default async function BlogPost({ params: paramsPromise }: Args) {
 export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
   const payload = await getPayload({ config: configPromise })
 
-  return generateMetadataFunction({ params: paramsPromise, payload })
+  return generatePostMetadataFunction({ params: paramsPromise, payload })
 }
 
 const queryPostBySlug = cache(async ({ slug }: { slug: string }): Promise<Post | null> => {

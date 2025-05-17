@@ -8,6 +8,7 @@ export const BookingDetail = ({ booking }: { booking: Booking }) => {
       {booking.user.name ? `${booking.user.name}` : `${booking.user.email}`}
       <span className="ml-2 text-red-500">
         {booking.status == "pending" && "(Requires Payment)"}
+        {booking.status == "waiting" && "(Waiting List)"}
       </span>
     </div>
   );
