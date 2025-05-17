@@ -12,7 +12,6 @@ import { Post } from '@repo/shared-types'
 import { generateMetadataFunction } from '@repo/website/src/utils/generate-metadata'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
