@@ -104,7 +104,7 @@ const defaultHooks: HooksConfig = {
       if (
         doc.status === "cancelled" &&
         lesson.remainingCapacity === 0 &&
-        previousDoc.status !== "confirmed"
+        previousDoc.status === "confirmed"
       ) {
         const bookingsQuery = await req.payload.find({
           collection: "bookings",
