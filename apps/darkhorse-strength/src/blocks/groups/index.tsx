@@ -81,7 +81,7 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
             ))}
           </div>
         </div>
-        <div className="md:pt-10 flex flex-col items-center justify-between gap-4 md:flex-row">
+        <div className="md:pt-10 flex flex-col items-center justify-between gap-4 md:flex-row w-full">
           <div className="md:w-1/2">
             <h5 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h5>
             <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
@@ -93,15 +93,15 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
           </div>
         </div>
       </div>
-      <div className="mt-12 flex flex-wrap">
+      <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
         {features?.map((feature, index) => (
-          <div key={index} className="mb-12 md:w-1/3 md:px-2">
+          <div key={index} className="aspect-square relative overflow-hidden">
             <Image
               className="rounded"
               src={feature.image.url}
               alt={feature.image.alt}
-              width={600}
-              height={600}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               style={{
                 maxWidth: '100%',
                 height: 'auto',
