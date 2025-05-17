@@ -82,7 +82,7 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
               {cta.description}
             </p>
           </div>
-          <div className="w-full md:w-1/3">
+          <div className="w-full md:w-1/2">
             <FormBlock enableIntro={false} form={cta.form} />
           </div>
         </div>
