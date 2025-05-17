@@ -42,12 +42,7 @@ interface GroupsBlockProps {
   cta: CTA
 }
 
-export const GroupsBlock: React.FC<GroupsBlockProps> = ({
-  heroImage,
-  benefits,
-  features,
-  cta,
-}) => {
+export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, features, cta }) => {
   return (
     <div className="container mx-auto p-4 pt-28">
       <h1 className="mb-4 text-2xl font-medium md:mb-8 md:text-3xl">Personal Training</h1>
@@ -86,12 +81,16 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({
             ))}
           </div>
         </div>
-        <div className="md:pt-10">
-          <h5 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h5>
-          <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
-            {cta.description}
-          </p>
-          <FormBlock enableIntro={false} form={cta.form} />
+        <div className="md:pt-10 flex flex-col items-center justify-between gap-4 md:flex-row">
+          <div className="md:w-1/2">
+            <h5 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h5>
+            <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
+              {cta.description}
+            </p>
+          </div>
+          <div className="md:w-1/2">
+            <FormBlock enableIntro={false} form={cta.form} />
+          </div>
         </div>
       </div>
       <div className="mt-12 flex flex-wrap">
