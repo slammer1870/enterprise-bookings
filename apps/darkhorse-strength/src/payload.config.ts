@@ -93,8 +93,9 @@ export default buildConfig({
           },
         ],
         hooks: ({ defaultHooks }) => ({
-          ...(defaultHooks.beforeOperation || []),
+          ...defaultHooks,
           beforeOperation: [
+            ...(defaultHooks.beforeOperation || []),
             async ({ args, operation }) => {
               if (operation === 'create') {
                 args.data.originalLockOutTime = args.data.lockOutTime
