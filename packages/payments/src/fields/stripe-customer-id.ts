@@ -26,4 +26,5 @@ export const stripeCustomerId: Field = {
     },
     position: "sidebar",
   },
+  saveToJWT: false,
 };
