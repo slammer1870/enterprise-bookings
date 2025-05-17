@@ -1,5 +1,5 @@
 {
-  "id": "eba7cc63-2fd6-4fc0-8710-5272598b33f1",
+  "id": "d0ed7787-0b66-4e37-9069-22ce2a684d4c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1827,6 +1827,189 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.pages_blocks_groups": {
+      "name": "pages_blocks_groups",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_path": {
+          "name": "_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "hero_image_id": {
+          "name": "hero_image_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cta_title": {
+          "name": "cta_title",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cta_description": {
+          "name": "cta_description",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cta_form_id": {
+          "name": "cta_form_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_name": {
+          "name": "block_name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "pages_blocks_groups_order_idx": {
+          "name": "pages_blocks_groups_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pages_blocks_groups_parent_id_idx": {
+          "name": "pages_blocks_groups_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pages_blocks_groups_path_idx": {
+          "name": "pages_blocks_groups_path_idx",
+          "columns": [
+            {
+              "expression": "_path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pages_blocks_groups_hero_image_idx": {
+          "name": "pages_blocks_groups_hero_image_idx",
+          "columns": [
+            {
+              "expression": "hero_image_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pages_blocks_groups_cta_cta_form_idx": {
+          "name": "pages_blocks_groups_cta_cta_form_idx",
+          "columns": [
+            {
+              "expression": "cta_form_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pages_blocks_groups_hero_image_id_media_id_fk": {
+          "name": "pages_blocks_groups_hero_image_id_media_id_fk",
+          "tableFrom": "pages_blocks_groups",
+          "tableTo": "media",
+          "columnsFrom": [
+            "hero_image_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "pages_blocks_groups_cta_form_id_forms_id_fk": {
+          "name": "pages_blocks_groups_cta_form_id_forms_id_fk",
+          "tableFrom": "pages_blocks_groups",
+          "tableTo": "forms",
+          "columnsFrom": [
+            "cta_form_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "pages_blocks_groups_parent_id_fk": {
+          "name": "pages_blocks_groups_parent_id_fk",
+          "tableFrom": "pages_blocks_groups",
+          "tableTo": "pages",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.pages_blocks_form_block": {
       "name": "pages_blocks_form_block",
       "schema": "",
@@ -1959,155 +2142,6 @@
         "pages_blocks_form_block_parent_id_fk": {
           "name": "pages_blocks_form_block_parent_id_fk",
           "tableFrom": "pages_blocks_form_block",
-          "tableTo": "pages",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.pages_blocks_groups": {
-      "name": "pages_blocks_groups",
-      "schema": "",
-      "columns": {
-        "_order": {
-          "name": "_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "_parent_id": {
-          "name": "_parent_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "_path": {
-          "name": "_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "varchar",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "hero_image_id": {
-          "name": "hero_image_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cta_title": {
-          "name": "cta_title",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cta_description": {
-          "name": "cta_description",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "block_name": {
-          "name": "block_name",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "pages_blocks_groups_order_idx": {
-          "name": "pages_blocks_groups_order_idx",
-          "columns": [
-            {
-              "expression": "_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "pages_blocks_groups_parent_id_idx": {
-          "name": "pages_blocks_groups_parent_id_idx",
-          "columns": [
-            {
-              "expression": "_parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "pages_blocks_groups_path_idx": {
-          "name": "pages_blocks_groups_path_idx",
-          "columns": [
-            {
-              "expression": "_path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "pages_blocks_groups_hero_image_idx": {
-          "name": "pages_blocks_groups_hero_image_idx",
-          "columns": [
-            {
-              "expression": "hero_image_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "pages_blocks_groups_hero_image_id_media_id_fk": {
-          "name": "pages_blocks_groups_hero_image_id_media_id_fk",
-          "tableFrom": "pages_blocks_groups",
-          "tableTo": "media",
-          "columnsFrom": [
-            "hero_image_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "pages_blocks_groups_parent_id_fk": {
-          "name": "pages_blocks_groups_parent_id_fk",
-          "tableFrom": "pages_blocks_groups",
           "tableTo": "pages",
           "columnsFrom": [
             "_parent_id"
@@ -3111,7 +3145,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.722Z'"
+          "default": "'2025-05-17T12:54:08.520Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -4296,6 +4330,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
+        },
+        "skip_sync": {
+          "name": "skip_sync",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
         },
         "updated_at": {
           "name": "updated_at",
@@ -6999,14 +7040,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -7257,14 +7298,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -7515,14 +7556,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -7773,14 +7814,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -8031,14 +8072,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -8289,14 +8330,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -8547,14 +8588,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-05-16T21:40:25.723Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -8711,14 +8752,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false,
-          "default": "'2025-05-16T21:40:25.722Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "end_date": {
           "name": "end_date",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false,
-          "default": "'2025-05-16T21:40:25.722Z'"
+          "default": "'2025-05-17T12:54:08.521Z'"
         },
         "lock_out_time": {
           "name": "lock_out_time",

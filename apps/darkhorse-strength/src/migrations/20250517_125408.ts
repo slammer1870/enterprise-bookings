@@ -1,16 +1,77 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // Create all enum types with DO blocks to handle existing types
   await db.execute(sql`
-   CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
-  CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
-  CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
-  CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
-  CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
-  CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
-  CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
-  CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-  CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;
+  `);
+
+  // Continue with the rest of the migration
+  await db.execute(sql`
   CREATE TABLE IF NOT EXISTS "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
@@ -147,8 +208,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"address" varchar DEFAULT '17 Main Street, Rear of Bray Co. Wicklow' NOT NULL,
   	"email" varchar DEFAULT 'info@darkhorsestrength.ie' NOT NULL,
   	"phone" varchar DEFAULT '087 974 8058' NOT NULL,
-  	"contact_title" varchar DEFAULT 'Contact Us' NOT NULL,
-  	"contact_description" varchar DEFAULT 'Do you have any questions? Fill in our contact form and we will get back to you as soon as possible!' NOT NULL,
+  	"form_id" integer NOT NULL,
   	"block_name" varchar
   );
   
@@ -177,6 +237,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"hero_image_id" integer NOT NULL,
   	"cta_title" varchar NOT NULL,
   	"cta_description" varchar NOT NULL,
+  	"cta_form_id" integer NOT NULL,
   	"block_name" varchar
   );
   
@@ -195,6 +256,109 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"id" serial PRIMARY KEY NOT NULL,
   	"title" varchar NOT NULL,
   	"slug" varchar NOT NULL,
+  	"meta_title" varchar,
+  	"meta_description" varchar,
+  	"meta_image_id" integer,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "posts_blocks_form_block" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"form_id" integer,
+  	"enable_intro" boolean,
+  	"intro_content" jsonb,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "posts" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"title" varchar,
+  	"excerpt" varchar,
+  	"hero_image_id" integer,
+  	"content" jsonb,
+  	"published_at" timestamp(3) with time zone,
+  	"slug" varchar,
+  	"meta_title" varchar,
+  	"meta_description" varchar,
+  	"meta_image_id" integer,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"_status" "enum_posts_status" DEFAULT 'draft'
+  );
+  
+  CREATE TABLE IF NOT EXISTS "_posts_v_blocks_form_block" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"form_id" integer,
+  	"enable_intro" boolean,
+  	"intro_content" jsonb,
+  	"_uuid" varchar,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE IF NOT EXISTS "_posts_v" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"parent_id" integer,
+  	"version_title" varchar,
+  	"version_excerpt" varchar,
+  	"version_hero_image_id" integer,
+  	"version_content" jsonb,
+  	"version_published_at" timestamp(3) with time zone,
+  	"version_slug" varchar,
+  	"version_meta_title" varchar,
+  	"version_meta_description" varchar,
+  	"version_meta_image_id" integer,
+  	"version_updated_at" timestamp(3) with time zone,
+  	"version_created_at" timestamp(3) with time zone,
+  	"version__status" "enum__posts_v_version_status" DEFAULT 'draft',
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"latest" boolean,
+  	"autosave" boolean
+  );
+  
+  CREATE TABLE IF NOT EXISTS "lessons" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.520Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone NOT NULL,
+  	"end_time" timestamp(3) with time zone NOT NULL,
+  	"lock_out_time" numeric DEFAULT 0 NOT NULL,
+  	"location" varchar,
+  	"instructor_id" integer,
+  	"class_option_id" integer NOT NULL,
+  	"original_lock_out_time" numeric,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "class_options" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"name" varchar NOT NULL,
+  	"places" numeric NOT NULL,
+  	"description" varchar NOT NULL,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS "class_options_rels" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"order" integer,
+  	"parent_id" integer NOT NULL,
+  	"path" varchar NOT NULL,
+  	"plans_id" integer
+  );
+  
+  CREATE TABLE IF NOT EXISTS "bookings" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"user_id" integer NOT NULL,
+  	"lesson_id" integer NOT NULL,
+  	"status" "enum_bookings_status" NOT NULL,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
@@ -239,6 +403,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"status" "enum_subscriptions_status" DEFAULT 'incomplete' NOT NULL,
   	"start_date" timestamp(3) with time zone,
   	"end_date" timestamp(3) with time zone,
+  	"cancel_at" timestamp(3) with time zone,
   	"stripe_subscription_id" varchar,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
@@ -260,46 +425,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"stripe_product_id" varchar,
   	"price_j_s_o_n" varchar,
   	"status" "enum_plans_status" DEFAULT 'active' NOT NULL,
-  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
-  );
-  
-  CREATE TABLE IF NOT EXISTS "lessons" (
-  	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"start_time" timestamp(3) with time zone NOT NULL,
-  	"end_time" timestamp(3) with time zone NOT NULL,
-  	"lock_out_time" numeric DEFAULT 0 NOT NULL,
-  	"location" varchar,
-  	"instructor_id" integer,
-  	"class_option_id" integer NOT NULL,
-  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
-  );
-  
-  CREATE TABLE IF NOT EXISTS "class_options" (
-  	"id" serial PRIMARY KEY NOT NULL,
-  	"name" varchar NOT NULL,
-  	"places" numeric NOT NULL,
-  	"description" varchar NOT NULL,
-  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
-  );
-  
-  CREATE TABLE IF NOT EXISTS "class_options_rels" (
-  	"id" serial PRIMARY KEY NOT NULL,
-  	"order" integer,
-  	"parent_id" integer NOT NULL,
-  	"path" varchar NOT NULL,
-  	"plans_id" integer
-  );
-  
-  CREATE TABLE IF NOT EXISTS "bookings" (
-  	"id" serial PRIMARY KEY NOT NULL,
-  	"user_id" integer NOT NULL,
-  	"lesson_id" integer NOT NULL,
-  	"status" "enum_bookings_status" NOT NULL,
-  	"transaction_id" integer,
+  	"skip_sync" boolean DEFAULT false,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
@@ -476,13 +602,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"path" varchar NOT NULL,
   	"media_id" integer,
   	"pages_id" integer,
+  	"posts_id" integer,
+  	"lessons_id" integer,
+  	"class_options_id" integer,
+  	"bookings_id" integer,
   	"transactions_id" integer,
   	"users_id" integer,
   	"subscriptions_id" integer,
   	"plans_id" integer,
-  	"lessons_id" integer,
-  	"class_options_id" integer,
-  	"bookings_id" integer,
   	"forms_id" integer,
   	"form_submissions_id" integer
   );
@@ -522,8 +649,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -542,8 +669,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -562,8 +689,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -582,8 +709,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -602,8 +729,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -622,8 +749,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -642,8 +769,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -653,8 +780,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE IF NOT EXISTS "scheduler" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"start_date" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z',
-  	"end_date" timestamp(3) with time zone DEFAULT '2025-05-13T14:42:41.873Z',
+  	"start_date" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z',
+  	"end_date" timestamp(3) with time zone DEFAULT '2025-05-17T12:54:08.521Z',
   	"lock_out_time" numeric DEFAULT 0,
   	"default_class_option_id" integer NOT NULL,
   	"schedule_monday_is_active" boolean DEFAULT true,
@@ -759,6 +886,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "pages_blocks_contact" ADD CONSTRAINT "pages_blocks_contact_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "pages_blocks_contact" ADD CONSTRAINT "pages_blocks_contact_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -795,6 +928,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "pages_blocks_groups" ADD CONSTRAINT "pages_blocks_groups_cta_form_id_forms_id_fk" FOREIGN KEY ("cta_form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "pages_blocks_groups" ADD CONSTRAINT "pages_blocks_groups_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -813,31 +952,61 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
-   ALTER TABLE "transactions" ADD CONSTRAINT "transactions_created_by_id_users_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+   ALTER TABLE "pages" ADD CONSTRAINT "pages_meta_image_id_media_id_fk" FOREIGN KEY ("meta_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
   
   DO $$ BEGIN
-   ALTER TABLE "users_roles" ADD CONSTRAINT "users_roles_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+   ALTER TABLE "posts_blocks_form_block" ADD CONSTRAINT "posts_blocks_form_block_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
   
   DO $$ BEGIN
-   ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+   ALTER TABLE "posts_blocks_form_block" ADD CONSTRAINT "posts_blocks_form_block_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
   
   DO $$ BEGIN
-   ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_plan_id_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."plans"("id") ON DELETE set null ON UPDATE no action;
+   ALTER TABLE "posts" ADD CONSTRAINT "posts_hero_image_id_media_id_fk" FOREIGN KEY ("hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
   
   DO $$ BEGIN
-   ALTER TABLE "plans_features" ADD CONSTRAINT "plans_features_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."plans"("id") ON DELETE cascade ON UPDATE no action;
+   ALTER TABLE "posts" ADD CONSTRAINT "posts_meta_image_id_media_id_fk" FOREIGN KEY ("meta_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "_posts_v_blocks_form_block" ADD CONSTRAINT "_posts_v_blocks_form_block_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "_posts_v_blocks_form_block" ADD CONSTRAINT "_posts_v_blocks_form_block_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."_posts_v"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "_posts_v" ADD CONSTRAINT "_posts_v_parent_id_posts_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."posts"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "_posts_v" ADD CONSTRAINT "_posts_v_version_hero_image_id_media_id_fk" FOREIGN KEY ("version_hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "_posts_v" ADD CONSTRAINT "_posts_v_version_meta_image_id_media_id_fk" FOREIGN KEY ("version_meta_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
@@ -879,7 +1048,31 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
-   ALTER TABLE "bookings" ADD CONSTRAINT "bookings_transaction_id_transactions_id_fk" FOREIGN KEY ("transaction_id") REFERENCES "public"."transactions"("id") ON DELETE set null ON UPDATE no action;
+   ALTER TABLE "transactions" ADD CONSTRAINT "transactions_created_by_id_users_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "users_roles" ADD CONSTRAINT "users_roles_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_plan_id_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."plans"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "plans_features" ADD CONSTRAINT "plans_features_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."plans"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
@@ -981,6 +1174,30 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_posts_fk" FOREIGN KEY ("posts_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_lessons_fk" FOREIGN KEY ("lessons_id") REFERENCES "public"."lessons"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_class_options_fk" FOREIGN KEY ("class_options_id") REFERENCES "public"."class_options"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
+   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_bookings_fk" FOREIGN KEY ("bookings_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action;
+  EXCEPTION
+   WHEN duplicate_object THEN null;
+  END $$;
+  
+  DO $$ BEGIN
    ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_transactions_fk" FOREIGN KEY ("transactions_id") REFERENCES "public"."transactions"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
@@ -1000,24 +1217,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   DO $$ BEGIN
    ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_plans_fk" FOREIGN KEY ("plans_id") REFERENCES "public"."plans"("id") ON DELETE cascade ON UPDATE no action;
-  EXCEPTION
-   WHEN duplicate_object THEN null;
-  END $$;
-  
-  DO $$ BEGIN
-   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_lessons_fk" FOREIGN KEY ("lessons_id") REFERENCES "public"."lessons"("id") ON DELETE cascade ON UPDATE no action;
-  EXCEPTION
-   WHEN duplicate_object THEN null;
-  END $$;
-  
-  DO $$ BEGIN
-   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_class_options_fk" FOREIGN KEY ("class_options_id") REFERENCES "public"."class_options"("id") ON DELETE cascade ON UPDATE no action;
-  EXCEPTION
-   WHEN duplicate_object THEN null;
-  END $$;
-  
-  DO $$ BEGIN
-   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_bookings_fk" FOREIGN KEY ("bookings_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action;
   EXCEPTION
    WHEN duplicate_object THEN null;
   END $$;
@@ -1256,6 +1455,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "pages_blocks_contact_order_idx" ON "pages_blocks_contact" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "pages_blocks_contact_parent_id_idx" ON "pages_blocks_contact" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_contact_path_idx" ON "pages_blocks_contact" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_contact_form_idx" ON "pages_blocks_contact" USING btree ("form_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_groups_benefits_order_idx" ON "pages_blocks_groups_benefits" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "pages_blocks_groups_benefits_parent_id_idx" ON "pages_blocks_groups_benefits" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_groups_benefits_icon_idx" ON "pages_blocks_groups_benefits" USING btree ("icon_id");
@@ -1266,12 +1466,54 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "pages_blocks_groups_parent_id_idx" ON "pages_blocks_groups" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_groups_path_idx" ON "pages_blocks_groups" USING btree ("_path");
   CREATE INDEX IF NOT EXISTS "pages_blocks_groups_hero_image_idx" ON "pages_blocks_groups" USING btree ("hero_image_id");
+  CREATE INDEX IF NOT EXISTS "pages_blocks_groups_cta_cta_form_idx" ON "pages_blocks_groups" USING btree ("cta_form_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_order_idx" ON "pages_blocks_form_block" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_parent_id_idx" ON "pages_blocks_form_block" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_path_idx" ON "pages_blocks_form_block" USING btree ("_path");
   CREATE INDEX IF NOT EXISTS "pages_blocks_form_block_form_idx" ON "pages_blocks_form_block" USING btree ("form_id");
+  CREATE INDEX IF NOT EXISTS "pages_meta_meta_image_idx" ON "pages" USING btree ("meta_image_id");
   CREATE INDEX IF NOT EXISTS "pages_updated_at_idx" ON "pages" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "pages_created_at_idx" ON "pages" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "posts_blocks_form_block_order_idx" ON "posts_blocks_form_block" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "posts_blocks_form_block_parent_id_idx" ON "posts_blocks_form_block" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "posts_blocks_form_block_path_idx" ON "posts_blocks_form_block" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "posts_blocks_form_block_form_idx" ON "posts_blocks_form_block" USING btree ("form_id");
+  CREATE INDEX IF NOT EXISTS "posts_hero_image_idx" ON "posts" USING btree ("hero_image_id");
+  CREATE UNIQUE INDEX IF NOT EXISTS "posts_slug_idx" ON "posts" USING btree ("slug");
+  CREATE INDEX IF NOT EXISTS "posts_meta_meta_image_idx" ON "posts" USING btree ("meta_image_id");
+  CREATE INDEX IF NOT EXISTS "posts_updated_at_idx" ON "posts" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "posts_created_at_idx" ON "posts" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "posts__status_idx" ON "posts" USING btree ("_status");
+  CREATE INDEX IF NOT EXISTS "_posts_v_blocks_form_block_order_idx" ON "_posts_v_blocks_form_block" USING btree ("_order");
+  CREATE INDEX IF NOT EXISTS "_posts_v_blocks_form_block_parent_id_idx" ON "_posts_v_blocks_form_block" USING btree ("_parent_id");
+  CREATE INDEX IF NOT EXISTS "_posts_v_blocks_form_block_path_idx" ON "_posts_v_blocks_form_block" USING btree ("_path");
+  CREATE INDEX IF NOT EXISTS "_posts_v_blocks_form_block_form_idx" ON "_posts_v_blocks_form_block" USING btree ("form_id");
+  CREATE INDEX IF NOT EXISTS "_posts_v_parent_idx" ON "_posts_v" USING btree ("parent_id");
+  CREATE INDEX IF NOT EXISTS "_posts_v_version_version_hero_image_idx" ON "_posts_v" USING btree ("version_hero_image_id");
+  CREATE INDEX IF NOT EXISTS "_posts_v_version_version_slug_idx" ON "_posts_v" USING btree ("version_slug");
+  CREATE INDEX IF NOT EXISTS "_posts_v_version_meta_version_meta_image_idx" ON "_posts_v" USING btree ("version_meta_image_id");
+  CREATE INDEX IF NOT EXISTS "_posts_v_version_version_updated_at_idx" ON "_posts_v" USING btree ("version_updated_at");
+  CREATE INDEX IF NOT EXISTS "_posts_v_version_version_created_at_idx" ON "_posts_v" USING btree ("version_created_at");
+  CREATE INDEX IF NOT EXISTS "_posts_v_version_version__status_idx" ON "_posts_v" USING btree ("version__status");
+  CREATE INDEX IF NOT EXISTS "_posts_v_created_at_idx" ON "_posts_v" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "_posts_v_updated_at_idx" ON "_posts_v" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "_posts_v_latest_idx" ON "_posts_v" USING btree ("latest");
+  CREATE INDEX IF NOT EXISTS "_posts_v_autosave_idx" ON "_posts_v" USING btree ("autosave");
+  CREATE INDEX IF NOT EXISTS "lessons_instructor_idx" ON "lessons" USING btree ("instructor_id");
+  CREATE INDEX IF NOT EXISTS "lessons_class_option_idx" ON "lessons" USING btree ("class_option_id");
+  CREATE INDEX IF NOT EXISTS "lessons_updated_at_idx" ON "lessons" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "lessons_created_at_idx" ON "lessons" USING btree ("created_at");
+  CREATE UNIQUE INDEX IF NOT EXISTS "class_options_name_idx" ON "class_options" USING btree ("name");
+  CREATE INDEX IF NOT EXISTS "class_options_updated_at_idx" ON "class_options" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "class_options_created_at_idx" ON "class_options" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_order_idx" ON "class_options_rels" USING btree ("order");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_parent_idx" ON "class_options_rels" USING btree ("parent_id");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_path_idx" ON "class_options_rels" USING btree ("path");
+  CREATE INDEX IF NOT EXISTS "class_options_rels_plans_id_idx" ON "class_options_rels" USING btree ("plans_id");
+  CREATE INDEX IF NOT EXISTS "bookings_user_idx" ON "bookings" USING btree ("user_id");
+  CREATE INDEX IF NOT EXISTS "bookings_lesson_idx" ON "bookings" USING btree ("lesson_id");
+  CREATE INDEX IF NOT EXISTS "bookings_updated_at_idx" ON "bookings" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "bookings_created_at_idx" ON "bookings" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "transactions_created_by_idx" ON "transactions" USING btree ("created_by_id");
   CREATE INDEX IF NOT EXISTS "transactions_updated_at_idx" ON "transactions" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "transactions_created_at_idx" ON "transactions" USING btree ("created_at");
@@ -1289,22 +1531,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "plans_features_parent_id_idx" ON "plans_features" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "plans_updated_at_idx" ON "plans" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "plans_created_at_idx" ON "plans" USING btree ("created_at");
-  CREATE INDEX IF NOT EXISTS "lessons_instructor_idx" ON "lessons" USING btree ("instructor_id");
-  CREATE INDEX IF NOT EXISTS "lessons_class_option_idx" ON "lessons" USING btree ("class_option_id");
-  CREATE INDEX IF NOT EXISTS "lessons_updated_at_idx" ON "lessons" USING btree ("updated_at");
-  CREATE INDEX IF NOT EXISTS "lessons_created_at_idx" ON "lessons" USING btree ("created_at");
-  CREATE UNIQUE INDEX IF NOT EXISTS "class_options_name_idx" ON "class_options" USING btree ("name");
-  CREATE INDEX IF NOT EXISTS "class_options_updated_at_idx" ON "class_options" USING btree ("updated_at");
-  CREATE INDEX IF NOT EXISTS "class_options_created_at_idx" ON "class_options" USING btree ("created_at");
-  CREATE INDEX IF NOT EXISTS "class_options_rels_order_idx" ON "class_options_rels" USING btree ("order");
-  CREATE INDEX IF NOT EXISTS "class_options_rels_parent_idx" ON "class_options_rels" USING btree ("parent_id");
-  CREATE INDEX IF NOT EXISTS "class_options_rels_path_idx" ON "class_options_rels" USING btree ("path");
-  CREATE INDEX IF NOT EXISTS "class_options_rels_plans_id_idx" ON "class_options_rels" USING btree ("plans_id");
-  CREATE INDEX IF NOT EXISTS "bookings_user_idx" ON "bookings" USING btree ("user_id");
-  CREATE INDEX IF NOT EXISTS "bookings_lesson_idx" ON "bookings" USING btree ("lesson_id");
-  CREATE INDEX IF NOT EXISTS "bookings_transaction_idx" ON "bookings" USING btree ("transaction_id");
-  CREATE INDEX IF NOT EXISTS "bookings_updated_at_idx" ON "bookings" USING btree ("updated_at");
-  CREATE INDEX IF NOT EXISTS "bookings_created_at_idx" ON "bookings" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "forms_blocks_checkbox_order_idx" ON "forms_blocks_checkbox" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "forms_blocks_checkbox_parent_id_idx" ON "forms_blocks_checkbox" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "forms_blocks_checkbox_path_idx" ON "forms_blocks_checkbox" USING btree ("_path");
@@ -1351,13 +1577,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_path_idx" ON "payload_locked_documents_rels" USING btree ("path");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_media_id_idx" ON "payload_locked_documents_rels" USING btree ("media_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_pages_id_idx" ON "payload_locked_documents_rels" USING btree ("pages_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_posts_id_idx" ON "payload_locked_documents_rels" USING btree ("posts_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_lessons_id_idx" ON "payload_locked_documents_rels" USING btree ("lessons_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_class_options_id_idx" ON "payload_locked_documents_rels" USING btree ("class_options_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_bookings_id_idx" ON "payload_locked_documents_rels" USING btree ("bookings_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_transactions_id_idx" ON "payload_locked_documents_rels" USING btree ("transactions_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_users_id_idx" ON "payload_locked_documents_rels" USING btree ("users_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_subscriptions_id_idx" ON "payload_locked_documents_rels" USING btree ("subscriptions_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_plans_id_idx" ON "payload_locked_documents_rels" USING btree ("plans_id");
-  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_lessons_id_idx" ON "payload_locked_documents_rels" USING btree ("lessons_id");
-  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_class_options_id_idx" ON "payload_locked_documents_rels" USING btree ("class_options_id");
-  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_bookings_id_idx" ON "payload_locked_documents_rels" USING btree ("bookings_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_forms_id_idx" ON "payload_locked_documents_rels" USING btree ("forms_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_form_submissions_id_idx" ON "payload_locked_documents_rels" USING btree ("form_submissions_id");
   CREATE INDEX IF NOT EXISTS "payload_preferences_key_idx" ON "payload_preferences" USING btree ("key");
@@ -1434,16 +1661,20 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "pages_blocks_groups" CASCADE;
   DROP TABLE "pages_blocks_form_block" CASCADE;
   DROP TABLE "pages" CASCADE;
+  DROP TABLE "posts_blocks_form_block" CASCADE;
+  DROP TABLE "posts" CASCADE;
+  DROP TABLE "_posts_v_blocks_form_block" CASCADE;
+  DROP TABLE "_posts_v" CASCADE;
+  DROP TABLE "lessons" CASCADE;
+  DROP TABLE "class_options" CASCADE;
+  DROP TABLE "class_options_rels" CASCADE;
+  DROP TABLE "bookings" CASCADE;
   DROP TABLE "transactions" CASCADE;
   DROP TABLE "users_roles" CASCADE;
   DROP TABLE "users" CASCADE;
   DROP TABLE "subscriptions" CASCADE;
   DROP TABLE "plans_features" CASCADE;
   DROP TABLE "plans" CASCADE;
-  DROP TABLE "lessons" CASCADE;
-  DROP TABLE "class_options" CASCADE;
-  DROP TABLE "class_options_rels" CASCADE;
-  DROP TABLE "bookings" CASCADE;
   DROP TABLE "forms_blocks_checkbox" CASCADE;
   DROP TABLE "forms_blocks_country" CASCADE;
   DROP TABLE "forms_blocks_email" CASCADE;
@@ -1478,6 +1709,9 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
   DROP TABLE "scheduler" CASCADE;
+  DROP TYPE "public"."enum_posts_status";
+  DROP TYPE "public"."enum__posts_v_version_status";
+  DROP TYPE "public"."enum_bookings_status";
   DROP TYPE "public"."enum_transactions_currency";
   DROP TYPE "public"."enum_transactions_status";
   DROP TYPE "public"."enum_transactions_payment_method";
@@ -1485,6 +1719,5 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_subscriptions_status";
   DROP TYPE "public"."enum_plans_interval";
   DROP TYPE "public"."enum_plans_status";
-  DROP TYPE "public"."enum_bookings_status";
   DROP TYPE "public"."enum_forms_confirmation_type";`)
 }
