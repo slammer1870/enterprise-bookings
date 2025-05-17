@@ -86,7 +86,7 @@ const defaultHooks: HooksConfig = {
     },
   ],
   afterChange: [
-    async ({ req, doc, context }) => {
+    async ({ req, doc, previousDoc, context }) => {
       if (context.triggerAfterChange) {
         return;
       }
@@ -101,7 +101,11 @@ const defaultHooks: HooksConfig = {
         depth: 3,
       })) as Lesson;
 
-      if (doc.status === "cancelled" && lesson.remainingCapacity === 0) {
+      if (
+        doc.status === "cancelled" &&
+        lesson.remainingCapacity === 0 &&
+        previousDoc.status !== "confirmed"
+      ) {
         const bookingsQuery = await req.payload.find({
           collection: "bookings",
           where: {
