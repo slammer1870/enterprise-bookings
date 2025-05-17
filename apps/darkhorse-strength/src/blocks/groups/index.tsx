@@ -81,9 +81,9 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
             ))}
           </div>
         </div>
-        <div className="md:pt-10 flex flex-col items-center justify-between gap-4 md:flex-row w-full">
+        <div className="md:pt-10 flex flex-col items-center justify-between gap-4 md:flex-row w-full col-span-1 md:col-span-2">
           <div className="md:w-1/2">
-            <h5 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h5>
+            <h3 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h3>
             <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
               {cta.description}
             </p>
@@ -95,21 +95,25 @@ export const GroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits, f
       </div>
       <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
         {features?.map((feature, index) => (
-          <div key={index} className="aspect-square relative overflow-hidden">
-            <Image
-              className="rounded"
-              src={feature.image.url}
-              alt={feature.image.alt}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              style={{
-                maxWidth: '100%',
-                height: 'auto',
-                objectFit: 'cover',
-              }}
-            />
-            <h5 className="my-2 text-2xl">{feature.title}</h5>
-            <p className="text-gray-700">{feature.description}</p>
+          <div key={index} className="flex flex-col items-center justify-center gap-4">
+            <div className="aspect-square relative overflow-hidden">
+              <Image
+                className="rounded"
+                src={feature.image.url}
+                alt={feature.image.alt}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                style={{
+                  maxWidth: '100%',
+                  height: 'auto',
+                  objectFit: 'cover',
+                }}
+              />
+            </div>
+            <div>
+              <h5 className="my-2 text-2xl">{feature.title}</h5>
+              <p className="text-gray-700">{feature.description}</p>
+            </div>
           </div>
         ))}
       </div>
