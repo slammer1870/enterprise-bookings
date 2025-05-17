@@ -114,6 +114,14 @@ export const plansCollection: CollectionConfig = {
       },
       required: true,
     },
+    {
+      name: "skipSync",
+      type: "checkbox",
+      defaultValue: false,
+      admin: {
+        description: "Skip syncing to Stripe",
+      },
+    },
   ],
   hooks: {
     beforeChange: [beforeProductChange],
