@@ -121,6 +121,7 @@ export const plansCollection: CollectionConfig = {
       admin: {
         description: "Skip syncing to Stripe",
       },
+      required: false,
     },
   ],
   hooks: {

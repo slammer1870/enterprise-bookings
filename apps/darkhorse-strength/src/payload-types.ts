@@ -681,6 +681,10 @@ export interface Plan {
    * Status of the plan
    */
   status: 'active' | 'inactive';
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
   'class-optionsPaymentMethods'?: {
     docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
@@ -1176,6 +1180,7 @@ export interface PlansSelect<T extends boolean = true> {
   stripeProductId?: T;
   priceJSON?: T;
   status?: T;
+  skipSync?: T;
   'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
