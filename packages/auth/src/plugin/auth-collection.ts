@@ -1,4 +1,5 @@
 import { AuthStrategy, type CollectionConfig } from "payload";
+import { User } from "@repo/shared-types";
 
 import { PluginTypes } from "../types";
 
@@ -12,6 +13,7 @@ import { magicLink } from "../strategies/magic-link";
 import { register } from "../endpoints/register";
 
 import { adminOrUser } from "../access/admin-or-user";
+import { checkRole } from "@repo/shared-utils/src/check-role";
 
 export const modifyAuthCollection = (
   pluginOptions: PluginTypes,
@@ -67,6 +69,7 @@ export const modifyAuthCollection = (
   const access = existingCollectionConfig.access || {};
   access.create = () => true;
   access.read = adminOrUser;
+  access.admin = ({ req: { user } }) => checkRole(["admin"], user as User);
 
   return {
     ...existingCollectionConfig,

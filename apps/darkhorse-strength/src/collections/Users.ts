@@ -1,9 +1,15 @@
+import { checkRole } from '@repo/shared-utils/src/check-role'
 import type { CollectionConfig } from 'payload'
+
+import { User } from '@repo/shared-types'
 
 export const Users: CollectionConfig = {
   slug: 'users',
   admin: {
     useAsTitle: 'email',
+  },
+  access: {
+    admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
   auth: {
     forgotPassword: {
