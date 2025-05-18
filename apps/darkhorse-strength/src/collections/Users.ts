@@ -33,6 +33,12 @@ export const Users: CollectionConfig = {
     },
   },
   fields: [
+    {
+      name: 'image',
+      type: 'upload',
+      relationTo: 'media',
+      required: false,
+    },
     // Email added by default
     // Add more fields as needed
   ],

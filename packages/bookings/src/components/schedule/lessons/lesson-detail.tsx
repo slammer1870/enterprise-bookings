@@ -27,8 +27,8 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
             </>
           )}
         </div>
-        {lesson.instructor && (
-          <div className="flex items-center justify-start">
+        {lesson.instructor ? (
+          <div className="flex items-center justify-start mt-2">
             {lesson.instructor.image && (
               <Image
                 src={(lesson.instructor.image.url as string) || ""}
@@ -39,13 +39,23 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
                 className="mr-4 h-12 w-12 rounded-full"
               />
             )}
-            <span>{lesson.instructor.name}</span>
+            <div className="flex flex-col">
+              <span>{lesson.instructor.name}</span>
+              {lesson.bookingStatus !== "closed" && (
+                <span className="font-light text-sm">
+                  {lesson.remainingCapacity} places remaining
+                </span>
+              )}
+            </div>
           </div>
-        )}
-        {lesson.bookingStatus !== "closed" && (
-          <span className="font-light text-sm">
-            {lesson.remainingCapacity} places remaining
-          </span>
+        ) : (
+          <>
+            {lesson.bookingStatus !== "closed" && (
+              <span className="font-light text-sm">
+                {lesson.remainingCapacity} places remaining
+              </span>
+            )}
+          </>
         )}
       </div>
       <div className="w-full md:w-1/4">
