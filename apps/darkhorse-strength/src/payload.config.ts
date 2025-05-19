@@ -42,6 +42,8 @@ import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'
 
+import * as Sentry from '@sentry/nextjs'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
