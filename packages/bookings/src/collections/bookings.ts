@@ -120,7 +120,7 @@ const defaultHooks: HooksConfig = {
         const emailTemplate = await render(
           WaitlistNotificationEmail({
             lesson: lesson,
-            dashboardUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+            dashboardUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/bookings/${lesson.id}`,
           })
         );
 
