@@ -6,6 +6,7 @@ import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { seoPlugin } from '@payloadcms/plugin-seo'
+import { sentryPlugin } from '@payloadcms/plugin-sentry'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -39,6 +40,8 @@ import {
 import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
+
+import * as Sentry from '@sentry/nextjs'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -185,6 +188,9 @@ export default buildConfig({
       uploadsCollection: 'media',
       generateTitle: ({ doc }) => `Darkhorse Strength — ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
+    }),
+    sentryPlugin({
+      Sentry,
     }),
     // storage-adapter-placeholder
   ],

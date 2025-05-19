@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-
+import { Metadata } from 'next'
 import { getPayload, RequiredDataFromCollectionSlug } from 'payload'
 
 import config from '@/payload.config'
@@ -8,7 +8,13 @@ import { RenderBlocks } from '@/blocks/render-blocks'
 
 import { generateMetadataFunction } from '@repo/website/src/utils/generate-metadata'
 
-export async function generateMetadata({ params: paramsPromise }: Args) {
+type Args = {
+  params: Promise<{
+    slug?: string
+  }>
+}
+
+export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
   const payload = await getPayload({ config })
   return generateMetadataFunction({ params: paramsPromise, payload })
 }
@@ -35,12 +41,6 @@ export async function generateStaticParams() {
     })
 
   return params
-}
-
-type Args = {
-  params: Promise<{
-    slug?: string
-  }>
 }
 
 export default async function Page({ params: paramsPromise }: Args) {
