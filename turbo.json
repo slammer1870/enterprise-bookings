@@ -10,6 +10,7 @@
         "BLOB_READ_WRITE_TOKEN",
         "POSTGRES_URL"
       ],
+      "passThroughEnv": ["PAYLOAD_SECRET", "SENTRY_AUTH_TOKEN"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
