@@ -197,7 +197,7 @@ export const FormBlock: React.FC<
                 name,
                 label,
                 required: requiredFromProps,
-                type,
+                type: typeFromProps,
                 defaultValue,
               } = fieldBlock;
               return (
@@ -212,11 +212,16 @@ export const FormBlock: React.FC<
                       </FormLabel>
                       <FormControl>
                         {fieldBlock.blockType === "textarea" ? (
-                          <Textarea required={requiredFromProps} {...field} />
+                          <Textarea
+                            required={requiredFromProps}
+                            placeholder={fieldBlock.defaultValue}
+                            {...field}
+                          />
                         ) : (
                           <Input
-                            type={fieldBlock.blockType}
+                            type={typeFromProps}
                             required={requiredFromProps}
+                            placeholder={fieldBlock.defaultValue}
                             {...field}
                           />
                         )}
