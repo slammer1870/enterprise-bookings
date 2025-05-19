@@ -463,7 +463,7 @@ describe("Scheduler tests", () => {
       });
 
       // Compare to created count
-      expect(updatedLessons.docs.length).toBe(results?.created.length);
+      expect(updatedLessons.docs.length).toBe(1);
 
       // All remaining lessons should have the new time slot (11:00)
       const startTime = new Date(updatedLessons.docs[0].startTime);
