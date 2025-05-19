@@ -20,7 +20,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
     });
 
     if (user.totalDocs === 0) {
-      throw new Error("User not found");
+      return;
     }
 
     const plan = await payload.find({
@@ -50,7 +50,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       data: {
         status: "canceled",
         endDate: new Date().toISOString(),
-        cancelAt: event.data.object.cancel_at 
+        cancelAt: event.data.object.cancel_at
           ? new Date(event.data.object.cancel_at * 1000).toISOString()
           : new Date().toISOString(),
       },

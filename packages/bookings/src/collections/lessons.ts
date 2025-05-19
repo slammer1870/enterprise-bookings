@@ -461,7 +461,6 @@ const defaultAdmin: CollectionAdminOptions = {
 const defaultHooks: HooksConfig = {
   beforeDelete: [
     async ({ req, id }) => {
-      console.log("beforeDelete", id);
       await req.payload.delete({
         collection: "bookings",
         where: {

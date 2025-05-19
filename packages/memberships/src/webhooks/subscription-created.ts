@@ -22,7 +22,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
     });
 
     if (user.totalDocs === 0) {
-      throw new Error("User not found");
+      return;
     }
 
     const plan = await payload.find({
