@@ -9,10 +9,7 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
   req,
 }) => {
   const { payload } = req;
-  const newDoc: Record<string, unknown> = {
-    ...data,
-    skipSync: false, // Set back to 'false' so that all changes continue to sync to Stripe
-  };
+  const newDoc: Record<string, unknown> = data;
 
   if (data.skipSync) {
     if (logs) payload.logger.info(`Skipping product 'beforeChange' hook`);
