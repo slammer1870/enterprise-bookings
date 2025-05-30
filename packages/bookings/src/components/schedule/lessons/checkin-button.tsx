@@ -131,7 +131,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         variant={buttonVariant[status as keyof typeof buttonVariant]}
         //className={`w-full p-2 border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
         className="w-full"
-        disabled={loading}
+        disabled={loading || status === "closed"}
       >
         {loading
           ? "Loading..."

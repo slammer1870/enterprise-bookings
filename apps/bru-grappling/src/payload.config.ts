@@ -2,6 +2,8 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { seoPlugin } from '@payloadcms/plugin-seo'
+
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -9,12 +11,15 @@ import sharp from 'sharp'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { Pages } from './collections/Pages'
 
 import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
 import { rolesPlugin } from '@repo/roles'
+
+import { Navbar } from './globals/navbar/config'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -26,7 +31,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Pages],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
@@ -38,6 +43,7 @@ export default buildConfig({
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
     },
   }),
+  globals: [Navbar],
   sharp,
   plugins: [
     payloadCloudPlugin(),
@@ -50,16 +56,24 @@ export default buildConfig({
       authCollection: 'users',
       appName: 'Brú Grappling',
     }),
+    bookingsPlugin({
+      enabled: true,
+    }),
     paymentsPlugin({
       enabled: true,
       enableDropIns: true,
       acceptedPaymentMethods: ['card'],
+      paymentMethodSlugs: ['class-options'],
     }),
     membershipsPlugin({
       enabled: true,
+      paymentMethodSlugs: ['class-options'],
     }),
-    bookingsPlugin({
-      enabled: true,
+    seoPlugin({
+      collections: ['pages'],
+      uploadsCollection: 'media',
+      generateTitle: ({ doc }) => `The Mindful Yard — ${doc.title}`,
+      generateDescription: ({ doc }) => doc.excerpt,
     }),
   ],
 })
