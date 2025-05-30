@@ -2,7 +2,7 @@ import { getMeUser } from '@repo/auth/src/utils/get-me-user'
 
 import { checkInAction } from '@repo/bookings/src/actions/bookings'
 
-import { Lesson } from '@repo/shared-types'
+import { Lesson, Subscription } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
@@ -105,7 +105,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
   )
 
   const subscriptionQuery = await getSubscriptionData(payload, user.id)
-  const subscription = subscriptionQuery.docs[0]
+  const subscription = subscriptionQuery.docs[0] as Subscription
 
   const handlePlanPurchase = async (
     planId?: string,
@@ -201,11 +201,12 @@ export default async function BookingPage({ params }: BookingPageProps) {
                             Your Subscription is past due. Please pay your subscription to continue.
                           </p>
                         ))}
-                      {new Date(subscription.cancelAt) < new Date(lesson.date) && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}
-                        </p>
-                      )}
+                      {subscription.cancelAt &&
+                        new Date(subscription.cancelAt) < new Date(lesson.date) && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}
+                          </p>
+                        )}
                       <PlanDetail
                         plan={subscription.plan}
                         actionLabel="Manage Subscription"

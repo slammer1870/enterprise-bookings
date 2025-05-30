@@ -68,36 +68,44 @@ export interface Config {
   blocks: {};
   collections: {
     media: Media;
+    pages: Page;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
     'drop-ins': DropIn;
     transactions: Transaction;
     users: User;
     subscriptions: Subscription;
     plans: Plan;
-    lessons: Lesson;
-    'class-options': ClassOption;
-    bookings: Booking;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
+    'drop-ins': {
+      'class-optionsPaymentMethods': 'class-options';
+    };
     users: {
       userSubscription: 'subscriptions';
     };
-    lessons: {
-      bookings: 'bookings';
+    plans: {
+      'class-optionsPaymentMethods': 'class-options';
     };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
-    lessons: LessonsSelect<false> | LessonsSelect<true>;
-    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
-    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -106,9 +114,11 @@ export interface Config {
     defaultIDType: number;
   };
   globals: {
+    navbar: Navbar;
     scheduler: Scheduler;
   };
   globalsSelect: {
+    navbar: NavbarSelect<false> | NavbarSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
@@ -159,38 +169,124 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "drop-ins".
+ * via the `definition` "pages".
  */
-export interface DropIn {
+export interface Page {
   id: number;
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-  price: number;
-  adjustable: boolean;
-  discountTiers?:
-    | {
-        minQuantity: number;
-        discountPercent: number;
-        type: 'normal' | 'trial' | 'bulk';
-        id?: string | null;
-      }[]
+  title: string;
+  slug: string;
+  layout?:
+    | (
+        | {
+            backgroundImage: number | Media;
+            logo: number | Media;
+            title: string;
+            subtitle: string;
+            description: string;
+            primaryButton: {
+              text: string;
+              link: string;
+            };
+            secondaryButton: {
+              text: string;
+              link: string;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero';
+          }
+        | {
+            sections?:
+              | {
+                  title: string;
+                  content?:
+                    | {
+                        text?: string | null;
+                        link?: {
+                          url?: string | null;
+                          text?: string | null;
+                        };
+                        id?: string | null;
+                      }[]
+                    | null;
+                  image: number | Media;
+                  imagePosition?: ('left' | 'right') | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'about';
+          }
+        | {
+            title: string;
+            content?:
+              | {
+                  text: string;
+                  id?: string | null;
+                }[]
+              | null;
+            image: number | Media;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'learning';
+          }
+        | {
+            teamMembers?:
+              | {
+                  image: number | Media;
+                  name: string;
+                  role: string;
+                  bio: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'meetTheTeam';
+          }
+      )[]
     | null;
-  paymentMethods: 'card'[];
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
+ * via the `definition` "lessons".
  */
-export interface Transaction {
+export interface Lesson {
   id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -230,6 +326,7 @@ export interface Subscription {
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
+  cancelAt?: string | null;
   stripeSubscriptionId?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -268,38 +365,15 @@ export interface Plan {
    * Status of the plan
    */
   status: 'active' | 'inactive';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
   /**
-   * The time in minutes before the lesson will be closed for new bookings.
+   * Skip syncing to Stripe
    */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | User;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
+  skipSync?: boolean | null;
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -315,6 +389,38 @@ export interface ClassOption {
    */
   places: number;
   description: string;
+  paymentMethods?: {
+    allowedDropIn?: (number | null) | DropIn;
+    allowedPlans?: (number | Plan)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  price: number;
+  adjustable: boolean;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        type: 'normal' | 'trial' | 'bulk';
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethods: 'card'[];
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -332,6 +438,20 @@ export interface Booking {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -340,6 +460,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
       } | null)
     | ({
         relationTo: 'drop-ins';
@@ -360,18 +496,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'plans';
         value: number | Plan;
-      } | null)
-    | ({
-        relationTo: 'lessons';
-        value: number | Lesson;
-      } | null)
-    | ({
-        relationTo: 'class-options';
-        value: number | ClassOption;
-      } | null)
-    | ({
-        relationTo: 'bookings';
-        value: number | Booking;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -435,6 +559,151 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              backgroundImage?: T;
+              logo?: T;
+              title?: T;
+              subtitle?: T;
+              description?: T;
+              primaryButton?:
+                | T
+                | {
+                    text?: T;
+                    link?: T;
+                  };
+              secondaryButton?:
+                | T
+                | {
+                    text?: T;
+                    link?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        about?:
+          | T
+          | {
+              sections?:
+                | T
+                | {
+                    title?: T;
+                    content?:
+                      | T
+                      | {
+                          text?: T;
+                          link?:
+                            | T
+                            | {
+                                url?: T;
+                                text?: T;
+                              };
+                          id?: T;
+                        };
+                    image?: T;
+                    imagePosition?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        learning?:
+          | T
+          | {
+              title?: T;
+              content?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              image?: T;
+              id?: T;
+              blockName?: T;
+            };
+        meetTheTeam?:
+          | T
+          | {
+              teamMembers?:
+                | T
+                | {
+                    image?: T;
+                    name?: T;
+                    role?: T;
+                    bio?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+      };
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIn?: T;
+        allowedPlans?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "drop-ins_select".
  */
 export interface DropInsSelect<T extends boolean = true> {
@@ -452,6 +721,7 @@ export interface DropInsSelect<T extends boolean = true> {
         id?: T;
       };
   paymentMethods?: T;
+  'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -497,6 +767,7 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   status?: T;
   startDate?: T;
   endDate?: T;
+  cancelAt?: T;
   stripeSubscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -519,46 +790,8 @@ export interface PlansSelect<T extends boolean = true> {
   stripeProductId?: T;
   priceJSON?: T;
   status?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons_select".
- */
-export interface LessonsSelect<T extends boolean = true> {
-  date?: T;
-  startTime?: T;
-  endTime?: T;
-  lockOutTime?: T;
-  location?: T;
-  instructor?: T;
-  classOption?: T;
-  remainingCapacity?: T;
-  bookings?: T;
-  bookingStatus?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options_select".
- */
-export interface ClassOptionsSelect<T extends boolean = true> {
-  name?: T;
-  places?: T;
-  description?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings_select".
- */
-export interface BookingsSelect<T extends boolean = true> {
-  user?: T;
-  lesson?: T;
-  status?: T;
+  skipSync?: T;
+  'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -593,6 +826,22 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navbar".
+ */
+export interface Navbar {
+  id: number;
+  logo: string;
+  navigationItems: {
+    label: string;
+    link: string;
+    isExternal?: boolean | null;
+    id?: string | null;
+  }[];
+  updatedAt?: string | null;
+  createdAt?: string | null;
 }
 /**
  * Create recurring lessons across your weekly schedule
@@ -862,6 +1111,24 @@ export interface Scheduler {
   };
   updatedAt?: string | null;
   createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navbar_select".
+ */
+export interface NavbarSelect<T extends boolean = true> {
+  logo?: T;
+  navigationItems?:
+    | T
+    | {
+        label?: T;
+        link?: T;
+        isExternal?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
