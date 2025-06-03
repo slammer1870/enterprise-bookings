@@ -6,12 +6,14 @@ import { HeroBlock } from './hero'
 import { AboutBlock } from './about'
 import { LearningBlock } from './learning'
 import { MeetTheTeamBlock } from './meet-the-team'
+import { ScheduleBlock } from './schedule'
 
 const blockComponents = {
   hero: HeroBlock,
   about: AboutBlock,
   learning: LearningBlock,
   meetTheTeam: MeetTheTeamBlock,
+  schedule: ScheduleBlock,
 }
 
 export const RenderBlocks: React.FC<{
