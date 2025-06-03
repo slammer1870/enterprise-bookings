@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@payloadcms/db-postgres": "*",
+    "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/plugin-form-builder": "*",
@@ -19,11 +20,14 @@
     "@repo/website": "workspace:*",
     "cross-env": "^7.0.3",
     "graphql": "^16.10.0",
+    "lucide-react": "0.475.0",
     "next": "15.2.4",
+    "next-plausible": "^3.12.4",
     "payload": "*",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "sharp": "0.33.5",
+    "sonner": "2.0.1",
     "vitest": "^3.0.3"
   },
   "devDependencies": {

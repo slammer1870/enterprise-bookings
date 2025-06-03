@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 
 import { Button } from '@repo/ui/components/ui/button'
 import {
@@ -57,7 +56,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                   key={index}
                   href={item.link}
                   className={`text-gray-900 hover:text-gray-600 px-3 py-2 text-sm font-medium transition-colors ${
-                    index === data.navigationItems.length - 1 ? 'bg-primary text-white hover:text-white hover:bg-primary/90' : ''
+                    index === data.navigationItems.length - 1
+                      ? 'bg-primary text-white hover:text-white hover:bg-primary/90'
+                      : ''
                   }`}
                 >
                   {item.label}
@@ -84,7 +85,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                         <Link
                           href={item.link}
                           className={`text-sm text-gray-900 hover:text-gray-600 py-2 transition-colors ${
-                            index === data.navigationItems.length - 1 ? 'bg-primary text-white hover:text-white hover:bg-primary/90' : ''
+                            index === data.navigationItems.length - 1
+                              ? 'bg-primary text-white hover:text-white hover:bg-primary/90'
+                              : ''
                           }`}
                         >
                           {item.label}

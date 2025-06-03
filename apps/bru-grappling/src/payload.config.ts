@@ -3,6 +3,7 @@ import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { seoPlugin } from '@payloadcms/plugin-seo'
+import { resendAdapter } from '@payloadcms/email-resend'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -33,6 +34,11 @@ export default buildConfig({
   },
   collections: [Users, Media, Pages],
   editor: lexicalEditor(),
+  email: resendAdapter({
+    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
+    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
+    apiKey: process.env.RESEND_API_KEY || '',
+  }),
   secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
@@ -72,7 +78,7 @@ export default buildConfig({
     seoPlugin({
       collections: ['pages'],
       uploadsCollection: 'media',
-      generateTitle: ({ doc }) => `The Mindful Yard — ${doc.title}`,
+      generateTitle: ({ doc }) => `Brú Grappling — ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
     }),
   ],
