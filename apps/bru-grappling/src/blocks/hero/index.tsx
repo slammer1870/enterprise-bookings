@@ -22,7 +22,7 @@ export const HeroBlock: React.FC<{
   console.log('Logo:', logo)
 
   return (
-    <section className="relative min-h-screen">
+    <section className="relative min-h-screen z-10">
       <Image
         src={backgroundImage.url || ''}
         alt={backgroundImage.alt}
