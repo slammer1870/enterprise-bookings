@@ -56,7 +56,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                 <Link
                   key={index}
                   href={item.link}
-                  className="text-gray-900 hover:text-gray-600 px-3 py-2 text-sm font-medium transition-colors"
+                  className={`text-gray-900 hover:text-gray-600 px-3 py-2 text-sm font-medium transition-colors ${
+                    index === data.navigationItems.length - 1 ? 'bg-primary text-white hover:text-white hover:bg-primary/90' : ''
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -81,7 +83,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                       <SheetClose asChild key={index}>
                         <Link
                           href={item.link}
-                          className="text-sm text-gray-900 hover:text-gray-600 py-2 transition-colors"
+                          className={`text-sm text-gray-900 hover:text-gray-600 py-2 transition-colors ${
+                            index === data.navigationItems.length - 1 ? 'bg-primary text-white hover:text-white hover:bg-primary/90' : ''
+                          }`}
                         >
                           {item.label}
                         </Link>
