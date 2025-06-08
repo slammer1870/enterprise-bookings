@@ -16,6 +16,7 @@
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
     "@repo/roles": "workspace:*",
+    "@repo/shared-services": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/website": "workspace:*",
     "cross-env": "^7.0.3",
