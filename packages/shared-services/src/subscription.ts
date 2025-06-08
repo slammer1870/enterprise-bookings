@@ -26,8 +26,8 @@ export const hasActiveSubscription = async (
 };
 
 const query = (
-  subscription: any,
-  plan: any,
+  subscription: Subscription,
+  plan: Plan,
   startDate: Date,
   endDate: Date
 ): Where => {
@@ -36,7 +36,7 @@ const query = (
     "lesson.classOption.paymentMethods.allowedPlans": {
       contains: plan.id,
     },
-    createdAt: {
+    "lesson.startTime": {
       greater_than: startDate,
       less_than: endDate,
     },
@@ -45,22 +45,13 @@ const query = (
 };
 
 export const hasReachedSubscriptionLimit = async (
-  subscription: any,
+  subscription: Subscription,
   payload: Payload,
   lessonDate: Date
 ): Promise<boolean> => {
-  let plan: any;
+  const plan = subscription.plan;
 
-  if (typeof subscription.plan === "number") {
-    plan = await payload.findByID({
-      collection: "plans" as CollectionSlug,
-      id: subscription.plan,
-    });
-  } else {
-    plan = subscription.plan as Plan;
-  }
-
-  if (!plan.sessions) {
+  if (!plan.sessions || !plan.interval || !plan.intervalCount) {
     return false;
   }
 
@@ -74,14 +65,19 @@ export const hasReachedSubscriptionLimit = async (
   // if it is, then we need to check the drop in limit
   // if it is not, then we need to check the sessions limit
 
-  const bookings = await payload.find({
-    collection: "bookings" as CollectionSlug,
-    where: query(subscription, plan, startDate, endDate),
-    depth: 5,
-  });
+  try {
+    const bookings = await payload.find({
+      collection: "bookings" as CollectionSlug,
+      depth: 5,
+      where: query(subscription, plan, startDate, endDate),
+    });
 
-  if (bookings.docs.length >= plan.sessions) {
-    return true;
+    if (bookings.docs.length >= plan.sessions) {
+      return true;
+    }
+  } catch (error) {
+    console.error("Error finding bookings:", error);
+    throw error;
   }
 
   return false;
