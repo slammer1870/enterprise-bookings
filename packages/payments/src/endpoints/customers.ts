@@ -32,7 +32,7 @@ export const customersProxy: PayloadHandler = async (
       })
       .autoPagingToArray({ limit: 1000 });
 
-    return new Response(JSON.stringify(customers), {
+    return new Response(JSON.stringify({ data: customers }), {
       status: 200,
     });
   } catch (error: unknown) {
