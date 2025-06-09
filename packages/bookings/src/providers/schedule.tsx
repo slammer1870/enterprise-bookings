@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-import { getLessonsQuery } from "@repo/shared-utils";
-
 import { Lesson } from "@repo/shared-types";
 
 import { toast } from "sonner";
@@ -13,6 +11,8 @@ import {
   cancelBookingAction,
   joinWaitlistAction,
 } from "../actions/bookings";
+
+import { getLessons } from "../actions/lessons";
 
 type ScheduleContextType = {
   lessons: Lesson[];
@@ -39,23 +39,11 @@ export const ScheduleProvider: React.FC<{
 
   const router = useRouter();
 
-  const getLessons = async (): Promise<Lesson[]> => {
-    const query = getLessonsQuery(selectedDate);
-
-    const data = await fetch(`/api/lessons${query}`, {
-      method: "GET",
-    });
-
-    const lessons = await data.json();
-
-    return lessons.docs as Lesson[];
-  };
-
   useEffect(() => {
     const fetchLessons = async () => {
       setIsLoading(true);
 
-      const lessons = await getLessons();
+      const lessons = await getLessons(selectedDate);
 
       setLessons(lessons);
       setIsLoading(false);
@@ -73,7 +61,7 @@ export const ScheduleProvider: React.FC<{
         return router.push(`/bookings/${lessonId}`);
       }
 
-      const updatedLessons = await getLessons();
+      const updatedLessons = await getLessons(selectedDate);
       setLessons(updatedLessons);
 
       toast.success("Booking confirmed");
@@ -95,7 +83,7 @@ export const ScheduleProvider: React.FC<{
       // Add a small delay to allow background operations to complete
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const updatedLessons = await getLessons();
+      const updatedLessons = await getLessons(selectedDate);
       setLessons(updatedLessons);
 
       toast.success("Booking cancelled");
@@ -116,7 +104,7 @@ export const ScheduleProvider: React.FC<{
       // Add a small delay to allow background operations to complete
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const updatedLessons = await getLessons();
+      const updatedLessons = await getLessons(selectedDate);
       setLessons(updatedLessons);
 
       toast.success("You have been added to the waitlist");
