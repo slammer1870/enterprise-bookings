@@ -81,6 +81,7 @@ export const modifyAuthCollection = (
         ? existingCollectionConfig.auth
         : {}),
       strategies,
+      maxLoginAttempts: 5,
     },
     access,
   };

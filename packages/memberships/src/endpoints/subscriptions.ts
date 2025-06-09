@@ -24,10 +24,12 @@ export const subscriptionsProxy: PayloadHandler = async (
   }
 
   try {
-    const subscriptions = await stripe.subscriptions.list({
-      limit: 10000,
-      expand: ["data.customer"],
-    });
+    const subscriptions = await stripe.subscriptions
+      .list({
+        limit: 100,
+        expand: ["data.customer"],
+      })
+      .autoPagingToArray({ limit: 1000 });
 
     return new Response(JSON.stringify(subscriptions), {
       status: 200,

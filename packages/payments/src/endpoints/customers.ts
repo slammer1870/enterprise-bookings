@@ -26,9 +26,11 @@ export const customersProxy: PayloadHandler = async (
   }
 
   try {
-    const customers = await stripe.customers.list({
-      limit: 10000,
-    });
+    const customers = await stripe.customers
+      .list({
+        limit: 100,
+      })
+      .autoPagingToArray({ limit: 1000 });
 
     return new Response(JSON.stringify(customers), {
       status: 200,
