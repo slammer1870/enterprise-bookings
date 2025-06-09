@@ -82,7 +82,6 @@ export const subscriptionsCollection: CollectionConfig = {
       access: {
         read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
       },
-      unique: true,
       admin: {
         components: {
           Field: {
