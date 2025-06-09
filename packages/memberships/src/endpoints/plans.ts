@@ -21,12 +21,14 @@ export const plansProxy: PayloadHandler = async (req): Promise<Response> => {
     );
   }
   try {
-    const products = await stripe.products.list({
-      limit: 100,
-      expand: ["data.default_price"],
-    });
+    const products = await stripe.products
+      .list({
+        limit: 100,
+        expand: ["data.default_price"],
+      })
+      .autoPagingToArray({ limit: 1000 });
 
-    const plans = products.data.filter(
+    const plans = products.filter(
       (product) =>
         typeof product.default_price === "object" &&
         product.default_price?.type === "recurring"
