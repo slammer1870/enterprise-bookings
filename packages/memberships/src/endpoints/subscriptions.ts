@@ -31,7 +31,7 @@ export const subscriptionsProxy: PayloadHandler = async (
       })
       .autoPagingToArray({ limit: 1000 });
 
-    return new Response(JSON.stringify(subscriptions), {
+    return new Response(JSON.stringify({ data: subscriptions }), {
       status: 200,
     });
   } catch (error: unknown) {
