@@ -154,9 +154,9 @@ export const CustomSelect: React.FC<
         </div>
       )}
       <span className="text-sm text-gray-900 font-medium mt-1">
-        Please note, this input will display the 100 most recent {dataLabel}s in
-        Stripe. If you need to input a {dataLabel} that is not in the list, you
-        can create or find it in Stripe and then input the relevant ID here.
+        Please note, this input will display the 1000 most recent {dataLabel}s
+        in Stripe. If you need to input a {dataLabel} that is not in the list,
+        you can create or find it in Stripe and then input the relevant ID here.
       </span>
     </div>
   );
