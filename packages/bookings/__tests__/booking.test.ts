@@ -180,4 +180,97 @@ describe("Booking tests", () => {
     },
     TEST_TIMEOUT
   );
+  it(
+    "should be able to create a booking",
+    async () => {
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 3",
+          places: 1,
+          description: "Test Class Option 3",
+        },
+      });
+
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      const user = await payload.create({
+        collection: "users",
+        data: {
+          email: "user3@test.com",
+          password: "test",
+        },
+      });
+
+      const response = await restClient.POST("/bookings", {
+        body: JSON.stringify({
+          lesson: lesson.id,
+          user: user.id,
+          status: "confirmed",
+        }),
+      });
+
+      expect(response.status).toBe(201);
+    },
+    TEST_TIMEOUT
+  );
+  it(
+    "should be able to update a booking",
+    async () => {
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 4",
+          places: 1,
+          description: "Test Class Option 4",
+        },
+      });
+
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      const user = await payload.create({
+        collection: "users",
+        data: {
+          email: "user4@test.com",
+          password: "test",
+        },
+      });
+
+      const booking = await payload.create({
+        collection: "bookings",
+        data: {
+          lesson: lesson.id,
+          user: user.id,
+          status: "confirmed",
+        },
+      });
+
+      const response = await restClient.PATCH(`/bookings/${booking.id}`, {
+        body: JSON.stringify({
+          status: "cancelled",
+        }),
+      });
+
+      expect(response.status).toBe(200);
+    },
+    TEST_TIMEOUT
+  );
 });

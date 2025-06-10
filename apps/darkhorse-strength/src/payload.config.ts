@@ -119,7 +119,6 @@ export default buildConfig({
               const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
 
               Promise.resolve().then(async () => {
-                console.log('This promise is called')
                 const lessonQuery = await req.payload.findByID({
                   collection: 'lessons',
                   id: lessonId,
