@@ -12,7 +12,7 @@ import { createCustomerPortal } from "../endpoints/create-customer-portal";
 
 import { MembershipsPluginConfig } from "../types";
 
-import { subscriptionsCollection } from "../collections/subscriptions";
+import { generateSubscriptionCollection } from "../collections/subscriptions";
 
 export const membershipsPlugin =
   (pluginOptions: MembershipsPluginConfig): Plugin =>
@@ -65,7 +65,7 @@ export const membershipsPlugin =
       handler: createCustomerPortal,
     });
 
-    collections.push(subscriptionsCollection);
+    collections.push(generateSubscriptionCollection(pluginOptions));
     collections.push(plansCollection);
 
     pluginOptions.paymentMethodSlugs?.map((slug) => {
