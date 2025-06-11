@@ -12,6 +12,7 @@
     "@payloadcms/plugin-seo": "*",
     "@payloadcms/plugin-stripe": "*",
     "@payloadcms/richtext-lexical": "*",
+    "@payloadcms/ui": "*",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
     "@repo/memberships": "workspace:*",
