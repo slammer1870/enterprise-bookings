@@ -39,6 +39,7 @@ import {
 import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
+import { getLastCheckIn } from './hooks/get-last-checkin'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -165,6 +166,27 @@ export default buildConfig({
     membershipsPlugin({
       enabled: true,
       paymentMethodSlugs: ['class-options'],
+      subscriptionOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'lastCheckIn',
+            type: 'date',
+            virtual: true,
+            readOnly: true,
+            admin: {
+              hidden: true,
+              readOnly: true,
+              components: {
+                Cell: '@/fields/last-check-in',
+              },
+            },
+            hooks: {
+              afterRead: [getLastCheckIn],
+            },
+          },
+        ],
+      },
     }),
     stripePlugin({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
