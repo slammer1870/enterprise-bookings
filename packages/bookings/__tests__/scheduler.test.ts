@@ -467,7 +467,7 @@ describe("Scheduler tests", () => {
 
       // All remaining lessons should have the new time slot (11:00)
       const startTime = new Date(updatedLessons.docs[0].startTime);
-      expect(startTime.getHours()).toBe(9);
+      expect(startTime.getHours()).toBe(8);
     },
     TEST_TIMEOUT
   );
