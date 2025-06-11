@@ -22,7 +22,7 @@ type PlanDetailProps = {
   plan: Plan;
   actionLabel: string;
   onAction: (
-    planId?: string,
+    planId: string,
     metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
 };

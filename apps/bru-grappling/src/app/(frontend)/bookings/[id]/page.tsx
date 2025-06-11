@@ -17,6 +17,7 @@ import config from '@payload-config'
 import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
 import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
+import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
@@ -108,7 +109,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
   const subscription = subscriptionQuery.docs[0] as Subscription
 
   const handlePlanPurchase = async (
-    planId?: string,
+    planId: string,
     metadata?: { [key: string]: string | undefined },
   ) => {
     'use server'
@@ -146,6 +147,12 @@ export default async function BookingPage({ params }: BookingPageProps) {
     }
   }
 
+  const subscriptionLimitReached = await hasReachedSubscriptionLimit(
+    subscription,
+    payload,
+    new Date(lesson.startTime),
+  )
+
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
       <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
@@ -160,6 +167,14 @@ export default async function BookingPage({ params }: BookingPageProps) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="membership">
+          <PlanView
+            allowedPlans={allowedPlans}
+            subscription={subscription}
+            hasReachedSubscriptionLimit={subscriptionLimitReached}
+            handlePlanPurchase={handlePlanPurchase}
+            handleSubscriptionManagement={handleSubscriptionManagement}
+            lessonDate={new Date(lesson.startTime)}
+          />
           {!allowedPlans ? (
             <p className="text-sm text-muted-foreground">No plans are available for this lesson</p>
           ) : (
