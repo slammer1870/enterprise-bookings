@@ -75,7 +75,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   const lesson = await getLessonData(id, token)
 
-  if (lesson.bookingStatus === 'booked') {
+  if (['booked', 'closed'].includes(lesson.bookingStatus)) {
     redirect('/dashboard')
   }
 
