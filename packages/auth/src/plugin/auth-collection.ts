@@ -82,6 +82,7 @@ export const modifyAuthCollection = (
         : {}),
       strategies,
       maxLoginAttempts: 5,
+      tokenExpiration: 604800, // 7 days in seconds
     },
     access,
   };
