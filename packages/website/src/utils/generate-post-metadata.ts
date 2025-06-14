@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Payload } from "payload";
+import { CollectionSlug, Payload } from "payload";
 type Args = {
   params: Promise<{
     slug?: string;
@@ -14,7 +14,7 @@ export async function generatePostMetadataFunction({
   const { slug = "home" } = await paramsPromise;
 
   const result = await payload.find({
-    collection: "posts",
+    collection: "posts" as CollectionSlug,
     limit: 1,
     where: {
       slug: {

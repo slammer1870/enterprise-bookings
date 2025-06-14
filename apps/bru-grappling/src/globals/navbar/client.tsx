@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@repo/auth/src/providers/auth'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -16,13 +16,13 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
 
   const isBrowser = typeof window !== 'undefined'
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (window.scrollY >= 10 || pathname !== '/') {
       setScroll(true)
     } else {
       setScroll(false)
     }
-  }
+  }, [pathname])
 
   useEffect(() => {
     if (isBrowser) {
@@ -30,7 +30,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
       window.addEventListener('scroll', handleScroll)
       return () => window.removeEventListener('scroll', handleScroll)
     }
-  }, [router])
+  }, [router, handleScroll, isBrowser])
 
   const handleOpen = () => {
     setOpen(!open)
@@ -120,7 +120,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
           <div
             className={`transform ${
               open ? '-translate-x-0' : 'translate-x-full'
-            } fixed right-0 top-0 z-30 flex h-screen w-1/2 items-start transition-all duration-300 ease-in-out md:w-1/4 lg:relative lg:flex lg:h-auto lg:w-11/12 lg:translate-x-0 lg:flex-row lg:items-center lg:bg-transparent lg:py-0 xl:w-full`}
+            } fixed right-0 top-0 bg-white z-30 flex h-screen w-1/2 items-start transition-all duration-300 ease-in-out md:w-1/4 lg:relative lg:flex lg:h-auto lg:w-11/12 lg:translate-x-0 lg:flex-row lg:items-center lg:bg-transparent lg:py-0 xl:w-full`}
           >
             <ul className="mt-20 flex flex-col pr-6 text-sm lg:relative lg:mt-0 lg:h-auto lg:w-full lg:flex-row lg:items-center lg:justify-end lg:bg-transparent lg:px-0 lg:py-0 lg:pr-0 lg:text-base">
               {data?.navigationItems?.map((item: any, index: number) =>

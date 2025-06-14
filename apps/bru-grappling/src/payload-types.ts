@@ -297,6 +297,7 @@ export interface Lesson {
    * Status of the lesson
    */
   bookingStatus?: string | null;
+  originalLockOutTime?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -690,6 +691,7 @@ export interface LessonsSelect<T extends boolean = true> {
   remainingCapacity?: T;
   bookings?: T;
   bookingStatus?: T;
+  originalLockOutTime?: T;
   updatedAt?: T;
   createdAt?: T;
 }
