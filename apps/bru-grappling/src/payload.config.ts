@@ -4,6 +4,7 @@ import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { resendAdapter } from '@payloadcms/email-resend'
+import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -21,6 +22,8 @@ import { membershipsPlugin } from '@repo/memberships'
 import { rolesPlugin } from '@repo/roles'
 
 import { Navbar } from './globals/navbar/config'
+
+import { Posts } from '@repo/website/src/collections/posts'
 
 import {
   bookingCreateMembershipDropinAccess,
@@ -43,7 +46,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Pages],
+  collections: [Users, Media, Pages, Posts],
   editor: lexicalEditor(),
   email: resendAdapter({
     defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
@@ -161,6 +164,7 @@ export default buildConfig({
       enabled: true,
       paymentMethodSlugs: ['class-options'],
     }),
+    formBuilderPlugin({}),
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',

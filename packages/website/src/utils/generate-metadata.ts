@@ -1,5 +1,7 @@
 import { Metadata } from "next";
 import { CollectionSlug, Payload } from "payload";
+import { Page } from "@repo/shared-types";
+
 type Args = {
   params: Promise<{
     slug?: string;
@@ -23,7 +25,7 @@ export async function generateMetadataFunction({
     },
   });
 
-  const page = result.docs?.[0];
+  const page = result.docs?.[0] as Page | undefined;
 
   if (!page) {
     return {
