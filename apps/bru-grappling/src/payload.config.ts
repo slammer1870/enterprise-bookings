@@ -22,6 +22,17 @@ import { rolesPlugin } from '@repo/roles'
 
 import { Navbar } from './globals/navbar/config'
 
+import {
+  bookingCreateMembershipDropinAccess,
+  bookingUpdateMembershipDropinAccess,
+} from '@repo/shared-services/src/access/booking-membership-dropin'
+
+import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+
+import { Booking, Lesson, User } from '@repo/shared-types'
+
+import { checkRole } from '@repo/shared-utils'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -64,6 +75,81 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
+      lessonOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'originalLockOutTime',
+            type: 'number',
+            admin: {
+              hidden: true,
+            },
+          },
+        ],
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          beforeOperation: [
+            ...(defaultHooks.beforeOperation || []),
+            async ({ args, operation }) => {
+              if (operation === 'create') {
+                args.data.originalLockOutTime = args.data.lockOutTime
+              }
+
+              return args
+            },
+          ],
+        }),
+      },
+      bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [
+            ...(defaultHooks.afterChange || []),
+            async ({ req, doc, context }) => {
+              if (context.triggerAfterChange === false) {
+                return
+              }
+
+              const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
+
+              Promise.resolve().then(async () => {
+                const lessonQuery = await req.payload.findByID({
+                  collection: 'lessons',
+                  id: lessonId,
+                  depth: 2,
+                })
+
+                const lesson = lessonQuery as Lesson
+
+                if (
+                  lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
+                ) {
+                  await req.payload.update({
+                    collection: 'lessons',
+                    id: lessonId,
+                    data: {
+                      lockOutTime: 0,
+                    },
+                  })
+                } else {
+                  await req.payload.update({
+                    collection: 'lessons',
+                    id: lessonId,
+                    data: { lockOutTime: lesson.originalLockOutTime },
+                  })
+                }
+              })
+              return doc
+            },
+          ],
+        }),
+        access: {
+          read: isAdminOrOwner,
+          create: bookingCreateMembershipDropinAccess,
+          update: bookingUpdateMembershipDropinAccess,
+          delete: ({ req }) => checkRole(['admin'], req.user as User),
+        },
+      },
     }),
     paymentsPlugin({
       enabled: true,
@@ -76,7 +162,7 @@ export default buildConfig({
       paymentMethodSlugs: ['class-options'],
     }),
     seoPlugin({
-      collections: ['pages'],
+      collections: ['pages', 'posts'],
       uploadsCollection: 'media',
       generateTitle: ({ doc }) => `Brú Grappling — ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
