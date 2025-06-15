@@ -150,7 +150,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
       <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
       <div className="">
         <h4 className="font-medium">Payment Methods</h4>
-        <p className="font-light text-sm">Please select a payment method to continue</p>
+        <p className="font-light text-sm">Please select a payment method to continue:ƒ</p>
       </div>
       <Tabs defaultValue="membership">
         <TabsList className="flex w-full justify-around gap-4">
