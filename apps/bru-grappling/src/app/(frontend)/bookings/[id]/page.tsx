@@ -17,6 +17,8 @@ import config from '@payload-config'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
 
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
+import { DropInView } from '@repo/payments/src/components/drop-ins'
+
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
@@ -58,7 +60,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
-  if (lesson.bookingStatus === 'booked') {
+  if (['booked', 'closed'].includes(lesson.bookingStatus)) {
     redirect('/dashboard')
   }
 
@@ -150,13 +152,20 @@ export default async function BookingPage({ params }: BookingPageProps) {
       <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
       <div className="">
         <h4 className="font-medium">Payment Methods</h4>
-        <p className="font-light text-sm">Please select a payment method to continue:ƒ</p>
+        <p className="font-light text-sm">Please select a payment method to continue:</p>
       </div>
       <Tabs defaultValue="membership">
         <TabsList className="flex w-full justify-around gap-4">
-          <TabsTrigger value="membership" className="w-full">
-            Membership
-          </TabsTrigger>
+          {allowedPlans && allowedPlans.length > 0 && (
+            <TabsTrigger value="membership" className="w-full">
+              Membership
+            </TabsTrigger>
+          )}
+          {lesson.classOption.paymentMethods?.allowedDropIn && (
+            <TabsTrigger value="dropin" className="w-full">
+              Drop-in
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="membership">
           <PlanView
@@ -167,6 +176,9 @@ export default async function BookingPage({ params }: BookingPageProps) {
             handleSubscriptionManagement={handleSubscriptionManagement}
             lessonDate={new Date(lesson.startTime)}
           />
+        </TabsContent>
+        <TabsContent value="dropin">
+          <DropInView lesson={lesson} />
         </TabsContent>
       </Tabs>
     </div>

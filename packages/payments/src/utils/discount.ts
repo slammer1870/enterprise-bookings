@@ -11,7 +11,8 @@ import { DiscountTier, DiscountResult } from "@repo/shared-types";
 export const calculateQuantityDiscount = (
   price: number,
   quantity: number = 1,
-  discountTiers?: DiscountTier[]
+  discountTiers?: DiscountTier[],
+  trialable?: boolean
 ): DiscountResult => {
   // Default values if no discount applies
   let discountedPrice = price;
@@ -38,7 +39,8 @@ export const calculateQuantityDiscount = (
 
     if (
       applicableTier &&
-      applicableTier.type === "normal" &&
+      (applicableTier.type === "normal" ||
+        (trialable && applicableTier.type === "trial")) &&
       applicableTier.discountPercent > 0
     ) {
       const discountMultiplier = (100 - applicableTier.discountPercent) / 100;
