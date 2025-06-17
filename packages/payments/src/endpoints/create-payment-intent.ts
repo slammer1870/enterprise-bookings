@@ -2,11 +2,9 @@
 
 import { stripe, formatAmountForStripe } from "@repo/shared-utils";
 
-import { calculateQuantityDiscount } from "../utils/discount";
+import { APIError, PayloadHandler } from "payload";
 
-import { APIError, CollectionSlug, PayloadHandler } from "payload";
-
-import { DropIn, User } from "@repo/shared-types";
+import { User } from "@repo/shared-types";
 
 export const createPaymentIntent: PayloadHandler = async (
   req
@@ -21,42 +19,11 @@ export const createPaymentIntent: PayloadHandler = async (
     throw new APIError("Unauthorized", 401);
   }
 
-  const { price, quantity = 1, lessonId, dropInId } = await req.json();
+  const { price, lessonId } = await req.json();
 
   let amount = price;
-  let discountResult = {
-    originalPrice: price,
-    discountedPrice: price,
-    totalAmount: price * quantity,
-    discountApplied: false,
-  };
 
   // Apply quantity-based discount if a dropInId is provided
-  if (dropInId) {
-    try {
-      const dropIn = (await req.payload.findByID({
-        collection: "drop-ins" as CollectionSlug,
-        id: dropInId,
-      })) as unknown as DropIn;
-
-      if (dropIn) {
-        discountResult = calculateQuantityDiscount(
-          price,
-          quantity,
-          dropIn.discountTiers || []
-        );
-
-        amount = discountResult.totalAmount;
-      } else {
-        amount = price * quantity;
-      }
-    } catch (error) {
-      req.payload.logger.error(`Error applying discount: ${error}`);
-      amount = price * quantity;
-    }
-  } else {
-    amount = price * quantity;
-  }
 
   const metadata: { [key: string]: string } = {};
   if (lessonId) {
@@ -64,14 +31,26 @@ export const createPaymentIntent: PayloadHandler = async (
     metadata.userId = user.id.toString();
   }
 
-  if (dropInId) {
-    metadata.dropInId = dropInId;
-    metadata.quantity = quantity.toString();
+  const userQuery = await req.payload.findByID({
+    collection: "users",
+    id: user.id,
+  });
 
-    if (discountResult.discountApplied) {
-      metadata.originalPrice = discountResult.originalPrice.toString();
-      metadata.discountedPrice = discountResult.discountedPrice.toString();
-    }
+  const customer = await stripe.customers.retrieve(userQuery.stripeCustomerId);
+
+  if (!customer) {
+    const customer = await stripe.customers.create({
+      name: userQuery.name,
+      email: userQuery.email,
+    });
+
+    console.log("customer", customer);
+
+    await req.payload.update({
+      collection: "users",
+      id: user.id,
+      data: { stripeCustomerId: customer.id },
+    });
   }
 
   const paymentIntent = await stripe.paymentIntents.create({
@@ -79,7 +58,7 @@ export const createPaymentIntent: PayloadHandler = async (
     automatic_payment_methods: { enabled: true },
     currency: "eur",
     receipt_email: user.email,
-    customer: user.stripeCustomerId || undefined,
+    customer: userQuery.stripeCustomerId || undefined,
     metadata: metadata,
   });
 
@@ -87,7 +66,6 @@ export const createPaymentIntent: PayloadHandler = async (
     JSON.stringify({
       clientSecret: paymentIntent.client_secret as string,
       amount: amount,
-      ...discountResult,
     }),
     {
       status: 200,

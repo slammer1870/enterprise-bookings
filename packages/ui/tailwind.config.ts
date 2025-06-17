@@ -10,6 +10,7 @@ const config = {
     "../../packages/ui/src/components/**/*.{ts,tsx}",
     "../../packages/bookings/src/components/**/*.{ts,tsx}",
     "../../packages/auth/src/components/**/*.{ts,tsx}",
+    "../../packages/payments/src/components/**/*.{ts,tsx}",
     "../../apps/bru-grappling/src/blocks/**/*.{ts,tsx}",
     "../../apps/bru-grappling/src/globals/**/*.{ts,tsx}",
   ],

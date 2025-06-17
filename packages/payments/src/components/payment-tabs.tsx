@@ -5,11 +5,7 @@ import {
   TabsTrigger,
 } from "@repo/ui/components/ui/tabs";
 
-//import CheckoutPage from './CheckoutPage'
-
-import { ClassOption, DropIn, Lesson, Plan } from "@repo/shared-types";
-
-//import { PlanList } from './plans/PlanList'
+import { Lesson } from "@repo/shared-types";
 
 export function PaymentTabs({
   paymentMethods,
