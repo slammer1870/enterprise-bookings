@@ -346,7 +346,7 @@ export const generateLessonsFromSchedule = async (
               endTime: finalEndTime.toISOString(),
               classOption: slot.classOption || defaultClassOption,
               location: slot.location,
-              instructor: slot.instructor?.id,
+              instructor: slot.instructor,
               lockOutTime: slot.lockOutTime ?? lockOutTime ?? 0,
             },
           });
