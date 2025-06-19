@@ -102,9 +102,11 @@ function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
 export default function CheckoutForm({
   price,
   priceComponent,
+  metadata,
 }: {
   price: number;
   priceComponent: React.ReactNode;
+  metadata?: { [key: string]: string };
 }) {
   const appearance = {
     theme: "stripe",
@@ -121,6 +123,7 @@ export default function CheckoutForm({
         },
         body: JSON.stringify({
           price,
+          metadata,
         }),
       });
 

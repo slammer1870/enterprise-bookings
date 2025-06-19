@@ -19,17 +19,11 @@ export const createPaymentIntent: PayloadHandler = async (
     throw new APIError("Unauthorized", 401);
   }
 
-  const { price, lessonId } = await req.json();
+  const { price, metadata } = await req.json();
 
   let amount = price;
 
   // Apply quantity-based discount if a dropInId is provided
-
-  const metadata: { [key: string]: string } = {};
-  if (lessonId) {
-    metadata.lessonId = lessonId;
-    metadata.userId = user.id.toString();
-  }
 
   const userQuery = await req.payload.findByID({
     collection: "users",

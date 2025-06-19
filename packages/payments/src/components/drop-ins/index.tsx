@@ -22,6 +22,9 @@ export const DropInView = ({ lesson }: { lesson: Lesson }) => {
       <CheckoutForm
         price={price.totalAmount}
         priceComponent={<PriceView price={price} />}
+        metadata={{
+          lessonId: lesson.id.toString(),
+        }}
       />
     </div>
   );
