@@ -10,7 +10,7 @@ import sharp from 'sharp'
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 
-import { migrations } from './migrations'
+//import { migrations } from './migrations'
 
 import { bookingsPlugin } from '@repo/bookings'
 import { magicLinkPlugin } from '@repo/auth'
@@ -33,7 +33,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: postgresAdapter({
-    prodMigrations: migrations,
+    //prodMigrations: migrations,
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
