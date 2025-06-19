@@ -1,0 +1,50 @@
+{
+  "name": "kyuzo",
+  "version": "1.0.0",
+  "description": "A blank template to get started with Payload 3.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "lint": "cross-env NODE_OPTIONS=--no-deprecation next lint",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start"
+  },
+  "dependencies": {
+    "@payloadcms/next": "*",
+    "@payloadcms/payload-cloud": "*",
+    "@payloadcms/richtext-lexical": "*",
+    "@payloadcms/ui": "*",
+    "cross-env": "^7.0.3",
+    "graphql": "^16.10.0",
+    "next": "*",
+    "payload": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sharp": "0.33.5",
+    "@payloadcms/db-postgres": "*"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@types/node": "^22.10.7",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.2",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "15.3.0",
+    "prettier": "^3.4.2",
+    "typescript": "5.7.3"
+  },
+  "engines": {
+    "node": "^18.20.2 || >=20.9.0",
+    "pnpm": "^9 || ^10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp"
+    ]
+  }
+}

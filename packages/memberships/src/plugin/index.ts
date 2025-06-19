@@ -1,4 +1,4 @@
-import type { Config, Plugin, GroupField, CollectionSlug } from "payload";
+import type { Config, Plugin, GroupField, CollectionSlug, Field, NamedGroupField } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 
@@ -78,8 +78,9 @@ export const membershipsPlugin =
       }
 
       const paymentMethodsField = collection.fields.find(
-        (field) => field.type === "group" && field.name === "paymentMethods"
-      ) as GroupField;
+        (field): field is NamedGroupField => 
+          field.type === "group" && "name" in field && field.name === "paymentMethods"
+      );
 
       if (!paymentMethodsField) {
         collection.fields.push({
