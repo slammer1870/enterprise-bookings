@@ -38,8 +38,6 @@ export const createPaymentIntent: PayloadHandler = async (
       email: userQuery.email,
     });
 
-    console.log("customer", customer);
-
     await req.payload.update({
       collection: "users",
       id: user.id,
