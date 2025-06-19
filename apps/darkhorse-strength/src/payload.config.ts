@@ -119,18 +119,11 @@ export default buildConfig({
 
               const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
 
+              const confirmed = doc.status === 'confirmed'
+
               Promise.resolve().then(async () => {
-                const lessonQuery = await req.payload.findByID({
-                  collection: 'lessons',
-                  id: lessonId,
-                  depth: 2,
-                })
 
-                const lesson = lessonQuery as Lesson
-
-                if (
-                  lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
-                ) {
+                if (confirmed) {
                   await req.payload.update({
                     collection: 'lessons',
                     id: lessonId,
@@ -138,15 +131,32 @@ export default buildConfig({
                       lockOutTime: 0,
                     },
                   })
-                } else {
+                  return doc
+                }
+
+                const lesson = (await req.payload.findByID({
+                  collection: 'lessons',
+                  id: lessonId,
+                  depth: 2,
+                })) as Lesson
+
+                if (
+                  !lesson.bookings?.docs
+                    ?.filter((booking) => booking.id != doc.id)
+                    .some((booking) => booking.status === 'confirmed')
+                ) {
                   await req.payload.update({
                     collection: 'lessons',
                     id: lessonId,
-                    data: { lockOutTime: lesson.originalLockOutTime },
+                    data: {
+                      lockOutTime: lesson.originalLockOutTime,
+                    },
                   })
+                  return doc
                 }
+
+                return doc
               })
-              return doc
             },
           ],
         }),
