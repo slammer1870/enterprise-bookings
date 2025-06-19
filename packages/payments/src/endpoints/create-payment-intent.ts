@@ -25,25 +25,10 @@ export const createPaymentIntent: PayloadHandler = async (
 
   // Apply quantity-based discount if a dropInId is provided
 
-  const userQuery = await req.payload.findByID({
+  const userQuery = (await req.payload.findByID({
     collection: "users",
     id: user.id,
-  });
-
-  const customer = await stripe.customers.retrieve(userQuery.stripeCustomerId);
-
-  if (!customer) {
-    const customer = await stripe.customers.create({
-      name: userQuery.name,
-      email: userQuery.email,
-    });
-
-    await req.payload.update({
-      collection: "users",
-      id: user.id,
-      data: { stripeCustomerId: customer.id },
-    });
-  }
+  })) as User;
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: formatAmountForStripe(amount, "eur"),
