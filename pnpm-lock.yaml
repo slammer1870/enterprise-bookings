@@ -10387,6 +10387,8 @@ snapshots:
 
   '@payloadcms/drizzle@3.43.0(@types/pg@8.10.2)(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(pg@8.11.3)':
     dependencies:
+      '@payloadcms/drizzle': 3.43.0(@types/pg@8.10.2)(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(pg@8.11.3)
+      '@types/pg': 8.10.2
       console-table-printer: 2.12.1
       dequal: 2.0.3
       drizzle-orm: 0.44.2(@types/pg@8.10.2)(pg@8.11.3)
