@@ -22,7 +22,7 @@
     "lucide-react": "0.475.0",
     "payload": "*",
     "react-day-picker": "8.10.1",
-    "react-hook-form": "^7.54.2",
+    "react-hook-form": "*",
     "tailwind-merge": "3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.1"
@@ -53,9 +53,9 @@
     "./hooks/use-confirm": "./src/hooks/use-confirm.ts"
   },
   "peerDependencies": {
-    "next": "15.2.4",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "next": "*",
+    "react": "*",
+    "react-dom": "*"
   },
   "private": true,
   "scripts": {

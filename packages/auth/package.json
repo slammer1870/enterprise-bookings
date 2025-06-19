@@ -20,7 +20,7 @@
     "node-mocks-http": "^1.16.2",
     "payload": "*",
     "react-email": "^3.0.7",
-    "react-hook-form": "^7.54.2",
+    "react-hook-form": "*",
     "sharp": "0.33.5",
     "stripe": "^17.7.0",
     "zod": "^3.24.1"
@@ -31,19 +31,19 @@
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.10.7",
-    "@types/react": "19.0.0",
-    "@types/react-dom": "19.0.0",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.2",
     "eslint": "^9.18.0",
-    "eslint-config-next": "15.1.7",
+    "eslint-config-next": "15.3.0",
     "typescript": "5.7.3",
     "vitest": "^3.0.3"
   },
   "main": "./src/index.ts",
   "peerDependencies": {
-    "next": "15.2.4",
+    "next": "*",
     "payload": "*",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react": "*",
+    "react-dom": "*"
   },
   "scripts": {
     "test": "vitest --hook-timeout=1000000"
