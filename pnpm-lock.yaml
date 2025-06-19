@@ -324,18 +324,60 @@ importers:
       '@payloadcms/db-postgres':
         specifier: '*'
         version: 3.43.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
+      '@payloadcms/email-resend':
+        specifier: '*'
+        version: 3.37.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
       '@payloadcms/next':
         specifier: '*'
         version: 3.43.0(@types/react@19.1.0)(graphql@16.11.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
       '@payloadcms/payload-cloud':
         specifier: '*'
         version: 3.43.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
+      '@payloadcms/plugin-form-builder':
+        specifier: '*'
+        version: 3.37.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
+      '@payloadcms/plugin-seo':
+        specifier: '*'
+        version: 3.37.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
+      '@payloadcms/plugin-stripe':
+        specifier: '*'
+        version: 3.37.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
       '@payloadcms/richtext-lexical':
         specifier: '*'
         version: 3.43.0(@faceless-ui/modal@3.0.0-beta.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@faceless-ui/scroll-info@2.0.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@payloadcms/next@3.43.0(@types/react@19.1.0)(graphql@16.11.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3))(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)(yjs@13.6.26)
       '@payloadcms/ui':
         specifier: '*'
         version: 3.43.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
+      '@repo/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@repo/bookings':
+        specifier: workspace:*
+        version: link:../../packages/bookings
+      '@repo/memberships':
+        specifier: workspace:*
+        version: link:../../packages/memberships
+      '@repo/payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
+      '@repo/roles':
+        specifier: workspace:*
+        version: link:../../packages/roles
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../../packages/shared-services
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@repo/website':
+        specifier: workspace:*
+        version: link:../../packages/website
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3

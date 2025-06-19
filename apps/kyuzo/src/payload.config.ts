@@ -12,6 +12,10 @@ import { Media } from './collections/Media'
 
 import { migrations } from './migrations'
 
+import { bookingsPlugin } from '@repo/bookings'
+import { magicLinkPlugin } from '@repo/auth'
+import { rolesPlugin } from '@repo/roles'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -37,6 +41,18 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    magicLinkPlugin({
+      enabled: true,
+      appName: 'Kyuzo',
+      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
+      authCollection: 'users',
+    }),
+    rolesPlugin({
+      enabled: true,
+    }),
+    bookingsPlugin({
+      enabled: true,
+    }),
     // storage-adapter-placeholder
   ],
 })

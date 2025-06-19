@@ -6,23 +6,107 @@
  * and re-run `payload generate:types` to regenerate this file.
  */
 
+/**
+ * Supported timezones in IANA format.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "supportedTimezones".
+ */
+export type SupportedTimezones =
+  | 'Pacific/Midway'
+  | 'Pacific/Niue'
+  | 'Pacific/Honolulu'
+  | 'Pacific/Rarotonga'
+  | 'America/Anchorage'
+  | 'Pacific/Gambier'
+  | 'America/Los_Angeles'
+  | 'America/Tijuana'
+  | 'America/Denver'
+  | 'America/Phoenix'
+  | 'America/Chicago'
+  | 'America/Guatemala'
+  | 'America/New_York'
+  | 'America/Bogota'
+  | 'America/Caracas'
+  | 'America/Santiago'
+  | 'America/Buenos_Aires'
+  | 'America/Sao_Paulo'
+  | 'Atlantic/South_Georgia'
+  | 'Atlantic/Azores'
+  | 'Atlantic/Cape_Verde'
+  | 'Europe/London'
+  | 'Europe/Berlin'
+  | 'Africa/Lagos'
+  | 'Europe/Athens'
+  | 'Africa/Cairo'
+  | 'Europe/Moscow'
+  | 'Asia/Riyadh'
+  | 'Asia/Dubai'
+  | 'Asia/Baku'
+  | 'Asia/Karachi'
+  | 'Asia/Tashkent'
+  | 'Asia/Calcutta'
+  | 'Asia/Dhaka'
+  | 'Asia/Almaty'
+  | 'Asia/Jakarta'
+  | 'Asia/Bangkok'
+  | 'Asia/Shanghai'
+  | 'Asia/Singapore'
+  | 'Asia/Tokyo'
+  | 'Asia/Seoul'
+  | 'Australia/Brisbane'
+  | 'Australia/Sydney'
+  | 'Pacific/Guam'
+  | 'Pacific/Noumea'
+  | 'Pacific/Auckland'
+  | 'Pacific/Fiji';
+
 export interface Config {
   auth: {
     users: UserAuthOperations;
   };
+  blocks: {};
   collections: {
-    users: User;
     media: Media;
+    users: User;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
+    'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  db: {
-    defaultIDType: string;
+  collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
   };
-  globals: {};
+  collectionsSelect: {
+    media: MediaSelect<false> | MediaSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
+    'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
+    'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
+    'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
+  };
+  db: {
+    defaultIDType: number;
+  };
+  globals: {
+    scheduler: Scheduler;
+  };
+  globalsSelect: {
+    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
+  };
   locale: null;
   user: User & {
     collection: 'users';
+  };
+  jobs: {
+    tasks: unknown;
+    workflows: unknown;
   };
 }
 export interface UserAuthOperations {
@@ -45,27 +129,10 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: string;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
-  id: string;
+  id: number;
   alt: string;
   updatedAt: string;
   createdAt: string;
@@ -81,13 +148,126 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  name: string;
+  roles?: ('customer' | 'admin')[] | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-locked-documents".
+ */
+export interface PayloadLockedDocument {
+  id: number;
+  document?:
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null)
+    | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
+      } | null);
+  globalSlug?: string | null;
+  user: {
+    relationTo: 'users';
+    value: number | User;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: string;
+  id: number;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   key?: string | null;
   value?:
@@ -107,11 +287,579 @@ export interface PayloadPreference {
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: string;
+  id: number;
   name?: string | null;
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  roles?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-locked-documents_select".
+ */
+export interface PayloadLockedDocumentsSelect<T extends boolean = true> {
+  document?: T;
+  globalSlug?: T;
+  user?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-preferences_select".
+ */
+export interface PayloadPreferencesSelect<T extends boolean = true> {
+  user?: T;
+  key?: T;
+  value?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-migrations_select".
+ */
+export interface PayloadMigrationsSelect<T extends boolean = true> {
+  name?: T;
+  batch?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * Create recurring lessons across your weekly schedule
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler".
+ */
+export interface Scheduler {
+  id: number;
+  /**
+   * When this schedule becomes active
+   */
+  startDate?: string | null;
+  /**
+   * When this schedule stops generating lessons
+   */
+  endDate?: string | null;
+  /**
+   * Minutes before start time when booking closes (can be overridden per slot)
+   */
+  lockOutTime?: number | null;
+  /**
+   * Default class type to use when creating lessons (can be overridden per slot)
+   */
+  defaultClassOption: number | ClassOption;
+  /**
+   * Set up your recurring lessons for each day of the week
+   */
+  schedule?: {
+    monday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    tuesday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    wednesday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    thursday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    friday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    saturday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    sunday?: {
+      isActive?: boolean | null;
+      slots?:
+        | {
+            startTime: string;
+            endTime: string;
+            /**
+             * Overrides the default class option
+             */
+            classOption?: (number | null) | ClassOption;
+            location?: string | null;
+            instructor?: (number | null) | User;
+            /**
+             * Overrides the default lock out time
+             */
+            lockOutTime?: number | null;
+            notes?: string | null;
+            /**
+             * Dates to skip when generating lessons
+             */
+            skipDates?:
+              | {
+                  date?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+  };
+  /**
+   * Configure how lessons are generated from this schedule
+   */
+  generateOptions?: {
+    /**
+     * Clear existing lessons within the specified date range before generating new ones
+     */
+    clearExisting?: boolean | null;
+  };
+  /**
+   * Results from the last lesson generation
+   */
+  generationResults?: {
+    lastGenerated?: string | null;
+    created?: number | null;
+    skipped?: number | null;
+    conflicts?: number | null;
+    details?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler_select".
+ */
+export interface SchedulerSelect<T extends boolean = true> {
+  startDate?: T;
+  endDate?: T;
+  lockOutTime?: T;
+  defaultClassOption?: T;
+  schedule?:
+    | T
+    | {
+        monday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        tuesday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        wednesday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        thursday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        friday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        saturday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+        sunday?:
+          | T
+          | {
+              isActive?: T;
+              slots?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    notes?: T;
+                    skipDates?:
+                      | T
+                      | {
+                          date?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+            };
+      };
+  generateOptions?:
+    | T
+    | {
+        clearExisting?: T;
+      };
+  generationResults?:
+    | T
+    | {
+        lastGenerated?: T;
+        created?: T;
+        skipped?: T;
+        conflicts?: T;
+        details?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
