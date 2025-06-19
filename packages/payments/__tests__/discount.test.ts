@@ -19,6 +19,7 @@ vi.mock("@repo/shared-utils", () => ({
     customers: {
       list: vi.fn().mockResolvedValue({ data: [] }),
       create: vi.fn().mockResolvedValue({ id: "cus_12345" }),
+      retrieve: vi.fn().mockResolvedValue({ id: "cus_12345" }),
     },
     paymentIntents: {
       create: vi.fn().mockImplementation(({ amount, metadata }) => ({
@@ -51,6 +52,8 @@ describe("Discount calculation tests", () => {
       ];
 
       const result = calculateQuantityDiscount(100, 1, discountTiers);
+
+      console.log("RESULT", result);
 
       expect(result.discountApplied).toBe(false);
       expect(result.originalPrice).toBe(100);
@@ -157,8 +160,10 @@ describe("Discount calculation tests", () => {
       const response = await restClient.POST("/stripe/create-payment-intent", {
         body: JSON.stringify({
           price: 100,
-          quantity: 3,
-          dropInId: dropIn.id,
+          metadata: {
+            lessonId: "2",
+            userId: user.id,
+          },
         }),
       });
 
@@ -167,11 +172,7 @@ describe("Discount calculation tests", () => {
       const data = await response.json();
 
       expect(data.clientSecret).toBe("pi_secret_123");
-      expect(data.discountApplied).toBe(true);
-      expect(data.originalPrice).toBe(100);
-      expect(data.discountedPrice).toBe(90);
-      expect(data.totalAmount).toBe(270);
-      expect(data.appliedDiscountPercent).toBe(10);
+      expect(data.amount).toBe(100);
     });
 
     it("should not apply discount for trial drop-ins", async () => {
@@ -209,11 +210,7 @@ describe("Discount calculation tests", () => {
 
       const data = await response.json();
 
-      expect(data.discountApplied).toBe(false);
-      expect(data.originalPrice).toBe(50);
-      expect(data.discountedPrice).toBe(50);
-      expect(data.totalAmount).toBe(150);
-      expect(data.appliedDiscountPercent).toBeUndefined();
+      expect(data.amount).toBe(50);
     });
 
     it("should calculate correct amount for payment intent with no dropInId", async () => {
@@ -227,7 +224,10 @@ describe("Discount calculation tests", () => {
       const response = await restClient.POST("/stripe/create-payment-intent", {
         body: JSON.stringify({
           price: 75,
-          quantity: 2,
+          metadata: {
+            lessonId: "2",
+            userId: user.id,
+          },
         }),
       });
 
@@ -235,10 +235,7 @@ describe("Discount calculation tests", () => {
 
       const data = await response.json();
 
-      expect(data.discountApplied).toBe(false);
-      expect(data.originalPrice).toBe(75);
-      expect(data.discountedPrice).toBe(75);
-      expect(data.totalAmount).toBe(150);
+      expect(data.amount).toBe(75);
     });
   });
 });

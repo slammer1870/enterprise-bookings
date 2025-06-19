@@ -1,5 +1,7 @@
 import { Metadata } from "next";
-import { Payload } from "payload";
+import { CollectionSlug, Payload } from "payload";
+import { Post } from "@repo/shared-types";
+
 type Args = {
   params: Promise<{
     slug?: string;
@@ -14,7 +16,7 @@ export async function generatePostMetadataFunction({
   const { slug = "home" } = await paramsPromise;
 
   const result = await payload.find({
-    collection: "posts",
+    collection: "posts" as CollectionSlug,
     limit: 1,
     where: {
       slug: {
@@ -23,9 +25,9 @@ export async function generatePostMetadataFunction({
     },
   });
 
-  const page = result.docs?.[0];
+  const post = result.docs?.[0] as Post | undefined;
 
-  if (!page) {
+  if (!post) {
     return {
       title: "Not Found",
       description: "The page you are looking for does not exist.",
@@ -33,14 +35,14 @@ export async function generatePostMetadataFunction({
   }
 
   return {
-    title: page.meta?.title || page.title,
-    description: page.meta?.description,
+    title: post.meta?.title || post.title,
+    description: post.meta?.description,
     openGraph: {
-      title: page.meta?.title || page.title,
-      description: page.meta?.description || "",
+      title: post.meta?.title || post.title,
+      description: post.meta?.description || "",
       images:
-        page.meta?.image && typeof page.meta.image === "object"
-          ? [{ url: page.meta.image.url || "" }]
+        post.meta?.image && typeof post.meta.image === "object"
+          ? [{ url: post.meta.image.url || "" }]
           : [],
     },
     metadataBase: process.env.NEXT_PUBLIC_SERVER_URL

@@ -5,6 +5,8 @@
     "@payloadcms/ui": "*",
     "@repo/roles": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@stripe/react-stripe-js": "^3.7.0",
+    "@stripe/stripe-js": "^7.3.1",
     "payload": "*",
     "stripe": "^17.7.0"
   },

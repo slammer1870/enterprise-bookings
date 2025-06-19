@@ -122,6 +122,7 @@ export default buildConfig({
               const confirmed = doc.status === 'confirmed'
 
               Promise.resolve().then(async () => {
+
                 if (confirmed) {
                   await req.payload.update({
                     collection: 'lessons',
