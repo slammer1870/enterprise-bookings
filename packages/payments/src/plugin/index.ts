@@ -18,16 +18,14 @@ export const paymentsPlugin =
       return config;
     }
 
-    let collections = [...(config.collections || [])];
+    let collections = config.collections || [];
 
     const endpoints = config.endpoints || [];
 
     if (pluginOptions.enableDropIns) {
       const dropIns = dropInsCollection(pluginOptions);
 
-      collections = collections.filter(
-        (collection) => collection.slug !== "drop-ins"
-      );
+      collections.push(dropIns);
 
       pluginOptions.paymentMethodSlugs?.map((slug) => {
         const collection = collections.find(
@@ -80,6 +78,10 @@ export const paymentsPlugin =
         });
       });
 
+      collections = collections.filter(
+        (collection) => collection.slug !== "drop-ins"
+      );
+
       collections.push(dropIns);
     }
 
@@ -108,9 +110,6 @@ export const paymentsPlugin =
       });
     }
 
-    collections = collections.filter(
-      (collection) => collection.slug !== "transactions"
-    );
     collections.push(transactionsCollection);
 
     config.collections = collections;
