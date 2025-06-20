@@ -87,7 +87,7 @@ export const CustomSelect: React.FC<
   }${dataLabel}/${selectFieldValue}`;
 
   return (
-    <div>
+    <div className="mb-4">
       <p style={{ marginBottom: "0" }}>
         {typeof label === "string" ? label : "Customer"}
       </p>

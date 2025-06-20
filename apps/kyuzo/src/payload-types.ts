@@ -204,6 +204,7 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  parent?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -487,6 +488,7 @@ export interface UsersSelect<T extends boolean = true> {
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
+  parent?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

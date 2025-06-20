@@ -1,6 +1,8 @@
 // storage-adapter-import-placeholder
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
+import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
+
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -17,6 +19,7 @@ import { magicLinkPlugin } from '@repo/auth'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
+import { User } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -63,6 +66,10 @@ export default buildConfig({
     membershipsPlugin({
       enabled: true,
       paymentMethodSlugs: ['class-options'],
+    }),
+    nestedDocsPlugin({
+      collections: ['users'],
+      breadcrumbsFieldSlug: 'none',
     }),
     // storage-adapter-placeholder
   ],

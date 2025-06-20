@@ -336,6 +336,9 @@ importers:
       '@payloadcms/plugin-form-builder':
         specifier: '*'
         version: 3.43.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
+      '@payloadcms/plugin-nested-docs':
+        specifier: ^3.43.0
+        version: 3.43.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
       '@payloadcms/plugin-seo':
         specifier: '*'
         version: 3.43.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
@@ -2945,6 +2948,11 @@ packages:
       payload: 3.43.0
       react: 19.1.0
       react-dom: 19.1.0
+
+  '@payloadcms/plugin-nested-docs@3.43.0':
+    resolution: {integrity: sha512-sDF/mKh320Jyomv1xRI368qPwd1ghTTAsIcmfgSBI4+m/alTNMJ1d0kDrehv1bknMbVTgV52dFEuydCUJtVRnA==}
+    peerDependencies:
+      payload: 3.43.0
 
   '@payloadcms/plugin-seo@3.43.0':
     resolution: {integrity: sha512-ji+eUb9F6cM157uDM/P5WOWKBYDJD83oRDpu4Yxf0hb7oy43QOxjl/7R5UZAiedfrRMt/aWil+ziHRKYmZ9qeg==}
@@ -10481,6 +10489,10 @@ snapshots:
       - next
       - supports-color
       - typescript
+
+  '@payloadcms/plugin-nested-docs@3.43.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))':
+    dependencies:
+      payload: 3.43.0(graphql@16.11.0)(typescript@5.7.3)
 
   '@payloadcms/plugin-seo@3.43.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)':
     dependencies:
