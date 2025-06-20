@@ -24,7 +24,7 @@ const defaultAdmin: CollectionAdminOptions = {
 };
 
 const defaultAccess: AccessControls = {
-  read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  read: () => true,
   create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),

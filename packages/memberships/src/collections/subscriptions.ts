@@ -8,11 +8,13 @@ import {
 
 import { checkRole } from "@repo/shared-utils";
 
-import { User, HooksConfig, AccessControls } from "@repo/shared-types";
+import { User } from "@repo/shared-types";
 
 import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
 
 import { MembershipsPluginConfig } from "../types";
+
+import { AccessControls, HooksConfig } from "@repo/shared-types";
 
 const defaultFields: Field[] = [
   {
@@ -78,12 +80,6 @@ const defaultFields: Field[] = [
     ],
   },
   {
-    name: "quantity",
-    type: "number",
-    required: true,
-    defaultValue: 1,
-  },
-  {
     name: "stripeSubscriptionId",
     type: "text",
     label: "Stripe Subscription ID",
@@ -105,15 +101,6 @@ const defaultFields: Field[] = [
       position: "sidebar",
     },
     hooks: {},
-  },
-  {
-    name: "skipSync",
-    type: "checkbox",
-    defaultValue: false,
-    admin: {
-      description: "Skip syncing to Stripe",
-    },
-    required: false,
   },
 ];
 
