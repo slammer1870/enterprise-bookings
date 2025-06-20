@@ -8,10 +8,11 @@ import {
 
 import { checkRole } from "@repo/shared-utils";
 
-import { User } from "@repo/shared-types";
+import { User, HooksConfig, AccessControls } from "@repo/shared-types";
 
 import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
-import { MembershipsPluginConfig, HooksConfig, AccessControls } from "../types";
+
+import { MembershipsPluginConfig } from "../types";
 
 const defaultFields: Field[] = [
   {

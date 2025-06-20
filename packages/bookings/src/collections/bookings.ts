@@ -12,9 +12,15 @@ import {
   isAdminOrOwner,
 } from "../access/bookings";
 
-import { BookingsPluginConfig, HooksConfig, AccessControls } from "../types";
+import { BookingsPluginConfig } from "../types";
 
-import { Lesson, Booking, User } from "@repo/shared-types";
+import {
+  Lesson,
+  Booking,
+  User,
+  HooksConfig,
+  AccessControls,
+} from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils/src/check-role";
 

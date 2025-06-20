@@ -9,12 +9,11 @@ import { getRemainingCapacity } from "../hooks/remaining-capacity";
 import { getBookingStatus } from "../hooks/booking-status";
 import { checkRole } from "@repo/shared-utils/src/check-role";
 import type { User } from "@repo/shared-types/";
+
 import type { BookingsPluginConfig } from "../types";
 
-import { AccessControls, HooksConfig } from "../types";
+import { AccessControls, HooksConfig } from "@repo/shared-types";
 
-import { render } from "@react-email/components";
-import { WaitlistNotificationEmail } from "../emails/waitlist-notification";
 import { lessonReadAccess } from "../access/lessons";
 
 const defaultFields: Field[] = [
