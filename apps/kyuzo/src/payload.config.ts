@@ -5,7 +5,7 @@ import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, Field, RelationshipField } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -94,6 +94,21 @@ export default buildConfig({
               description: 'Is this a membership for adults, family or children?',
             },
           },
+        ],
+      },
+      subscriptionOverrides: {
+        fields: ({ defaultFields }) => [
+          {
+            name: 'user',
+            type: 'relationship',
+            relationTo: 'users',
+            required: true,
+            hasMany: true,
+            admin: {
+              description: 'The users who are subscribing to the plan',
+            },
+          },
+          ...defaultFields.filter((field: any) => field.name !== 'user'),
         ],
       },
     }),

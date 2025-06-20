@@ -222,13 +222,21 @@ export interface User {
  */
 export interface Subscription {
   id: number;
-  user: number | User;
+  /**
+   * The users who are subscribing to the plan
+   */
+  user: (number | User)[];
   plan: number | Plan;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
   cancelAt?: string | null;
+  quantity: number;
   stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -519,7 +527,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   startDate?: T;
   endDate?: T;
   cancelAt?: T;
+  quantity?: T;
   stripeSubscriptionId?: T;
+  skipSync?: T;
   updatedAt?: T;
   createdAt?: T;
 }

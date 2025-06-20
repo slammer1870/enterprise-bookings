@@ -78,6 +78,12 @@ const defaultFields: Field[] = [
     ],
   },
   {
+    name: "quantity",
+    type: "number",
+    required: true,
+    defaultValue: 1,
+  },
+  {
     name: "stripeSubscriptionId",
     type: "text",
     label: "Stripe Subscription ID",
@@ -98,22 +104,16 @@ const defaultFields: Field[] = [
       },
       position: "sidebar",
     },
-    hooks: {
-      beforeChange: [
-        ({ value, siblingData, originalDoc, operation }) => {
-          if (!siblingData.user) {
-            return new Error(
-              "User is required to select a subscription in stripe"
-            );
-          }
-
-          if (operation === "update" && originalDoc.user !== siblingData.user) {
-            value = null;
-            return value;
-          }
-        },
-      ],
+    hooks: {},
+  },
+  {
+    name: "skipSync",
+    type: "checkbox",
+    defaultValue: false,
+    admin: {
+      description: "Skip syncing to Stripe",
     },
+    required: false,
   },
 ];
 
@@ -137,8 +137,6 @@ const defaultAdmin: CollectionAdminOptions = {
 const defaultHooks: HooksConfig = {
   beforeChange: [beforeSubscriptionChange],
 };
-
-
 
 export const generateSubscriptionCollection = (
   config: MembershipsPluginConfig
