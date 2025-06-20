@@ -15,6 +15,8 @@ import { Media } from './collections/Media'
 import { bookingsPlugin } from '@repo/bookings'
 import { magicLinkPlugin } from '@repo/auth'
 import { rolesPlugin } from '@repo/roles'
+import { paymentsPlugin } from '@repo/payments'
+import { membershipsPlugin } from '@repo/memberships'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -52,6 +54,15 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
+    }),
+    paymentsPlugin({
+      enabled: true,
+      enableDropIns: false,
+      acceptedPaymentMethods: ['card'],
+    }),
+    membershipsPlugin({
+      enabled: true,
+      paymentMethodSlugs: ['class-options'],
     }),
     // storage-adapter-placeholder
   ],

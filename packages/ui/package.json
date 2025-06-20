@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "dependencies": {
     "@hookform/resolvers": "4.1.0",
-    "@payloadcms/ui": "*",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-avatar": "^1.1.2",
     "@radix-ui/react-collapsible": "^1.1.2",
@@ -23,7 +22,6 @@
     "lucide-react": "0.475.0",
     "payload": "*",
     "react-day-picker": "8.10.1",
-    "react-hook-form": "*",
     "tailwind-merge": "3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.1"
@@ -52,9 +50,11 @@
     "./hooks/use-confirm": "./src/hooks/use-confirm.ts"
   },
   "peerDependencies": {
+    "@payloadcms/ui": "*",
     "next": "*",
     "react": "*",
-    "react-dom": "*"
+    "react-dom": "*",
+    "react-hook-form": "*"
   },
   "private": true,
   "scripts": {
