@@ -8,7 +8,7 @@ import {
 
 import { checkRole } from "@repo/shared-utils";
 
-import { User } from "@repo/shared-types";
+import { User, HooksConfig, AccessControls } from "@repo/shared-types";
 
 import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
 
