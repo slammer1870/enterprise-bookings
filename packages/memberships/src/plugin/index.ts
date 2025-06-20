@@ -1,8 +1,16 @@
-import type { Config, Plugin, GroupField, CollectionSlug, Field, NamedGroupField } from "payload";
+import type {
+  Config,
+  Plugin,
+  GroupField,
+  CollectionSlug,
+  Field,
+  NamedGroupField,
+} from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 
-import { plansCollection } from "../collections/plans";
+import { generatePlansCollection } from "../collections/plans";
+import { generateSubscriptionCollection } from "../collections/subscriptions";
 
 import { plansProxy } from "../endpoints/plans";
 import { subscriptionsProxy } from "../endpoints/subscriptions";
@@ -11,8 +19,6 @@ import { createCheckoutSession } from "../endpoints/create-checkout-session";
 import { createCustomerPortal } from "../endpoints/create-customer-portal";
 
 import { MembershipsPluginConfig } from "../types";
-
-import { generateSubscriptionCollection } from "../collections/subscriptions";
 
 export const membershipsPlugin =
   (pluginOptions: MembershipsPluginConfig): Plugin =>
@@ -65,6 +71,8 @@ export const membershipsPlugin =
       handler: createCustomerPortal,
     });
 
+    const plansCollection = generatePlansCollection(pluginOptions);
+
     collections.push(generateSubscriptionCollection(pluginOptions));
     collections.push(plansCollection);
 
@@ -78,8 +86,10 @@ export const membershipsPlugin =
       }
 
       const paymentMethodsField = collection.fields.find(
-        (field): field is NamedGroupField => 
-          field.type === "group" && "name" in field && field.name === "paymentMethods"
+        (field): field is NamedGroupField =>
+          field.type === "group" &&
+          "name" in field &&
+          field.name === "paymentMethods"
       );
 
       if (!paymentMethodsField) {

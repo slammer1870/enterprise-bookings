@@ -8,4 +8,8 @@ export type MembershipsPluginConfig = {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
   } & Partial<Omit<CollectionConfig, "fields">>;
+  plansOverrides?: {
+    fields?: FieldsOverride;
+    hooks?: HooksOverride;
+  } & Partial<Omit<CollectionConfig, "fields">>;
 };

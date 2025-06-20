@@ -57,6 +57,21 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
+      classOptionsOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'type',
+            type: 'select',
+            options: ['adult', 'child'],
+            defaultValue: 'adult',
+            required: true,
+            admin: {
+              description: 'Is this a class for adults or children?',
+            },
+          },
+        ],
+      },
     }),
     paymentsPlugin({
       enabled: true,
@@ -66,6 +81,21 @@ export default buildConfig({
     membershipsPlugin({
       enabled: true,
       paymentMethodSlugs: ['class-options'],
+      plansOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'type',
+            type: 'select',
+            options: ['adult', 'family', 'child'],
+            defaultValue: 'adult',
+            required: true,
+            admin: {
+              description: 'Is this a membership for adults, family or children?',
+            },
+          },
+        ],
+      },
     }),
     nestedDocsPlugin({
       collections: ['users'],

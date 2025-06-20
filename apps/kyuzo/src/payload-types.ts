@@ -270,6 +270,10 @@ export interface Plan {
    * Skip syncing to Stripe
    */
   skipSync?: boolean | null;
+  /**
+   * Is this a membership for adults, family or children?
+   */
+  type: 'adult' | 'family' | 'child';
   'class-optionsPaymentMethods'?: {
     docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
@@ -290,6 +294,10 @@ export interface ClassOption {
    */
   places: number;
   description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child';
   paymentMethods?: {
     allowedPlans?: (number | Plan)[] | null;
   };
@@ -447,6 +455,7 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
+  type?: T;
   paymentMethods?:
     | T
     | {
@@ -533,6 +542,7 @@ export interface PlansSelect<T extends boolean = true> {
   priceJSON?: T;
   status?: T;
   skipSync?: T;
+  type?: T;
   'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
