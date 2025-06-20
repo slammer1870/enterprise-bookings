@@ -5,7 +5,7 @@ import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, Field, RelationshipField } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 

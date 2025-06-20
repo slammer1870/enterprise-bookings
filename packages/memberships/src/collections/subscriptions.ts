@@ -82,6 +82,12 @@ const defaultFields: Field[] = [
     ],
   },
   {
+    name: "quantity",
+    type: "number",
+    required: true,
+    defaultValue: 1,
+  },
+  {
     name: "stripeSubscriptionId",
     type: "text",
     label: "Stripe Subscription ID",
@@ -103,6 +109,15 @@ const defaultFields: Field[] = [
       position: "sidebar",
     },
     hooks: {},
+  },
+  {
+    name: "skipSync",
+    type: "checkbox",
+    defaultValue: false,
+    admin: {
+      description: "Skip syncing to Stripe",
+    },
+    required: false,
   },
 ];
 
