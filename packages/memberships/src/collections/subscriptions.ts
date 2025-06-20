@@ -105,11 +105,6 @@ const defaultFields: Field[] = [
               "User is required to select a subscription in stripe"
             );
           }
-
-          if (operation === "update" && originalDoc.user !== siblingData.user) {
-            value = null;
-            return value;
-          }
         },
       ],
     },
