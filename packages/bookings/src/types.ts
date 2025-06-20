@@ -27,4 +27,8 @@ export type BookingsPluginConfig = {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
   } & Partial<Omit<CollectionConfig, "fields">>;
+  classOptionsOverrides?: {
+    fields?: FieldsOverride;
+    hooks?: HooksOverride;
+  } & Partial<Omit<CollectionConfig, "fields">>;
 };
