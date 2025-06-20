@@ -1,6 +1,5 @@
 import * as migration_20250430_194238 from './20250430_194238';
 import * as migration_20250513_144242 from './20250513_144242';
-import * as migration_20250619_144806 from './20250619_144806';
 
 export const migrations = [
   {
