@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { CollectionSlug, Payload } from "payload";
-import { Post } from "@repo/shared-types";
 
 type Args = {
   params: Promise<{
@@ -25,7 +24,7 @@ export async function generatePostMetadataFunction({
     },
   });
 
-  const post = result.docs?.[0] as Post | undefined;
+  const post = result.docs?.[0];
 
   if (!post) {
     return {
@@ -34,15 +33,19 @@ export async function generatePostMetadataFunction({
     };
   }
 
+  // Type-safe access to post properties
+  const title = (post as any).meta?.title || (post as any).title;
+  const description = (post as any).meta?.description;
+
   return {
-    title: post.meta?.title || post.title,
-    description: post.meta?.description,
+    title,
+    description,
     openGraph: {
-      title: post.meta?.title || post.title,
-      description: post.meta?.description || "",
+      title,
+      description: description || "",
       images:
-        post.meta?.image && typeof post.meta.image === "object"
-          ? [{ url: post.meta.image.url || "" }]
+        (post as any).meta?.image && typeof (post as any).meta.image === "object"
+          ? [{ url: (post as any).meta.image.url || "" }]
           : [],
     },
     metadataBase: process.env.NEXT_PUBLIC_SERVER_URL

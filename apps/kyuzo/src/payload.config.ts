@@ -2,6 +2,7 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
+import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
@@ -19,7 +20,12 @@ import { magicLinkPlugin } from '@repo/auth'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
-import { User } from '@repo/shared-types'
+
+import { Navbar } from './globals/navbar/config'
+import { Footer } from './globals/footer/config'
+import { Pages } from './collections/Pages'
+
+import { Posts } from '@repo/website/src/collections/posts'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -31,7 +37,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Pages, Posts],
+  globals: [Navbar, Footer],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -46,6 +53,11 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    formBuilderPlugin({
+      fields: {
+        // Customize form fields if needed
+      },
+    }),
     magicLinkPlugin({
       enabled: true,
       appName: 'Kyuzo',

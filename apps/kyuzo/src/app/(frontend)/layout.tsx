@@ -1,9 +1,18 @@
 import React from 'react'
-import './styles.css'
+import './globals.css'
+
+import { AuthProvider } from '@repo/auth/src/providers/auth'
+
+import { Navbar } from '@/globals/navbar'
+import { Footer } from '@/globals/footer'
+
+import { Toaster } from 'sonner'
+
+import PlausibleProvider from 'next-plausible'
 
 export const metadata = {
-  description: 'A blank template using Payload in a Next.js app.',
-  title: 'Payload Blank Template',
+  description: 'Small Group Personal Training in a Private Facility located in Bray, Co. Wicklow',
+  title: 'Dark Horse Strength and Performance',
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
@@ -11,9 +20,18 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en">
-      <body>
-        <main>{children}</main>
-      </body>
+      <PlausibleProvider domain="darkhorsestrength.ie">
+        <AuthProvider>
+          <body>
+            <main>
+              <Navbar />
+              {children}
+              <Footer />
+            </main>
+            <Toaster />
+          </body>
+        </AuthProvider>
+      </PlausibleProvider>
     </html>
   )
 }
