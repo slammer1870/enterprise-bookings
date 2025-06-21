@@ -36,6 +36,11 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    components: {
+      graphics: {
+        Logo: '/graphics/logo/index.tsx#Logo',
+      },
+    },
   },
   collections: [Users, Media, Pages, Posts],
   globals: [Navbar, Footer],

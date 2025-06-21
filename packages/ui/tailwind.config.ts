@@ -13,6 +13,9 @@ const config = {
     "../../packages/payments/src/components/**/*.{ts,tsx}",
     "../../apps/bru-grappling/src/blocks/**/*.{ts,tsx}",
     "../../apps/bru-grappling/src/globals/**/*.{ts,tsx}",
+    "../../apps/kyuzo/src/blocks/**/*.{ts,tsx}",
+    "../../apps/kyuzo/src/globals/**/*.{ts,tsx}",
+    "../../apps/kyuzo/src/graphics/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
