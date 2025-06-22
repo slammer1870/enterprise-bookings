@@ -11,8 +11,8 @@ import { Toaster } from 'sonner'
 import PlausibleProvider from 'next-plausible'
 
 export const metadata = {
-  description: 'Small Group Personal Training in a Private Facility located in Bray, Co. Wicklow',
-  title: 'Dark Horse Strength and Performance',
+  description: 'Sign up today to get started on your Jiu Jitsu Journey!',
+  title: 'Kyuzo Brazilian Jiu Jitsu',
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
