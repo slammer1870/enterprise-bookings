@@ -20,7 +20,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en">
-      <PlausibleProvider domain="darkhorsestrength.ie">
+      <PlausibleProvider domain="kyuzo.ie">
         <AuthProvider>
           <body>
             <main>

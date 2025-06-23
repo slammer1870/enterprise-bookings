@@ -6,6 +6,8 @@ import { FormBlock } from '@repo/website/src/blocks/form/config'
 
 import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
 
+import { Schedule } from '@/blocks/schedule/config'
+
 export const Pages: CollectionConfig = {
   slug: 'pages',
   admin: {
@@ -29,7 +31,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, FormBlock],
+      blocks: [Hero, Schedule, FormBlock],
     },
   ],
   hooks: {

@@ -191,6 +191,7 @@ export interface Page {
             blockName?: string | null;
             blockType: 'hero';
           }
+        | ScheduleBlock
         | {
             form: number | Form;
             enableIntro?: boolean | null;
@@ -217,6 +218,15 @@ export interface Page {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScheduleBlock".
+ */
+export interface ScheduleBlock {
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'schedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -775,6 +785,7 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        schedule?: T | ScheduleBlockSelect<T>;
         'form-block'?:
           | T
           | {
@@ -787,6 +798,14 @@ export interface PagesSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScheduleBlock_select".
+ */
+export interface ScheduleBlockSelect<T extends boolean = true> {
+  id?: T;
+  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
