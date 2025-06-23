@@ -3,13 +3,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const cookieStore = await cookies();
-const token = cookieStore.get("payload-token")?.value;
-
 export const createCheckoutSession = async (
   planId: string,
   metadata?: { [key: string]: string | undefined }
 ) => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("payload-token")?.value;
+
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-checkout-session`,
     {
@@ -29,6 +29,9 @@ export const createCheckoutSession = async (
 };
 
 export const createCustomerPortal = async () => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("payload-token")?.value;
+
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
     {
