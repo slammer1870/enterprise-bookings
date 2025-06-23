@@ -24,11 +24,11 @@ import { BookingDetails } from '@repo/shared-types'
 import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
 
 // Add these new types
-type BookingPageProps = {
+type ChildrenBookingPageProps = {
   params: Promise<{ id: number }>
 }
 
-export default async function BookingPage({ params }: BookingPageProps) {
+export default async function ChildrenBookingPage({ params }: ChildrenBookingPageProps) {
   const { id } = await params
 
   const payload = await getPayload({ config })
@@ -52,14 +52,14 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
-  if (lesson.classOption.type != 'adult') redirect('/dashboard')
+  if (lesson.classOption.type != 'child') redirect('/dashboard')
 
   if (['booked', 'closed'].includes(lesson.bookingStatus)) {
     redirect('/dashboard')
   }
 
   // Handle active/trialable status
-  if (['active', 'trialable'].includes(lesson.bookingStatus)) {
+  if (['active', 'trialable', 'manage'].includes(lesson.bookingStatus)) {
     const checkIn = await checkInAction(lesson.id, user.id)
     if (checkIn.success) {
       redirect('/dashboard')
