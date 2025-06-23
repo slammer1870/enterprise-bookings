@@ -8,9 +8,11 @@ import { Button } from '@repo/ui/components/ui/button'
 
 import { useAuth } from '@repo/auth/src/providers/auth'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
   const { user, logout } = useAuth()
+  const pathname = usePathname()
 
   return (
     <div className="w-full top-0 left-0 absolute z-50">
@@ -20,7 +22,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
         </Link>
         {user ? (
           <div className="flex gap-4 items-center justify-end cursor-pointer">
-            <Link href="/dashboard">Members</Link>
+            <Link href="/dashboard" className={`${pathname === '/' ? 'text-white' : 'text-black'}`}>
+              Members
+            </Link>
             <Button onClick={() => logout()}>Logout</Button>
           </div>
         ) : (

@@ -60,12 +60,14 @@ export const HeroBlock: React.FC<HeroProps> = ({
           <div className="grid grid-cols-2 gap-4 md:text-lg xl:text-xl">
             <Button
               asChild
+              size="lg"
               className="col-span-1 bg-[#E73F43] hover:bg-[#E73F43]/80 text-white xl:py-3"
             >
               <Link href={cta1_link}>{cta1_text}</Link>
             </Button>
             <Button
               asChild
+              size="lg"
               className="col-span-1 border border-[#E73F43] hover:bg-gray-100  bg-transparent text-black"
             >
               <Link href={cta2_link}>{cta2_text}</Link>
