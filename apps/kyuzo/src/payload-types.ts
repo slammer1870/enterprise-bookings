@@ -184,9 +184,13 @@ export interface Page {
             heading: string;
             subheading: string;
             backgroundImage: number | Media;
-            ctaLink: string;
-            ctaTitle: string;
-            ctaDescription: string;
+            cta1_text: string;
+            cta1_link: string;
+            cta2_text: string;
+            cta2_link: string;
+            formTitle: string;
+            formDescription: string;
+            form: number | Form;
             id?: string | null;
             blockName?: string | null;
             blockType: 'hero';
@@ -218,15 +222,6 @@ export interface Page {
     | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ScheduleBlock".
- */
-export interface ScheduleBlock {
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'schedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -401,6 +396,15 @@ export interface Form {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScheduleBlock".
+ */
+export interface ScheduleBlock {
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'schedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -779,9 +783,13 @@ export interface PagesSelect<T extends boolean = true> {
               heading?: T;
               subheading?: T;
               backgroundImage?: T;
-              ctaLink?: T;
-              ctaTitle?: T;
-              ctaDescription?: T;
+              cta1_text?: T;
+              cta1_link?: T;
+              cta2_text?: T;
+              cta2_link?: T;
+              formTitle?: T;
+              formDescription?: T;
+              form?: T;
               id?: T;
               blockName?: T;
             };

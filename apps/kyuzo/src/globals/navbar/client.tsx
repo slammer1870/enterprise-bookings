@@ -13,8 +13,8 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
   const { user, logout } = useAuth()
 
   return (
-    <div className="w-full top-0 left-0 absolute">
-      <div className="flex items-center justify-between container mx-auto p-4">
+    <div className="w-full top-0 left-0 absolute z-50">
+      <div className="flex items-center justify-between mx-auto py-4 px-8">
         <Link href="/" className="w-16 h-16">
           <Logo />
         </Link>

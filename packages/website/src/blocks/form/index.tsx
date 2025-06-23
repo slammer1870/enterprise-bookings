@@ -217,6 +217,7 @@ export const FormBlock: React.FC<
                           <Input
                             type={fieldBlock.blockType}
                             required={requiredFromProps}
+                            className="bg-white border border-gray-300 text-black"
                             {...field}
                           />
                         )}
