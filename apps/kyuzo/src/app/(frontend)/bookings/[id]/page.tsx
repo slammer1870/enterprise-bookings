@@ -14,7 +14,7 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { hasReachedSubscriptionLimit } from '@repo/shared-services'
+import { hasActiveSubscription, hasReachedSubscriptionLimit } from '@repo/shared-services'
 
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 import { DropInView } from '@repo/payments/src/components/drop-ins'
@@ -22,6 +22,7 @@ import { DropInView } from '@repo/payments/src/components/drop-ins'
 import { BookingDetails } from '@repo/shared-types'
 
 import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
+import { SelectChildren } from '@/components/children/select-children'
 
 // Add these new types
 type BookingPageProps = {
@@ -79,6 +80,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
     adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
   }
 
+  const hasAllowedPlans = lesson.classOption.paymentMethods?.allowedPlans
+
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
     (plan) => plan.status === 'active',
   )
@@ -96,7 +99,9 @@ export default async function BookingPage({ params }: BookingPageProps) {
     depth: 3,
   })
 
-  const subscription = subscriptionQuery.docs[0] as unknown as Subscription
+  const subscription = subscriptionQuery.docs[0] as unknown as Subscription | undefined
+
+  const activeSubscription = await hasActiveSubscription(user.id, payload)
 
   const subscriptionLimitReached = subscription
     ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.startTime))
@@ -105,32 +110,38 @@ export default async function BookingPage({ params }: BookingPageProps) {
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
       <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
-      <div className="">
-        <h4 className="font-medium">Payment Methods</h4>
-        <p className="font-light text-sm">Please select a payment method to continue:</p>
-      </div>
-      <Tabs defaultValue="membership">
-        <TabsList className="flex w-full justify-around gap-4">
-          {allowedPlans && allowedPlans.length > 0 && (
-            <TabsTrigger value="membership" className="w-full">
-              Membership
-            </TabsTrigger>
-          )}
-        </TabsList>
-        <TabsContent value="membership">
-          <PlanView
-            allowedPlans={allowedPlans}
-            subscription={subscription}
-            hasReachedSubscriptionLimit={subscriptionLimitReached}
-            handlePlanPurchase={createCheckoutSession}
-            handleSubscriptionManagement={createCustomerPortal}
-            lessonDate={new Date(lesson.startTime)}
-          />
-        </TabsContent>
-        <TabsContent value="dropin">
-          <DropInView lesson={lesson} />
-        </TabsContent>
-      </Tabs>
+      {hasAllowedPlans && !activeSubscription ? (
+        <>
+          <div className="">
+            <h4 className="font-medium">Payment Methods</h4>
+            <p className="font-light text-sm">Please select a payment method to continue:</p>
+          </div>
+          <Tabs defaultValue="membership">
+            <TabsList className="flex w-full justify-around gap-4">
+              {allowedPlans && allowedPlans.length > 0 && (
+                <TabsTrigger value="membership" className="w-full">
+                  Membership
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <TabsContent value="membership">
+              <PlanView
+                allowedPlans={allowedPlans}
+                subscription={subscription}
+                hasReachedSubscriptionLimit={subscriptionLimitReached}
+                handlePlanPurchase={createCheckoutSession}
+                handleSubscriptionManagement={createCustomerPortal}
+                lessonDate={new Date(lesson.startTime)}
+              />
+            </TabsContent>
+            <TabsContent value="dropin">
+              <DropInView lesson={lesson} />
+            </TabsContent>
+          </Tabs>
+        </>
+      ) : (
+        <SelectChildren />
+      )}
     </div>
   )
 }
