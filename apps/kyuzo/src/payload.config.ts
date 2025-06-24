@@ -76,7 +76,7 @@ export default buildConfig({
       enabled: true,
       classOptionsOverrides: {
         fields: ({ defaultFields }) => [
-          ...defaultFields,
+          ...defaultFields.filter((field: any) => field.name !== 'paymentMethods'),
           {
             name: 'type',
             type: 'select',
@@ -86,6 +86,45 @@ export default buildConfig({
             admin: {
               description: 'Is this a class for adults or children?',
             },
+          },
+          {
+            name: 'paymentMethods',
+            type: 'group',
+            fields: [
+              {
+                name: 'allowedPlans',
+                type: 'relationship',
+                relationTo: 'plans',
+                hasMany: true,
+                filterOptions: ({ data }) => {
+                  console.log('siblingData', data)
+                  // returns a Where query dynamically by the type of relationship
+                  if (data.type === 'child') {
+                    return {
+                      or: [
+                        {
+                          type: { equals: 'child' },
+                        },
+                        {
+                          type: { equals: 'family' },
+                        },
+                      ],
+                    }
+                  } else if (data.type === 'adult') {
+                    return {
+                      or: [
+                        {
+                          type: { equals: 'adult' },
+                        },
+                        {
+                          type: { equals: 'family' },
+                        },
+                      ],
+                    }
+                  }
+                },
+              },
+            ],
           },
         ],
       },
@@ -97,7 +136,7 @@ export default buildConfig({
     }),
     membershipsPlugin({
       enabled: true,
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: [],
       plansOverrides: {
         fields: ({ defaultFields }) => [
           ...defaultFields,

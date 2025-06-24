@@ -58,7 +58,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     }
 
     if (lesson.classOption.type === "child") {
-      router.push(`/bookings/children/${lesson.id}`);
+      console.log("pushing to children");
+      return router.push(`/bookings/children/${lesson.id}`);
     }
 
     try {

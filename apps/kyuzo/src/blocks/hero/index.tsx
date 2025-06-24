@@ -53,7 +53,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
       <div className="z-30 mx-auto flex grow items-center justify-center p-4 pt-32 lg:h-screen lg:w-2/3 lg:pt-0">
         <div className="absolute z-10 h-[200px] w-[200px] rounded-full bg-[#FEEBD4] opacity-60 md:h-[300px] md:w-[300px] lg:h-[400px] lg:w-[400px]"></div>
         <div className="z-50 max-w-md lg:max-w-2xl lg:p-4">
-          <h1 className="mb-2 text-[2.15rem] font-medium uppercase leading-tight md:text-5xl lg:text-4xl">
+          <h1 className="mb-2 text-[2.15rem] font-medium leading-tight md:text-5xl lg:text-4xl">
             {heading}
           </h1>
           <p className="mb-4 text-xl text-gray-700 md:text-3xl lg:mb-6 lg:text-2xl">{subheading}</p>

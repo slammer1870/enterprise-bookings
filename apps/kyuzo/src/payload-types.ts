@@ -90,9 +90,6 @@ export interface Config {
     users: {
       userSubscription: 'subscriptions';
     };
-    plans: {
-      'class-optionsPaymentMethods': 'class-options';
-    };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
@@ -596,11 +593,6 @@ export interface Plan {
    * Is this a membership for adults, family or children?
    */
   type: 'adult' | 'family' | 'child';
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1106,7 +1098,6 @@ export interface PlansSelect<T extends boolean = true> {
   status?: T;
   skipSync?: T;
   type?: T;
-  'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
