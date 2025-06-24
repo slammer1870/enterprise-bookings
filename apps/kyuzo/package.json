@@ -15,6 +15,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start"
   },
   "dependencies": {
+    "@hookform/resolvers": "4.1.0",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
@@ -25,7 +26,7 @@
     "@payloadcms/plugin-stripe": "*",
     "@payloadcms/richtext-lexical": "*",
     "@payloadcms/ui": "*",
-    "@repo/auth": "workspace:*",
+    "@repo/auth": "workspace:^",
     "@repo/bookings": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
@@ -37,14 +38,17 @@
     "@repo/website": "workspace:*",
     "cross-env": "^7.0.3",
     "graphql": "^16.10.0",
+    "lucide-react": "0.475.0",
     "next": "*",
     "next-plausible": "^3.12.4",
     "next-sitemap": "^4.2.3",
     "payload": "*",
     "react": "*",
     "react-dom": "*",
+    "react-hook-form": "^7.56.3",
     "sharp": "0.33.5",
-    "sonner": "2.0.1"
+    "sonner": "2.0.1",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

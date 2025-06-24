@@ -513,6 +513,10 @@ export interface Lesson {
 export interface User {
   id: number;
   name: string;
+  /**
+   * Parent user (for child accounts)
+   */
+  parent?: (number | null) | User;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
@@ -520,7 +524,6 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  parent?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -1049,10 +1052,10 @@ export interface TransactionsSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  parent?: T;
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
-  parent?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

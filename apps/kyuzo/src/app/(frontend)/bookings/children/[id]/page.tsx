@@ -9,7 +9,6 @@ import { redirect } from 'next/navigation'
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
-import { Select } from '@repo/ui/components/ui/select'
 
 import { getPayload } from 'payload'
 
@@ -23,12 +22,11 @@ import { BookingDetails } from '@repo/shared-types'
 
 import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
 
-// Add these new types
-type ChildrenBookingPageProps = {
-  params: Promise<{ id: number }>
-}
+import { SelectChildren } from '@/components/children/select-children'
 
-export default async function ChildrenBookingPage({ params }: ChildrenBookingPageProps) {
+import { getChildren } from '@/actions/children'
+
+export default async function ChildrenBookingPage({ params }: { params: { id: string } }) {
   const { id } = await params
 
   const payload = await getPayload({ config })
@@ -98,15 +96,7 @@ export default async function ChildrenBookingPage({ params }: ChildrenBookingPag
 
   const activeSubscription = await hasActiveSubscription(user.id, payload)
 
-  const children = payload.find({
-    collection: 'users',
-    where: {
-      parent: {
-        equals: user.id,
-      },
-    },
-    depth: 3,
-  })
+  const children = await getChildren(user.id)
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
@@ -138,9 +128,7 @@ export default async function ChildrenBookingPage({ params }: ChildrenBookingPag
           </Tabs>
         </>
       ) : (
-        <div className="flex flex-col gap-4">
-          <span>Kids bit foes here</span>
-        </div>
+        <SelectChildren children={children} />
       )}
     </div>
   )

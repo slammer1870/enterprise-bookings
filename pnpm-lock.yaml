@@ -321,6 +321,9 @@ importers:
 
   apps/kyuzo:
     dependencies:
+      '@hookform/resolvers':
+        specifier: 4.1.0
+        version: 4.1.0(react-hook-form@7.56.3(react@19.1.0))
       '@payloadcms/db-postgres':
         specifier: '*'
         version: 3.43.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
@@ -352,7 +355,7 @@ importers:
         specifier: '*'
         version: 3.43.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.3.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
       '@repo/auth':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/auth
       '@repo/bookings':
         specifier: workspace:*
@@ -387,6 +390,9 @@ importers:
       graphql:
         specifier: ^16.10.0
         version: 16.11.0
+      lucide-react:
+        specifier: 0.475.0
+        version: 0.475.0(react@19.1.0)
       next:
         specifier: '*'
         version: 15.3.4(@babel/core@7.24.5)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4)
@@ -405,12 +411,18 @@ importers:
       react-dom:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
+      react-hook-form:
+        specifier: 7.56.3
+        version: 7.56.3(react@19.1.0)
       sharp:
         specifier: 0.33.5
         version: 0.33.5
       sonner:
         specifier: 2.0.1
         version: 2.0.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      zod:
+        specifier: ^3.25.67
+        version: 3.25.67
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0

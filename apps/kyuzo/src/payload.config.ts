@@ -121,6 +121,20 @@ export default buildConfig({
                       ],
                     }
                   }
+                  // Default case - return all plans
+                  return {
+                    or: [
+                      {
+                        type: { equals: 'adult' },
+                      },
+                      {
+                        type: { equals: 'family' },
+                      },
+                      {
+                        type: { equals: 'child' },
+                      },
+                    ],
+                  }
                 },
               },
             ],
@@ -166,10 +180,6 @@ export default buildConfig({
           ...defaultFields.filter((field: any) => field.name !== 'user'),
         ],
       },
-    }),
-    nestedDocsPlugin({
-      collections: ['users'],
-      breadcrumbsFieldSlug: 'none',
     }),
     // storage-adapter-placeholder
   ],
