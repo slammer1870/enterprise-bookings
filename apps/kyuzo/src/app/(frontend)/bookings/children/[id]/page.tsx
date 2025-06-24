@@ -15,7 +15,7 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { hasReachedSubscriptionLimit } from '@repo/shared-services'
+import { hasActiveSubscription, hasReachedSubscriptionLimit } from '@repo/shared-services'
 
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 
@@ -96,6 +96,8 @@ export default async function ChildrenBookingPage({ params }: ChildrenBookingPag
     ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.startTime))
     : false
 
+  const activeSubscription = await hasActiveSubscription(user.id, payload)
+
   const children = payload.find({
     collection: 'users',
     where: {
@@ -109,7 +111,7 @@ export default async function ChildrenBookingPage({ params }: ChildrenBookingPag
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
       <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
-      {hasAllowedPlans ? (
+      {hasAllowedPlans && !activeSubscription ? (
         <>
           <div className="">
             <h4 className="font-medium">Payment Methods</h4>
