@@ -97,7 +97,6 @@ export default buildConfig({
                 relationTo: 'plans',
                 hasMany: true,
                 filterOptions: ({ data }) => {
-                  console.log('siblingData', data)
                   // returns a Where query dynamically by the type of relationship
                   if (data.type === 'child') {
                     return {
