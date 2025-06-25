@@ -16,10 +16,10 @@ export const getChildren = unstable_cache(
 
     const children = await payload.find({
       collection: 'users',
-      where: { 
-        parent: { 
-          equals: userId 
-        } 
+      where: {
+        parent: {
+          equals: userId,
+        },
       },
       depth: 2,
     })
@@ -56,10 +56,17 @@ export const createChild = async (childData: ChildData) => {
     password: randomPassword,
   }
 
-  await payload.create({
-    collection: 'users',
-    data: userData,
-  })
+  try {
+    const user = await payload.create({
+      collection: 'users',
+      data: userData,
+    })
 
-  revalidateTag('children')
+    return user
+  } catch (error) {
+    console.error(error)
+    throw new Error((error as string) || 'Failed to create child')
+  } finally {
+    revalidateTag('children')
+  }
 }
