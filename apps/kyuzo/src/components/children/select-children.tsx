@@ -7,6 +7,7 @@ import { User } from '@repo/shared-types'
 import { Label } from '@repo/ui/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
 import { Button } from '@repo/ui/components/ui/button'
+
 import { cn } from '@repo/ui/lib/utils'
 
 import {
@@ -22,50 +23,36 @@ import {
 import { Check, ChevronsUpDown, X } from 'lucide-react'
 
 import { AddChild } from './add-child'
+import { SelectedChildren } from './selected-children'
 
 type SelectChildrenProps = {
   children: User[] | null
 }
 
 export const SelectChildren = ({ children }: SelectChildrenProps) => {
-  const [selectedChildren, setSelectedChildren] = useState<User[]>([])
+  const [selectedChildren, setSelectedChildren] = useState<User[]>()
 
   const handleSelectChild = (child: User) => {
     setSelectedChildren((prev) => {
-      if (prev.some((c) => c.id === child.id)) {
+      if (prev?.some((c) => c.id === child.id)) {
         return prev.filter((c) => c.id !== child.id)
       }
-      return [...prev, child]
+      return [...(prev || []), child]
     })
   }
 
   const handleRemoveChild = (child: User) => {
-    setSelectedChildren((prev) => prev.filter((c) => c.id !== child.id))
+    setSelectedChildren((prev) => prev?.filter((c) => c.id !== child.id) || [])
   }
 
   return (
     <div className="flex flex-col gap-4 w-full">
       <h2 className="text-lg font-medium">Select a child</h2>
       <div className="flex flex-col gap-4">
-        {selectedChildren.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {selectedChildren.map((child) => (
-              <div key={child.id} className="flex items-center gap-2 justify-between">
-                <p>
-                  {child.name} - {child.email}
-                </p>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleRemoveChild(child)}
-                  className="p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
+        <SelectedChildren
+          selectedChildren={selectedChildren || []}
+          handleRemoveChild={handleRemoveChild}
+        />
         {children && children.length > 0 && (
           <div className="flex flex-col gap-2 w-full">
             <Popover>
@@ -75,7 +62,7 @@ export const SelectChildren = ({ children }: SelectChildrenProps) => {
                   role="combobox"
                   className={cn(
                     'w-full justify-between text-xs',
-                    !selectedChildren.length && 'text-muted-foreground',
+                    !selectedChildren?.length && 'text-muted-foreground',
                   )}
                 >
                   Select Child
@@ -90,7 +77,8 @@ export const SelectChildren = ({ children }: SelectChildrenProps) => {
                     <CommandGroup>
                       {children
                         ?.filter(
-                          (child) => !selectedChildren.some((selected) => selected.id === child.id),
+                          (child) =>
+                            !selectedChildren?.some((selected) => selected.id === child.id),
                         )
                         .map((child) => (
                           <CommandItem
@@ -103,7 +91,7 @@ export const SelectChildren = ({ children }: SelectChildrenProps) => {
                             <Check
                               className={cn(
                                 'mr-2 h-4 w-4',
-                                child.id === selectedChildren.find((c) => c.id === child.id)?.id
+                                child.id === selectedChildren?.find((c) => c.id === child.id)?.id
                                   ? 'opacity-100'
                                   : 'opacity-0',
                               )}
