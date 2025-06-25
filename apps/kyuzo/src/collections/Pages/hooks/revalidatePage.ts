@@ -6,8 +6,8 @@ import type { Page } from '@/payload-types'
 
 export const revalidatePage: CollectionAfterChangeHook<Page> = ({
   doc,
-  previousDoc,
-  req: { payload, context },
+  previousDoc: _previousDoc,
+  req: { payload, context: _context },
 }) => {
   const path = doc.slug === 'home' ? '/' : `/${doc.slug}`
 
@@ -19,7 +19,7 @@ export const revalidatePage: CollectionAfterChangeHook<Page> = ({
   return doc
 }
 
-export const revalidateDelete: CollectionAfterDeleteHook<Page> = ({ doc, req: { context } }) => {
+export const revalidateDelete: CollectionAfterDeleteHook<Page> = ({ doc, req: { context: _context } }) => {
   const path = doc?.slug === 'home' ? '/' : `/${doc?.slug}`
   revalidatePath(path)
   revalidateTag('pages-sitemap')

@@ -13,7 +13,6 @@ import { Button } from '@repo/ui/components/ui/button'
 import {
   Form,
   FormControl,
-  FormField,
   FormItem,
   FormLabel,
   FormMessage,
@@ -55,10 +54,12 @@ export const AddChild = ({ handleSelectChild }: { handleSelectChild: (child: Use
       setIsOpen(false)
       form.reset()
       toast.success('Child added successfully')
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsLoading(false)
 
-      if (error.message === 'ValidationError: The following field is invalid: email') {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+      
+      if (errorMessage === 'ValidationError: The following field is invalid: email') {
         form.setError('root', {
           message: 'Child already exists. Please try a different email.',
         })
@@ -66,7 +67,7 @@ export const AddChild = ({ handleSelectChild }: { handleSelectChild: (child: Use
       }
 
       form.setError('root', {
-        message: error.message || 'An unexpected error occurred. Please try again.',
+        message: errorMessage || 'An unexpected error occurred. Please try again.',
       })
     }
   }

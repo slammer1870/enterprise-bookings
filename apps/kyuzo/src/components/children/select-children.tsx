@@ -4,7 +4,6 @@ import { useState } from 'react'
 
 import { User } from '@repo/shared-types'
 
-import { Label } from '@repo/ui/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
 import { Button } from '@repo/ui/components/ui/button'
 
@@ -17,19 +16,18 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from '@repo/ui/components/ui/command'
 
-import { Check, ChevronsUpDown, X } from 'lucide-react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 
 import { AddChild } from './add-child'
 import { SelectedChildren } from './selected-children'
 
 type SelectChildrenProps = {
-  children: User[] | null
+  childrenData: User[] | null
 }
 
-export const SelectChildren = ({ children }: SelectChildrenProps) => {
+export const SelectChildren = ({ childrenData }: SelectChildrenProps) => {
   const [selectedChildren, setSelectedChildren] = useState<User[]>()
 
   const handleSelectChild = (child: User) => {
@@ -53,7 +51,7 @@ export const SelectChildren = ({ children }: SelectChildrenProps) => {
           selectedChildren={selectedChildren || []}
           handleRemoveChild={handleRemoveChild}
         />
-        {children && children.length > 0 && (
+        {childrenData && childrenData.length > 0 && (
           <div className="flex flex-col gap-2 w-full">
             <Popover>
               <PopoverTrigger asChild>
@@ -75,7 +73,7 @@ export const SelectChildren = ({ children }: SelectChildrenProps) => {
                   <CommandList>
                     <CommandEmpty>No children found.</CommandEmpty>
                     <CommandGroup>
-                      {children
+                      {childrenData
                         ?.filter(
                           (child) =>
                             !selectedChildren?.some((selected) => selected.id === child.id),
@@ -99,13 +97,12 @@ export const SelectChildren = ({ children }: SelectChildrenProps) => {
                             {child.name} - {child.email}
                           </CommandItem>
                         ))}
-                      <CommandSeparator />
-                      <CommandItem>
-                        <AddChild handleSelectChild={handleSelectChild} />
-                      </CommandItem>
                     </CommandGroup>
                   </CommandList>
                 </Command>
+                <div className="p-2 border-t">
+                  <AddChild handleSelectChild={handleSelectChild} />
+                </div>
               </PopoverContent>
             </Popover>
           </div>

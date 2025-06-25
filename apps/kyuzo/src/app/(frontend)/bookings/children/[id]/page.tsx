@@ -1,7 +1,5 @@
 import { getMeUser } from '@repo/auth/src/utils/get-me-user'
 
-import { checkInAction } from '@repo/bookings/src/actions/bookings'
-
 import { Lesson, Subscription } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
@@ -26,7 +24,7 @@ import { SelectChildren } from '@/components/children/select-children'
 
 import { getChildren } from '@/actions/children'
 
-export default async function ChildrenBookingPage({ params }: { params: { id: string } }) {
+export default async function ChildrenBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const payload = await getPayload({ config })
@@ -128,7 +126,7 @@ export default async function ChildrenBookingPage({ params }: { params: { id: st
           </Tabs>
         </>
       ) : (
-        <SelectChildren children={children} />
+        <SelectChildren childrenData={children} />
       )}
     </div>
   )

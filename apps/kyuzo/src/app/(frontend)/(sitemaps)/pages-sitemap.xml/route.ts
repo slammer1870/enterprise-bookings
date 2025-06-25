@@ -2,7 +2,6 @@ import { getServerSideSitemap } from 'next-sitemap'
 import { getPayload, CollectionSlug } from 'payload'
 import config from '@payload-config'
 import { unstable_cache } from 'next/cache'
-import { Page } from '@repo/shared-types'
 
 const getPagesSitemap = unstable_cache(
   async () => {

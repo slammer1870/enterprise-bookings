@@ -43,7 +43,6 @@ type Args = {
 
 export default async function BlogPost({ params: paramsPromise }: Args) {
   const { slug = '' } = await paramsPromise
-  const url = '/posts/' + slug
   const post = await queryPostBySlug({ slug })
 
   if (!post) return notFound()

@@ -10,7 +10,7 @@ import { useAuth } from '@repo/auth/src/providers/auth'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
+export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) => {
   const { user, logout } = useAuth()
   const pathname = usePathname()
 

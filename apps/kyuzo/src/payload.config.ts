@@ -1,12 +1,11 @@
 // storage-adapter-import-placeholder
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
-import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig, Field, RelationshipField } from 'payload'
+import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
