@@ -95,45 +95,15 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
   const children = await getChildren(user.id)
 
   return (
-    <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-      {hasAllowedPlans && !activeSubscription ? (
-        <>
-          <div className="">
-            <h4 className="font-medium">Payment Methods</h4>
-            <p className="font-light text-sm">Please select a payment method to continue:</p>
-          </div>
-          <Tabs defaultValue="membership">
-            <TabsList className="flex w-full justify-around gap-4">
-              {allowedPlans && allowedPlans.length > 0 && (
-                <TabsTrigger value="membership" className="w-full">
-                  Membership
-                </TabsTrigger>
-              )}
-            </TabsList>
-            <TabsContent value="membership">
-              <PlanView
-                allowedPlans={allowedPlans}
-                subscription={subscription}
-                hasReachedSubscriptionLimit={subscriptionLimitReached}
-                handlePlanPurchase={createCheckoutSession}
-                handleSubscriptionManagement={createCustomerPortal}
-                lessonDate={new Date(lesson.startTime)}
-              />
-            </TabsContent>
-          </Tabs>
-        </>
-      ) : (
-        <ChildrensBooking
-          bookingDetails={bookingDetails}
-          childrenData={children}
-          hasAllowedPlans={!!hasAllowedPlans}
-          activeSubscription={activeSubscription}
-          allowedPlans={allowedPlans || []}
-          subscription={subscription}
-          subscriptionLimitReached={subscriptionLimitReached}
-          lesson={lesson}
-        />
-      )}
-    </div>
+    <ChildrensBooking
+      bookingDetails={bookingDetails}
+      childrenData={children}
+      hasAllowedPlans={!!hasAllowedPlans}
+      activeSubscription={activeSubscription}
+      allowedPlans={allowedPlans || []}
+      subscription={subscription}
+      subscriptionLimitReached={subscriptionLimitReached}
+      lesson={lesson}
+    />
   )
 }

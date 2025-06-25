@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@repo/ui/components/ui
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 
 import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
+import { Button } from '@repo/ui/components/ui/button'
 
 export const ChildrensBooking = ({
   bookingDetails,
@@ -68,6 +69,7 @@ export const ChildrensBooking = ({
         selectedChildren={selectedChildren}
         setSelectedChildren={setSelectedChildren}
       />
+      <Button>Complete Booking</Button>
     </div>
   )
 }
