@@ -4,8 +4,6 @@ import { Lesson, Subscription } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 
 import { getPayload } from 'payload'
@@ -20,9 +18,9 @@ import { BookingDetails } from '@repo/shared-types'
 
 import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
 
-import { SelectChildren } from '@/components/children/select-children'
-
 import { getChildren } from '@/actions/children'
+
+import { ChildrensBooking } from '@/components/childrens-booking'
 
 export default async function ChildrenBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -98,7 +96,6 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-      <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
       {hasAllowedPlans && !activeSubscription ? (
         <>
           <div className="">
@@ -126,7 +123,16 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
           </Tabs>
         </>
       ) : (
-        <SelectChildren childrenData={children} />
+        <ChildrensBooking
+          bookingDetails={bookingDetails}
+          childrenData={children}
+          hasAllowedPlans={!!hasAllowedPlans}
+          activeSubscription={activeSubscription}
+          allowedPlans={allowedPlans || []}
+          subscription={subscription}
+          subscriptionLimitReached={subscriptionLimitReached}
+          lesson={lesson}
+        />
       )}
     </div>
   )

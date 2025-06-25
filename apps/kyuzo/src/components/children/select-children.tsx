@@ -1,7 +1,5 @@
 'use client'
 
-import { useState } from 'react'
-
 import { User } from '@repo/shared-types'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
@@ -25,11 +23,15 @@ import { SelectedChildren } from './selected-children'
 
 type SelectChildrenProps = {
   childrenData: User[] | null
+  selectedChildren: User[] | null
+  setSelectedChildren: (children: User[] | ((prev: User[]) => User[])) => void
 }
 
-export const SelectChildren = ({ childrenData }: SelectChildrenProps) => {
-  const [selectedChildren, setSelectedChildren] = useState<User[]>()
-
+export const SelectChildren = ({
+  childrenData,
+  selectedChildren,
+  setSelectedChildren,
+}: SelectChildrenProps) => {
   const handleSelectChild = (child: User) => {
     setSelectedChildren((prev) => {
       if (prev?.some((c) => c.id === child.id)) {
@@ -51,62 +53,59 @@ export const SelectChildren = ({ childrenData }: SelectChildrenProps) => {
           selectedChildren={selectedChildren || []}
           handleRemoveChild={handleRemoveChild}
         />
-        {childrenData && childrenData.length > 0 && (
-          <div className="flex flex-col gap-2 w-full">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className={cn(
-                    'w-full justify-between text-xs',
-                    !selectedChildren?.length && 'text-muted-foreground',
-                  )}
-                >
-                  Select Child
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
-                <Command>
-                  <CommandInput placeholder="Search child..." className="border-none" />
-                  <CommandList>
-                    <CommandEmpty>No children found.</CommandEmpty>
-                    <CommandGroup>
-                      {childrenData
-                        ?.filter(
-                          (child) =>
-                            !selectedChildren?.some((selected) => selected.id === child.id),
-                        )
-                        .map((child) => (
-                          <CommandItem
-                            value={`${child.email}`}
-                            key={child.id}
-                            onSelect={() => {
-                              handleSelectChild(child)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                'mr-2 h-4 w-4',
-                                child.id === selectedChildren?.find((c) => c.id === child.id)?.id
-                                  ? 'opacity-100'
-                                  : 'opacity-0',
-                              )}
-                            />
-                            {child.name} - {child.email}
-                          </CommandItem>
-                        ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-                <div className="p-2 border-t">
-                  <AddChild handleSelectChild={handleSelectChild} />
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
+        <div className="flex flex-col gap-2 w-full">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className={cn(
+                  'w-full justify-between text-xs',
+                  !selectedChildren?.length && 'text-muted-foreground',
+                )}
+              >
+                Select Child
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+              <Command>
+                <CommandInput placeholder="Search child..." className="border-none" />
+                <CommandList>
+                  <CommandEmpty>No children found.</CommandEmpty>
+                  <CommandGroup>
+                    {childrenData
+                      ?.filter(
+                        (child) => !selectedChildren?.some((selected) => selected.id === child.id),
+                      )
+                      .map((child) => (
+                        <CommandItem
+                          value={`${child.email}`}
+                          key={child.id}
+                          onSelect={() => {
+                            handleSelectChild(child)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              child.id === selectedChildren?.find((c) => c.id === child.id)?.id
+                                ? 'opacity-100'
+                                : 'opacity-0',
+                            )}
+                          />
+                          {child.name} - {child.email}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+              <div className="p-2 border-t">
+                <AddChild handleSelectChild={handleSelectChild} />
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </div>
   )
