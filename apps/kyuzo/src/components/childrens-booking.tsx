@@ -69,7 +69,9 @@ export const ChildrensBooking = ({
         selectedChildren={selectedChildren}
         setSelectedChildren={setSelectedChildren}
       />
-      <Button>Complete Booking</Button>
+      <Button className="w-full" disabled={selectedChildren.length === 0}>
+        Complete Booking
+      </Button>
     </div>
   )
 }
