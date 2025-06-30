@@ -12,6 +12,7 @@ import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
 
 import { Plan } from '@repo/shared-types'
+import { BookingSuccess } from '@/components/booking-success'
 
 export default async function Dashboard() {
   const { user, token } = await getMeUser({ nullUserRedirect: '/login' })
@@ -106,6 +107,7 @@ export default async function Dashboard() {
           </div>
         )}
       </div>
+      <BookingSuccess />
     </div>
   )
 }

@@ -4,19 +4,13 @@ import { Lesson, Subscription } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
-
 import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
 import { hasActiveSubscription, hasReachedSubscriptionLimit } from '@repo/shared-services'
 
-import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
-
 import { BookingDetails } from '@repo/shared-types'
-
-import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
 
 import { getChildren } from '@/actions/children'
 
@@ -32,15 +26,11 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
     nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
   })
 
-  const lessonQuery = await payload.find({
+  const lesson = (await payload.findByID({
     collection: 'lessons',
-    where: {
-      id: { equals: id },
-    },
+    id: id,
     depth: 5,
-  })
-
-  const lesson = lessonQuery.docs[0] as Lesson
+  })) as Lesson
 
   if (!lesson) {
     redirect('/dashboard')
@@ -92,7 +82,7 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
 
   const activeSubscription = await hasActiveSubscription(user.id, payload)
 
-  const children = await getChildren(user.id)
+  const children = await getChildren()
 
   return (
     <ChildrensBooking

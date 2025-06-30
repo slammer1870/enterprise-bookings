@@ -1,40 +1,39 @@
 'use server'
 
-import { revalidateTag, unstable_cache } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 import { getPayload } from 'payload'
 
-import { Booking, User } from '@repo/shared-types'
+import { User } from '@repo/shared-types'
 
 import config from '@payload-config'
 
 import { generatePasswordSaltHash } from '@repo/auth/src/utils/password'
 import crypto from 'crypto'
 
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+import { headers as getHeaders } from 'next/headers'
+import { redirect } from 'next/navigation'
 
-export const getChildren = unstable_cache(
-  async () => {
-    const payload = await getPayload({ config })
+export const getChildren = async () => {
+  const payload = await getPayload({ config })
 
-    const { user } = await getMeUser()
+  const headers = await getHeaders()
+  const { user } = await payload.auth({ headers })
+  if (!user) {
+    throw new Error('User not found')
+  }
 
-    const children = await payload.find({
-      collection: 'users',
-      where: {
-        parent: {
-          equals: user.id,
-        },
+  const children = await payload.find({
+    collection: 'users',
+    where: {
+      parent: {
+        equals: user.id,
       },
-      depth: 2,
-    })
+    },
+    depth: 2,
+  })
 
-    return children.docs as User[]
-  },
-  ['children'],
-  {
-    tags: ['children'],
-  },
-)
+  return children.docs as User[]
+}
 
 type ChildData = {
   name: string
@@ -45,7 +44,22 @@ type ChildData = {
 export const createChild = async (childData: ChildData) => {
   const payload = await getPayload({ config })
 
-  const { user } = await getMeUser()
+  const headers = await getHeaders()
+  const { user } = await payload.auth({ headers })
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  const existingUser = await payload.find({
+    collection: 'users',
+    where: {
+      email: { equals: childData.email },
+    },
+  })
+
+  if (existingUser.docs.length > 0) {
+    throw new Error('User already exists')
+  }
 
   const randomPassword = crypto.randomBytes(32).toString('hex')
   const { hash, salt } = await generatePasswordSaltHash({
@@ -77,63 +91,114 @@ export const createChild = async (childData: ChildData) => {
   }
 }
 
-type createChildBokingsProps = {
-  parent: number
-  lesson: number
-  children: number[]
-}
-
-export const createChildrensBookings = async (data: createChildBokingsProps) => {
+export const createChildrensBookings = async (prevState: any, formData: FormData) => {
   try {
     const payload = await getPayload({ config })
 
-    const { user } = await getMeUser()
+    const headers = await getHeaders()
+    const { user } = await payload.auth({ headers })
+    if (!user) {
+      throw new Error('User not found')
+    }
 
-    const { children, lesson } = data
+    // Get data from form data
+    const lessonId = formData.get('lessonId') as string
+    const childrenIds = formData.getAll('childrenIds') as string[]
 
-    //confirm that user is parent of children
+    console.log('Form data - lessonId:', lessonId, 'type:', typeof lessonId)
+    console.log('Form data - childrenIds:', childrenIds, 'type:', typeof childrenIds)
+    console.log(
+      'Parsed childrenIds:',
+      childrenIds.map((id) => parseInt(id)),
+    )
+
+    if (!lessonId || childrenIds.length === 0) {
+      throw new Error('Missing required data')
+    }
+
+    // Get children data
     const childrenQuery = await payload.find({
       collection: 'users',
       where: {
-        id: { in: children },
+        id: { in: childrenIds.map((id) => parseInt(id)) },
       },
     })
 
+    console.log('Children query result:', {
+      totalDocs: childrenQuery.totalDocs,
+      docs: childrenQuery.docs.map((doc) => ({ id: doc.id, name: doc.name })),
+    })
+
+    const children = childrenQuery.docs as User[]
+
+    console.log(
+      'Children from query:',
+      children.map((c) => ({ id: c.id, name: c.name })),
+    )
+
     //check if children have parent of user
-    childrenQuery.docs.forEach((child) => {
-      if (child.parent !== user.id) {
+    children.forEach((child) => {
+      if (child.parent?.id !== user.id) {
         throw new Error('User is not parent of children')
       }
     })
 
     // Create all bookings
     const createdBookings = await Promise.all(
-      children.map(async (childId) => {
+      children.map(async (child) => {
         try {
+          console.log('Creating booking for child:', {
+            id: child.id,
+            type: typeof child.id,
+            name: child.name,
+          })
+
+          const hasBooking = await payload.find({
+            collection: 'bookings',
+            where: {
+              lesson: { equals: parseInt(lessonId) },
+              user: { equals: child.id },
+            },
+          })
+
+          if (hasBooking.docs.length > 0) {
+            const booking = await payload.update({
+              collection: 'bookings',
+              id: hasBooking.docs[0].id,
+              data: {
+                lesson: parseInt(lessonId),
+                user: child.id,
+                status: 'confirmed',
+              },
+              overrideAccess: false,
+              user: child,
+            })
+            return booking
+          }
+
           const booking = await payload.create({
             collection: 'bookings',
             data: {
-              lesson: lesson,
-              user: childId,
+              lesson: parseInt(lessonId),
+              user: child.id,
               status: 'confirmed',
             },
             overrideAccess: false,
-            user: childId,
+            user: child,
           })
           return booking
         } catch (error) {
-          console.error(`Failed to create booking for child ${childId}:`, error)
-          throw new Error(`Failed to create booking for child ${childId}`)
+          console.error(`Failed to create booking for child ${child.id}:`, error)
+          throw new Error(`Failed to create booking for child ${child.id}`)
         }
       }),
     )
 
     // Revalidate cache
-    revalidateTag('children')
 
-    return createdBookings
+    return createdBookings.map((booking) => booking.id)
   } catch (error) {
-    console.error('Error creating children bookings:', error)
+    console.error('Error creating children bookings:', (error as Error).message)
     throw new Error((error as string) || 'Failed to create children bookings')
   }
 }
