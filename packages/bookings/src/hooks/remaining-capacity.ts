@@ -28,6 +28,7 @@ export const getRemainingCapacity: FieldHook = async ({
         equals: "confirmed",
       },
     },
+    limit: 0,
     context: {
       triggerAfterChange: false,
     },
