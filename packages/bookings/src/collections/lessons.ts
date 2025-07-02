@@ -185,6 +185,7 @@ const defaultFields: Field[] = [
     type: "join",
     collection: "bookings",
     maxDepth: 3,
+    defaultLimit: 0,
     hasMany: true,
     on: "lesson",
   },
