@@ -119,8 +119,6 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
 
     //check if children have parent of user
     children.forEach((child) => {
-      console.log('Child parent:', child.parent)
-      console.log('User id:', user)
       if (child.parent?.id !== user.id) {
         throw new Error('User is not parent of children')
       }
@@ -144,7 +142,7 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
         })
 
         if (hasBooking.docs.length > 0) {
-          const booking = await payload.update({
+          await payload.update({
             collection: 'bookings',
             id: hasBooking.docs[0].id,
             data: {
@@ -155,7 +153,6 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
             overrideAccess: false,
             user: child,
           })
-          return booking
         }
 
         const booking = await payload.create({
@@ -170,7 +167,6 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
         })
 
         console.log('Booking created:', booking)
-        return booking
       } catch (error) {
         console.error(`Failed to create booking for child ${child.id}:`, error)
         throw new Error(`Failed to create booking for child ${child.id}`)
