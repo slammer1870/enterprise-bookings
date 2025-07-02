@@ -85,7 +85,7 @@ const defaultHooks: HooksConfig = {
 
       //Prevent booking if the lesson is fully booked
       if (closed && data?.status === "confirmed") {
-        throw new Error("This lesson is fully booked");
+        throw new APIError("This lesson is fully booked", 403);
       }
 
       return data;

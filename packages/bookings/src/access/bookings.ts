@@ -135,11 +135,7 @@ export const bookingUpdateAccess = async ({
 export const isAdminOrOwner = ({ req }: AccessArgs<Booking>) => {
   const user = req.user as User | null;
 
-  console.log("ACCESS USER", user);
-
   if (!user) return false;
-
-  console.log("ACCESS ROLE", checkRole(["admin"], user));
 
   if (checkRole(["admin"], user)) return true;
 
