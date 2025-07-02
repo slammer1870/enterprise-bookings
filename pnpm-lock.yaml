@@ -985,6 +985,9 @@ importers:
       '@types/node':
         specifier: ^22.10.7
         version: 22.15.32
+      '@types/qs':
+        specifier: ^6.14.0
+        version: 6.14.0
       '@types/react':
         specifier: 19.1.0
         version: 19.1.0
@@ -1000,6 +1003,9 @@ importers:
       lucide-react:
         specifier: 0.475.0
         version: 0.475.0(react@19.1.0)
+      qs:
+        specifier: ^6.14.0
+        version: 6.14.0
       sharp:
         specifier: 0.33.5
         version: 0.33.5
@@ -1149,6 +1155,9 @@ importers:
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../shared-utils
+      next:
+        specifier: '*'
+        version: 15.3.4(@babel/core@7.24.5)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4)
       payload:
         specifier: 3.43.0
         version: 3.43.0(graphql@16.11.0)(typescript@5.7.3)

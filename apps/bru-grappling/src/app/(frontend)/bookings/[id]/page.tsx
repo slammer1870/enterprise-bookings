@@ -104,45 +104,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   const subscription = subscriptionQuery.docs[0] as Subscription | undefined
 
-  const handlePlanPurchase = async (
-    planId: string,
-    metadata?: { [key: string]: string | undefined },
-  ) => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-checkout-session`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ price: planId, quantity: 1, metadata }),
-        headers: { Authorization: `JWT ${token}` },
-      },
-    )
-
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    } else {
-    }
-  }
-
-  const handleSubscriptionManagement = async () => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
-      {
-        method: 'POST',
-        headers: { Authorization: `JWT ${token}` },
-      },
-    )
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    } else {
-    }
-  }
-
   const subscriptionLimitReached = subscription
     ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.startTime))
     : false
@@ -172,8 +133,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
             allowedPlans={allowedPlans}
             subscription={subscription}
             hasReachedSubscriptionLimit={subscriptionLimitReached}
-            handlePlanPurchase={handlePlanPurchase}
-            handleSubscriptionManagement={handleSubscriptionManagement}
             lessonDate={new Date(lesson.startTime)}
           />
         </TabsContent>

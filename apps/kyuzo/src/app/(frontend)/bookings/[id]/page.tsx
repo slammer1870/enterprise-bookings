@@ -20,8 +20,6 @@ import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 
 import { BookingDetails } from '@repo/shared-types'
 
-import { createCheckoutSession, createCustomerPortal } from '@repo/memberships/src/actions/plans'
-
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
@@ -121,8 +119,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
             allowedPlans={allowedPlans}
             subscription={subscription}
             hasReachedSubscriptionLimit={subscriptionLimitReached}
-            handlePlanPurchase={createCheckoutSession}
-            handleSubscriptionManagement={createCustomerPortal}
             lessonDate={new Date(lesson.startTime)}
           />
         </TabsContent>

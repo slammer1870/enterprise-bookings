@@ -13,13 +13,9 @@ import {
 
 interface BookingSummaryProps {
   bookingDetails: BookingDetails;
-  attendeesCount: number;
 }
 
-export function BookingSummary({
-  bookingDetails,
-  attendeesCount,
-}: BookingSummaryProps) {
+export function BookingSummary({ bookingDetails }: BookingSummaryProps) {
   return (
     <Card className="bg-white">
       <CardHeader>
@@ -42,14 +38,6 @@ export function BookingSummary({
             <span className="ml-2">
               {format(bookingDetails.startTime, "HH:mmaa")} -{" "}
               {format(bookingDetails.endTime, "HH:mmaa")}
-            </span>
-          </div>
-
-          <div className="flex items-center">
-            <Users className="h-5 w-5 mr-2 text-primary" />
-            <span className="font-medium">Guests:</span>
-            <span className="ml-2">
-              {attendeesCount} {attendeesCount === 1 ? "person" : "people"}
             </span>
           </div>
 

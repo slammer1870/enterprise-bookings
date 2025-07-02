@@ -51,15 +51,10 @@ export type Attendee = {
 };
 
 export type BookingDetails = {
-  date: Date;
+  date: string;
   startTime: string;
   endTime: string;
   bookingType: string;
-  price?: number;
-  currency: string;
-  maxCapacity: number;
-  currentAttendees: number;
-  adjustableQuantity: boolean;
 };
 
 export type BookingFormData = {

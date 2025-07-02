@@ -13,6 +13,8 @@ import crypto from 'crypto'
 import { headers as getHeaders } from 'next/headers'
 import { redirect } from 'next/navigation'
 
+import { getMeUser } from '@repo/shared-services/src/user'
+
 export const getChildren = async () => {
   const payload = await getPayload({ config })
 
@@ -92,29 +94,18 @@ export const createChild = async (childData: ChildData) => {
 }
 
 export const createChildrensBookings = async (prevState: any, formData: FormData) => {
+  // Get data from form data
+  const lessonId = formData.get('lessonId') as string
+  const childrenIds = formData.getAll('childrenIds') as string[]
+
+  if (!lessonId || childrenIds.length === 0) {
+    throw new Error('Missing required data')
+  }
+
   try {
+    const { user } = await getMeUser({ nullUserRedirect: '/login' })
+
     const payload = await getPayload({ config })
-
-    const headers = await getHeaders()
-    const { user } = await payload.auth({ headers })
-    if (!user) {
-      throw new Error('User not found')
-    }
-
-    // Get data from form data
-    const lessonId = formData.get('lessonId') as string
-    const childrenIds = formData.getAll('childrenIds') as string[]
-
-    console.log('Form data - lessonId:', lessonId, 'type:', typeof lessonId)
-    console.log('Form data - childrenIds:', childrenIds, 'type:', typeof childrenIds)
-    console.log(
-      'Parsed childrenIds:',
-      childrenIds.map((id) => parseInt(id)),
-    )
-
-    if (!lessonId || childrenIds.length === 0) {
-      throw new Error('Missing required data')
-    }
 
     // Get children data
     const childrenQuery = await payload.find({
@@ -124,60 +115,38 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
       },
     })
 
-    console.log('Children query result:', {
-      totalDocs: childrenQuery.totalDocs,
-      docs: childrenQuery.docs.map((doc) => ({ id: doc.id, name: doc.name })),
-    })
-
     const children = childrenQuery.docs as User[]
-
-    console.log(
-      'Children from query:',
-      children.map((c) => ({ id: c.id, name: c.name })),
-    )
 
     //check if children have parent of user
     children.forEach((child) => {
+      console.log('Child parent:', child.parent)
+      console.log('User id:', user)
       if (child.parent?.id !== user.id) {
         throw new Error('User is not parent of children')
       }
     })
 
     // Create all bookings
-    const createdBookings = await Promise.all(
-      children.map(async (child) => {
-        try {
-          console.log('Creating booking for child:', {
-            id: child.id,
-            type: typeof child.id,
-            name: child.name,
-          })
+    children.forEach(async (child) => {
+      console.log('Creating booking for child:', {
+        id: child.id,
+        type: typeof child.id,
+        name: child.name,
+      })
 
-          const hasBooking = await payload.find({
+      try {
+        const hasBooking = await payload.find({
+          collection: 'bookings',
+          where: {
+            lesson: { equals: parseInt(lessonId) },
+            user: { equals: child.id },
+          },
+        })
+
+        if (hasBooking.docs.length > 0) {
+          const booking = await payload.update({
             collection: 'bookings',
-            where: {
-              lesson: { equals: parseInt(lessonId) },
-              user: { equals: child.id },
-            },
-          })
-
-          if (hasBooking.docs.length > 0) {
-            const booking = await payload.update({
-              collection: 'bookings',
-              id: hasBooking.docs[0].id,
-              data: {
-                lesson: parseInt(lessonId),
-                user: child.id,
-                status: 'confirmed',
-              },
-              overrideAccess: false,
-              user: child,
-            })
-            return booking
-          }
-
-          const booking = await payload.create({
-            collection: 'bookings',
+            id: hasBooking.docs[0].id,
             data: {
               lesson: parseInt(lessonId),
               user: child.id,
@@ -187,18 +156,28 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
             user: child,
           })
           return booking
-        } catch (error) {
-          console.error(`Failed to create booking for child ${child.id}:`, error)
-          throw new Error(`Failed to create booking for child ${child.id}`)
         }
-      }),
-    )
 
-    // Revalidate cache
-
-    return createdBookings.map((booking) => booking.id)
+        const booking = await payload.create({
+          collection: 'bookings',
+          data: {
+            lesson: parseInt(lessonId),
+            user: child.id,
+            status: 'confirmed',
+          },
+          overrideAccess: false,
+          user: child,
+        })
+        return booking
+      } catch (error) {
+        console.error(`Failed to create booking for child ${child.id}:`, error)
+        throw new Error(`Failed to create booking for child ${child.id}`)
+      }
+    })
   } catch (error) {
     console.error('Error creating children bookings:', (error as Error).message)
     throw new Error((error as string) || 'Failed to create children bookings')
   }
+
+  return redirect(`/dashboard?lesson=${lessonId}&success=true`)
 }

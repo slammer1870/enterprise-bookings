@@ -10,13 +10,7 @@ import {
 } from '@repo/ui/components/ui/dialog'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@repo/ui/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@repo/ui/components/ui/form'
+import { Form, FormControl, FormItem, FormLabel, FormMessage } from '@repo/ui/components/ui/form'
 import { Input } from '@repo/ui/components/ui/input'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -58,7 +52,7 @@ export const AddChild = ({ handleSelectChild }: { handleSelectChild: (child: Use
       setIsLoading(false)
 
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
-      
+
       if (errorMessage === 'ValidationError: The following field is invalid: email') {
         form.setError('root', {
           message: 'Child already exists. Please try a different email.',
@@ -95,13 +89,13 @@ export const AddChild = ({ handleSelectChild }: { handleSelectChild: (child: Use
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input {...form.register('name')} />
+                <Input {...form.register('name')} type="text" required />
               </FormControl>
             </FormItem>
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input {...form.register('email')} />
+                <Input {...form.register('email')} type="email" required />
               </FormControl>
             </FormItem>
             <div className="flex gap-2 w-full">

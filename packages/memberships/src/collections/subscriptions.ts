@@ -15,6 +15,7 @@ import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
 import { MembershipsPluginConfig } from "../types";
 
 import { AccessControls, HooksConfig } from "@repo/shared-types";
+import { isAdminOrOwner } from "../access/is-admin-or-owner";
 
 const defaultFields: Field[] = [
   {
@@ -110,7 +111,7 @@ const defaultLabels: Labels = {
 };
 
 const defaultAccess: AccessControls = {
-  read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  read: isAdminOrOwner,
   create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),

@@ -11,7 +11,8 @@
   },
   "main": "src/index.ts",
   "peerDependencies": {
-    "payload": "*"
+    "payload": "*",
+    "next": "*"
   },
   "private": true,
   "type": "module"

@@ -1,18 +1,12 @@
 import { getMeUser } from '@repo/auth/src/utils/get-me-user'
 
-import { Lesson, Subscription } from '@repo/shared-types'
+import { Lesson } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
 import { getPayload } from 'payload'
 
 import config from '@payload-config'
-
-import { hasActiveSubscription, hasReachedSubscriptionLimit } from '@repo/shared-services'
-
-import { BookingDetails } from '@repo/shared-types'
-
-import { getChildren } from '@/actions/children'
 
 import { ChildrensBooking } from '@/components/childrens-booking'
 
@@ -22,10 +16,11 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
   const payload = await getPayload({ config })
 
   // Auth check
-  const { user } = await getMeUser({
+  await getMeUser({
     nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
   })
 
+  // Get lesson using payload client as this is in the lesson page
   const lesson = (await payload.findByID({
     collection: 'lessons',
     id: id,
@@ -36,64 +31,13 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
     redirect('/dashboard')
   }
 
+  // Redirect if lesson is not a child lesson
   if (lesson.classOption.type != 'child') redirect('/dashboard')
 
+  // Redirect if lesson is booked or closed
   if (['booked', 'closed'].includes(lesson.bookingStatus)) {
     redirect('/dashboard')
   }
 
-  // Extract booking details
-  const bookingDetails: BookingDetails = {
-    date: new Date(lesson.date),
-    startTime: lesson.startTime,
-    endTime: lesson.endTime,
-    bookingType: lesson.classOption.name,
-    currency: 'EUR',
-    maxCapacity: lesson.remainingCapacity,
-    currentAttendees:
-      lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
-    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
-  }
-
-  const hasAllowedPlans = lesson.classOption.paymentMethods?.allowedPlans
-
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
-    (plan) => plan.status === 'active',
-  )
-
-  const subscriptionQuery = await payload.find({
-    collection: 'subscriptions',
-    where: {
-      and: [
-        {
-          user: { equals: user.id },
-          status: { not_equals: 'canceled' },
-        },
-      ],
-    },
-    depth: 3,
-  })
-
-  const subscription = subscriptionQuery.docs[0] as unknown as Subscription
-
-  const subscriptionLimitReached = subscription
-    ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.startTime))
-    : false
-
-  const activeSubscription = await hasActiveSubscription(user.id, payload)
-
-  const children = await getChildren()
-
-  return (
-    <ChildrensBooking
-      bookingDetails={bookingDetails}
-      childrenData={children}
-      hasAllowedPlans={!!hasAllowedPlans}
-      activeSubscription={activeSubscription}
-      allowedPlans={allowedPlans || []}
-      subscription={subscription}
-      subscriptionLimitReached={subscriptionLimitReached}
-      lesson={lesson}
-    />
-  )
+  return <ChildrensBooking lesson={lesson} />
 }
