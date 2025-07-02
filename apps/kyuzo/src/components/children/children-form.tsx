@@ -15,7 +15,13 @@ export const ChildrenBookingForm = ({
 }) => {
   const [selectedChildren, setSelectedChildren] = useState<User[]>([])
 
-  const [state, formAction, pending] = useActionState(createChildrensBookings, [])
+  const initialState = {
+    message: '',
+  }
+
+  const [state, formAction, pending] = useActionState(createChildrensBookings, initialState)
+
+  console.log('FORM STATE', state)
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -28,6 +34,8 @@ export const ChildrenBookingForm = ({
         selectedChildren={selectedChildren}
         setSelectedChildren={setSelectedChildren}
       />
+      <p aria-live="polite">{state?.message}</p>
+
       <Button className="w-full" disabled={selectedChildren.length === 0 || pending}>
         {pending ? 'Completing Booking...' : 'Complete Booking'}
       </Button>

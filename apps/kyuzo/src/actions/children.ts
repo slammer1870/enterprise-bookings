@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidateTag } from 'next/cache'
-import { getPayload } from 'payload'
+import { APIError, getPayload } from 'payload'
 
 import { User } from '@repo/shared-types'
 
@@ -142,6 +142,7 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
         })
 
         if (hasBooking.docs.length > 0) {
+          console.log('Booking already exists, updating...')
           await payload.update({
             collection: 'bookings',
             id: hasBooking.docs[0].id,
@@ -169,12 +170,22 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
         console.log('Booking created:', booking)
       } catch (error) {
         console.error(`Failed to create booking for child ${child.id}:`, error)
-        throw new Error(`Failed to create booking for child ${child.id}`)
+        if (error instanceof APIError) {
+          throw new Error(error.message)
+        }
       }
     }
   } catch (error) {
-    console.error('Error creating children bookings:', (error as Error).message)
-    throw new Error((error as string) || 'Failed to create children bookings')
+    console.error('Error creating children bookings:', error)
+    if (error instanceof Error) {
+      console.log('API ERROR', error)
+      return {
+        message: error.message,
+      }
+    }
+    return {
+      message: 'Failed to create children bookings',
+    }
   }
 
   return redirect(`/dashboard?lesson=${lessonId}&success=true`)

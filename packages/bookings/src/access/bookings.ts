@@ -16,7 +16,13 @@ export const bookingCreateAccess = async ({
 }: AccessArgs<Booking>) => {
   const user = req.user as User | null;
 
+  console.log("USER", user);
+
+  console.log("DATA", data);
+
   if (!data?.lesson) return false;
+
+  console.log("DATA PASSING", data);
 
   const lessonId =
     typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
@@ -45,9 +51,9 @@ export const bookingCreateAccess = async ({
       return false;
     }
 
-    if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-      return false;
-    }
+    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
+    //   return false;
+    // }
 
     return true;
   } catch (error) {
@@ -121,9 +127,9 @@ export const bookingUpdateAccess = async ({
       return false;
     }
 
-    if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-      return false;
-    }
+    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
+    //   return false;
+    // }
 
     return true;
   } catch (error) {
