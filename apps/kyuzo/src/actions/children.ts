@@ -127,7 +127,7 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
     })
 
     // Create all bookings
-    children.forEach(async (child) => {
+    for (const child of children) {
       console.log('Creating booking for child:', {
         id: child.id,
         type: typeof child.id,
@@ -168,12 +168,14 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
           overrideAccess: false,
           user: child,
         })
+
+        console.log('Booking created:', booking)
         return booking
       } catch (error) {
         console.error(`Failed to create booking for child ${child.id}:`, error)
         throw new Error(`Failed to create booking for child ${child.id}`)
       }
-    })
+    }
   } catch (error) {
     console.error('Error creating children bookings:', (error as Error).message)
     throw new Error((error as string) || 'Failed to create children bookings')
