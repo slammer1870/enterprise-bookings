@@ -38,6 +38,9 @@ export const Users: CollectionConfig = {
       type: 'upload',
       relationTo: 'media',
       required: false,
+      access: {
+        read: () => true,
+      },
     },
     // Email added by default
     // Add more fields as needed
