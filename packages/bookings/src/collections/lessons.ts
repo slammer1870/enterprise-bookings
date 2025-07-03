@@ -156,6 +156,9 @@ const defaultFields: Field[] = [
         type: "relationship",
         relationTo: "users",
         required: false,
+        access: {
+          read: () => true,
+        },
       },
     ],
   },
