@@ -65,15 +65,10 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   // Extract booking details
   const bookingDetails: BookingDetails = {
-    date: new Date(lesson.date),
+    date: lesson.date,
     startTime: lesson.startTime,
     endTime: lesson.endTime,
     bookingType: lesson.classOption.name,
-    currency: 'EUR',
-    maxCapacity: lesson.remainingCapacity,
-    currentAttendees:
-      lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
-    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
   }
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
@@ -93,15 +88,15 @@ export default async function BookingPage({ params }: BookingPageProps) {
     depth: 3,
   })
 
-  const subscription = subscriptionQuery.docs[0] as unknown as Subscription | undefined
+  const subscription = subscriptionQuery.docs[0] as unknown as Subscription | null
 
   const subscriptionLimitReached = subscription
-    ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.startTime))
+    ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.date))
     : false
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-      <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
+      <BookingSummary bookingDetails={bookingDetails} />
       <div className="">
         <h4 className="font-medium">Payment Methods</h4>
         <p className="font-light text-sm">Please select a payment method to continue:</p>
@@ -118,8 +113,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
           <PlanView
             allowedPlans={allowedPlans}
             subscription={subscription}
-            hasReachedSubscriptionLimit={subscriptionLimitReached}
-            lessonDate={new Date(lesson.startTime)}
+            lessonDate={new Date(lesson.date)}
+            subscriptionLimitReached={subscriptionLimitReached}
           />
         </TabsContent>
       </Tabs>

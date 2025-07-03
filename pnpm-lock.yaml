@@ -1161,6 +1161,9 @@ importers:
       payload:
         specifier: 3.43.0
         version: 3.43.0(graphql@16.11.0)(typescript@5.7.3)
+      qs:
+        specifier: ^6.13.1
+        version: 6.14.0
       qs-esm:
         specifier: ^7.0.2
         version: 7.0.2

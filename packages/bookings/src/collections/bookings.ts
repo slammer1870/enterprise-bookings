@@ -6,11 +6,7 @@ import {
   Labels,
 } from "payload";
 
-import {
-  bookingCreateAccess,
-  bookingUpdateAccess,
-  isAdminOrOwner,
-} from "../access/bookings";
+import { bookingCreateAccess, bookingUpdateAccess } from "../access/bookings";
 
 import { BookingsPluginConfig } from "../types";
 
@@ -23,6 +19,7 @@ import {
 } from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils/src/check-role";
+import { isAdminOrOwner } from "@repo/shared-services/src/access/is-admin-or-owner";
 
 import { render } from "@react-email/components";
 import { WaitlistNotificationEmail } from "../emails/waitlist-notification";
@@ -58,7 +55,7 @@ const defaultLabels: Labels = {
 };
 
 const defaultAccess: AccessControls = {
-  read: ({ req }) => isAdminOrOwner({ req }),
+  read: isAdminOrOwner,
   create: bookingCreateAccess,
   update: bookingUpdateAccess,
   delete: ({ req }) => checkRole(["admin"], req.user as User),

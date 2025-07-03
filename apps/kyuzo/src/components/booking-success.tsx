@@ -37,7 +37,7 @@ export const BookingSuccess = () => {
     }
 
     fetchLesson()
-  }, [])
+  }, [lessonId])
 
   return <></>
 }

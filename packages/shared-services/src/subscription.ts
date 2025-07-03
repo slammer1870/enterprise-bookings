@@ -45,6 +45,8 @@ const query = (
 };
 
 export const hasReachedSubscriptionLimit = async (
+  subscription: Subscription,
+  payload: Payload,
   lessonDate: Date
 ): Promise<boolean> => {
   const plan = subscription.plan;

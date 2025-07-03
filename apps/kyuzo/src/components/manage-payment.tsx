@@ -32,6 +32,7 @@ export const ManagePayment = async ({ plans, lessonId }: { plans?: Plan[]; lesso
                 allowedPlans={allowedPlans}
                 subscription={activeSubscription}
                 lessonDate={new Date()}
+                subscriptionLimitReached={false}
               />
             </TabsContent>
           </Tabs>

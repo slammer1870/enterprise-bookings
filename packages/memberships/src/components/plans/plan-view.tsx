@@ -8,18 +8,19 @@ import {
   createCustomerPortal,
 } from "../../actions/plans";
 
-import { hasReachedSubscriptionLimit } from "@repo/shared-services/src/subscription";
 
 type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
   subscription: Subscription | null;
   lessonDate: Date;
+  subscriptionLimitReached: boolean;
 };
 
 export const PlanView = ({
   allowedPlans,
   subscription,
   lessonDate,
+  subscriptionLimitReached,
 }: PlanViewProps) => {
   return (
     <div>
@@ -55,7 +56,7 @@ export const PlanView = ({
                 </>
               ) : (
                 <>
-                  {true && (
+                  {subscriptionLimitReached && (
                     <p className="text-sm text-muted-foreground mb-2">
                       You have reached the limit of your subscription
                     </p>

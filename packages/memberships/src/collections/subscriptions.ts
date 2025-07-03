@@ -15,7 +15,8 @@ import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
 import { MembershipsPluginConfig } from "../types";
 
 import { AccessControls, HooksConfig } from "@repo/shared-types";
-import { isAdminOrOwner } from "../access/is-admin-or-owner";
+
+import { isAdminOrOwner } from "@repo/shared-services/src/access/is-admin-or-owner";
 
 const defaultFields: Field[] = [
   {
