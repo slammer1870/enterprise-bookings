@@ -39,5 +39,9 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
     redirect('/dashboard')
   }
 
+  if (lesson.remainingCapacity <= 0) {
+    redirect('/dashboard')
+  }
+
   return <ChildrensBooking lesson={lesson} />
 }

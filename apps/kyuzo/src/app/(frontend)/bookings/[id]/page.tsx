@@ -63,6 +63,10 @@ export default async function BookingPage({ params }: BookingPageProps) {
     }
   }
 
+  if (lesson.remainingCapacity <= 0) {
+    redirect('/dashboard')
+  }
+
   // Extract booking details
   const bookingDetails: BookingDetails = {
     date: lesson.date,
