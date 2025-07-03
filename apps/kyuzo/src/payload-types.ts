@@ -596,6 +596,10 @@ export interface Plan {
    * Is this a membership for adults, family or children?
    */
   type: 'adult' | 'family' | 'child';
+  /**
+   * The number of children who are subscribing to the plan
+   */
+  quantity?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1101,6 +1105,7 @@ export interface PlansSelect<T extends boolean = true> {
   status?: T;
   skipSync?: T;
   type?: T;
+  quantity?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -39,6 +39,8 @@ export interface Plan {
   priceJSON?: string | null;
   isSubscribed?: boolean | null;
   status: "active" | "inactive";
+  type?: "child" | "adult" | "family";
+  quantity?: number | null;
   updatedAt: string;
   createdAt: string;
 }

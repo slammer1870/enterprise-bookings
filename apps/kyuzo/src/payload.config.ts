@@ -162,6 +162,17 @@ export default buildConfig({
               description: 'Is this a membership for adults, family or children?',
             },
           },
+          {
+            name: 'quantity',
+            type: 'number',
+            required: false,
+            admin: {
+              description: 'The number of children who are subscribing to the plan',
+              condition: (data) => {
+                return Boolean(data?.type === 'child') // Only show if `type` is selected
+              },
+            },
+          },
         ],
       },
       subscriptionOverrides: {

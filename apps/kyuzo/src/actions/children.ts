@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { APIError, getPayload } from 'payload'
 
 import { User } from '@repo/shared-types'
@@ -168,6 +168,7 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
         })
 
         console.log('Booking created:', booking)
+        revalidatePath('/bookings')
       } catch (error) {
         console.error(`Failed to create booking for child ${child.id}:`, error)
         if (error instanceof APIError) {

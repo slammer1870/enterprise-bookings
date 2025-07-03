@@ -5,15 +5,22 @@ import { Button } from '@repo/ui/components/ui/button'
 import { useActionState, useState } from 'react'
 import { SelectChildren } from './select-children'
 import { createChildrensBookings } from '@/actions/children'
+import { SelectedChildren } from './selected-children'
 
 export const ChildrenBookingForm = ({
   children,
   lessonId,
+  lessonBookingLimit,
 }: {
   children: User[]
   lessonId: string
+  lessonBookingLimit: number
 }) => {
   const [selectedChildren, setSelectedChildren] = useState<User[]>([])
+
+  const handleRemoveChild = (child: User) => {
+    setSelectedChildren((prev) => prev?.filter((c) => c.id !== child.id) || [])
+  }
 
   const initialState = {
     message: '',
@@ -27,16 +34,31 @@ export const ChildrenBookingForm = ({
       {selectedChildren.map((child) => (
         <input key={child.id} type="hidden" name="childrenIds" value={child.id} />
       ))}
-      <SelectChildren
-        childrenData={children}
-        selectedChildren={selectedChildren}
-        setSelectedChildren={setSelectedChildren}
+      <SelectedChildren
+        selectedChildren={selectedChildren || []}
+        handleRemoveChild={handleRemoveChild}
       />
+      {selectedChildren.length < lessonBookingLimit ? (
+        <SelectChildren
+          childrenData={children}
+          selectedChildren={selectedChildren}
+          setSelectedChildren={setSelectedChildren}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          You have reached the maximum number of children for this lesson.
+        </p>
+      )}
       <p aria-live="polite" className="text-sm text-red-500">
         {state?.message}
       </p>
 
-      <Button className="w-full" disabled={selectedChildren.length === 0 || pending}>
+      <Button
+        className="w-full"
+        disabled={
+          selectedChildren.length === 0 || selectedChildren.length > lessonBookingLimit || pending
+        }
+      >
         {pending ? 'Completing Booking...' : 'Complete Booking'}
       </Button>
     </form>

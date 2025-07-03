@@ -41,17 +41,9 @@ export const SelectChildren = ({
     })
   }
 
-  const handleRemoveChild = (child: User) => {
-    setSelectedChildren((prev) => prev?.filter((c) => c.id !== child.id) || [])
-  }
-
   return (
     <div className="flex flex-col gap-2 w-full">
       <h2 className="text-lg font-medium">Select a child</h2>
-      <SelectedChildren
-        selectedChildren={selectedChildren || []}
-        handleRemoveChild={handleRemoveChild}
-      />
       <Popover>
         <PopoverTrigger asChild>
           <Button
