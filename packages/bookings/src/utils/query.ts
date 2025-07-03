@@ -7,7 +7,7 @@ export const getLessonsQuery = (date: Date) => {
 
   const query = {
     sort: "startTime",
-    depth: 2,
+    depth: 4,
     limit: "100",
     page: "1",
     where: {
