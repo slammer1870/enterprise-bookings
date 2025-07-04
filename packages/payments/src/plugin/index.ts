@@ -37,7 +37,10 @@ export const paymentsPlugin =
         }
 
         const paymentMethodsField = collection.fields.find(
-          (field) => field.type === "group" && field.name === "paymentMethods"
+          (field) =>
+            field.type === "group" &&
+            "name" in field &&
+            field.name === "paymentMethods"
         ) as GroupField;
 
         if (!paymentMethodsField) {
