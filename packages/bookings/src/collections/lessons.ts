@@ -156,6 +156,30 @@ const defaultFields: Field[] = [
         type: "relationship",
         relationTo: "users",
         required: false,
+        hooks: {
+          afterRead: [
+            async ({ value, req, data }) => {
+              if (!value) return value;
+
+              const instructorId = typeof value === "object" ? value.id : value;
+
+              const instructor = await req.payload.findByID({
+                collection: "users",
+                id: instructorId,
+                overrideAccess: true, // 👈 Bypasses access control
+              });
+
+              // Pick only safe fields to expose
+              value = {
+                name: instructor.name,
+                image: instructor.image,
+                // DO NOT include email, role, etc.
+              };
+
+              return value;
+            },
+          ],
+        },
       },
     ],
   },
@@ -242,29 +266,6 @@ const defaultHooks: HooksConfig = {
           },
         },
       });
-    },
-  ],
-  beforeRead: [
-    async ({ doc, req }) => {
-      if (!doc.instructor) return doc;
-
-      const instructorId =
-        typeof doc.instructor === "object" ? doc.instructor.id : doc.instructor;
-
-      const instructor = await req.payload.findByID({
-        collection: "users",
-        id: instructorId,
-        overrideAccess: true, // 👈 Bypasses access control
-      });
-
-      // Pick only safe fields to expose
-      doc.instructor = {
-        name: instructor.name,
-        image: instructor.image,
-        // DO NOT include email, role, etc.
-      };
-
-      return doc;
     },
   ],
   afterChange: [],
