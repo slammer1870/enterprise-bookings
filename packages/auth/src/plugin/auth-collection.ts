@@ -69,6 +69,8 @@ export const modifyAuthCollection = (
   const access = existingCollectionConfig.access || {};
   access.create = () => true;
   access.read = adminOrUser;
+  access.update = ({ req: { user } }) => checkRole(["admin"], user as User);
+  access.delete = ({ req: { user } }) => checkRole(["admin"], user as User);
   access.admin = ({ req: { user } }) => checkRole(["admin"], user as User);
 
   return {
