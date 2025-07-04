@@ -3,7 +3,7 @@ import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'
 
-import { isAdminOrUserOrInstructor } from '@repo/shared-services/src/access/is-admin-or-user-or-instructor'
+import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -12,7 +12,7 @@ export const Users: CollectionConfig = {
   },
   access: {
     create: () => true,
-    read: isAdminOrUserOrInstructor,
+    read: isAdminOrOwner,
     update: ({ req: { user } }) => checkRole(['admin'], user as User),
     delete: ({ req: { user } }) => checkRole(['admin'], user as User),
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),

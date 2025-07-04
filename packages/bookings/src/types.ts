@@ -1,6 +1,36 @@
-import { CollectionConfig } from "payload";
+import {
+  CollectionConfig,
+  Field,
+  Access,
+  CollectionAfterChangeHook,
+  CollectionAfterDeleteHook,
+  CollectionAfterErrorHook,
+  CollectionRefreshHook,
+  CollectionBeforeDeleteHook,
+  CollectionBeforeValidateHook,
+  PayloadRequest,
+  CollectionAfterOperationHook,
+  CollectionBeforeOperationHook,
+  CollectionBeforeReadHook,
+} from "payload";
+import { Lesson, User } from "@repo/shared-types";
 
-import { FieldsOverride, HooksOverride } from "@repo/shared-types";
+export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
+export type HooksOverride = (args: {
+  defaultHooks: HooksConfig;
+}) => HooksConfig;
+
+export type AccessControlHook = {
+  name: string;
+  hook: (args: {
+    req: PayloadRequest;
+    data?: any;
+    id?: string;
+    lesson: Lesson;
+    user: User | null;
+    access: boolean;
+  }) => Promise<boolean>;
+};
 
 export type BookingsPluginConfig = {
   /**
@@ -27,8 +57,28 @@ export type BookingsPluginConfig = {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
   } & Partial<Omit<CollectionConfig, "fields">>;
-  classOptionsOverrides?: {
-    fields?: FieldsOverride;
-    hooks?: HooksOverride;
-  } & Partial<Omit<CollectionConfig, "fields">>;
+};
+
+export type AccessControls =
+  | {
+      admin?: ({ req }: { req: PayloadRequest }) => boolean | Promise<boolean>;
+      create?: Access;
+      delete?: Access;
+      read?: Access;
+      readVersions?: Access;
+      unlock?: Access;
+      update?: Access;
+    }
+  | undefined;
+
+export type HooksConfig = {
+  afterChange?: CollectionAfterChangeHook[];
+  afterDelete?: CollectionAfterDeleteHook[];
+  afterError?: CollectionAfterErrorHook[];
+  afterOperation?: CollectionAfterOperationHook[];
+  refresh?: CollectionRefreshHook[];
+  beforeDelete?: CollectionBeforeDeleteHook[];
+  beforeValidate?: CollectionBeforeValidateHook[];
+  beforeOperation?: CollectionBeforeOperationHook[];
+  beforeRead?: CollectionBeforeReadHook[];
 };
