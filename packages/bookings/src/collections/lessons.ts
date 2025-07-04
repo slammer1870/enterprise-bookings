@@ -164,18 +164,20 @@ const defaultFields: Field[] = [
 
               const instructorId = typeof value === "object" ? value.id : value;
 
-              const instructor = await req.payload.findByID({
-                collection: "users",
-                id: instructorId,
-                overrideAccess: true, // 👈 Bypasses access control
-              });
+              if (!value.name) {
+                const instructor = await req.payload.findByID({
+                  collection: "users",
+                  id: instructorId,
+                  overrideAccess: true, // 👈 Bypasses access control
+                });
 
-              // Pick only safe fields to expose
-              value = {
-                name: instructor.name,
-                image: instructor.image,
-                // DO NOT include email, role, etc.
-              };
+                // Pick only safe fields to expose
+                value = {
+                  name: instructor.name,
+                  image: instructor.image,
+                  // DO NOT include email, role, etc.
+                };
+              }
 
               return value;
             },
