@@ -19,6 +19,7 @@ import { Pages } from './collections/Pages'
 import { Posts } from '@repo/website/src/collections/posts'
 
 import { rolesPlugin } from '@repo/roles'
+import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
@@ -70,6 +71,12 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    magicLinkPlugin({
+      enabled: true,
+      appName: 'Darkhorse Strength',
+      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
+      authCollection: 'users',
+    }),
     rolesPlugin({
       enabled: true,
     }),
