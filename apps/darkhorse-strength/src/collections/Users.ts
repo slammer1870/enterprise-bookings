@@ -42,15 +42,6 @@ export const Users: CollectionConfig = {
   },
   fields: [
     {
-      name: 'name',
-      label: 'Name',
-      type: 'text',
-      required: true,
-      access: {
-        read: () => true,
-      },
-    },
-    {
       name: 'image',
       type: 'upload',
       relationTo: 'media',
