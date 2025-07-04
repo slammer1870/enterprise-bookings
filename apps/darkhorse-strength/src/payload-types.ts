@@ -612,8 +612,8 @@ export interface Lesson {
  */
 export interface User {
   id: number;
-  image?: (number | null) | Media;
   name: string;
+  image?: (number | null) | Media;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
@@ -1135,8 +1135,8 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
-  image?: T;
   name?: T;
+  image?: T;
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;

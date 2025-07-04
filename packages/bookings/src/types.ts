@@ -11,6 +11,7 @@ import {
   PayloadRequest,
   CollectionAfterOperationHook,
   CollectionBeforeOperationHook,
+  CollectionBeforeReadHook,
 } from "payload";
 import { Lesson, User } from "@repo/shared-types";
 
@@ -79,4 +80,5 @@ export type HooksConfig = {
   beforeDelete?: CollectionBeforeDeleteHook[];
   beforeValidate?: CollectionBeforeValidateHook[];
   beforeOperation?: CollectionBeforeOperationHook[];
+  beforeRead?: CollectionBeforeReadHook[];
 };
