@@ -19,7 +19,6 @@ import { Pages } from './collections/Pages'
 import { Posts } from '@repo/website/src/collections/posts'
 
 import { rolesPlugin } from '@repo/roles'
-import { magicLinkPlugin } from '@repo/auth'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
@@ -29,7 +28,7 @@ import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription
 import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
 import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
 
-import { Booking, Lesson, User } from '@repo/shared-types'
+import { Lesson, User } from '@repo/shared-types'
 
 import {
   bookingCreateMembershipDropinAccess,
@@ -71,12 +70,6 @@ export default buildConfig({
   sharp,
   plugins: [
     payloadCloudPlugin(),
-    magicLinkPlugin({
-      enabled: true,
-      appName: 'Darkhorse Strength',
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-    }),
     rolesPlugin({
       enabled: true,
     }),
@@ -122,7 +115,6 @@ export default buildConfig({
               const confirmed = doc.status === 'confirmed'
 
               Promise.resolve().then(async () => {
-
                 if (confirmed) {
                   await req.payload.update({
                     collection: 'lessons',

@@ -3,15 +3,23 @@ import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'
 
+import { isAdminOrUserOrInstructor } from '@repo/shared-services/src/access/is-admin-or-user-or-instructor'
+
 export const Users: CollectionConfig = {
   slug: 'users',
   admin: {
-    useAsTitle: 'email',
+    useAsTitle: 'name',
   },
   access: {
+    create: () => true,
+    read: isAdminOrUserOrInstructor,
+    update: ({ req: { user } }) => checkRole(['admin'], user as User),
+    delete: ({ req: { user } }) => checkRole(['admin'], user as User),
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
   auth: {
+    maxLoginAttempts: 5,
+    tokenExpiration: 604800,
     forgotPassword: {
       generateEmailHTML: (args) => {
         if (!args?.token || !args?.user) return ''
@@ -33,6 +41,15 @@ export const Users: CollectionConfig = {
     },
   },
   fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'text',
+      required: true,
+      access: {
+        read: () => true,
+      },
+    },
     {
       name: 'image',
       type: 'upload',
