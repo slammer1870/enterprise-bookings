@@ -4,6 +4,10 @@ import type { User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
 
 export const adminOrUserOrInstructor: Access = ({ req: { user }, id }) => {
+  if (!user) {
+    return false;
+  }
+
   if (user && checkRole(["admin"], user as unknown as User)) {
     return true;
   }
