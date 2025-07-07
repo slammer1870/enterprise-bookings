@@ -1,20 +1,33 @@
+import type { Access, Where } from "payload";
+import type { User } from "@repo/shared-types";
+
 import { checkRole } from "@repo/shared-utils";
-import { User } from "@repo/shared-types";
-import { AccessArgs } from "payload";
 
-export const isAdminOrUserOrInstructor = async ({
-  req,
-  id,
-  data,
-}: AccessArgs<User>) => {
-  const user = req.user as User | null;
+export const adminOrUserOrInstructor: Access = ({ req: { user }, id }) => {
+  if (user && checkRole(["admin"], user as unknown as User)) {
+    return true;
+  }
 
-  console.log("READING DATA", data);
-  console.log("READING ID", id);
+  if (id) {
+    return {
+      id: {
+        equals: user?.id,
+      },
+    };
+  }
 
-  if (checkRole(["admin"], user as User)) return true;
-
-  if (id && id === user?.id) return true;
-
-  return false;
+  return {
+    or: [
+      {
+        "lessons.instructor": {
+          exists: true,
+        },
+      },
+      {
+        id: {
+          equals: user?.id,
+        },
+      },
+    ],
+  } as Where;
 };
