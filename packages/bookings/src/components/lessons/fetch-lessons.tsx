@@ -55,12 +55,6 @@ export const FetchLessons: React.FC<{
   const endTimeParam =
     searchParams["where[or][0][and][0][endTime][less_than_equal]"];
 
-  let displayDate = new Date();
-  if (endTimeParam && typeof endTimeParam === "string") {
-    // Parse the ISO string and create a local date to avoid DST issues
-    displayDate = new Date(endTimeParam);
-  }
-
   return (
     <div className="mx-20">
       <div className="flex flex-row justify-start items-center mb-4 gap-6">
@@ -80,7 +74,7 @@ export const FetchLessons: React.FC<{
         <DatePicker />
         <div className="flex flex-col gap-4 w-full">
           <span className="text-sm text-gray-500 text-center">
-            {format(displayDate, "EEEE, MMMM d, yyyy")}
+            {format(startTimeParam as string, "EEEE, MMMM d, yyyy")}
           </span>
           <LessonList lessons={lessons} />
         </div>
