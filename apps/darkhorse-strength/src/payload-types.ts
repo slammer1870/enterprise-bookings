@@ -88,6 +88,7 @@ export interface Config {
       bookings: 'bookings';
     };
     users: {
+      lessons: 'lessons';
       userSubscription: 'subscriptions';
     };
     plans: {
@@ -612,8 +613,13 @@ export interface Lesson {
  */
 export interface User {
   id: number;
-  name: string;
   image?: (number | null) | Media;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  name: string;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
@@ -1135,8 +1141,9 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
-  name?: T;
   image?: T;
+  lessons?: T;
+  name?: T;
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;

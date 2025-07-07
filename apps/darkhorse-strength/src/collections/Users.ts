@@ -3,7 +3,7 @@ import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'
 
-import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+import { adminOrUserOrInstructor } from '@repo/shared-services/src/access/is-admin-or-user-or-instructor'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -12,7 +12,7 @@ export const Users: CollectionConfig = {
   },
   access: {
     create: () => true,
-    read: isAdminOrOwner,
+    read: adminOrUserOrInstructor,
     update: ({ req: { user } }) => checkRole(['admin'], user as User),
     delete: ({ req: { user } }) => checkRole(['admin'], user as User),
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
@@ -42,21 +42,21 @@ export const Users: CollectionConfig = {
   },
   fields: [
     {
-      name: 'name',
-      label: 'Name',
-      type: 'text',
-      required: true,
-      access: {
-        read: () => true,
-      },
-    },
-    {
       name: 'image',
       type: 'upload',
       relationTo: 'media',
       required: false,
       access: {
         read: () => true,
+      },
+    },
+    {
+      name: 'lessons',
+      type: 'join',
+      collection: 'lessons',
+      on: 'instructor',
+      admin: {
+        condition: () => false,
       },
     },
     // Email added by default

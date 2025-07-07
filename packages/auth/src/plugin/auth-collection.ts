@@ -66,11 +66,6 @@ export const modifyAuthCollection = (
   // modify access
   // /////////////////////////////////////
 
-  const access = existingCollectionConfig.access || {};
-  access.create = () => true;
-  access.read = adminOrUser;
-  access.admin = ({ req: { user } }) => checkRole(["admin"], user as User);
-
   return {
     ...existingCollectionConfig,
     fields,
@@ -84,6 +79,5 @@ export const modifyAuthCollection = (
       maxLoginAttempts: 5,
       tokenExpiration: 604800, // 7 days in seconds
     },
-    access,
   };
 };

@@ -31,6 +31,9 @@ export const config: Config = {
         // Email added by default
         // Add more fields as needed
       ],
+      access: {
+        create: () => true,
+      },
     },
     {
       slug: "media",
@@ -65,6 +68,7 @@ export const config: Config = {
     magicLinkPlugin({
       enabled: true,
       serverURL: "http://localhost:3000",
+      appName: "Test App",
     }),
     // storage-adapter-placeholder
   ],
