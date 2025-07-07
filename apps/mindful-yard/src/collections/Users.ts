@@ -19,6 +19,15 @@ export const Users: CollectionConfig = {
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
   fields: [
+    {
+      name: 'lessons',
+      type: 'join',
+      collection: 'lessons',
+      on: 'instructor',
+      admin: {
+        condition: () => false,
+      },
+    },
     // Email added by default
     // Add more fields as needed
   ],
