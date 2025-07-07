@@ -50,6 +50,9 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    timezones: {
+      defaultTimezone: 'Europe/Dublin',
+    },
   },
   collections: [Users, Media, Pages, Posts],
   editor: lexicalEditor(),
