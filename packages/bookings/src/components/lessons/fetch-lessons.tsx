@@ -52,7 +52,13 @@ export const FetchLessons: React.FC<{
 
   let displayDate = new Date();
   if (startTimeParam && typeof startTimeParam === "string") {
-    displayDate = new Date(startTimeParam);
+    // Parse the ISO string and create a local date to avoid DST issues
+    const isoDate = new Date(startTimeParam);
+    displayDate = new Date(
+      isoDate.getFullYear(),
+      isoDate.getMonth(),
+      isoDate.getDate()
+    );
   }
 
   return (
