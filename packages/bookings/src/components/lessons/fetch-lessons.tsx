@@ -46,6 +46,15 @@ export const FetchLessons: React.FC<{
 
   const lessons = lessonList.docs as Lesson[];
 
+  // Extract the date from the search parameters
+  const startTimeParam =
+    searchParams["where[or][0][and][0][startTime][greater_than_equal]"];
+
+  let displayDate = new Date();
+  if (startTimeParam && typeof startTimeParam === "string") {
+    displayDate = new Date(startTimeParam);
+  }
+
   return (
     <div className="mx-20">
       <div className="flex flex-row justify-start items-center mb-4 gap-6">
@@ -63,7 +72,17 @@ export const FetchLessons: React.FC<{
       </div>
       <div className="flex flex-col md:flex-row gap-8">
         <DatePicker />
-        <LessonList lessons={lessons} />
+        <div className="flex flex-col gap-4 w-full">
+          <span className="text-sm text-gray-500 text-center">
+            {displayDate.toLocaleDateString("en-GB", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+          <LessonList lessons={lessons} />
+        </div>
       </div>
       <Toaster />
     </div>
