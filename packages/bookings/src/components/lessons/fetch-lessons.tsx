@@ -52,15 +52,13 @@ export const FetchLessons: React.FC<{
   const startTimeParam =
     searchParams["where[or][0][and][0][startTime][greater_than_equal]"];
 
+  const endTimeParam =
+    searchParams["where[or][0][and][0][endTime][less_than_equal]"];
+
   let displayDate = new Date();
-  if (startTimeParam && typeof startTimeParam === "string") {
+  if (endTimeParam && typeof endTimeParam === "string") {
     // Parse the ISO string and create a local date to avoid DST issues
-    const isoDate = new Date(startTimeParam);
-    displayDate = new Date(
-      isoDate.getFullYear(),
-      isoDate.getMonth(),
-      isoDate.getDate()
-    );
+    displayDate = new Date(endTimeParam);
   }
 
   return (
