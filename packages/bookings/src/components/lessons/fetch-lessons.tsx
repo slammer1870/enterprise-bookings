@@ -20,6 +20,8 @@ import { BasePayload } from "payload";
 
 import qs from "qs";
 
+import { format } from "date-fns";
+
 export const FetchLessons: React.FC<{
   params: any;
   searchParams: { [key: string]: string | string[] | undefined };
@@ -80,12 +82,7 @@ export const FetchLessons: React.FC<{
         <DatePicker />
         <div className="flex flex-col gap-4 w-full">
           <span className="text-sm text-gray-500 text-center">
-            {displayDate.toLocaleDateString("en-GB", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {format(displayDate, "EEEE, MMMM d, yyyy")}
           </span>
           <LessonList lessons={lessons} />
         </div>
