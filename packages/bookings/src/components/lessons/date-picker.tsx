@@ -38,7 +38,7 @@ export const DatePicker = () => {
 
   return (
     <>
-      <div className="hidden md:block relative">
+      <div className="hidden md:block">
         <Calendar
           mode="single"
           selected={date}
@@ -64,18 +64,16 @@ export const DatePicker = () => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <div className="relative">
-              <Calendar
-                selected={date}
-                onSelect={setDate}
-                mode="single"
-                defaultMonth={date}
-                showOutsideDays
-                required
-                initialFocus
-                disabled={isPending}
-              />
-            </div>
+            <Calendar
+              selected={date}
+              onSelect={setDate}
+              mode="single"
+              defaultMonth={date}
+              showOutsideDays
+              required
+              initialFocus
+              disabled={isPending}
+            />
           </PopoverContent>
         </Popover>
       </div>
