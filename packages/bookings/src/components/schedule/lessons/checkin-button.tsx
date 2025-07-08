@@ -114,6 +114,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     trialable: "bg-secondary",
     active: "bg-primary",
     booked: "bg-destructive",
+    childrenBooked: "bg-outline",
   };
 
   const buttonVariant: Record<Lesson["bookingStatus"], ButtonVariant> = {
@@ -123,6 +124,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     active: "default",
     booked: "destructive",
     waiting: "destructive",
+    childrenBooked: "outline",
   };
 
   return (
@@ -148,7 +150,9 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
                     ? lesson.classOption.type === "child"
                       ? "Check Child In"
                       : "Check In"
-                    : "Cancel Booking"}
+                    : status === "childrenBooked"
+                      ? "Manage Children"
+                      : "Cancel Booking"}
       </Button>
       <ConfirmationDialog />
     </>

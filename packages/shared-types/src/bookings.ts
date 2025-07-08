@@ -18,7 +18,8 @@ export type Lesson = {
     | "waiting"
     | "closed"
     | "booked"
-    | "trialable";
+    | "trialable"
+    | "childrenBooked";
   originalLockOutTime?: number;
 };
 
