@@ -223,7 +223,7 @@ const defaultAdmin: CollectionAdminOptions = {
     views: {
       list: {
         Component:
-          "@repo/bookings/src/components/lessons/fetch-lessons#FetchLessons",
+          "@repo/bookings/src/components/lessons/lesson-admin#LessonAdmin",
       },
     },
   },
