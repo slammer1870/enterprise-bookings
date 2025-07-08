@@ -68,20 +68,22 @@ export const DatePicker = () => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            {isPending && (
-              <div className="w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-25">
-                <Loader2 className="animate-spin w-24 h-24" />
-              </div>
-            )}
-            <Calendar
-              selected={date}
-              onSelect={setDate}
-              mode="single"
-              defaultMonth={date}
-              showOutsideDays
-              required
-              initialFocus
-            />
+            <div className="relative">
+              {isPending && (
+                <div className="w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-25">
+                  <Loader2 className="animate-spin w-24 h-24" />
+                </div>
+              )}
+              <Calendar
+                selected={date}
+                onSelect={setDate}
+                mode="single"
+                defaultMonth={date}
+                showOutsideDays
+                required
+                initialFocus
+              />
+            </div>
           </PopoverContent>
         </Popover>
       </div>
