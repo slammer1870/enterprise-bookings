@@ -39,11 +39,6 @@ export const DatePicker = () => {
   return (
     <>
       <div className="hidden md:block relative">
-        {isPending && (
-          <div className="w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-25">
-            <Loader2 className="animate-spin w-24 h-24" />
-          </div>
-        )}
         <Calendar
           mode="single"
           selected={date}
@@ -51,6 +46,7 @@ export const DatePicker = () => {
           defaultMonth={date}
           showOutsideDays
           required
+          disabled={isPending}
         />
       </div>
       <div className="py-4 md:hidden">
@@ -69,11 +65,6 @@ export const DatePicker = () => {
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <div className="relative">
-              {isPending && (
-                <div className="w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-25">
-                  <Loader2 className="animate-spin w-24 h-24" />
-                </div>
-              )}
               <Calendar
                 selected={date}
                 onSelect={setDate}
@@ -82,6 +73,7 @@ export const DatePicker = () => {
                 showOutsideDays
                 required
                 initialFocus
+                disabled={isPending}
               />
             </div>
           </PopoverContent>
