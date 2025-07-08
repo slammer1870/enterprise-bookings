@@ -22,7 +22,7 @@ import { UploadFeatureClient as UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0
 import { HorizontalRuleFeatureClient as HorizontalRuleFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { InlineToolbarFeatureClient as InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { FixedToolbarFeatureClient as FixedToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
-import { FetchLessons as FetchLessons_511233d99c928e84af9e3b44860d4aef } from '@repo/bookings/src/components/lessons/fetch-lessons'
+import { LessonAdmin as LessonAdmin_28f82c8ab580570e6e2e631b3f76d105 } from '@repo/bookings/src/components/lessons/lesson-admin'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { Logo as Logo_b07124a4405ca9731d7f918af75bafd0 } from '../../../graphics/logo/index.tsx'
 
@@ -51,7 +51,7 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#HorizontalRuleFeatureClient": HorizontalRuleFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#InlineToolbarFeatureClient": InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#FixedToolbarFeatureClient": FixedToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
-  "@repo/bookings/src/components/lessons/fetch-lessons#FetchLessons": FetchLessons_511233d99c928e84af9e3b44860d4aef,
+  "@repo/bookings/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_28f82c8ab580570e6e2e631b3f76d105,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "/graphics/logo/index.tsx#Logo": Logo_b07124a4405ca9731d7f918af75bafd0
 }
