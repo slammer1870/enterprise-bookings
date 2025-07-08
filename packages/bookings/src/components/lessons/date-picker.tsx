@@ -4,15 +4,21 @@ import { useEffect, useState } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
-import { Calendar } from "./calendar";
+import { Calendar } from "@repo/ui/components/ui/calendar";
 
-import { Button } from "./button";
-import { CalendarIcon } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Button } from "@repo/ui/components/ui/button";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/components/ui/popover";
 import { cn } from "@repo/ui/lib/utils";
 import { format } from "date-fns";
 
 import { getLessonsQuery } from "@repo/shared-utils";
+
+import { useTransition } from "react";
 
 export const DatePicker = () => {
   const router = useRouter();
@@ -22,13 +28,22 @@ export const DatePicker = () => {
 
   const query = getLessonsQuery(date || new Date());
 
+  const [isPending, startTransition] = useTransition();
+
   useEffect(() => {
-    router.push(pathname + query);
+    startTransition(() => {
+      router.push(pathname + query);
+    });
   }, [date]);
 
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden md:block relative">
+        {isPending && (
+          <div className="w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-25">
+            <Loader2 className="animate-spin w-24 h-24" />
+          </div>
+        )}
         <Calendar
           mode="single"
           selected={date}
@@ -53,6 +68,11 @@ export const DatePicker = () => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
+            {isPending && (
+              <div className="w-full h-full absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg opacity-25">
+                <Loader2 className="animate-spin w-24 h-24" />
+              </div>
+            )}
             <Calendar
               selected={date}
               onSelect={setDate}
