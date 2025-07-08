@@ -2,10 +2,11 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig, Field, RelationshipField } from 'payload'
+import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -19,6 +20,11 @@ import { magicLinkPlugin } from '@repo/auth'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
+
+import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
+import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
+import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
+import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
 
 import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
@@ -189,6 +195,18 @@ export default buildConfig({
           },
           ...defaultFields.filter((field: any) => field.name !== 'user'),
         ],
+      },
+    }),
+    stripePlugin({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
+      stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      isTestKey: Boolean(process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY),
+      rest: false,
+      webhooks: {
+        'customer.subscription.created': subscriptionCreated,
+        'customer.subscription.updated': subscriptionUpdated,
+        'customer.subscription.deleted': subscriptionCanceled,
+        'product.updated': productUpdated,
       },
     }),
     // storage-adapter-placeholder

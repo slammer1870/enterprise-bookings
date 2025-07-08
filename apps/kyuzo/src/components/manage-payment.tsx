@@ -9,6 +9,8 @@ import { ManageChildren } from './children/manage-children'
 export const ManagePayment = async ({ plans, lessonId }: { plans?: Plan[]; lessonId: string }) => {
   const activeSubscription = await getActiveSubscription()
 
+  console.log('activeSubscription boolean', !activeSubscription)
+
   const allowedPlans = plans?.filter((plan) => plan.status === 'active')
 
   return (

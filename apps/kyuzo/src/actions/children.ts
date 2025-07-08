@@ -113,13 +113,18 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
       where: {
         id: { in: childrenIds.map((id) => parseInt(id)) },
       },
+      depth: 1,
     })
 
     const children = childrenQuery.docs as User[]
 
     //check if children have parent of user
     children.forEach((child) => {
-      if (child.parent?.id !== user.id) {
+      const parentId = typeof child.parent === 'object' ? child.parent.id : child.parent
+
+      const userId = typeof user === 'object' ? user.id : user
+
+      if (parentId !== userId) {
         throw new Error('User is not parent of children')
       }
     })
