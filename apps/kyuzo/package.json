@@ -26,7 +26,7 @@
     "@payloadcms/plugin-stripe": "*",
     "@payloadcms/richtext-lexical": "*",
     "@payloadcms/ui": "*",
-    "@repo/auth": "workspace:^",
+    "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",
@@ -45,7 +45,7 @@
     "payload": "*",
     "react": "*",
     "react-dom": "*",
-    "react-hook-form": "^7.56.3",
+    "react-hook-form": "*",
     "sharp": "0.33.5",
     "sonner": "2.0.1",
     "zod": "^3.25.67"
