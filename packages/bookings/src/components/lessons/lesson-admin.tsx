@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 
 import Link from "next/link";
 
-import { DatePicker } from "@repo/ui/components/ui/date-picker";
+import { DatePicker } from "./date-picker";
 
 import { Button } from "@payloadcms/ui";
 
@@ -36,7 +36,14 @@ export const LessonAdmin: React.FC<{
       <div className="flex flex-col md:flex-row gap-8">
         <DatePicker />
         <div className="flex flex-col gap-4 w-full">
-          <Suspense fallback={<LessonLoading />}>
+          <Suspense
+            key={
+              searchParams[
+                "where[or][0][and][0][startTime][greater_than_equal]"
+              ] as string
+            }
+            fallback={<LessonLoading />}
+          >
             <FetchLessons
               payload={payload}
               searchParams={searchParams}
