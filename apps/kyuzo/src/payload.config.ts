@@ -181,21 +181,6 @@ export default buildConfig({
           },
         ],
       },
-      subscriptionOverrides: {
-        fields: ({ defaultFields }) => [
-          {
-            name: 'user',
-            type: 'relationship',
-            relationTo: 'users',
-            required: true,
-            hasMany: true,
-            admin: {
-              description: 'The users who are subscribing to the plan',
-            },
-          },
-          ...defaultFields.filter((field: any) => field.name !== 'user'),
-        ],
-      },
     }),
     stripePlugin({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,

@@ -80,12 +80,6 @@ const defaultFields: Field[] = [
     ],
   },
   {
-    name: "quantity",
-    type: "number",
-    required: true,
-    defaultValue: 1,
-  },
-  {
     name: "stripeSubscriptionId",
     type: "text",
     label: "Stripe Subscription ID",

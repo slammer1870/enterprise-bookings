@@ -581,6 +581,10 @@ export interface Subscription {
   endDate?: string | null;
   cancelAt?: string | null;
   stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1096,6 +1100,7 @@ export interface SubscriptionsSelect<T extends boolean = true> {
   endDate?: T;
   cancelAt?: T;
   stripeSubscriptionId?: T;
+  skipSync?: T;
   updatedAt?: T;
   createdAt?: T;
 }

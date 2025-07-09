@@ -17,7 +17,6 @@ export interface Subscription {
   startDate?: string | null;
   endDate?: string | null;
   cancelAt?: string | null;
-  quantity?: number;
   stripeSubscriptionId?: string | null;
   updatedAt: string;
   createdAt: string;

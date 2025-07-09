@@ -80,6 +80,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    users: {
+      lessons: 'lessons';
+    };
     lessons: {
       bookings: 'bookings';
     };
@@ -242,6 +245,11 @@ export interface LocationBlock {
  */
 export interface User {
   id: number;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   roles?: ('customer' | 'admin')[] | null;
   name: string;
   updatedAt: string;
@@ -546,6 +554,7 @@ export interface LocationBlockSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  lessons?: T;
   roles?: T;
   name?: T;
   updatedAt?: T;
