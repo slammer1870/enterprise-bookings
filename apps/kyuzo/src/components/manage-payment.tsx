@@ -1,12 +1,20 @@
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@repo/ui/components/ui/tabs'
-import { Plan } from '@repo/shared-types'
+import { Booking, Plan, User } from '@repo/shared-types'
 
 import { getActiveSubscription } from '@repo/memberships/src/utils/subscription'
 
 import { ManageChildren } from './children/manage-children'
 
-export const ManagePayment = async ({ plans, lessonId }: { plans?: Plan[]; lessonId: string }) => {
+export const ManagePayment = async ({
+  plans,
+  lessonId,
+  bookings,
+}: {
+  plans?: Plan[]
+  lessonId: string
+  bookings: Booking[]
+}) => {
   const activeSubscription = await getActiveSubscription()
 
   const allowedPlans = plans?.filter((plan) => plan.status === 'active')
@@ -38,7 +46,7 @@ export const ManagePayment = async ({ plans, lessonId }: { plans?: Plan[]; lesso
           </Tabs>
         </>
       ) : (
-        <ManageChildren lessonId={lessonId} />
+        <ManageChildren lessonId={lessonId} bookings={bookings} />
       )}
     </>
   )

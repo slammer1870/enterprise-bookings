@@ -1,6 +1,6 @@
 'use client'
 
-import { User } from '@repo/shared-types'
+import { Booking, User } from '@repo/shared-types'
 import { Button } from '@repo/ui/components/ui/button'
 import { useActionState, useState } from 'react'
 import { SelectChildren } from './select-children'
@@ -11,12 +11,16 @@ export const ChildrenBookingForm = ({
   children,
   lessonId,
   lessonBookingLimit,
+  childrenBookings,
 }: {
   children: User[]
   lessonId: string
   lessonBookingLimit: number
+  childrenBookings: Booking[] | null
 }) => {
-  const [selectedChildren, setSelectedChildren] = useState<User[]>([])
+  const [selectedChildren, setSelectedChildren] = useState<User[]>(
+    childrenBookings?.map((booking) => booking.user) || [],
+  )
 
   const handleRemoveChild = (child: User) => {
     setSelectedChildren((prev) => prev?.filter((c) => c.id !== child.id) || [])
@@ -53,12 +57,7 @@ export const ChildrenBookingForm = ({
         {state?.message}
       </p>
 
-      <Button
-        className="w-full"
-        disabled={
-          selectedChildren.length === 0 || selectedChildren.length > lessonBookingLimit || pending
-        }
-      >
+      <Button className="w-full" disabled={selectedChildren.length > lessonBookingLimit || pending}>
         {pending ? 'Completing Booking...' : 'Complete Booking'}
       </Button>
     </form>

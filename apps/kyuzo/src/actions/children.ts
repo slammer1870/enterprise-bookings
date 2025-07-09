@@ -98,7 +98,7 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
   const lessonId = formData.get('lessonId') as string
   const childrenIds = formData.getAll('childrenIds') as string[]
 
-  if (!lessonId || childrenIds.length === 0) {
+  if (!lessonId) {
     throw new Error('Missing required data')
   }
 
@@ -128,6 +128,29 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
         throw new Error('User is not parent of children')
       }
     })
+
+    const hasBookings = await payload.find({
+      collection: 'bookings',
+      where: {
+        lesson: { equals: parseInt(lessonId) },
+        'user.parent': {
+          equals: user.id,
+        },
+      },
+    })
+
+    if (hasBookings.docs.length > 0) {
+      await payload.update({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: parseInt(lessonId) },
+          user: { not_in: children.map((child) => child.id) },
+        },
+        data: {
+          status: 'cancelled',
+        },
+      })
+    }
 
     // Create all bookings
     for (const child of children) {
@@ -159,21 +182,23 @@ export const createChildrensBookings = async (prevState: any, formData: FormData
             overrideAccess: false,
             user: child,
           })
+
+          continue
+        } else {
+          const booking = await payload.create({
+            collection: 'bookings',
+            data: {
+              lesson: parseInt(lessonId),
+              user: child.id,
+              status: 'confirmed',
+            },
+            overrideAccess: false,
+            user: child,
+          })
+
+          console.log('Booking created:', booking)
+          revalidatePath('/bookings')
         }
-
-        const booking = await payload.create({
-          collection: 'bookings',
-          data: {
-            lesson: parseInt(lessonId),
-            user: child.id,
-            status: 'confirmed',
-          },
-          overrideAccess: false,
-          user: child,
-        })
-
-        console.log('Booking created:', booking)
-        revalidatePath('/bookings')
       } catch (error) {
         console.error(`Failed to create booking for child ${child.id}:`, error)
         if (error instanceof APIError) {
