@@ -15,7 +15,7 @@ export const ManageChildren = async ({
   lessonId: string
   bookings: Booking[]
 }) => {
-  const { user } = await getMeUser()
+  const { user } = await getMeUser({ nullUserRedirect: '/login' })
 
   const children = await getChildren()
 

@@ -8,7 +8,7 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { ChildrensBooking } from '@/components/childrens-booking'
+import { ChildrensBooking } from '@/components/children'
 
 export default async function ChildrenBookingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

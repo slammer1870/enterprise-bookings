@@ -2,11 +2,11 @@ import { Lesson, User } from '@repo/shared-types'
 
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 
-import { ManagePayment } from './manage-payment'
+import { ManagePayment } from '../manage-payment'
 import { getMeUser } from '@repo/shared-services/src/user'
 
 export const ChildrensBooking = async ({ lesson }: { lesson: Lesson }) => {
-  const { user } = await getMeUser()
+  const { user } = await getMeUser({ nullUserRedirect: '/login' })
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
