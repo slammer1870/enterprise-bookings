@@ -30,8 +30,6 @@ const validatePlanLimit = async (
 
   if (!["child", "family"].includes(plan.type)) return false;
 
-  console.log("plan", plan);
-
   const bookings = await payload.find({
     collection: "bookings",
     where: {
