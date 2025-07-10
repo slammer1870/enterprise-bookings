@@ -3,6 +3,7 @@ import React, { Fragment } from 'react'
 import type { Page } from '@/payload-types'
 
 import { HeroBlock } from './hero'
+import { AboutBlock } from './about'
 
 import ScheduleComponent from '@/components/schedule'
 
@@ -10,6 +11,7 @@ import { FormBlock } from '@repo/website/src/blocks/form/index'
 
 const blockComponents = {
   hero: HeroBlock,
+  about: AboutBlock,
   'form-block': FormBlock,
   schedule: ScheduleComponent,
 }

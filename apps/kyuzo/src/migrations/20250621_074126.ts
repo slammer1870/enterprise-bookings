@@ -549,7 +549,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   ALTER TABLE "class_options_rels" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "transactions" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "subscriptions" DISABLE ROW LEVEL SECURITY;
-  ALTER TABLE "subscriptions_rels" DISABLE ROW LEVEL SECURITY;
+  ALTER TABLE IF EXISTS "subscriptions_rels" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "plans_features" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "plans" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "navbar_navigation_items" DISABLE ROW LEVEL SECURITY;
@@ -580,7 +580,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP TABLE "class_options_rels" CASCADE;
   DROP TABLE "transactions" CASCADE;
   DROP TABLE "subscriptions" CASCADE;
-  DROP TABLE "subscriptions_rels" CASCADE;
+  DROP TABLE IF EXISTS "subscriptions_rels" CASCADE;
   DROP TABLE "plans_features" CASCADE;
   DROP TABLE "plans" CASCADE;
   DROP TABLE "navbar_navigation_items" CASCADE;

@@ -1,6 +1,7 @@
 import { CollectionConfig } from 'payload'
 
 import { Hero } from '@/blocks/hero/config'
+import { About } from '@/blocks/about/config'
 
 import { FormBlock } from '@repo/website/src/blocks/form/config'
 
@@ -31,7 +32,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, Schedule, FormBlock],
+      blocks: [Hero, Schedule, FormBlock, About],
     },
   ],
   hooks: {
