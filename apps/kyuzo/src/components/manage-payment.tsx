@@ -21,7 +21,7 @@ export const ManagePayment = async ({
 
   return (
     <>
-      {plans && !activeSubscription ? (
+      {plans && activeSubscription?.status !== 'active' ? (
         <>
           <div className="">
             <h4 className="font-medium">Payment Methods</h4>

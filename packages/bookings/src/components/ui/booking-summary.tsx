@@ -1,8 +1,11 @@
 "use client";
 
-import { CalendarIcon, Clock, ClipboardCheck, Users } from "lucide-react";
+import { CalendarIcon, Clock, ClipboardCheck } from "lucide-react";
+
 import { format } from "date-fns";
+
 import { BookingDetails } from "@repo/shared-types";
+
 import {
   Card,
   CardContent,

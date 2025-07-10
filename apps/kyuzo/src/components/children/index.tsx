@@ -1,4 +1,4 @@
-import { Lesson, User } from '@repo/shared-types'
+import { Lesson } from '@repo/shared-types'
 
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 

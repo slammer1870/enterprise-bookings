@@ -1,20 +1,16 @@
-import { AccessArgs, CollectionSlug } from "payload";
-
-import { Access } from "payload";
-
-import { BookingsPluginConfig } from "../types";
-
-import { Booking, Lesson, User, Subscription, Plan } from "@repo/shared-types";
-
-import { hasReachedSubscriptionLimit } from "@repo/shared-services";
-
+import { Booking, Lesson, User } from "@repo/shared-types";
+import { AccessArgs } from "payload";
+import { validateLessonStatus } from "../lesson";
+import { validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
 
-export const bookingCreateAccess = async ({
+export const childrenCreateBookingMembershipAccess = async ({
   req,
   data,
-}: AccessArgs<Booking>) => {
-  const user = req.user as User | null;
+}: AccessArgs<Booking>): Promise<boolean> => {
+  let user = req.user as User | null;
+
+  if (!user) return false;
 
   if (!data?.lesson) return false;
 
@@ -26,45 +22,41 @@ export const bookingCreateAccess = async ({
       collection: "lessons",
       id: lessonId,
       depth: 3,
-    })) as unknown as Lesson;
+    })) as Lesson;
 
     if (!lesson) return false;
 
-    if (!user) return false;
+    if (lesson.classOption.type == "child") {
+      if (!user.parent.id) return false;
 
-    if (checkRole(["admin"], user)) return true;
+      user = (await req.payload.findByID({
+        collection: "users",
+        id: user.parent.id,
+      })) as User;
+    }
 
     if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
       return true;
     }
 
-    if (
-      lesson.bookingStatus === "closed" ||
-      lesson.bookingStatus === "booked"
-    ) {
-      return false;
-    }
+    if (!validateLessonStatus(lesson)) return false;
 
-    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-    //   return false;
-    // }
+    return await validateLessonPaymentMethods(lesson, user, req.payload);
 
-    return true;
+    //check that number of children is booked is less than the number of or equal number of children on plan
   } catch (error) {
-    console.error(error);
+    console.error("Error in childrenCreateBookingMembershipAccess", error);
     return false;
   }
 };
 
-export const bookingUpdateAccess = async ({
+export const childrenUpdateBookingMembershipAccess = async ({
   req,
   id,
-  data,
-}: AccessArgs<Booking>) => {
+}: AccessArgs<Booking>): Promise<boolean> => {
   const searchParams = req.searchParams;
 
   const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
-
   const userId =
     searchParams.get("where[and][1][user][equals]") || req.user?.id;
 
@@ -100,46 +92,30 @@ export const bookingUpdateAccess = async ({
       depth: 3,
     })) as unknown as Lesson;
 
-    const user = (await req.payload.findByID({
-      collection: "users",
-      id: userId || booking.user.id,
-      depth: 3,
-    })) as unknown as User;
+    let user = req.user as User | null;
+
+    if (lesson.classOption.type == "child") {
+      if (!user?.parent.id) return false;
+
+      user = (await req.payload.findByID({
+        collection: "users",
+        id: user.parent.id,
+      })) as User;
+    }
 
     if (!lesson || !user) return false;
 
     if (checkRole(["admin"], user)) return true;
 
-    if (req.user?.id !== user.id) return false;
+    if (req.user?.parent?.id !== user.id) return false;
 
     if (req.data?.status === "cancelled") return true;
 
-    if (
-      lesson.bookingStatus == "closed" ||
-      lesson.bookingStatus == "waitlist"
-    ) {
-      return false;
-    }
+    if (!validateLessonStatus(lesson)) return false;
 
-    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-    //   return false;
-    // }
-
-    return true;
+    return await validateLessonPaymentMethods(lesson, user, req.payload);
   } catch (error) {
-    console.error("Error in bookingUpdateAccess:", error);
+    console.error(error);
     return false;
   }
-};
-
-export const isAdminOrOwner = ({ req }: AccessArgs<Booking>) => {
-  const user = req.user as User | null;
-
-  if (!user) return false;
-
-  if (checkRole(["admin"], user)) return true;
-
-  return {
-    user: { equals: user.id },
-  };
 };

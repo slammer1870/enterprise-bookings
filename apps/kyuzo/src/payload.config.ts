@@ -30,6 +30,11 @@ import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
 import { Pages } from './collections/Pages'
 
+import {
+  childrenCreateBookingMembershipAccess,
+  childrenUpdateBookingMembershipAccess,
+} from '@repo/shared-services/src/access/children-booking-membership'
+
 import { Posts } from '@repo/website/src/collections/posts'
 
 const filename = fileURLToPath(import.meta.url)
@@ -145,6 +150,12 @@ export default buildConfig({
             ],
           },
         ],
+      },
+      bookingOverrides: {
+        access: {
+          create: childrenCreateBookingMembershipAccess,
+          update: childrenUpdateBookingMembershipAccess,
+        },
       },
     }),
     paymentsPlugin({
