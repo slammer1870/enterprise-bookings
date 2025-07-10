@@ -1,8 +1,50 @@
-import { Booking, Lesson, User } from "@repo/shared-types";
-import { AccessArgs } from "payload";
+import { Booking, Lesson, Subscription, User } from "@repo/shared-types";
+import { AccessArgs, Payload } from "payload";
 import { validateLessonStatus } from "../lesson";
 import { validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
+
+const validatePlanLimit = async (
+  lesson: Lesson,
+  user: User,
+  payload: Payload
+) => {
+  const subscriptionQuery = await payload.find({
+    collection: "subscriptions",
+    where: {
+      user: { equals: user.id },
+      status: { equals: "active" },
+      startDate: { less_than_equal: new Date().toISOString() },
+      endDate: { greater_than_equal: new Date().toISOString() },
+    },
+    depth: 4,
+  });
+
+  const subscription = subscriptionQuery.docs[0] as Subscription | undefined;
+
+  if (!subscription) return false;
+
+  const plan = subscription.plan;
+
+  if (!plan) return false;
+
+  if (!["child", "family"].includes(plan.type)) return false;
+
+  console.log("plan", plan);
+
+  const bookings = await payload.find({
+    collection: "bookings",
+    where: {
+      lesson: { equals: lesson.id },
+      "user.parent": { equals: user.id },
+      status: { equals: "confirmed" },
+    },
+  });
+
+  if (!(bookings.docs.length <= plan.quantity)) return false;
+
+  return true;
+};
 
 export const childrenCreateBookingMembershipAccess = async ({
   req,
@@ -40,6 +82,8 @@ export const childrenCreateBookingMembershipAccess = async ({
     }
 
     if (!validateLessonStatus(lesson)) return false;
+
+    if (!(await validatePlanLimit(lesson, user, req.payload))) return false;
 
     return await validateLessonPaymentMethods(lesson, user, req.payload);
 
@@ -112,6 +156,8 @@ export const childrenUpdateBookingMembershipAccess = async ({
     if (req.data?.status === "cancelled") return true;
 
     if (!validateLessonStatus(lesson)) return false;
+
+    if (!(await validatePlanLimit(lesson, user, req.payload))) return false;
 
     return await validateLessonPaymentMethods(lesson, user, req.payload);
   } catch (error) {
