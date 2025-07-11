@@ -514,7 +514,6 @@ export const schedulerGlobal: GlobalConfig = {
   hooks: {
     afterChange: [
       ({ req, doc }) => {
-        // Only generate lessons on create, not on update to avoid circular references
         generateLessonsFromSchedule(req.payload, doc);
 
         return doc;
