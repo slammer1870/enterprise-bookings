@@ -8,7 +8,26 @@ import { Booking, Lesson, User } from '@repo/shared-types'
 import { LessonCard } from './_components/lesson-card'
 import { createBooking } from './actions'
 
+import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+
+import { checkRole } from '@repo/shared-utils/src/check-role'
+
 export default async function KioskPage() {
+  const { user } = await getMeUser({ nullUserRedirect: '/login' })
+
+  if (!checkRole(['admin'], user)) {
+    return (
+      <div className="flex flex-col gap-4 min-h-screen container mx-auto p-4 pt-24">
+        <div className="flex flex-col gap-4">
+          <h1 className="text-2xl font-bold text-center mx-auto">Kyuzo Booking Kiosk</h1>
+          <p className="text-sm text-center mx-auto text-red-500">
+            You are not authorized to access this page
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const payload = await getPayload({
     config,
   })

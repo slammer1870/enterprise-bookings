@@ -4,50 +4,12 @@ import { validateLessonStatus } from "../lesson";
 import { validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
 
-const validatePlanLimit = async (
-  lesson: Lesson,
-  user: User,
-  payload: Payload
-) => {
-  const subscriptionQuery = await payload.find({
-    collection: "subscriptions",
-    where: {
-      user: { equals: user.id },
-      status: { equals: "active" },
-      startDate: { less_than_equal: new Date().toISOString() },
-      endDate: { greater_than_equal: new Date().toISOString() },
-    },
-    depth: 4,
-  });
-
-  const subscription = subscriptionQuery.docs[0] as Subscription | undefined;
-
-  if (!subscription) return false;
-
-  const plan = subscription.plan;
-
-  if (!plan) return false;
-
-  if (!["child", "family"].includes(plan.type)) return false;
-
-  const bookings = await payload.find({
-    collection: "bookings",
-    where: {
-      lesson: { equals: lesson.id },
-      "user.parent": { equals: user.id },
-      status: { equals: "confirmed" },
-    },
-  });
-
-  if (!(bookings.docs.length <= plan.quantity)) return false;
-
-  return true;
-};
-
 export const childrenCreateBookingMembershipAccess = async ({
   req,
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
+  if (!req.user) return false;
+
   const userId = typeof req.user === "object" ? req.user.id : req.user;
 
   if (!userId) return false;
@@ -108,6 +70,8 @@ export const childrenUpdateBookingMembershipAccess = async ({
   req,
   id,
 }: AccessArgs<Booking>): Promise<boolean> => {
+  if (!req.user) return false;
+
   const searchParams = req.searchParams;
 
   const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
