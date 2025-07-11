@@ -144,8 +144,6 @@ export const checkUserSubscription = async (
     if (lesson.classOption.type === "child") {
       const plan = subscription.plan as Plan;
 
-      console.log("PLAN", plan);
-
       if (!plan) return false;
 
       if (!["child", "family"].includes(plan.type)) return false;
@@ -161,7 +159,7 @@ export const checkUserSubscription = async (
 
       const quantity = plan.quantity || 1;
 
-      if (!(bookings.docs.length <= quantity)) return false;
+      if (bookings.totalDocs >= quantity) return false;
     }
 
     return true;
