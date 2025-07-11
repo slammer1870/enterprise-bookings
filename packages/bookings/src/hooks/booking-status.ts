@@ -39,7 +39,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     classOption.type === "child" &&
     bookings.some((booking: Booking) => {
       const parentId =
-        typeof booking.user.parent === "object"
+        typeof booking.user.parent === "object" && booking.user.parent !== null
           ? (booking.user.parent as unknown as User).id
           : (booking.user.parent as unknown as User);
 
