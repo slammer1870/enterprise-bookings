@@ -85,7 +85,9 @@ export const LessonCard = ({
               minute: '2-digit',
             })}
           </CardDescription>
-          <CardTitle>{lesson.classOption.name}</CardTitle>
+          <CardTitle>
+            {lesson.classOption.name} {lesson.location && `- ${lesson.location}`}
+          </CardTitle>
         </CardHeader>
         <CardFooter className="flex justify-between gap-4">
           <Popover open={open} onOpenChange={setOpen}>
@@ -157,7 +159,6 @@ export const LessonCard = ({
           <Button onClick={handleCheckIn} disabled={isLoading || !value}>
             {isLoading ? <Loader2 className="animate-spin" /> : 'Check In'}
           </Button>
-          {error && <p className="text-red-500">{error}</p>}
         </CardFooter>
       </Card>
       <Dialog open={error !== null} onOpenChange={() => setError(null)}>

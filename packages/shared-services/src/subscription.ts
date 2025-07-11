@@ -141,6 +141,29 @@ export const checkUserSubscription = async (
     );
     if (reachedLimit) return false;
 
+    if (lesson.classOption.type === "child") {
+      const plan = subscription.plan as Plan;
+
+      console.log("PLAN", plan);
+
+      if (!plan) return false;
+
+      if (!["child", "family"].includes(plan.type)) return false;
+
+      const bookings = await payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: lesson.id },
+          "user.parent": { equals: user.id },
+          status: { equals: "confirmed" },
+        },
+      });
+
+      const quantity = plan.quantity || 1;
+
+      if (!(bookings.docs.length <= quantity)) return false;
+    }
+
     return true;
   } catch (error) {
     console.error("Error checking subscription:", error);

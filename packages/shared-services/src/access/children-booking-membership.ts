@@ -50,8 +50,6 @@ export const childrenCreateBookingMembershipAccess = async ({
 }: AccessArgs<Booking>): Promise<boolean> => {
   const userId = typeof req.user === "object" ? req.user.id : req.user;
 
-  console.log("USER", userId);
-
   if (!userId) return false;
 
   let user: User;
@@ -62,6 +60,8 @@ export const childrenCreateBookingMembershipAccess = async ({
   })) as User;
 
   if (!user) return false;
+
+  if (checkRole(["admin"], user)) return true;
 
   if (!data?.lesson) return false;
 
@@ -75,8 +75,6 @@ export const childrenCreateBookingMembershipAccess = async ({
       depth: 3,
     })) as Lesson;
 
-    console.log("LESSON", lesson);
-
     if (!lesson) return false;
 
     if (lesson.classOption.type == "child") {
@@ -89,8 +87,6 @@ export const childrenCreateBookingMembershipAccess = async ({
         collection: "users",
         id: parentId,
       })) as User;
-
-      console.log("PARENT USER", user);
     }
 
     if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
@@ -173,8 +169,6 @@ export const childrenUpdateBookingMembershipAccess = async ({
     if (!lesson || !user) return false;
 
     if (checkRole(["admin"], user)) return true;
-
-    if (req.user?.parent?.id !== user.id) return false;
 
     if (req.data?.status === "cancelled") return true;
 
