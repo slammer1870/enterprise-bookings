@@ -48,7 +48,18 @@ export const childrenCreateBookingMembershipAccess = async ({
   req,
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
-  let user = req.user as User | null;
+  const userId = typeof req.user === "object" ? req.user.id : req.user;
+
+  console.log("USER", userId);
+
+  if (!userId) return false;
+
+  let user: User;
+
+  user = (await req.payload.findByID({
+    collection: "users",
+    id: userId,
+  })) as User;
 
   if (!user) return false;
 
@@ -64,15 +75,22 @@ export const childrenCreateBookingMembershipAccess = async ({
       depth: 3,
     })) as Lesson;
 
+    console.log("LESSON", lesson);
+
     if (!lesson) return false;
 
     if (lesson.classOption.type == "child") {
-      if (!user.parent.id) return false;
+      if (!user.parent) return false;
+
+      const parentId =
+        typeof user.parent === "object" ? user.parent.id : user.parent;
 
       user = (await req.payload.findByID({
         collection: "users",
-        id: user.parent.id,
+        id: parentId,
       })) as User;
+
+      console.log("PARENT USER", user);
     }
 
     if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
@@ -80,8 +98,6 @@ export const childrenCreateBookingMembershipAccess = async ({
     }
 
     if (!validateLessonStatus(lesson)) return false;
-
-    if (!(await validatePlanLimit(lesson, user, req.payload))) return false;
 
     return await validateLessonPaymentMethods(lesson, user, req.payload);
 
@@ -100,11 +116,19 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
   const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
   const userId =
-    searchParams.get("where[and][1][user][equals]") || req.user?.id;
+    searchParams.get("where[and][1][user][equals]") ||
+    (typeof req.user === "object" ? req.user.id : req.user);
 
-  if (!lessonId) return false;
+  if (!lessonId || !userId) return false;
 
   let booking: Booking | undefined;
+
+  let user: User;
+
+  user = (await req.payload.findByID({
+    collection: "users",
+    id: userId,
+  })) as User;
 
   try {
     if (id) {
@@ -134,14 +158,15 @@ export const childrenUpdateBookingMembershipAccess = async ({
       depth: 3,
     })) as unknown as Lesson;
 
-    let user = req.user as User | null;
-
     if (lesson.classOption.type == "child") {
-      if (!user?.parent.id) return false;
+      if (!user?.parent) return false;
+
+      const parentId =
+        typeof user.parent === "object" ? user.parent.id : user.parent;
 
       user = (await req.payload.findByID({
         collection: "users",
-        id: user.parent.id,
+        id: parentId,
       })) as User;
     }
 
@@ -154,8 +179,6 @@ export const childrenUpdateBookingMembershipAccess = async ({
     if (req.data?.status === "cancelled") return true;
 
     if (!validateLessonStatus(lesson)) return false;
-
-    if (!(await validatePlanLimit(lesson, user, req.payload))) return false;
 
     return await validateLessonPaymentMethods(lesson, user, req.payload);
   } catch (error) {

@@ -3,10 +3,7 @@ import { checkUserSubscription } from "./subscription";
 
 // Helper function to validate lesson status and capacity
 export const validateLessonStatus = (lesson: Lesson): boolean => {
-  if (
-    lesson.bookingStatus === "closed" ||
-    lesson.bookingStatus === "booked"
-  ) {
+  if (lesson.bookingStatus === "closed" || lesson.bookingStatus === "booked") {
     return false;
   }
 
