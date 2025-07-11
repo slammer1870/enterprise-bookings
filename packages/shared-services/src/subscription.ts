@@ -146,7 +146,7 @@ export const checkUserSubscription = async (
 
       if (!plan) return false;
 
-      if (!["child", "family"].includes(plan.type)) return false;
+      if (!plan.type || !["child", "family"].includes(plan.type)) return false;
 
       const bookings = await payload.find({
         collection: "bookings",
