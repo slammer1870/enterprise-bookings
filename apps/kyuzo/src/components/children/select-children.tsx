@@ -64,29 +64,26 @@ export const SelectChildren = ({
             <CommandList>
               <CommandEmpty>No children found.</CommandEmpty>
               <CommandGroup>
-                {childrenData
-                  ?.filter(
-                    (child) => !selectedChildren?.some((selected) => selected.id === child.id),
-                  )
-                  .map((child) => (
-                    <CommandItem
-                      value={`${child.email}`}
-                      key={child.id}
-                      onSelect={() => {
-                        handleSelectChild(child)
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          'mr-2 h-4 w-4',
-                          child.id === selectedChildren?.find((c) => c.id === child.id)?.id
-                            ? 'opacity-100'
-                            : 'opacity-0',
-                        )}
-                      />
-                      {child.name} - {child.email}
-                    </CommandItem>
-                  ))}
+                {childrenData?.map((child) => (
+                  <CommandItem
+                    value={`${child.email}`}
+                    key={child.id}
+                    onSelect={() => {
+                      handleSelectChild(child)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        child.email ===
+                          selectedChildren?.find((c) => c.email === child.email)?.email
+                          ? 'opacity-100'
+                          : 'opacity-0',
+                      )}
+                    />
+                    {child.name} - {child.email}
+                  </CommandItem>
+                ))}
               </CommandGroup>
             </CommandList>
           </Command>
