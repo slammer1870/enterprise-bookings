@@ -35,5 +35,11 @@ export const bookingsPlugin =
 
     config.collections = collections;
 
+    let timezones = config.admin?.timezones || {
+      defaultTimezone: "Europe/Dublin",
+    };
+
+    config.admin!.timezones = timezones;
+
     return config;
   };
