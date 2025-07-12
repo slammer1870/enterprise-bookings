@@ -49,6 +49,9 @@ export default buildConfig({
         Logo: '/graphics/logo/index.tsx#Logo',
       },
     },
+    timezones: {
+      defaultTimezone: 'Europe/Dublin',
+    },
   },
   collections: [Users, Media, Pages, Posts],
   globals: [Navbar, Footer],
