@@ -22,7 +22,10 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
         </Link>
         {user ? (
           <div className="flex gap-4 items-center justify-end cursor-pointer">
-            <Link href="/dashboard" className={`${pathname === '/' ? 'text-white' : 'text-black'}`}>
+            <Link
+              href="/dashboard"
+              className={`${pathname === '/' ? 'text-black lg:text-white' : 'text-black'}`}
+            >
               Members
             </Link>
             <Button onClick={() => logout()}>Logout</Button>
