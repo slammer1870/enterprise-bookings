@@ -29,6 +29,10 @@ export const membershipsPlugin =
       return config;
     }
 
+    let timezones = config.admin?.timezones || {
+      defaultTimezone: "Europe/Dublin",
+    };
+
     let collections = config.collections || [];
 
     const endpoints = config.endpoints || [];
@@ -133,6 +137,8 @@ export const membershipsPlugin =
 
     config.collections = collections;
     config.endpoints = endpoints;
+
+    config.admin.timezones = timezones;
 
     return config;
   };
