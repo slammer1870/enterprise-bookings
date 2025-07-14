@@ -10,7 +10,7 @@ export default defineConfig({
   // Fail the build on CI if you accidentally left test.only in the source code.
   forbidOnly: !!process.env.CI,
 
-  globalSetup: './tests/global-setup',
+  //globalSetup: './tests/global-setup',
 
   // Retry on CI only.
   retries: process.env.CI ? 2 : 0,
