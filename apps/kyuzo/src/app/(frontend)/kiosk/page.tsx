@@ -3,7 +3,7 @@ import config from '@payload-config'
 
 import { getDayRange } from '@repo/shared-utils'
 
-import { Booking, Lesson, User } from '@repo/shared-types'
+import { Lesson, User } from '@repo/shared-types'
 
 import { LessonCard } from './_components/lesson-card'
 import { createBooking } from './actions'

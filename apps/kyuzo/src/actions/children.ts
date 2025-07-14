@@ -93,7 +93,7 @@ export const createChild = async (childData: ChildData) => {
   }
 }
 
-export const createChildrensBookings = async (prevState: any, formData: FormData) => {
+export const createChildrensBookings = async (prevState: { message?: string }, formData: FormData) => {
   // Get data from form data
   const lessonId = formData.get('lessonId') as string
   const childrenIds = formData.getAll('childrenIds') as string[]

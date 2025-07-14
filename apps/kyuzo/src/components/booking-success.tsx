@@ -9,11 +9,11 @@ export const BookingSuccess = () => {
   const lessonId = searchParams.get('lesson')
   const success = searchParams.get('success')
 
-  if (!lessonId || !success) {
-    return null
-  }
-
   useEffect(() => {
+    if (!lessonId || !success) {
+      return
+    }
+
     const fetchLesson = async () => {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${lessonId}?depth=2`,
@@ -37,7 +37,11 @@ export const BookingSuccess = () => {
     }
 
     fetchLesson()
-  }, [lessonId])
+  }, [lessonId, success])
+
+  if (!lessonId || !success) {
+    return null
+  }
 
   return <></>
 }

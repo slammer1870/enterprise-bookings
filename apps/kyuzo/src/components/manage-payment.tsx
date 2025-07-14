@@ -1,6 +1,6 @@
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@repo/ui/components/ui/tabs'
-import { Booking, Plan, User } from '@repo/shared-types'
+import { Booking, Plan } from '@repo/shared-types'
 
 import { getActiveSubscription } from '@repo/memberships/src/utils/subscription'
 

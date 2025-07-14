@@ -8,12 +8,12 @@ import { createChildrensBookings } from '@/actions/children'
 import { SelectedChildren } from './selected-children'
 
 export const ChildrenBookingForm = ({
-  children,
+  childrenData,
   lessonId,
   lessonBookingLimit,
   childrenBookings,
 }: {
-  children: User[]
+  childrenData: User[]
   lessonId: string
   lessonBookingLimit: number
   childrenBookings: Booking[] | null
@@ -44,7 +44,7 @@ export const ChildrenBookingForm = ({
       />
       {selectedChildren.length < lessonBookingLimit ? (
         <SelectChildren
-          childrenData={children}
+          childrenData={childrenData}
           selectedChildren={selectedChildren}
           setSelectedChildren={setSelectedChildren}
         />

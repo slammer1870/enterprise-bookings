@@ -1,5 +1,3 @@
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
-
 import { getLesson } from '@repo/bookings/src/utils/lesson'
 import { Subscription } from '@repo/shared-types'
 

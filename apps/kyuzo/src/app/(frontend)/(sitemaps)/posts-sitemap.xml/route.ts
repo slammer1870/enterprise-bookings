@@ -3,6 +3,11 @@ import { getPayload, CollectionSlug } from 'payload'
 import config from '@payload-config'
 import { unstable_cache } from 'next/cache'
 
+interface PostDoc {
+  slug?: string
+  updatedAt?: string
+}
+
 const getPostsSitemap = unstable_cache(
   async () => {
     const payload = await getPayload({ config })
@@ -18,11 +23,6 @@ const getPostsSitemap = unstable_cache(
       depth: 0,
       limit: 1000,
       pagination: false,
-      where: {
-        _status: {
-          equals: 'published',
-        },
-      },
       select: {
         slug: true,
         updatedAt: true,
@@ -33,11 +33,13 @@ const getPostsSitemap = unstable_cache(
 
     const sitemap = results.docs
       ? results.docs
-          .filter((post: any) => Boolean(post?.slug))
-          .map((post: any) => ({
-            loc: `${SITE_URL}/posts/${post?.slug}`,
-            lastmod: post.updatedAt || dateFallback,
-          }))
+          .filter((post: PostDoc) => Boolean(post?.slug))
+          .map((post: PostDoc) => {
+            return {
+              loc: `${SITE_URL}/posts/${post?.slug}`,
+              lastmod: post.updatedAt || dateFallback,
+            }
+          })
       : []
 
     return sitemap

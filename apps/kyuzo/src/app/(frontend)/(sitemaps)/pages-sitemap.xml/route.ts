@@ -3,6 +3,11 @@ import { getPayload, CollectionSlug } from 'payload'
 import config from '@payload-config'
 import { unstable_cache } from 'next/cache'
 
+interface PageDoc {
+  slug?: string
+  updatedAt?: string
+}
+
 const getPagesSitemap = unstable_cache(
   async () => {
     const payload = await getPayload({ config })
@@ -39,8 +44,8 @@ const getPagesSitemap = unstable_cache(
 
     const sitemap = results.docs
       ? results.docs
-          .filter((page: any) => Boolean(page?.slug))
-          .map((page: any) => {
+          .filter((page: PageDoc) => Boolean(page?.slug))
+          .map((page: PageDoc) => {
             return {
               loc: page?.slug === 'home' ? `${SITE_URL}/` : `${SITE_URL}/${page?.slug}`,
               lastmod: page.updatedAt || dateFallback,

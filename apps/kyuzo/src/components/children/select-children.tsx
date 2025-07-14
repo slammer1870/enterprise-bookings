@@ -19,7 +19,6 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react'
 
 import { AddChild } from './add-child'
-import { SelectedChildren } from './selected-children'
 
 type SelectChildrenProps = {
   childrenData: User[] | null

@@ -24,6 +24,24 @@ test.describe('Auth', () => {
         password: 'password',
       },
     })
+
+    const user = await payload.find({
+      collection: 'users',
+      where: {
+        email: {
+          equals: 'test@example.com',
+        },
+      },
+    })
+
+    if (user.totalDocs > 0) {
+      await payload.delete({
+        collection: 'users',
+        id: user.docs[0].id.toString(),
+      })
+    }
+
+    console.log(user)
   })
 
   test('should register', async ({ page }) => {

@@ -29,7 +29,7 @@ export const ManageChildren = async ({
 
   return (
     <ChildrenBookingForm
-      children={children}
+      childrenData={children}
       lessonId={lessonId}
       lessonBookingLimit={lessonBookingLimit}
       childrenBookings={childrenBookings}
