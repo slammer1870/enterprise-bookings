@@ -16,6 +16,10 @@ const config = {
     "../../apps/kyuzo/src/blocks/**/*.{ts,tsx}",
     "../../apps/kyuzo/src/globals/**/*.{ts,tsx}",
     "../../apps/kyuzo/src/graphics/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/blocks/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/globals/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/graphics/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/app/(frontend)/**/*.{ts,tsx,js,jsx}",
   ],
   theme: {
     extend: {

@@ -18,6 +18,7 @@
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
   },
   "dependencies": {
+    "@hookform/resolvers": "4.1.0",
     "@payloadcms/db-postgres": "3.47.0",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
@@ -43,11 +44,16 @@
     "dotenv": "16.4.7",
     "graphql": "^16.8.1",
     "http-status": "^2.1.0",
+    "lucide-react": "0.475.0",
     "next": "15.3.2",
+    "next-plausible": "^3.12.4",
     "payload": "3.47.0",
     "react": "19.1.0",
+    "react-hook-form": "*",
     "sharp": "0.34.2",
-    "ts-essentials": "^10.1.1"
+    "sonner": "2.0.1",
+    "ts-essentials": "^10.1.1",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@playwright/test": "1.50.0",

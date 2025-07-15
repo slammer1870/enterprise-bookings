@@ -33,7 +33,7 @@ import {
   childrenUpdateBookingMembershipAccess,
 } from '@repo/shared-services/src/access/children-booking-membership'
 
-//import { Posts } from '@repo/website/src/collections/posts'
+import { Posts } from '@repo/website/src/collections/posts'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -53,7 +53,7 @@ export const config: Config = {
       defaultTimezone: 'Europe/Dublin',
     },
   },
-  collections: [Users, Media, Pages],
+  collections: [Users, Media, Pages, Posts],
   globals: [Navbar, Footer],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
@@ -153,8 +153,8 @@ export const config: Config = {
       },
       bookingOverrides: {
         access: {
-          // create: childrenCreateBookingMembershipAccess,
-          // update: childrenUpdateBookingMembershipAccess,
+          create: childrenCreateBookingMembershipAccess,
+          update: childrenUpdateBookingMembershipAccess,
         },
       },
     }),
@@ -199,10 +199,10 @@ export const config: Config = {
       isTestKey: Boolean(process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY),
       rest: false,
       webhooks: {
-        // 'customer.subscription.created': subscriptionCreated,
-        // 'customer.subscription.updated': subscriptionUpdated,
-        // 'customer.subscription.deleted': subscriptionCanceled,
-        // 'product.updated': productUpdated,
+        'customer.subscription.created': subscriptionCreated,
+        'customer.subscription.updated': subscriptionUpdated,
+        'customer.subscription.deleted': subscriptionCanceled,
+        'product.updated': productUpdated,
       },
     }),
     // storage-adapter-placeholder
