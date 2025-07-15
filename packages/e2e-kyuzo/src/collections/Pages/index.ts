@@ -3,7 +3,7 @@ import { CollectionConfig } from 'payload'
 import { Hero } from '@/blocks/hero/config'
 import { About } from '@/blocks/about/config'
 
-import { FormBlock } from '@repo/website/src/blocks/form/config'
+import { FormBlock } from '@repo/website'
 
 import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
 

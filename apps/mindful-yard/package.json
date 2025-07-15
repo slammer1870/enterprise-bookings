@@ -30,9 +30,9 @@
     "pnpm": "^10.7.0",
     "react": "*",
     "react-dom": "*",
-    "sharp": "0.33.5",
+    "sharp": "0.34.2",
     "sonner": "2.0.1",
-    "vitest": "^3.0.3"
+    "vitest": "3.2.3"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

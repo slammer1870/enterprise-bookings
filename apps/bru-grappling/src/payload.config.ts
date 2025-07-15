@@ -7,7 +7,7 @@ import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -15,7 +15,7 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { magicLinkPlugin } from '@repo/auth'
+import { magicLinkPlugin } from '@repo/auth/server'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
@@ -64,7 +64,7 @@ export default buildConfig({
     },
   }),
   globals: [Navbar],
-  sharp,
+  sharp: sharp as unknown as SharpDependency,
   plugins: [
     payloadCloudPlugin(),
     rolesPlugin({

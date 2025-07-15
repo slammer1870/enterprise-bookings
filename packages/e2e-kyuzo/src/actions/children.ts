@@ -1,19 +1,19 @@
 'use server'
 
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache.js'
 import { APIError, getPayload } from 'payload'
 
 import { User } from '@repo/shared-types'
 
 import config from '@payload-config'
 
-import { generatePasswordSaltHash } from '@repo/auth/src/utils/password'
+import { generatePasswordSaltHash } from '@repo/auth/server'
 import crypto from 'crypto'
 
 import { headers as getHeaders } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import { getMeUser } from '@repo/shared-services/src/user'
+import { getMeUser } from '@repo/shared-services'
 
 export const getChildren = async () => {
   const payload = await getPayload({ config })

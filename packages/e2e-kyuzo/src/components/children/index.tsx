@@ -3,7 +3,7 @@ import { Lesson } from '@repo/shared-types'
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 
 import { ManagePayment } from '../manage-payment'
-import { getMeUser } from '@repo/shared-services/src/user'
+import { getMeUser } from '@repo/shared-services'
 
 export const ChildrensBooking = async ({ lesson }: { lesson: Lesson }) => {
   const { user } = await getMeUser({ nullUserRedirect: '/login' })

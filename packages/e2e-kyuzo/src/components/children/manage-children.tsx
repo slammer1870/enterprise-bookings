@@ -6,7 +6,7 @@ import { getLessonBookingLimit } from '@/actions/lesson'
 
 import { Booking } from '@repo/shared-types'
 
-import { getMeUser } from '@repo/shared-services/src/user'
+import { getMeUser } from '@repo/shared-services'
 
 export const ManageChildren = async ({
   lessonId,

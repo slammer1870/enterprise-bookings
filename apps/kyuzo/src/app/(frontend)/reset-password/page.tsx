@@ -1,6 +1,6 @@
-import { ResetPasswordForm } from '@repo/auth/src/components/reset-password-form'
+import { ResetPasswordForm } from '@repo/auth'
 
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+import { getMeUser } from '@repo/auth'
 
 export default async function ForgotPassword() {
   await getMeUser({ validUserRedirect: '/dashboard' })

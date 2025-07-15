@@ -16,7 +16,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { useState } from 'react'
 import { createChild } from '@/actions/children'
-import { useAuth } from '@repo/auth/src/providers/auth'
+import { useAuth } from '@repo/auth'
 
 import { toast } from 'sonner'
 

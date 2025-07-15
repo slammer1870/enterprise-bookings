@@ -21,7 +21,7 @@
     "payload": "*",
     "react-email": "^3.0.7",
     "react-hook-form": "*",
-    "sharp": "0.33.5",
+    "sharp": "0.34.2",
     "stripe": "^17.7.0",
     "zod": "^3.25.67"
   },
@@ -29,16 +29,20 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@testing-library/dom": "^10.4.0",
-    "@testing-library/react": "^16.2.0",
+    "@testing-library/react": "16.3.0",
     "@types/node": "^22.10.7",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.2",
     "eslint": "^9.18.0",
     "eslint-config-next": "15.3.0",
     "typescript": "5.7.3",
-    "vitest": "^3.0.3"
+    "vitest": "3.2.3"
   },
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
   "peerDependencies": {
     "next": "*",
     "payload": "*",

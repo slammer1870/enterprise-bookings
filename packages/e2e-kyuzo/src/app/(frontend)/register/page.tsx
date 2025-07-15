@@ -1,6 +1,6 @@
-import UserPassRegisterForm from '@repo/auth/src/components/user-pass-register-form'
+import { UserPassRegisterForm } from '@repo/auth'
 
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+import { getMeUser } from '@repo/auth'
 
 export default async function Register() {
   await getMeUser({ validUserRedirect: '/dashboard' })

@@ -1,6 +1,6 @@
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+import { getMeUser } from '@repo/auth'
 
-import { RegisterLoginTabs } from '@repo/auth/src/components/register-login-tabs'
+import { RegisterLoginTabs } from '@repo/auth'
 
 export default async function Register() {
   const user = await getMeUser({ validUserRedirect: '/dashboard' })

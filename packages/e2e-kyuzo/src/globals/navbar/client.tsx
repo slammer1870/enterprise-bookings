@@ -6,7 +6,7 @@ import { Navbar as NavbarType } from '@/payload-types'
 import { Logo } from '@/graphics/logo'
 import { Button } from '@repo/ui/components/ui/button'
 
-import { useAuth } from '@repo/auth/src/providers/auth'
+import { useAuth } from '@repo/auth'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 

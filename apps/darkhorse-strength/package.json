@@ -31,7 +31,7 @@
     "react": "*",
     "react-dom": "*",
     "react-hook-form": "*",
-    "sharp": "0.33.5",
+    "sharp": "0.34.2",
     "sonner": "2.0.1",
     "stripe": "^17.7.0"
   },

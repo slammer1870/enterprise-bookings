@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-import { useAuth } from '@repo/auth/src/providers/auth'
+import { useAuth } from '@repo/auth'
 
 import AuthenticatedAvatar from './authenticated-avatar'
 

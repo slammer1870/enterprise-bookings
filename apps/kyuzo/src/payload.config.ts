@@ -6,7 +6,7 @@ import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -14,7 +14,7 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 
 import { bookingsPlugin } from '@repo/bookings'
-import { magicLinkPlugin } from '@repo/auth'
+import { magicLinkPlugin } from '@repo/auth/server'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
@@ -65,7 +65,7 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URI || '',
     },
   }),
-  sharp,
+  sharp: sharp as unknown as SharpDependency,
   plugins: [
     payloadCloudPlugin(),
     formBuilderPlugin({

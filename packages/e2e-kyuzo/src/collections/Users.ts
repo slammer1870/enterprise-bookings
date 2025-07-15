@@ -1,9 +1,9 @@
-import { checkRole } from '@repo/shared-utils/src/check-role'
+import { checkRole } from '@repo/shared-utils'
 import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'
 
-import { adminOrUserOrParentOrInstructor } from '@repo/shared-services/src/access/is-admin-or-user-or-parent-or-instructor'
+import { adminOrUserOrParentOrInstructor } from '@repo/shared-services'
 
 export const Users: CollectionConfig = {
   slug: 'users',

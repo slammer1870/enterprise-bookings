@@ -2,7 +2,7 @@ import "server-only";
 
 import { Subscription } from "@repo/shared-types";
 
-import { getMeUser } from "@repo/shared-services/src/user";
+import { getMeUser } from "@repo/shared-services";
 
 import qs from "qs";
 

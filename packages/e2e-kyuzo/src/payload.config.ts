@@ -14,15 +14,16 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 
 import { bookingsPlugin } from '@repo/bookings'
-import { magicLinkPlugin } from '@repo/auth'
+import { magicLinkPlugin } from '@repo/auth/server'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments'
-import { membershipsPlugin } from '@repo/memberships'
-
-import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
-import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
-import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
-import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
+import {
+  membershipsPlugin,
+  subscriptionCreated,
+  subscriptionUpdated,
+  subscriptionCanceled,
+  productUpdated,
+} from '@repo/memberships'
 
 import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
@@ -31,9 +32,9 @@ import { Pages } from './collections/Pages'
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
-} from '@repo/shared-services/src/access/children-booking-membership'
+} from '@repo/shared-services'
 
-import { Posts } from '@repo/website/src/collections/posts'
+import { Posts } from '@repo/website'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)

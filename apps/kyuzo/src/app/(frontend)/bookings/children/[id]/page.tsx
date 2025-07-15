@@ -1,4 +1,4 @@
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+import { getMeUser } from '@repo/auth'
 
 import { Lesson } from '@repo/shared-types'
 
