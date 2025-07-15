@@ -69,6 +69,13 @@ export default async function Page({ params: paramsPromise }: Args) {
   const page = result.docs?.[0] || null
 
   if (!page) {
+    if (slug === 'home') {
+      return (
+        <div>
+          <h1>Home</h1>
+        </div>
+      )
+    }
     return notFound()
   }
 

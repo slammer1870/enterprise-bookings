@@ -15,5 +15,18 @@ test.describe('Auth', () => {
     await page.getByPlaceholder('Confirm Password').fill('password')
 
     await page.getByRole('button', { name: 'Submit' }).click()
+
+    await page.waitForURL('http://localhost:3000/login')
+
+    await page.getByLabel('Email').fill('test@example.com')
+    await page.getByPlaceholder('Your Password').fill('password')
+
+    await page.getByRole('button', { name: 'Submit' }).click()
+
+    await page.waitForURL('http://localhost:3000/dashboard')
+
+    const heading = page.locator('h1').first()
+
+    await expect(heading).toHaveText('Dashboard')
   })
 })

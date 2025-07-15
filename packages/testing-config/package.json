@@ -1,6 +1,10 @@
 {
   "name": "@repo/testing-config",
   "version": "1.0.0",
+  "exports": {
+    "./src/utils/db": "./src/utils/db.ts",
+    "./src/utils/payload-config": "./src/utils/payload-config.ts"
+  },
   "dependencies": {
     "@payloadcms/db-postgres": "*",
     "@payloadcms/next": "*",
