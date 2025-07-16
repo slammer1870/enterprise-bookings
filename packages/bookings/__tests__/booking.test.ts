@@ -32,6 +32,7 @@ const TEST_TIMEOUT = 60000; // 60 seconds
 describe("Booking tests", () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
+      console.log("Creating database string");
       const dbString = await createDbString();
 
       config.db = setDbString(dbString);
