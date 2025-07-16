@@ -40,7 +40,7 @@ describe("Payments tests", () => {
       collection: "users",
       data: {
         name: "Test User",
-        email: "test@example.com",
+        email: "test1234@example.com",
         password: "password",
       },
     });
