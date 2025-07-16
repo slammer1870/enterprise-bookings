@@ -7,7 +7,7 @@ import { buildConfig, Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
-import { magicLinkPlugin } from "../src";
+import { magicLinkPlugin } from "../src/server";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
