@@ -46,6 +46,7 @@ describe("Booking tests", () => {
       data: {
         email: "test@test.com",
         password: "test",
+        roles: ["admin"], // Explicitly assign admin role
       },
     })) as User;
   }, TEST_TIMEOUT);
