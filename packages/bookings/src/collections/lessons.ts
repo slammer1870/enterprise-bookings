@@ -117,10 +117,38 @@ const defaultFields: Field[] = [
         validate: (value, options) => {
           const siblingData = options.siblingData as {
             startTime: string;
+            date: string;
           };
-          if (value && siblingData.startTime) {
-            const endTime = new Date(value);
-            const startTime = new Date(siblingData.startTime);
+          if (value && siblingData.startTime && siblingData.date) {
+            // Apply the same transformation logic as beforeChange hooks
+            const date = new Date(siblingData.date);
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const day = date.getDate();
+
+            // Transform endTime
+            const endTimeRaw = new Date(value);
+            const endTime = new Date(
+              year,
+              month,
+              day,
+              endTimeRaw.getHours(),
+              endTimeRaw.getMinutes(),
+              endTimeRaw.getSeconds(),
+              endTimeRaw.getMilliseconds()
+            );
+
+            // Transform startTime
+            const startTimeRaw = new Date(siblingData.startTime);
+            const startTime = new Date(
+              year,
+              month,
+              day,
+              startTimeRaw.getHours(),
+              startTimeRaw.getMinutes(),
+              startTimeRaw.getSeconds(),
+              startTimeRaw.getMilliseconds()
+            );
             if (endTime <= startTime) {
               return "End time must be greater than start time";
             }
