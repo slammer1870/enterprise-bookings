@@ -83,83 +83,8 @@ test.describe('Admin', () => {
 
     console.log('Current URL:', page.url())
 
-    // Try to interact with the time fields differently
-    console.log('Looking for time input fields...')
-
-    // Generate dynamic date and time values
-    const now = new Date()
-    const today = now.toISOString().split('T')[0] // Format: YYYY-MM-DD
-
-    // Start time: 1 hour from now
-    const startTime = new Date(now.getTime() + 60 * 60 * 1000) // Add 1 hour
-    const startTimeString = startTime.toTimeString().slice(0, 5) // Format: HH:MM
-
-    // End time: 2 hours from now
-    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000) // Add 2 hours
-    const endTimeString = endTime.toTimeString().slice(0, 5) // Format: HH:MM
-
-    console.log(`Setting lesson for: ${today} from ${startTimeString} to ${endTimeString}`)
-
-    // Fill in the date field first (required) - need to target the input within the date field wrapper
-    const dateInput = page
-      .locator('#field-date input[type="date"], #field-date input[type="text"]')
-      .first()
-    await dateInput.click()
-    await dateInput.fill(today)
-
-    // Target Payload's date picker components for timeOnly fields
-    console.log('Looking for Payload time picker components...')
-    
-    // For startTime - target the date picker input
-    const startTimeInput = page.locator('#field-startTime input, [data-field="startTime"] input').first()
-    await startTimeInput.click()
-    await startTimeInput.clear()
-    // Fill with time in format that date picker expects (might need full datetime)
-    const startDateTime = `${today}T${startTimeString}:00`
-    await startTimeInput.fill(startDateTime)
-    console.log(`Filled startTime with: ${startDateTime}`)
-
-    // For endTime - target the date picker input  
-    const endTimeInput = page.locator('#field-endTime input, [data-field="endTime"] input').first()
-    await endTimeInput.click()
-    await endTimeInput.clear()
-    const endDateTime = `${today}T${endTimeString}:00`
-    await endTimeInput.fill(endDateTime)
-    console.log(`Filled endTime with: ${endDateTime}`)
-
-    // Fill in the required lockOutTime field (in minutes)
-    console.log('Looking for lockOutTime field...')
-
-    // Try multiple approaches to find the lockOutTime field
-    const lockOutTimeSelectors = [
-      '#field-lockOutTime input',
-      'input[name="lockOutTime"]',
-      'input[name*="lockOut"]',
-      '[data-field="lockOutTime"] input',
-      'input[type="number"]', // fallback to any number input
-    ]
-
-    let lockOutTimeInput = null
-    for (const selector of lockOutTimeSelectors) {
-      const element = page.locator(selector).first()
-      if (await element.isVisible().catch(() => false)) {
-        lockOutTimeInput = element
-        console.log(`Found lockOutTime field with selector: ${selector}`)
-        break
-      }
-    }
-
-    if (lockOutTimeInput) {
-      await lockOutTimeInput.click()
-      await lockOutTimeInput.fill('30') // 30 minutes before lesson closes for booking
-      console.log('lockOutTime field filled successfully')
-    } else {
-      console.log(
-        'Could not find lockOutTime field - this might be optional or have a different name',
-      )
-    }
-
-    // Continue with the rest of the form
+    // First, create the class option before filling other fields
+    console.log('Creating class option first...')
     await page.getByRole('button', { name: 'Add new Class Option' }).click()
 
     // Wait for the drawer to open
@@ -193,7 +118,7 @@ test.describe('Admin', () => {
       .click()
 
     // Wait for drawer to close completely and verify it's gone
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(3000) // Increased wait time
 
     // Ensure all modals and drawers are fully closed
     await page.waitForSelector('.doc-drawer', { state: 'hidden', timeout: 10000 }).catch(() => {
@@ -212,7 +137,82 @@ test.describe('Admin', () => {
       console.log('Overlay not found or already hidden')
     })
 
-    console.log('All modals and drawers should be closed now')
+    // Force refresh of the relationship field by navigating away and back
+    console.log('Forcing relationship field refresh by reloading the form...')
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    // Now fill in all the form fields with fresh data
+    console.log('Filling form fields after reload...')
+
+    // Generate dynamic date and time values
+    const now = new Date()
+    const today = now.toISOString().split('T')[0] // Format: YYYY-MM-DD
+
+    // Start time: 1 hour from now
+    const startTime = new Date(now.getTime() + 60 * 60 * 1000) // Add 1 hour
+    const startTimeString = startTime.toTimeString().slice(0, 5) // Format: HH:MM
+
+    // End time: 2 hours from now
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000) // Add 2 hours
+    const endTimeString = endTime.toTimeString().slice(0, 5) // Format: HH:MM
+
+    console.log(`Setting lesson for: ${today} from ${startTimeString} to ${endTimeString}`)
+
+    // Fill in the date field first (required)
+    const dateInput = page
+      .locator('#field-date input[type="date"], #field-date input[type="text"]')
+      .first()
+    await dateInput.click()
+    await dateInput.fill(today)
+
+    // For startTime - target the date picker input
+    const startTimeInput = page
+      .locator('#field-startTime input, [data-field="startTime"] input')
+      .first()
+    await startTimeInput.click()
+    await startTimeInput.clear()
+    const startDateTime = `${today}T${startTimeString}:00`
+    await startTimeInput.fill(startDateTime)
+    console.log(`Filled startTime with: ${startDateTime}`)
+
+    // For endTime - target the date picker input
+    const endTimeInput = page.locator('#field-endTime input, [data-field="endTime"] input').first()
+    await endTimeInput.click()
+    await endTimeInput.clear()
+    const endDateTime = `${today}T${endTimeString}:00`
+    await endTimeInput.fill(endDateTime)
+    console.log(`Filled endTime with: ${endDateTime}`)
+
+    // Fill in the required lockOutTime field (in minutes)
+    const lockOutTimeSelectors = [
+      '#field-lockOutTime input',
+      'input[name="lockOutTime"]',
+      'input[name*="lockOut"]',
+      '[data-field="lockOutTime"] input',
+      'input[type="number"]',
+    ]
+
+    let lockOutTimeInput = null
+    for (const selector of lockOutTimeSelectors) {
+      const element = page.locator(selector).first()
+      if (await element.isVisible().catch(() => false)) {
+        lockOutTimeInput = element
+        console.log(`Found lockOutTime field with selector: ${selector}`)
+        break
+      }
+    }
+
+    if (lockOutTimeInput) {
+      await lockOutTimeInput.click()
+      await lockOutTimeInput.fill('30') // 30 minutes before lesson closes for booking
+      console.log('lockOutTime field filled successfully')
+    }
+
+    // Wait for the specific relationship field to be ready
+    await page.waitForSelector('#field-classOption, #field-classOptions', { timeout: 10000 })
+
+    console.log('Form filled, class option should now be available')
 
     // Now select the created class option in the lesson form
     console.log('Selecting class option for the lesson...')
@@ -224,40 +224,51 @@ test.describe('Admin', () => {
     const fieldExists = await classOptionSelector.isVisible()
     console.log('Class option field exists:', fieldExists)
 
-        if (fieldExists) {
+    if (fieldExists) {
       // Click the dropdown button
       await classOptionSelector.locator('button').first().click()
       await page.waitForTimeout(2000)
-      
+
       // Debug: log all available options
       const allOptions = await page.locator('[role="option"]').allTextContents()
-      console.log('Available options:', allOptions)
-      
+      console.log('Available options after reload:', allOptions)
+
+      // Verify Test Class is in the list
+      if (allOptions.some((option) => option.includes('Test Class'))) {
+        console.log('✅ Test Class found in dropdown options after reload')
+      } else {
+        console.log(
+          '❌ Test Class NOT found in dropdown options - this indicates the timing issue persists',
+        )
+      }
+
       // Look for our Test Class option
       try {
         const testClassOption = page.getByRole('option', { name: 'Test Class' })
         await testClassOption.waitFor({ timeout: 5000 })
         await testClassOption.click()
         console.log('Clicked Test Class option')
-        
+
         // Press Enter to confirm selection and/or click outside to close dropdown
         await page.keyboard.press('Enter')
         await page.waitForTimeout(500)
-        
+
         // Click outside the dropdown to ensure it closes
         await page.locator('body').click()
         await page.waitForTimeout(1000)
-        
+
         // Verify the selection was committed
-        const selectedValue = await page.locator('#field-classOption .chip, #field-classOptions .chip').textContent().catch(() => null)
+        const selectedValue = await page
+          .locator('#field-classOption .chip, #field-classOptions .chip')
+          .textContent()
+          .catch(() => null)
         console.log('Class option after selection:', selectedValue)
-        
+
         if (selectedValue && selectedValue.includes('Test Class')) {
           console.log('✅ Successfully selected and committed Test Class option')
         } else {
           console.log('⚠️  Test Class selection may not have been committed properly')
         }
-        
       } catch (error) {
         console.log('Could not find Test Class option, trying alternative approach...')
         // Try clicking the first available option if Test Class not found
@@ -312,7 +323,9 @@ test.describe('Admin', () => {
         .inputValue()
         .catch(() => 'not found'),
       classOption: await page
-        .locator('input[name="classOptions"], input[name="classOption"], #field-classOptions input, #field-classOption input, #field-classOption .chip, #field-classOptions .chip')
+        .locator(
+          'input[name="classOptions"], input[name="classOption"], #field-classOptions input, #field-classOption input, #field-classOption .chip, #field-classOptions .chip',
+        )
         .first()
         .textContent()
         .catch(() => 'not found'),
@@ -364,13 +377,13 @@ test.describe('Admin', () => {
 
     // Verify lesson was created successfully by waiting for any lesson detail URL
     console.log('Checking if lesson was created...')
-    
+
     // Wait a bit for any navigation to complete
     await page.waitForTimeout(3000)
-    
+
     const finalUrl = page.url()
     console.log('Final URL after save:', finalUrl)
-    
+
     // Check if we're on a lesson detail page (indicates successful creation)
     if (finalUrl.includes('/admin/collections/lessons/') && /\/\d+$/.test(finalUrl)) {
       console.log('✅ Lesson created successfully! URL:', finalUrl)
@@ -638,5 +651,28 @@ test.describe('Admin', () => {
         console.log('Login appears successful, but redirected to different page')
       }
     }
+  })
+
+  test('create a new bookings', async ({ page }) => {
+    //Try to go to dahsboard page
+    await page.goto('http://localhost:3000/dashboard')
+    //Expect to be redirected to login page
+    await page.waitForURL('http://localhost:3000/login', { timeout: 30000 })
+
+    //login as normal user
+    await page.getByRole('textbox', { name: 'Email' }).click()
+    await page.getByRole('textbox', { name: 'Email' }).fill(userDetails.email)
+    await page.getByRole('textbox', { name: 'Password' }).click()
+    await page.getByRole('textbox', { name: 'Password' }).fill(userDetails.password)
+    await page.getByRole('button', { name: 'Submit' }).click()
+
+    //Expect to be redirected to dashboard page
+    await page.waitForURL('http://localhost:3000/dashboard', { timeout: 30000 })
+
+    //Expect to be redirected to bookings page
+    await page.getByRole('button', { name: 'Check Child In' }).click()
+    await page.waitForURL('http://localhost:3000/bookings/children/1', { timeout: 30000 })
+
+    //Expect to be redirected to bookings page
   })
 })
