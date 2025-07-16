@@ -1,27 +1,6 @@
 import { expect, test } from '@playwright/test'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-import { getPayload } from 'payload'
-import config from '@/payload.config'
-
-const filename = fileURLToPath(import.meta.url)
-const dirname = path.dirname(filename)
 
 test.describe('Auth', () => {
-  test.beforeAll(async () => {
-    const payload = await getPayload({ config })
-
-    await payload.create({
-      collection: 'users',
-      data: {
-        name: 'Test User',
-        email: 'test@example.com',
-        password: 'password',
-      },
-    })
-  })
-
   test('should register', async ({ page }) => {
     await page.goto('http://localhost:3000/register')
 
