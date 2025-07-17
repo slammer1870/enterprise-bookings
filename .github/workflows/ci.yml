@@ -11,8 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env: # Add this section to define environment variables
-      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings # Ensure this matches your config
+    env:
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -26,7 +26,7 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling # Consider using a secret for sensitive data
+          POSTGRES_PASSWORD: brugrappling
           POSTGRES_DB: bookings
         ports:
           - 5432:5432
@@ -61,8 +61,96 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Verify pnpm version
-        run: pnpm -v
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Postgres is unavailable - sleeping"
+            sleep 5
+          done
+          echo "Postgres is up!"
+
+      - name: Build the project
+        run: pnpm run ci
+
+      - name: Cache Turbo and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            **/node_modules/.cache
+            **/.next
+            **/dist
+            **/build
+          key: ${{ runner.os }}-build-${{ github.sha }}
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings_test
+      STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_REMOTE_ONLY: true
+      NEXT_PUBLIC_SERVER_URL: ${{ github.server_url }}
+      NODE_ENV: test
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: brugrappling
+          POSTGRES_DB: bookings_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Restore Turbo and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            **/node_modules/.cache
+            **/.next
+            **/dist
+            **/build
+          key: ${{ runner.os }}-build-${{ github.sha }}
 
       - name: Install dependencies
         run: pnpm install
@@ -76,23 +164,8 @@ jobs:
           done
           echo "Postgres is up!"
 
-      - name: Debug Database URI
-        run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
-
-      - name: Build the project
-        run: pnpm run ci
-
       - name: Run tests
         run: pnpm test
-
-      - name: Cache Turbo and build artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            .turbo
-            **/node_modules/.cache
-            **/.next
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -157,7 +230,9 @@ jobs:
             .turbo
             **/node_modules/.cache
             **/.next
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+            **/dist
+            **/build
+          key: ${{ runner.os }}-build-${{ github.sha }}
 
       - name: Install dependencies
         run: pnpm install
