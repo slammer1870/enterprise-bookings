@@ -1,54 +1,37 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // First, drop any existing types to ensure clean state
   await db.execute(sql`
-   DO $$
-   BEGIN
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_posts_status') THEN
-       CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum__posts_v_version_status') THEN
-       CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_bookings_status') THEN
-       CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_currency') THEN
-       CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_status') THEN
-       CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_payment_method') THEN
-       CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_users_roles') THEN
-       CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_subscriptions_status') THEN
-       CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_interval') THEN
-       CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_status') THEN
-       CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
-     END IF;
-     
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_forms_confirmation_type') THEN
-       CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
-     END IF;
-   END
-   $$;
+   DROP TYPE IF EXISTS "public"."enum_posts_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum__posts_v_version_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_bookings_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_currency" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_payment_method" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_users_roles" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_subscriptions_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_plans_interval" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_plans_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_forms_confirmation_type" CASCADE;
+  `)
+
+  // Now create the types
+  await db.execute(sql`
+   CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
+   CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
+   CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+   CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+   CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+   CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+   CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
+   CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
+   CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
+   CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
+   CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
+  `)
+
+  await db.execute(sql`
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
