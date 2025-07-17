@@ -68,7 +68,7 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString:
-        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/darkhorse_strength',
     },
   }),
   sharp: sharp as unknown as SharpDependency,
