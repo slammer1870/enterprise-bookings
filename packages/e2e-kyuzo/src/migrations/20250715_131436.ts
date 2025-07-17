@@ -16,6 +16,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
    DROP TYPE IF EXISTS "public"."enum_plans_interval" CASCADE;
    DROP TYPE IF EXISTS "public"."enum_plans_status" CASCADE;
    DROP TYPE IF EXISTS "public"."enum_plans_type" CASCADE;
+   -- Additional enum types from other apps
+   DROP TYPE IF EXISTS "public"."enum_pages_blocks_about_sections_image_position" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_pages_blocks_hero_cta_variant" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_drop_ins_discount_tiers_type" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_drop_ins_payment_methods" CASCADE;
 
    -- Now create the types
    CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
@@ -31,6 +36,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
    CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
    CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
    CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'family', 'child');
+   -- Additional enum types from other apps
+   CREATE TYPE "public"."enum_pages_blocks_about_sections_image_position" AS ENUM('left', 'right');
+   CREATE TYPE "public"."enum_pages_blocks_hero_cta_variant" AS ENUM('default', 'outline');
+   CREATE TYPE "public"."enum_drop_ins_discount_tiers_type" AS ENUM('normal', 'trial', 'bulk');
+   CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('card', 'cash');
   `)
 
   await db.execute(sql`
@@ -1026,5 +1036,9 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE IF EXISTS "public"."enum_subscriptions_status";
   DROP TYPE IF EXISTS "public"."enum_plans_interval";
   DROP TYPE IF EXISTS "public"."enum_plans_status";
-  DROP TYPE IF EXISTS "public"."enum_plans_type";`)
+  DROP TYPE IF EXISTS "public"."enum_plans_type";
+  DROP TYPE IF EXISTS "public"."enum_pages_blocks_about_sections_image_position";
+  DROP TYPE IF EXISTS "public"."enum_pages_blocks_hero_cta_variant";
+  DROP TYPE IF EXISTS "public"."enum_drop_ins_discount_tiers_type";
+  DROP TYPE IF EXISTS "public"."enum_drop_ins_payment_methods";`)
 }
