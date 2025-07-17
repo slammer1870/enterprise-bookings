@@ -1,6 +1,36 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // Ensure required enum types exist (fallback if not created by earlier migration)
+  await db.execute(sql`
+   DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_pages_blocks_hero_cta_variant') THEN
+       CREATE TYPE "public"."enum_pages_blocks_hero_cta_variant" AS ENUM('default', 'outline');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_users_roles') THEN
+       CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_bookings_status') THEN
+       CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_drop_ins_discount_tiers_type') THEN
+       CREATE TYPE "public"."enum_drop_ins_discount_tiers_type" AS ENUM('normal', 'trial', 'bulk');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_drop_ins_payment_methods') THEN
+       CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('card', 'cash');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_currency') THEN
+       CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_status') THEN
+       CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+     END IF;
+     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_payment_method') THEN
+       CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+     END IF;
+   END $$;
+  `)
+
   await db.execute(sql`
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
