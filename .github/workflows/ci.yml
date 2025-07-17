@@ -77,6 +77,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+            !**/node_modules/.cache
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
       - name: Install dependencies
         run: pnpm install
 
@@ -92,16 +102,35 @@ jobs:
       - name: Build the project for ${{ matrix.app.name }}
         run: pnpm --filter ${{ matrix.app.name }}^... run ci
 
-      - name: Cache Turbo and build artifacts
+      - name: Cache Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Cache Next.js builds
         uses: actions/cache@v4
         with:
           path: |
-            .turbo
-            **/node_modules/.cache
-            **/.next
+            apps/**/.next
+            packages/**/.next
+          key: ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-
+            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-
+
+      - name: Cache build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
             **/dist
             **/build
-          key: ${{ runner.os }}-build-${{ matrix.app.name }}-${{ github.sha }}
+          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-
+            ${{ runner.os }}-build-outputs-
 
   test:
     runs-on: ubuntu-latest
@@ -167,16 +196,45 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Restore Turbo and build artifacts
+      - name: Cache node_modules
         uses: actions/cache@v4
         with:
           path: |
-            .turbo
-            **/node_modules/.cache
-            **/.next
+            **/node_modules
+            !**/node_modules/.cache
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
+      - name: Restore Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Restore Next.js builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/**/.next
+            packages/**/.next
+          key: ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-
+            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-
+
+      - name: Restore build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
             **/dist
             **/build
-          key: ${{ runner.os }}-build-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-
+            ${{ runner.os }}-build-outputs-
 
       - name: Install dependencies
         run: pnpm install
@@ -266,23 +324,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Restore Turbo and build artifacts
+      - name: Cache node_modules
         uses: actions/cache@v4
         with:
           path: |
-            .turbo
-            **/node_modules/.cache
-            **/.next
-            **/dist
-            **/build
-          key: ${{ runner.os }}-build-${{ matrix.app.name }}-${{ github.sha }}
+            **/node_modules
+            !**/node_modules/.cache
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-build-darkhorse-strength-${{ github.sha }}
-            ${{ runner.os }}-build-bru-grappling-${{ github.sha }}
-            ${{ runner.os }}-build-kyuzo-${{ github.sha }}
-            ${{ runner.os }}-build-mindful-yard-${{ github.sha }}
-            ${{ runner.os }}-build-web-${{ github.sha }}
-            ${{ runner.os }}-build-docs-${{ github.sha }}
+            ${{ runner.os }}-node-modules-
+
+      - name: Restore Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
 
       - name: Install dependencies
         run: pnpm install
