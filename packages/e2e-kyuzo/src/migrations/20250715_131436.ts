@@ -2,19 +2,38 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
+   -- First, drop any existing types to ensure clean state
+   DROP TYPE IF EXISTS "public"."enum_posts_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum__posts_v_version_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_forms_confirmation_type" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_class_options_type" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_bookings_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_currency" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_payment_method" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_users_roles" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_subscriptions_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_plans_interval" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_plans_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_plans_type" CASCADE;
+
+   -- Now create the types
    CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
-  CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
-  CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
-  CREATE TYPE "public"."enum_class_options_type" AS ENUM('adult', 'child');
-  CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-  CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
-  CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
-  CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
-  CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
-  CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
-  CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
-  CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
-  CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'family', 'child');
+   CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
+   CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
+   CREATE TYPE "public"."enum_class_options_type" AS ENUM('adult', 'child');
+   CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+   CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+   CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+   CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+   CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
+   CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
+   CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
+   CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
+   CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'family', 'child');
+  `)
+
+  await db.execute(sql`
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
@@ -995,17 +1014,17 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
   DROP TABLE "scheduler" CASCADE;
-  DROP TYPE "public"."enum_posts_status";
-  DROP TYPE "public"."enum__posts_v_version_status";
-  DROP TYPE "public"."enum_forms_confirmation_type";
-  DROP TYPE "public"."enum_class_options_type";
-  DROP TYPE "public"."enum_bookings_status";
-  DROP TYPE "public"."enum_transactions_currency";
-  DROP TYPE "public"."enum_transactions_status";
-  DROP TYPE "public"."enum_transactions_payment_method";
-  DROP TYPE "public"."enum_users_roles";
-  DROP TYPE "public"."enum_subscriptions_status";
-  DROP TYPE "public"."enum_plans_interval";
-  DROP TYPE "public"."enum_plans_status";
-  DROP TYPE "public"."enum_plans_type";`)
+  DROP TYPE IF EXISTS "public"."enum_posts_status";
+  DROP TYPE IF EXISTS "public"."enum__posts_v_version_status";
+  DROP TYPE IF EXISTS "public"."enum_forms_confirmation_type";
+  DROP TYPE IF EXISTS "public"."enum_class_options_type";
+  DROP TYPE IF EXISTS "public"."enum_bookings_status";
+  DROP TYPE IF EXISTS "public"."enum_transactions_currency";
+  DROP TYPE IF EXISTS "public"."enum_transactions_status";
+  DROP TYPE IF EXISTS "public"."enum_transactions_payment_method";
+  DROP TYPE IF EXISTS "public"."enum_users_roles";
+  DROP TYPE IF EXISTS "public"."enum_subscriptions_status";
+  DROP TYPE IF EXISTS "public"."enum_plans_interval";
+  DROP TYPE IF EXISTS "public"."enum_plans_status";
+  DROP TYPE IF EXISTS "public"."enum_plans_type";`)
 }
