@@ -1,15 +1,31 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // First, drop any existing types to ensure clean state
+  await db.execute(sql`
+   DROP TYPE IF EXISTS "public"."enum_pages_blocks_hero_cta_variant" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_users_roles" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_bookings_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_drop_ins_discount_tiers_type" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_drop_ins_payment_methods" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_currency" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_status" CASCADE;
+   DROP TYPE IF EXISTS "public"."enum_transactions_payment_method" CASCADE;
+  `)
+
+  // Now create the types
   await db.execute(sql`
    CREATE TYPE "public"."enum_pages_blocks_hero_cta_variant" AS ENUM('default', 'outline');
-  CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
-  CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-  CREATE TYPE "public"."enum_drop_ins_discount_tiers_type" AS ENUM('normal', 'trial', 'bulk');
-  CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('cash');
-  CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
-  CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
-  CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+   CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
+   CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+   CREATE TYPE "public"."enum_drop_ins_discount_tiers_type" AS ENUM('normal', 'trial', 'bulk');
+   CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('cash');
+   CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+   CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+   CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+  `)
+
+  await db.execute(sql`
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
@@ -612,12 +628,12 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
   DROP TABLE "scheduler" CASCADE;
-  DROP TYPE "public"."enum_pages_blocks_hero_cta_variant";
-  DROP TYPE "public"."enum_users_roles";
-  DROP TYPE "public"."enum_bookings_status";
-  DROP TYPE "public"."enum_drop_ins_discount_tiers_type";
-  DROP TYPE "public"."enum_drop_ins_payment_methods";
-  DROP TYPE "public"."enum_transactions_currency";
-  DROP TYPE "public"."enum_transactions_status";
-  DROP TYPE "public"."enum_transactions_payment_method";`)
+  DROP TYPE IF EXISTS "public"."enum_pages_blocks_hero_cta_variant";
+  DROP TYPE IF EXISTS "public"."enum_users_roles";
+  DROP TYPE IF EXISTS "public"."enum_bookings_status";
+  DROP TYPE IF EXISTS "public"."enum_drop_ins_discount_tiers_type";
+  DROP TYPE IF EXISTS "public"."enum_drop_ins_payment_methods";
+  DROP TYPE IF EXISTS "public"."enum_transactions_currency";
+  DROP TYPE IF EXISTS "public"."enum_transactions_status";
+  DROP TYPE IF EXISTS "public"."enum_transactions_payment_method";`)
 }

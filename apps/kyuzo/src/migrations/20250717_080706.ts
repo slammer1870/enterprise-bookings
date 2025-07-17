@@ -1016,17 +1016,17 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
   DROP TABLE "scheduler" CASCADE;
-  DROP TYPE "public"."enum_posts_status";
-  DROP TYPE "public"."enum__posts_v_version_status";
-  DROP TYPE "public"."enum_forms_confirmation_type";
-  DROP TYPE "public"."enum_class_options_type";
-  DROP TYPE "public"."enum_bookings_status";
-  DROP TYPE "public"."enum_transactions_currency";
-  DROP TYPE "public"."enum_transactions_status";
-  DROP TYPE "public"."enum_transactions_payment_method";
-  DROP TYPE "public"."enum_users_roles";
-  DROP TYPE "public"."enum_subscriptions_status";
-  DROP TYPE "public"."enum_plans_interval";
-  DROP TYPE "public"."enum_plans_status";
-  DROP TYPE "public"."enum_plans_type";`)
+  DROP TYPE IF EXISTS "public"."enum_posts_status";
+  DROP TYPE IF EXISTS "public"."enum__posts_v_version_status";
+  DROP TYPE IF EXISTS "public"."enum_forms_confirmation_type";
+  DROP TYPE IF EXISTS "public"."enum_class_options_type";
+  DROP TYPE IF EXISTS "public"."enum_bookings_status";
+  DROP TYPE IF EXISTS "public"."enum_transactions_currency";
+  DROP TYPE IF EXISTS "public"."enum_transactions_status";
+  DROP TYPE IF EXISTS "public"."enum_transactions_payment_method";
+  DROP TYPE IF EXISTS "public"."enum_users_roles";
+  DROP TYPE IF EXISTS "public"."enum_subscriptions_status";
+  DROP TYPE IF EXISTS "public"."enum_plans_interval";
+  DROP TYPE IF EXISTS "public"."enum_plans_status";
+  DROP TYPE IF EXISTS "public"."enum_plans_type";`)
 }
