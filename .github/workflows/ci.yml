@@ -117,8 +117,9 @@ jobs:
           path: |
             **/dist
             **/build
-          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}
           restore-keys: |
+            ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-
             ${{ runner.os }}-build-outputs-
 
   test:
@@ -199,10 +200,10 @@ jobs:
           path: |
             apps/**/.next
             packages/**/.next
-          key: ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          key: ${{ runner.os }}-nextjs-test-${{ matrix.package }}-${{ hashFiles('**/package.json') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-
-            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-
+            ${{ runner.os }}-nextjs-
+            ${{ runner.os }}-nextjs-test-
 
       - name: Restore build outputs
         uses: actions/cache@v4
@@ -210,9 +211,10 @@ jobs:
           path: |
             **/dist
             **/build
-          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-build-outputs-test-${{ matrix.package }}-${{ hashFiles('**/package.json') }}
           restore-keys: |
             ${{ runner.os }}-build-outputs-
+            ${{ runner.os }}-build-outputs-test-
 
       - name: Install dependencies
         run: pnpm install
