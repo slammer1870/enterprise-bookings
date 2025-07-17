@@ -28,6 +28,7 @@ jobs:
             db: dummy_docs
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -214,6 +215,7 @@ jobs:
             db: kyuzo_e2e
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}

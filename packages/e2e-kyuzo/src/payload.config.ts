@@ -57,13 +57,13 @@ export const config: Config = {
   collections: [Users, Media, Pages, Posts],
   globals: [Navbar, Footer],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || '',
+  secret: process.env.PAYLOAD_SECRET || 'secret',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI || '',
+      connectionString: process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo_test',
     },
   }),
   sharp: sharp as SharpDependency,
