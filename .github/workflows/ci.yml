@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: 
+        app:
           - name: darkhorse-strength
             db: darkhorse_strength
           - name: bru-grappling
@@ -157,9 +157,9 @@ jobs:
     #     ports:
     #       - 5432:5432
     #     options: >-
-    #       --health-cmd "pg_isready -U postgres" 
-    #       --health-interval 10s 
-    #       --health-timeout 5s 
+    #       --health-cmd "pg_isready -U postgres"
+    #       --health-interval 10s
+    #       --health-timeout 5s
     #       --health-retries 5
 
     steps:
@@ -250,9 +250,9 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-        app: 
-          - name: kyuzo
-            db: kyuzo_e2e
+        app:
+          - name: e2e-kyuzo
+            db: e2e_kyuzo
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
