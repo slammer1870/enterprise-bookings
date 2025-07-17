@@ -111,16 +111,17 @@ jobs:
             ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-
             ${{ runner.os }}-nextjs-${{ matrix.app.name }}-
 
-      - name: Cache build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            **/dist
-            **/build
-          key: ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-
-            ${{ runner.os }}-build-outputs-
+      # Build outputs are already cached by Turbo and Next.js cache steps above
+      # - name: Cache build outputs
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       packages/testing-config/dist
+      #       packages/ui/dist
+      #     key: ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-
+      #       ${{ runner.os }}-build-outputs-
 
   test:
     runs-on: ubuntu-latest
@@ -205,16 +206,17 @@ jobs:
             ${{ runner.os }}-nextjs-
             ${{ runner.os }}-nextjs-test-
 
-      - name: Restore build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            **/dist
-            **/build
-          key: ${{ runner.os }}-build-outputs-test-${{ matrix.package }}-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-outputs-
-            ${{ runner.os }}-build-outputs-test-
+      # Build outputs are already cached by Turbo artifacts
+      # - name: Restore build outputs
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       packages/testing-config/dist
+      #       packages/ui/dist
+      #     key: ${{ runner.os }}-build-outputs-test-${{ matrix.package }}-${{ hashFiles('**/package.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-build-outputs-
+      #       ${{ runner.os }}-build-outputs-test-
 
       - name: Install dependencies
         run: pnpm install
