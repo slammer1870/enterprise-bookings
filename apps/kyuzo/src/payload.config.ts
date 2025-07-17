@@ -70,7 +70,7 @@ export default buildConfig({
     payloadCloudPlugin(),
     formBuilderPlugin({
       fields: {
-        // Customize form fields if needed
+        // Customize form fields if need
       },
     }),
     magicLinkPlugin({
