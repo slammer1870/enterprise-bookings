@@ -16,7 +16,7 @@
       ]
     },
     "test:e2e:ci": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^ci"],
       "env": [
         "DATABASE_URI",
         "PAYLOAD_SECRET", 
