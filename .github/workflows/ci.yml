@@ -103,17 +103,15 @@ jobs:
     needs: build
     strategy:
       matrix:
-        app: 
-          - name: darkhorse-strength
-            db: darkhorse_strength_test
-          - name: bru-grappling
-            db: bru_grappling_test
-          - name: kyuzo
-            db: kyuzo_test
-          - name: mindful-yard
-            db: mindful_yard_test
+        package:
+          - auth
+          - bookings
+          - payments
+          - memberships
+          - integration-testing
     env:
-      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      # Remove DATABASE_URI to allow packages to create their own test databases
+      # DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -121,22 +119,23 @@ jobs:
       NEXT_PUBLIC_SERVER_URL: ${{ github.server_url }}
       NODE_ENV: test
 
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling
-          POSTGRES_DB: ${{ matrix.app.db }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres" 
-          --health-interval 10s 
-          --health-timeout 5s 
-          --health-retries 5
+    # Remove PostgreSQL service since packages will create their own databases
+    # services:
+    #   postgres:
+    #     image: postgres:latest
+    #     env:
+    #       POSTGRES_HOST: localhost
+    #       POSTGRES_PORT: 5432
+    #       POSTGRES_USER: postgres
+    #       POSTGRES_PASSWORD: brugrappling
+    #       POSTGRES_DB: ${{ matrix.app.db }}
+    #     ports:
+    #       - 5432:5432
+    #     options: >-
+    #       --health-cmd "pg_isready -U postgres" 
+    #       --health-interval 10s 
+    #       --health-timeout 5s 
+    #       --health-retries 5
 
     steps:
       - name: Checkout code
@@ -172,22 +171,33 @@ jobs:
             **/.next
             **/dist
             **/build
-          key: ${{ runner.os }}-build-${{ matrix.app.name }}-${{ github.sha }}
+          key: ${{ runner.os }}-build-turbo-${{ github.sha }}
 
       - name: Install dependencies
         run: pnpm install
 
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          echo "Waiting for PostgreSQL to be ready..."
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Postgres is unavailable - sleeping"
-            sleep 5
-          done
-          echo "Postgres is up!"
+      # Remove PostgreSQL wait since packages handle their own databases
+      # - name: Wait for PostgreSQL to be ready
+      #   run: |
+      #     echo "Waiting for PostgreSQL to be ready..."
+      #     until pg_isready -h localhost -p 5432 -U postgres; do
+      #       echo "Postgres is unavailable - sleeping"
+      #       sleep 5
+      #     done
+      #     echo "Postgres is up!"
 
-      - name: Run tests for ${{ matrix.app.name }}
-        run: pnpm test
+      - name: Setup Docker for TestContainers
+        run: |
+          # Ensure Docker daemon is running for TestContainers
+          sudo systemctl start docker
+          # Add the runner user to the docker group
+          sudo usermod -aG docker $USER
+
+      - name: Run tests for ${{ matrix.package }} package
+        run: pnpm --filter @repo/${{ matrix.package }} test
+        env:
+          # Ensure TestContainers can access Docker
+          DOCKER_HOST: unix:///var/run/docker.sock
 
   e2e-tests:
     runs-on: ubuntu-latest
