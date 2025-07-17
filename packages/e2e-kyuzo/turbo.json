@@ -1,0 +1,33 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URI",
+        "PAYLOAD_SECRET", 
+        "NEXT_PUBLIC_SERVER_URL",
+        "STRIPE_SECRET_KEY"
+      ],
+      "cache": false,
+      "outputs": [
+        "playwright-report/**",
+        "test-results/**"
+      ]
+    },
+    "test:e2e:ci": {
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URI",
+        "PAYLOAD_SECRET", 
+        "NEXT_PUBLIC_SERVER_URL",
+        "STRIPE_SECRET_KEY"
+      ],
+      "cache": false,
+      "outputs": [
+        "playwright-report/**",
+        "test-results/**"
+      ]
+    }
+  }
+} 
