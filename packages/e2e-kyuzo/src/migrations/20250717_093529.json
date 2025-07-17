@@ -1,5 +1,5 @@
 {
-  "id": "dc34d78b-d9ad-4ea7-8809-337b101cf3fe",
+  "id": "861408e5-f12d-499b-958f-b515f4f9769e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3270,7 +3270,7 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:34.977Z'"
+          "default": "'2025-07-17T09:35:29.031Z'"
         },
         "start_time": {
           "name": "start_time",
@@ -5872,14 +5872,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -6130,14 +6130,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -6388,14 +6388,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -6646,14 +6646,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -6904,14 +6904,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -7162,14 +7162,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -7420,14 +7420,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_time": {
           "name": "end_time",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "class_option_id": {
           "name": "class_option_id",
@@ -7584,14 +7584,14 @@
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "end_date": {
           "name": "end_date",
           "type": "timestamp(3) with time zone",
           "primaryKey": false,
           "notNull": false,
-          "default": "'2025-07-16T16:40:35.932Z'"
+          "default": "'2025-07-17T09:35:29.258Z'"
         },
         "lock_out_time": {
           "name": "lock_out_time",

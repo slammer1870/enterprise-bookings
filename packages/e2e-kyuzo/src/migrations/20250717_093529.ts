@@ -1,52 +1,20 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
-  // Ensure required enum types exist (fallback if not created by earlier migration)
   await db.execute(sql`
-   DO $$ BEGIN
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_posts_status') THEN
-       CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum__posts_v_version_status') THEN
-       CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_forms_confirmation_type') THEN
-       CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_class_options_type') THEN
-       CREATE TYPE "public"."enum_class_options_type" AS ENUM('adult', 'child');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_bookings_status') THEN
-       CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_currency') THEN
-       CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_status') THEN
-       CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_payment_method') THEN
-       CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_users_roles') THEN
-       CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_subscriptions_status') THEN
-       CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_interval') THEN
-       CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_status') THEN
-       CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
-     END IF;
-     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_type') THEN
-       CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'family', 'child');
-     END IF;
-   END $$;
-  `)
-
-  await db.execute(sql`
+   CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
+  CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
+  CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
+  CREATE TYPE "public"."enum_class_options_type" AS ENUM('adult', 'child');
+  CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+  CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+  CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+  CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+  CREATE TYPE "public"."enum_users_roles" AS ENUM('customer', 'admin');
+  CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
+  CREATE TYPE "public"."enum_plans_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
+  CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
+  CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'family', 'child');
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar NOT NULL,
@@ -333,7 +301,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.670Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.031Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 0 NOT NULL,
@@ -536,8 +504,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -556,8 +524,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -576,8 +544,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -596,8 +564,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -616,8 +584,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -636,8 +604,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -656,8 +624,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -667,8 +635,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "scheduler" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"start_date" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z',
-  	"end_date" timestamp(3) with time zone DEFAULT '2025-07-17T08:07:05.869Z',
+  	"start_date" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z',
+  	"end_date" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.258Z',
   	"lock_out_time" numeric DEFAULT 0,
   	"default_class_option_id" integer NOT NULL,
   	"schedule_monday_is_active" boolean DEFAULT true,
@@ -1027,17 +995,17 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
   DROP TABLE "scheduler" CASCADE;
-  DROP TYPE IF EXISTS "public"."enum_posts_status";
-  DROP TYPE IF EXISTS "public"."enum__posts_v_version_status";
-  DROP TYPE IF EXISTS "public"."enum_forms_confirmation_type";
-  DROP TYPE IF EXISTS "public"."enum_class_options_type";
-  DROP TYPE IF EXISTS "public"."enum_bookings_status";
-  DROP TYPE IF EXISTS "public"."enum_transactions_currency";
-  DROP TYPE IF EXISTS "public"."enum_transactions_status";
-  DROP TYPE IF EXISTS "public"."enum_transactions_payment_method";
-  DROP TYPE IF EXISTS "public"."enum_users_roles";
-  DROP TYPE IF EXISTS "public"."enum_subscriptions_status";
-  DROP TYPE IF EXISTS "public"."enum_plans_interval";
-  DROP TYPE IF EXISTS "public"."enum_plans_status";
-  DROP TYPE IF EXISTS "public"."enum_plans_type";`)
+  DROP TYPE "public"."enum_posts_status";
+  DROP TYPE "public"."enum__posts_v_version_status";
+  DROP TYPE "public"."enum_forms_confirmation_type";
+  DROP TYPE "public"."enum_class_options_type";
+  DROP TYPE "public"."enum_bookings_status";
+  DROP TYPE "public"."enum_transactions_currency";
+  DROP TYPE "public"."enum_transactions_status";
+  DROP TYPE "public"."enum_transactions_payment_method";
+  DROP TYPE "public"."enum_users_roles";
+  DROP TYPE "public"."enum_subscriptions_status";
+  DROP TYPE "public"."enum_plans_interval";
+  DROP TYPE "public"."enum_plans_status";
+  DROP TYPE "public"."enum_plans_type";`)
 }
