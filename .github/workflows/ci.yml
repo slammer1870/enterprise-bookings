@@ -22,6 +22,10 @@ jobs:
             db: kyuzo
           - name: mindful-yard
             db: mindful_yard
+          - name: web
+            db: dummy_web
+          - name: docs
+            db: dummy_docs
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
@@ -270,6 +274,13 @@ jobs:
             **/dist
             **/build
           key: ${{ runner.os }}-build-${{ matrix.app.name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-darkhorse-strength-${{ github.sha }}
+            ${{ runner.os }}-build-bru-grappling-${{ github.sha }}
+            ${{ runner.os }}-build-kyuzo-${{ github.sha }}
+            ${{ runner.os }}-build-mindful-yard-${{ github.sha }}
+            ${{ runner.os }}-build-web-${{ github.sha }}
+            ${{ runner.os }}-build-docs-${{ github.sha }}
 
       - name: Install dependencies
         run: pnpm install
