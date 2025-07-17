@@ -72,8 +72,7 @@
       "cache": false
     },
     "ci": {
-      "dependsOn": ["^ci"],
-      "cache": false
+      "dependsOn": ["^ci"]
     }
   }
 }
