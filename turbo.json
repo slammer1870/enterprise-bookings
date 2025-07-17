@@ -72,7 +72,7 @@
       "cache": false
     },
     "ci": {
-      "dependsOn": ["^ci"]
+      "dependsOn": ["^build"]
     }
   }
 }
