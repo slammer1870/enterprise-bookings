@@ -295,8 +295,8 @@ importers:
         version: 19.1.0(react@19.1.0)
     devDependencies:
       '@next/eslint-plugin-next':
-        specifier: 15.3.0
-        version: 15.3.0
+        specifier: 14.2.15
+        version: 14.2.15
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -601,8 +601,8 @@ importers:
         version: 19.1.0(react@19.1.0)
     devDependencies:
       '@next/eslint-plugin-next':
-        specifier: 15.3.0
-        version: 15.3.0
+        specifier: 14.2.15
+        version: 14.2.15
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -1050,7 +1050,7 @@ importers:
         version: 8.37.0(eslint@9.31.0(jiti@1.21.7))(typescript@5.7.3)
       '@vercel/style-guide':
         specifier: ^6.0.0
-        version: 6.0.0(eslint@9.31.0(jiti@1.21.7))(prettier@3.6.2)(typescript@5.7.3)(vitest@3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0))
+        version: 6.0.0(@next/eslint-plugin-next@14.2.15)(eslint@9.31.0(jiti@1.21.7))(prettier@3.6.2)(typescript@5.7.3)(vitest@3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0))
       eslint-config-prettier:
         specifier: ^10.0.1
         version: 10.1.5(eslint@9.31.0(jiti@1.21.7))
@@ -3160,6 +3160,9 @@ packages:
 
   '@next/env@15.4.1':
     resolution: {integrity: sha512-DXQwFGAE2VH+f2TJsKepRXpODPU+scf5fDbKOME8MMyeyswe4XwgRdiiIYmBfkXU+2ssliLYznajTrOQdnLR5A==}
+
+  '@next/eslint-plugin-next@14.2.15':
+    resolution: {integrity: sha512-pKU0iqKRBlFB/ocOI1Ip2CkKePZpYpnw5bEItEkuZ/Nr9FQP1+p7VDWr4VfOdff4i9bFmrOaeaU1bFEyAcxiMQ==}
 
   '@next/eslint-plugin-next@15.3.0':
     resolution: {integrity: sha512-511UUcpWw5GWTyKfzW58U2F/bYJyjLE9e3SlnGK/zSXq7RqLlqFO8B9bitJjumLpj317fycC96KZ2RZsjGNfBw==}
@@ -6298,6 +6301,11 @@ packages:
   glob-parent@6.0.2:
     resolution: {integrity: sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==}
     engines: {node: '>=10.13.0'}
+
+  glob@10.3.10:
+    resolution: {integrity: sha512-fa46+tv1Ak0UPK1TOy/pZrIybNNt4HCv7SDzwyfiOZkvZLEbjsZkJBPtDHVshZjbecAoAGSC20MjLDG/qr679g==}
+    engines: {node: '>=16 || 14 >=14.17'}
+    hasBin: true
 
   glob@10.3.4:
     resolution: {integrity: sha512-6LFElP3A+i/Q8XQKEvZjkEWEOTgAIALR9AO2rwT8bgPhDd1anmqDJDZ6lLddI4ehxxxR1S5RIqKe1uapMQfYaQ==}
@@ -10908,6 +10916,10 @@ snapshots:
 
   '@next/env@15.4.1': {}
 
+  '@next/eslint-plugin-next@14.2.15':
+    dependencies:
+      glob: 10.3.10
+
   '@next/eslint-plugin-next@15.3.0':
     dependencies:
       fast-glob: 3.3.1
@@ -13103,7 +13115,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
-  '@vercel/style-guide@6.0.0(eslint@9.31.0(jiti@1.21.7))(prettier@3.6.2)(typescript@5.7.3)(vitest@3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0))':
+  '@vercel/style-guide@6.0.0(@next/eslint-plugin-next@14.2.15)(eslint@9.31.0(jiti@1.21.7))(prettier@3.6.2)(typescript@5.7.3)(vitest@3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0))':
     dependencies:
       '@babel/core': 7.28.0
       '@babel/eslint-parser': 7.28.0(@babel/core@7.28.0)(eslint@9.31.0(jiti@1.21.7))
@@ -13126,6 +13138,7 @@ snapshots:
       eslint-plugin-vitest: 0.3.26(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@7.18.0(eslint@9.31.0(jiti@1.21.7))(typescript@5.7.3))(eslint@9.31.0(jiti@1.21.7))(typescript@5.7.3))(eslint@9.31.0(jiti@1.21.7))(typescript@5.7.3)(vitest@3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0))
       prettier-plugin-packagejson: 2.5.18(prettier@3.6.2)
     optionalDependencies:
+      '@next/eslint-plugin-next': 14.2.15
       eslint: 9.31.0(jiti@1.21.7)
       prettier: 3.6.2
       typescript: 5.7.3
@@ -14873,6 +14886,14 @@ snapshots:
   glob-parent@6.0.2:
     dependencies:
       is-glob: 4.0.3
+
+  glob@10.3.10:
+    dependencies:
+      foreground-child: 3.3.1
+      jackspeak: 2.3.6
+      minimatch: 9.0.5
+      minipass: 7.1.2
+      path-scurry: 1.11.1
 
   glob@10.3.4:
     dependencies:
