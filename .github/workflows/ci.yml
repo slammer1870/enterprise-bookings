@@ -117,9 +117,8 @@ jobs:
           path: |
             **/dist
             **/build
-          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}
           restore-keys: |
-            ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-
             ${{ runner.os }}-build-outputs-
 
   test:
@@ -211,9 +210,8 @@ jobs:
           path: |
             **/dist
             **/build
-          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-${{ github.sha }}
+          key: ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}
           restore-keys: |
-            ${{ runner.os }}-build-outputs-${{ hashFiles('**/package.json') }}-
             ${{ runner.os }}-build-outputs-
 
       - name: Install dependencies
