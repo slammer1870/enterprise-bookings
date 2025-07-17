@@ -294,9 +294,6 @@ importers:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
     devDependencies:
-      '@next/eslint-plugin-next':
-        specifier: 14.2.15
-        version: 14.2.15
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -600,9 +597,6 @@ importers:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
     devDependencies:
-      '@next/eslint-plugin-next':
-        specifier: 14.2.15
-        version: 14.2.15
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -1042,6 +1036,9 @@ importers:
         specifier: 3.2.3
         version: 3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0)
     devDependencies:
+      '@next/eslint-plugin-next':
+        specifier: ^14.2.15
+        version: 14.2.15
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.21.0
         version: 8.37.0(@typescript-eslint/parser@8.37.0(eslint@9.31.0(jiti@1.21.7))(typescript@5.7.3))(eslint@9.31.0(jiti@1.21.7))(typescript@5.7.3)
