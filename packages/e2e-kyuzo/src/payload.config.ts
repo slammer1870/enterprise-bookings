@@ -63,7 +63,9 @@ export const config: Config = {
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo_test',
+      connectionString:
+        process.env.DATABASE_URI ||
+        'postgres://postgres:brugrappling@localhost:5432/kyuzo_e2e',
     },
   }),
   sharp: sharp as SharpDependency,
