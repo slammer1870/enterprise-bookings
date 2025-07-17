@@ -1,8 +1,8 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
-  // First, drop any existing types to ensure clean state
   await db.execute(sql`
+   -- First, drop any existing types to ensure clean state
    DROP TYPE IF EXISTS "public"."enum_posts_status" CASCADE;
    DROP TYPE IF EXISTS "public"."enum__posts_v_version_status" CASCADE;
    DROP TYPE IF EXISTS "public"."enum_forms_confirmation_type" CASCADE;
@@ -16,10 +16,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
    DROP TYPE IF EXISTS "public"."enum_plans_interval" CASCADE;
    DROP TYPE IF EXISTS "public"."enum_plans_status" CASCADE;
    DROP TYPE IF EXISTS "public"."enum_plans_type" CASCADE;
-  `)
 
-  // Now create the types
-  await db.execute(sql`
+   -- Now create the types
    CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
    CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
    CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
