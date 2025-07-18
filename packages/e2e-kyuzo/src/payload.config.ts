@@ -36,6 +36,8 @@ import {
 
 import { Posts } from '@repo/website'
 
+import { seed } from './endpoints/seed'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -57,6 +59,13 @@ export const config: Config = {
   collections: [Users, Media, Pages, Posts],
   globals: [Navbar, Footer],
   editor: lexicalEditor(),
+  endpoints: [
+    {
+      path: '/seed',
+      method: 'post',
+      handler: seed,
+    },
+  ],
   secret: process.env.PAYLOAD_SECRET || 'secret',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
@@ -64,8 +73,7 @@ export const config: Config = {
   db: postgresAdapter({
     pool: {
       connectionString:
-        process.env.DATABASE_URI ||
-        'postgres://postgres:brugrappling@localhost:5432/kyuzo_e2e',
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo_e2e',
     },
   }),
   sharp: sharp as SharpDependency,
