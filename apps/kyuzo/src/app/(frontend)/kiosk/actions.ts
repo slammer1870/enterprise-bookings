@@ -3,6 +3,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { Booking } from '@repo/shared-types'
+import { revalidatePath } from 'next/cache'
 
 export async function createBooking(lessonId: number, userId: number): Promise<Booking> {
   try {
@@ -51,6 +52,8 @@ export async function createBooking(lessonId: number, userId: number): Promise<B
       overrideAccess: false,
       user: user,
     })
+
+    revalidatePath('/')
 
     return booking as Booking
   } catch (error) {

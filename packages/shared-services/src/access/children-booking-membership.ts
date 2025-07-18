@@ -90,6 +90,8 @@ export const childrenUpdateBookingMembershipAccess = async ({
     id: userId,
   })) as User;
 
+  if (checkRole(["admin"], user)) return true;
+
   try {
     if (id) {
       booking = (await req.payload.findByID({
@@ -135,6 +137,10 @@ export const childrenUpdateBookingMembershipAccess = async ({
     if (checkRole(["admin"], user)) return true;
 
     if (req.data?.status === "cancelled") return true;
+
+    if (lesson.bookingStatus === req.data?.status) {
+      return true;
+    }
 
     if (!validateLessonStatus(lesson)) return false;
 

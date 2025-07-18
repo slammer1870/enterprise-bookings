@@ -68,7 +68,10 @@ export const Users: CollectionConfig = {
         position: 'sidebar',
         description: 'Parent of the user',
         condition: ({ children }) => {
-          return children.docs.length === 0
+          if (children && children.docs.length > 0) {
+            return false
+          }
+          return true
         },
       },
     },
@@ -79,8 +82,10 @@ export const Users: CollectionConfig = {
       on: 'parent',
       admin: {
         condition: ({ children }) => {
-          console.log(children)
-          return children.docs.length > 0
+          if (children && children.docs.length > 0) {
+            return true
+          }
+          return false
         },
       },
     },

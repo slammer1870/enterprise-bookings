@@ -43,6 +43,7 @@ export default async function KioskPage() {
         less_than_equal: endOfDay,
       },
     },
+    sort: 'startTime',
     depth: 2,
   })
 
