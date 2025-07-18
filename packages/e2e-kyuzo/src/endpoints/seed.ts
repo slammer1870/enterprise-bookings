@@ -100,74 +100,11 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
       },
     })
 
-    const form = await payload.create({
-      collection: 'forms',
-      data: {
-        title: 'Kyuzo',
-        fields: [
-          {
-            name: 'name',
-            blockType: 'text',
-            label: 'Name',
-            required: true,
-          },
-          {
-            name: 'email',
-            blockType: 'email',
-            label: 'Email',
-            required: true,
-          },
-        ],
-        confirmationMessage: {
-          root: {
-            type: 'text',
-            direction: 'ltr',
-            format: 'left',
-            indent: 0,
-            version: 1,
-            children: [
-              {
-                type: 'text',
-                text: 'Kyuzo',
-                version: 1,
-                direction: 'ltr',
-                format: 'left',
-                indent: 0,
-              },
-            ],
-          },
-        },
-      },
-    })
-
     const page = await payload.create({
       collection: 'pages',
       data: {
         title: 'Home',
         slug: 'home',
-        layout: [
-          {
-            heading: 'Kyuzo',
-            subheading: 'Kyuzo',
-            blockType: 'hero',
-            formTitle: 'Kyuzo',
-            formDescription: 'Kyuzo',
-            form: form.id,
-            backgroundImage: {
-              id: 1,
-              url: 'https://via.placeholder.com/150',
-              alt: 'Kyuzo',
-              mimeType: 'image/jpeg',
-              filename: 'Kyuzo',
-              updatedAt: new Date().toISOString(),
-              createdAt: new Date().toISOString(),
-            },
-            cta1_text: 'Kyuzo',
-            cta1_link: 'Kyuzo',
-            cta2_text: 'Kyuzo',
-            cta2_link: 'Kyuzo',
-          },
-        ],
       },
     })
 
