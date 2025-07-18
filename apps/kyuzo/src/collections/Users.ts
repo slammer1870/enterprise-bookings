@@ -66,6 +66,22 @@ export const Users: CollectionConfig = {
       hasMany: false,
       admin: {
         position: 'sidebar',
+        description: 'Parent of the user',
+        condition: ({ children }) => {
+          return children.docs.length === 0
+        },
+      },
+    },
+    {
+      name: 'children',
+      type: 'join',
+      collection: 'users',
+      on: 'parent',
+      admin: {
+        condition: ({ children }) => {
+          console.log(children)
+          return children.docs.length > 0
+        },
       },
     },
     // Email added by default

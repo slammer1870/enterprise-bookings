@@ -89,6 +89,7 @@ export interface Config {
     };
     users: {
       lessons: 'lessons';
+      children: 'users';
       userSubscription: 'subscriptions';
     };
   };
@@ -541,7 +542,15 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  /**
+   * Parent of the user
+   */
   parent?: (number | null) | User;
+  children?: {
+    docs?: (number | User)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   name: string;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
@@ -1094,6 +1103,7 @@ export interface UsersSelect<T extends boolean = true> {
   image?: T;
   lessons?: T;
   parent?: T;
+  children?: T;
   name?: T;
   roles?: T;
   stripeCustomerId?: T;
