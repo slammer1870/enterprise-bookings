@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('Auth', () => {
-  test('should register', async ({ page }) => {
+  test('should register and login', async ({ page }) => {
     await page.goto('http://localhost:3000/register')
 
     await page.getByLabel('Name').fill('Test User')

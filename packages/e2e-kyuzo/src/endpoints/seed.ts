@@ -100,6 +100,14 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
       },
     })
 
+    const page = await payload.create({
+      collection: 'pages',
+      data: {
+        title: 'Home',
+        slug: 'home',
+      },
+    })
+
     req.payload.logger.info('Seeded database successfully')
 
     return new Response('Seeded database successfully', { status: 200 })
