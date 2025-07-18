@@ -22,6 +22,8 @@ async function globalSetup(config: FullConfig) {
     },
   })
 
+  console.log('Response', response)
+
   if (!response.ok) {
     const data = await response.json()
 
