@@ -15,7 +15,7 @@ async function globalSetup(config: FullConfig) {
 
   console.log('Seeding database')
 
-  const response = await fetch(`${config.webServer?.url}/seed`, {
+  const response = await fetch(`${config.webServer?.url}/api/seed`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -23,10 +23,12 @@ async function globalSetup(config: FullConfig) {
   })
 
   if (!response.ok) {
-    throw new Error('Failed to seed database')
+    const data = await response.json()
+
+    throw new Error('Failed to seed database ' + data)
   }
 
-  console.log('Database seeded successfully')
+  const data = await response.json()
 }
 
 export default globalSetup
