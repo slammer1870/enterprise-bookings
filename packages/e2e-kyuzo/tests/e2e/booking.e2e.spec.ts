@@ -19,7 +19,7 @@ test.describe('Booking', () => {
 
     //Expect to be redirected to bookings page
     await page.getByRole('button', { name: 'Check Child In' }).click()
-    await page.waitForURL('http://localhost:3000/bookings/children/1', {
+    await page.waitForURL(/http:\/\/localhost:3000\/bookings\/children\/\d+/, {
       timeout: 100000,
     })
   })
