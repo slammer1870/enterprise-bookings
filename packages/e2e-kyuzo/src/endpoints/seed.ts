@@ -5,8 +5,34 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
 
   try {
     //delete all users
+    await payload.delete({
+      collection: 'users',
+      where: {
+        id: {
+          exists: true,
+        },
+      },
+    })
 
     //delete all class options
+    await payload.delete({
+      collection: 'class-options',
+      where: {
+        id: {
+          exists: true,
+        },
+      },
+    })
+
+    //delete all lessons
+    await payload.delete({
+      collection: 'lessons',
+      where: {
+        id: {
+          exists: true,
+        },
+      },
+    })
 
     const admin = await payload.create({
       collection: 'users',
@@ -43,8 +69,8 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
     const classOptionChild = await payload.create({
       collection: 'class-options',
       data: {
-        name: 'Class Option',
-        description: 'Class Option',
+        name: 'Child Class Option',
+        description: 'Child Class Option',
         places: 10,
         type: 'child',
       },
@@ -56,8 +82,8 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
       data: {
         classOption: classOption.id,
         date: new Date().toISOString(),
-        startTime: '20:00',
-        endTime: '21:00',
+        startTime: new Date(new Date().setHours(20, 0, 0, 0)).toISOString(),
+        endTime: new Date(new Date().setHours(21, 0, 0, 0)).toISOString(),
         lockOutTime: 10,
       },
     })
@@ -68,8 +94,8 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
       data: {
         classOption: classOptionChild.id,
         date: new Date().toISOString(),
-        startTime: '19:00',
-        endTime: '19:30',
+        startTime: new Date(new Date().setHours(19, 0, 0, 0)).toISOString(),
+        endTime: new Date(new Date().setHours(19, 30, 0, 0)).toISOString(),
         lockOutTime: 10,
       },
     })

@@ -22,15 +22,11 @@ async function globalSetup(config: FullConfig) {
     },
   })
 
-  console.log('Response', response)
-
   if (!response.ok) {
-    const data = await response.json()
-
-    throw new Error('Failed to seed database ' + data)
+    throw new Error('Failed to seed database')
   }
 
-  const data = await response.json()
+  console.log('Database seeded successfully')
 }
 
 export default globalSetup
