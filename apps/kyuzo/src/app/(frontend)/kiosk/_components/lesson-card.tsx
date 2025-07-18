@@ -82,8 +82,6 @@ export const LessonCard = ({
     }
   }
 
-  console.log(lesson.bookings)
-
   return (
     <div>
       <Card key={lesson.id.toString()} className="flex flex-col gap-2 p-4">
