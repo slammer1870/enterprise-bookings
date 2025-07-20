@@ -480,34 +480,37 @@ describe("Booking tests", () => {
         },
       });
 
+      const baseTime1 = Date.now() + 2 * 60 * 60 * 1000; // 2 hours from now
       const lesson1 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now (1 hour after start)
+          startTime: new Date(baseTime1),
+          endTime: new Date(baseTime1 + 60 * 60 * 1000), // 1 hour after start
           classOption: classOption.id,
           location: "Test Location",
         },
       });
 
+      const baseTime2 = Date.now() + 4 * 60 * 60 * 1000; // 4 hours from now
       const lesson2 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
-          endTime: new Date(Date.now() + 5 * 60 * 60 * 1000), // 5 hours from now (1 hour after start)
+          startTime: new Date(baseTime2),
+          endTime: new Date(baseTime2 + 60 * 60 * 1000), // 1 hour after start
           classOption: classOption.id,
           location: "Test Location",
         },
       });
 
+      const baseTime3 = Date.now() + 1 * 60 * 60 * 1000; // 1 hour from now
       const lesson3 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now (1 hour after start)
+          startTime: new Date(baseTime3),
+          endTime: new Date(baseTime3 + 60 * 60 * 1000), // 1 hour after start
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -626,23 +629,25 @@ describe("Booking tests", () => {
         },
       });
 
+      const baseTimeLesson = Date.now() + 2 * 60 * 60 * 1000;
       const lesson = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          startTime: new Date(baseTimeLesson),
+          endTime: new Date(baseTimeLesson + 60 * 60 * 1000),
           classOption: classOptionWithPlan.id,
           location: "Test Location",
         },
       });
 
+      const baseTimeLesson1 = Date.now() + 4 * 60 * 60 * 1000;
       const lesson1 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 5 * 60 * 60 * 1000),
+          startTime: new Date(baseTimeLesson1),
+          endTime: new Date(baseTimeLesson1 + 60 * 60 * 1000),
           classOption: classOptionWithoutPlan.id,
           location: "Test Location",
         },
