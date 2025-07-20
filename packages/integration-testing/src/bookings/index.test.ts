@@ -81,7 +81,7 @@ describe("Booking tests", () => {
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now (1 hour after start)
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -485,7 +485,7 @@ describe("Booking tests", () => {
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now (1 hour after start)
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -496,7 +496,7 @@ describe("Booking tests", () => {
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
-          endTime: new Date(Date.now() + 4 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          endTime: new Date(Date.now() + 5 * 60 * 60 * 1000), // 5 hours from now (1 hour after start)
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -506,19 +506,20 @@ describe("Booking tests", () => {
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 6 hours from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour from now
+          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now (1 hour after start)
           classOption: classOption.id,
           location: "Test Location",
         },
       });
 
+      const baseTime = Date.now() + 8 * 60 * 60 * 1000; // 8 hours from now
       const lesson4 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 8 * 60 * 60 * 1000), // 8 hours from now
-          endTime: new Date(Date.now() + 8 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          startTime: new Date(baseTime),
+          endTime: new Date(baseTime + 60 * 60 * 1000), // Exactly 1 hour after start time
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -800,12 +801,13 @@ describe("Booking tests", () => {
       });
 
       // First lesson - current week
+      const baseTime1 = Date.now() + 32 * 60 * 60 * 1000; // 32 hours from now
       const lesson1 = await payload.create({
         collection: "lessons",
         data: {
-          date: new Date(Date.now() + 32 * 60 * 60 * 1000), // 32 hours from now
-          startTime: new Date(Date.now() + 32 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 32 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          date: new Date(baseTime1),
+          startTime: new Date(baseTime1),
+          endTime: new Date(baseTime1 + 60 * 60 * 1000), // Exactly 1 hour after start time
           classOption: classOption.id,
           location: "Test Location",
         },
