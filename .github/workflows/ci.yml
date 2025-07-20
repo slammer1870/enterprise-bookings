@@ -100,17 +100,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Cache Next.js builds
-        uses: actions/cache@v4
-        with:
-          path: |
-            apps/**/.next
-            packages/**/.next
-          key: ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}-
-            ${{ runner.os }}-nextjs-${{ matrix.app.name }}-
-
       # Build outputs are already cached by Turbo and Next.js cache steps above
       # - name: Cache build outputs
       #   uses: actions/cache@v4
@@ -194,17 +183,6 @@ jobs:
           key: ${{ runner.os }}-turbo-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-turbo-
-
-      - name: Restore Next.js builds
-        uses: actions/cache@v4
-        with:
-          path: |
-            apps/**/.next
-            packages/**/.next
-          key: ${{ runner.os }}-nextjs-test-${{ matrix.package }}-${{ hashFiles('**/package.json') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-
-            ${{ runner.os }}-nextjs-test-
 
       # Build outputs are already cached by Turbo artifacts
       # - name: Restore build outputs
