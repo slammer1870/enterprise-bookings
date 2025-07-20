@@ -14,7 +14,7 @@ export const metadata = {
   description: 'Sign up today to get started on your Jiu Jitsu Journey!',
   title: 'Kyuzo Brazilian Jiu Jitsu',
 }
-
+c
 export default async function RootLayout(props: { children: React.ReactNode }) {
   const { children } = props
 
