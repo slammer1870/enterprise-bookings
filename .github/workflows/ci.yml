@@ -90,7 +90,7 @@ jobs:
           echo "Postgres is up!"
 
       - name: Build the project for ${{ matrix.app.name }}
-        run: pnpm --filter ${{ matrix.app.name }}^... run ci
+        run: pnpm run ci --filter ${{ matrix.app.name }}
 
       - name: Cache Turbo artifacts
         uses: actions/cache@v4
