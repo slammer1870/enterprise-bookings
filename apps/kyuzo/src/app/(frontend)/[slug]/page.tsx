@@ -14,7 +14,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   const payload = await getPayload({ config })
   return generateMetadataFunction({ params: paramsPromise, payload })
 }
-d
+
 export async function generateStaticParams() {
   const payload = await getPayload({ config })
   const pagesQuery = await payload.find({
