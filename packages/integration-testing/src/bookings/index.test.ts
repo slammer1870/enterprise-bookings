@@ -304,10 +304,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -370,10 +376,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -450,10 +462,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 3,
-          interval: "week",
-          intervalCount: 2,
+          priceInformation: {
+            price: 10,
+            interval: "week",
+            intervalCount: 2,
+          },
+          sessionsInformation: {
+            sessions: 3,
+            interval: "week",
+            intervalCount: 2,
+          },
         },
       });
 
@@ -591,10 +609,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -698,10 +722,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -775,10 +805,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "week",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "week",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "week",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -876,7 +912,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -884,7 +929,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan 2",
-          price: 10,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
