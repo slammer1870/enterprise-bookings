@@ -102,14 +102,24 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
       let plan: Plan;
 
       if (planQuery.docs.length === 0) {
-        const stripeProduct = await stripe.products.retrieve(
-          stripeSubscription.items.data[0]?.plan.product as string
-        );
+        const stripeProduct = (await stripe.products.retrieve(
+          stripeSubscription.items.data[0]?.plan.product as string,
+          { expand: ["default_price"] }
+        )) as Stripe.Product;
+
+        const price = stripeProduct.default_price as Stripe.Price;
 
         const newPlan = await payload.create({
           collection: "plans",
           data: {
             name: stripeProduct.name,
+            status: "active",
+            stripeProductId: stripeProduct.id,
+            priceInformation: {
+              price: price.unit_amount && price.unit_amount / 100,
+              intervalCount: price.recurring?.interval_count,
+              interval: price.recurring?.interval,
+            },
           },
         });
 
