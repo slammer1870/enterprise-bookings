@@ -39,6 +39,7 @@ export default async function ChildrenBookingPage({ params }: { params: Promise<
     redirect('/dashboard')
   }
 
+  // Redirect if lesson is full
   if (lesson.remainingCapacity <= 0) {
     redirect('/dashboard')
   }
