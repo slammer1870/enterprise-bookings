@@ -143,7 +143,7 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
               ).toISOString()
             : null,
           cancelAt: stripeSubscription.cancel_at
-            ? stripeSubscription.cancel_at
+            ? new Date(stripeSubscription.cancel_at * 1000).toISOString()
             : null,
         },
       });
