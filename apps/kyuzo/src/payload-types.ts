@@ -644,7 +644,7 @@ export interface Plan {
   /**
    * Is this a membership for adults, family or children?
    */
-  type: 'adult' | 'child';
+  type?: ('adult' | 'child') | null;
   /**
    * The number of children who are subscribing to the plan
    */

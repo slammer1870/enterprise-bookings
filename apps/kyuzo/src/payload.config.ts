@@ -179,7 +179,7 @@ export default buildConfig({
               { label: 'Child', value: 'child' },
             ],
             defaultValue: 'adult',
-            required: true,
+            required: false,
             admin: {
               description: 'Is this a membership for adults, family or children?',
               position: 'sidebar',
