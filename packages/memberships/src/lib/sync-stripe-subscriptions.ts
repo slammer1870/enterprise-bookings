@@ -77,9 +77,9 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
         const newUser = await payload.create({
           collection: "users",
           data: {
-            name: stripeCustomer.name,
-            email: stripeCustomer.email,
-            stripeCustomerId: stripeSubscription.customer,
+            name: stripeCustomer.name as string,
+            email: stripeCustomer.email as string,
+            stripeCustomerId: stripeSubscription.customer as string,
             password: hash,
             salt,
           },
