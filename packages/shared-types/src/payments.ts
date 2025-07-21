@@ -37,9 +37,11 @@ export interface Plan {
     intervalCount: number;
     interval: "day" | "week" | "month" | "quarter" | "year";
   } | null;
-  sessions?: number | null;
-  intervalCount?: number | null;
-  interval?: ("day" | "week" | "month" | "quarter" | "year") | null;
+  priceInformation?: {
+    price: number;
+    intervalCount: number;
+    interval: "day" | "week" | "month" | "quarter" | "year";
+  } | null;
   stripeProductId?: string | null;
   priceJSON?: string | null;
   isSubscribed?: boolean | null;
