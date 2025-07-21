@@ -607,18 +607,31 @@ export interface Plan {
       }[]
     | null;
   /**
-   * Number of sessions included in this plan
+   * Sessions included in this plan (if applicable)
    */
-  sessions?: number | null;
-  /**
-   * Number of sessions per interval
-   */
-  intervalCount?: number | null;
-  /**
-   * How often the sessions are included
-   */
-  interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  sessionsInformation?: {
+    sessions?: number | null;
+    intervalCount?: number | null;
+    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  };
   stripeProductId?: string | null;
+  /**
+   * Price information for the plan
+   */
+  priceInformation?: {
+    /**
+     * Price of the plan
+     */
+    price?: number | null;
+    /**
+     * Number of intervals per period
+     */
+    intervalCount?: number | null;
+    /**
+     * How often the price is charged
+     */
+    interval?: ('day' | 'week' | 'month' | 'year') | null;
+  };
   priceJSON?: string | null;
   /**
    * Status of the plan
@@ -631,7 +644,7 @@ export interface Plan {
   /**
    * Is this a membership for adults, family or children?
    */
-  type: 'adult' | 'family' | 'child';
+  type: 'adult' | 'child';
   /**
    * The number of children who are subscribing to the plan
    */
@@ -1146,10 +1159,21 @@ export interface PlansSelect<T extends boolean = true> {
         feature?: T;
         id?: T;
       };
-  sessions?: T;
-  intervalCount?: T;
-  interval?: T;
+  sessionsInformation?:
+    | T
+    | {
+        sessions?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
   stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
   priceJSON?: T;
   status?: T;
   skipSync?: T;

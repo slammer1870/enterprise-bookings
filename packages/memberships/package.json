@@ -6,6 +6,7 @@
     "@payloadcms/plugin-stripe": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
+    "@payloadcms/ui": "*",
     "@repo/eslint-config": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",

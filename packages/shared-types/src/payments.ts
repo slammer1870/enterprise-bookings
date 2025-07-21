@@ -32,6 +32,11 @@ export interface Plan {
         id?: string | null;
       }[]
     | null;
+  sessionsInformation?: {
+    sessions: number;
+    intervalCount: number;
+    interval: "day" | "week" | "month" | "quarter" | "year";
+  } | null;
   sessions?: number | null;
   intervalCount?: number | null;
   interval?: ("day" | "week" | "month" | "quarter" | "year") | null;

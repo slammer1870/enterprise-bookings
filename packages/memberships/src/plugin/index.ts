@@ -17,6 +17,7 @@ import { subscriptionsProxy } from "../endpoints/subscriptions";
 
 import { createCheckoutSession } from "../endpoints/create-checkout-session";
 import { createCustomerPortal } from "../endpoints/create-customer-portal";
+import { syncStripeSubscriptionsEndpoint } from "../endpoints/sync-stripe-subscriptions";
 
 import { MembershipsPluginConfig } from "../types";
 
@@ -69,6 +70,12 @@ export const membershipsPlugin =
       path: "/stripe/create-customer-portal",
       method: "post",
       handler: createCustomerPortal,
+    });
+
+    endpoints.push({
+      path: "/stripe/sync-stripe-subscriptions",
+      method: "post",
+      handler: syncStripeSubscriptionsEndpoint,
     });
 
     const plansCollection = generatePlansCollection(pluginOptions);

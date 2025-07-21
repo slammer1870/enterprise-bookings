@@ -62,7 +62,8 @@ export default buildConfig({
   },
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo',
+      connectionString:
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo',
     },
   }),
   sharp: sharp as unknown as SharpDependency,
@@ -172,11 +173,16 @@ export default buildConfig({
           {
             name: 'type',
             type: 'select',
-            options: ['adult', 'family', 'child'],
+            label: 'Class Option Type',
+            options: [
+              { label: 'Adult', value: 'adult' },
+              { label: 'Child', value: 'child' },
+            ],
             defaultValue: 'adult',
             required: true,
             admin: {
               description: 'Is this a membership for adults, family or children?',
+              position: 'sidebar',
             },
           },
           {
@@ -188,6 +194,7 @@ export default buildConfig({
               condition: (data) => {
                 return Boolean(data?.type === 'child') // Only show if `type` is selected
               },
+              position: 'sidebar',
             },
           },
         ],

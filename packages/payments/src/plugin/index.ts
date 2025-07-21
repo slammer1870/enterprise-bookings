@@ -1,4 +1,10 @@
-import type { Config, Plugin, CollectionSlug, GroupField, NamedGroupField } from "payload";
+import type {
+  Config,
+  Plugin,
+  CollectionSlug,
+  GroupField,
+  NamedGroupField,
+} from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 import { dropInsCollection } from "../collections/drop-ins";
@@ -92,7 +98,9 @@ export const paymentsPlugin =
         throw new Error("Users collection not found");
       }
 
-      collections = collections.filter((collection) => collection.slug !== "users");
+      collections = collections.filter(
+        (collection) => collection.slug !== "users"
+      );
       collections.push(modifyUsersCollection(usersCollection));
 
       endpoints.push({

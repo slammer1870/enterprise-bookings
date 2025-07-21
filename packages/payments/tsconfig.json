@@ -1,5 +1,5 @@
 {
   "extends": "@repo/typescript-config/nextjs.json",
-  "include": ["src"],
+  "include": ["src", "../memberships/src/endpoints/sync-stripe-sunscriptions.ts"],
   "exclude": ["node_modules"]
 }

@@ -26,6 +26,7 @@ export const createStripeCustomer: CollectionBeforeChangeHook = async ({
 
       // create a new customer and assign the ID to the user
       const customer = await stripe.customers.create({
+        name: data.name,
         email: data.email,
       });
 

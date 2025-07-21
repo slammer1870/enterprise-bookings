@@ -4,8 +4,6 @@ import { stripeCustomerId } from "../fields/stripe-customer-id";
 
 import { createStripeCustomer } from "../hooks/create-stripe-customer";
 
-import { checkRole } from "@repo/shared-utils/src/check-role";
-
 export const modifyUsersCollection = (
   existingCollectionConfig: CollectionConfig
 ): CollectionConfig => {
@@ -27,6 +25,8 @@ export const modifyUsersCollection = (
     hooks.beforeChange = [];
   }
   hooks.beforeChange.push(createStripeCustomer);
+
+  
 
   return {
     ...existingCollectionConfig,

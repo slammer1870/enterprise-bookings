@@ -51,13 +51,13 @@ export const hasReachedSubscriptionLimit = async (
 ): Promise<boolean> => {
   const plan = subscription.plan;
 
-  if (!plan.sessions || !plan.interval || !plan.intervalCount) {
+  if (!plan.sessionsInformation) {
     return false;
   }
 
   const { startDate, endDate } = getIntervalStartAndEndDate(
-    plan.interval,
-    plan.intervalCount || 1,
+    plan.sessionsInformation.interval,
+    plan.sessionsInformation.intervalCount || 1,
     lessonDate
   );
 
@@ -72,7 +72,7 @@ export const hasReachedSubscriptionLimit = async (
       where: query(subscription, plan, startDate, endDate),
     });
 
-    if (bookings.docs.length >= plan.sessions) {
+    if (bookings.docs.length >= plan.sessionsInformation.sessions) {
       return true;
     }
   } catch (error) {

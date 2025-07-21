@@ -58,7 +58,7 @@ export const CustomSelect: React.FC<
                 label:
                   item.name ||
                   item.email ||
-                  (item.customer.email &&
+                  (item.customer?.email &&
                     `${item.customer.email} - ${item.id}`) ||
                   item.id,
                 value: item.id,

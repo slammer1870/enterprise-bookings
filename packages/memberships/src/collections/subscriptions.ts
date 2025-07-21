@@ -128,6 +128,11 @@ const defaultAccess: AccessControls = {
 const defaultAdmin: CollectionAdminOptions = {
   group: "Billing",
   useAsTitle: "user",
+  components: {
+    beforeListTable: [
+      "@repo/memberships/src/components/sync/sync-stripe#SyncStripe",
+    ],
+  },
 };
 
 const defaultHooks: HooksConfig = {

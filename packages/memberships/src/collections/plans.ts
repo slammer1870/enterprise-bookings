@@ -53,38 +53,39 @@ const defaultFields: Field[] = [
     ],
   },
   {
-    type: "row",
+    name: "sessionsInformation",
+    label: "Sessions Information",
+    type: "group",
+    admin: {
+      description: "Sessions included in this plan (if applicable)",
+    },
     fields: [
       {
-        name: "sessions",
-        label: "Sessions",
-        type: "number",
-        admin: {
-          description: "Number of sessions included in this plan",
-        },
-      },
-      {
-        name: "intervalCount",
-        label: "Per",
-        type: "number",
-        admin: {
-          description: "Number of sessions per interval",
-        },
-      },
-      {
-        name: "interval",
-        label: "Interval",
-        type: "select",
-        options: [
-          { label: "Days", value: "day" },
-          { label: "Weeks", value: "week" },
-          { label: "Months", value: "month" },
-          { label: "Quarters", value: "quarter" },
-          { label: "Years", value: "year" },
+        type: "row",
+        fields: [
+          {
+            name: "sessions",
+            label: "Sessions",
+            type: "number",
+          },
+          {
+            name: "intervalCount",
+            label: "Per",
+            type: "number",
+          },
+          {
+            name: "interval",
+            label: "Interval",
+            type: "select",
+            options: [
+              { label: "Days", value: "day" },
+              { label: "Weeks", value: "week" },
+              { label: "Months", value: "month" },
+              { label: "Quarters", value: "quarter" },
+              { label: "Years", value: "year" },
+            ],
+          },
         ],
-        admin: {
-          description: "How often the sessions are included",
-        },
       },
     ],
   },
@@ -109,10 +110,56 @@ const defaultFields: Field[] = [
     },
   },
   {
+    name: "priceInformation",
+    label: "Price Information",
+    admin: {
+      description: "Price information for the plan",
+    },
+    type: "group",
+    fields: [
+      {
+        type: "row",
+        fields: [
+          {
+            name: "price",
+            type: "number",
+            label: "Price (€)",
+            admin: {
+              description: "Price of the plan",
+            },
+          },
+          {
+            name: "intervalCount",
+            type: "number",
+            label: "Per",
+            admin: {
+              description: "Number of intervals per period",
+            },
+          },
+          {
+            name: "interval",
+            type: "select",
+            label: "Interval",
+            options: [
+              { label: "Day", value: "day" },
+              { label: "Week", value: "week" },
+              { label: "Month", value: "month" },
+              { label: "Year", value: "year" },
+            ],
+            defaultValue: "month",
+            admin: {
+              description: "How often the price is charged",
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
     name: "priceJSON",
     type: "textarea",
     admin: {
-      hidden: false,
+      hidden: true,
       readOnly: true,
       rows: 10,
     },
