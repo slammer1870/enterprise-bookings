@@ -114,7 +114,6 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
           data: {
             name: stripeProduct.name,
             status: "active",
-            stripeProductId: stripeProduct.id,
             priceInformation: {
               price: price.unit_amount && price.unit_amount / 100,
               intervalCount: price.recurring?.interval_count,
