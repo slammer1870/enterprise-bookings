@@ -134,10 +134,10 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
           user: user.id,
           plan: plan.id,
           status: stripeSubscription.status,
-          currentPeriodStart: new Date(
+          startDate: new Date(
             stripeSubscription.current_period_start * 1000
           ).toISOString(),
-          currentPeriodEnd: stripeSubscription.current_period_end
+          endDate: stripeSubscription.current_period_end
             ? new Date(
                 stripeSubscription.current_period_end * 1000
               ).toISOString()
