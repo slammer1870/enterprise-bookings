@@ -56,6 +56,7 @@ const defaultFields: Field[] = [
     name: "sessionsInformation",
     label: "Sessions Information",
     type: "group",
+    required: false,
     admin: {
       description: "Sessions included in this plan (if applicable)",
     },
@@ -67,11 +68,13 @@ const defaultFields: Field[] = [
             name: "sessions",
             label: "Sessions",
             type: "number",
+            required: false,
           },
           {
             name: "intervalCount",
             label: "Per",
             type: "number",
+            required: false,
           },
           {
             name: "interval",
@@ -84,6 +87,7 @@ const defaultFields: Field[] = [
               { label: "Quarters", value: "quarter" },
               { label: "Years", value: "year" },
             ],
+            required: false,
           },
         ],
       },
