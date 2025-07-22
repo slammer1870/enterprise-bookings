@@ -156,9 +156,9 @@ export const generateLessonsFromSchedule: TaskHandler<
             endTime: lessonEndTime.toISOString(),
             classOption:
               Number(timeSlot.classOption) || Number(defaultClassOption),
-            location: timeSlot.location,
-            instructor: timeSlot.instructor,
-            lockOutTime: timeSlot.lockOutTime || lockOutTime,
+            location: timeSlot.location || null,
+            instructor: Number(timeSlot.instructor) || null,
+            lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
           },
         });
       }
