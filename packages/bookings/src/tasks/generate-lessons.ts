@@ -1,26 +1,7 @@
 import { TaskHandler } from "payload";
 import { addDays } from "date-fns";
-import { ClassOption } from "@repo/shared-types";
 
-interface GenerateLessonsInput {
-  startDate: Date;
-  endDate: Date;
-  week: {
-    days: Array<{
-      timeSlot: Array<{
-        startTime: string;
-        endTime: string;
-        classOption?: number;
-        location?: string;
-        instructor?: number;
-        lockOutTime?: number;
-      }>;
-    }>;
-  };
-  clearExisting: boolean;
-  defaultClassOption: number;
-  lockOutTime: number;
-}
+import { TaskGenerateLessonsFromSchedule } from "../types";
 
 export const generateLessonsFromSchedule: TaskHandler<
   "generateLessonsFromSchedule"
@@ -32,7 +13,7 @@ export const generateLessonsFromSchedule: TaskHandler<
     clearExisting,
     defaultClassOption,
     lockOutTime,
-  } = input as GenerateLessonsInput;
+  } = input as TaskGenerateLessonsFromSchedule["input"];
 
   const { payload } = req;
 

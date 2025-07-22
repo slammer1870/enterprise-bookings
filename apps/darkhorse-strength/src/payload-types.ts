@@ -1636,7 +1636,25 @@ export interface SchedulerSelect<T extends boolean = true> {
  * via the `definition` "TaskGenerateLessonsFromSchedule".
  */
 export interface TaskGenerateLessonsFromSchedule {
-  input?: unknown;
+  input: {
+    startDate: string;
+    endDate: string;
+    week: {
+      days: {
+        timeSlot: {
+          startTime: string;
+          endTime: string;
+          classOption?: (number | null) | ClassOption;
+          location?: string | null;
+          instructor?: (number | null) | User;
+          lockOutTime?: number | null;
+        }[];
+      }[];
+    };
+    clearExisting: boolean;
+    defaultClassOption: number | ClassOption;
+    lockOutTime: number;
+  };
   output?: unknown;
 }
 /**

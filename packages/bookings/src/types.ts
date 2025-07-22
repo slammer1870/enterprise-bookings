@@ -13,7 +13,7 @@ import {
   CollectionBeforeOperationHook,
   CollectionBeforeReadHook,
 } from "payload";
-import { Lesson, User } from "@repo/shared-types";
+import { ClassOption, Lesson, User } from "@repo/shared-types";
 
 export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (args: {
@@ -86,3 +86,26 @@ export type HooksConfig = {
   beforeOperation?: CollectionBeforeOperationHook[];
   beforeRead?: CollectionBeforeReadHook[];
 };
+
+export interface TaskGenerateLessonsFromSchedule {
+  input: {
+    startDate: string;
+    endDate: string;
+    week: {
+      days: {
+        timeSlot: {
+          startTime: string;
+          endTime: string;
+          classOption?: (number | null) | ClassOption;
+          location?: string | null;
+          instructor?: (number | null) | User;
+          lockOutTime?: number | null;
+        }[];
+      }[];
+    };
+    clearExisting: boolean;
+    defaultClassOption: number | ClassOption;
+    lockOutTime: number;
+  };
+  output?: unknown;
+}

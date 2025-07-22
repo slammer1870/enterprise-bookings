@@ -105,7 +105,7 @@ export const schedulerGlobal: GlobalConfig = {
   hooks: {
     afterChange: [
       async ({ req, doc }) => {
-        await req.payload.jobs.queue({
+        const job = await req.payload.jobs.queue({
           task: "generateLessonsFromSchedule",
           input: {
             startDate: doc.startDate,
@@ -116,6 +116,10 @@ export const schedulerGlobal: GlobalConfig = {
             lockOutTime: doc.lockOutTime,
           },
         });
+
+        await req.payload.jobs.runByID(job.id);
+
+        return doc;
       },
     ],
   },
