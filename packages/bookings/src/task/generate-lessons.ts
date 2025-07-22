@@ -169,9 +169,9 @@ export const generateLessonsFromSchedule: TaskHandler<
         await payload.create({
           collection: "lessons",
           data: {
-            date: currentDate,
-            startTime: lessonStartTime,
-            endTime: lessonEndTime,
+            date: currentDate.toISOString(),
+            startTime: lessonStartTime.toISOString(),
+            endTime: lessonEndTime.toISOString(),
             classOption: timeSlot.classOption || defaultClassOption,
             location: timeSlot.location,
             instructor: timeSlot.instructor,
