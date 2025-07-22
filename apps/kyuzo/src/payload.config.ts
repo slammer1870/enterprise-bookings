@@ -190,6 +190,8 @@ export default buildConfig({
             type: 'number',
             required: false,
             defaultValue: 1,
+            min: 1,
+            max: 10,
             admin: {
               description: 'The number of children who are subscribing to the plan',
               condition: (data) => {

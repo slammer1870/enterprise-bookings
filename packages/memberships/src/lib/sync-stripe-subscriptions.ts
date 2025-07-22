@@ -15,12 +15,13 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
     const stripeSubscriptions = await stripe.subscriptions
       .list({
         limit: 100,
+        expand: ["data.customer"],
       })
       .autoPagingToArray({ limit: 10000 });
 
     const payloadSubscriptions = await payload.find({
       collection: "subscriptions",
-      where: { stripeSubscriptionId: { not_equals: null } },
+      where: { user: { not_equals: null } },
       limit: 0,
     });
 
@@ -46,9 +47,11 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
         continue;
       }
 
+      const customer = stripeSubscription.customer as Stripe.Customer;
+
       const userQuery = await payload.find({
         collection: "users",
-        where: { stripeCustomerId: { equals: stripeSubscription.customer } },
+        where: { email: { equals: customer.email } },
       });
 
       let user: User;
@@ -90,11 +93,23 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
         user = userQuery.docs[0] as User;
       }
 
+      const stripeProductInSubscription =
+        stripeSubscription.items.data[0]?.plan.product;
+
+      const stripeProduct = await stripe.products.retrieve(
+        stripeProductInSubscription as string,
+        {
+          expand: ["default_price"],
+        }
+      );
+
+      const price = stripeProduct.default_price as Stripe.Price;
+
       const planQuery = await payload.find({
         collection: "plans",
         where: {
-          stripeProductId: {
-            equals: stripeSubscription.items.data[0]?.plan.product,
+          priceJSON: {
+            equals: price,
           },
         },
       });
@@ -102,18 +117,12 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
       let plan: Plan;
 
       if (planQuery.docs.length === 0) {
-        const stripeProduct = (await stripe.products.retrieve(
-          stripeSubscription.items.data[0]?.plan.product as string,
-          { expand: ["default_price"] }
-        )) as Stripe.Product;
-
-        const price = stripeProduct.default_price as Stripe.Price;
-
         const newPlan = await payload.create({
           collection: "plans",
           data: {
             name: stripeProduct.name,
             status: "active",
+            priceJSON: price,
             priceInformation: {
               price: price.unit_amount && price.unit_amount / 100,
               intervalCount: price.recurring?.interval_count,
