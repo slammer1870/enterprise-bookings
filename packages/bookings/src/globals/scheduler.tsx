@@ -95,7 +95,6 @@ const days: Field = {
   ],
 };
 
-
 export const schedulerGlobal: GlobalConfig = {
   slug: "scheduler",
   label: "Lesson Scheduler",

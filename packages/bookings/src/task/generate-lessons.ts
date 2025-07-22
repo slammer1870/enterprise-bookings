@@ -1,23 +1,24 @@
 import { TaskHandler } from "payload";
 import { addDays } from "date-fns";
+import { ClassOption } from "@repo/shared-types";
 
 interface GenerateLessonsInput {
-  startDate: string;
-  endDate: string;
+  startDate: Date;
+  endDate: Date;
   week: {
     days: Array<{
       timeSlot: Array<{
         startTime: string;
         endTime: string;
-        classOption?: string;
+        classOption?: number;
         location?: string;
-        instructor?: string;
+        instructor?: number;
         lockOutTime?: number;
       }>;
     }>;
   };
   clearExisting: boolean;
-  defaultClassOption: string;
+  defaultClassOption: number;
   lockOutTime: number;
 }
 
@@ -172,7 +173,8 @@ export const generateLessonsFromSchedule: TaskHandler<
             date: currentDate.toISOString(),
             startTime: lessonStartTime.toISOString(),
             endTime: lessonEndTime.toISOString(),
-            classOption: timeSlot.classOption || defaultClassOption,
+            classOption:
+              Number(timeSlot.classOption) || Number(defaultClassOption),
             location: timeSlot.location,
             instructor: timeSlot.instructor,
             lockOutTime: timeSlot.lockOutTime || lockOutTime,
