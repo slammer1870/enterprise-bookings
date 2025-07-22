@@ -64,7 +64,7 @@ export default async function BlogPost({ params: paramsPromise }: Args) {
           </button>
         </Link>
         <h3 className="text-4xl font-bold text-left mr-auto">{post.title}</h3>
-        <RichText className="max-w-4xl mx-auto" data={post.content} />
+        <RichText className="max-w-4xl mx-auto prose prose-lg" data={post.content} />
       </div>
     </article>
   )
