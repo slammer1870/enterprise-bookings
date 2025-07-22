@@ -7,6 +7,7 @@ import { generateBookingCollection } from "../collections/bookings";
 import { BookingsPluginConfig } from "../types";
 
 import { schedulerGlobal } from "../globals/scheduler";
+import { generateLessonsFromSchedule } from "../task/generate-lessons";
 
 export const bookingsPlugin =
   (pluginOptions: BookingsPluginConfig): Plugin =>
@@ -34,6 +35,22 @@ export const bookingsPlugin =
     config.globals = globals;
 
     config.collections = collections;
+
+    // Register task handlers
+    if (!config.jobs) {
+      config.jobs = {
+        tasks: [],
+      };
+    }
+
+    if (!config.jobs.tasks) {
+      config.jobs.tasks = [];
+    }
+
+    config.jobs.tasks.push({
+      slug: "generateLessonsFromSchedule",
+      handler: generateLessonsFromSchedule,
+    });
 
     let timezones = config.admin?.timezones || {
       defaultTimezone: "Europe/Dublin",

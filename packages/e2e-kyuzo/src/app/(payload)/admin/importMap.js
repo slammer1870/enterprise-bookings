@@ -25,6 +25,7 @@ import { FixedToolbarFeatureClient as FixedToolbarFeatureClient_e70f5e05f09f93e0
 import { LessonAdmin as LessonAdmin_28f82c8ab580570e6e2e631b3f76d105 } from '@repo/bookings/src/components/lessons/lesson-admin'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
+import { DayRowLabel as DayRowLabel_5db892d6791db3696a6450921707b1cc } from '@repo/bookings/src/components/scheduler/day-row-label'
 import { Logo as Logo_b07124a4405ca9731d7f918af75bafd0 } from '../../../graphics/logo/index.tsx'
 
 export const importMap = {
@@ -55,5 +56,6 @@ export const importMap = {
   "@repo/bookings/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_28f82c8ab580570e6e2e631b3f76d105,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
+  "@repo/bookings/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_5db892d6791db3696a6450921707b1cc,
   "/graphics/logo/index.tsx#Logo": Logo_b07124a4405ca9731d7f918af75bafd0
 }
