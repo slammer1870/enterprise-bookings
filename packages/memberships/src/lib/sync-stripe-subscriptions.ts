@@ -61,11 +61,7 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
           `Creating user for subscription ${stripeSubscription.id}`
         );
 
-        const stripeCustomer = (await stripe.customers.retrieve(
-          stripeSubscription.customer as string
-        )) as Stripe.Customer;
-
-        if (stripeCustomer.email === null || stripeCustomer.name === null) {
+        if (customer.email === null || customer.name === null) {
           console.log(
             `Skipping subscription ${stripeSubscription.id} because it has no email or name`
           );
@@ -80,9 +76,9 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
         const newUser = await payload.create({
           collection: "users",
           data: {
-            name: stripeCustomer.name as string,
-            email: stripeCustomer.email as string,
-            stripeCustomerId: stripeSubscription.customer as string,
+            name: customer.name as string,
+            email: customer.email as string,
+            stripeCustomerId: customer.id,
             password: hash,
             salt,
           },
