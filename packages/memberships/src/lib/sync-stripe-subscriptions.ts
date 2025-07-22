@@ -109,7 +109,7 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
         collection: "plans",
         where: {
           priceJSON: {
-            equals: price,
+            equals: JSON.stringify(price),
           },
         },
       });
