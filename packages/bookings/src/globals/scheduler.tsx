@@ -117,7 +117,11 @@ export const schedulerGlobal: GlobalConfig = {
           },
         });
 
-        await req.payload.jobs.runByID(job.id);
+        if (job.id) {
+          await req.payload.jobs.runByID({
+            id: job.id,
+          });
+        }
 
         return doc;
       },
