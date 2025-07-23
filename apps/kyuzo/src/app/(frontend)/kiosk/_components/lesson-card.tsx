@@ -161,9 +161,13 @@ export const LessonCard = ({
                               .map((user) => (
                                 <CommandItem
                                   key={user.id}
-                                  value={user.id.toString()}
+                                  value={`${user.name} - ${user.email}`}
                                   onSelect={(currentValue) => {
-                                    setValue(currentValue === value ? '' : currentValue)
+                                    const selectedUser = users.find(
+                                      (u) => `${u.name} - ${u.email}` === currentValue,
+                                    )
+                                    const userIdString = selectedUser?.id.toString() || ''
+                                    setValue(userIdString === value ? '' : userIdString)
                                     setOpen(false)
                                   }}
                                 >
@@ -181,9 +185,13 @@ export const LessonCard = ({
                               .map((user) => (
                                 <CommandItem
                                   key={user.id.toString()}
-                                  value={user.id.toString()}
+                                  value={`${user.name} - ${user.email}`}
                                   onSelect={(currentValue) => {
-                                    setValue(currentValue === value ? '' : currentValue)
+                                    const selectedUser = users.find(
+                                      (u) => `${u.name} - ${u.email}` === currentValue,
+                                    )
+                                    const userIdString = selectedUser?.id.toString() || ''
+                                    setValue(userIdString === value ? '' : userIdString)
                                     setOpen(false)
                                   }}
                                 >
