@@ -90,11 +90,6 @@ export const subscriptionUpdated: StripeWebhookHandler<{
           data: { status: "confirmed" },
         });
       }
-      await payload.update({
-        collection: "subscriptions",
-        id: subscription.docs[0]?.id as number,
-        data: {},
-      });
     }
   } catch (error) {
     console.error("Error updating subscription", error);
