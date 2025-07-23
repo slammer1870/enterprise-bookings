@@ -134,84 +134,96 @@ export const LessonCard = ({
                 ))}
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between gap-4">
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-[200px] justify-between"
-                  >
-                    {value
-                      ? users.find((user) => user.id.toString() === value)?.name
-                      : 'Select user...'}
-                    <ChevronsUpDown className="opacity-50" />
+            <CardFooter>
+              {lesson.remainingCapacity > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-[200px] justify-between"
+                      >
+                        {value
+                          ? users.find((user) => user.id.toString() === value)?.name
+                          : 'Select user...'}
+                        <ChevronsUpDown className="opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search user..." className="h-9" />
+                        <CommandList>
+                          <CommandEmpty>No users found.</CommandEmpty>
+                          <CommandGroup>
+                            {lesson.classOption.type === 'child'
+                              ? users
+                                  .filter((user) => user.parent !== null)
+                                  .map((user) => (
+                                    <CommandItem
+                                      key={user.id}
+                                      value={`${user.name} - ${user.email}`}
+                                      onSelect={(currentValue) => {
+                                        const selectedUser = users.find(
+                                          (u) => `${u.name} - ${u.email}` === currentValue,
+                                        )
+                                        const userIdString = selectedUser?.id.toString() || ''
+                                        setValue(userIdString === value ? '' : userIdString)
+                                        setOpen(false)
+                                      }}
+                                    >
+                                      {user.name}
+                                      <Check
+                                        className={cn(
+                                          'ml-auto',
+                                          value === user.id.toString()
+                                            ? 'opacity-100'
+                                            : 'opacity-0',
+                                        )}
+                                      />
+                                    </CommandItem>
+                                  ))
+                              : users
+                                  .filter((user) => user.parent === null)
+                                  .map((user) => (
+                                    <CommandItem
+                                      key={user.id.toString()}
+                                      value={`${user.name} - ${user.email}`}
+                                      onSelect={(currentValue) => {
+                                        const selectedUser = users.find(
+                                          (u) => `${u.name} - ${u.email}` === currentValue,
+                                        )
+                                        const userIdString = selectedUser?.id.toString() || ''
+                                        setValue(userIdString === value ? '' : userIdString)
+                                        setOpen(false)
+                                      }}
+                                    >
+                                      {user.name}
+                                      <Check
+                                        className={cn(
+                                          'ml-auto',
+                                          value === user.id.toString()
+                                            ? 'opacity-100'
+                                            : 'opacity-0',
+                                        )}
+                                      />
+                                    </CommandItem>
+                                  ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button onClick={handleCheckIn} disabled={isLoading || !value}>
+                    {isLoading ? <Loader2 className="animate-spin" /> : 'Check In'}
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput placeholder="Search user..." className="h-9" />
-                    <CommandList>
-                      <CommandEmpty>No users found.</CommandEmpty>
-                      <CommandGroup>
-                        {lesson.classOption.type === 'child'
-                          ? users
-                              .filter((user) => user.parent !== null)
-                              .map((user) => (
-                                <CommandItem
-                                  key={user.id}
-                                  value={`${user.name} - ${user.email}`}
-                                  onSelect={(currentValue) => {
-                                    const selectedUser = users.find(
-                                      (u) => `${u.name} - ${u.email}` === currentValue,
-                                    )
-                                    const userIdString = selectedUser?.id.toString() || ''
-                                    setValue(userIdString === value ? '' : userIdString)
-                                    setOpen(false)
-                                  }}
-                                >
-                                  {user.name}
-                                  <Check
-                                    className={cn(
-                                      'ml-auto',
-                                      value === user.id.toString() ? 'opacity-100' : 'opacity-0',
-                                    )}
-                                  />
-                                </CommandItem>
-                              ))
-                          : users
-                              .filter((user) => user.parent === null)
-                              .map((user) => (
-                                <CommandItem
-                                  key={user.id.toString()}
-                                  value={`${user.name} - ${user.email}`}
-                                  onSelect={(currentValue) => {
-                                    const selectedUser = users.find(
-                                      (u) => `${u.name} - ${u.email}` === currentValue,
-                                    )
-                                    const userIdString = selectedUser?.id.toString() || ''
-                                    setValue(userIdString === value ? '' : userIdString)
-                                    setOpen(false)
-                                  }}
-                                >
-                                  {user.name}
-                                  <Check
-                                    className={cn(
-                                      'ml-auto',
-                                      value === user.id.toString() ? 'opacity-100' : 'opacity-0',
-                                    )}
-                                  />
-                                </CommandItem>
-                              ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <Button onClick={handleCheckIn} disabled={isLoading || !value}>
-                {isLoading ? <Loader2 className="animate-spin" /> : 'Check In'}
-              </Button>
+                </div>
+              ) : (
+                <div className="flex justify-between gap-4">
+                  <p className="text-sm text-muted-foreground">This class is full</p>
+                </div>
+              )}
             </CardFooter>
           </CollapsibleContent>
         </Collapsible>
