@@ -2,6 +2,7 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { seoPlugin } from '@payloadcms/plugin-seo'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
@@ -214,6 +215,12 @@ export default buildConfig({
         'customer.subscription.deleted': subscriptionCanceled,
         'product.updated': productUpdated,
       },
+    }),
+    seoPlugin({
+      collections: ['pages', 'posts'],
+      uploadsCollection: 'media',
+      generateTitle: ({ doc }) => `Kyuzo Jiu Jitsu — ${doc.title}`,
+      generateDescription: ({ doc }) => doc.excerpt,
     }),
     // storage-adapter-placeholder
   ],
