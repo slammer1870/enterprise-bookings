@@ -111,7 +111,13 @@ export const checkUserSubscription = async (
       limit: 1,
     });
 
-    if (userSubscription.docs.length === 0) return false;
+    if (userSubscription.docs.length === 0) {
+      payload.logger.error("User does not have an active subscription", {
+        lesson,
+        user,
+      });
+      return false;
+    }
 
     const subscription = userSubscription.docs[0] as Subscription & {
       plan: Plan;
@@ -122,6 +128,14 @@ export const checkUserSubscription = async (
         (plan) => plan.id == subscription.plan.id
       )
     ) {
+      payload.logger.error(
+        "User has an active subscription that is not valid for lesson",
+        {
+          lesson,
+          user,
+          subscription,
+        }
+      );
       return false;
     }
 
@@ -131,6 +145,14 @@ export const checkUserSubscription = async (
       (subscription.cancelAt &&
         new Date(subscription.cancelAt) <= new Date(lesson.startTime))
     ) {
+      payload.logger.error(
+        "User has an active subscription that is cancelled by the date of this lesson",
+        {
+          lesson,
+          user,
+          subscription,
+        }
+      );
       return false;
     }
 
@@ -139,7 +161,14 @@ export const checkUserSubscription = async (
       payload,
       new Date(lesson.startTime)
     );
-    if (reachedLimit) return false;
+    if (reachedLimit) {
+      payload.logger.error("User has reached the subscription limit", {
+        lesson,
+        user,
+        subscription,
+      });
+      return false;
+    }
 
     if (lesson.classOption.type === "child") {
       const plan = subscription.plan as Plan;
@@ -159,7 +188,14 @@ export const checkUserSubscription = async (
 
       const quantity = plan.quantity || 1;
 
-      if (bookings.totalDocs >= quantity) return false;
+      if (bookings.totalDocs >= quantity) {
+        payload.logger.error("User has reached the child subscription limit", {
+          lesson,
+          user,
+          subscription,
+        });
+        return false;
+      }
     }
 
     return true;

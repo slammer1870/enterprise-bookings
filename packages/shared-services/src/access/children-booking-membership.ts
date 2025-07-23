@@ -55,7 +55,12 @@ export const childrenCreateBookingMembershipAccess = async ({
       return true;
     }
 
-    if (!validateLessonStatus(lesson)) return false;
+    if (!validateLessonStatus(lesson)) {
+      req.payload.logger.error("Lesson status is not valid for lesson", {
+        lesson,
+      });
+      return false;
+    }
 
     return await validateLessonPaymentMethods(lesson, user, req.payload);
 
