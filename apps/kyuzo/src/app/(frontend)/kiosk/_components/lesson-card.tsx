@@ -124,14 +124,17 @@ export const LessonCard = ({
               <Separator />
               <div className="flex flex-col gap-2 mt-2">
                 {lesson.bookings.docs.length === 0 && <p>No bookings</p>}
-                {lesson.bookings.docs.map((booking) => (
-                  <div key={booking.id}>
-                    <div className="flex items-center">
-                      <Check className="mr-2 w-4 h-4" />
-                      <p>{booking.user.name}</p>
-                    </div>
-                  </div>
-                ))}
+                {lesson.bookings.docs.map(
+                  (booking) =>
+                    booking.status === 'confirmed' && (
+                      <div key={booking.id}>
+                        <div className="flex items-center">
+                          <Check className="mr-2 w-4 h-4" />
+                          <p>{booking.user.name}</p>
+                        </div>
+                      </div>
+                    ),
+                )}
               </div>
             </CardContent>
             <CardFooter>
