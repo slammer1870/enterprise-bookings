@@ -2,6 +2,11 @@ import { CollectionConfig } from 'payload'
 
 import { Hero } from '@/blocks/hero/config'
 import { About } from '@/blocks/about/config'
+import { KidsProgram } from '@/blocks/kids-program/config'
+import { AdultsProgram } from '@/blocks/adults-program/config'
+import { CoachingTeam } from '@/blocks/coaching-team/config'
+import { ContactForm } from '@/blocks/contact-form/config'
+import { LatestPosts } from '@/blocks/latest-posts/config'
 
 import { FormBlock } from '@repo/website/src/blocks/form/config'
 
@@ -32,7 +37,7 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, Schedule, FormBlock, About],
+      blocks: [Hero, Schedule, FormBlock, About, KidsProgram, AdultsProgram, CoachingTeam, ContactForm, LatestPosts],
     },
   ],
   hooks: {

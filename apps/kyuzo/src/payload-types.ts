@@ -247,6 +247,62 @@ export interface Page {
             blockName?: string | null;
             blockType: 'about';
           }
+        | {
+            heading: string;
+            description: string;
+            image: number | Media;
+            ageGroups?:
+              | {
+                  title: string;
+                  description: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'kids-program';
+          }
+        | {
+            heading: string;
+            image: number | Media;
+            programs?:
+              | {
+                  title: string;
+                  description: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'adults-program';
+          }
+        | {
+            heading: string;
+            teamMembers?:
+              | {
+                  name: string;
+                  role: string;
+                  bio: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'coaching-team';
+          }
+        | {
+            heading: string;
+            description: string;
+            form: number | Form;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'contact-form';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'latest-posts';
+          }
       )[]
     | null;
   updatedAt: string;
@@ -964,6 +1020,67 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        'kids-program'?:
+          | T
+          | {
+              heading?: T;
+              description?: T;
+              image?: T;
+              ageGroups?:
+                | T
+                | {
+                    title?: T;
+                    description?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        'adults-program'?:
+          | T
+          | {
+              heading?: T;
+              image?: T;
+              programs?:
+                | T
+                | {
+                    title?: T;
+                    description?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        'coaching-team'?:
+          | T
+          | {
+              heading?: T;
+              teamMembers?:
+                | T
+                | {
+                    name?: T;
+                    role?: T;
+                    bio?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        'contact-form'?:
+          | T
+          | {
+              heading?: T;
+              description?: T;
+              form?: T;
+              id?: T;
+              blockName?: T;
+            };
+        'latest-posts'?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
       };
   updatedAt?: T;
   createdAt?: T;
@@ -1371,13 +1488,14 @@ export interface Navbar {
  */
 export interface Footer {
   id: number;
-  logo: string;
-  navigationItems: {
-    label: string;
-    link: string;
-    isExternal?: boolean | null;
-    id?: string | null;
-  }[];
+  brandName: string;
+  copyrightText: string;
+  socialLinks?: {
+    facebook?: string | null;
+    twitter?: string | null;
+    instagram?: string | null;
+    youtube?: string | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1460,14 +1578,15 @@ export interface NavbarSelect<T extends boolean = true> {
  * via the `definition` "footer_select".
  */
 export interface FooterSelect<T extends boolean = true> {
-  logo?: T;
-  navigationItems?:
+  brandName?: T;
+  copyrightText?: T;
+  socialLinks?:
     | T
     | {
-        label?: T;
-        link?: T;
-        isExternal?: T;
-        id?: T;
+        facebook?: T;
+        twitter?: T;
+        instagram?: T;
+        youtube?: T;
       };
   updatedAt?: T;
   createdAt?: T;

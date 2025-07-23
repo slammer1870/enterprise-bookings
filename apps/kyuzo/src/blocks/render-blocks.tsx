@@ -4,6 +4,11 @@ import type { Page } from '@/payload-types'
 
 import { HeroBlock } from './hero'
 import { AboutBlock } from './about'
+import { KidsProgramBlock } from './kids-program'
+import { AdultsProgramBlock } from './adults-program'
+import { CoachingTeamBlock } from './coaching-team'
+import { ContactFormBlock } from './contact-form'
+import { LatestPostsBlock } from './latest-posts'
 
 import ScheduleComponent from '@/components/schedule'
 
@@ -12,6 +17,11 @@ import { FormBlock } from '@repo/website/src/blocks/form/index'
 const blockComponents = {
   hero: HeroBlock,
   about: AboutBlock,
+  'kids-program': KidsProgramBlock,
+  'adults-program': AdultsProgramBlock,
+  'coaching-team': CoachingTeamBlock,
+  'contact-form': ContactFormBlock,
+  'latest-posts': LatestPostsBlock,
   'form-block': FormBlock,
   schedule: ScheduleComponent,
 }
