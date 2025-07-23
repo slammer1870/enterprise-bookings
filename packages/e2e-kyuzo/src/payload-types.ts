@@ -1521,7 +1521,10 @@ export interface TaskGenerateLessonsFromSchedule {
     defaultClassOption: number | ClassOption;
     lockOutTime: number;
   };
-  output?: unknown;
+  output: {
+    success?: boolean | null;
+    message?: string | null;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
