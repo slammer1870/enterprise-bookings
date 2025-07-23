@@ -180,8 +180,8 @@ The admin panel is organized into logical groups:
 1. Navigate to Collections → Plans
 2. Click "Create New"
 3. Configure plan details:
-   - **Name**: Plan name (e.g., "Monthly Adult", "Family Plan")
-   - **Type**: Adult, family, or child
+   - **Name**: Plan name (e.g., "Monthly Adult", "Child Plan")
+   - **Type**: Adult or child
    - **Features**: What's included in the plan
    - **Sessions**: Number of classes included
    - **Interval**: How often (monthly, annually, etc.)
@@ -190,7 +190,6 @@ The admin panel is organized into logical groups:
 
 #### Plan Types
 - **Adult Plans**: Individual adult memberships
-- **Family Plans**: Cover multiple family members
 - **Children's Plans**: Individual child memberships
 
 #### Stripe Integration

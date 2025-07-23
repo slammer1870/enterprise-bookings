@@ -112,40 +112,16 @@ export default buildConfig({
                   // returns a Where query dynamically by the type of relationship
                   if (data.type === 'child') {
                     return {
-                      or: [
-                        {
-                          type: { equals: 'child' },
-                        },
-                        {
-                          type: { equals: 'family' },
-                        },
-                      ],
+                      type: { equals: 'child' },
                     }
                   } else if (data.type === 'adult') {
                     return {
-                      or: [
-                        {
-                          type: { equals: 'adult' },
-                        },
-                        {
-                          type: { equals: 'family' },
-                        },
-                      ],
+                      type: { equals: 'adult' },
                     }
                   }
                   // Default case - return all plans
                   return {
-                    or: [
-                      {
-                        type: { equals: 'adult' },
-                      },
-                      {
-                        type: { equals: 'family' },
-                      },
-                      {
-                        type: { equals: 'child' },
-                      },
-                    ],
+                    type: { in: ['adult', 'child'] },
                   }
                 },
               },
@@ -182,7 +158,7 @@ export default buildConfig({
             defaultValue: 'adult',
             required: false,
             admin: {
-              description: 'Is this a membership for adults, family or children?',
+              description: 'Is this a membership for adults or children?',
               position: 'sidebar',
             },
           },
