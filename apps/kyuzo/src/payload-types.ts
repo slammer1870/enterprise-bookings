@@ -722,7 +722,7 @@ export interface Plan {
    */
   skipSync?: boolean | null;
   /**
-   * Is this a membership for adults, family or children?
+   * Is this a membership for adults or children?
    */
   type?: ('adult' | 'child') | null;
   /**

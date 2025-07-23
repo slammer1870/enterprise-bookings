@@ -51,7 +51,13 @@ export const hasReachedSubscriptionLimit = async (
 ): Promise<boolean> => {
   const plan = subscription.plan;
 
-  if (!plan.sessionsInformation) {
+  if (
+    !plan.sessionsInformation ||
+    !plan.sessionsInformation.sessions ||
+    !plan.sessionsInformation.interval ||
+    !plan.sessionsInformation.intervalCount
+  ) {
+    payload.logger.error("Plan does not have sessions information");
     return false;
   }
 
@@ -70,6 +76,14 @@ export const hasReachedSubscriptionLimit = async (
       collection: "bookings" as CollectionSlug,
       depth: 5,
       where: query(subscription, plan, startDate, endDate),
+    });
+
+    payload.logger.info("Bookings found for subscription", {
+      bookings,
+      subscription,
+      plan,
+      startDate,
+      endDate,
     });
 
     if (bookings.docs.length >= plan.sessionsInformation.sessions) {
