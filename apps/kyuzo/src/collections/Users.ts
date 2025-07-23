@@ -19,7 +19,7 @@ export const Users: CollectionConfig = {
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
   auth: {
-    maxLoginAttempts: 5,
+    maxLoginAttempts: 20,
     tokenExpiration: 604800,
     forgotPassword: {
       generateEmailHTML: (args) => {
