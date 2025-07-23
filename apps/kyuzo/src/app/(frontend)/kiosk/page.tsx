@@ -32,16 +32,24 @@ export default async function KioskPage() {
     config,
   })
 
-  const { startOfDay, endOfDay } = getDayRange(new Date())
+  const { endOfDay } = getDayRange(new Date())
 
   const lessonQuery = await payload.find({
     collection: 'lessons',
     limit: 0,
     where: {
-      startTime: {
-        greater_than_equal: startOfDay,
-        less_than_equal: endOfDay,
-      },
+      and: [
+        {
+          startTime: {
+            less_than_equal: endOfDay,
+          },
+        },
+        {
+          endTime: {
+            greater_than_equal: new Date().toISOString(),
+          },
+        },
+      ],
     },
     sort: 'startTime',
     depth: 2,
