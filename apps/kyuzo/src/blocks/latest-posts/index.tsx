@@ -1,32 +1,9 @@
 import React from 'react'
 import Link from 'next/link'
-import { getPayload } from 'payload'
-import { CollectionSlug } from 'payload'
-import payloadConfig from '@/payload.config'
-import { Post } from '@repo/shared-types'
+import { fetchLatestPosts } from '@repo/website/src/actions/posts'
 
 type LatestPostsProps = {
   // No dynamic props needed
-}
-
-const fetchLatestPosts = async (): Promise<Post[]> => {
-  const payload = await getPayload({
-    config: payloadConfig,
-  })
-
-  const postQuery = await payload.find({
-    collection: 'posts' as CollectionSlug,
-    where: {
-      _status: {
-        equals: 'published',
-      },
-    },
-    sort: '-createdAt',
-    limit: 3,
-    overrideAccess: false,
-  })
-
-  return postQuery.docs as unknown as Post[]
 }
 
 const formatDate = (dateString: string): string => {

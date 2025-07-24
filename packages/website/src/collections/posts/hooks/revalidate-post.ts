@@ -14,11 +14,12 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
 }) => {
   if (!context.disableRevalidate) {
     if (doc._status === "published") {
-      const path = `/blog/${doc.slug}`;
+      const path = `/blog`;
 
       payload.logger.info(`Revalidating post at path: ${path}`);
 
       revalidatePath(path);
+      revalidateTag("posts");
       revalidateTag("posts-sitemap");
     }
 
@@ -29,6 +30,7 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
       payload.logger.info(`Revalidating old post at path: ${oldPath}`);
 
       revalidatePath(oldPath);
+      revalidateTag("posts");
       revalidateTag("posts-sitemap");
     }
   }
@@ -40,9 +42,10 @@ export const revalidateDelete: CollectionAfterDeleteHook<Post> = ({
   req: { context },
 }) => {
   if (!context.disableRevalidate) {
-    const path = `/blog/${doc?.slug}`;
+    const path = `/blog`;
 
     revalidatePath(path);
+    revalidateTag("posts");
     revalidateTag("posts-sitemap");
   }
 
