@@ -9,20 +9,24 @@ export const revalidatePage: CollectionAfterChangeHook<Page> = ({
   previousDoc: _previousDoc,
   req: { payload, context: _context },
 }) => {
-  const path = doc.slug === 'home' ? '/' : `/${doc.slug}`
+  if (!_context.disableRevalidate) {
+    const path = doc.slug === 'home' ? '/' : `/${doc.slug}`
 
-  payload.logger.info(`Revalidating page at path: ${path}`)
+    payload.logger.info(`Revalidating page at path: ${path}`)
 
-  revalidatePath(path)
-  revalidateTag('pages-sitemap')
+    revalidatePath(path)
+    revalidateTag('pages-sitemap')
+  }
 
   return doc
 }
 
 export const revalidateDelete: CollectionAfterDeleteHook<Page> = ({ doc, req: { context: _context } }) => {
-  const path = doc?.slug === 'home' ? '/' : `/${doc?.slug}`
-  revalidatePath(path)
-  revalidateTag('pages-sitemap')
+  if (!_context.disableRevalidate) {
+    const path = doc?.slug === 'home' ? '/' : `/${doc?.slug}`
+    revalidatePath(path)
+    revalidateTag('pages-sitemap')
+  }
 
   return doc
 }
