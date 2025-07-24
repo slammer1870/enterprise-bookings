@@ -47,7 +47,7 @@ export default async function BlogPost({ params: paramsPromise }: Args) {
   if (!post) return notFound()
 
   return (
-    <article className="pt-24 pb-16 w-full flex px-4">
+    <article className="pt-24 pb-16 w-full flex px-4 min-h-screen">
       <div className="max-w-screen-md w-full mx-auto">
         <Link href="/blog/" className="mb-8">
           <button className="flex font-light text-blue-500">
