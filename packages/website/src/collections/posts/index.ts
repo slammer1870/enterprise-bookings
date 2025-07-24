@@ -19,18 +19,26 @@ import {
 
 import { revalidatePost, revalidateDelete } from "./hooks/revalidate-post";
 
-import { authenticated } from "../../access/authenticated";
 import { authenticatedOrPublished } from "../../access/authenticated-or-published";
 
 import { FormBlock } from "../../blocks/form/config";
 
+import { checkRole } from "@repo/shared-utils";
+import { User } from "@repo/shared-types";
+
 export const Posts: CollectionConfig = {
   slug: "posts",
   access: {
-    create: authenticated,
-    delete: authenticated,
+    create: ({ req: { user } }) => {
+      return checkRole(["admin"], user as User);
+    },
+    delete: ({ req: { user } }) => {
+      return checkRole(["admin"], user as User);
+    },
     read: authenticatedOrPublished,
-    update: authenticated,
+    update: ({ req: { user } }) => {
+      return checkRole(["admin"], user as User);
+    },
   },
   admin: {
     useAsTitle: "title",

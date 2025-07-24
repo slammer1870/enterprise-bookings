@@ -303,6 +303,26 @@ export interface Page {
             blockName?: string | null;
             blockType: 'latest-posts';
           }
+        | {
+            content: {
+              root: {
+                type: string;
+                children: {
+                  type: string;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'content';
+          }
       )[]
     | null;
   meta?: {
@@ -1094,6 +1114,13 @@ export interface PagesSelect<T extends boolean = true> {
         'latest-posts'?:
           | T
           | {
+              id?: T;
+              blockName?: T;
+            };
+        content?:
+          | T
+          | {
+              content?: T;
               id?: T;
               blockName?: T;
             };

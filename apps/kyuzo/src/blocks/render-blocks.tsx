@@ -13,6 +13,7 @@ import { LatestPostsBlock } from './latest-posts'
 import ScheduleComponent from '@/components/schedule'
 
 import { FormBlock } from '@repo/website/src/blocks/form/index'
+import { ContentBlock } from '@repo/website/src/blocks/content/index'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -23,6 +24,7 @@ const blockComponents = {
   'contact-form': ContactFormBlock,
   'latest-posts': LatestPostsBlock,
   'form-block': FormBlock,
+  content: ContentBlock,
   schedule: ScheduleComponent,
 }
 

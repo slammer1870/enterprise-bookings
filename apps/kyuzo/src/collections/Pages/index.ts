@@ -13,6 +13,7 @@ import { FormBlock } from '@repo/website/src/blocks/form/config'
 import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
 
 import { Schedule } from '@/blocks/schedule/config'
+import { Content } from '@repo/website/src/blocks/content/config'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -37,7 +38,18 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, Schedule, FormBlock, About, KidsProgram, AdultsProgram, CoachingTeam, ContactForm, LatestPosts],
+      blocks: [
+        Hero,
+        Schedule,
+        FormBlock,
+        About,
+        KidsProgram,
+        AdultsProgram,
+        CoachingTeam,
+        ContactForm,
+        LatestPosts,
+        Content,
+      ],
     },
   ],
   hooks: {

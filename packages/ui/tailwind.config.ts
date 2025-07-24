@@ -21,6 +21,7 @@ const config = {
     "../../packages/e2e-kyuzo/src/globals/**/*.{ts,tsx}",
     "../../packages/e2e-kyuzo/src/graphics/**/*.{ts,tsx}",
     "../../packages/e2e-kyuzo/src/app/(frontend)/**/*.{ts,tsx,js,jsx}",
+    "../../packages/website/src/blocks/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {

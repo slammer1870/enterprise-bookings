@@ -8,6 +8,7 @@
     "@payloadcms/plugin-form-builder": "*",
     "@payloadcms/richtext-lexical": "*",
     "@payloadcms/plugin-seo": "*",
+    "@repo/shared-utils": "workspace:*",
     "payload": "*",
     "react": "*",
     "react-dom": "*",
