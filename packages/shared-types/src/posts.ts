@@ -4,7 +4,7 @@ export interface Post {
   id: number;
   title: string;
   excerpt: string;
-  heroImage?: (number | null) | Media;
+  heroImage?: Media;
   content: {
     content: {
       root: {
@@ -33,7 +33,7 @@ export interface Post {
     /**
      * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
      */
-    image?: (number | null) | Media;
+    image?: Media;
   };
   updatedAt: string;
   createdAt: string;
