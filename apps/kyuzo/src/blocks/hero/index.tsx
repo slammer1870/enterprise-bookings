@@ -49,7 +49,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
       className="relative z-10 flex min-h-screen flex-col bg-cover bg-no-repeat bg-top lg:flex-row"
       style={{ backgroundImage: `url(${backgroundImage.url})` }}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-white/70 from-40% via-white via-50% lg:via-70% to-white"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white via-50% to-white lg:from-white/70 lg:from-40% lg:via-white lg:via-50% lg:to-white"></div>
       <div className="z-30 mx-auto flex grow items-center justify-center p-4 pt-32 lg:h-screen lg:w-2/3 lg:pt-0">
         <div className="absolute z-10 h-[200px] w-[200px] rounded-full bg-[#FEEBD4] opacity-60 md:h-[300px] md:w-[300px] lg:h-[400px] lg:w-[400px]"></div>
         <div className="z-50 max-w-md lg:max-w-2xl lg:p-4">
