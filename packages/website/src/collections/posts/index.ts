@@ -56,31 +56,7 @@ export const Posts: CollectionConfig = {
               blocks: [Content],
               defaultValue: [
                 {
-                  id: "68825f8c715a0f65b1e6e18e",
-
-                  content: {
-                    root: {
-                      type: "root",
-                      format: "",
-                      indent: 0,
-                      version: 1,
-
-                      children: [
-                        {
-                          type: "paragraph",
-                          format: "",
-                          indent: 0,
-                          version: 1,
-
-                          children: [],
-                          direction: null,
-                          textStyle: "",
-                          textFormat: 0,
-                        },
-                      ],
-                      direction: null,
-                    },
-                  },
+                  content: null,
                   blockName: null,
                   blockType: "content",
                 },
