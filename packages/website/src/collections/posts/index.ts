@@ -1,27 +1,10 @@
 import { CollectionConfig } from "payload";
 
-import {
-  MetaDescriptionField,
-  MetaImageField,
-  MetaTitleField,
-  OverviewField,
-  PreviewField,
-} from "@payloadcms/plugin-seo/fields";
-
-import {
-  BlocksFeature,
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from "@payloadcms/richtext-lexical";
-
 import { revalidatePost, revalidateDelete } from "./hooks/revalidate-post";
 
 import { adminOrPublished } from "../../access/admin-or-published";
 
-import { FormBlock } from "../../blocks/form/config";
+import { Content } from "../../blocks/content/config";
 
 import { checkRole } from "@repo/shared-utils";
 import { User } from "@repo/shared-types";
@@ -69,21 +52,41 @@ export const Posts: CollectionConfig = {
             },
             {
               name: "content",
-              type: "richText",
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => {
-                  return [
-                    ...rootFeatures,
-                    HeadingFeature({
-                      enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
-                    }),
-                    //BlocksFeature({ blocks: [Banner, Code, MediaBlock] }),
-                    FixedToolbarFeature(),
-                    InlineToolbarFeature(),
-                    HorizontalRuleFeature(),
-                  ];
+              type: "blocks",
+              blocks: [Content],
+              defaultValue: [
+                {
+                  id: "68825f8c715a0f65b1e6e18e",
+
+                  content: {
+                    root: {
+                      type: "root",
+                      format: "",
+                      indent: 0,
+                      version: 1,
+
+                      children: [
+                        {
+                          type: "paragraph",
+                          format: "",
+                          indent: 0,
+                          version: 1,
+
+                          children: [],
+                          direction: null,
+                          textStyle: "",
+                          textFormat: 0,
+                        },
+                      ],
+                      direction: null,
+                    },
+                  },
+                  blockName: null,
+                  blockType: "content",
                 },
-              }),
+              ],
+              minRows: 1,
+              maxRows: 1,
               label: false,
               required: true,
             },
@@ -123,12 +126,6 @@ export const Posts: CollectionConfig = {
         }
         return true;
       },
-    },
-    {
-      name: "form",
-      type: "blocks",
-      blocks: [FormBlock],
-      required: false,
     },
   ],
   hooks: {

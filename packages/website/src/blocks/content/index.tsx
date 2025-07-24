@@ -1,8 +1,34 @@
+"use client";
+
+import type {
+  DefaultNodeTypes,
+  SerializedBlockNode,
+} from "@payloadcms/richtext-lexical";
+
+import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
+
+import {
+  type JSXConvertersFunction,
+  RichText,
+} from "@payloadcms/richtext-lexical/react";
+
 import React from "react";
 
-import { RichText } from "@payloadcms/richtext-lexical/react";
+import { FormBlock, FormBlockType } from "../form";
 
-import { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
+// Extend the default node types with your custom blocks for full type safety
+type NodeTypes = DefaultNodeTypes | SerializedBlockNode<FormBlockType>;
+
+const jsxConverters: JSXConvertersFunction<NodeTypes> = ({
+  defaultConverters,
+}) => ({
+  ...defaultConverters,
+  blocks: {
+    "form-block": ({ node }: { node: SerializedBlockNode<FormBlockType> }) => (
+      <FormBlock {...node.fields} />
+    ),
+  },
+});
 
 type ContentProps = {
   content: SerializedEditorState;
@@ -10,8 +36,12 @@ type ContentProps = {
 
 export const ContentBlock: React.FC<ContentProps> = ({ content }) => {
   return (
-    <div className="flex min-h-screen">
-      <RichText data={content} className="prose max-w-lg mx-auto py-24 px-4" />
+    <div className="flex min-h-screen py-24">
+      <RichText
+        converters={jsxConverters}
+        data={content}
+        className="prose container mx-auto px-4"
+      />
     </div>
   );
 };

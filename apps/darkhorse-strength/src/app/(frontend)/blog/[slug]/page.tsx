@@ -13,6 +13,8 @@ import { generatePostMetadataFunction } from '@repo/website/src/utils/generate-p
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 
+import { ContentBlock } from '@repo/website/src/blocks/content'
+
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
   const posts = await payload.find({
@@ -63,7 +65,7 @@ export default async function BlogPost({ params: paramsPromise }: Args) {
           </button>
         </Link>
         <h3 className="text-4xl font-bold text-left mr-auto">{post.title}</h3>
-        <RichText className="max-w-4xl mx-auto" data={post.content} />
+        <ContentBlock content={post.content} />
       </div>
     </article>
   )

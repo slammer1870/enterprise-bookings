@@ -1,6 +1,12 @@
 import type { Block } from "payload";
 
-import { HeadingFeature, lexicalEditor } from "@payloadcms/richtext-lexical";
+import {
+  FixedToolbarFeature,
+  HeadingFeature,
+  HorizontalRuleFeature,
+  InlineToolbarFeature,
+  lexicalEditor,
+} from "@payloadcms/richtext-lexical";
 
 export const FormBlock: Block = {
   slug: "form-block",
@@ -26,7 +32,12 @@ export const FormBlock: Block = {
         features: ({ rootFeatures }) => {
           return [
             ...rootFeatures,
-            HeadingFeature({ enabledHeadingSizes: ["h1", "h2", "h3"] }),
+            HeadingFeature({
+              enabledHeadingSizes: ["h1", "h2", "h3", "h4", "h5", "h6"],
+            }),
+            FixedToolbarFeature(),
+            InlineToolbarFeature(),
+            HorizontalRuleFeature(),
           ];
         },
       }),

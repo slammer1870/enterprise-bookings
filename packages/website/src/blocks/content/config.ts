@@ -6,7 +6,10 @@ import {
   HorizontalRuleFeature,
   InlineToolbarFeature,
   lexicalEditor,
+  BlocksFeature,
 } from "@payloadcms/richtext-lexical";
+
+import { FormBlock } from "../form/config";
 
 export const Content: Block = {
   slug: "content",
@@ -26,7 +29,7 @@ export const Content: Block = {
             HeadingFeature({
               enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
             }),
-            //BlocksFeature({ blocks: [Banner, Code, MediaBlock] }),
+            BlocksFeature({ blocks: [FormBlock] }),
             FixedToolbarFeature(),
             InlineToolbarFeature(),
             HorizontalRuleFeature(),

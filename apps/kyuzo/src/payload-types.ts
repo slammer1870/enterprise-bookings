@@ -529,46 +529,27 @@ export interface Post {
   excerpt: string;
   heroImage?: (number | null) | Media;
   content: {
-    root: {
-      type: string;
-      children: {
+    content: {
+      root: {
         type: string;
+        children: {
+          type: string;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
         version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
+      };
+      [k: string]: unknown;
     };
-    [k: string]: unknown;
-  };
+    id?: string | null;
+    blockName?: string | null;
+    blockType: 'content';
+  }[];
   publishedAt?: string | null;
   slug: string;
-  form?:
-    | {
-        form: number | Form;
-        enableIntro?: boolean | null;
-        introContent?: {
-          root: {
-            type: string;
-            children: {
-              type: string;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        } | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'form-block';
-      }[]
-    | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -1151,22 +1132,19 @@ export interface PostsSelect<T extends boolean = true> {
   title?: T;
   excerpt?: T;
   heroImage?: T;
-  content?: T;
-  publishedAt?: T;
-  slug?: T;
-  form?:
+  content?:
     | T
     | {
-        'form-block'?:
+        content?:
           | T
           | {
-              form?: T;
-              enableIntro?: T;
-              introContent?: T;
+              content?: T;
               id?: T;
               blockName?: T;
             };
       };
+  publishedAt?: T;
+  slug?: T;
   meta?:
     | T
     | {
