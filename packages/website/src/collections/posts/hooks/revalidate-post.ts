@@ -14,21 +14,54 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
 }) => {
   if (!context.disableRevalidate) {
     if (doc._status === "published") {
-      const path = `/`;
+      // Revalidate the blog listing page
+      const blogPath = `/blog`;
+      payload.logger.info(`Revalidating blog listing at path: ${blogPath}`);
+      revalidatePath(blogPath);
 
-      payload.logger.info(`Revalidating post at path: ${path}`);
+      // Revalidate the individual post page if it has a slug
+      if (doc.slug) {
+        const postPath = `/blog/${doc.slug}`;
+        payload.logger.info(`Revalidating post at path: ${postPath}`);
+        revalidatePath(postPath);
+      }
 
-      revalidatePath(path);
       revalidateTag("posts-sitemap");
     }
 
-    // If the post was previously published, we need to revalidate the old path
+    // If the post was previously published, we need to revalidate the old paths
     if (previousDoc._status === "published" && doc._status !== "published") {
-      const oldPath = `/`;
+      // Revalidate the blog listing page
+      const blogPath = `/blog`;
+      payload.logger.info(`Revalidating blog listing at path: ${blogPath}`);
+      revalidatePath(blogPath);
 
-      payload.logger.info(`Revalidating old post at path: ${oldPath}`);
+      // Revalidate the old post page if it had a slug
+      if (previousDoc.slug) {
+        const oldPostPath = `/blog/${previousDoc.slug}`;
+        payload.logger.info(`Revalidating old post at path: ${oldPostPath}`);
+        revalidatePath(oldPostPath);
+      }
 
-      revalidatePath(oldPath);
+      revalidateTag("posts-sitemap");
+    }
+
+    // If the slug changed for a published post, revalidate both old and new paths
+    if (
+      doc._status === "published" &&
+      previousDoc._status === "published" &&
+      previousDoc.slug &&
+      doc.slug &&
+      previousDoc.slug !== doc.slug
+    ) {
+      const oldPostPath = `/blog/${previousDoc.slug}`;
+      const newPostPath = `/blog/${doc.slug}`;
+      
+      payload.logger.info(`Revalidating old post path: ${oldPostPath}`);
+      payload.logger.info(`Revalidating new post path: ${newPostPath}`);
+      
+      revalidatePath(oldPostPath);
+      revalidatePath(newPostPath);
       revalidateTag("posts-sitemap");
     }
   }
@@ -40,9 +73,16 @@ export const revalidateDelete: CollectionAfterDeleteHook<Post> = ({
   req: { context },
 }) => {
   if (!context.disableRevalidate) {
-    const path = `/`;
+    // Revalidate the blog listing page
+    const blogPath = `/blog`;
+    revalidatePath(blogPath);
 
-    revalidatePath(path);
+    // Revalidate the individual post page if it had a slug
+    if (doc.slug) {
+      const postPath = `/blog/${doc.slug}`;
+      revalidatePath(postPath);
+    }
+
     revalidateTag("posts-sitemap");
   }
 
