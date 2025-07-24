@@ -6,29 +6,32 @@ import { getMeUser } from "@repo/shared-services";
 
 import qs from "qs";
 
-const query = {
-  depth: 3,
-  limit: "1",
-  where: {
-    startDate: {
-      less_than_equal: new Date().toISOString(),
-    },
-    endDate: {
-      greater_than_equal: new Date().toISOString(),
-    },
-    status: {
-      not_equals: "canceled",
-    },
-  },
-};
-
-const stringifiedQuery = qs.stringify(query, {
-  addQueryPrefix: true,
-  encode: false,
-});
-
 export const getActiveSubscription = async (): Promise<Subscription | null> => {
-  const { token } = await getMeUser();
+  const { token, user } = await getMeUser();
+
+  const query = {
+    depth: 3,
+    limit: "1",
+    where: {
+      startDate: {
+        less_than_equal: new Date().toISOString(),
+      },
+      endDate: {
+        greater_than_equal: new Date().toISOString(),
+      },
+      status: {
+        not_equals: "canceled",
+      },
+      user: {
+        equals: user?.id,
+      },
+    },
+  };
+
+  const stringifiedQuery = qs.stringify(query, {
+    addQueryPrefix: true,
+    encode: false,
+  });
 
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_SERVER_URL}/api/subscriptions${stringifiedQuery}`,
