@@ -18,12 +18,15 @@ export const revalidatePage: CollectionAfterChangeHook<Page> = ({
     payload.logger.info(`Revalidating page at path: ${path}`);
 
     revalidatePath(path);
-    revalidateTag("pages-sitemap");
 
     // If the slug changed, also revalidate the old slug path
     if (_previousDoc && _previousDoc.slug !== doc.slug) {
       revalidatePath(`/${_previousDoc.slug}`);
     }
+
+    revalidateTag("pages-sitemap");
+
+    _context.disableRevalidate = true;
   }
 
   return doc;
@@ -37,6 +40,8 @@ export const revalidateDelete: CollectionAfterDeleteHook<Page> = ({
     const path = doc?.slug === "home" ? "/" : `/${doc?.slug}`;
     revalidatePath(path);
     revalidateTag("pages-sitemap");
+
+    _context.disableRevalidate = true;
   }
 
   return doc;
