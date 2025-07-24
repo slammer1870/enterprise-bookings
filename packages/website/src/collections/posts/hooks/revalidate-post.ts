@@ -12,30 +12,25 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
   previousDoc,
   req: { payload, context },
 }) => {
-  // Set disableRevalidate to true to disable revalidation
-
   if (!context.disableRevalidate) {
-    // Use process.nextTick to defer revalidation until after the current execution context
-    process.nextTick(() => {
-      // Revalidate homepage
-      revalidatePath("/[slug]");
+    if (doc._status === "published") {
+      const path = `/blog/${doc.slug}`;
 
-      // Revalidate main blog page
-      revalidatePath("/blog");
+      payload.logger.info(`Revalidating post at path: ${path}`);
 
-      // Revalidate the specific post page
-      revalidatePath(`/blog/${doc.slug}`);
-
-      // If the slug changed, also revalidate the old slug path
-      if (previousDoc && previousDoc.slug !== doc.slug) {
-        revalidatePath(`/blog/${previousDoc.slug}`);
-      }
-
-      // Revalidate sitemap
+      revalidatePath(path);
       revalidateTag("posts-sitemap");
-    });
+    }
 
-    context.disableRevalidate = true;
+    // If the post was previously published, we need to revalidate the old path
+    if (previousDoc._status === "published" && doc._status !== "published") {
+      const oldPath = `/blog/${previousDoc.slug}`;
+
+      payload.logger.info(`Revalidating old post at path: ${oldPath}`);
+
+      revalidatePath(oldPath);
+      revalidateTag("posts-sitemap");
+    }
   }
   return doc;
 };
@@ -44,25 +39,11 @@ export const revalidateDelete: CollectionAfterDeleteHook<Post> = ({
   doc,
   req: { context },
 }) => {
-  // Set disableRevalidate to true to disable revalidation
-
   if (!context.disableRevalidate) {
-    // Use process.nextTick to defer revalidation until after the current execution context
-    process.nextTick(() => {
-      // Revalidate homepage
-      revalidatePath("/[slug]");
+    const path = `/blog/${doc?.slug}`;
 
-      // Revalidate main blog page
-      revalidatePath("/blog");
-
-      // Revalidate the deleted post page (to show 404)
-      revalidatePath(`/blog/${doc.slug}`);
-
-      // Revalidate sitemap
-      revalidateTag("posts-sitemap");
-    });
-
-    context.disableRevalidate = true;
+    revalidatePath(path);
+    revalidateTag("posts-sitemap");
   }
 
   return doc;
