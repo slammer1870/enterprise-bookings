@@ -19,7 +19,7 @@ import {
 
 import { revalidatePost, revalidateDelete } from "./hooks/revalidate-post";
 
-import { authenticatedOrPublished } from "../../access/authenticated-or-published";
+import { adminOrPublished } from "../../access/admin-or-published";
 
 import { FormBlock } from "../../blocks/form/config";
 
@@ -35,7 +35,7 @@ export const Posts: CollectionConfig = {
     delete: ({ req: { user } }) => {
       return checkRole(["admin"], user as User);
     },
-    read: authenticatedOrPublished,
+    read: adminOrPublished,
     update: ({ req: { user } }) => {
       return checkRole(["admin"], user as User);
     },

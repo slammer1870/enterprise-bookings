@@ -8,7 +8,7 @@ export * from "./utils/sitemap";
 
 // Export access controls
 export * from "./access/authenticated";
-export * from "./access/authenticated-or-published";
+export * from "./access/admin-or-published";
 
 // Export blocks
 export { FormBlock } from "./blocks/form/config"; 

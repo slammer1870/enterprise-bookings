@@ -16,6 +16,7 @@ const getPosts = async (): Promise<Post[]> => {
         equals: 'published',
       },
     },
+    overrideAccess: false,
   })
   return postQuery.docs as unknown as Post[]
 }

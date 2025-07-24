@@ -13,7 +13,7 @@ const fetchLatestPosts = async (): Promise<Post[]> => {
   const payload = await getPayload({
     config: payloadConfig,
   })
-  
+
   const postQuery = await payload.find({
     collection: 'posts' as CollectionSlug,
     where: {
@@ -23,8 +23,9 @@ const fetchLatestPosts = async (): Promise<Post[]> => {
     },
     sort: '-createdAt',
     limit: 3,
+    overrideAccess: false,
   })
-  
+
   return postQuery.docs as unknown as Post[]
 }
 
@@ -76,4 +77,4 @@ export const LatestPostsBlock: React.FC<LatestPostsProps> = async () => {
       </div>
     </section>
   )
-} 
+}
