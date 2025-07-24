@@ -10,10 +10,13 @@ import { LatestPosts } from '@/blocks/latest-posts/config'
 
 import { FormBlock } from '@repo/website/src/blocks/form/config'
 
-import { revalidatePage, revalidateDelete } from './hooks/revalidatePage'
+import { revalidatePage, revalidateDelete } from '@repo/website/src/hooks/revalidate-page'
 
 import { Schedule } from '@/blocks/schedule/config'
 import { Content } from '@repo/website/src/blocks/content/config'
+
+import { checkRole } from '@repo/shared-utils'
+import { User } from '@repo/shared-types'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -22,7 +25,10 @@ export const Pages: CollectionConfig = {
     group: 'Website',
   },
   access: {
+    create: ({ req }) => checkRole(['admin'], req.user as User),
     read: () => true,
+    update: ({ req }) => checkRole(['admin'], req.user as User),
+    delete: ({ req }) => checkRole(['admin'], req.user as User),
   },
   fields: [
     {

@@ -508,6 +508,9 @@ importers:
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@repo/website':
+        specifier: workspace:*
+        version: link:../../packages/website
       add:
         specifier: ^2.0.6
         version: 2.0.6
