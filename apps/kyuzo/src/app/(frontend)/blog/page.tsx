@@ -6,6 +6,7 @@ import { Post } from '@repo/shared-types'
 import { PostList } from '@repo/website/src/components/posts/post-list'
 
 const getPosts = async (): Promise<Post[]> => {
+  'use server'
   const payload = await getPayload({
     config: payloadConfig,
   })
