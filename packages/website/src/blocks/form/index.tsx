@@ -176,7 +176,7 @@ export const FormBlock: React.FC<
   );
 
   return (
-    <div className="max-w-screen-sm mx-auto">
+    <div>
       {enableIntro && introContent && !hasSubmitted && (
         <div className="mb-2">
           <RichText

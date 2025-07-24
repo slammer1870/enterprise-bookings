@@ -36,12 +36,10 @@ type ContentProps = {
 
 export const ContentBlock: React.FC<ContentProps> = ({ content }) => {
   return (
-    <div className="flex min-h-screen py-24">
-      <RichText
-        converters={jsxConverters}
-        data={content}
-        className="prose container mx-auto px-4"
-      />
-    </div>
+    <RichText
+      converters={jsxConverters}
+      data={content}
+      className="prose prose-lg w-full"
+    />
   );
 };

@@ -5,8 +5,6 @@ import { getPayload } from 'payload'
 import { draftMode } from 'next/headers'
 import React, { cache } from 'react'
 
-import { RichText } from '@payloadcms/richtext-lexical/react'
-
 import { Post } from '@repo/shared-types'
 
 import { generatePostMetadataFunction } from '@repo/website/src/utils/generate-post-metadata'
