@@ -8,11 +8,12 @@ import { Button } from '@repo/ui/components/ui/button'
 
 import { useAuth } from '@repo/auth'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) => {
   const { user, logout } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
 
   return (
     <div className="w-full top-0 left-0 absolute z-50">
@@ -28,7 +29,15 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
             >
               Members
             </Link>
-            <Button onClick={() => logout()}>Logout</Button>
+            <Button
+              onClick={() => {
+                logout().then(() => {
+                  router.push('/')
+                })
+              }}
+            >
+              Logout
+            </Button>
           </div>
         ) : (
           <Link href="/dashboard">
