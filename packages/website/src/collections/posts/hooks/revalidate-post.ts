@@ -18,7 +18,7 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
     // Use process.nextTick to defer revalidation until after the current execution context
     process.nextTick(() => {
       // Revalidate homepage
-      revalidatePath("/");
+      revalidatePath("/[slug]");
 
       // Revalidate main blog page
       revalidatePath("/blog");
@@ -50,7 +50,7 @@ export const revalidateDelete: CollectionAfterDeleteHook<Post> = ({
     // Use process.nextTick to defer revalidation until after the current execution context
     process.nextTick(() => {
       // Revalidate homepage
-      revalidatePath("/");
+      revalidatePath("/[slug]");
 
       // Revalidate main blog page
       revalidatePath("/blog");
