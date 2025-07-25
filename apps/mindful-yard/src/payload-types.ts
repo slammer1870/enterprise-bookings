@@ -846,21 +846,23 @@ export interface Scheduler {
   week?: {
     days?:
       | {
-          timeSlot: {
-            startTime: string;
-            endTime: string;
-            /**
-             * Overrides the default class option
-             */
-            classOption?: (number | null) | ClassOption;
-            location?: string | null;
-            instructor?: (number | null) | User;
-            /**
-             * Overrides the default lock out time
-             */
-            lockOutTime?: number | null;
-            id?: string | null;
-          }[];
+          timeSlot?:
+            | {
+                startTime: string;
+                endTime: string;
+                /**
+                 * Overrides the default class option
+                 */
+                classOption?: (number | null) | ClassOption;
+                location?: string | null;
+                instructor?: (number | null) | User;
+                /**
+                 * Overrides the default lock out time
+                 */
+                lockOutTime?: number | null;
+                id?: string | null;
+              }[]
+            | null;
           id?: string | null;
         }[]
       | null;
@@ -930,7 +932,10 @@ export interface TaskGenerateLessonsFromSchedule {
     defaultClassOption: number | ClassOption;
     lockOutTime: number;
   };
-  output?: unknown;
+  output: {
+    success?: boolean | null;
+    message?: string | null;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
