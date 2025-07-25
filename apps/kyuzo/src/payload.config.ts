@@ -4,6 +4,7 @@ import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
+import { resendAdapter } from '@payloadcms/email-resend'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
@@ -66,6 +67,11 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo',
     },
+  }),
+  email: resendAdapter({
+    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
+    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
+    apiKey: process.env.RESEND_API_KEY || '',
   }),
   sharp: sharp as unknown as SharpDependency,
   plugins: [
