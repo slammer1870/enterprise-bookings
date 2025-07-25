@@ -13,18 +13,28 @@ export const getActiveSubscription = async (): Promise<Subscription | null> => {
     depth: 3,
     limit: "1",
     where: {
-      startDate: {
-        less_than_equal: new Date().toISOString(),
-      },
-      endDate: {
-        greater_than_equal: new Date().toISOString(),
-      },
-      status: {
-        not_equals: "canceled",
-      },
-      user: {
-        equals: user?.id,
-      },
+      and: [
+        {
+          startDate: {
+            less_than_equal: new Date().toISOString(),
+          },
+        },
+        {
+          endDate: {
+            greater_than_equal: new Date().toISOString(),
+          },
+        },
+        {
+          status: {
+            not_equals: "canceled",
+          },
+        },
+        {
+          user: {
+            equals: user?.id,
+          },
+        },
+      ],
     },
   };
 
@@ -54,23 +64,33 @@ export const getActiveChildSubscription =
       depth: 3,
       limit: "1",
       where: {
-        startDate: {
-          less_than_equal: new Date().toISOString(),
-        },
-        endDate: {
-          greater_than_equal: new Date().toISOString(),
-        },
-        status: {
-          not_equals: "canceled",
-        },
-        plan: {
-          type: {
-            equals: "child",
+        and: [
+          {
+            startDate: {
+              less_than_equal: new Date().toISOString(),
+            },
           },
-        },
-        user: {
-          equals: user?.id,
-        },
+          {
+            endDate: {
+              greater_than_equal: new Date().toISOString(),
+            },
+          },
+          {
+            status: {
+              not_equals: "canceled",
+            },
+          },
+          {
+            "plan.type": {
+              equals: "child",
+            },
+          },
+          {
+            user: {
+              equals: user?.id,
+            },
+          },
+        ],
       },
     };
 

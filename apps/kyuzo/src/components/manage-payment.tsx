@@ -17,6 +17,8 @@ export const ManagePayment = async ({
 }) => {
   const activeSubscription = await getActiveChildSubscription()
 
+  console.log('Active subscription', activeSubscription)
+
   const allowedPlans = plans?.filter((plan) => plan.status === 'active')
 
   return (
