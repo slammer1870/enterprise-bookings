@@ -19,7 +19,7 @@ export const AboutBlock: React.FC<AboutProps> = ({ heading, content, image }) =>
     <section className="text-gray-900 lg:mx-40">
       <div className="py-12 md:py-20 lg:py-24 px-4 md:flex items-center justify-around w-full">
         <div className="lg:w-1/2">
-          <h3 className="text-2xl mb-4 font-medium">{heading}</h3>
+          <h3 className="text-3xl mb-4 font-medium">{heading}</h3>
           <div className="leading-relaxed text-gray-700 hidden md:block pr-12 xl:text-xl">
             <RichText data={content} className="prose" />
           </div>
