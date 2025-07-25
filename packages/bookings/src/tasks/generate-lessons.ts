@@ -95,7 +95,6 @@ export const generateLessonsFromSchedule: TaskHandler<
         return week.days.indexOf(day) === dayOfWeek - 1;
       });
 
-      console.log("Schedule day", scheduleDay);
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
         currentDate = addDays(currentDate, 1);
