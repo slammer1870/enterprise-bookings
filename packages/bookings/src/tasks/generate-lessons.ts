@@ -57,11 +57,10 @@ export const generateLessonsFromSchedule: TaskHandler<
         });
 
         // Filter lessons that have no bookings
-        const lessonsToDelete = lessons.docs.reduce(
+        const lessonsToNotDelete = lessons.docs.reduce(
           (acc: any[], lesson: any) => {
             if (
-              !lesson.bookings?.docs ||
-              !lesson.bookings.docs.some(
+              lesson.bookings.docs.some(
                 (booking: any) => booking.status === "confirmed"
               )
             ) {
@@ -72,12 +71,12 @@ export const generateLessonsFromSchedule: TaskHandler<
           []
         );
 
-        if (lessonsToDelete.length > 0) {
+        if (lessonsToNotDelete.length > 0) {
           await payload.delete({
             collection: "lessons",
             where: {
               id: {
-                in: lessonsToDelete,
+                not_in: lessonsToNotDelete,
               },
             },
           });
@@ -93,8 +92,10 @@ export const generateLessonsFromSchedule: TaskHandler<
 
       // Find the corresponding day in the schedule
       const scheduleDay = week.days.find((day: any) => {
-        return week.days.indexOf(day + 1) === dayOfWeek;
+        return week.days.indexOf(day) === dayOfWeek - 1;
       });
+
+      console.log("Schedule day", scheduleDay);
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
         currentDate = addDays(currentDate, 1);
@@ -148,7 +149,7 @@ export const generateLessonsFromSchedule: TaskHandler<
           continue;
         }
 
-        await payload.create({
+        const newLesson = await payload.create({
           collection: "lessons",
           data: {
             date: currentDate.toISOString(),
@@ -161,6 +162,7 @@ export const generateLessonsFromSchedule: TaskHandler<
             lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
           },
         });
+        console.log("New lesson", newLesson);
       }
 
       currentDate = addDays(currentDate, 1);

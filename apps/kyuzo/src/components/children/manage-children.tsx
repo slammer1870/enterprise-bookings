@@ -21,7 +21,11 @@ export const ManageChildren = async ({
 
   const subscription = await getActiveSubscription()
 
+  console.log('Subscription', subscription)
+
   const lessonBookingLimit = await getLessonBookingLimit(lessonId, subscription)
+
+  console.log('Lesson booking limit', lessonBookingLimit)
 
   const childrenBookings = bookings.filter(
     (booking) => booking.user?.parent?.id === user?.id && booking.status === 'confirmed',
