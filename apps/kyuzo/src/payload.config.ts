@@ -156,7 +156,7 @@ export default buildConfig({
           {
             name: 'type',
             type: 'select',
-            label: 'Class Option Type',
+            label: 'Membership Type',
             options: [
               { label: 'Adult', value: 'adult' },
               { label: 'Child', value: 'child' },
