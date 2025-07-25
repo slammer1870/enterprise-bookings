@@ -5,13 +5,12 @@ import { CollectionSlug, getPayload } from 'payload'
 import { draftMode } from 'next/headers'
 import React, { cache } from 'react'
 
-import { RichText } from '@payloadcms/richtext-lexical/react'
-
 import { Post } from '@repo/shared-types'
 
 import { generatePostMetadataFunction } from '@repo/website/src/utils/generate-post-metadata'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { ContentBlock } from '@repo/website/src/blocks/content'
 
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
@@ -26,12 +25,11 @@ export async function generateStaticParams() {
     },
   })
 
-  const posts = postsQuery.docs as unknown as Post[] | null
+  const posts = postsQuery.docs as unknown as Post[]
 
-  const params =
-    posts?.map(({ slug }) => {
-      return { slug }
-    }) ?? []
+  const params = posts.map(({ slug }) => {
+    return { slug }
+  })
 
   return params
 }
@@ -44,15 +42,14 @@ type Args = {
 
 export default async function BlogPost({ params: paramsPromise }: Args) {
   const { slug = '' } = await paramsPromise
-  const url = '/blog/' + slug
   const post = await queryPostBySlug({ slug })
 
   if (!post) return notFound()
 
   return (
-    <article className="pt-24 pb-16 container mx-auto px-4 max-w-4xl">
-      <div className="flex flex-col items-center gap-4">
-        <Link href="/blog/" className="mr-auto">
+    <article className="pt-24 pb-16 w-full flex px-4 min-h-screen">
+      <div className="max-w-screen-md w-full mx-auto">
+        <Link href="/blog/" className="mb-8">
           <button className="flex font-light text-blue-500">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -65,8 +62,8 @@ export default async function BlogPost({ params: paramsPromise }: Args) {
             <p className="text-blue-500">BACK TO BLOG</p>
           </button>
         </Link>
-        <h3 className="text-4xl font-bold text-left mr-auto">{post.title}</h3>
-        <RichText className="max-w-4xl mx-auto" data={post.content} />
+        <h3 className="text-4xl font-bold text-left mr-auto mb-4">{post.title}</h3>
+        {post.content?.[0]?.content && <ContentBlock content={post.content[0].content} />}
       </div>
     </article>
   )
@@ -79,6 +76,8 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
 }
 
 const queryPostBySlug = cache(async ({ slug }: { slug: string }): Promise<Post | null> => {
+  'use server'
+
   const { isEnabled: draft } = await draftMode()
 
   const payload = await getPayload({ config: configPromise })
@@ -97,10 +96,5 @@ const queryPostBySlug = cache(async ({ slug }: { slug: string }): Promise<Post |
     depth: 1,
   })
 
-  return result.docs?.[0]
-    ? ({
-        ...result.docs[0],
-        id: String(result.docs[0].id),
-      } as Post)
-    : null
+  return result.docs?.[0] as Post | null
 })
