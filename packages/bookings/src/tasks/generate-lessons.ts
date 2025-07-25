@@ -93,7 +93,7 @@ export const generateLessonsFromSchedule: TaskHandler<
 
       // Find the corresponding day in the schedule
       const scheduleDay = week.days.find((day: any) => {
-        return week.days.indexOf(day) === dayOfWeek;
+        return week.days.indexOf(day + 1) === dayOfWeek;
       });
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
