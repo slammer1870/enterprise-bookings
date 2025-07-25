@@ -89,5 +89,5 @@ export const getActiveChildSubscription =
     );
     const data = await response.json();
 
-    return data.docs[0];
+    return data.docs[0] || null;
   };
