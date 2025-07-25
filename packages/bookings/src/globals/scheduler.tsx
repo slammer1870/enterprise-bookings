@@ -17,6 +17,44 @@ const days: Field = {
     {
       name: "timeSlot",
       type: "array",
+      required: false,
+      validate: (value) => {
+        if (!value || !Array.isArray(value)) return true;
+
+        // Check for time and location conflicts within the same day
+        for (let i = 0; i < value.length; i++) {
+          const currentSlot = value[i] as any;
+
+          for (let j = i + 1; j < value.length; j++) {
+            const otherSlot = value[j] as any;
+
+            // Skip if different locations
+            if (currentSlot.location !== otherSlot.location) continue;
+
+            // Check for time overlap
+            const currentStart = new Date(currentSlot.startTime);
+            const currentEnd = new Date(currentSlot.endTime);
+            const otherStart = new Date(otherSlot.startTime);
+            const otherEnd = new Date(otherSlot.endTime);
+
+            // Normalize to just time comparison by setting same date
+            currentStart.setFullYear(2000, 0, 1);
+            currentEnd.setFullYear(2000, 0, 1);
+            otherStart.setFullYear(2000, 0, 1);
+            otherEnd.setFullYear(2000, 0, 1);
+
+            // Two time periods overlap if: start1 < end2 AND start2 < end1
+            const hasTimeOverlap =
+              currentStart < otherEnd && currentStart > otherStart;
+
+            if (hasTimeOverlap) {
+              return `Time slot conflict: ${currentStart.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}-${currentEnd.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })} and ${otherStart.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}-${otherEnd.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })} overlap at location "${currentSlot.location}"`;
+            }
+          }
+        }
+
+        return true;
+      },
       fields: [
         {
           name: "startTime",
@@ -90,7 +128,6 @@ const days: Field = {
           },
         },
       ],
-      required: true,
     },
   ],
 };
