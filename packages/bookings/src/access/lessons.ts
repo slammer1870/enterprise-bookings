@@ -14,5 +14,8 @@ export const lessonReadAccess: Access = ({ req: { user } }) => {
       less_than: new Date(new Date().setDate(new Date().getDate() + 30)),
       greater_than: startOfToday,
     },
+    active: {
+      equals: true,
+    },
   };
 };

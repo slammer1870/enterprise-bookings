@@ -230,6 +230,16 @@ const defaultFields: Field[] = [
     },
     virtual: true,
   },
+  {
+    name: "active",
+    type: "checkbox",
+    defaultValue: true,
+    admin: {
+      position: "sidebar",
+      description:
+        "Whether the lesson is active and will be shown on the schedule",
+    },
+  },
 ];
 
 const defaultLabels: Labels = {

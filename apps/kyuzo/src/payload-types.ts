@@ -608,6 +608,10 @@ export interface Lesson {
    * Status of the lesson
    */
   bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1320,6 +1324,7 @@ export interface LessonsSelect<T extends boolean = true> {
   remainingCapacity?: T;
   bookings?: T;
   bookingStatus?: T;
+  active?: T;
   updatedAt?: T;
   createdAt?: T;
 }
