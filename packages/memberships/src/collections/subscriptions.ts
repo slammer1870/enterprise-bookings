@@ -127,7 +127,7 @@ const defaultAccess: AccessControls = {
 
 const defaultAdmin: CollectionAdminOptions = {
   group: "Billing",
-  useAsTitle: "user.email",
+  useAsTitle: "stripeSubscriptionId",
   components: {
     beforeListTable: [
       "@repo/memberships/src/components/sync/sync-stripe#SyncStripe",
