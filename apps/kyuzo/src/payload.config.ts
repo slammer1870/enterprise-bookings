@@ -75,7 +75,7 @@ export default buildConfig({
   }),
   sharp: sharp as unknown as SharpDependency,
   plugins: [
-    payloadCloudPlugin(),
+    //payloadCloudPlugin(),
     formBuilderPlugin({
       fields: {
         // Customize form fields if need
