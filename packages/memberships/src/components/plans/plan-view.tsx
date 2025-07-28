@@ -8,7 +8,6 @@ import {
   createCustomerPortal,
 } from "../../actions/plans";
 
-
 type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
   subscription: Subscription | null;
@@ -42,7 +41,7 @@ export const PlanView = ({
                 (plan) => plan.id === subscription.plan.id
               ) ? (
                 <>
-                  <p className="text-sm text-muted-foreground mb-2">
+                  <p className="text-sm text-red-500 mb-2">
                     You do not have a plan that allows you to book into this
                     lesson, please upgrade your plan to continue
                   </p>
@@ -57,21 +56,21 @@ export const PlanView = ({
               ) : (
                 <>
                   {subscriptionLimitReached && (
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <p className="text-sm text-red-500 mb-2">
                       You have reached the limit of your subscription
                     </p>
                   )}
                   {subscription.status === "unpaid" ||
                     (subscription.status === "past_due" && (
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-sm text-red-500 mb-2">
                         Your Subscription is past due. Please pay your
                         subscription to continue.
                       </p>
                     ))}
                   {subscription.cancelAt &&
                     new Date(subscription.cancelAt) < new Date(lessonDate) && (
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan or wait for it to renew before booking again`}
+                      <p className="text-sm text-red-500 mb-2">
+                        {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan.`}
                       </p>
                     )}
                   <PlanDetail
