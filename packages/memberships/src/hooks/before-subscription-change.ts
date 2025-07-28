@@ -49,6 +49,8 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
     ).toISOString();
     newDoc.status = stripeSubscription.status;
 
+    newDoc.quantity = stripeSubscription.items?.data[0]?.quantity;
+
     if (stripeSubscription.cancel_at) {
       newDoc.cancelAt = new Date(
         stripeSubscription.cancel_at * 1000

@@ -46,6 +46,7 @@ describe("Booking tests", () => {
       data: {
         email: "test@test.com",
         password: "test",
+        roles: ["admin"], // Explicitly assign admin role
       },
     })) as User;
   }, TEST_TIMEOUT);
@@ -80,7 +81,7 @@ describe("Booking tests", () => {
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now (1 hour after start)
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -194,8 +195,8 @@ describe("Booking tests", () => {
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          startTime: new Date(Date.now() + 1 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -303,10 +304,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -369,10 +376,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -427,6 +440,9 @@ describe("Booking tests", () => {
           })
         );
 
+      const data = await response.json();
+      console.log(data);
+
       expect(response.status).toBe(201);
     },
     TEST_TIMEOUT
@@ -446,10 +462,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 3,
-          interval: "week",
-          intervalCount: 2,
+          priceInformation: {
+            price: 10,
+            interval: "week",
+            intervalCount: 2,
+          },
+          sessionsInformation: {
+            sessions: 3,
+            interval: "week",
+            intervalCount: 2,
+          },
         },
       });
 
@@ -476,45 +498,49 @@ describe("Booking tests", () => {
         },
       });
 
+      const baseTime1 = Date.now() + 2 * 60 * 60 * 1000; // 2 hours from now
       const lesson1 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          startTime: new Date(baseTime1),
+          endTime: new Date(baseTime1 + 60 * 60 * 1000), // 1 hour after start
           classOption: classOption.id,
           location: "Test Location",
         },
       });
 
+      const baseTime2 = Date.now() + 4 * 60 * 60 * 1000; // 4 hours from now
       const lesson2 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
-          endTime: new Date(Date.now() + 4 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          startTime: new Date(baseTime2),
+          endTime: new Date(baseTime2 + 60 * 60 * 1000), // 1 hour after start
           classOption: classOption.id,
           location: "Test Location",
         },
       });
 
+      const baseTime3 = Date.now() + 1 * 60 * 60 * 1000; // 1 hour from now
       const lesson3 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 1 * 60 * 60 * 1000), // 6 hours from now
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          startTime: new Date(baseTime3),
+          endTime: new Date(baseTime3 + 60 * 60 * 1000), // 1 hour after start
           classOption: classOption.id,
           location: "Test Location",
         },
       });
 
+      const baseTime = Date.now() + 8 * 60 * 60 * 1000; // 8 hours from now
       const lesson4 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 8 * 60 * 60 * 1000), // 8 hours from now
-          endTime: new Date(Date.now() + 8 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          startTime: new Date(baseTime),
+          endTime: new Date(baseTime + 60 * 60 * 1000), // Exactly 1 hour after start time
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -583,10 +609,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -621,23 +653,25 @@ describe("Booking tests", () => {
         },
       });
 
+      const baseTimeLesson = Date.now() + 2 * 60 * 60 * 1000;
       const lesson = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          startTime: new Date(baseTimeLesson),
+          endTime: new Date(baseTimeLesson + 60 * 60 * 1000),
           classOption: classOptionWithPlan.id,
           location: "Test Location",
         },
       });
 
+      const baseTimeLesson1 = Date.now() + 4 * 60 * 60 * 1000;
       const lesson1 = await payload.create({
         collection: "lessons",
         data: {
           date: new Date(),
-          startTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 5 * 60 * 60 * 1000),
+          startTime: new Date(baseTimeLesson1),
+          endTime: new Date(baseTimeLesson1 + 60 * 60 * 1000),
           classOption: classOptionWithoutPlan.id,
           location: "Test Location",
         },
@@ -688,10 +722,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "month",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -765,10 +805,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
-          sessions: 1,
-          interval: "week",
-          intervalCount: 1,
+          priceInformation: {
+            price: 10,
+            interval: "week",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "week",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -796,12 +842,13 @@ describe("Booking tests", () => {
       });
 
       // First lesson - current week
+      const baseTime1 = Date.now() + 32 * 60 * 60 * 1000; // 32 hours from now
       const lesson1 = await payload.create({
         collection: "lessons",
         data: {
-          date: new Date(Date.now() + 32 * 60 * 60 * 1000), // 32 hours from now
-          startTime: new Date(Date.now() + 32 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 32 * 60 * 60 * 1000 + 60 * 60 * 1000), // Exactly 1 hour after start time
+          date: new Date(baseTime1),
+          startTime: new Date(baseTime1),
+          endTime: new Date(baseTime1 + 60 * 60 * 1000), // Exactly 1 hour after start time
           classOption: classOption.id,
           location: "Test Location",
         },
@@ -865,7 +912,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan",
-          price: 10,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 
@@ -873,7 +929,16 @@ describe("Booking tests", () => {
         collection: "plans",
         data: {
           name: "Test Plan 2",
-          price: 10,
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
         },
       });
 

@@ -146,7 +146,7 @@ export const AddBooking = ({ lessonId }: { lessonId: number }) => {
                         <CommandGroup>
                           {users?.map((user) => (
                             <CommandItem
-                              value={`${user.email}`}
+                              value={`${user.name} - ${user.email}`}
                               key={user.id}
                               onSelect={() => {
                                 form.setValue("user", user.id.toString());

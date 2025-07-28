@@ -58,7 +58,7 @@ export const CustomSelect: React.FC<
                 label:
                   item.name ||
                   item.email ||
-                  (item.customer.email &&
+                  (item.customer?.email &&
                     `${item.customer.email} - ${item.id}`) ||
                   item.id,
                 value: item.id,
@@ -83,11 +83,11 @@ export const CustomSelect: React.FC<
   }, []);
 
   const href = `https://dashboard.stripe.com/${
-    process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+    process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
   }${dataLabel}/${selectFieldValue}`;
 
   return (
-    <div>
+    <div className="mb-4">
       <p style={{ marginBottom: "0" }}>
         {typeof label === "string" ? label : "Customer"}
       </p>
@@ -100,7 +100,7 @@ export const CustomSelect: React.FC<
         {`Select the related Stripe data or `}
         <a
           href={`https://dashboard.stripe.com/${
-            process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+            process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
           }${dataLabel}/create`}
           rel="noopener noreferrer"
           style={{ color: "var(--theme-text" }}
@@ -143,7 +143,7 @@ export const CustomSelect: React.FC<
           >
             <a
               href={`https://dashboard.stripe.com/${
-                process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+                process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
               }${dataLabel}/${selectFieldValue}`}
               rel="noreferrer noopener"
               target="_blank"

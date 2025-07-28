@@ -76,7 +76,7 @@ export const modifyAuthCollection = (
         ? existingCollectionConfig.auth
         : {}),
       strategies,
-      maxLoginAttempts: 5,
+      maxLoginAttempts: 20,
       tokenExpiration: 604800, // 7 days in seconds
     },
   };

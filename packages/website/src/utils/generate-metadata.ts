@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { CollectionSlug, Payload } from "payload";
-import { Page } from "@repo/shared-types";
 
 type Args = {
   params: Promise<{
@@ -25,7 +24,7 @@ export async function generateMetadataFunction({
     },
   });
 
-  const page = result.docs?.[0] as Page | undefined;
+  const page = result.docs?.[0];
 
   if (!page) {
     return {
@@ -34,15 +33,19 @@ export async function generateMetadataFunction({
     };
   }
 
+  // Type-safe access to page properties
+  const title = (page as any).meta?.title || (page as any).title;
+  const description = (page as any).meta?.description;
+
   return {
-    title: page.meta?.title || page.title,
-    description: page.meta?.description,
+    title,
+    description,
     openGraph: {
-      title: page.meta?.title || page.title,
-      description: page.meta?.description || "",
+      title,
+      description: description || "",
       images:
-        page.meta?.image && typeof page.meta.image === "object"
-          ? [{ url: page.meta.image.url || "" }]
+        (page as any).meta?.image && typeof (page as any).meta.image === "object"
+          ? [{ url: (page as any).meta.image.url || "" }]
           : [],
     },
     metadataBase: process.env.NEXT_PUBLIC_SERVER_URL

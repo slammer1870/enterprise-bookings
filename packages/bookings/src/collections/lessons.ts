@@ -9,12 +9,11 @@ import { getRemainingCapacity } from "../hooks/remaining-capacity";
 import { getBookingStatus } from "../hooks/booking-status";
 import { checkRole } from "@repo/shared-utils/src/check-role";
 import type { User } from "@repo/shared-types/";
+
 import type { BookingsPluginConfig } from "../types";
 
-import { AccessControls, HooksConfig } from "../types";
+import { AccessControls, HooksConfig } from "@repo/shared-types";
 
-import { render } from "@react-email/components";
-import { WaitlistNotificationEmail } from "../emails/waitlist-notification";
 import { lessonReadAccess } from "../access/lessons";
 
 const defaultFields: Field[] = [
@@ -118,10 +117,38 @@ const defaultFields: Field[] = [
         validate: (value, options) => {
           const siblingData = options.siblingData as {
             startTime: string;
+            date: string;
           };
-          if (value && siblingData.startTime) {
-            const endTime = new Date(value);
-            const startTime = new Date(siblingData.startTime);
+          if (value && siblingData.startTime && siblingData.date) {
+            // Apply the same transformation logic as beforeChange hooks
+            const date = new Date(siblingData.date);
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const day = date.getDate();
+
+            // Transform endTime
+            const endTimeRaw = new Date(value);
+            const endTime = new Date(
+              year,
+              month,
+              day,
+              endTimeRaw.getHours(),
+              endTimeRaw.getMinutes(),
+              endTimeRaw.getSeconds(),
+              endTimeRaw.getMilliseconds()
+            );
+
+            // Transform startTime
+            const startTimeRaw = new Date(siblingData.startTime);
+            const startTime = new Date(
+              year,
+              month,
+              day,
+              startTimeRaw.getHours(),
+              startTimeRaw.getMinutes(),
+              startTimeRaw.getSeconds(),
+              startTimeRaw.getMilliseconds()
+            );
             if (endTime <= startTime) {
               return "End time must be greater than start time";
             }
@@ -202,6 +229,16 @@ const defaultFields: Field[] = [
       afterRead: [getBookingStatus],
     },
     virtual: true,
+  },
+  {
+    name: "active",
+    type: "checkbox",
+    defaultValue: true,
+    admin: {
+      position: "sidebar",
+      description:
+        "Whether the lesson is active and will be shown on the schedule",
+    },
   },
 ];
 

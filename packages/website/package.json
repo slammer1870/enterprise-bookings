@@ -3,10 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "main": "src/index.ts",
   "peerDependencies": {
     "@payloadcms/plugin-form-builder": "*",
     "@payloadcms/richtext-lexical": "*",
     "@payloadcms/plugin-seo": "*",
+    "@repo/shared-utils": "workspace:*",
     "payload": "*",
     "react": "*",
     "react-dom": "*",
@@ -16,8 +18,8 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@repo/ui": "workspace:*",
-    "@types/react": "19.0.0",
-    "@types/react-dom": "19.0.0"
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.2"
   },
   "dependencies": {
     "@repo/shared-types": "workspace:*",

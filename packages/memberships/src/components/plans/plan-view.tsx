@@ -1,28 +1,26 @@
 import { Plan, Subscription } from "@repo/shared-types";
-import { Lesson } from "@repo/shared-types";
 
 import { PlanList } from "./plan-list";
 import { PlanDetail } from "./plan-detail";
 
+import {
+  createCheckoutSession,
+  createCustomerPortal,
+} from "../../actions/plans";
+
+
 type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
-  subscription: Subscription | undefined;
-  hasReachedSubscriptionLimit: boolean;
-  handlePlanPurchase: (
-    planId: string,
-    metadata?: { [key: string]: string | undefined }
-  ) => Promise<void>;
-  handleSubscriptionManagement: () => Promise<void>;
+  subscription: Subscription | null;
   lessonDate: Date;
+  subscriptionLimitReached: boolean;
 };
 
 export const PlanView = ({
   allowedPlans,
   subscription,
-  hasReachedSubscriptionLimit,
-  handlePlanPurchase,
-  handleSubscriptionManagement,
   lessonDate,
+  subscriptionLimitReached,
 }: PlanViewProps) => {
   return (
     <div>
@@ -36,7 +34,7 @@ export const PlanView = ({
             <PlanList
               plans={allowedPlans}
               actionLabel="Subscribe"
-              onAction={handlePlanPurchase}
+              onAction={createCheckoutSession}
             />
           ) : (
             <div>
@@ -53,12 +51,12 @@ export const PlanView = ({
                       (plan) => plan.id !== subscription.plan.id
                     )}
                     actionLabel="Upgrade"
-                    onAction={handlePlanPurchase}
+                    onAction={createCheckoutSession}
                   />
                 </>
               ) : (
                 <>
-                  {hasReachedSubscriptionLimit && (
+                  {subscriptionLimitReached && (
                     <p className="text-sm text-muted-foreground mb-2">
                       You have reached the limit of your subscription
                     </p>
@@ -79,7 +77,7 @@ export const PlanView = ({
                   <PlanDetail
                     plan={subscription.plan}
                     actionLabel="Manage Subscription"
-                    onAction={handleSubscriptionManagement}
+                    onAction={createCustomerPortal}
                   />
                 </>
               )}

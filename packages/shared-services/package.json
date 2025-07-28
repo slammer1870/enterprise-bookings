@@ -4,14 +4,16 @@
   "dependencies": {
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
-    "qs-esm": "^7.0.2"
+    "qs-esm": "^7.0.2",
+    "qs": "^6.14.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*"
   },
   "main": "src/index.ts",
   "peerDependencies": {
-    "payload": "*"
+    "payload": "*",
+    "next": "*"
   },
   "private": true,
   "type": "module"

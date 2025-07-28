@@ -1,44 +1,40 @@
 import { User } from "./user";
 
 export interface Post {
-  id: string;
+  id: number;
   title: string;
   excerpt: string;
   heroImage?: Media;
   content: {
-    root: {
-      type: string;
-      children: {
+    content: {
+      root: {
         type: string;
+        children: {
+          type: string;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ("ltr" | "rtl") | null;
+        format: "left" | "start" | "center" | "right" | "end" | "justify" | "";
+        indent: number;
         version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ("ltr" | "rtl") | null;
-      format: "left" | "start" | "center" | "right" | "end" | "justify" | "";
-      indent: number;
-      version: number;
+      };
+      [k: string]: unknown;
     };
-    [k: string]: unknown;
-  };
-  relatedPosts?: (string | Post)[] | null;
+    id?: string | null;
+    blockName?: string | null;
+    blockType: "content";
+  }[];
+  publishedAt?: string | null;
+  slug: string;
   meta?: {
     title?: string | null;
+    description?: string | null;
     /**
      * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
      */
-    image?: (string | null) | Media;
-    description?: string | null;
+    image?: Media;
   };
-  publishedAt?: string | null;
-  authors?: (string | User)[] | null;
-  populatedAuthors?:
-    | {
-        id?: string | null;
-        name?: string | null;
-      }[]
-    | null;
-  slug?: string | null;
-  slugLock?: boolean | null;
   updatedAt: string;
   createdAt: string;
   _status?: ("draft" | "published") | null;

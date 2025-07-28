@@ -8,6 +8,7 @@ export const getRemainingCapacity: FieldHook = async ({
   if (context.triggerAfterChange === false) {
     return;
   }
+
   const classOption = await req.payload.findByID({
     collection: "class-options",
     id: data?.classOption,
@@ -33,6 +34,7 @@ export const getRemainingCapacity: FieldHook = async ({
       triggerAfterChange: false,
     },
   });
+
   const remaining = classOption.places - bookings.docs.length;
 
   return remaining;

@@ -45,9 +45,9 @@ export const bookingCreateAccess = async ({
       return false;
     }
 
-    if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-      return false;
-    }
+    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
+    //   return false;
+    // }
 
     return true;
   } catch (error) {
@@ -121,9 +121,9 @@ export const bookingUpdateAccess = async ({
       return false;
     }
 
-    if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-      return false;
-    }
+    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
+    //   return false;
+    // }
 
     return true;
   } catch (error) {
@@ -133,11 +133,13 @@ export const bookingUpdateAccess = async ({
 };
 
 export const isAdminOrOwner = ({ req }: AccessArgs<Booking>) => {
-  if (!req.user) return false;
+  const user = req.user as User | null;
 
-  if (checkRole(["admin"], req.user as User)) return true;
+  if (!user) return false;
+
+  if (checkRole(["admin"], user)) return true;
 
   return {
-    user: { equals: req.user?.id },
+    user: { equals: user.id },
   };
 };

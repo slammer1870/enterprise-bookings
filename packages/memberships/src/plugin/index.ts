@@ -1,18 +1,25 @@
-import type { Config, Plugin, GroupField, CollectionSlug } from "payload";
+import type {
+  Config,
+  Plugin,
+  GroupField,
+  CollectionSlug,
+  Field,
+  NamedGroupField,
+} from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 
-import { plansCollection } from "../collections/plans";
+import { generatePlansCollection } from "../collections/plans";
+import { generateSubscriptionCollection } from "../collections/subscriptions";
 
 import { plansProxy } from "../endpoints/plans";
 import { subscriptionsProxy } from "../endpoints/subscriptions";
 
 import { createCheckoutSession } from "../endpoints/create-checkout-session";
 import { createCustomerPortal } from "../endpoints/create-customer-portal";
+import { syncStripeSubscriptionsEndpoint } from "../endpoints/sync-stripe-subscriptions";
 
 import { MembershipsPluginConfig } from "../types";
-
-import { generateSubscriptionCollection } from "../collections/subscriptions";
 
 export const membershipsPlugin =
   (pluginOptions: MembershipsPluginConfig): Plugin =>
@@ -64,6 +71,14 @@ export const membershipsPlugin =
       method: "post",
       handler: createCustomerPortal,
     });
+
+    endpoints.push({
+      path: "/stripe/sync-stripe-subscriptions",
+      method: "post",
+      handler: syncStripeSubscriptionsEndpoint,
+    });
+
+    const plansCollection = generatePlansCollection(pluginOptions);
 
     collections.push(generateSubscriptionCollection(pluginOptions));
     collections.push(plansCollection);

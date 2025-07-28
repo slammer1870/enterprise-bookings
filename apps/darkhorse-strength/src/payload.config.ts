@@ -8,7 +8,7 @@ import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -19,7 +19,7 @@ import { Pages } from './collections/Pages'
 import { Posts } from '@repo/website/src/collections/posts'
 
 import { rolesPlugin } from '@repo/roles'
-import { magicLinkPlugin } from '@repo/auth'
+import { magicLinkPlugin } from '@repo/auth/server'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
 import { membershipsPlugin } from '@repo/memberships'
@@ -68,10 +68,10 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString:
-        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/darkhorse_strength',
     },
   }),
-  sharp,
+  sharp: sharp as unknown as SharpDependency,
   plugins: [
     payloadCloudPlugin(),
     magicLinkPlugin({

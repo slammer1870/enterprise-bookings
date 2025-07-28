@@ -50,6 +50,35 @@ cd my-turborepo
 pnpm dev
 ```
 
+### Testing
+
+This monorepo includes comprehensive testing with Turbo integration:
+
+#### Unit Tests
+```bash
+pnpm test
+```
+
+#### Integration Tests
+```bash
+pnpm test:int
+```
+
+#### End-to-End Tests
+```bash
+# Run E2E tests (development)
+pnpm test:e2e
+
+# Run E2E tests (CI mode with build)
+pnpm test:e2e:ci
+```
+
+#### Testing Features
+- **Turbo Integration**: All tests leverage Turbo's dependency management and caching
+- **Playwright E2E**: End-to-end testing with Playwright for comprehensive coverage
+- **Database Isolation**: Separate databases for different test types
+- **CI/CD Ready**: Automated testing in GitHub Actions with artifact collection
+
 ### Remote Caching
 
 Turborepo can use a technique known as [Remote Caching](https://turbo.build/repo/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
@@ -63,7 +92,7 @@ npx turbo login
 
 This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo: 
 
 ```
 npx turbo link

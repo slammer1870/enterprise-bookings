@@ -4,7 +4,7 @@ import { Roboto } from 'next/font/google'
 
 import { Toaster } from 'sonner'
 
-import { AuthProvider } from '@repo/auth/src/providers/auth'
+import { AuthProvider } from '@repo/auth'
 
 import PlausibleProvider from 'next-plausible'
 

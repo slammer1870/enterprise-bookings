@@ -3,7 +3,7 @@ import { postgresAdapter } from '@payloadcms/db-postgres'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig } from 'payload'
+import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -11,10 +11,10 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { bookingsPlugin } from '@repo/bookings/src'
-import { magicLinkPlugin } from '@repo/auth/src'
-import { rolesPlugin } from '@repo/roles/src'
-import { paymentsPlugin } from '@repo/payments/src'
+import { bookingsPlugin } from '@repo/bookings'
+import { magicLinkPlugin } from '@repo/auth/server'
+import { rolesPlugin } from '@repo/roles'
+import { paymentsPlugin } from '@repo/payments'
 
 import { seoPlugin } from '@payloadcms/plugin-seo'
 
@@ -28,8 +28,6 @@ import {
 } from '@repo/shared-services/src/access/booking-dropin'
 import { checkRole } from '@repo/shared-utils'
 import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
-
-//import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -67,11 +65,10 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString:
-        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bookings',
+        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/mindful_yard',
     },
-    //prodMigrations: migrations,
   }),
-  sharp,
+  sharp: sharp as unknown as SharpDependency,
   plugins: [
     payloadCloudPlugin(),
     rolesPlugin({
@@ -94,8 +91,8 @@ export default buildConfig({
             relationTo: 'transactions',
             admin: {
               position: 'sidebar',
-              description: 'Associated transaction for this booking'
-            }
+              description: 'Associated transaction for this booking',
+            },
           },
         ],
         hooks: ({ defaultHooks }) => ({

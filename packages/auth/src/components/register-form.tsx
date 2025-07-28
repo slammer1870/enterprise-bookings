@@ -38,7 +38,7 @@ import { useAuth } from "../providers/auth";
 export default function RegisterForm() {
   const searchParams = useSearchParams();
 
-  const callbackUrl = useRef(searchParams.get("callbackUrl") || "/dashboard");
+  const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
 
   const router = useRouter();
 

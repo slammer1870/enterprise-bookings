@@ -35,6 +35,22 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
   const bookings = bookingQuery.docs as unknown as Booking[];
 
+  if (
+    classOption.type === "child" &&
+    bookings.some((booking: Booking) => {
+      const parentId =
+        typeof booking.user.parent === "object" && booking.user.parent !== null
+          ? (booking.user.parent as unknown as User).id
+          : (booking.user.parent as unknown as User);
+
+      const userId = typeof req.user === "object" ? req.user?.id : req.user;
+
+      return parentId === userId && booking.status === "confirmed";
+    })
+  ) {
+    return "childrenBooked";
+  }
+
   // Check if the lesson is closed based on lock-out time
   if (
     new Date(data?.startTime).getTime() - data?.lockOutTime * 60000 <=

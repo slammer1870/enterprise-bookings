@@ -11,8 +11,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env: # Add this section to define environment variables
-      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/bookings # Ensure this matches your config
+    strategy:
+      matrix:
+        app:
+          - name: darkhorse-strength
+            db: darkhorse_strength
+          - name: bru-grappling
+            db: bru_grappling
+          - name: kyuzo
+            db: kyuzo
+          - name: mindful-yard
+            db: mindful_yard
+          - name: web
+            db: dummy_web
+          - name: docs
+            db: dummy_docs
+    env:
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
       STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -26,8 +42,8 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: brugrappling # Consider using a secret for sensitive data
-          POSTGRES_DB: bookings
+          POSTGRES_PASSWORD: brugrappling
+          POSTGRES_DB: ${{ matrix.app.db }}
         ports:
           - 5432:5432
         options: >-
@@ -48,8 +64,18 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm
 
-      - name: Verify pnpm version
-        run: pnpm -v
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install
@@ -63,11 +89,240 @@ jobs:
           done
           echo "Postgres is up!"
 
-      - name: Debug Database URI
-        run: echo "DATABASE_URI is set to ${{ env.DATABASE_URI }}"
+      - name: Build the project for ${{ matrix.app.name }}
+        run: pnpm run ci --filter ${{ matrix.app.name }}
 
-      - name: Build the project
-        run: pnpm run ci
+      - name: Cache Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
 
-      - name: Run tests
-        run: pnpm test
+      # Build outputs are already cached by Turbo and Next.js cache steps above
+      # - name: Cache build outputs
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       packages/testing-config/dist
+      #       packages/ui/dist
+      #     key: ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-${{ hashFiles('**/package.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-build-outputs-${{ matrix.app.name }}-
+      #       ${{ runner.os }}-build-outputs-
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        package:
+          - auth
+          - bookings
+          - payments
+          - memberships
+          - integration-testing
+    env:
+      # Remove DATABASE_URI to allow packages to create their own test databases
+      # DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_REMOTE_ONLY: true
+      NEXT_PUBLIC_SERVER_URL: ${{ github.server_url }}
+      NODE_ENV: test
+
+    # Remove PostgreSQL service since packages will create their own databases
+    # services:
+    #   postgres:
+    #     image: postgres:latest
+    #     env:
+    #       POSTGRES_HOST: localhost
+    #       POSTGRES_PORT: 5432
+    #       POSTGRES_USER: postgres
+    #       POSTGRES_PASSWORD: brugrappling
+    #       POSTGRES_DB: ${{ matrix.app.db }}
+    #     ports:
+    #       - 5432:5432
+    #     options: >-
+    #       --health-cmd "pg_isready -U postgres"
+    #       --health-interval 10s
+    #       --health-timeout 5s
+    #       --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Restore Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      # Build outputs are already cached by Turbo artifacts
+      # - name: Restore build outputs
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       packages/testing-config/dist
+      #       packages/ui/dist
+      #     key: ${{ runner.os }}-build-outputs-test-${{ matrix.package }}-${{ hashFiles('**/package.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-build-outputs-
+      #       ${{ runner.os }}-build-outputs-test-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      # Remove PostgreSQL wait since packages handle their own databases
+      # - name: Wait for PostgreSQL to be ready
+      #   run: |
+      #     echo "Waiting for PostgreSQL to be ready..."
+      #     until pg_isready -h localhost -p 5432 -U postgres; do
+      #       echo "Postgres is unavailable - sleeping"
+      #       sleep 5
+      #     done
+      #     echo "Postgres is up!"
+
+      - name: Setup Docker for TestContainers
+        run: |
+          # Ensure Docker daemon is running for TestContainers
+          sudo systemctl start docker
+          # Add the runner user to the docker group
+          sudo usermod -aG docker $USER
+
+      - name: Run tests for ${{ matrix.package }} package
+        run: pnpm --filter @repo/${{ matrix.package }} test
+        env:
+          # Ensure TestContainers can access Docker
+          DOCKER_HOST: unix:///var/run/docker.sock
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        app:
+          - name: e2e-kyuzo
+            db: e2e_kyuzo
+    env:
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
+      STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_REMOTE_ONLY: true
+      NEXT_PUBLIC_SERVER_URL: http://localhost:3000
+      NODE_ENV: test
+      CI: true
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: brugrappling
+          POSTGRES_DB: ${{ matrix.app.db }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Restore Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Postgres is unavailable - sleeping"
+            sleep 5
+          done
+          echo "Postgres is up!"
+
+      - name: Install Playwright Browsers
+        run: pnpm exec playwright install --with-deps
+        working-directory: packages/e2e-kyuzo
+
+      - name: Run E2E tests for ${{ matrix.app.name }}
+        run: pnpm test:e2e:ci
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-${{ matrix.app.name }}
+          path: packages/e2e-kyuzo/playwright-report/
+          retention-days: 30
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results-${{ matrix.app.name }}
+          path: packages/e2e-kyuzo/test-results/
+          retention-days: 30

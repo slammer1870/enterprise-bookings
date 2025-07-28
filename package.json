@@ -9,11 +9,11 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@8.15.6",
+  "packageManager": "pnpm@10.12.1",
   "private": true,
   "scripts": {
     "build": "turbo build",
-    "ci": "turbo run ci --filter=darkhorse-strength^... --filter=mindful-yard^... --filter=bru-grappling^...",
+    "ci": "turbo run ci",
     "db:migrate": "turbo run payload -- migrate",
     "dev": "turbo dev",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
@@ -22,11 +22,18 @@
     "lint": "turbo lint",
     "syncpack": "syncpack",
     "test": "turbo run test",
+    "test:e2e": "turbo test:e2e",
+    "test:e2e:ci": "turbo test:e2e:ci",
+    "test:int": "turbo test:int",
     "ui": "pnpm --filter @repo/ui ui"
   },
   "pnpm": {
     "overrides": {
-      "stripe": "17.7.0"
+      "stripe": "17.7.0",
+      "react-hook-form": "7.56.3",
+      "react": "19.1.0",
+      "react-dom": "19.1.0",
+      "payload": "3.43.0"
     }
   }
 }

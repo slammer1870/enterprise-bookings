@@ -8,6 +8,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/ui/card";
@@ -34,6 +35,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 //import { FaGoogle, FaGithub } from "react-icons/fa";
 
 import { useAuth } from "../providers/auth";
+import Link from "next/link";
 
 export default function UserPassRegisterForm() {
   const router = useRouter();
@@ -93,7 +95,7 @@ export default function UserPassRegisterForm() {
           Enter your full name and email below to create your account
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-2">
         {form.formState.errors.root && (
           <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
             {form.formState.errors.root.message}
@@ -172,6 +174,14 @@ export default function UserPassRegisterForm() {
           </form>
         </Form>
       </CardContent>
+      <CardFooter className="flex items-center justify-end">
+        <div className="text-sm text-gray-500 flex items-center gap-2">
+          <p>Already have an account?</p>
+          <Link href="/login" className="text-black">
+            Click here to login
+          </Link>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

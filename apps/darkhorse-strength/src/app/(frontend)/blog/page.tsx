@@ -6,18 +6,24 @@ import { Post } from '@repo/shared-types'
 import { PostList } from '@repo/website/src/components/posts/post-list'
 
 const getPosts = async (): Promise<Post[]> => {
-  const payload = await getPayload({
-    config: payloadConfig,
-  })
-  const postQuery = await payload.find({
-    collection: 'posts' as CollectionSlug,
-    where: {
-      _status: {
-        equals: 'published',
+  try {
+    const payload = await getPayload({
+      config: payloadConfig,
+    })
+    const postQuery = await payload.find({
+      collection: 'posts' as CollectionSlug,
+      where: {
+        _status: {
+          equals: 'published',
+        },
       },
-    },
-  })
-  return postQuery.docs as unknown as Post[]
+    })
+    return postQuery.docs as unknown as Post[]
+  } catch (error) {
+    console.error('Error fetching posts:', error)
+    // Return empty array if there's a database schema issue
+    return []
+  }
 }
 
 export default async function BlogPage() {

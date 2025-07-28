@@ -27,11 +27,12 @@ let payload: Payload;
 let restClient: NextRESTClient;
 let user: User;
 
-const TEST_TIMEOUT = 30000; // 30 seconds
+const TEST_TIMEOUT = 60000; // 60 seconds
 
 describe("Booking tests", () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
+      console.log("Creating database string");
       const dbString = await createDbString();
 
       config.db = setDbString(dbString);

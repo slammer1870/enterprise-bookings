@@ -1,52 +1,88 @@
-import type { CollectionConfig, CollectionSlug, GroupField } from "payload";
+import type {
+  CollectionAdminOptions,
+  CollectionConfig,
+  Field,
+  Labels,
+} from "payload";
 
 import { BookingsPluginConfig } from "../types";
+
 import { checkRole } from "@repo/shared-utils/src/check-role";
-import type { User } from "@repo/shared-types/";
-export const classOptionsCollection = (
-  pluginOptions: BookingsPluginConfig
-): CollectionConfig => {
-  const config: CollectionConfig = {
+
+import type { User, AccessControls, HooksConfig } from "@repo/shared-types/";
+
+const defaultFields: Field[] = [
+  {
+    name: "name",
+    label: "Name",
+    type: "text",
+    unique: true,
+    required: true,
+  },
+  {
+    name: "places",
+    label: "Places",
+    admin: {
+      description: "How many people can book this class option?",
+    },
+    type: "number",
+    required: true,
+  },
+  {
+    name: "description",
+    label: "Description",
+    type: "textarea",
+    required: true,
+  },
+];
+
+const defaultLabels: Labels = {
+  singular: "Class Option",
+  plural: "Class Options",
+};
+
+const defaultAccess: AccessControls = {
+  read: () => true,
+  create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+};
+
+const defaultAdmin: CollectionAdminOptions = {
+  group: "Bookings",
+  useAsTitle: "name",
+};
+
+const defaultHooks: HooksConfig = {};
+
+export const generateClassOptionsCollection = (
+  config: BookingsPluginConfig
+) => {
+  const classOptionsConfig: CollectionConfig = {
+    ...(config?.classOptionsOverrides || {}),
     slug: "class-options",
+    defaultSort: "updatedAt",
     labels: {
-      singular: "Class Option",
-      plural: "Class Options",
+      ...(config?.classOptionsOverrides?.labels || defaultLabels),
     },
     access: {
-      read: () => true,
-      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      ...(config?.classOptionsOverrides?.access || defaultAccess),
     },
     admin: {
-      group: "Bookings",
-      useAsTitle: "name",
+      ...(config?.classOptionsOverrides?.admin || defaultAdmin),
     },
-    fields: [
-      {
-        name: "name",
-        label: "Name",
-        type: "text",
-        unique: true,
-        required: true,
-      },
-      {
-        name: "places",
-        label: "Places",
-        admin: {
-          description: "How many people can book this class option?",
-        },
-        type: "number",
-        required: true,
-      },
-      {
-        name: "description",
-        label: "Description",
-        type: "textarea",
-        required: true,
-      },
-    ],
+    hooks: {
+      ...(config?.classOptionsOverrides?.hooks &&
+      typeof config?.bookingOverrides?.hooks === "function"
+        ? config.classOptionsOverrides.hooks({ defaultHooks })
+        : defaultHooks),
+    },
+    fields:
+      config?.classOptionsOverrides?.fields &&
+      typeof config?.classOptionsOverrides?.fields === "function"
+        ? config.classOptionsOverrides.fields({ defaultFields })
+        : defaultFields,
   };
 
-  return config;
+  return classOptionsConfig;
 };

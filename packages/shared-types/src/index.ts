@@ -5,3 +5,4 @@ export * from "./discounts";
 export * from "./subscriptions";
 export * from "./posts";
 export * from "./seo";
+export * from "./plugins";

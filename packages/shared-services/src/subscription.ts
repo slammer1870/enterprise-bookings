@@ -51,13 +51,19 @@ export const hasReachedSubscriptionLimit = async (
 ): Promise<boolean> => {
   const plan = subscription.plan;
 
-  if (!plan.sessions || !plan.interval || !plan.intervalCount) {
+  if (
+    !plan.sessionsInformation ||
+    !plan.sessionsInformation.sessions ||
+    !plan.sessionsInformation.interval ||
+    !plan.sessionsInformation.intervalCount
+  ) {
+    payload.logger.error("Plan does not have sessions information");
     return false;
   }
 
   const { startDate, endDate } = getIntervalStartAndEndDate(
-    plan.interval,
-    plan.intervalCount || 1,
+    plan.sessionsInformation.interval,
+    plan.sessionsInformation.intervalCount || 1,
     lessonDate
   );
 
@@ -72,7 +78,15 @@ export const hasReachedSubscriptionLimit = async (
       where: query(subscription, plan, startDate, endDate),
     });
 
-    if (bookings.docs.length >= plan.sessions) {
+    payload.logger.info("Bookings found for subscription", {
+      bookings,
+      subscription,
+      plan,
+      startDate,
+      endDate,
+    });
+
+    if (bookings.docs.length >= plan.sessionsInformation.sessions) {
       return true;
     }
   } catch (error) {
@@ -111,7 +125,13 @@ export const checkUserSubscription = async (
       limit: 1,
     });
 
-    if (userSubscription.docs.length === 0) return false;
+    if (userSubscription.docs.length === 0) {
+      payload.logger.error("User does not have an active subscription", {
+        lesson,
+        user,
+      });
+      return false;
+    }
 
     const subscription = userSubscription.docs[0] as Subscription & {
       plan: Plan;
@@ -122,6 +142,14 @@ export const checkUserSubscription = async (
         (plan) => plan.id == subscription.plan.id
       )
     ) {
+      payload.logger.error(
+        "User has an active subscription that is not valid for lesson",
+        {
+          lesson,
+          user,
+          subscription,
+        }
+      );
       return false;
     }
 
@@ -131,6 +159,14 @@ export const checkUserSubscription = async (
       (subscription.cancelAt &&
         new Date(subscription.cancelAt) <= new Date(lesson.startTime))
     ) {
+      payload.logger.error(
+        "User has an active subscription that is cancelled by the date of this lesson",
+        {
+          lesson,
+          user,
+          subscription,
+        }
+      );
       return false;
     }
 
@@ -139,7 +175,42 @@ export const checkUserSubscription = async (
       payload,
       new Date(lesson.startTime)
     );
-    if (reachedLimit) return false;
+    if (reachedLimit) {
+      payload.logger.error("User has reached the subscription limit", {
+        lesson,
+        user,
+        subscription,
+      });
+      return false;
+    }
+
+    if (lesson.classOption.type === "child") {
+      const plan = subscription.plan as Plan;
+
+      if (!plan) return false;
+
+      if (!plan.type || !["child", "family"].includes(plan.type)) return false;
+
+      const bookings = await payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: lesson.id },
+          "user.parent": { equals: user.id },
+          status: { equals: "confirmed" },
+        },
+      });
+
+      const quantity = plan.quantity || 1;
+
+      if (bookings.totalDocs >= quantity) {
+        payload.logger.error("User has reached the child subscription limit", {
+          lesson,
+          user,
+          subscription,
+        });
+        return false;
+      }
+    }
 
     return true;
   } catch (error) {

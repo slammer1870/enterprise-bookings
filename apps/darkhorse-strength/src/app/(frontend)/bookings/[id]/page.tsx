@@ -1,4 +1,4 @@
-import { getMeUser } from '@repo/auth/src/utils/get-me-user'
+import { getMeUser } from '@repo/auth'
 
 import { checkInAction } from '@repo/bookings/src/actions/bookings'
 
@@ -17,21 +17,11 @@ import config from '@payload-config'
 import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
 import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
+import { BookingDetails } from '@repo/shared-types'
+
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
-}
-
-// Extract booking details type
-type BookingDetails = {
-  date: Date
-  startTime: string
-  endTime: string
-  bookingType: string
-  currency: string
-  maxCapacity: number
-  currentAttendees: number
-  adjustableQuantity: boolean
 }
 
 // Utility function to get lesson data
@@ -86,18 +76,16 @@ export default async function BookingPage({ params }: BookingPageProps) {
       redirect('/dashboard')
     }
   }
+  if (lesson.remainingCapacity <= 0) {
+    redirect('/dashboard')
+  }
 
   // Extract booking details
   const bookingDetails: BookingDetails = {
-    date: new Date(lesson.date),
+    date: lesson.date,
     startTime: lesson.startTime,
     endTime: lesson.endTime,
     bookingType: lesson.classOption.name,
-    currency: 'EUR',
-    maxCapacity: lesson.remainingCapacity,
-    currentAttendees:
-      lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
-    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
   }
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
@@ -148,7 +136,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-      <BookingSummary bookingDetails={bookingDetails} attendeesCount={1} />
+      <BookingSummary bookingDetails={bookingDetails} />
       <div className="">
         <h4 className="font-medium">Payment Methods</h4>
         <p className="font-light text-sm">Please select a payment method to continue</p>
@@ -189,7 +177,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
                       {(await hasReachedSubscriptionLimit(
                         subscription,
                         payload,
-                        new Date(lesson.startTime),
+                        new Date(lesson.date),
                       )) && (
                         <p className="text-sm text-muted-foreground mb-2">
                           You have reached the limit of your subscription

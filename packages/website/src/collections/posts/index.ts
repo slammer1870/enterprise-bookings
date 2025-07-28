@@ -1,36 +1,27 @@
 import { CollectionConfig } from "payload";
 
-import {
-  MetaDescriptionField,
-  MetaImageField,
-  MetaTitleField,
-  OverviewField,
-  PreviewField,
-} from "@payloadcms/plugin-seo/fields";
-
-import {
-  BlocksFeature,
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from "@payloadcms/richtext-lexical";
-
 import { revalidatePost, revalidateDelete } from "./hooks/revalidate-post";
 
-import { authenticated } from "../../access/authenticated";
-import { authenticatedOrPublished } from "../../access/authenticated-or-published";
+import { adminOrPublished } from "../../access/admin-or-published";
 
-import { FormBlock } from "../../blocks/form/config";
+import { Content } from "../../blocks/content/config";
+
+import { checkRole } from "@repo/shared-utils";
+import { User } from "@repo/shared-types";
 
 export const Posts: CollectionConfig = {
   slug: "posts",
   access: {
-    create: authenticated,
-    delete: authenticated,
-    read: authenticatedOrPublished,
-    update: authenticated,
+    create: ({ req: { user } }) => {
+      return checkRole(["admin"], user as User);
+    },
+    delete: ({ req: { user } }) => {
+      return checkRole(["admin"], user as User);
+    },
+    read: adminOrPublished,
+    update: ({ req: { user } }) => {
+      return checkRole(["admin"], user as User);
+    },
   },
   admin: {
     useAsTitle: "title",
@@ -61,21 +52,17 @@ export const Posts: CollectionConfig = {
             },
             {
               name: "content",
-              type: "richText",
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => {
-                  return [
-                    ...rootFeatures,
-                    HeadingFeature({
-                      enabledHeadingSizes: ["h1", "h2", "h3", "h4"],
-                    }),
-                    //BlocksFeature({ blocks: [Banner, Code, MediaBlock] }),
-                    FixedToolbarFeature(),
-                    InlineToolbarFeature(),
-                    HorizontalRuleFeature(),
-                  ];
+              type: "blocks",
+              blocks: [Content],
+              defaultValue: [
+                {
+                  content: null,
+                  blockName: null,
+                  blockType: "content",
                 },
-              }),
+              ],
+              minRows: 1,
+              maxRows: 1,
               label: false,
               required: true,
             },
@@ -115,12 +102,6 @@ export const Posts: CollectionConfig = {
         }
         return true;
       },
-    },
-    {
-      name: "form",
-      type: "blocks",
-      blocks: [FormBlock],
-      required: false,
     },
   ],
   hooks: {

@@ -15,8 +15,8 @@
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "payload": "*",
-    "sharp": "0.33.5",
-    "vitest": "^3.0.3"
+    "sharp": "0.34.2",
+    "vitest": "3.2.3"
   },
   "private": true,
   "scripts": {

@@ -1,4 +1,10 @@
-import type { Config, Plugin, CollectionSlug, GroupField } from "payload";
+import type {
+  Config,
+  Plugin,
+  CollectionSlug,
+  GroupField,
+  NamedGroupField,
+} from "payload";
 
 import { modifyUsersCollection } from "../collections/users";
 import { dropInsCollection } from "../collections/drop-ins";
@@ -18,14 +24,16 @@ export const paymentsPlugin =
       return config;
     }
 
-    let collections = config.collections || [];
+    let collections = [...(config.collections || [])];
 
     const endpoints = config.endpoints || [];
 
     if (pluginOptions.enableDropIns) {
       const dropIns = dropInsCollection(pluginOptions);
 
-      collections.push(dropIns);
+      collections = collections.filter(
+        (collection) => collection.slug !== "drop-ins"
+      );
 
       pluginOptions.paymentMethodSlugs?.map((slug) => {
         const collection = collections.find(
@@ -78,10 +86,6 @@ export const paymentsPlugin =
         });
       });
 
-      collections = collections.filter(
-        (collection) => collection.slug !== "drop-ins"
-      );
-
       collections.push(dropIns);
     }
 
@@ -94,11 +98,10 @@ export const paymentsPlugin =
         throw new Error("Users collection not found");
       }
 
-      collections = [
-        ...(collections.filter((collection) => collection.slug !== "users") ||
-          []),
-        modifyUsersCollection(usersCollection),
-      ];
+      collections = collections.filter(
+        (collection) => collection.slug !== "users"
+      );
+      collections.push(modifyUsersCollection(usersCollection));
 
       endpoints.push({
         path: "/stripe/customers",
@@ -113,6 +116,9 @@ export const paymentsPlugin =
       });
     }
 
+    collections = collections.filter(
+      (collection) => collection.slug !== "transactions"
+    );
     collections.push(transactionsCollection);
 
     config.collections = collections;

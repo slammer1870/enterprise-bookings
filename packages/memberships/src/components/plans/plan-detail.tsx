@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { useParams, usePathname } from "next/navigation";
 
 import { Plan } from "@repo/shared-types";
@@ -12,12 +14,14 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-import { CircleCheck, Loader2 } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 
 import { Price } from "../price";
 
 import { Button } from "@repo/ui/components/ui/button";
-import { useState } from "react";
+
+import { toast } from "sonner";
+
 type PlanDetailProps = {
   plan: Plan;
   actionLabel: string;
@@ -51,6 +55,8 @@ export const PlanDetail = ({
     setLoading(true);
     try {
       await onAction(id, metadata);
+    } catch (error) {
+      toast.error("Error redirecting to Stripe");
     } finally {
       setLoading(false);
     }

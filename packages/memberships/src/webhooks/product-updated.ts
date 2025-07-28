@@ -27,7 +27,10 @@ export const productUpdated: StripeWebhookHandler<{
     await payload.update({
       collection: "plans",
       id: plan.id as number,
-      data: plan,
+      data: {
+        // Trigger the beforeChange hook which will sync data from Stripe
+        // The hook will populate the necessary fields from Stripe product data
+      },
     });
   } catch (error) {
     console.error("Error updating product", error);

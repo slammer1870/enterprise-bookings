@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
+import typography from "@tailwindcss/typography";
 
 const config = {
   darkMode: ["class"],
@@ -13,6 +14,14 @@ const config = {
     "../../packages/payments/src/components/**/*.{ts,tsx}",
     "../../apps/bru-grappling/src/blocks/**/*.{ts,tsx}",
     "../../apps/bru-grappling/src/globals/**/*.{ts,tsx}",
+    "../../apps/kyuzo/src/blocks/**/*.{ts,tsx}",
+    "../../apps/kyuzo/src/globals/**/*.{ts,tsx}",
+    "../../apps/kyuzo/src/graphics/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/blocks/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/globals/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/graphics/**/*.{ts,tsx}",
+    "../../packages/e2e-kyuzo/src/app/(frontend)/**/*.{ts,tsx,js,jsx}",
+    "../../packages/website/src/blocks/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
@@ -80,7 +89,7 @@ const config = {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [tailwindcssAnimate, typography],
 } satisfies Config;
 
 export default config;

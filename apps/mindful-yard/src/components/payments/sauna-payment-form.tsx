@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lesson, User } from '@repo/shared-types'
+import { BookingDetails, Lesson, User } from '@repo/shared-types'
 import { Button } from '@repo/ui/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@repo/ui/components/ui/dialog'
 import { Separator } from '@repo/ui/components/ui/separator'
@@ -32,31 +32,26 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   // Use lesson data for booking details
-  const bookingDetails = {
-    date: new Date(lesson.date || Date.now()),
+  const bookingDetails: BookingDetails = {
+    date: lesson.date,
     startTime: lesson.startTime,
     endTime: lesson.endTime,
     bookingType: lesson.classOption.name,
-    price: lesson.classOption.paymentMethods?.allowedDropIn?.price || 0,
-    currency: 'EUR',
-    maxCapacity: lesson.remainingCapacity,
-    currentAttendees:
-      lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
-    adjustableQuantity: lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false,
   }
 
   // Use our custom hooks
   const { attendees, setAttendees, remainingCapacity } = useAttendees({
     user,
-    maxCapacity: bookingDetails.maxCapacity,
-    currentAttendees: bookingDetails.currentAttendees,
+    maxCapacity: lesson.remainingCapacity,
+    currentAttendees:
+      lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
   })
 
   const dropInPaymentOptions = lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods
   const membershipPaymentOptions = lesson.classOption.paymentMethods?.allowedPlans?.length
 
   const { paymentMethod, setPaymentMethod, loading, setLoading, calculatePrice } = usePayment({
-    basePrice: bookingDetails.price,
+    basePrice: lesson.classOption.paymentMethods?.allowedDropIn?.price || 0,
     discountTiers: lesson.classOption.paymentMethods?.allowedDropIn?.discountTiers || [],
     paymentMethods: lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods || [],
   })
@@ -97,7 +92,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   return (
     <div className="grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
       {/* Booking Summary */}
-      <BookingSummary bookingDetails={bookingDetails} attendeesCount={attendees.length} />
+      <BookingSummary bookingDetails={bookingDetails} />
 
       <Tabs defaultValue="drop-in" className="w-full">
         <TabsList className="w-full">
@@ -114,7 +109,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
         </TabsList>
         <TabsContent value="drop-in" className="flex flex-col gap-4">
           <PriceForm
-            price={bookingDetails.price}
+            price={lesson.classOption.paymentMethods?.allowedDropIn?.price || 0}
             attendeesCount={attendees.length}
             discountApplied={priceCalculation.discountApplied}
             totalAmount={priceCalculation.totalAmount}
@@ -122,7 +117,9 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
             remainingCapacity={remainingCapacity}
             attendees={attendees}
             setAttendees={setAttendees}
-            adjustableQuantity={bookingDetails.adjustableQuantity}
+            adjustableQuantity={
+              lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false
+            }
           />
           {/* Attendees and Payment Form */}
           {/* Attendees Section */}
@@ -162,7 +159,9 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>Price per person</span>
-                    <span>€{bookingDetails.price.toFixed(2)}</span>
+                    <span>
+                      €{lesson.classOption.paymentMethods?.allowedDropIn?.price.toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Number of guests</span>

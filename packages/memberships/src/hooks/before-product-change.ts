@@ -1,5 +1,7 @@
 import type { CollectionBeforeChangeHook } from "payload";
 
+import Stripe from "stripe";
+
 import { stripe } from "@repo/shared-utils";
 
 const logs = true;
@@ -33,7 +35,14 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
     if (logs)
       payload.logger.info(`Found product from Stripe: ${stripeProduct.name}`);
     // newDoc.name = stripeProduct.name;
-    newDoc.priceJSON = stripeProduct.default_price;
+    const price = stripeProduct.default_price as Stripe.Price;
+
+    newDoc.priceJSON = price;
+    newDoc.priceInformation = {
+      price: price.unit_amount && price.unit_amount / 100,
+      intervalCount: price.recurring?.interval_count,
+      intervalType: price.recurring?.interval,
+    };
     newDoc.status = stripeProduct.active ? "active" : "inactive";
   } catch (error: unknown) {
     payload.logger.error(`Error fetching product from Stripe: ${error}`);

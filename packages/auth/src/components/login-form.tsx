@@ -38,7 +38,7 @@ import { useAuth } from "../providers/auth";
 export default function LoginForm() {
   const searchParams = useSearchParams();
 
-  const callbackUrl = useRef(searchParams.get("callbackUrl"));
+  const callbackUrl = useRef(searchParams?.get("callbackUrl"));
 
   const router = useRouter();
 
