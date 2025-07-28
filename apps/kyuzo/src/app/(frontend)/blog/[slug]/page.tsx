@@ -49,18 +49,16 @@ export default async function BlogPost({ params: paramsPromise }: Args) {
   return (
     <article className="pt-24 pb-16 w-full flex px-4 min-h-screen">
       <div className="max-w-screen-md w-full mx-auto">
-        <Link href="/blog/" className="mb-8">
-          <button className="flex font-light text-blue-500">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="mr-2 h-6 w-6"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="square" strokeWidth="1" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-            </svg>
-            <p className="text-blue-500">BACK TO BLOG</p>
-          </button>
+        <Link href="/blog/" className="mb-8 flex items-center text-sm">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="mr-2 h-6 w-6"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="square" strokeWidth="1" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+          </svg>
+          <p>BACK TO BLOG</p>
         </Link>
         <h3 className="text-4xl font-bold text-left mr-auto mb-4">{post.title}</h3>
         <ContentBlock content={post.content[0].content} />
