@@ -17,6 +17,7 @@ import { getLessons } from "../actions/lessons";
 type ScheduleContextType = {
   lessons: Lesson[];
   isLoading: boolean;
+  error: string | null;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
   checkIn: (lessonId: number, userId: number) => Promise<void>;
@@ -34,6 +35,7 @@ export const ScheduleProvider: React.FC<{
 }> = ({ children }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -43,10 +45,14 @@ export const ScheduleProvider: React.FC<{
     const fetchLessons = async () => {
       setIsLoading(true);
 
-      const lessons = await getLessons(selectedDate);
-
-      setLessons(lessons);
-      setIsLoading(false);
+      try {
+        const lessons = await getLessons(selectedDate);
+        setLessons(lessons);
+      } catch (error) {
+        setError(error as string);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchLessons();
@@ -119,6 +125,7 @@ export const ScheduleProvider: React.FC<{
       value={{
         lessons,
         isLoading,
+        error,
         selectedDate,
         setSelectedDate,
         checkIn,
