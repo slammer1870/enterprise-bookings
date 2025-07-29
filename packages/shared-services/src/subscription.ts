@@ -57,7 +57,7 @@ export const hasReachedSubscriptionLimit = async (
     !plan.sessionsInformation.interval ||
     !plan.sessionsInformation.intervalCount
   ) {
-    payload.logger.error("Plan does not have sessions information");
+    payload.logger.info("Plan does not have sessions information");
     return false;
   }
 

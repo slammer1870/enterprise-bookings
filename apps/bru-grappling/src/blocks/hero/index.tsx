@@ -31,14 +31,14 @@ export const HeroBlock: React.FC<{
         className="opacity-20"
       />
       <div className="absolute flex h-full w-full items-center justify-center bg-white bg-opacity-50">
-        <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-4 lg:-mt-20 lg:mb-0 lg:flex-row">
+        <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-4 lg:-mt-20 lg:mb-0 lg:flex-row gap-4">
           <div className="mx-auto w-2/3 lg:w-1/2 xl:w-auto">
             <Image
               src={logo.url || ''}
               alt={logo.alt || ''}
               height={600}
               width={600}
-              className="h-auto max-w-full"
+              className="h-auto max-w-full p-4 lg:p-12"
               unoptimized
             />
           </div>
