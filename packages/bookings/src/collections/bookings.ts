@@ -148,7 +148,10 @@ export const generateBookingCollection = (config: BookingsPluginConfig) => {
       ...(config?.bookingOverrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.bookingOverrides?.access || defaultAccess),
+      ...(config?.bookingOverrides?.access &&
+      typeof config?.bookingOverrides?.access === "function"
+        ? config.bookingOverrides.access({ defaultAccess })
+        : defaultAccess),
     },
     admin: {
       ...(config?.bookingOverrides?.admin || defaultAdmin),

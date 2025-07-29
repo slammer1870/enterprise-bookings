@@ -146,12 +146,11 @@ export default buildConfig({
             },
           ],
         }),
-        access: {
-          read: isAdminOrOwner,
+        access: ({ defaultAccess }) => ({
+          ...defaultAccess,
           create: bookingCreateDropinAccess,
           update: bookingUpdateDropinAccess,
-          delete: ({ req }) => checkRole(['admin'], req.user as User),
-        },
+        }),
       },
     }),
     paymentsPlugin({

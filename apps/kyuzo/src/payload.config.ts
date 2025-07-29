@@ -136,10 +136,11 @@ export default buildConfig({
         ],
       },
       bookingOverrides: {
-        access: {
+        access: ({ defaultAccess }) => ({
+          ...defaultAccess,
           create: childrenCreateBookingMembershipAccess,
           update: childrenUpdateBookingMembershipAccess,
-        },
+        }),
       },
     }),
     paymentsPlugin({
