@@ -293,7 +293,10 @@ export const generateLessonCollection = (config: BookingsPluginConfig) => {
       ...(config?.lessonOverrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.lessonOverrides?.access || defaultAccess),
+      ...(config?.lessonOverrides?.access &&
+      typeof config?.lessonOverrides?.access === "function"
+        ? config.lessonOverrides.access({ defaultAccess })
+        : defaultAccess),
     },
     admin: {
       ...(config?.lessonOverrides?.admin || defaultAdmin),

@@ -70,6 +70,8 @@ export interface Config {
     media: Media;
     pages: Page;
     posts: Post;
+    forms: Form;
+    'form-submissions': FormSubmission;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
@@ -78,8 +80,6 @@ export interface Config {
     users: User;
     subscriptions: Subscription;
     plans: Plan;
-    forms: Form;
-    'form-submissions': FormSubmission;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -89,20 +89,16 @@ export interface Config {
     lessons: {
       bookings: 'bookings';
     };
-    'drop-ins': {
-      'class-optionsPaymentMethods': 'class-options';
-    };
     users: {
       userSubscription: 'subscriptions';
-    };
-    plans: {
-      'class-optionsPaymentMethods': 'class-options';
     };
   };
   collectionsSelect: {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
+    forms: FormsSelect<false> | FormsSelect<true>;
+    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
@@ -111,8 +107,6 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
-    forms: FormsSelect<false> | FormsSelect<true>;
-    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -327,220 +321,6 @@ export interface Post {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the lesson will be closed for new bookings.
-   */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | User;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  originalLockOutTime?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  roles?: ('customer' | 'admin')[] | null;
-  name: string;
-  stripeCustomerId?: string | null;
-  userSubscription?: {
-    docs?: (number | Subscription)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
- */
-export interface Subscription {
-  id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans".
- */
-export interface Plan {
-  id: number;
-  name: string;
-  /**
-   * Features that are included in this plan
-   */
-  features?:
-    | {
-        feature?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Sessions included in this plan (if applicable)
-   */
-  sessionsInformation?: {
-    sessions?: number | null;
-    intervalCount?: number | null;
-    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-  };
-  stripeProductId?: string | null;
-  /**
-   * Price information for the plan
-   */
-  priceInformation?: {
-    /**
-     * Price of the plan
-     */
-    price?: number | null;
-    /**
-     * Number of intervals per period
-     */
-    intervalCount?: number | null;
-    /**
-     * How often the price is charged
-     */
-    interval?: ('day' | 'week' | 'month' | 'year') | null;
-  };
-  priceJSON?: string | null;
-  /**
-   * Status of the plan
-   */
-  status: 'active' | 'inactive';
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  paymentMethods?: {
-    allowedDropIn?: (number | null) | DropIn;
-    allowedPlans?: (number | Plan)[] | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "drop-ins".
- */
-export interface DropIn {
-  id: number;
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-  price: number;
-  adjustable: boolean;
-  discountTiers?:
-    | {
-        minQuantity: number;
-        discountPercent: number;
-        type: 'normal' | 'trial' | 'bulk';
-        id?: string | null;
-      }[]
-    | null;
-  paymentMethods: 'card'[];
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  user: number | User;
-  lesson: number | Lesson;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms".
  */
 export interface Form {
@@ -732,6 +512,214 @@ export interface FormSubmission {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  originalLockOutTime?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  name: string;
+  roles?: ('customer' | 'admin')[] | null;
+  stripeCustomerId?: string | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Sessions included in this plan (if applicable)
+   */
+  sessionsInformation?: {
+    sessions?: number | null;
+    intervalCount?: number | null;
+    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  };
+  stripeProductId?: string | null;
+  /**
+   * Price information for the plan
+   */
+  priceInformation?: {
+    /**
+     * Price of the plan
+     */
+    price?: number | null;
+    /**
+     * Number of intervals per period
+     */
+    intervalCount?: number | null;
+    /**
+     * How often the price is charged
+     */
+    interval?: ('day' | 'week' | 'month' | 'year') | null;
+  };
+  priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child' | 'family';
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+    allowedDropIn?: (number | null) | DropIn;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  price: number;
+  adjustable: boolean;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        type: 'normal' | 'trial' | 'bulk';
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethods: 'card'[];
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  amount: number;
+  currency: 'EUR' | 'USD';
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: 'cash' | 'card';
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-jobs".
  */
 export interface PayloadJob {
@@ -842,6 +830,14 @@ export interface PayloadLockedDocument {
         value: number | Post;
       } | null)
     | ({
+        relationTo: 'forms';
+        value: number | Form;
+      } | null)
+    | ({
+        relationTo: 'form-submissions';
+        value: number | FormSubmission;
+      } | null)
+    | ({
         relationTo: 'lessons';
         value: number | Lesson;
       } | null)
@@ -872,14 +868,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'plans';
         value: number | Plan;
-      } | null)
-    | ({
-        relationTo: 'forms';
-        value: number | Form;
-      } | null)
-    | ({
-        relationTo: 'form-submissions';
-        value: number | FormSubmission;
       } | null)
     | ({
         relationTo: 'payload-jobs';
@@ -1087,159 +1075,6 @@ export interface PostsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons_select".
- */
-export interface LessonsSelect<T extends boolean = true> {
-  date?: T;
-  startTime?: T;
-  endTime?: T;
-  lockOutTime?: T;
-  location?: T;
-  instructor?: T;
-  classOption?: T;
-  remainingCapacity?: T;
-  bookings?: T;
-  bookingStatus?: T;
-  active?: T;
-  originalLockOutTime?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options_select".
- */
-export interface ClassOptionsSelect<T extends boolean = true> {
-  name?: T;
-  places?: T;
-  description?: T;
-  paymentMethods?:
-    | T
-    | {
-        allowedDropIn?: T;
-        allowedPlans?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings_select".
- */
-export interface BookingsSelect<T extends boolean = true> {
-  user?: T;
-  lesson?: T;
-  status?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "drop-ins_select".
- */
-export interface DropInsSelect<T extends boolean = true> {
-  name?: T;
-  description?: T;
-  isActive?: T;
-  price?: T;
-  adjustable?: T;
-  discountTiers?:
-    | T
-    | {
-        minQuantity?: T;
-        discountPercent?: T;
-        type?: T;
-        id?: T;
-      };
-  paymentMethods?: T;
-  'class-optionsPaymentMethods'?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  amount?: T;
-  currency?: T;
-  status?: T;
-  paymentMethod?: T;
-  createdBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  roles?: T;
-  name?: T;
-  stripeCustomerId?: T;
-  userSubscription?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions_select".
- */
-export interface SubscriptionsSelect<T extends boolean = true> {
-  user?: T;
-  plan?: T;
-  status?: T;
-  startDate?: T;
-  endDate?: T;
-  cancelAt?: T;
-  stripeSubscriptionId?: T;
-  skipSync?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans_select".
- */
-export interface PlansSelect<T extends boolean = true> {
-  name?: T;
-  features?:
-    | T
-    | {
-        feature?: T;
-        id?: T;
-      };
-  sessionsInformation?:
-    | T
-    | {
-        sessions?: T;
-        intervalCount?: T;
-        interval?: T;
-      };
-  stripeProductId?: T;
-  priceInformation?:
-    | T
-    | {
-        price?: T;
-        intervalCount?: T;
-        interval?: T;
-      };
-  priceJSON?: T;
-  status?: T;
-  skipSync?: T;
-  'class-optionsPaymentMethods'?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms_select".
  */
 export interface FormsSelect<T extends boolean = true> {
@@ -1384,6 +1219,158 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
         value?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  active?: T;
+  originalLockOutTime?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  type?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedPlans?: T;
+        allowedDropIn?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
+  isActive?: T;
+  price?: T;
+  adjustable?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        type?: T;
+        id?: T;
+      };
+  paymentMethods?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  amount?: T;
+  currency?: T;
+  status?: T;
+  paymentMethod?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  roles?: T;
+  stripeCustomerId?: T;
+  userSubscription?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  user?: T;
+  plan?: T;
+  status?: T;
+  startDate?: T;
+  endDate?: T;
+  cancelAt?: T;
+  stripeSubscriptionId?: T;
+  skipSync?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans_select".
+ */
+export interface PlansSelect<T extends boolean = true> {
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessionsInformation?:
+    | T
+    | {
+        sessions?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
+  priceJSON?: T;
+  status?: T;
+  skipSync?: T;
   updatedAt?: T;
   createdAt?: T;
 }

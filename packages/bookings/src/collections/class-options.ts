@@ -66,14 +66,17 @@ export const generateClassOptionsCollection = (
       ...(config?.classOptionsOverrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.classOptionsOverrides?.access || defaultAccess),
+      ...(config?.classOptionsOverrides?.access &&
+      typeof config?.classOptionsOverrides?.access === "function"
+        ? config.classOptionsOverrides.access({ defaultAccess })
+        : defaultAccess),
     },
     admin: {
       ...(config?.classOptionsOverrides?.admin || defaultAdmin),
     },
     hooks: {
       ...(config?.classOptionsOverrides?.hooks &&
-      typeof config?.bookingOverrides?.hooks === "function"
+      typeof config?.classOptionsOverrides?.hooks === "function"
         ? config.classOptionsOverrides.hooks({ defaultHooks })
         : defaultHooks),
     },

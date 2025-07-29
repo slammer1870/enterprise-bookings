@@ -68,7 +68,8 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString:
-        process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/darkhorse_strength',
+        process.env.DATABASE_URI ||
+        'postgres://postgres:brugrappling@localhost:5432/darkhorse_strength',
     },
   }),
   sharp: sharp as unknown as SharpDependency,
@@ -162,12 +163,11 @@ export default buildConfig({
             },
           ],
         }),
-        access: {
-          read: isAdminOrOwner,
+        access: ({ defaultAccess }) => ({
+          ...defaultAccess,
           create: bookingCreateMembershipDropinAccess,
           update: bookingUpdateMembershipDropinAccess,
-          delete: ({ req }) => checkRole(['admin'], req.user as User),
-        },
+        }),
       },
     }),
     paymentsPlugin({
