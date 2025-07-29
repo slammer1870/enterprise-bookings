@@ -51,7 +51,13 @@ export const hasReachedSubscriptionLimit = async (
 ): Promise<boolean> => {
   const plan = subscription.plan;
 
-  if (!plan.sessions || !plan.interval || !plan.intervalCount) {
+  if (
+    !plan.sessionsInformation ||
+    !plan.sessionsInformation.sessions ||
+    !plan.sessionsInformation.interval ||
+    !plan.sessionsInformation.intervalCount
+  ) {
+    payload.logger.info("Plan does not have sessions information");
     return false;
   }
 
