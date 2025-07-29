@@ -22,6 +22,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
     });
 
     if (user.totalDocs === 0) {
+      payload.logger.info("Skipping subscription creation: User not found");
       return;
     }
 
@@ -73,6 +74,6 @@ export const subscriptionCreated: StripeWebhookHandler<{
       }
     }
   } catch (error) {
-    console.error("Error creating subscription", error);
+    payload.logger.error("Error creating subscription", error);
   }
 };

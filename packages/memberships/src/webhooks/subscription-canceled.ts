@@ -23,16 +23,6 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       return;
     }
 
-    const plan = await payload.find({
-      collection: "plans",
-      where: { stripeProductId: { equals: planId } },
-      limit: 1,
-    });
-
-    if (plan.totalDocs === 0) {
-      throw new Error("Plan not found");
-    }
-
     const subscription = await payload.find({
       collection: "subscriptions",
       where: {
@@ -61,7 +51,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       where: {
         user: { equals: user.docs[0]?.id as number },
         "lesson.classOption.paymentMethods.allowedPlans": {
-          contains: plan.docs[0]?.id as number,
+          contains: planId,
         },
         "lesson.startTime": {
           greater_than: new Date(),
