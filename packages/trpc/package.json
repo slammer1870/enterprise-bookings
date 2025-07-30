@@ -1,0 +1,32 @@
+{
+  "name": "@repo/trpc",
+  "sideEffects": false,
+  "private": true,
+  "description": "Shared tRPC library for this monorepo",
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "build": "yarn trpc:generate || true",
+    "trpc:generate": "yarn tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.17.15",
+    "@trpc/client": "^11.4.3",
+    "@trpc/next": "^11.4.3",
+    "@trpc/react-query": "^11.4.3",
+    "@trpc/server": "^11.4.3",
+    "superjson": "1.9.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "next": "^15.1.6",
+    "payload": "^3.10.0"
+  }
+}
