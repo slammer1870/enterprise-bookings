@@ -1,5 +1,4 @@
-import { TaskHandler, Field, GlobalConfig, Payload } from "payload";
-import { addDays } from "date-fns";
+import { Field, GlobalConfig } from "payload";
 
 const days: Field = {
   name: "days",
@@ -137,7 +136,8 @@ export const schedulerGlobal: GlobalConfig = {
   label: "Lesson Scheduler",
   admin: {
     group: "Bookings",
-    description: "Create recurring lessons across your weekly schedule",
+    description:
+      "Create recurring lessons across your weekly schedule (this will not delete lessons that have any bookings, please manage them manually).",
   },
   hooks: {
     afterChange: [
