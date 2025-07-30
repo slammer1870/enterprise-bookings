@@ -4,10 +4,10 @@
     "baseUrl": ".",
     "jsx": "react-jsx",
     "paths": {
-      "@repo/children/components/*": ["./components/*"],
+      "@repo/children/components/*": ["src/components/*"],
       "@/*": ["./*"]
     }
   },
-  "include": ["components/**/*"],
+  "include": ["src/components/**/*"],
   "exclude": ["node_modules", "dist"]
 }
