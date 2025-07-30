@@ -13,6 +13,7 @@
     "trpc:generate": "yarn tsc --project tsconfig.json"
   },
   "dependencies": {
+    "@repo/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.17.15",
     "@trpc/client": "^11.4.3",
     "@trpc/next": "^11.4.3",

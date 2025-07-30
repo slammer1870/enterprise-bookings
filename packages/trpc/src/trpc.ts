@@ -29,12 +29,9 @@ export const createTRPCContext = async (opts: {
   payload: Payload;
 }) => {
   const payload = opts.payload;
-  const session = await payload.auth({
-    headers: opts.headers,
-  });
+
   return {
     payload,
-    session,
   };
 };
 /**
@@ -110,7 +107,7 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  *
  * @see https://trpc.io/docs/procedures
  */
-export const protectedProcedure = t.procedure
+/*export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(({ ctx, next }) => {
     if (!ctx.session?.user) {
@@ -122,4 +119,4 @@ export const protectedProcedure = t.procedure
         session: { ...ctx.session, user: ctx.session.user },
       },
     });
-  });
+  });*/

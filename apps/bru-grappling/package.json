@@ -37,6 +37,7 @@
     "payload": "*",
     "react": "*",
     "react-dom": "*",
+    "react-error-boundary": "^6.0.0",
     "sharp": "0.34.2",
     "sonner": "2.0.1",
     "superjson": "1.9.1",

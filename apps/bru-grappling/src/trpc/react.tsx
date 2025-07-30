@@ -3,9 +3,9 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { createTRPCClient, httpBatchLink, loggerLink } from '@trpc/client'
-import { createTRPCReact } from '@trpc/react-query'
-import SuperJSON from 'superjson' // eslint-disable-line @typescript-eslint/no-unused-vars
+import { createTRPCClient, httpBatchStreamLink, loggerLink } from '@trpc/client'
+import { createTRPCContext } from '@trpc/tanstack-react-query'
+import SuperJSON from 'superjson'
 
 import type { AppRouter } from '@repo/trpc'
 
@@ -22,7 +22,9 @@ const getQueryClient = () => {
   }
 }
 
-export const api = createTRPCReact<AppRouter>() as any
+const trpcContext = createTRPCContext<AppRouter>()
+export const useTRPC = trpcContext.useTRPC
+export const TRPCProvider = trpcContext.TRPCProvider
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient()
@@ -35,9 +37,9 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
             process.env.NODE_ENV === 'development' ||
             (op.direction === 'down' && op.result instanceof Error),
         }),
-        httpBatchLink({
-          url: getBaseUrl() + '/api/trpc',
+        httpBatchStreamLink({
           transformer: SuperJSON,
+          url: getBaseUrl() + '/api/trpc',
           headers() {
             const headers = new Headers()
             headers.set('x-trpc-source', 'nextjs-react')
@@ -50,16 +52,16 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <api.Provider client={trpcClient} queryClient={queryClient}>
+      <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         {props.children}
-      </api.Provider>
+      </TRPCProvider>
     </QueryClientProvider>
   )
 }
 
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') return window.location.origin
-  if (process.env.NEXT_PUBLIC_SERVER_URL) return `${process.env.NEXT_PUBLIC_SERVER_URL}`
+  if (process.env.NEXT_PUBLIC_SERVER_URL) return `https://${process.env.NEXT_PUBLIC_SERVER_URL}`
   // eslint-disable-next-line no-restricted-properties
   return `http://localhost:${process.env.PORT ?? 3000}`
 }
