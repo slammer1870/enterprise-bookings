@@ -1,0 +1,13 @@
+{
+  "extends": "@repo/typescript-config/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "paths": {
+      "@repo/children/components/*": ["./components/*"],
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["components/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
