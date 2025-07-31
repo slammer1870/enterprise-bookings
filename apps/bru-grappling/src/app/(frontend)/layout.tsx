@@ -11,6 +11,8 @@ import PlausibleProvider from 'next-plausible'
 import { Navbar } from '@/globals/navbar'
 //import { FooterGlobal } from '@/globals/footer/client'
 
+import { TRPCReactProvider } from '@/trpc/react'
+
 const roboto = Roboto({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
@@ -30,14 +32,16 @@ export default async function RootLayout({
     <html lang="en">
       <PlausibleProvider domain="brugrappling.ie">
         <AuthProvider>
-          <body className={roboto.className}>
-            <Navbar />
-            {children}
-            {unauthenticated}
-            {/*<Footer />*/}
-            <div id="modal-root" />
-            <Toaster />
-          </body>
+          <TRPCReactProvider>
+            <body className={roboto.className}>
+              <Navbar />
+              {children}
+              {unauthenticated}
+              {/*<Footer />*/}
+              <div id="modal-root" />
+              <Toaster />
+            </body>
+          </TRPCReactProvider>
         </AuthProvider>
       </PlausibleProvider>
     </html>

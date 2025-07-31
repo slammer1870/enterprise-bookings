@@ -19,6 +19,7 @@ export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (args: {
   defaultHooks: HooksConfig;
 }) => HooksConfig;
+export type AccessOverride = (args: { defaultAccess: AccessControls }) => AccessControls;
 
 export type AccessControlHook = {
   name: string;
@@ -52,15 +53,18 @@ export type BookingsPluginConfig = {
   lessonOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
-  } & Partial<Omit<CollectionConfig, "fields">>;
+    access?: AccessOverride;
+  } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
   bookingOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
-  } & Partial<Omit<CollectionConfig, "fields">>;
+    access?: AccessOverride;
+  } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
   classOptionsOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
-  } & Partial<Omit<CollectionConfig, "fields">>;
+    access?: AccessOverride;
+  } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
 };
 
 export type AccessControls =

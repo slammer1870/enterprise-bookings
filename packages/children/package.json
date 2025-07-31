@@ -1,0 +1,33 @@
+{
+  "name": "@repo/children",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@repo/shared-services": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/auth": "workspace:*",
+    "@repo/bookings": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@repo/memberships": "workspace:*",
+    "@hookform/resolvers": "4.1.0",
+    "react-hook-form": "*",
+    "zod": "^3.25.67",
+    "sonner": "2.0.1",
+    "lucide-react": "0.475.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/react": "19.1.0",
+    "@types/react-dom": "19.1.2",
+    "react": "*",
+    "react-dom": "*",
+    "typescript": "5.7.3"
+  },
+  "main": "./components/index.tsx",
+  "types": "./components/index.tsx",
+  "peerDependencies": {
+    "react": "*",
+    "react-dom": "*"
+  }
+}

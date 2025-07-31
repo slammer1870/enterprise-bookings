@@ -35,6 +35,10 @@ import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 import { Booking, Lesson, User } from '@repo/shared-types'
 
 import { checkRole } from '@repo/shared-utils'
+import {
+  childrenCreateBookingMembershipAccess,
+  childrenUpdateBookingMembershipAccess,
+} from '@repo/shared-services/src/access/children-booking-membership'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -66,15 +70,16 @@ export default buildConfig({
   globals: [Navbar],
   sharp: sharp as unknown as SharpDependency,
   plugins: [
-    payloadCloudPlugin(),
-    rolesPlugin({
-      enabled: true,
-    }),
+    //payloadCloudPlugin(),
+    formBuilderPlugin({}),
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',
       appName: 'Brú Grappling',
+    }),
+    rolesPlugin({
+      enabled: true,
     }),
     bookingsPlugin({
       enabled: true,
@@ -102,6 +107,56 @@ export default buildConfig({
             },
           ],
         }),
+      },
+      classOptionsOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'type',
+            type: 'select',
+            options: ['adult', 'child', 'family'],
+            defaultValue: 'adult',
+            required: true,
+            admin: {
+              description: 'Is this a class for adults or children?',
+            },
+          },
+          {
+            name: 'paymentMethods',
+            type: 'group',
+            fields: [
+              {
+                name: 'allowedPlans',
+                type: 'relationship',
+                relationTo: 'plans',
+                hasMany: true,
+                filterOptions: ({ data }) => {
+                  // returns a Where query dynamically by the type of relationship
+                  if (data.type === 'child') {
+                    return {
+                      type: { equals: 'child' },
+                    }
+                  } else if (data.type === 'adult') {
+                    return {
+                      type: { equals: 'adult' },
+                    }
+                  }
+                  // Default case - return all plans
+                  return {
+                    type: { in: ['adult', 'child', 'family'] },
+                  }
+                },
+              },
+              {
+                name: 'allowedDropIn',
+                label: 'Allowed Drop In',
+                type: 'relationship',
+                relationTo: 'drop-ins',
+                hasMany: false,
+              },
+            ],
+          },
+        ],
       },
       bookingOverrides: {
         hooks: ({ defaultHooks }) => ({
@@ -146,25 +201,23 @@ export default buildConfig({
             },
           ],
         }),
-        access: {
-          read: isAdminOrOwner,
-          create: bookingCreateMembershipDropinAccess,
-          update: bookingUpdateMembershipDropinAccess,
-          delete: ({ req }) => checkRole(['admin'], req.user as User),
-        },
+        access: ({ defaultAccess }) => ({
+          ...defaultAccess,
+          create: childrenCreateBookingMembershipAccess,
+          update: childrenUpdateBookingMembershipAccess,
+        }),
       },
     }),
     paymentsPlugin({
       enabled: true,
       enableDropIns: true,
       acceptedPaymentMethods: ['card'],
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: [],
     }),
     membershipsPlugin({
       enabled: true,
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: [],
     }),
-    formBuilderPlugin({}),
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',
