@@ -5,6 +5,7 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
@@ -18,7 +19,13 @@ import { Pages } from './collections/Pages'
 import { magicLinkPlugin } from '@repo/auth/server'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
-import { membershipsPlugin } from '@repo/memberships'
+import {
+  membershipsPlugin,
+  productUpdated,
+  subscriptionCanceled,
+  subscriptionCreated,
+  subscriptionUpdated,
+} from '@repo/memberships'
 import { rolesPlugin } from '@repo/roles'
 
 import { Navbar } from './globals/navbar/config'
@@ -217,6 +224,18 @@ export default buildConfig({
     membershipsPlugin({
       enabled: true,
       paymentMethodSlugs: [],
+    }),
+    stripePlugin({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
+      stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      isTestKey: Boolean(process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY),
+      rest: false,
+      webhooks: {
+        'customer.subscription.created': subscriptionCreated,
+        'customer.subscription.updated': subscriptionUpdated,
+        'customer.subscription.deleted': subscriptionCanceled,
+        'product.updated': productUpdated,
+      },
     }),
     seoPlugin({
       collections: ['pages', 'posts'],
