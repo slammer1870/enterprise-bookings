@@ -92,7 +92,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   return (
     <div className="grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
       {/* Booking Summary */}
-      <BookingSummary bookingDetails={bookingDetails} />
+      <BookingSummary lesson={lesson} />
 
       <Tabs defaultValue="drop-in" className="w-full">
         <TabsList className="w-full">

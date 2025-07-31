@@ -100,7 +100,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-      <BookingSummary bookingDetails={bookingDetails} />
+      <BookingSummary lesson={lesson} />
       <div className="">
         <h4 className="font-medium">Payment Methods</h4>
         <p className="font-light text-sm">Please select a payment method to continue:</p>

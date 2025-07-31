@@ -1,4 +1,4 @@
-import { trpc, HydrateClient, getQueryClient } from '@/trpc/server'
+import { trpc, HydrateClient, prefetch } from '@/trpc/server'
 import { Suspense } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ChildrensBooking } from '../_components/children'
@@ -11,18 +11,24 @@ type BookingPageProps = {
 export default async function ChildrensBookingPage({ params }: BookingPageProps) {
   const { id } = await params
 
-  const queryClient = getQueryClient()
-
-  void queryClient.prefetchQuery(
-    trpc.lessons.getById.queryOptions({
-      id: Number(id),
-    }),
-  )
+  prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))
 
   return (
     <HydrateClient>
-      <ErrorBoundary fallback={<div>Something went wrong</div>}>
-        <Suspense fallback={<div>Loading...</div>}>
+      <ErrorBoundary
+        fallback={
+          <div className="text-red-500 flex items-center justify-center text-2xl pt-24 h-screen w-screen">
+            <span className="text-2xl">Something went wrong</span>
+          </div>
+        }
+      >
+        <Suspense
+          fallback={
+            <div className="text-gray-500 pt-24 text-2xl h-screen w-screen flex items-center justify-center">
+              <span className="text-2xl">Loading...</span>
+            </div>
+          }
+        >
           <ChildrensBooking />
         </Suspense>
       </ErrorBoundary>

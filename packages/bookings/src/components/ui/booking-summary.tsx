@@ -4,7 +4,7 @@ import { CalendarIcon, Clock, ClipboardCheck } from "lucide-react";
 
 import { format } from "date-fns";
 
-import { BookingDetails } from "@repo/shared-types";
+import type { Lesson } from "@repo/shared-types";
 
 import {
   Card,
@@ -14,11 +14,7 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-interface BookingSummaryProps {
-  bookingDetails: BookingDetails;
-}
-
-export function BookingSummary({ bookingDetails }: BookingSummaryProps) {
+export function BookingSummary({ lesson }: { lesson: Lesson }) {
   return (
     <Card className="bg-white">
       <CardHeader>
@@ -31,7 +27,7 @@ export function BookingSummary({ bookingDetails }: BookingSummaryProps) {
             <CalendarIcon className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Date:</span>
             <span className="ml-2">
-              {format(bookingDetails.date, "EEEE, MMMM d, yyyy")}
+              {format(lesson.date, "EEEE, MMMM d, yyyy")}
             </span>
           </div>
 
@@ -39,15 +35,15 @@ export function BookingSummary({ bookingDetails }: BookingSummaryProps) {
             <Clock className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Time:</span>
             <span className="ml-2">
-              {format(bookingDetails.startTime, "HH:mmaa")} -{" "}
-              {format(bookingDetails.endTime, "HH:mmaa")}
+              {format(lesson.startTime, "HH:mmaa")} -{" "}
+              {format(lesson.endTime, "HH:mmaa")}
             </span>
           </div>
 
           <div className="flex items-center">
             <ClipboardCheck className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Booking Type:</span>
-            <span className="ml-2">{bookingDetails.bookingType}</span>
+            <span className="ml-2">{lesson.classOption.name}</span>
           </div>
         </div>
       </CardContent>
