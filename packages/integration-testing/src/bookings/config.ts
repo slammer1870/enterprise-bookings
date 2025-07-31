@@ -121,12 +121,11 @@ export const config: Config = {
             },
           ],
         }),
-        access: {
-          read: isAdminOrOwner,
+        access: ({ defaultAccess }) => ({
+          ...defaultAccess,
           create: bookingCreateMembershipDropinAccess,
           update: bookingUpdateMembershipDropinAccess,
-          delete: ({ req }) => checkRole(["admin"], req.user as User),
-        },
+        }),
       },
     }),
     paymentsPlugin({
