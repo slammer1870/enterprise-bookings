@@ -9,8 +9,8 @@
   "scripts": {
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "build": "yarn trpc:generate || true",
-    "trpc:generate": "yarn tsc --project tsconfig.json"
+    "build": "pnpm trpc:generate || true",
+    "trpc:generate": "pnpm tsc --project tsconfig.json"
   },
   "dependencies": {
     "@repo/shared-types": "workspace:*",

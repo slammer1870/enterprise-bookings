@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
-import { publicProcedure } from "../trpc";
+import { protectedProcedure, publicProcedure } from "../trpc";
 
-import { Lesson } from "@repo/shared-types";
+import { ClassOption, Lesson } from "@repo/shared-types";
 
 export const lessonsRouter = {
-  getById: publicProcedure
+  getById: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }): Promise<Lesson> => {
       const lesson = await ctx.payload.findByID({
@@ -15,6 +16,29 @@ export const lessonsRouter = {
         depth: 2,
         overrideAccess: false,
       });
+
+      return lesson as Lesson;
+    }),
+
+  getByIdForChildren: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }): Promise<Lesson> => {
+      const lesson = await ctx.payload.findByID({
+        collection: "lessons",
+        id: input.id,
+        depth: 2,
+        overrideAccess: false,
+      });
+
+      // Validate that the class option has type 'child'
+      const classOption = lesson.classOption as ClassOption;
+      if (!classOption || classOption.type !== "child") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
+        });
+      }
 
       return lesson as Lesson;
     }),
