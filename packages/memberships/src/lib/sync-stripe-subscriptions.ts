@@ -99,7 +99,14 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
         }
       );
 
-      const price = stripeProduct.default_price as Stripe.Price;
+      const price = stripeProduct.default_price as Stripe.Price | null;
+
+      if (!price) {
+        console.log(
+          `Skipping subscription ${stripeSubscription.id} because it has no default price`
+        );
+        continue;
+      }
 
       const planQuery = await payload.find({
         collection: "plans",
@@ -120,9 +127,9 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
             status: "active",
             priceJSON: JSON.stringify(price),
             priceInformation: {
-              price: price.unit_amount && price.unit_amount / 100,
-              intervalCount: price.recurring?.interval_count,
-              interval: price.recurring?.interval,
+              price: price.unit_amount ? price.unit_amount / 100 : null,
+              intervalCount: price.recurring?.interval_count || null,
+              interval: price.recurring?.interval || null,
             },
           },
         });
