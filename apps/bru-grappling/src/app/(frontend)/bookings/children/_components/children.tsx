@@ -1,9 +1,11 @@
 'use client'
 
-import { useTRPC } from '@/trpc/react'
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
-import { useSuspenseQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
+
+import { useTRPC } from '@/trpc/react'
+import { useSuspenseQuery } from '@tanstack/react-query'
+
+import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 
 import { PaymentGateway } from './payment-gateway'
 
@@ -21,7 +23,10 @@ export const ChildrensBooking = () => {
   return (
     <div className="flex flex-col gap-4">
       <BookingSummary lesson={data} />
-      <PaymentGateway paymentMethods={data.classOption.paymentMethods} />
+      <PaymentGateway
+        paymentMethods={data.classOption.paymentMethods}
+        lessonDate={new Date(data.date)}
+      />
     </div>
   )
 }

@@ -17,6 +17,13 @@ export const lessonsRouter = {
         overrideAccess: false,
       });
 
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${input.id} not found`,
+        });
+      }
+
       return lesson as Lesson;
     }),
 
@@ -29,6 +36,13 @@ export const lessonsRouter = {
         depth: 2,
         overrideAccess: false,
       });
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${input.id} not found`,
+        });
+      }
 
       // Validate that the class option has type 'child'
       const classOption = lesson.classOption as ClassOption;
