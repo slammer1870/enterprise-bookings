@@ -26,4 +26,4 @@ export const createQueryClient = () =>
         deserializeData: SuperJSON.deserialize,
       },
     },
-  })
+  }) 

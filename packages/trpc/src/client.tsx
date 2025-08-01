@@ -7,11 +7,11 @@ import { createTRPCClient, httpBatchStreamLink, loggerLink } from '@trpc/client'
 import { createTRPCContext } from '@trpc/tanstack-react-query'
 import SuperJSON from 'superjson'
 
-import type { AppRouter } from '@repo/trpc'
-
+import type { AppRouter } from './root'
 import { createQueryClient } from './query-client'
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined
+
 const getQueryClient = () => {
   if (typeof window === 'undefined') {
     // Server: always make a new query client
@@ -24,7 +24,17 @@ const getQueryClient = () => {
 
 export const { useTRPC, TRPCProvider } = createTRPCContext<AppRouter>()
 
-export function TRPCReactProvider(props: { children: React.ReactNode }) {
+interface TRPCReactProviderProps {
+  children: React.ReactNode
+  baseUrl?: string
+  headers?: () => Headers | Record<string, string>
+}
+
+export function TRPCReactProvider({ 
+  children, 
+  baseUrl,
+  headers: customHeaders 
+}: TRPCReactProviderProps) {
   const queryClient = getQueryClient()
 
   const [trpcClient] = useState(() =>
@@ -37,10 +47,28 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
         }),
         httpBatchStreamLink({
           transformer: SuperJSON,
-          url: getBaseUrl() + '/api/trpc',
+          url: (baseUrl || getDefaultBaseUrl()) + '/api/trpc',
           headers() {
             const headers = new Headers()
             headers.set('x-trpc-source', 'nextjs-react')
+            
+            // Add custom headers if provided
+            if (customHeaders) {
+              const customHeadersObj = typeof customHeaders === 'function' 
+                ? customHeaders() 
+                : customHeaders
+              
+              if (customHeadersObj instanceof Headers) {
+                customHeadersObj.forEach((value, key) => {
+                  headers.set(key, value)
+                })
+              } else {
+                Object.entries(customHeadersObj).forEach(([key, value]) => {
+                  headers.set(key, value)
+                })
+              }
+            }
+            
             return headers
           },
         }),
@@ -51,15 +79,14 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        {props.children}
+        {children}
       </TRPCProvider>
     </QueryClientProvider>
   )
 }
 
-const getBaseUrl = () => {
-  if (typeof window !== 'undefined') return window.location.origin
-  if (process.env.NEXT_PUBLIC_SERVER_URL) return `https://${process.env.NEXT_PUBLIC_SERVER_URL}`
-  // eslint-disable-next-line no-restricted-properties
-  return `http://localhost:${process.env.PORT ?? 3000}`
-}
+const getDefaultBaseUrl = () => {
+  if (typeof window !== 'undefined') return ''
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:3000'
+} 

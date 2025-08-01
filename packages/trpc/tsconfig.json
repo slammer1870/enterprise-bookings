@@ -9,8 +9,10 @@
     "outDir": "./dist",
     "rootDir": ".",
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
-  "include": ["./src/**/*"],
+  "include": ["./src/**/*", "./src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

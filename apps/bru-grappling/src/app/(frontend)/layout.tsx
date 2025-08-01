@@ -11,7 +11,7 @@ import PlausibleProvider from 'next-plausible'
 import { Navbar } from '@/globals/navbar'
 //import { FooterGlobal } from '@/globals/footer/client'
 
-import { TRPCReactProvider } from '@/trpc/react'
+import { TRPCReactProvider } from '@repo/trpc/client'
 
 const roboto = Roboto({
   subsets: ['latin'],
