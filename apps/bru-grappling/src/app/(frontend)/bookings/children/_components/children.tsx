@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 
-import { useTRPC } from '@/trpc/react'
+import { useTRPC } from '@repo/trpc/client'
 import { useSuspenseQuery } from '@tanstack/react-query'
 
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
