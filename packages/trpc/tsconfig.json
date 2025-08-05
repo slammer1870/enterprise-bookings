@@ -3,7 +3,6 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@repo/trpc/*": ["./src/*"],
       "@repo/trpc": ["./src/index.ts"]
     },
     "outDir": "./dist",

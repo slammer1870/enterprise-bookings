@@ -49,7 +49,7 @@ export const subscriptionsRouter = {
           depth: 2,
         });
 
-        return userSubscription.docs[0] || null;
+        return userSubscription.docs[0] as Subscription | null;
       } catch (error) {
         payload.logger.error("Error finding subscription:", error);
         return null;
