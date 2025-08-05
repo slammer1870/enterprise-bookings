@@ -59,11 +59,11 @@ export default buildConfig({
   },
   collections: [Users, Media, Pages, Posts],
   editor: lexicalEditor(),
-  email: resendAdapter({
-    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
-    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
-    apiKey: process.env.RESEND_API_KEY || '',
-  }),
+  /*email: resendAdapter({
+    defaultFromAddress: 'hello@brugrappling.com',
+    defaultFromName: 'Brú Grappling',
+    apiKey: ,process.env.RESEND_API_KEY || '',
+  }),*/
   secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
@@ -224,6 +224,41 @@ export default buildConfig({
     membershipsPlugin({
       enabled: true,
       paymentMethodSlugs: [],
+      plansOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'type',
+            type: 'select',
+            label: 'Membership Type',
+            options: [
+              { label: 'Adult', value: 'adult' },
+              { label: 'Child', value: 'child' },
+            ],
+            defaultValue: 'adult',
+            required: false,
+            admin: {
+              description: 'Is this a membership for adults or children?',
+              position: 'sidebar',
+            },
+          },
+          {
+            name: 'quantity',
+            type: 'number',
+            required: false,
+            defaultValue: 1,
+            min: 1,
+            max: 10,
+            admin: {
+              description: 'The number of children who are subscribing to the plan',
+              condition: (data) => {
+                return Boolean(data?.type === 'child') // Only show if `type` is selected
+              },
+              position: 'sidebar',
+            },
+          },
+        ],
+      },
     }),
     stripePlugin({
       stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
