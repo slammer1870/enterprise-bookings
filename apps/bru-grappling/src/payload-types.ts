@@ -90,6 +90,8 @@ export interface Config {
       bookings: 'bookings';
     };
     users: {
+      lessons: 'lessons';
+      children: 'users';
       userSubscription: 'subscriptions';
     };
   };
@@ -553,6 +555,21 @@ export interface Lesson {
  */
 export interface User {
   id: number;
+  image?: (number | null) | Media;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Parent of the user
+   */
+  parent?: (number | null) | User;
+  children?: {
+    docs?: (number | User)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   name: string;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
@@ -1319,6 +1336,10 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  image?: T;
+  lessons?: T;
+  parent?: T;
+  children?: T;
   name?: T;
   roles?: T;
   stripeCustomerId?: T;
