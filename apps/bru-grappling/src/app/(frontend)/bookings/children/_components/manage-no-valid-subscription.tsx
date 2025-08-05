@@ -3,40 +3,26 @@
 import { useTRPC } from '@repo/trpc'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
-import { Plan } from '@repo/shared-types'
+import { ClassOption } from '@repo/shared-types'
 
-import { PlanList } from './plan-list'
+import { toast } from 'sonner'
+import { PaymentTabs } from './payment-tabs'
 
 export const ManageNoValidSubscription = ({
-  allowedPlans,
+  paymentMethods,
   lessonId,
 }: {
-  allowedPlans: Plan[]
+  paymentMethods: ClassOption['paymentMethods']
   lessonId: number
 }) => {
   const trpc = useTRPC()
 
   const { data } = useQuery(trpc.subscriptions.getSubscription.queryOptions())
 
-  const mutation = useMutation(
-    trpc.payments.createCustomerCheckoutSession.mutationOptions({
-      onSuccess: (data) => {
-        if (data.url) {
-          window.location.href = data.url
-        }
-      },
-    }),
-  )
+ 
 
   if (!data) {
-    return (
-      <PlanList
-        plans={allowedPlans}
-        mutation={mutation}
-        actionLabel="Subscribe"
-        lessonId={lessonId}
-      />
-    )
+    return <PaymentTabs paymentMethods={paymentMethods} lessonId={lessonId} />
   }
 
   return <div>Upgrade your subscription</div>

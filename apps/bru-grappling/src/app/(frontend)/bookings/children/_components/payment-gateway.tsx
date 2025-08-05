@@ -2,7 +2,7 @@
 
 import { useTRPC } from '@repo/trpc'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ClassOption, Plan } from '@repo/shared-types'
+import { ClassOption } from '@repo/shared-types'
 
 import { ValidateSubscription } from './validate-subscription'
 import { ManageNoValidSubscription } from './manage-no-valid-subscription'
@@ -25,12 +25,7 @@ export const PaymentGateway = ({
   )
 
   if (!data) {
-    return (
-      <ManageNoValidSubscription
-        allowedPlans={paymentMethods?.allowedPlans || []}
-        lessonId={lessonId}
-      />
-    )
+    return <ManageNoValidSubscription paymentMethods={paymentMethods} lessonId={lessonId} />
   }
 
   return <ValidateSubscription subscription={data} lessonDate={lessonDate} lessonId={lessonId} />

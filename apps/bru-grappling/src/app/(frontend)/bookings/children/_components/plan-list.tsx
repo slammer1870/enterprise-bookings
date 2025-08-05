@@ -32,7 +32,7 @@ export const PlanList = ({
         .filter((plan) => plan.stripeProductId && plan.status === 'active')
         .map((plan: Plan) => {
           const priceData = plan.priceJSON ? JSON.parse(plan.priceJSON as string) : null
-          const id = priceData?.id
+          const id = priceData?.id as string
 
           return (
             <div key={plan.id}>
@@ -41,7 +41,7 @@ export const PlanList = ({
                 actionLabel={actionLabel}
                 handleAction={() => {
                   mutation.mutate({
-                    priceId: id!,
+                    priceId: id,
                     metadata: { lessonId: lessonId.toString() },
                     mode: 'subscription',
                     quantity: 1,
