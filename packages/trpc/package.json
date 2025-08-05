@@ -33,7 +33,8 @@
   "peerDependencies": {
     "next": "^15.1.6",
     "payload": "^3.10.0",
-    "react": "*"
+    "react": "*",
+    "stripe": "*"
   },
   "exports": {
     ".": {
@@ -45,7 +46,7 @@
       "default": "./src/client.tsx"
     },
     "./server": {
-      "types": "./src/server.tsx", 
+      "types": "./src/server.tsx",
       "default": "./src/server.tsx"
     }
   }

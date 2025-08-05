@@ -7,6 +7,7 @@
  * The pieces you will need to use are documented accordingly near the end
  */
 import { initTRPC, TRPCError } from "@trpc/server";
+import Stripe from "stripe";
 import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
@@ -27,12 +28,14 @@ import { z, ZodError } from "zod/v4";
 export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
+  stripe?: Stripe;
 }) => {
   const payload = opts.payload;
 
   return {
     headers: opts.headers,
     payload,
+    stripe: opts.stripe,
   };
 };
 /**
@@ -121,6 +124,38 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
   return opts.next({
     ctx: {
       user: auth.user,
+    },
+  });
+});
+
+export const stripePublicProcedure = publicProcedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.stripe)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Stripe is not configured",
+    });
+
+  return opts.next({
+    ctx: {
+      stripe: ctx.stripe,
+    },
+  });
+});
+
+export const stripeProtectedProcedure = protectedProcedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.stripe)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Stripe is not configured",
+    });
+
+  return opts.next({
+    ctx: {
+      stripe: ctx.stripe,
     },
   });
 });
