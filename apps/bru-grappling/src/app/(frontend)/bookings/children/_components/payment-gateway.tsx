@@ -11,7 +11,7 @@ export const PaymentGateway = ({
   paymentMethods,
   lessonDate,
 }: {
-  paymentMethods: ClassOption['paymentMethods']
+  paymentMethods?: ClassOption['paymentMethods']
   lessonDate: Date
 }) => {
   const trpc = useTRPC()

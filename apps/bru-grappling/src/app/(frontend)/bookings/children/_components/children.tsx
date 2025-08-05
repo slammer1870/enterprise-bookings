@@ -23,10 +23,14 @@ export const ChildrensBooking = () => {
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto pt-24">
       <BookingSummary lesson={data} />
-      <PaymentGateway
-        paymentMethods={data.classOption.paymentMethods}
-        lessonDate={new Date(data.date)}
-      />
+      {data.classOption.paymentMethods ? (
+        <PaymentGateway
+          paymentMethods={data.classOption.paymentMethods}
+          lessonDate={new Date(data.date)}
+        />
+      ) : (
+        <div>No payment needed for this lesson</div>
+      )}
     </div>
   )
 }
