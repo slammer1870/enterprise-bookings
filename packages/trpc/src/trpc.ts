@@ -119,7 +119,11 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
     canSetHeaders: false,
   });
 
-  if (!auth.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+  if (!auth.user)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to access this resource",
+    });
 
   return opts.next({
     ctx: {

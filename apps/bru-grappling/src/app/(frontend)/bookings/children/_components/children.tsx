@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 
-import { useTRPC } from '@repo/trpc/client'
+import { useTRPC } from '@repo/trpc'
 import { useSuspenseQuery } from '@tanstack/react-query'
 
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
@@ -21,7 +21,7 @@ export const ChildrensBooking = () => {
   )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto pt-24">
       <BookingSummary lesson={data} />
       <PaymentGateway
         paymentMethods={data.classOption.paymentMethods}

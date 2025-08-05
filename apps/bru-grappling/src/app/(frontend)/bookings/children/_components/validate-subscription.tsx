@@ -1,6 +1,6 @@
 'use client'
 
-import { useTRPC } from '@repo/trpc/client'
+import { useTRPC } from '@repo/trpc'
 import { useQuery } from '@tanstack/react-query'
 
 import { Subscription } from '@repo/shared-types'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useTRPC } from '@repo/trpc/client'
+import { useTRPC } from '@repo/trpc'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { ClassOption } from '@repo/shared-types'
 

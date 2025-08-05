@@ -20,7 +20,7 @@ export const subscriptionsRouter = {
       depth: 2,
     });
 
-    return userSubscription.docs[0] as Subscription | undefined;
+    return userSubscription.docs[0] || null;
   }),
   hasValidSubscription: protectedProcedure
     .input(
@@ -31,24 +31,29 @@ export const subscriptionsRouter = {
     .query(async ({ ctx, input }) => {
       const { user, payload } = ctx;
 
-      if (!input.plans) {
-        return undefined;
+      if (!input.plans || input.plans.length === 0) {
+        return null;
       }
 
-      const userSubscription = await payload.find({
-        collection: "subscriptions",
-        where: {
-          user: { equals: user.id },
-          status: { not_equals: "canceled" },
-          startDate: { less_than: new Date() },
-          endDate: { greater_than: new Date() },
-          plan: { in: input.plans },
-        },
-        limit: 1,
-        depth: 2,
-      });
+      try {
+        const userSubscription = await payload.find({
+          collection: "subscriptions",
+          where: {
+            user: { equals: user.id },
+            status: { not_equals: "canceled" },
+            startDate: { less_than: new Date() },
+            endDate: { greater_than: new Date() },
+            plan: { in: input.plans },
+          },
+          limit: 1,
+          depth: 2,
+        });
 
-      return userSubscription.docs[0] as Subscription | undefined;
+        return userSubscription.docs[0] || null;
+      } catch (error) {
+        payload.logger.error("Error finding subscription:", error);
+        return null;
+      }
     }),
   limitReached: protectedProcedure
     .input(
