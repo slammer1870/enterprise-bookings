@@ -5,6 +5,8 @@ import config from '@payload-config'
 
 import { createServerTRPC, createServerTRPCContext } from '@repo/trpc/server'
 
+import { stripe } from '../lib/stripe'
+
 const createContext = cache(async () => {
   const heads = new Headers(await nextHeaders())
   heads.set('x-trpc-source', 'rsc')
@@ -14,6 +16,7 @@ const createContext = cache(async () => {
   return createServerTRPCContext({
     headers: heads,
     payload: payload,
+    stripe: stripe,
   })
 })
 

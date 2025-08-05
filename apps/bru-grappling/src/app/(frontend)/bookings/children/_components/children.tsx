@@ -27,6 +27,7 @@ export const ChildrensBooking = () => {
         <PaymentGateway
           paymentMethods={data.classOption.paymentMethods}
           lessonDate={new Date(data.date)}
+          lessonId={data.id}
         />
       ) : (
         <div>No payment needed for this lesson</div>

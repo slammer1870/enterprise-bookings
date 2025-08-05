@@ -8,9 +8,11 @@ import { Subscription } from '@repo/shared-types'
 export const ValidateSubscription = ({
   subscription,
   lessonDate,
+  lessonId,
 }: {
   subscription: Subscription
   lessonDate: Date
+  lessonId: number
 }) => {
   const trpc = useTRPC()
 
