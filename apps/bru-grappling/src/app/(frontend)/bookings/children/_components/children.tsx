@@ -36,7 +36,12 @@ export const ChildrensBooking = () => {
           lessonId={data.id}
         />
       ) : (
-        <ChildrensBookingForm />
+        <ChildrensBookingForm
+          bookedChildren={data.bookings?.docs?.map((booking) => ({
+            name: booking.user.name,
+            email: booking.user.email,
+          }))}
+        />
       )}
     </div>
   )

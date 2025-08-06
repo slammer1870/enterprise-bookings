@@ -33,17 +33,45 @@ import { useState } from 'react'
 
 import { toast } from 'sonner'
 
+import { useTRPC } from '@repo/trpc'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
 const FormSchema = z.object({
   name: z.string().min(1, { message: 'Please enter the name of the child.' }),
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  email: z.email({ message: 'Please enter a valid email address.' }),
 })
 
 export const AddChild = ({
-  addChildData,
+  setChildData,
 }: {
-  addChildData: (data: z.infer<typeof FormSchema>) => void
+  setChildData: (data: z.infer<typeof FormSchema>) => void
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+
+  const { mutate: createChild, isPending } = useMutation(
+    trpc.users.createChild.mutationOptions({
+      onSuccess: (data: { name: string; email: string }) => {
+        setChildData({
+          name: data.name,
+          email: data.email,
+        })
+
+        queryClient.invalidateQueries({
+          queryKey: trpc.users.getChildren.queryKey(),
+        })
+
+        toast.success('Child added successfully')
+        setIsOpen(false)
+      },
+      onError: () => {
+        toast.error('Failed to add child')
+      },
+    }),
+  )
+
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -51,7 +79,6 @@ export const AddChild = ({
       email: '',
     },
   })
-  const [isLoading, setIsLoading] = useState(false)
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     toast('You submitted the following values', {
@@ -61,9 +88,16 @@ export const AddChild = ({
         </pre>
       ),
     })
-    // TODO: Add the child on success of the mutation
-    addChildData(data)
-    setIsOpen(false)
+
+    createChild({
+      name: data.name,
+      email: data.email,
+    })
+  }
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.stopPropagation()
+    form.handleSubmit(onSubmit)(e)
   }
 
   return (
@@ -82,7 +116,7 @@ export const AddChild = ({
         </DialogDescription>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
             <FormField
               control={form.control}
               name="name"
@@ -112,8 +146,8 @@ export const AddChild = ({
               )}
             />
             <div className="flex gap-2 w-full">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Adding...' : 'Add child'}
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? 'Adding...' : 'Add child'}
               </Button>
             </div>
           </form>
