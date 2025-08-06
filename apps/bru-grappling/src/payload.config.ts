@@ -32,20 +32,14 @@ import { Navbar } from './globals/navbar/config'
 
 import { Posts } from '@repo/website/src/collections/posts'
 
-import {
-  bookingCreateMembershipDropinAccess,
-  bookingUpdateMembershipDropinAccess,
-} from '@repo/shared-services/src/access/booking-membership-dropin'
+import { Booking, Lesson } from '@repo/shared-types'
 
-import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
-
-import { Booking, Lesson, User } from '@repo/shared-types'
-
-import { checkRole } from '@repo/shared-utils'
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
 } from '@repo/shared-services/src/access/children-booking-membership'
+
+import { isAdminOrParentOrOwner } from '@repo/shared-services/src/access/is-admin-or-parent-or-owner'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -210,6 +204,7 @@ export default buildConfig({
         }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
+          read: isAdminOrParentOrOwner,
           create: childrenCreateBookingMembershipAccess,
           update: childrenUpdateBookingMembershipAccess,
         }),

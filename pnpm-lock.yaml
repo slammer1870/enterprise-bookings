@@ -30,6 +30,9 @@ importers:
 
   apps/bru-grappling:
     dependencies:
+      '@hookform/resolvers':
+        specifier: 4.1.0
+        version: 4.1.0(react-hook-form@7.56.3(react@19.1.0))
       '@payloadcms/db-postgres':
         specifier: '*'
         version: 3.47.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
@@ -135,6 +138,9 @@ importers:
       react-error-boundary:
         specifier: ^6.0.0
         version: 6.0.0(react@19.1.0)
+      react-hook-form:
+        specifier: 7.56.3
+        version: 7.56.3(react@19.1.0)
       sharp:
         specifier: 0.34.2
         version: 0.34.2
@@ -147,6 +153,9 @@ importers:
       vitest:
         specifier: 3.2.3
         version: 3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0)
+      zod:
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -1522,6 +1531,9 @@ importers:
       react:
         specifier: 19.1.0
         version: 19.1.0
+      stripe:
+        specifier: 17.7.0
+        version: 17.7.0
       superjson:
         specifier: 1.9.1
         version: 1.9.1
@@ -9360,6 +9372,9 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zod@4.0.15:
+    resolution: {integrity: sha512-2IVHb9h4Mt6+UXkyMs0XbfICUh1eUrlJJAOupBHUhLRnKkruawyDddYRCs0Eizt900ntIMk9/4RksYl+FgSpcQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -18516,5 +18531,7 @@ snapshots:
       readable-stream: 4.7.0
 
   zod@3.25.76: {}
+
+  zod@4.0.15: {}
 
   zwitch@2.0.4: {}

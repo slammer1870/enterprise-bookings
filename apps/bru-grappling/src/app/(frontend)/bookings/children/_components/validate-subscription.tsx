@@ -4,6 +4,7 @@ import { useTRPC } from '@repo/trpc'
 import { useQuery } from '@tanstack/react-query'
 
 import { Subscription } from '@repo/shared-types'
+import { PlanDetail } from './plan-detail'
 
 export const ValidateSubscription = ({
   subscription,
@@ -42,7 +43,12 @@ export const ValidateSubscription = ({
       {subscription.status === 'trialing' && <span>Trialing</span>}
       {subscription.status === 'paused' && <span>Paused</span>}
       {subscription.status === 'canceled' && <span>Canceled</span>}
-      <div>Update Payment Method</div>
+      <PlanDetail
+        plan={subscription.plan}
+        actionLabel="Update Payment Method"
+        handleAction={() => {}}
+        loading={false}
+      />
     </div>
   )
 }
