@@ -5,8 +5,6 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
 
-import { FormControl } from '@repo/ui/components/ui/form'
-
 import { Button } from '@repo/ui/components/ui/button'
 
 import { cn } from '@repo/ui/lib/utils'
@@ -29,11 +27,11 @@ import { User } from '@repo/shared-types'
 import { AddChild } from './add-child'
 
 export const SelectChildren = ({
-  field,
+  bookedChildren,
   setChildData,
 }: {
-  field: any
-  setChildData: (data: { name: string; email: string }) => void
+  bookedChildren?: User[]
+  setChildData: (data: User) => void
 }) => {
   const trpc = useTRPC()
 
@@ -42,16 +40,17 @@ export const SelectChildren = ({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <FormControl>
-          <Button
-            variant="outline"
-            role="combobox"
-            className={cn('w-[200px] justify-between', !field.value && 'text-muted-foreground')}
-          >
-            Select children
-            <ChevronsUpDown className="opacity-50" />
-          </Button>
-        </FormControl>
+        <Button
+          variant="outline"
+          role="combobox"
+          className={cn(
+            'w-[200px] justify-between',
+            !bookedChildren?.length && 'text-muted-foreground',
+          )}
+        >
+          Select children
+          <ChevronsUpDown className="opacity-50" />
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">
         <Command>
@@ -64,19 +63,14 @@ export const SelectChildren = ({
                   value={child.name}
                   key={child.name}
                   onSelect={() => {
-                    setChildData({
-                      name: child.name || '',
-                      email: child.email || '',
-                    })
+                    setChildData(child as User)
                   }}
                 >
                   {child.name}
                   <Check
                     className={cn(
                       'ml-auto',
-                      field.value?.some((c: User) => c.email === child.email)
-                        ? 'opacity-100'
-                        : 'opacity-0',
+                      bookedChildren?.some((c) => c.id === child.id) ? 'opacity-100' : 'opacity-0',
                     )}
                   />
                 </CommandItem>

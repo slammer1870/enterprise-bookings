@@ -4,12 +4,18 @@ import { TRPCError } from "@trpc/server";
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
-import { ClassOption, Lesson, Subscription } from "@repo/shared-types";
+import {
+  Booking,
+  ClassOption,
+  Lesson,
+  Subscription,
+  User,
+} from "@repo/shared-types";
 
 export const lessonsRouter = {
   getById: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ ctx, input }): Promise<Lesson> => {
+    .query(async ({ ctx, input }) => {
       const lesson = await ctx.payload.findByID({
         collection: "lessons",
         id: input.id,
@@ -29,7 +35,7 @@ export const lessonsRouter = {
 
   getByIdForChildren: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ ctx, input }): Promise<Lesson> => {
+    .query(async ({ ctx, input }) => {
       const lesson = await ctx.payload.findByID({
         collection: "lessons",
         id: input.id,
@@ -59,7 +65,7 @@ export const lessonsRouter = {
 
   getByDate: publicProcedure
     .input(z.object({ date: z.string() }))
-    .query(async ({ ctx, input }): Promise<Lesson[]> => {
+    .query(async ({ ctx, input }) => {
       const startOfDay = new Date(input.date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(input.date);
@@ -81,7 +87,7 @@ export const lessonsRouter = {
     }),
   canBookChild: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ ctx, input }): Promise<boolean> => {
+    .query(async ({ ctx, input }) => {
       const lesson = await ctx.payload.findByID({
         collection: "lessons",
         id: input.id,
@@ -156,5 +162,102 @@ export const lessonsRouter = {
       }
 
       return true;
+    }),
+
+  bookChild: protectedProcedure
+    .input(z.object({ id: z.number(), childId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const child = await ctx.payload.findByID({
+        collection: "users",
+        id: input.childId,
+        depth: 1,
+        overrideAccess: false,
+      });
+
+      if (!child) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Child with id ${input.childId} not found`,
+        });
+      }
+
+      if (child.parent !== ctx.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "User is not parent of children",
+        });
+      }
+
+      const existingBooking = await ctx.payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: input.id },
+          user: { equals: child.id },
+        },
+        depth: 2,
+        overrideAccess: false,
+        limit: 1,
+      });
+
+      if (existingBooking.docs.length > 0) {
+        const updatedBooking = await ctx.payload.update({
+          collection: "bookings",
+          id: existingBooking.docs[0]?.id as number,
+          data: {
+            status: "confirmed",
+          },
+          overrideAccess: false,
+          user: child,
+        });
+
+        return updatedBooking as Booking;
+      }
+
+      const booking = await ctx.payload.create({
+        collection: "bookings",
+        data: {
+          lesson: input.id,
+          user: child.id,
+          status: "confirmed",
+        },
+        overrideAccess: false,
+        user: child,
+      });
+
+      return booking as Booking;
+    }),
+
+  unbookChild: protectedProcedure
+    .input(z.object({ id: z.number(), childId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const booking = await ctx.payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: input.id },
+          user: { equals: input.childId },
+        },
+        depth: 2,
+        overrideAccess: false,
+        limit: 1,
+      });
+
+      if (booking.docs.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Booking with lesson id ${input.id} and user id ${input.childId} not found`,
+        });
+      }
+
+      const updatedBooking = await ctx.payload.update({
+        collection: "bookings",
+        id: booking.docs[0]?.id as number,
+        data: {
+          status: "cancelled",
+        },
+        overrideAccess: false,
+        user: booking.docs[0]?.user as User,
+      });
+
+      return updatedBooking as Booking;
     }),
 } satisfies TRPCRouterRecord;

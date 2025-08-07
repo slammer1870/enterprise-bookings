@@ -31,6 +31,7 @@
     "@trpc/server": "^11.4.3",
     "@trpc/tanstack-react-query": "^11.4.3",
     "cross-env": "^7.0.3",
+    "date-fns": "^4.1.0",
     "graphql": "^16.10.0",
     "lucide-react": "0.475.0",
     "next": "*",

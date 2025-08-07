@@ -37,10 +37,9 @@ export const ChildrensBooking = () => {
         />
       ) : (
         <ChildrensBookingForm
-          bookedChildren={data.bookings?.docs?.map((booking) => ({
-            name: booking.user.name,
-            email: booking.user.email,
-          }))}
+          bookedChildren={data.bookings?.docs
+            ?.filter((booking) => booking.status === 'confirmed')
+            .map((booking) => booking.user)}
           lessonId={data.id}
         />
       )}

@@ -35,17 +35,14 @@ import { toast } from 'sonner'
 
 import { useTRPC } from '@repo/trpc'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { User } from '@repo/shared-types'
 
 const FormSchema = z.object({
   name: z.string().min(1, { message: 'Please enter the name of the child.' }),
   email: z.email({ message: 'Please enter a valid email address.' }),
 })
 
-export const AddChild = ({
-  setChildData,
-}: {
-  setChildData: (data: z.infer<typeof FormSchema>) => void
-}) => {
+export const AddChild = ({ setChildData }: { setChildData: (data: User) => void }) => {
   const [isOpen, setIsOpen] = useState(false)
 
   const trpc = useTRPC()
@@ -53,11 +50,8 @@ export const AddChild = ({
 
   const { mutate: createChild, isPending } = useMutation(
     trpc.users.createChild.mutationOptions({
-      onSuccess: (data: { name: string; email: string }) => {
-        setChildData({
-          name: data.name,
-          email: data.email,
-        })
+      onSuccess: (data) => {
+        setChildData(data as User)
 
         queryClient.invalidateQueries({
           queryKey: trpc.users.getChildren.queryKey(),
@@ -95,11 +89,6 @@ export const AddChild = ({
     })
   }
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.stopPropagation()
-    form.handleSubmit(onSubmit)(e)
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -116,7 +105,7 @@ export const AddChild = ({
         </DialogDescription>
 
         <Form {...form}>
-          <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <FormField
               control={form.control}
               name="name"
