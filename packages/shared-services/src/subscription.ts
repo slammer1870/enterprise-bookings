@@ -110,8 +110,12 @@ export const checkUserSubscription = async (
         and: [
           {
             user: { equals: user.id },
+          },
+          {
             status: { equals: "active" },
           },
+          { startDate: { less_than_equal: new Date() } },
+          { endDate: { greater_than_equal: new Date() } },
           {
             or: [
               { cancelAt: { greater_than: new Date() } },

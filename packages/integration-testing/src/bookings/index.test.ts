@@ -997,4 +997,87 @@ describe("Booking tests", () => {
     },
     TEST_TIMEOUT
   );
+  it(
+    "should fail because user has a subscription that is not active",
+    async () => {
+      const user3 = await payload.create({
+        collection: "users",
+        data: {
+          email: "test9@test.com",
+          password: "test",
+        },
+      });
+
+      const plan = await payload.create({
+        collection: "plans",
+        data: {
+          name: "Test Plan",
+          priceInformation: {
+            price: 10,
+            interval: "month",
+            intervalCount: 1,
+          },
+          sessionsInformation: {
+            sessions: 1,
+            interval: "month",
+            intervalCount: 1,
+          },
+        },
+      });
+
+      const subscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: user3.id,
+          plan: plan.id,
+          status: "past_due",
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option 10",
+          places: 1,
+          description: "Test Class Option 10",
+          paymentMethods: {
+            allowedPlans: [plan.id],
+          },
+        },
+      });
+
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          classOption: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user3.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              lesson: lesson.id,
+              user: user3.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      expect(response.status).toBe(403);
+    },
+    TEST_TIMEOUT
+  );
 });
