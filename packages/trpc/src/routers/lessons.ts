@@ -165,7 +165,7 @@ export const lessonsRouter = {
     }),
 
   bookChild: protectedProcedure
-    .input(z.object({ id: z.number(), childId: z.number() }))
+    .input(z.object({ lessonId: z.number(), childId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const child = await ctx.payload.findByID({
         collection: "users",
@@ -191,7 +191,7 @@ export const lessonsRouter = {
       const existingBooking = await ctx.payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: input.id },
+          lesson: { equals: input.lessonId },
           user: { equals: child.id },
         },
         depth: 2,
@@ -216,7 +216,7 @@ export const lessonsRouter = {
       const booking = await ctx.payload.create({
         collection: "bookings",
         data: {
-          lesson: input.id,
+          lesson: input.lessonId,
           user: child.id,
           status: "confirmed",
         },
@@ -228,12 +228,12 @@ export const lessonsRouter = {
     }),
 
   unbookChild: protectedProcedure
-    .input(z.object({ id: z.number(), childId: z.number() }))
+    .input(z.object({ lessonId: z.number(), childId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const booking = await ctx.payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: input.id },
+          lesson: { equals: input.lessonId },
           user: { equals: input.childId },
         },
         depth: 2,
@@ -244,7 +244,7 @@ export const lessonsRouter = {
       if (booking.docs.length === 0) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Booking with lesson id ${input.id} and user id ${input.childId} not found`,
+          message: `Booking with lesson id ${input.lessonId} and user id ${input.childId} not found`,
         });
       }
 

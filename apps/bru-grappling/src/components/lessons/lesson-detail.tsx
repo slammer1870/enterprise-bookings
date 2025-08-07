@@ -59,7 +59,11 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
         )}
       </div>
       <div className="w-full md:w-1/4">
-        <CheckInButton />
+        <CheckInButton
+          bookingStatus={lesson.bookingStatus}
+          type={lesson.classOption.type}
+          id={lesson.id}
+        />
       </div>
     </div>
   )

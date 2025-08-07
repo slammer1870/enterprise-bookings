@@ -61,6 +61,9 @@ export const ChildrensBookingForm = ({
           queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
         })
       },
+      onError: (error) => {
+        toast.error(error.message)
+      },
     }),
   )
 
@@ -73,6 +76,9 @@ export const ChildrensBookingForm = ({
         queryClient.invalidateQueries({
           queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
         })
+      },
+      onError: (error) => {
+        toast.error(error.message)
       },
     }),
   )

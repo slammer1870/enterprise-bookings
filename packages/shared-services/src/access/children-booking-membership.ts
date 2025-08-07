@@ -8,61 +8,93 @@ export const childrenCreateBookingMembershipAccess = async ({
   req,
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
+  console.log("childrenCreateBookingMembershipAccess", data);
   if (!req.user) return false;
+
+  const { payload } = req;
 
   const userId = typeof req.user === "object" ? req.user.id : req.user;
 
-  if (!userId) return false;
+  if (!userId) {
+    payload.logger.error("User ID is required", {
+      userId,
+    });
+    return false;
+  }
 
   let user: User;
 
-  user = (await req.payload.findByID({
+  user = (await payload.findByID({
     collection: "users",
     id: userId,
   })) as User;
 
-  if (!user) return false;
+  if (!user) {
+    payload.logger.error("User not found", {
+      userId,
+    });
+    return false;
+  }
 
   if (checkRole(["admin"], user)) return true;
 
-  if (!data?.lesson) return false;
+  if (!data?.lesson) {
+    payload.logger.error("Lesson is required", {
+      lessonId: data?.lesson?.id,
+    });
+    return false;
+  }
 
   const lessonId =
     typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
 
   try {
-    const lesson = (await req.payload.findByID({
+    const lesson = (await payload.findByID({
       collection: "lessons",
       id: lessonId,
       depth: 3,
     })) as Lesson;
 
-    if (!lesson) return false;
+    if (!lesson) {
+      payload.logger.error("Lesson not found", {
+        lessonId,
+      });
+      return false;
+    }
 
     if (lesson.classOption.type == "child") {
-      if (!user.parent) return false;
+      if (!user.parent) {
+        payload.logger.error("User has no parent", {
+          userId,
+        });
+        return false;
+      }
 
       const parentId =
         typeof user.parent === "object" ? user.parent.id : user.parent;
 
-      user = (await req.payload.findByID({
+      user = (await payload.findByID({
         collection: "users",
         id: parentId,
       })) as User;
     }
 
     if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
+      payload.logger.info("User is on waitlist", {
+        userId,
+        lessonId,
+      });
       return true;
     }
 
     if (!validateLessonStatus(lesson)) {
-      req.payload.logger.error("Lesson status is not valid for lesson", {
+      payload.logger.error("Lesson status is not valid", {
         lesson,
       });
       return false;
     }
 
-    return await validateLessonPaymentMethods(lesson, user, req.payload);
+    return await validateLessonPaymentMethods(lesson, user, payload);
 
     //check that number of children is booked is less than the number of or equal number of children on plan
   } catch (error) {
@@ -75,7 +107,14 @@ export const childrenUpdateBookingMembershipAccess = async ({
   req,
   id,
 }: AccessArgs<Booking>): Promise<boolean> => {
-  if (!req.user) return false;
+  if (!req.user) {
+    req.payload.logger.error("User is not authenticated", {
+      userId: req.user,
+    });
+    return false;
+  }
+
+  const { payload } = req;
 
   const searchParams = req.searchParams;
 
@@ -84,13 +123,19 @@ export const childrenUpdateBookingMembershipAccess = async ({
     searchParams.get("where[and][1][user][equals]") ||
     (typeof req.user === "object" ? req.user.id : req.user);
 
-  if (!lessonId || !userId) return false;
+  if (!lessonId || !userId) {
+    req.payload.logger.error("Lesson ID or User ID is required", {
+      lessonId,
+      userId,
+    });
+    return false;
+  }
 
   let booking: Booking | undefined;
 
   let user: User;
 
-  user = (await req.payload.findByID({
+  user = (await payload.findByID({
     collection: "users",
     id: userId,
   })) as User;
@@ -99,13 +144,13 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
   try {
     if (id) {
-      booking = (await req.payload.findByID({
+      booking = (await payload.findByID({
         collection: "bookings",
         id,
         depth: 3,
       })) as unknown as Booking;
     } else {
-      const bookingQuery = await req.payload.find({
+      const bookingQuery = await payload.find({
         collection: "bookings",
         where: {
           lesson: { equals: lessonId },
@@ -117,41 +162,72 @@ export const childrenUpdateBookingMembershipAccess = async ({
       booking = bookingQuery.docs[0] as Booking | undefined;
     }
 
-    if (!booking) return false;
+    if (!booking) {
+      req.payload.logger.error("Booking not found", {
+        bookingId: id,
+      });
+      return false;
+    }
 
-    const lesson = (await req.payload.findByID({
+    const lesson = (await payload.findByID({
       collection: "lessons",
       id: booking.lesson.id,
       depth: 3,
     })) as unknown as Lesson;
 
     if (lesson.classOption.type == "child") {
-      if (!user?.parent) return false;
+      if (!user?.parent) {
+        req.payload.logger.error("User has no parent", {
+          userId,
+        });
+        return false;
+      }
 
       const parentId =
         typeof user.parent === "object" ? user.parent.id : user.parent;
 
-      user = (await req.payload.findByID({
+      user = (await payload.findByID({
         collection: "users",
         id: parentId,
       })) as User;
     }
 
-    if (!lesson || !user) return false;
+    if (!lesson || !user) {
+      req.payload.logger.error("Lesson or user not found", {
+        lessonId,
+        userId,
+      });
+      return false;
+    }
 
     if (checkRole(["admin"], user)) return true;
 
     if (req.data?.status === "cancelled") return true;
 
     if (lesson.bookingStatus === req.data?.status) {
+      req.payload.logger.info(
+        "Lesson booking status is the same as the request status",
+        {
+          lessonId,
+          userId,
+          status: req.data?.status,
+        }
+      );
       return true;
     }
 
-    if (!validateLessonStatus(lesson)) return false;
+    if (!validateLessonStatus(lesson)) {
+      req.payload.logger.error("Lesson status is not valid", {
+        lesson,
+      });
+      return false;
+    }
 
-    return await validateLessonPaymentMethods(lesson, user, req.payload);
+    return await validateLessonPaymentMethods(lesson, user, payload);
   } catch (error) {
-    console.error(error);
+    req.payload.logger.error("Error in childrenUpdateBookingMembershipAccess", {
+      error,
+    });
     return false;
   }
 };
