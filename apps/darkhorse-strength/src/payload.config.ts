@@ -186,6 +186,7 @@ export default buildConfig({
             type: 'date',
             virtual: true,
             readOnly: true,
+            required: false,
             admin: {
               hidden: true,
               readOnly: true,
