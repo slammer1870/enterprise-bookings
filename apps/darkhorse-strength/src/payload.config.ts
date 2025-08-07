@@ -187,6 +187,7 @@ export default buildConfig({
             virtual: true,
             readOnly: true,
             required: false,
+            defaultValue: new Date().toISOString(),
             admin: {
               hidden: true,
               readOnly: true,
