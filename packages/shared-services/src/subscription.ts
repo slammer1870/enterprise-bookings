@@ -107,22 +107,14 @@ export const checkUserSubscription = async (
     const userSubscription = await payload.find({
       collection: "subscriptions" as CollectionSlug,
       where: {
-        and: [
-          {
-            user: { equals: user.id },
-          },
-          {
-            status: { equals: "active" },
-          },
-          { startDate: { less_than_equal: new Date() } },
-          { endDate: { greater_than_equal: new Date() } },
-          {
-            or: [
-              { cancelAt: { greater_than: new Date() } },
-              { cancelAt: { exists: false } },
-              { cancelAt: { equals: null } },
-            ],
-          },
+        user: { equals: user.id },
+        status: { equals: "active" },
+        startDate: { less_than_equal: new Date() },
+        endDate: { greater_than_equal: new Date() },
+        or: [
+          { cancelAt: { greater_than: new Date() } },
+          { cancelAt: { exists: false } },
+          { cancelAt: { equals: null } },
         ],
       },
       depth: 2,
