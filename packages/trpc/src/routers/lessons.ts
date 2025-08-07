@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
-import { ClassOption, Lesson } from "@repo/shared-types";
+import { ClassOption, Lesson, Subscription } from "@repo/shared-types";
 
 export const lessonsRouter = {
   getById: protectedProcedure
@@ -78,5 +78,83 @@ export const lessonsRouter = {
       });
 
       return lessons.docs.map((lesson) => lesson as Lesson);
+    }),
+  canBookChild: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }): Promise<boolean> => {
+      const lesson = await ctx.payload.findByID({
+        collection: "lessons",
+        id: input.id,
+        depth: 2,
+        overrideAccess: false,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${input.id} not found`,
+        });
+      }
+
+      if (lesson.remainingCapacity <= 0) {
+        return false;
+      }
+
+      const classOption = lesson.classOption as ClassOption;
+      if (!classOption || classOption.type !== "child") {
+        return false;
+      }
+
+      const plans = classOption.paymentMethods?.allowedPlans;
+
+      if (plans?.some((plan) => plan.sessionsInformation?.sessions)) {
+        const subscription = await ctx.payload.find({
+          collection: "subscriptions",
+          where: {
+            user: {
+              equals: ctx.user.id,
+            },
+            plan: {
+              in: plans.map((plan) => plan.id),
+            },
+          },
+          depth: 2,
+          limit: 1,
+          overrideAccess: false,
+        });
+
+        if (subscription.docs.length < 0) {
+          return false;
+        }
+
+        const subscriptionDoc = subscription.docs[0] as Subscription;
+
+        const allowedSessions =
+          subscriptionDoc.plan.sessionsInformation?.sessions;
+
+        const bookedSessions = await ctx.payload.find({
+          collection: "bookings",
+          where: {
+            lesson: {
+              equals: lesson.id,
+            },
+            "user.parent": {
+              equals: ctx.user.id,
+            },
+          },
+          depth: 2,
+          overrideAccess: false,
+        });
+
+        const bookedSessionsCount = bookedSessions.docs.length;
+
+        if (allowedSessions && allowedSessions > bookedSessionsCount) {
+          return true;
+        }
+
+        return false;
+      }
+
+      return true;
     }),
 } satisfies TRPCRouterRecord;

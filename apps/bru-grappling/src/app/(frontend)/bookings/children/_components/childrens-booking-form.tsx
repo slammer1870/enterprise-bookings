@@ -19,6 +19,9 @@ import {
 
 import { SelectChildren } from './select-children'
 
+import { useTRPC } from '@repo/trpc'
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+
 const FormSchema = z.object({
   children: z
     .array(
@@ -42,8 +45,10 @@ const FormSchema = z.object({
 
 export const ChildrensBookingForm = ({
   bookedChildren,
+  lessonId,
 }: {
   bookedChildren?: z.infer<typeof FormSchema>['children']
+  lessonId: number
 }) => {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -51,6 +56,15 @@ export const ChildrensBookingForm = ({
       children: bookedChildren || [],
     },
   })
+
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+
+  const { data: canBookChild } = useSuspenseQuery(
+    trpc.lessons.canBookChild.queryOptions({
+      id: lessonId,
+    }),
+  )
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     toast('You submitted the following values', {
@@ -73,7 +87,10 @@ export const ChildrensBookingForm = ({
     }
 
     const newChildren = [...currentChildren, data]
-    return form.setValue('children', newChildren)
+    form.setValue('children', newChildren)
+    queryClient.invalidateQueries({
+      queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
+    })
   }
 
   return (
@@ -105,7 +122,13 @@ export const ChildrensBookingForm = ({
                   </div>
                 ))}
               </div>
-              <SelectChildren field={field} setChildData={setChildData} />
+              {canBookChild ? (
+                <SelectChildren field={field} setChildData={setChildData} />
+              ) : (
+                <p className="text-sm text-red-500">
+                  You cannot book more children for this lesson.
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}

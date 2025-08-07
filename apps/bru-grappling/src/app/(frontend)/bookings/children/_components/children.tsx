@@ -41,6 +41,7 @@ export const ChildrensBooking = () => {
             name: booking.user.name,
             email: booking.user.email,
           }))}
+          lessonId={data.id}
         />
       )}
     </div>
