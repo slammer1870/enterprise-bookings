@@ -1,21 +1,10 @@
 'use client'
 
-import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+
 import { toast } from 'sonner'
-import { z } from 'zod'
 
 import { Button } from '@repo/ui/components/ui/button'
-
-import {
-  Form,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@repo/ui/components/ui/form'
 
 import { SelectChildren } from './select-children'
 
@@ -51,7 +40,7 @@ export const ChildrensBookingForm = ({
     }),
   )
 
-  const { mutate: bookChildren } = useMutation(
+  const { mutate: bookChild } = useMutation(
     trpc.lessons.bookChild.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
@@ -83,14 +72,6 @@ export const ChildrensBookingForm = ({
     }),
   )
 
-  const setChildData = (data: User) => {
-    if (bookedChildren?.find((child) => child.id === data.id)) {
-      unbookChildren({ id: lessonId, childId: data.id })
-    } else {
-      bookChildren({ id: lessonId, childId: data.id })
-    }
-  }
-
   return (
     <Card className={cn('flex flex-col', !bookedChildren?.length && 'border-red-500')}>
       <CardHeader>
@@ -109,7 +90,7 @@ export const ChildrensBookingForm = ({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => unbookChildren({ id: lessonId, childId: child.id })}
+              onClick={() => unbookChildren({ lessonId, childId: child.id })}
             >
               <X />
             </Button>
@@ -118,7 +99,11 @@ export const ChildrensBookingForm = ({
       </CardContent>
       <CardFooter>
         {canBookChild ? (
-          <SelectChildren bookedChildren={bookedChildren} setChildData={setChildData} />
+          <SelectChildren
+            bookedChildren={bookedChildren}
+            bookChild={bookChild}
+            lessonId={lessonId}
+          />
         ) : (
           <p className="text-sm text-red-500">You cannot book more children for this lesson.</p>
         )}

@@ -21,6 +21,7 @@ export const lessonsRouter = {
         id: input.id,
         depth: 2,
         overrideAccess: false,
+        user: ctx.user,
       });
 
       if (!lesson) {
@@ -36,31 +37,46 @@ export const lessonsRouter = {
   getByIdForChildren: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id: input.id,
-        depth: 2,
-        overrideAccess: false,
-      });
-
-      if (!lesson) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Lesson with id ${input.id} not found`,
+      try {
+        const lesson = await ctx.payload.findByID({
+          collection: "lessons",
+          id: input.id,
+          depth: 0,
+          overrideAccess: true,
+          user: ctx.user,
         });
-      }
 
-      // Validate that the class option has type 'child'
-      const classOption = lesson.classOption as ClassOption;
-      if (!classOption || classOption.type !== "child") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
-        });
-      }
+        console.log("lesson for children", lesson);
 
-      return lesson as Lesson;
+        if (!lesson) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Lesson with id ${input.id} not found`,
+          });
+        }
+
+        // Fetch classOption separately to avoid relationship depth issues
+        const classOption = await ctx.payload.findByID({
+          collection: "class-options",
+          id: lesson.classOption as number,
+          depth: 0,
+          overrideAccess: true,
+        }) as ClassOption;
+
+        // Validate that the class option has type 'child'
+        if (!classOption || classOption.type !== "child") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
+          });
+        }
+
+        return { ...lesson, classOption } as Lesson;
+      } catch (error) {
+        console.error("Error in getByIdForChildren:", error);
+        throw error;
+      }
     }),
 
   getByDate: publicProcedure
@@ -92,7 +108,6 @@ export const lessonsRouter = {
         collection: "lessons",
         id: input.id,
         depth: 2,
-        overrideAccess: false,
       });
 
       if (!lesson) {
@@ -113,7 +128,7 @@ export const lessonsRouter = {
 
       const plans = classOption.paymentMethods?.allowedPlans;
 
-      if (plans?.some((plan) => plan.sessionsInformation?.sessions)) {
+      if (plans && plans.length > 0) {
         const subscription = await ctx.payload.find({
           collection: "subscriptions",
           where: {
@@ -126,17 +141,26 @@ export const lessonsRouter = {
           },
           depth: 2,
           limit: 1,
-          overrideAccess: false,
         });
 
-        if (subscription.docs.length < 0) {
+        if (subscription.docs.length === 0) {
           return false;
         }
 
         const subscriptionDoc = subscription.docs[0] as Subscription;
 
-        const allowedSessions =
-          subscriptionDoc.plan.sessionsInformation?.sessions;
+        const planQuantity = subscriptionDoc.plan.quantity;
+
+        // First, get all children of the parent user
+        const childrenQuery = await ctx.payload.find({
+          collection: "users",
+          where: {
+            parent: { equals: ctx.user.id },
+          },
+          depth: 1,
+        });
+
+        const childrenIds = childrenQuery.docs.map((child: any) => child.id);
 
         const bookedSessions = await ctx.payload.find({
           collection: "bookings",
@@ -144,21 +168,16 @@ export const lessonsRouter = {
             lesson: {
               equals: lesson.id,
             },
-            "user.parent": {
-              equals: ctx.user.id,
-            },
+            user: { in: childrenIds },
           },
           depth: 2,
-          overrideAccess: false,
         });
 
         const bookedSessionsCount = bookedSessions.docs.length;
 
-        if (allowedSessions && allowedSessions > bookedSessionsCount) {
-          return true;
+        if (planQuantity && planQuantity < bookedSessionsCount) {
+          return false;
         }
-
-        return false;
       }
 
       return true;
@@ -171,20 +190,12 @@ export const lessonsRouter = {
         collection: "users",
         id: input.childId,
         depth: 1,
-        overrideAccess: false,
       });
 
       if (!child) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Child with id ${input.childId} not found`,
-        });
-      }
-
-      if (child.parent !== ctx.user.id) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "User is not parent of children",
         });
       }
 
@@ -195,10 +206,8 @@ export const lessonsRouter = {
           user: { equals: child.id },
         },
         depth: 2,
-        overrideAccess: false,
         limit: 1,
       });
-
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await ctx.payload.update({
           collection: "bookings",
@@ -206,10 +215,7 @@ export const lessonsRouter = {
           data: {
             status: "confirmed",
           },
-          overrideAccess: false,
-          user: child,
         });
-
         return updatedBooking as Booking;
       }
 
@@ -220,10 +226,7 @@ export const lessonsRouter = {
           user: child.id,
           status: "confirmed",
         },
-        overrideAccess: false,
-        user: child,
       });
-
       return booking as Booking;
     }),
 
@@ -237,7 +240,6 @@ export const lessonsRouter = {
           user: { equals: input.childId },
         },
         depth: 2,
-        overrideAccess: false,
         limit: 1,
       });
 
@@ -254,8 +256,6 @@ export const lessonsRouter = {
         data: {
           status: "cancelled",
         },
-        overrideAccess: false,
-        user: booking.docs[0]?.user as User,
       });
 
       return updatedBooking as Booking;

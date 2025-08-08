@@ -127,6 +127,7 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
 
   return opts.next({
     ctx: {
+      ...ctx,
       user: auth.user,
     },
   });
@@ -143,6 +144,7 @@ export const stripePublicProcedure = publicProcedure.use(async (opts) => {
 
   return opts.next({
     ctx: {
+      ...ctx,
       stripe: ctx.stripe,
     },
   });
@@ -159,6 +161,7 @@ export const stripeProtectedProcedure = protectedProcedure.use(async (opts) => {
 
   return opts.next({
     ctx: {
+      ...ctx,
       stripe: ctx.stripe,
     },
   });

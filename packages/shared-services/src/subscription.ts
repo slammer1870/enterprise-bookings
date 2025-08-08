@@ -111,6 +111,7 @@ export const checkUserSubscription = async (
           {
             user: { equals: user.id },
             status: { equals: "active" },
+            plan: { in: lesson.classOption.paymentMethods?.allowedPlans },
           },
           {
             or: [
@@ -136,22 +137,6 @@ export const checkUserSubscription = async (
     const subscription = userSubscription.docs[0] as Subscription & {
       plan: Plan;
     };
-
-    if (
-      !lesson.classOption.paymentMethods?.allowedPlans?.some(
-        (plan) => plan.id == subscription.plan.id
-      )
-    ) {
-      payload.logger.error(
-        "User has an active subscription that is not valid for lesson",
-        {
-          lesson,
-          user,
-          subscription,
-        }
-      );
-      return false;
-    }
 
     if (
       (subscription.cancelAt &&
@@ -191,11 +176,23 @@ export const checkUserSubscription = async (
 
       if (!plan.type || !["child", "family"].includes(plan.type)) return false;
 
+      // First, get all children of the parent user
+      const childrenQuery = await payload.find({
+        collection: "users",
+        where: {
+          parent: { equals: user.id },
+        },
+        depth: 1,
+      });
+
+      const childrenIds = childrenQuery.docs.map((child: any) => child.id);
+
+      // Then query for bookings where the user is one of the children
       const bookings = await payload.find({
         collection: "bookings",
         where: {
           lesson: { equals: lesson.id },
-          "user.parent": { equals: user.id },
+          user: { in: childrenIds },
           status: { equals: "confirmed" },
         },
       });

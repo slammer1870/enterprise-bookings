@@ -21,6 +21,8 @@ export const ChildrensBooking = () => {
     trpc.lessons.getByIdForChildren.queryOptions({ id: parseInt(id) }),
   )
 
+  console.log(data)
+
   const hasPaymentMethods = Boolean(
     data?.classOption.paymentMethods?.allowedDropIn ||
       data?.classOption.paymentMethods?.allowedPlans?.length,

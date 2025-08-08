@@ -37,9 +37,8 @@ import { Booking, Lesson } from '@repo/shared-types'
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
-} from '@repo/shared-services/src/access/children-booking-membership'
-
-import { isAdminOrParentOrOwner } from '@repo/shared-services/src/access/is-admin-or-parent-or-owner'
+  isAdminOrParentOrOwner,
+} from '@repo/shared-services'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)

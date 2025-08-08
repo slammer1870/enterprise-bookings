@@ -28,10 +28,12 @@ import { AddChild } from './add-child'
 
 export const SelectChildren = ({
   bookedChildren,
-  setChildData,
+  bookChild,
+  lessonId,
 }: {
   bookedChildren?: User[]
-  setChildData: (data: User) => void
+  bookChild: (data: { lessonId: number; childId: number }) => void
+  lessonId: number
 }) => {
   const trpc = useTRPC()
 
@@ -63,14 +65,16 @@ export const SelectChildren = ({
                   value={child.name}
                   key={child.name}
                   onSelect={() => {
-                    setChildData(child as User)
+                    bookChild({ lessonId: lessonId, childId: child.id })
                   }}
                 >
                   {child.name}
                   <Check
                     className={cn(
                       'ml-auto',
-                      bookedChildren?.some((c) => c.id === child.id) ? 'opacity-100' : 'opacity-0',
+                      bookedChildren?.some((c) => c.email === child.email)
+                        ? 'opacity-100'
+                        : 'opacity-0',
                     )}
                   />
                 </CommandItem>
@@ -79,7 +83,7 @@ export const SelectChildren = ({
           </CommandList>
         </Command>
         <div className="p-2 border-t">
-          <AddChild setChildData={setChildData} />
+          <AddChild bookChild={bookChild} lessonId={lessonId} />
         </div>
       </PopoverContent>
     </Popover>

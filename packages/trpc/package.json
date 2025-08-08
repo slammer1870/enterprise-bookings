@@ -13,6 +13,7 @@
     "trpc:generate": "pnpm tsc --project tsconfig.json"
   },
   "dependencies": {
+    "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@tanstack/react-query": "^5.17.15",

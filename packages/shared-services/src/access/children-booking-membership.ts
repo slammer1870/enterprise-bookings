@@ -27,6 +27,7 @@ export const childrenCreateBookingMembershipAccess = async ({
   user = (await payload.findByID({
     collection: "users",
     id: userId,
+    depth: 2,
   })) as User;
 
   if (!user) {
@@ -53,7 +54,7 @@ export const childrenCreateBookingMembershipAccess = async ({
       collection: "lessons",
       id: lessonId,
       depth: 3,
-    })) as Lesson;
+    })) as unknown as Lesson;
 
     if (!lesson) {
       payload.logger.error("Lesson not found", {
@@ -118,12 +119,20 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
   const searchParams = req.searchParams;
 
-  const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
+  const lessonId = searchParams?.get("where[and][0][lesson][equals]") || id;
   const userId =
-    searchParams.get("where[and][1][user][equals]") ||
+    searchParams?.get("where[and][1][user][equals]") ||
     (typeof req.user === "object" ? req.user.id : req.user);
 
+  // If we don't have lessonId or userId, this might be a read operation
+  // In that case, we can return true since read access is handled separately
   if (!lessonId || !userId) {
+    // If this is called during a read operation (no specific booking ID), allow it
+    // The actual read access control is handled by the read access function
+    if (!id) {
+      return true;
+    }
+    
     req.payload.logger.error("Lesson ID or User ID is required", {
       lessonId,
       userId,

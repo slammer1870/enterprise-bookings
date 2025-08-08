@@ -251,7 +251,6 @@ const defaultAccess: AccessControls = {
   read: lessonReadAccess,
   create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
   update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
 };
 
 const defaultAdmin: CollectionAdminOptions = {

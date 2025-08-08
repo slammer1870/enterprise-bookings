@@ -9,7 +9,7 @@ export const isAdminOrOwner: Access = ({ req }) => {
     return false;
   }
 
-  if (checkRole(["admin"], user as User | null)) {
+  if (checkRole(["admin"], user as unknown as User | null)) {
     return true;
   }
 

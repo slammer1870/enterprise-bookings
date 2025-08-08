@@ -42,7 +42,13 @@ const FormSchema = z.object({
   email: z.email({ message: 'Please enter a valid email address.' }),
 })
 
-export const AddChild = ({ setChildData }: { setChildData: (data: User) => void }) => {
+export const AddChild = ({
+  bookChild,
+  lessonId,
+}: {
+  bookChild: (data: { lessonId: number; childId: number }) => void
+  lessonId: number
+}) => {
   const [isOpen, setIsOpen] = useState(false)
 
   const trpc = useTRPC()
@@ -51,7 +57,7 @@ export const AddChild = ({ setChildData }: { setChildData: (data: User) => void 
   const { mutate: createChild, isPending } = useMutation(
     trpc.users.createChild.mutationOptions({
       onSuccess: (data) => {
-        setChildData(data as User)
+        bookChild({ lessonId, childId: data.id })
 
         queryClient.invalidateQueries({
           queryKey: trpc.users.getChildren.queryKey(),

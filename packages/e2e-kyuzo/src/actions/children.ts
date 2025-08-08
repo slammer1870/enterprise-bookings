@@ -133,9 +133,7 @@ export const createChildrensBookings = async (prevState: { message?: string }, f
       collection: 'bookings',
       where: {
         lesson: { equals: parseInt(lessonId) },
-        'user.parent': {
-          equals: user.id,
-        },
+        user: { in: children.map((child) => child.id) },
       },
     })
 
