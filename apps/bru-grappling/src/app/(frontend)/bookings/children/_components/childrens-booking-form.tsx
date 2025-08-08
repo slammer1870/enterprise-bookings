@@ -54,6 +54,12 @@ export const ChildrensBookingForm = ({
         console.log('Error in bookChild', error)
         toast.error(error.message)
       },
+      onMutate: () => {
+        toast.loading('Booking child...')
+      },
+      onSettled: () => {
+        toast.dismiss()
+      },
     }),
   )
 
@@ -69,6 +75,12 @@ export const ChildrensBookingForm = ({
       },
       onError: (error) => {
         toast.error(error.message)
+      },
+      onMutate: () => {
+        toast.loading('Unbooking child...')
+      },
+      onSettled: () => {
+        toast.dismiss()
       },
     }),
   )

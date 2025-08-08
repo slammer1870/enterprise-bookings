@@ -37,11 +37,11 @@ export const SelectChildren = ({
 }) => {
   const trpc = useTRPC()
 
-  const { data: children } = useSuspenseQuery(trpc.users.getChildren.queryOptions())
+  const { data: children, isPending } = useSuspenseQuery(trpc.users.getChildren.queryOptions())
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild disabled={isPending}>
         <Button
           variant="outline"
           role="combobox"
@@ -67,6 +67,7 @@ export const SelectChildren = ({
                   onSelect={() => {
                     bookChild({ lessonId: lessonId, childId: child.id })
                   }}
+                  disabled={bookedChildren?.some((c) => c.id === child.id)}
                 >
                   {child.name}
                   <Check
