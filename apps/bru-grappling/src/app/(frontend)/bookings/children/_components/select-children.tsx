@@ -1,7 +1,7 @@
 'use client'
 
 import { useTRPC } from '@repo/trpc'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
 
@@ -25,23 +25,46 @@ import { Check } from 'lucide-react'
 import { User } from '@repo/shared-types'
 
 import { AddChild } from './add-child'
+import { toast } from 'sonner'
 
 export const SelectChildren = ({
   bookedChildren,
-  bookChild,
   lessonId,
 }: {
   bookedChildren?: User[]
-  bookChild: (data: { lessonId: number; childId: number }) => void
   lessonId: number
 }) => {
   const trpc = useTRPC()
+  const queryClient = useQueryClient()
 
   const { data: children, isPending } = useSuspenseQuery(trpc.users.getChildren.queryOptions())
 
+  const { mutate: bookChild, isPending: isBooking } = useMutation(
+    trpc.lessons.bookChild.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getChildrensBookings.queryKey({ id: lessonId }),
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
+        })
+      },
+      onError: (error) => {
+        console.log('Error in bookChild', error)
+        toast.error(error.message)
+      },
+      onMutate: () => {
+        toast.loading('Booking child...')
+      },
+      onSettled: () => {
+        toast.dismiss()
+      },
+    }),
+  )
+
   return (
     <Popover>
-      <PopoverTrigger asChild disabled={isPending}>
+      <PopoverTrigger asChild disabled={isPending || isBooking}>
         <Button
           variant="outline"
           role="combobox"

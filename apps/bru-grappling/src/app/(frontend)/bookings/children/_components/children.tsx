@@ -36,12 +36,7 @@ export const ChildrensBooking = () => {
           lessonId={data.id}
         />
       ) : (
-        <ChildrensBookingForm
-          bookedChildren={data.bookings?.docs
-            ?.filter((booking) => booking.status === 'confirmed')
-            .map((booking) => booking.user)}
-          lessonId={data.id}
-        />
+        <ChildrensBookingForm lessonId={data.id} />
       )}
     </div>
   )

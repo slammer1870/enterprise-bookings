@@ -23,16 +23,15 @@ import {
 } from '@repo/ui/components/ui/card'
 
 import { cn } from '@repo/ui/lib/utils'
+import { ChildBookingDetail } from './child-booking-detail'
 
-export const ChildrensBookingForm = ({
-  bookedChildren,
-  lessonId,
-}: {
-  bookedChildren?: User[]
-  lessonId: number
-}) => {
+export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+
+  const { data: bookedChildren } = useSuspenseQuery(
+    trpc.lessons.getChildrensBookings.queryOptions({ id: lessonId }),
+  )
 
   const { data: canBookChild } = useSuspenseQuery(
     trpc.lessons.canBookChild.queryOptions({
@@ -40,53 +39,10 @@ export const ChildrensBookingForm = ({
     }),
   )
 
-  const { mutate: bookChild } = useMutation(
-    trpc.lessons.bookChild.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
-        })
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
-        })
-      },
-      onError: (error) => {
-        console.log('Error in bookChild', error)
-        toast.error(error.message)
-      },
-      onMutate: () => {
-        toast.loading('Booking child...')
-      },
-      onSettled: () => {
-        toast.dismiss()
-      },
-    }),
-  )
-
-  const { mutate: unbookChildren } = useMutation(
-    trpc.lessons.unbookChild.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
-        })
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
-        })
-      },
-      onError: (error) => {
-        toast.error(error.message)
-      },
-      onMutate: () => {
-        toast.loading('Unbooking child...')
-      },
-      onSettled: () => {
-        toast.dismiss()
-      },
-    }),
-  )
+ 
 
   return (
-    <Card className={cn('flex flex-col', !bookedChildren?.length && 'border-red-500')}>
+    <Card className={cn('flex flex-col')}>
       <CardHeader>
         <CardTitle>Children</CardTitle>
         <CardDescription>
@@ -95,26 +51,14 @@ export const ChildrensBookingForm = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {bookedChildren?.map((child, index) => (
-          <div key={index} className="flex justify-between">
-            <div>
-              {child.name} - {child.email}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => unbookChildren({ lessonId, childId: child.id })}
-            >
-              <X />
-            </Button>
-          </div>
+        {bookedChildren?.map((booking, index) => (
+          <ChildBookingDetail key={index} booking={booking} />
         ))}
       </CardContent>
       <CardFooter>
         {canBookChild ? (
           <SelectChildren
-            bookedChildren={bookedChildren}
-            bookChild={bookChild}
+            bookedChildren={bookedChildren.map((booking) => booking.user)}
             lessonId={lessonId}
           />
         ) : (

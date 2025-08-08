@@ -289,4 +289,20 @@ export const lessonsRouter = {
 
       return updatedBooking as Booking;
     }),
+
+  getChildrensBookings: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const bookings = await ctx.payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: input.id },
+          "user.parent": { equals: ctx.user.id },
+          status: { equals: "confirmed" },
+        },
+        depth: 2,
+      });
+
+      return bookings.docs.map((booking) => booking as Booking);
+    }),
 } satisfies TRPCRouterRecord;

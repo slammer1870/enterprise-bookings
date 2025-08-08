@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Subscription } from '@repo/shared-types'
 import { PlanDetail } from './plan-detail'
+import { ChildrensBookingForm } from './childrens-booking-form'
 
 export const ValidateSubscription = ({
   subscription,
@@ -30,7 +31,7 @@ export const ValidateSubscription = ({
   )
 
   if (!data && subscription.status === 'active') {
-    return <div>You can book this lesson</div>
+    return <ChildrensBookingForm lessonId={lessonId} />
   }
 
   return (
