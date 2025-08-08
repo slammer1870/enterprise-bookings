@@ -51,6 +51,7 @@ export const ChildrensBookingForm = ({
         })
       },
       onError: (error) => {
+        console.log('Error in bookChild', error)
         toast.error(error.message)
       },
     }),

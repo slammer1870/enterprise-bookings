@@ -37,8 +37,9 @@ import { Booking, Lesson } from '@repo/shared-types'
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
-  isAdminOrParentOrOwner,
 } from '@repo/shared-services'
+
+import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -203,7 +204,7 @@ export default buildConfig({
         }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
-          read: isAdminOrParentOrOwner,
+          read: isBookingAdminOrParentOrOwner,
           create: childrenCreateBookingMembershipAccess,
           update: childrenUpdateBookingMembershipAccess,
         }),

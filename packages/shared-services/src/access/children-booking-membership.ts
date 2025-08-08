@@ -129,10 +129,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
   if (!lessonId || !userId) {
     // If this is called during a read operation (no specific booking ID), allow it
     // The actual read access control is handled by the read access function
-    if (!id) {
-      return true;
-    }
-    
+
     req.payload.logger.error("Lesson ID or User ID is required", {
       lessonId,
       userId,

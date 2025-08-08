@@ -4,13 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
-import {
-  Booking,
-  ClassOption,
-  Lesson,
-  Subscription,
-  User,
-} from "@repo/shared-types";
+import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
 
 export const lessonsRouter = {
   getById: protectedProcedure
@@ -21,7 +15,6 @@ export const lessonsRouter = {
         id: input.id,
         depth: 2,
         overrideAccess: false,
-        user: ctx.user,
       });
 
       if (!lesson) {
@@ -41,12 +34,10 @@ export const lessonsRouter = {
         const lesson = await ctx.payload.findByID({
           collection: "lessons",
           id: input.id,
-          depth: 0,
-          overrideAccess: true,
+          depth: 2,
+          overrideAccess: false,
           user: ctx.user,
         });
-
-        console.log("lesson for children", lesson);
 
         if (!lesson) {
           throw new TRPCError({
@@ -56,13 +47,7 @@ export const lessonsRouter = {
         }
 
         // Fetch classOption separately to avoid relationship depth issues
-        const classOption = await ctx.payload.findByID({
-          collection: "class-options",
-          id: lesson.classOption as number,
-          depth: 0,
-          overrideAccess: true,
-        }) as ClassOption;
-
+        const { classOption } = lesson;
         // Validate that the class option has type 'child'
         if (!classOption || classOption.type !== "child") {
           throw new TRPCError({
@@ -72,7 +57,7 @@ export const lessonsRouter = {
           });
         }
 
-        return { ...lesson, classOption } as Lesson;
+        return lesson as Lesson;
       } catch (error) {
         console.error("Error in getByIdForChildren:", error);
         throw error;
@@ -107,7 +92,8 @@ export const lessonsRouter = {
       const lesson = await ctx.payload.findByID({
         collection: "lessons",
         id: input.id,
-        depth: 2,
+        depth: 3,
+        overrideAccess: false,
       });
 
       if (!lesson) {
@@ -138,6 +124,24 @@ export const lessonsRouter = {
             plan: {
               in: plans.map((plan) => plan.id),
             },
+            startDate: {
+              less_than_equal: new Date(),
+            },
+            endDate: {
+              greater_than_equal: new Date(),
+            },
+            status: {
+              equals: "active",
+            },
+            and: [
+              {
+                or: [
+                  { cancelAt: { greater_than: new Date(lesson.startTime) } },
+                  { cancelAt: { exists: false } },
+                  { cancelAt: { equals: null } },
+                ],
+              },
+            ],
           },
           depth: 2,
           limit: 1,
@@ -175,7 +179,7 @@ export const lessonsRouter = {
 
         const bookedSessionsCount = bookedSessions.docs.length;
 
-        if (planQuantity && planQuantity < bookedSessionsCount) {
+        if (planQuantity && planQuantity <= bookedSessionsCount) {
           return false;
         }
       }
@@ -189,7 +193,7 @@ export const lessonsRouter = {
       const child = await ctx.payload.findByID({
         collection: "users",
         id: input.childId,
-        depth: 1,
+        depth: 4,
       });
 
       if (!child) {
@@ -207,7 +211,10 @@ export const lessonsRouter = {
         },
         depth: 2,
         limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
       });
+
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await ctx.payload.update({
           collection: "bookings",
@@ -215,7 +222,10 @@ export const lessonsRouter = {
           data: {
             status: "confirmed",
           },
+          overrideAccess: false,
+          user: child,
         });
+
         return updatedBooking as Booking;
       }
 
@@ -226,6 +236,8 @@ export const lessonsRouter = {
           user: child.id,
           status: "confirmed",
         },
+        overrideAccess: false,
+        user: child,
       });
       return booking as Booking;
     }),
@@ -241,6 +253,8 @@ export const lessonsRouter = {
         },
         depth: 2,
         limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
       });
 
       if (booking.docs.length === 0) {
@@ -250,12 +264,27 @@ export const lessonsRouter = {
         });
       }
 
+      const child = await ctx.payload.findByID({
+        collection: "users",
+        id: input.childId,
+        depth: 4,
+      });
+
+      if (!child) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Child with id ${input.childId} not found`,
+        });
+      }
+
       const updatedBooking = await ctx.payload.update({
         collection: "bookings",
         id: booking.docs[0]?.id as number,
         data: {
           status: "cancelled",
         },
+        overrideAccess: false,
+        user: child,
       });
 
       return updatedBooking as Booking;

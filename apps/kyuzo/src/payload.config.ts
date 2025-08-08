@@ -36,6 +36,7 @@ import {
 } from '@repo/shared-services/src/access/children-booking-membership'
 
 import { Posts } from '@repo/website/src/collections/posts'
+import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -138,6 +139,7 @@ export default buildConfig({
       bookingOverrides: {
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
+          read: isBookingAdminOrParentOrOwner,
           create: childrenCreateBookingMembershipAccess,
           update: childrenUpdateBookingMembershipAccess,
         }),

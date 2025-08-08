@@ -9,5 +9,4 @@ export {
 } from "./access/children-booking-membership";
 export { adminOrUserOrParentOrInstructor } from "./access/is-admin-or-user-or-parent-or-instructor";
 export { isAdminOrOwner } from "./access/is-admin-or-owner";
-export { isAdminOrParentOrOwner } from "./access/is-admin-or-parent-or-owner";
-
+export { isBookingAdminOrParentOrOwner } from "./access/bookings/is-admin-or-parent-or-owner";

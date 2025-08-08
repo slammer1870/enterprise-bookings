@@ -3,7 +3,10 @@ import type { User } from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils";
 
-export const isAdminOrParentOrOwner: Access = ({ req: { user }, id }) => {
+export const isBookingAdminOrParentOrOwner: Access = ({
+  req: { user },
+  id,
+}) => {
   if (!user) {
     return false;
   }
@@ -15,12 +18,12 @@ export const isAdminOrParentOrOwner: Access = ({ req: { user }, id }) => {
   return {
     or: [
       {
-        parent: {
+        "user.id": {
           equals: user?.id,
         },
       },
       {
-        id: {
+        "user.parent": {
           equals: user?.id,
         },
       },
