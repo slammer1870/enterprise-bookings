@@ -48,6 +48,7 @@
     "zod": "^4.0.15"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
     "@repo/eslint-config": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/typescript-config": "workspace:*",

@@ -34,7 +34,7 @@ const handler = async (req: NextRequest) => {
     endpoint: '/api/trpc',
     router: appRouter,
     req,
-    createContext: () => createTRPCContext({ headers: req.headers, payload, stripe }),
+    createContext: () => createTRPCContext({ headers: req.headers, payload, stripe: stripe || undefined }),
     onError({ error, path }) {
       console.error(`>>> tRPC Error on '${path}'`, error)
     },
