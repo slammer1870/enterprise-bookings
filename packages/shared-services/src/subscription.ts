@@ -103,6 +103,12 @@ export const checkUserSubscription = async (
   lesson: Lesson,
   payload: any
 ): Promise<boolean> => {
+  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
+
+  if (!allowedPlans || allowedPlans.length === 0) {
+    return true;
+  }
+
   try {
     const userSubscription = await payload.find({
       collection: "subscriptions" as CollectionSlug,
@@ -111,6 +117,13 @@ export const checkUserSubscription = async (
         status: { equals: "active" },
         startDate: { less_than_equal: new Date() },
         endDate: { greater_than_equal: new Date() },
+        plan: {
+          in: [
+            lesson.classOption.paymentMethods?.allowedPlans.map(
+              (plan) => plan.id
+            ),
+          ],
+        },
         or: [
           { cancelAt: { greater_than: new Date() } },
           { cancelAt: { exists: false } },
