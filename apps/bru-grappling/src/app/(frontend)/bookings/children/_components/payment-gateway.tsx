@@ -24,6 +24,8 @@ export const PaymentGateway = ({
     }),
   )
 
+  console.log('HAS VALID SUBSCRIPTION', data)
+
   if (!data) {
     return <ManageNoValidSubscription paymentMethods={paymentMethods} lessonId={lessonId} />
   }

@@ -52,6 +52,16 @@ export const paymentsRouter = {
       const configurations =
         await ctx.stripe.billingPortal.configurations.list();
 
+      const subscription = await ctx.stripe.subscriptions.list({
+        customer: ctx.user.stripeCustomerId as string,
+        limit: 1,
+        status: "active",
+      });
+
+      if (subscription.data.length === 0) {
+        throw new Error("No active subscription found");
+      }
+
       let configId: string | undefined;
 
       if (configurations.data.length > 0) {
@@ -105,6 +115,12 @@ export const paymentsRouter = {
         customer: ctx.user.stripeCustomerId as string,
         configuration: configId,
         return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+        flow_data: {
+          type: "subscription_update",
+          subscription_update: {
+            subscription: subscription.data[0]?.id as string,
+          },
+        },
       });
 
       return session;

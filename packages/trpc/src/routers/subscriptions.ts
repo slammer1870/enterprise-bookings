@@ -13,8 +13,8 @@ export const subscriptionsRouter = {
       where: {
         user: { equals: user.id },
         status: { equals: "active" },
-        startDate: { less_than: new Date() },
-        endDate: { greater_than: new Date() },
+        startDate: { less_than_equal: new Date() },
+        endDate: { greater_than_equal: new Date() },
       },
       limit: 1,
       depth: 2,

@@ -20,6 +20,8 @@ export const ManageNoValidSubscription = ({
 
   const { data } = useQuery(trpc.subscriptions.getSubscription.queryOptions())
 
+  console.log('data', data)
+
   const { mutate: createCustomerUpgradePortal, isPending: isCreatingUpgradePortal } = useMutation(
     trpc.payments.createCustomerUpgradePortal.mutationOptions({
       onSuccess: (data) => {
@@ -46,6 +48,10 @@ export const ManageNoValidSubscription = ({
 
   return (
     <div className="flex flex-col gap-4 w-full">
+      <p>
+        You do not have a valid subscription to book this lesson. You can upgrade your subscription
+        to book this lesson.
+      </p>
       {paymentMethods?.allowedPlans
         ?.filter((plan) => plan.stripeProductId && plan.status === 'active')
         .map((plan) => {
