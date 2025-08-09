@@ -20,8 +20,6 @@ export const CheckInButton = ({
 
   const router = useRouter()
 
-  console.log('LESSON ID', id)
-
   const config: Record<
     Lesson['bookingStatus'],
     {
@@ -42,7 +40,7 @@ export const CheckInButton = ({
         if (type === 'child') {
           router.push(`/bookings/children/${id}`)
         } else {
-          router.push(`/bookings/${id}/checkin`)
+          console.log('Check In')
         }
       },
     },
@@ -88,7 +86,7 @@ export const CheckInButton = ({
       className: 'w-full bg-purple-600 hover:bg-purple-700 text-white',
       disabled: false,
       action: () => {
-        console.log('Cancel Booking')
+        router.push(`/bookings/children/${id}`)
       },
     },
     closed: {

@@ -1,17 +1,13 @@
 'use client'
 
-import { X } from 'lucide-react'
-
-import { toast } from 'sonner'
+import Link from 'next/link'
 
 import { Button } from '@repo/ui/components/ui/button'
 
 import { SelectChildren } from './select-children'
 
 import { useTRPC } from '@repo/trpc'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-
-import { User } from '@repo/shared-types'
+import { useSuspenseQuery } from '@tanstack/react-query'
 
 import {
   Card,
@@ -27,7 +23,6 @@ import { ChildBookingDetail } from './child-booking-detail'
 
 export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
   const trpc = useTRPC()
-  const queryClient = useQueryClient()
 
   const { data: bookedChildren } = useSuspenseQuery(
     trpc.lessons.getChildrensBookings.queryOptions({ id: lessonId }),
@@ -38,8 +33,6 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
       id: lessonId,
     }),
   )
-
- 
 
   return (
     <Card className={cn('flex flex-col')}>
@@ -54,8 +47,6 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
         {bookedChildren?.map((booking, index) => (
           <ChildBookingDetail key={index} booking={booking} />
         ))}
-      </CardContent>
-      <CardFooter>
         {canBookChild ? (
           <SelectChildren
             bookedChildren={bookedChildren.map((booking) => booking.user)}
@@ -64,6 +55,11 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
         ) : (
           <p className="text-sm text-red-500">You cannot book more children for this lesson.</p>
         )}
+      </CardContent>
+      <CardFooter>
+        <Link href={`/dashboard`} className="w-full">
+          <Button className="w-full">Complete booking</Button>
+        </Link>
       </CardFooter>
     </Card>
   )

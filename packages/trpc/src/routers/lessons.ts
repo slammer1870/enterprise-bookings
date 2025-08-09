@@ -15,6 +15,7 @@ export const lessonsRouter = {
         id: input.id,
         depth: 2,
         overrideAccess: false,
+        user: ctx.user,
       });
 
       if (!lesson) {
@@ -67,6 +68,10 @@ export const lessonsRouter = {
   getByDate: publicProcedure
     .input(z.object({ date: z.string() }))
     .query(async ({ ctx, input }) => {
+      const { user } = await ctx.payload.auth({
+        headers: ctx.headers,
+      });
+
       const startOfDay = new Date(input.date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(input.date);
@@ -82,6 +87,7 @@ export const lessonsRouter = {
         },
         depth: 2,
         overrideAccess: false,
+        user: user,
       });
 
       return lessons.docs.map((lesson) => lesson as Lesson);
