@@ -1,11 +1,20 @@
-import { useTRPC } from '@/trpc/react'
+'use client'
+
+import { useTRPC } from '@repo/trpc'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { ClassOption } from '@repo/shared-types'
 
+import { ValidateSubscription } from './validate-subscription'
+import { ManageNoValidSubscription } from './manage-no-valid-subscription'
+
 export const PaymentGateway = ({
   paymentMethods,
+  lessonDate,
+  lessonId,
 }: {
-  paymentMethods: ClassOption['paymentMethods']
+  paymentMethods?: ClassOption['paymentMethods']
+  lessonDate: Date
+  lessonId: number
 }) => {
   const trpc = useTRPC()
 
@@ -15,19 +24,11 @@ export const PaymentGateway = ({
     }),
   )
 
-  if (!paymentMethods) return null
+  console.log('HAS VALID SUBSCRIPTION', data)
 
   if (!data) {
-    return (
-      <div className="flex flex-col gap-4">
-        <h1>No subscription found</h1>
-      </div>
-    )
+    return <ManageNoValidSubscription paymentMethods={paymentMethods} lessonId={lessonId} />
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <h1>Payment Gateway</h1>
-    </div>
-  )
+  return <ValidateSubscription subscription={data} lessonDate={lessonDate} lessonId={lessonId} />
 }

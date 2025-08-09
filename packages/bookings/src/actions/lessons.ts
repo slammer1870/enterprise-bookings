@@ -23,6 +23,7 @@ export async function getLessons(date: Date) {
 
   if (!response.ok) {
     const error = await response.json();
+    console.log(error);
     throw new Error(error.message);
   }
 

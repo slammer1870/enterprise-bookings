@@ -27,9 +27,11 @@ const formSchema = z.object({
   email: z.string().email(),
 })
 
+type FormData = z.infer<typeof formSchema>
+
 export const AddChild = ({ handleSelectChild }: { handleSelectChild: (child: User) => void }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
@@ -38,7 +40,7 @@ export const AddChild = ({ handleSelectChild }: { handleSelectChild: (child: Use
   })
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
-  const handleAddChild = async (data: z.infer<typeof formSchema>) => {
+  const handleAddChild = async (data: FormData) => {
     setIsLoading(true)
     try {
       if (!user) return

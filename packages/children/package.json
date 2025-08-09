@@ -12,13 +12,13 @@
     "@repo/memberships": "workspace:*",
     "@hookform/resolvers": "4.1.0",
     "react-hook-form": "*",
-    "zod": "^3.25.67",
+    "zod": "^4.0.15",
     "sonner": "2.0.1",
     "lucide-react": "0.475.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "@types/react": "19.1.0",
+    "@types/react": "*",
     "@types/react-dom": "19.1.2",
     "react": "*",
     "react-dom": "*",

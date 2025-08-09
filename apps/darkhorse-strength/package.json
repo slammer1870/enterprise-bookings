@@ -33,13 +33,13 @@
     "react-hook-form": "*",
     "sharp": "0.34.2",
     "sonner": "2.0.1",
-    "stripe": "^17.7.0"
+    "stripe": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
-    "@types/react": "19.1.0",
+    "@types/react": "*",
     "@types/react-dom": "19.1.2",
     "eslint": "^9.18.0",
     "eslint-config-next": "15.3.0",

@@ -8,7 +8,7 @@
     "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^7.3.1",
     "payload": "*",
-    "stripe": "^17.7.0"
+    "stripe": "*"
   },
   "devDependencies": {
     "@payloadcms/db-postgres": "*",
@@ -20,7 +20,7 @@
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
-    "@types/react": "19.1.0",
+    "@types/react": "*",
     "@types/react-dom": "19.1.2",
     "eslint": "^9.18.0",
     "eslint-config-next": "15.3.0",

@@ -28,6 +28,8 @@ export const plansProxy: PayloadHandler = async (req): Promise<Response> => {
       })
       .autoPagingToArray({ limit: 1000 });
 
+    console.log("products", products);
+
     const plans = products.filter(
       (product) =>
         typeof product.default_price === "object" &&

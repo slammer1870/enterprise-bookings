@@ -8,6 +8,5 @@
       "@repo/shared-services": ["src/index.ts"],
       "@repo/shared-services/access/*": ["src/access/*"]
     }
-  },
-  "version": "0.0.1"
+  }
 }

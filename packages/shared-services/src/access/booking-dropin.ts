@@ -8,7 +8,7 @@ export const bookingCreateDropinAccess = async ({
   req,
   data,
 }: AccessArgs<Booking>) => {
-  const user = req.user as User | null;
+  const user = req.user as unknown as User | null;
 
   if (!data?.lesson) return false;
 

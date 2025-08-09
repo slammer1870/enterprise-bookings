@@ -7,9 +7,11 @@
  * The pieces you will need to use are documented accordingly near the end
  */
 import { initTRPC, TRPCError } from "@trpc/server";
+import Stripe from "stripe";
 import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
+import { User } from "@repo/shared-types";
 
 /**
  * 1. CONTEXT
@@ -27,12 +29,14 @@ import { z, ZodError } from "zod/v4";
 export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
+  stripe?: Stripe;
 }) => {
   const payload = opts.payload;
 
   return {
     headers: opts.headers,
     payload,
+    stripe: opts.stripe,
   };
 };
 /**
@@ -116,11 +120,50 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
     canSetHeaders: false,
   });
 
-  if (!auth.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+  if (!auth.user)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to access this resource",
+    });
 
   return opts.next({
     ctx: {
+      ...ctx,
       user: auth.user,
+    },
+  });
+});
+
+export const stripePublicProcedure = publicProcedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.stripe)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Stripe is not configured",
+    });
+
+  return opts.next({
+    ctx: {
+      ...ctx,
+      stripe: ctx.stripe,
+    },
+  });
+});
+
+export const stripeProtectedProcedure = protectedProcedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.stripe)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Stripe is not configured",
+    });
+
+  return opts.next({
+    ctx: {
+      ...ctx,
+      stripe: ctx.stripe,
     },
   });
 });

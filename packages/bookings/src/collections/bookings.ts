@@ -58,7 +58,7 @@ const defaultAccess: AccessControls = {
   read: isAdminOrOwner,
   create: bookingCreateAccess,
   update: bookingUpdateAccess,
-  delete: ({ req }) => checkRole(["admin"], req.user as User),
+  delete: ({ req }) => checkRole(["admin"], req.user as unknown as User),
 };
 
 const defaultAdmin: CollectionAdminOptions = {

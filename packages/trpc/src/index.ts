@@ -20,5 +20,11 @@ type RouterInputs = inferRouterInputs<AppRouter>;
  **/
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
+// Export server-side utilities
 export { createTRPCContext, appRouter };
 export type { AppRouter, RouterInputs, RouterOutputs };
+
+// Export client-side utilities
+export { TRPCReactProvider, useTRPC } from "./client";
+export { createServerTRPC, createServerTRPCContext } from "./server";
+export { createQueryClient } from "./query-client";

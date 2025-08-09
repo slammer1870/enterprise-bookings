@@ -5,6 +5,7 @@ import { appRouter, createTRPCContext } from '@repo/trpc'
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
+import { stripe } from '@/lib/stripe'
 
 /**
  * Configure basic CORS headers
@@ -15,6 +16,7 @@ const setCorsHeaders = (res: Response) => {
   res.headers.set('Access-Control-Request-Method', '*')
   res.headers.set('Access-Control-Allow-Methods', 'OPTIONS, GET, POST')
   res.headers.set('Access-Control-Allow-Headers', '*')
+  res.headers.set('Access-Control-Allow-Credentials', 'true')
 }
 
 export const OPTIONS = () => {
@@ -27,11 +29,12 @@ export const OPTIONS = () => {
 
 const handler = async (req: NextRequest) => {
   const payload = await getPayload({ config })
+
   const response = await fetchRequestHandler({
     endpoint: '/api/trpc',
     router: appRouter,
     req,
-    createContext: () => createTRPCContext({ headers: req.headers, payload }),
+    createContext: () => createTRPCContext({ headers: req.headers, payload, stripe }),
     onError({ error, path }) {
       console.error(`>>> tRPC Error on '${path}'`, error)
     },

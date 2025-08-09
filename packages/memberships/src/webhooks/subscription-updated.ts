@@ -95,3 +95,4 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     console.error("Error updating subscription", error);
   }
 };
+ 

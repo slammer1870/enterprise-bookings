@@ -97,9 +97,6 @@ const defaultFields: Field[] = [
     name: "stripeProductId",
     type: "text",
     label: "Stripe Plan",
-    access: {
-      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-    },
     admin: {
       components: {
         Field: {
