@@ -186,6 +186,8 @@ export default buildConfig({
             type: 'date',
             virtual: true,
             readOnly: true,
+            required: false,
+            validate: () => true, // Skip validation for virtual fields
             admin: {
               hidden: true,
               readOnly: true,
