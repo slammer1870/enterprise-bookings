@@ -118,11 +118,7 @@ export const checkUserSubscription = async (
         startDate: { less_than_equal: new Date() },
         endDate: { greater_than_equal: new Date() },
         plan: {
-          in: [
-            lesson.classOption.paymentMethods?.allowedPlans.map(
-              (plan) => plan.id
-            ),
-          ],
+          in: [allowedPlans.map((plan) => plan.id)],
         },
         or: [
           { cancelAt: { greater_than: new Date() } },
