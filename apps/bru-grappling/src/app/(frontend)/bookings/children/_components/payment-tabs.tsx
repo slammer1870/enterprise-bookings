@@ -53,7 +53,11 @@ export const PaymentTabs = ({
       </TabsContent>
       <TabsContent value="subscription" className="w-full">
         <PlanList
-          plans={paymentMethods?.allowedPlans || []}
+          plans={
+            paymentMethods?.allowedPlans?.filter(
+              (plan) => plan.stripeProductId && plan.status === 'active',
+            ) || []
+          }
           mutation={mutation}
           actionLabel="Subscribe"
           lessonId={lessonId}

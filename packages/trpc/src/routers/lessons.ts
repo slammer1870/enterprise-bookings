@@ -47,7 +47,7 @@ export const lessonsRouter = {
         }
 
         // Fetch classOption separately to avoid relationship depth issues
-        const { classOption } = lesson;
+        const classOption = lesson.classOption as ClassOption;
         // Validate that the class option has type 'child'
         if (!classOption || classOption.type !== "child") {
           throw new TRPCError({
@@ -103,7 +103,7 @@ export const lessonsRouter = {
         });
       }
 
-      if (lesson.remainingCapacity <= 0) {
+      if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
         return false;
       }
 

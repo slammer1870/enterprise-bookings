@@ -39,9 +39,11 @@ export const CheckInButton = ({
       className: 'w-full bg-green-600 hover:bg-green-700',
       disabled: false,
       action: () => {
-        type === 'child'
-          ? router.push(`/bookings/children/${id}`)
-          : router.push(`/bookings/${id}/checkin`)
+        if (type === 'child') {
+          router.push(`/bookings/children/${id}`)
+        } else {
+          router.push(`/bookings/${id}/checkin`)
+        }
       },
     },
     booked: {

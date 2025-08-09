@@ -28,32 +28,30 @@ export const PlanList = ({
 }) => {
   return (
     <div className="flex flex-col gap-4 w-full">
-      {plans
-        .filter((plan) => plan.stripeProductId && plan.status === 'active')
-        .map((plan: Plan) => {
-          const priceData = plan.priceJSON ? JSON.parse(plan.priceJSON as string) : null
-          const id = priceData?.id as string
+      {plans.map((plan: Plan) => {
+        const priceData = plan.priceJSON ? JSON.parse(plan.priceJSON as string) : null
+        const id = priceData?.id as string
 
-          return (
-            <div key={plan.id}>
-              <PlanDetail
-                plan={plan}
-                actionLabel={actionLabel}
-                handleAction={() => {
-                  mutation.mutate({
-                    priceId: id,
-                    metadata: { lessonId: lessonId.toString() },
-                    mode: 'subscription',
-                    quantity: 1,
-                    successUrl: `${window.location.origin}/bookings/children/${lessonId}`,
-                    cancelUrl: `${window.location.origin}/bookings/children/${lessonId}`,
-                  })
-                }}
-                loading={mutation.isPending}
-              />
-            </div>
-          )
-        })}
+        return (
+          <div key={plan.id}>
+            <PlanDetail
+              plan={plan}
+              actionLabel={actionLabel}
+              handleAction={() => {
+                mutation.mutate({
+                  priceId: id,
+                  metadata: { lessonId: lessonId.toString() },
+                  mode: 'subscription',
+                  quantity: 1,
+                  successUrl: `${window.location.origin}/bookings/children/${lessonId}`,
+                  cancelUrl: `${window.location.origin}/bookings/children/${lessonId}`,
+                })
+              }}
+              loading={mutation.isPending}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }

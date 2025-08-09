@@ -52,7 +52,7 @@
     "@repo/shared-types": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",
-    "@types/react": "19.1.0",
+    "@types/react": "*",
     "@types/react-dom": "19.1.2",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",

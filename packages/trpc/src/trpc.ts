@@ -11,6 +11,7 @@ import Stripe from "stripe";
 import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
+import { User } from "@repo/shared-types";
 
 /**
  * 1. CONTEXT

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { generatePasswordSaltHash } from "@repo/shared-utils";
 import crypto from "crypto";
 
+import { User } from "@repo/shared-types";
+
 export const usersRouter = {
   getChildren: protectedProcedure.query(async ({ ctx }) => {
     const children = await ctx.payload.find({
@@ -38,9 +40,9 @@ export const usersRouter = {
           hash,
           salt,
           password: randomPassword,
-        },
+        } as any,
       });
 
-      return child;
+      return child as User;
     }),
 };
