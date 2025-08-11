@@ -6,8 +6,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { ClassOption } from '@repo/shared-types'
 
 import { toast } from 'sonner'
-import { PaymentTabs } from './payment-tabs'
-import { PlanDetail } from './plan-detail'
+
+import { PaymentTabs } from '@/app/(frontend)/bookings/children/_components/payments/payment-tabs'
+import { PlanDetail } from '@/components/memberships/plan-detail'
 
 export const ManageNoValidSubscription = ({
   paymentMethods,
@@ -19,8 +20,6 @@ export const ManageNoValidSubscription = ({
   const trpc = useTRPC()
 
   const { data } = useQuery(trpc.subscriptions.getSubscription.queryOptions())
-
-  console.log('data', data)
 
   const { mutate: createCustomerUpgradePortal, isPending: isCreatingUpgradePortal } = useMutation(
     trpc.payments.createCustomerUpgradePortal.mutationOptions({

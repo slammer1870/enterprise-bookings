@@ -41,6 +41,8 @@ import {
 
 import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
+import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -261,6 +263,7 @@ export default buildConfig({
       isTestKey: Boolean(process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY),
       rest: false,
       webhooks: {
+        'payment_intent.succeeded': paymentIntentSucceeded,
         'customer.subscription.created': subscriptionCreated,
         'customer.subscription.updated': subscriptionUpdated,
         'customer.subscription.deleted': subscriptionCanceled,

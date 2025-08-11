@@ -22,45 +22,26 @@ import {
 
 import { Check } from 'lucide-react'
 
-import { User } from '@repo/shared-types'
-
 import { AddChild } from './add-child'
 import { toast } from 'sonner'
 
+import { User } from '@repo/shared-types'
+
 export const SelectChildren = ({
-  bookedChildren,
   lessonId,
+  bookedChildren,
+  bookChild,
+  isBooking,
 }: {
-  bookedChildren?: User[]
   lessonId: number
+  bookedChildren: User[]
+  bookChild: (data: { lessonId: number; childId: number; status?: 'confirmed' | 'pending' }) => void
+  isBooking: boolean
 }) => {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
   const { data: children, isPending } = useSuspenseQuery(trpc.users.getChildren.queryOptions())
-
-  const { mutate: bookChild, isPending: isBooking } = useMutation(
-    trpc.bookings.createChildBooking.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
-        })
-        queryClient.invalidateQueries({
-          queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
-        })
-      },
-      onError: (error) => {
-        console.log('Error in bookChild', error)
-        toast.error(error.message)
-      },
-      onMutate: () => {
-        toast.loading('Booking child...')
-      },
-      onSettled: () => {
-        toast.dismiss()
-      },
-    }),
-  )
 
   return (
     <Popover>
@@ -88,7 +69,7 @@ export const SelectChildren = ({
                   value={child.name}
                   key={child.name}
                   onSelect={() => {
-                    bookChild({ lessonId, childId: child.id })
+                    bookChild({ lessonId, childId: child.id, status: 'confirmed' })
                   }}
                   disabled={bookedChildren?.some((c) => c.id === child.id)}
                 >

@@ -1,6 +1,7 @@
 import { Plan } from '@repo/shared-types'
 import { UseMutationResult } from '@tanstack/react-query'
-import { PlanDetail } from './plan-detail'
+
+import { PlanDetail } from '@/components/memberships/plan-detail'
 
 import Stripe from 'stripe'
 

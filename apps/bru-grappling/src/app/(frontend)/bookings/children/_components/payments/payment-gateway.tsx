@@ -4,8 +4,8 @@ import { useTRPC } from '@repo/trpc'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { ClassOption } from '@repo/shared-types'
 
-import { ValidateSubscription } from './validate-subscription'
-import { ManageNoValidSubscription } from './manage-no-valid-subscription'
+import { ValidateSubscription } from '../validate-subscription'
+import { ManageNoValidSubscription } from '../manage-no-valid-subscription'
 
 export const PaymentGateway = ({
   paymentMethods,

@@ -7,7 +7,8 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 
 import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
 
-import { PaymentGateway } from './payment-gateway'
+import { PaymentGateway } from '@/app/(frontend)/bookings/children/_components/payments/payment-gateway'
+
 import { ChildrensBookingForm } from './childrens-booking-form'
 
 export const ChildrensBooking = () => {

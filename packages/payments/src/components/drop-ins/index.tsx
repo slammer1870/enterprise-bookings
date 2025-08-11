@@ -7,7 +7,15 @@ import CheckoutForm from "../checkout-form";
 
 import { PriceView } from "./price";
 
-export const DropInView = ({ lesson }: { lesson: Lesson }) => {
+export const DropInView = ({
+  lesson,
+  quantity,
+  metadata,
+}: {
+  lesson: Lesson;
+  quantity?: number;
+  metadata?: Record<string, string>;
+}) => {
   const { price } = usePayment({
     basePrice: lesson.classOption.paymentMethods?.allowedDropIn?.price || 0,
     discountTiers:
@@ -15,6 +23,7 @@ export const DropInView = ({ lesson }: { lesson: Lesson }) => {
     paymentMethods:
       lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods || [],
     trialable: lesson.bookingStatus === "trialable",
+    quantity: quantity || 1,
   });
 
   return (
@@ -24,6 +33,7 @@ export const DropInView = ({ lesson }: { lesson: Lesson }) => {
         priceComponent={<PriceView price={price} />}
         metadata={{
           lessonId: lesson.id.toString(),
+          ...metadata,
         }}
       />
     </div>

@@ -4,7 +4,7 @@ import { useTRPC } from '@repo/trpc'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { Subscription } from '@repo/shared-types'
-import { PlanDetail } from './plan-detail'
+import { PlanDetail } from '../../../../../components/memberships/plan-detail'
 import { ChildrensBookingForm } from './childrens-booking-form'
 
 const getSubscriptionMessage = (status: string, hasLimitReached: boolean) => {

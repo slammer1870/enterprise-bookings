@@ -233,8 +233,15 @@ export const bookingsRouter = {
       return true;
     }),
   createChildBooking: protectedProcedure
-    .input(z.object({ lessonId: z.number(), childId: z.number() }))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        childId: z.number(),
+        status: z.enum(["confirmed", "pending"]).optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
+      const { status = "pending" } = input;
       const child = await ctx.payload.findByID({
         collection: "users",
         id: input.childId,
@@ -267,7 +274,7 @@ export const bookingsRouter = {
           collection: "bookings",
           id: existingBooking.docs[0]?.id as number,
           data: {
-            status: "confirmed",
+            status: status,
           },
           overrideAccess: false,
           user: child,
@@ -281,7 +288,7 @@ export const bookingsRouter = {
         data: {
           lesson: input.lessonId,
           user: child.id,
-          status: "confirmed",
+          status: status,
         },
         overrideAccess: false,
         user: child,
@@ -345,7 +352,7 @@ export const bookingsRouter = {
         where: {
           lesson: { equals: input.id },
           "user.parent": { equals: ctx.user.id },
-          status: { equals: "confirmed" },
+          status: { not_equals: "cancelled" },
         },
         depth: 2,
         overrideAccess: false,

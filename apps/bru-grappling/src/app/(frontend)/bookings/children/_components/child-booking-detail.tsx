@@ -33,7 +33,8 @@ export const ChildBookingDetail = ({ booking }: { booking: Booking }) => {
   return (
     <div className="flex justify-between">
       <div>
-        {booking.user.name} - {booking.user.email}
+        {booking.user.name} - {booking.user.email}{' '}
+        {booking.status === 'pending' && '(Requires Payment)'}
       </div>
       <Button
         type="button"
