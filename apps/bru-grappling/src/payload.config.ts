@@ -55,11 +55,11 @@ export default buildConfig({
   },
   collections: [Users, Media, Pages, Posts],
   editor: lexicalEditor(),
-  /*email: resendAdapter({
+  email: resendAdapter({
     defaultFromAddress: 'hello@brugrappling.com',
     defaultFromName: 'Brú Grappling',
-    apiKey: ,process.env.RESEND_API_KEY || '',
-  }),*/
+    apiKey: process.env.RESEND_API_KEY || '',
+  }),
   secret: process.env.PAYLOAD_SECRET || 'sectre',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
