@@ -40,13 +40,13 @@ export const SelectChildren = ({
   const { data: children, isPending } = useSuspenseQuery(trpc.users.getChildren.queryOptions())
 
   const { mutate: bookChild, isPending: isBooking } = useMutation(
-    trpc.lessons.bookChild.mutationOptions({
+    trpc.bookings.createChildBooking.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getChildrensBookings.queryKey({ id: lessonId }),
+          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
         })
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.canBookChild.queryKey({ id: lessonId }),
+          queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
         })
       },
       onError: (error) => {
@@ -88,7 +88,7 @@ export const SelectChildren = ({
                   value={child.name}
                   key={child.name}
                   onSelect={() => {
-                    bookChild({ lessonId: lessonId, childId: child.id })
+                    bookChild({ lessonId, childId: child.id })
                   }}
                   disabled={bookedChildren?.some((c) => c.id === child.id)}
                 >

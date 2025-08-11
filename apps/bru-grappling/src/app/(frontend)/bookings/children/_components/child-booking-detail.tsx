@@ -10,13 +10,13 @@ export const ChildBookingDetail = ({ booking }: { booking: Booking }) => {
   const queryClient = useQueryClient()
 
   const { mutate: unbookChildren, isPending: isUnbooking } = useMutation(
-    trpc.lessons.unbookChild.mutationOptions({
+    trpc.bookings.cancelChildBooking.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getChildrensBookings.queryKey({ id: booking.lesson.id }),
+          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: booking.lesson.id }),
         })
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.canBookChild.queryKey({ id: booking.lesson.id }),
+          queryKey: trpc.bookings.canBookChild.queryKey({ id: booking.lesson.id }),
         })
       },
       onError: (error) => {

@@ -25,11 +25,11 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
   const trpc = useTRPC()
 
   const { data: bookedChildren } = useSuspenseQuery(
-    trpc.lessons.getChildrensBookings.queryOptions({ id: lessonId }),
+    trpc.bookings.getChildrensBookings.queryOptions({ id: lessonId }),
   )
 
   const { data: canBookChild } = useSuspenseQuery(
-    trpc.lessons.canBookChild.queryOptions({
+    trpc.bookings.canBookChild.queryOptions({
       id: lessonId,
     }),
   )

@@ -6,6 +6,8 @@ import { Lesson } from '@repo/shared-types'
 import { Button, ButtonProps } from '@repo/ui/components/ui/button'
 import { MouseEventHandler } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 export const CheckInButton = ({
   bookingStatus,
@@ -19,6 +21,41 @@ export const CheckInButton = ({
   const trpc = useTRPC()
 
   const router = useRouter()
+
+  const { mutate: createBooking } = useMutation(
+    trpc.bookings.createBooking.mutationOptions({
+      onSuccess: () => {
+        toast.success('Booking created')
+      },
+      onError: (error) => {
+        router.push(`/bookings/${id}`)
+      },
+    }),
+  )
+
+  const { mutate: cancelBooking } = useMutation(
+    trpc.bookings.cancelBooking.mutationOptions({
+      onSuccess: () => {
+        toast.success('Booking cancelled')
+      },
+    }),
+  )
+
+  const { mutate: joinWaitlist } = useMutation(
+    trpc.bookings.joinWaitlist.mutationOptions({
+      onSuccess: () => {
+        toast.success('Joined waitlist')
+      },
+    }),
+  )
+
+  const { mutate: leaveWaitlist } = useMutation(
+    trpc.bookings.leaveWaitlist.mutationOptions({
+      onSuccess: () => {
+        toast.success('Left waitlist')
+      },
+    }),
+  )
 
   const config: Record<
     Lesson['bookingStatus'],
@@ -40,7 +77,7 @@ export const CheckInButton = ({
         if (type === 'child') {
           router.push(`/bookings/children/${id}`)
         } else {
-          console.log('Check In')
+          createBooking({ id })
         }
       },
     },
@@ -50,7 +87,7 @@ export const CheckInButton = ({
       className: 'w-full',
       disabled: false,
       action: () => {
-        console.log('Cancel Booking')
+        cancelBooking({ id })
       },
     },
     trialable: {
@@ -59,7 +96,7 @@ export const CheckInButton = ({
       className: 'w-full bg-blue-600 hover:bg-blue-700',
       disabled: false,
       action: () => {
-        console.log('Cancel Booking')
+        createBooking({ id })
       },
     },
     waitlist: {
@@ -68,7 +105,7 @@ export const CheckInButton = ({
       className: 'w-full bg-yellow-600 hover:bg-yellow-700 text-white',
       disabled: false,
       action: () => {
-        console.log('Cancel Booking')
+        joinWaitlist({ id })
       },
     },
     waiting: {
@@ -77,7 +114,7 @@ export const CheckInButton = ({
       className: 'w-full border-yellow-600 text-yellow-600 hover:bg-yellow-50',
       disabled: false,
       action: () => {
-        console.log('Cancel Booking')
+        leaveWaitlist({ id })
       },
     },
     childrenBooked: {
@@ -95,7 +132,7 @@ export const CheckInButton = ({
       className: 'w-full opacity-50 cursor-not-allowed',
       disabled: true,
       action: () => {
-        console.log('Closed')
+        toast.error('Lesson is closed')
       },
     },
   } as const
