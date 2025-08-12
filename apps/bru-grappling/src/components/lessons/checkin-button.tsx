@@ -2,11 +2,11 @@
 
 import { useTRPC } from '@repo/trpc/client'
 
-import { Lesson } from '@repo/shared-types'
+import { Booking, Lesson } from '@repo/shared-types'
 import { Button, ButtonProps } from '@repo/ui/components/ui/button'
 import { MouseEventHandler } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 export const CheckInButton = ({
@@ -16,16 +16,19 @@ export const CheckInButton = ({
 }: {
   bookingStatus: Lesson['bookingStatus']
   type: Lesson['classOption']['type']
-  id: Lesson['id']
+  id: Booking['id']
 }) => {
   const trpc = useTRPC()
-
+  const queryClient = useQueryClient()
   const router = useRouter()
 
   const { mutate: createBooking } = useMutation(
     trpc.bookings.createBooking.mutationOptions({
       onSuccess: () => {
         toast.success('Booking created')
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        })
       },
       onError: (error) => {
         router.push(`/bookings/${id}`)
@@ -37,6 +40,9 @@ export const CheckInButton = ({
     trpc.bookings.cancelBooking.mutationOptions({
       onSuccess: () => {
         toast.success('Booking cancelled')
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        })
       },
     }),
   )
@@ -45,6 +51,9 @@ export const CheckInButton = ({
     trpc.bookings.joinWaitlist.mutationOptions({
       onSuccess: () => {
         toast.success('Joined waitlist')
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        })
       },
     }),
   )
@@ -53,6 +62,9 @@ export const CheckInButton = ({
     trpc.bookings.leaveWaitlist.mutationOptions({
       onSuccess: () => {
         toast.success('Left waitlist')
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        })
       },
     }),
   )

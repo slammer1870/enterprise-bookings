@@ -15,11 +15,11 @@ export default function ScheduleComponent() {
 
   const [selectedDate, setSelectedDate] = useState(new Date())
 
-  const { data: lessons, isLoading } = useQuery(
-    trpc.lessons.getByDate.queryOptions({
+  const { data: lessons, isLoading } = useQuery({
+    ...trpc.lessons.getByDate.queryOptions({
       date: selectedDate.toISOString(),
     }),
-  )
+  })
 
   return (
     <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">

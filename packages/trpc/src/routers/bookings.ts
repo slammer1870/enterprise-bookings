@@ -41,14 +41,19 @@ export const bookingsRouter = {
   cancelBooking: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const booking = await ctx.payload.findByID({
+      const booking = await ctx.payload.find({
         collection: "bookings",
-        id: input.id,
+        where: {
+          lesson: { equals: input.id },
+          user: { equals: ctx.user.id },
+        },
         depth: 2,
+        limit: 1,
         overrideAccess: false,
+        user: ctx.user,
       });
 
-      if (!booking) {
+      if (booking.docs.length === 0) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Booking with id ${input.id} not found`,
@@ -57,7 +62,7 @@ export const bookingsRouter = {
 
       const updatedBooking = await ctx.payload.update({
         collection: "bookings",
-        id: input.id,
+        id: booking.docs[0]?.id as number,
         data: {
           status: "cancelled",
         },
@@ -85,6 +90,28 @@ export const bookingsRouter = {
         });
       }
 
+      const existingBooking = await ctx.payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: input.id },
+          user: { equals: ctx.user.id },
+        },
+        depth: 2,
+        limit: 1,
+      });
+
+      if (existingBooking.docs.length > 0) {
+        const updatedBooking = await ctx.payload.update({
+          collection: "bookings",
+          id: existingBooking.docs[0]?.id as number,
+          data: {
+            status: "waiting",
+          },
+        });
+
+        return updatedBooking as Booking;
+      }
+
       const booking = await ctx.payload.create({
         collection: "bookings",
         data: {
@@ -101,14 +128,18 @@ export const bookingsRouter = {
   leaveWaitlist: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const booking = await ctx.payload.findByID({
+      const booking = await ctx.payload.find({
         collection: "bookings",
-        id: input.id,
+        where: {
+          lesson: { equals: input.id },
+          user: { equals: ctx.user.id },
+          status: { equals: "waiting" },
+        },
         depth: 2,
-        overrideAccess: false,
+        limit: 1,
       });
 
-      if (!booking) {
+      if (booking.docs.length === 0) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Booking with id ${input.id} not found`,
@@ -117,12 +148,10 @@ export const bookingsRouter = {
 
       const updatedBooking = await ctx.payload.update({
         collection: "bookings",
-        id: input.id,
+        id: booking.docs[0]?.id as number,
         data: {
           status: "cancelled",
         },
-        overrideAccess: false,
-        user: ctx.user,
       });
 
       return updatedBooking as Booking;
