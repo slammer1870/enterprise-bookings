@@ -10,6 +10,7 @@ export const PlanList = ({
   mutation,
   actionLabel,
   lessonId,
+  metadata,
 }: {
   plans: Plan[]
   mutation: UseMutationResult<
@@ -26,33 +27,40 @@ export const PlanList = ({
   >
   actionLabel: string
   lessonId: number
+  metadata: Record<string, string>
 }) => {
   return (
     <div className="flex flex-col gap-4 w-full">
-      {plans.map((plan: Plan) => {
-        const priceData = plan.priceJSON ? JSON.parse(plan.priceJSON as string) : null
-        const id = priceData?.id as string
+      {plans.length > 0 ? (
+        plans.map((plan: Plan) => {
+          const priceData = plan.priceJSON ? JSON.parse(plan.priceJSON as string) : null
+          const id = priceData?.id as string
 
-        return (
-          <div key={plan.id}>
-            <PlanDetail
-              plan={plan}
-              actionLabel={actionLabel}
-              handleAction={() => {
-                mutation.mutate({
-                  priceId: id,
-                  metadata: { lessonId: lessonId.toString() },
-                  mode: 'subscription',
-                  quantity: 1,
-                  successUrl: `${window.location.origin}/bookings/children/${lessonId}`,
-                  cancelUrl: `${window.location.origin}/bookings/children/${lessonId}`,
-                })
-              }}
-              loading={mutation.isPending}
-            />
-          </div>
-        )
-      })}
+          return (
+            <div key={plan.id}>
+              <PlanDetail
+                plan={plan}
+                actionLabel={actionLabel}
+                handleAction={() => {
+                  mutation.mutate({
+                    priceId: id,
+                    metadata: metadata,
+                    mode: 'subscription',
+                    quantity: 1,
+                    successUrl: `${window.location.origin}/bookings/children/${lessonId}`,
+                    cancelUrl: `${window.location.origin}/bookings/children/${lessonId}`,
+                  })
+                }}
+                loading={mutation.isPending}
+              />
+            </div>
+          )
+        })
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p>No plans available</p>
+        </div>
+      )}
     </div>
   )
 }

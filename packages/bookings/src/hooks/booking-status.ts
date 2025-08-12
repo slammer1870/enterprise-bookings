@@ -96,30 +96,60 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     if (!req.user) {
       return "trialable";
     } else {
-      const userBooking = await req.payload.find({
-        collection: "bookings",
-        depth: 1,
-        limit: 1,
-        where: {
-          user: {
-            equals: req.user.id,
+      // For child classes, check if the parent has made any bookings
+      if (classOption.type === "child") {
+        // Check if the current user (parent) has made any confirmed bookings
+        const parentBooking = await req.payload.find({
+          collection: "bookings",
+          depth: 1,
+          limit: 1,
+          where: {
+            "user.parent": {
+              equals: req.user.id,
+            },
+            status: {
+              equals: "confirmed",
+            },
           },
-          status: {
-            equals: "confirmed",
+          context: {
+            // set a flag to prevent from running again
+            triggerAfterChange: false,
           },
-        },
-        context: {
-          // set a flag to prevent from running again
-          triggerAfterChange: false,
-        },
-      });
+        });
 
-      // Ensure userBooking is checked correctly
-      if (userBooking.docs.length > 0) {
-        // Check if there are any bookings
-        return "active";
+        // If parent has bookings, return active; otherwise trialable
+        if (parentBooking.docs.length > 0) {
+          return "active";
+        } else {
+          return "trialable";
+        }
       } else {
-        return "trialable";
+        // For non-child classes, use the existing logic
+        const userBooking = await req.payload.find({
+          collection: "bookings",
+          depth: 1,
+          limit: 1,
+          where: {
+            user: {
+              equals: req.user.id,
+            },
+            status: {
+              equals: "confirmed",
+            },
+          },
+          context: {
+            // set a flag to prevent from running again
+            triggerAfterChange: false,
+          },
+        });
+
+        // Ensure userBooking is checked correctly
+        if (userBooking.docs.length > 0) {
+          // Check if there are any bookings
+          return "active";
+        } else {
+          return "trialable";
+        }
       }
     }
   }

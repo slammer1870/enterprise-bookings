@@ -1,4 +1,6 @@
-import { ClassOption } from '@repo/shared-types'
+'use client'
+
+import { ClassOption, Lesson } from '@repo/shared-types'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 
@@ -7,7 +9,6 @@ import { PlanList } from '@/components/memberships/plan-list'
 import { toast } from 'sonner'
 
 import { SelectChildren } from '../select-children'
-import { ChildBookingDetail } from '../child-booking-detail'
 
 import { useTRPC } from '@repo/trpc/client'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
@@ -16,15 +17,17 @@ import { DropInView } from '@repo/payments/src/components/drop-ins'
 
 export const PaymentTabs = ({
   paymentMethods,
+  bookingStatus,
   lessonId,
+  remainingCapacity,
 }: {
   paymentMethods: ClassOption['paymentMethods']
+  bookingStatus: Lesson['bookingStatus']
   lessonId: number
+  remainingCapacity: number
 }) => {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
-
-  const { data } = useSuspenseQuery(trpc.lessons.getByIdForChildren.queryOptions({ id: lessonId }))
 
   const { data: bookedChildren } = useSuspenseQuery(
     trpc.bookings.getChildrensBookings.queryOptions({ id: lessonId }),
@@ -35,6 +38,12 @@ export const PaymentTabs = ({
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
         })
       },
     }),
@@ -57,60 +66,98 @@ export const PaymentTabs = ({
     }),
   )
 
+  const dropIn = paymentMethods?.allowedDropIn || null
+
+  const activePlans = paymentMethods?.allowedPlans?.filter(
+    (plan) => plan.stripeProductId && plan.status === 'active',
+  )
+
+  // Extract repeated calculations for better readability
+  const pendingBookings = bookedChildren.filter((booking) => booking.status === 'pending')
+  const activeBookings = bookedChildren.filter((booking) => booking.status !== 'cancelled')
+  const activeBookingCount = activeBookings.length
+
+  // Determine if user can add more children based on drop-in settings
+  const canAddMoreChildren =
+    dropIn && dropIn.adjustable
+      ? activeBookingCount <= remainingCapacity // Adjustable: limited by class capacity
+      : activeBookingCount <= 1 && remainingCapacity >= 1 // Non-adjustable: only one booking allowed
+
   return (
     <Tabs
       defaultValue={paymentMethods?.allowedPlans ? 'subscription' : 'drop-in'}
       className="w-full"
     >
       <TabsList className="w-full">
-        {paymentMethods?.allowedDropIn && (
+        {dropIn && (
           <TabsTrigger value="drop-in" className="w-full">
             Drop-in
           </TabsTrigger>
         )}
-        {paymentMethods?.allowedPlans && (
+        {activePlans && (
           <TabsTrigger value="subscription" className="w-full">
             Subscription
           </TabsTrigger>
         )}
       </TabsList>
-      <TabsContent value="drop-in" className="w-full">
-        {bookedChildren
-          .filter((booking) => booking.status === 'pending')
-          .map((booking) => (
-            <ChildBookingDetail key={booking.id} booking={booking} />
-          ))}
-        <SelectChildren
-          lessonId={lessonId}
-          bookedChildren={bookedChildren.map((booking) => booking.user)}
-          bookChild={(data) => bookChild({ ...data, status: 'pending' })}
-          isBooking={isBooking}
-        />
-        <DropInView
-          lesson={data}
-          quantity={bookedChildren.filter((booking) => booking.status === 'pending').length}
-          metadata={{
-            lessonId: lessonId.toString(),
-            bookingIds: [
-              ...new Set(
-                bookedChildren
-                  .filter((booking) => booking.status === 'pending')
-                  .map((booking) => booking.id.toString()),
-              ),
-            ].join(','),
-          }}
-        />
-      </TabsContent>
-      <TabsContent value="subscription" className="w-full">
+      {dropIn && (
+        <TabsContent value="drop-in" className="w-full flex flex-col gap-4 mt-4">
+          {canAddMoreChildren ? (
+            <SelectChildren
+              lessonId={lessonId}
+              bookedChildren={bookedChildren.map((booking) => booking.user)}
+              bookChild={(data) => bookChild({ ...data, status: 'pending' })}
+              isBooking={isBooking}
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {bookedChildren.length >= remainingCapacity && <p>This lesson is now full.</p>}
+            </div>
+          )}
+          {pendingBookings.length > 0 && (
+            <DropInView
+              bookingStatus={bookingStatus}
+              dropIn={dropIn}
+              quantity={pendingBookings.length}
+              metadata={{
+                lessonId: lessonId.toString(),
+                bookingIds: [
+                  ...new Set(pendingBookings.map((booking) => booking.id.toString())),
+                ].join(','),
+              }}
+            />
+          )}
+        </TabsContent>
+      )}
+
+      <TabsContent value="subscription" className="w-full flex flex-col gap-4">
+        {canAddMoreChildren ? (
+          <SelectChildren
+            lessonId={lessonId}
+            bookedChildren={bookedChildren.map((booking) => booking.user)}
+            bookChild={(data) => bookChild({ ...data, status: 'pending' })}
+            isBooking={isBooking}
+          />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {bookedChildren.length >= remainingCapacity && <p>This lesson is now full.</p>}
+          </div>
+        )}
         <PlanList
           plans={
-            paymentMethods?.allowedPlans?.filter(
-              (plan) => plan.stripeProductId && plan.status === 'active',
+            activePlans?.filter(
+              (plan) => plan.quantity == null || plan.quantity >= pendingBookings.length,
             ) || []
           }
           mutation={mutation}
           actionLabel="Subscribe"
           lessonId={lessonId}
+          metadata={{
+            lessonId: lessonId.toString(),
+            bookingIds: [...new Set(pendingBookings.map((booking) => booking.id.toString()))].join(
+              ',',
+            ),
+          }}
         />
       </TabsContent>
     </Tabs>

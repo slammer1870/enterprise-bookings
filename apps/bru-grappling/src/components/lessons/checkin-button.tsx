@@ -96,7 +96,11 @@ export const CheckInButton = ({
       className: 'w-full bg-blue-600 hover:bg-blue-700',
       disabled: false,
       action: () => {
-        createBooking({ id })
+        if (type === 'child') {
+          router.push(`/bookings/children/${id}`)
+        } else {
+          createBooking({ id })
+        }
       },
     },
     waitlist: {

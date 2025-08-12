@@ -18,6 +18,9 @@ export const ChildBookingDetail = ({ booking }: { booking: Booking }) => {
         queryClient.invalidateQueries({
           queryKey: trpc.bookings.canBookChild.queryKey({ id: booking.lesson.id }),
         })
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: booking.lesson.id }),
+        })
       },
       onError: (error) => {
         toast.error(error.message)
@@ -31,7 +34,7 @@ export const ChildBookingDetail = ({ booking }: { booking: Booking }) => {
     }),
   )
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-between items-center gap-4">
       <div>
         {booking.user.name} - {booking.user.email}{' '}
         {booking.status === 'pending' && '(Requires Payment)'}

@@ -3,19 +3,24 @@
 import { useTRPC } from '@repo/trpc'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
-import { ClassOption } from '@repo/shared-types'
+import { ClassOption, Lesson } from '@repo/shared-types'
 
 import { toast } from 'sonner'
 
-import { PaymentTabs } from '@/app/(frontend)/bookings/children/_components/payments/payment-tabs'
+import { PaymentTabs } from './payments/payment-tabs'
+
 import { PlanDetail } from '@/components/memberships/plan-detail'
 
 export const ManageNoValidSubscription = ({
   paymentMethods,
   lessonId,
+  bookingStatus,
+  remainingCapacity,
 }: {
   paymentMethods: ClassOption['paymentMethods']
   lessonId: number
+  bookingStatus: Lesson['bookingStatus']
+  remainingCapacity: number
 }) => {
   const trpc = useTRPC()
 
@@ -41,8 +46,19 @@ export const ManageNoValidSubscription = ({
     }),
   )
 
+  const activePlans = paymentMethods?.allowedPlans?.filter(
+    (plan) => plan.stripeProductId && plan.status === 'active',
+  )
+
   if (!data) {
-    return <PaymentTabs paymentMethods={paymentMethods} lessonId={lessonId} />
+    return (
+      <PaymentTabs
+        paymentMethods={paymentMethods}
+        lessonId={lessonId}
+        bookingStatus={bookingStatus}
+        remainingCapacity={remainingCapacity}
+      />
+    )
   }
 
   return (
@@ -51,27 +67,21 @@ export const ManageNoValidSubscription = ({
         You do not have a valid subscription to book this lesson. You can upgrade your subscription
         to book this lesson.
       </p>
-      {paymentMethods?.allowedPlans
-        ?.filter((plan) => plan.stripeProductId && plan.status === 'active')
-        .map((plan) => {
-          const priceData = plan.priceJSON ? JSON.parse(plan.priceJSON as string) : null
-          const id = priceData?.id as string
-
-          return (
-            <PlanDetail
-              key={plan.id || plan.stripeProductId}
-              plan={plan}
-              actionLabel="Upgrade Subscription"
-              handleAction={() =>
-                createCustomerUpgradePortal({
-                  productId: plan.stripeProductId || '',
-                  priceId: id,
-                })
-              }
-              loading={isCreatingUpgradePortal}
-            />
-          )
-        })}
+      {activePlans?.map((plan) => {
+        return (
+          <PlanDetail
+            key={plan.id}
+            plan={plan}
+            actionLabel="Upgrade Subscription"
+            handleAction={() =>
+              createCustomerUpgradePortal({
+                productId: plan.stripeProductId as string,
+              })
+            }
+            loading={isCreatingUpgradePortal}
+          />
+        )
+      })}
     </div>
   )
 }

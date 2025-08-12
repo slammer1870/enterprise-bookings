@@ -1,7 +1,6 @@
-import { Booking, Lesson, Subscription, User } from "@repo/shared-types";
-import { AccessArgs, Payload } from "payload";
-import { validateLessonStatus } from "../lesson";
-import { validateLessonPaymentMethods } from "../lesson";
+import { Booking, Lesson,  User } from "@repo/shared-types";
+import { AccessArgs } from "payload";
+import { validateLessonStatus, validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
 
 export const childrenCreateBookingMembershipAccess = async ({
@@ -88,6 +87,13 @@ export const childrenCreateBookingMembershipAccess = async ({
       return true;
     }
 
+    if (data.status === "pending") {
+      payload.logger.info("Booking is pending", {
+        booking: data,
+      });
+      return true;
+    }
+
     if (!validateLessonStatus(lesson)) {
       payload.logger.error("Lesson status is not valid", {
         lesson,
@@ -107,6 +113,7 @@ export const childrenCreateBookingMembershipAccess = async ({
 export const childrenUpdateBookingMembershipAccess = async ({
   req,
   id,
+  data,
 }: AccessArgs<Booking>): Promise<boolean> => {
   if (!req.user) {
     req.payload.logger.error("User is not authenticated", {
@@ -208,15 +215,17 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
     if (checkRole(["admin"], user)) return true;
 
-    if (req.data?.status === "cancelled") return true;
+    if (data?.status === "cancelled") return true;
 
-    if (lesson.bookingStatus === req.data?.status) {
+    if (data?.status === "pending") return true;
+
+    if (lesson.bookingStatus === data?.status) {
       req.payload.logger.info(
         "Lesson booking status is the same as the request status",
         {
           lessonId,
           userId,
-          status: req.data?.status,
+          status: data?.status,
         }
       );
       return true;

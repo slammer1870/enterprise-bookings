@@ -45,10 +45,22 @@ export const paymentsRouter = {
     .input(
       z.object({
         productId: z.string(),
-        priceId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const product = await ctx.payload.find({
+        collection: "class_options",
+        where: {
+          stripeProductId: { equals: input.productId },
+        },
+      });
+
+      if (product.docs.length === 0) {
+        throw new Error("Product not found");
+      }
+
+      const priceId = JSON.parse(product?.docs[0]?.priceJSON as string)?.id;
+
       const configurations =
         await ctx.stripe.billingPortal.configurations.list();
 
@@ -103,7 +115,7 @@ export const paymentsRouter = {
               products: [
                 {
                   product: input.productId,
-                  prices: [input.priceId],
+                  prices: [priceId],
                 },
               ],
             },

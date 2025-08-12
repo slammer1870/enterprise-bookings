@@ -20,7 +20,6 @@ import {
 } from '@repo/ui/components/ui/card'
 
 import { cn } from '@repo/ui/lib/utils'
-import { ChildBookingDetail } from './child-booking-detail'
 
 export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
   const trpc = useTRPC()
@@ -42,6 +41,12 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
         queryClient.invalidateQueries({
           queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
         })
+        queryClient.invalidateQueries({
+          queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
+        })
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
+        })
       },
     }),
   )
@@ -56,11 +61,6 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {bookedChildren
-          ?.filter((booking) => booking.status === 'confirmed')
-          .map((booking, index) => (
-            <ChildBookingDetail key={index} booking={booking} />
-          ))}
         {canBookChild ? (
           <SelectChildren
             lessonId={lessonId}

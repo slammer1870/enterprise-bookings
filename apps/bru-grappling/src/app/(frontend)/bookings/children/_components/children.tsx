@@ -10,6 +10,8 @@ import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary
 import { PaymentGateway } from '@/app/(frontend)/bookings/children/_components/payments/payment-gateway'
 
 import { ChildrensBookingForm } from './childrens-booking-form'
+import { ChildBookingDetail } from './child-booking-detail'
+import { ManageCurrentBookings } from './bookings/manage-current-bookings'
 
 export const ChildrensBooking = () => {
   const params = useParams()
@@ -30,11 +32,14 @@ export const ChildrensBooking = () => {
   return (
     <div className="flex flex-col gap-4 max-w-2xl mx-auto pt-24 px-4">
       <BookingSummary lesson={data} />
+      <ManageCurrentBookings lessonId={data.id} />
       {hasPaymentMethods ? (
         <PaymentGateway
           paymentMethods={data.classOption.paymentMethods}
           lessonDate={new Date(data.date)}
           lessonId={data.id}
+          bookingStatus={data.bookingStatus}
+          remainingCapacity={data.remainingCapacity}
         />
       ) : (
         <ChildrensBookingForm lessonId={data.id} />
