@@ -49,7 +49,7 @@ export const paymentsRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.payload.find({
-        collection: "class_options",
+        collection: "plans",
         where: {
           stripeProductId: { equals: input.productId },
         },

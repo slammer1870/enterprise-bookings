@@ -114,11 +114,15 @@ export default async function BookingPage({ params }: BookingPageProps) {
           />
         </TabsContent>
         <TabsContent value="dropin">
-          <DropInView 
-            bookingStatus={lesson.bookingStatus}
-            dropIn={lesson.classOption.paymentMethods?.allowedDropIn!}
-            quantity={1}
-          />
+          {lesson.classOption.paymentMethods?.allowedDropIn ? (
+            <DropInView 
+              bookingStatus={lesson.bookingStatus}
+              dropIn={lesson.classOption.paymentMethods.allowedDropIn}
+              quantity={1}
+            />
+          ) : (
+            <div>Drop-in payment option is not available</div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
