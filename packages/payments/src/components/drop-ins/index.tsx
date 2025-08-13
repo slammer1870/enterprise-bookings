@@ -36,6 +36,12 @@ export const DropInView = ({
 
   return (
     <div>
+      {bookingStatus === "trialable" && (
+        <span className="text-sm text-gray-500 my-2">
+          Since this is a trial class you will recieve a discount on your first
+          payment.
+        </span>
+      )}
       <CheckoutForm
         price={price.totalAmount}
         priceComponent={<PriceView price={price} />}
