@@ -30,7 +30,7 @@ export const DropInView = ({
     basePrice: dropIn.price,
     discountTiers: dropIn.discountTiers || [],
     paymentMethods: dropIn.paymentMethods || [],
-    trialable: bookingStatus === "trialable",
+    trialable: bookingStatus === "trialable" ? true : false,
     quantity: quantity || 1,
   });
 
