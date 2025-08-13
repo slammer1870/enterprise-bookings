@@ -47,7 +47,7 @@ function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
       elements,
       confirmParams: {
         // Make sure to change this to your payment completion page
-        return_url: "http://localhost:3000/dashboard",
+        return_url: window.location.href,
       },
     });
 
@@ -56,9 +56,9 @@ function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
     // your `return_url`. For some payment methods like iDEAL, your customer will
     // be redirected to an intermediate site first to authorize the payment, then
     // redirected to the `return_url`.
-    if (error.type === "card_error" || error.type === "validation_error") {
+    if (error && (error.type === "card_error" || error.type === "validation_error")) {
       setMessage(error.message || "An unexpected error occurred.");
-    } else {
+    } else if (error) {
       setMessage("An unexpected error occurred.");
     }
 
