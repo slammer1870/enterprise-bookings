@@ -1,15 +1,11 @@
+import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
+import { RichText } from '@payloadcms/richtext-lexical/react'
 import Image from 'next/image'
 
 export const AboutBlock: React.FC<{
   sections: {
     title: string
-    content: Array<{
-      text: string
-      link?: {
-        url: string
-        text: string
-      }
-    }>
+    content: SerializedEditorState
     image: {
       url: string
       width: number
@@ -31,21 +27,7 @@ export const AboutBlock: React.FC<{
             <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
               {section.title}
             </h3>
-            {section.content.map((content, contentIndex) => (
-              <p key={contentIndex} className="mb-4 lg:text-xl">
-                {content.text}
-                {content.link && (
-                  <a
-                    href={content.link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky-500 underline"
-                  >
-                    {content.link.text}
-                  </a>
-                )}
-              </p>
-            ))}
+            <RichText data={section.content} className="prose prose-a:text-blue-500" />
           </div>
           <div
             className={`lg:top-50 ${section.imagePosition === 'right' ? 'ml-auto lg:right-0' : 'mr-auto lg:left-0'} w-2/3 lg:absolute lg:w-1/3 2xl:w-auto`}

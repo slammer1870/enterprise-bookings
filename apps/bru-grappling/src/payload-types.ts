@@ -209,16 +209,21 @@ export interface Page {
             sections?:
               | {
                   title: string;
-                  content?:
-                    | {
-                        text?: string | null;
-                        link?: {
-                          url?: string | null;
-                          text?: string | null;
-                        };
-                        id?: string | null;
-                      }[]
-                    | null;
+                  content: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: string;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
                   image: number | Media;
                   imagePosition?: ('left' | 'right') | null;
                   id?: string | null;
@@ -998,18 +1003,7 @@ export interface PagesSelect<T extends boolean = true> {
                 | T
                 | {
                     title?: T;
-                    content?:
-                      | T
-                      | {
-                          text?: T;
-                          link?:
-                            | T
-                            | {
-                                url?: T;
-                                text?: T;
-                              };
-                          id?: T;
-                        };
+                    content?: T;
                     image?: T;
                     imagePosition?: T;
                     id?: T;

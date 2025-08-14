@@ -14,27 +14,8 @@ export const About: Block = {
         },
         {
           name: 'content',
-          type: 'array',
-          fields: [
-            {
-              name: 'text',
-              type: 'text',
-            },
-            {
-              name: 'link',
-              type: 'group',
-              fields: [
-                {
-                  name: 'url',
-                  type: 'text',
-                },
-                {
-                  name: 'text',
-                  type: 'text',
-                },
-              ],
-            },
-          ],
+          type: 'richText',
+          required: true,
         },
         {
           name: 'image',
