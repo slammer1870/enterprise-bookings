@@ -7,6 +7,12 @@ import { CollectionAfterChangeHook } from 'payload'
 
 export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
   const { name, email } = data
+
+  if (name === undefined || email === undefined) {
+    req.payload.logger.error('Name or email is not set')
+    return data
+  }
+
   const [first, ...last] = (name || '').split(' ')
   const subscriberHash = crypto.createHash('md5').update(email.toLowerCase()).digest('hex')
 
