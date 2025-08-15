@@ -21,6 +21,7 @@ export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
   const email = data?.email || 'info@brugrappling.ie'
   const locationUrl = data?.locationUrl || 'https://goo.gl/maps/aqepRdNh9YcYNGuEA'
   const instagramUrl = data?.instagramUrl || 'https://www.instagram.com/bru_grappling/'
+  const logo = data?.logo?.url || ''
 
   return (
     <footer className="body-font w-full bg-transparent text-gray-500">
@@ -29,7 +30,7 @@ export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
           href="/"
           className="title-font flex items-center justify-center font-medium text-gray-900 md:justify-start"
         >
-          <img src={data?.logo?.url || ''} alt="logo" className="h-12" />
+          <img src={logo} alt="logo" className="h-12" />
         </Link>
         <p className="my-4 text-sm text-gray-700 sm:ml-4 sm:mt-0 sm:border-l-2 sm:border-gray-200 sm:py-2 sm:pl-4 lg:my-0">
           © {currentYear} {companyName}
