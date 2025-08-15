@@ -22,9 +22,9 @@ export default function ScheduleComponent() {
   })
 
   return (
-    <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">
+    <div className="max-w-screen-sm w-full mx-auto p-6 lg:my-16" id="schedule">
       <div className="mx-auto mb-8 flex flex-col w-full max-w-screen-sm items-center justify-between">
-        <h2 className="text-2xl font-medium text-center mb-4">Schedule</h2>
+        <h2 className="text-3xl font-medium text-center mb-4 uppercase">Schedule</h2>
         <ToggleDate date={selectedDate} setDate={setSelectedDate} />
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
