@@ -13,14 +13,13 @@ interface FooterType {
 export async function Footer() {
   // Since footer might not be configured in the CMS yet, we'll make it optional
   let footerData: FooterType | null = null
-  
-  // TODO: Uncomment when footer global is added to payload config
-  // try {
-  //   footerData = (await getCachedGlobal('footer', 1)()) as FooterType
-  // } catch (error) {
-  //   // Footer global might not exist yet, that's okay
-  //   console.log('Footer global not found, using default footer')
-  // }
+
+  try {
+    footerData = (await getCachedGlobal('footer', 1)()) as FooterType
+  } catch (error) {
+    // Footer global might not exist yet, that's okay
+    console.log('Footer global not found, using default footer')
+  }
 
   return <FooterGlobal data={footerData || undefined} />
 }

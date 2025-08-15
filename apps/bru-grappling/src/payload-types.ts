@@ -119,10 +119,12 @@ export interface Config {
   };
   globals: {
     navbar: Navbar;
+    footer: Footer;
     scheduler: Scheduler;
   };
   globalsSelect: {
     navbar: NavbarSelect<false> | NavbarSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
@@ -1479,6 +1481,20 @@ export interface Navbar {
   createdAt?: string | null;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  companyName: string;
+  logo: number | Media;
+  email: string;
+  locationUrl: string;
+  instagramUrl: string;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * Create recurring lessons across your weekly schedule
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1550,6 +1566,20 @@ export interface NavbarSelect<T extends boolean = true> {
         isExternal?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  companyName?: T;
+  logo?: T;
+  email?: T;
+  locationUrl?: T;
+  instagramUrl?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

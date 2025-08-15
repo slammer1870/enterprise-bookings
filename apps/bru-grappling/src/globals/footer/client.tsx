@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { Media } from '@/payload-types'
 
 // Type definition for footer data until it's added to payload-types
 interface FooterType {
@@ -9,11 +10,12 @@ interface FooterType {
   email?: string
   locationUrl?: string
   instagramUrl?: string
+  logo?: Media
 }
 
 export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
   const currentYear = new Date().getFullYear()
-  
+
   // Use data from CMS or fallback to defaults
   const companyName = data?.companyName || 'Brú Grappling Studio'
   const email = data?.email || 'info@brugrappling.ie'
@@ -21,10 +23,13 @@ export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
   const instagramUrl = data?.instagramUrl || 'https://www.instagram.com/bru_grappling/'
 
   return (
-    <footer className="body-font bottom-0 left-0 w-full bg-transparent text-gray-500 md:absolute">
+    <footer className="body-font w-full bg-transparent text-gray-500">
       <div className="container mx-auto flex flex-col items-center justify-between p-4 sm:flex-row">
-        <Link href="/" className="title-font flex items-center justify-center font-medium text-gray-900 md:justify-start">
-          <img src="/logo.svg" alt="logo" className="h-12" />
+        <Link
+          href="/"
+          className="title-font flex items-center justify-center font-medium text-gray-900 md:justify-start"
+        >
+          <img src={data?.logo?.url || ''} alt="logo" className="h-12" />
         </Link>
         <p className="my-4 text-sm text-gray-700 sm:ml-4 sm:mt-0 sm:border-l-2 sm:border-gray-200 sm:py-2 sm:pl-4 lg:my-0">
           © {currentYear} {companyName}

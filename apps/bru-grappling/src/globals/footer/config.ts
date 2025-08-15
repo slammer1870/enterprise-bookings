@@ -1,6 +1,6 @@
 import { GlobalConfig } from 'payload'
 
-// import { revalidateFooter } from './hooks/revalidate-footer'
+import { revalidateFooter } from './hooks/revalidate-footer'
 
 export const Footer: GlobalConfig = {
   slug: 'footer',
@@ -13,6 +13,12 @@ export const Footer: GlobalConfig = {
       type: 'text',
       required: true,
       defaultValue: 'Brú Grappling Studio',
+    },
+    {
+      name: 'logo',
+      type: 'upload',
+      relationTo: 'media',
+      required: true,
     },
     {
       name: 'email',
@@ -33,9 +39,9 @@ export const Footer: GlobalConfig = {
       defaultValue: 'https://www.instagram.com/bru_grappling/',
     },
   ],
-  // hooks: {
-  //   afterChange: [revalidateFooter],
-  // },
+  hooks: {
+    afterChange: [revalidateFooter],
+  },
 }
 
 export default Footer

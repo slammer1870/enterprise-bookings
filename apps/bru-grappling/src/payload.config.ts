@@ -29,6 +29,7 @@ import {
 import { rolesPlugin } from '@repo/roles'
 
 import { Navbar } from './globals/navbar/config'
+import { Footer } from './globals/footer/config'
 
 import { Posts } from '@repo/website/src/collections/posts'
 
@@ -70,7 +71,7 @@ export default buildConfig({
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
   }),
-  globals: [Navbar],
+  globals: [Navbar, Footer],
   sharp: sharp as unknown as SharpDependency,
   plugins: [
     //payloadCloudPlugin(),
