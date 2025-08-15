@@ -36,7 +36,7 @@ export const AboutBlock: React.FC<{
             </div>
           </div>
           <div
-            className={`lg:top-50 ${section.imagePosition === 'right' ? 'ml-auto lg:right-0' : 'mr-auto lg:left-0'} w-2/3 lg:absolute lg:w-2/5 2xl:w-auto`}
+            className={`lg:top-0 ${section.imagePosition === 'right' ? 'ml-auto lg:right-0' : 'mr-auto lg:left-0'} w-2/3 lg:absolute lg:w-2/5 2xl:w-auto`}
           >
             <div>
               <Image
