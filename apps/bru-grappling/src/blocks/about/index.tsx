@@ -1,6 +1,6 @@
 import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
 import { RichText } from '@payloadcms/richtext-lexical/react'
-import Image from 'next/image'
+import Image from "next/legacy/image"
 
 export const AboutBlock: React.FC<{
   sections: {
