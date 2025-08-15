@@ -1,6 +1,6 @@
 import React from 'react'
 
-import Image from "next/legacy/image"
+import Image from "next/image"
 
 import { format } from 'date-fns'
 
@@ -35,9 +35,12 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
                 alt={lesson.classOption.name}
                 height={100}
                 width={100}
-                objectFit="cover"
                 className="mr-4 h-12 w-12 rounded-full"
-              />
+                style={{
+                  maxWidth: "100%",
+                  height: "auto",
+                  objectFit: "cover"
+                }} />
             )}
             <div className="flex flex-col">
               <span>{lesson.instructor.name}</span>
@@ -66,5 +69,5 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
         />
       </div>
     </div>
-  )
+  );
 }

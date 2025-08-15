@@ -1,4 +1,4 @@
-import Image from "next/legacy/image"
+import Image from "next/image"
 
 export const LearningBlock: React.FC<{
   title: string
@@ -20,9 +20,16 @@ export const LearningBlock: React.FC<{
           ))}
         </div>
         <div className="relative aspect-video h-full lg:h-72 2xl:h-96">
-          <Image src={image.url} layout="fill" objectFit="cover" alt={image.alt} />
+          <Image
+            src={image.url}
+            alt={image.alt}
+            fill
+            sizes="100vw"
+            style={{
+              objectFit: "cover"
+            }} />
         </div>
       </div>
     </section>
-  )
+  );
 }

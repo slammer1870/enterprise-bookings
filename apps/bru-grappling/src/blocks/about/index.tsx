@@ -1,6 +1,6 @@
 import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
 import { RichText } from '@payloadcms/richtext-lexical/react'
-import Image from "next/legacy/image"
+import Image from "next/image"
 
 export const AboutBlock: React.FC<{
   sections: {
@@ -43,13 +43,16 @@ export const AboutBlock: React.FC<{
                 src={section.image.url}
                 width={section.image.width}
                 height={section.image.height}
-                objectFit="cover"
                 alt={section.title}
-              />
+                style={{
+                  maxWidth: "100%",
+                  height: "auto",
+                  objectFit: "cover"
+                }} />
             </div>
           </div>
         </section>
       ))}
     </>
-  )
+  );
 }

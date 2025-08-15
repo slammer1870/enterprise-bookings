@@ -1,5 +1,5 @@
 import React from 'react'
-import Image from "next/legacy/image"
+import Image from "next/image"
 import type { Media } from '@/payload-types'
 
 type Review = {
@@ -25,11 +25,13 @@ export const Reviews: React.FC<Props> = ({ title, reviews }) => {
               <div className="relative h-24 w-24">
                 <Image
                   src={review.image.url || ''}
-                  layout="fill"
-                  objectFit="cover"
                   className="rounded-full"
                   alt={`Testimonial ${review.author}`}
-                />
+                  fill
+                  sizes="100vw"
+                  style={{
+                    objectFit: "cover"
+                  }} />
               </div>
               <div className="w-3/4 pl-4">
                 <p className="mb-2 pr-8 text-gray-900">{review.content}</p>
@@ -42,5 +44,5 @@ export const Reviews: React.FC<Props> = ({ title, reviews }) => {
         </div>
       </div>
     </section>
-  )
+  );
 }
