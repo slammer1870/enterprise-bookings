@@ -9,7 +9,7 @@ import { AuthProvider } from '@repo/auth'
 import PlausibleProvider from 'next-plausible'
 
 import { Navbar } from '@/globals/navbar'
-//import { FooterGlobal } from '@/globals/footer/client'
+import { Footer } from '@/globals/footer'
 
 import { TRPCReactProvider } from '@repo/trpc'
 
@@ -37,7 +37,7 @@ export default async function RootLayout({
               <Navbar />
               {children}
               {unauthenticated}
-              {/*<Footer />*/}
+              <Footer />
               <div id="modal-root" />
               <Toaster />
             </body>
