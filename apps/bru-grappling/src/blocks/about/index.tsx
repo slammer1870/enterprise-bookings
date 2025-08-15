@@ -24,13 +24,19 @@ export const AboutBlock: React.FC<{
           <div
             className={`container mx-auto mb-12 px-4 ${section.imagePosition === 'right' ? '' : 'lg:ml-auto'}`}
           >
-            <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
-              {section.title}
-            </h3>
-            <RichText data={section.content} className="prose prose-a:text-blue-500" />
+            <div
+              className={`${section.imagePosition === 'right' ? 'lg:mr-auto' : 'lg:ml-auto'} lg:w-2/5`}
+            >
+              <div>
+                <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
+                  {section.title}
+                </h3>
+                <RichText data={section.content} className="prose prose-a:text-blue-500" />
+              </div>
+            </div>
           </div>
           <div
-            className={`lg:top-50 ${section.imagePosition === 'right' ? 'ml-auto lg:right-0' : 'mr-auto lg:left-0'} w-2/3 lg:absolute lg:w-1/3 2xl:w-auto`}
+            className={`lg:top-50 ${section.imagePosition === 'right' ? 'ml-auto lg:right-0' : 'mr-auto lg:left-0'} w-2/3 lg:absolute lg:w-2/5 2xl:w-auto`}
           >
             <div>
               <Image
