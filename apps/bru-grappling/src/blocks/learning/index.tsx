@@ -1,8 +1,10 @@
-import Image from "next/image"
+import Image from 'next/image'
+import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
+import { RichText } from '@payloadcms/richtext-lexical/react'
 
 export const LearningBlock: React.FC<{
   title: string
-  content: string[]
+  content: SerializedEditorState
   image: {
     url: string
     alt: string
@@ -13,11 +15,7 @@ export const LearningBlock: React.FC<{
       <div className="container mx-auto items-center justify-between px-4 lg:flex">
         <div className="mb-12 pr-4 lg:mb-0">
           <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">{title}</h3>
-          {content.map((text, index) => (
-            <p key={index} className="mb-4 lg:text-xl">
-              {text}
-            </p>
-          ))}
+          <RichText data={content} />
         </div>
         <div className="relative aspect-video h-full lg:h-72 2xl:h-96">
           <Image
@@ -26,10 +24,11 @@ export const LearningBlock: React.FC<{
             fill
             sizes="100vw"
             style={{
-              objectFit: "cover"
-            }} />
+              objectFit: 'cover',
+            }}
+          />
         </div>
       </div>
     </section>
-  );
+  )
 }

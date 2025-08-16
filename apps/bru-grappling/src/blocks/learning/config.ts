@@ -10,14 +10,8 @@ export const Learning: Block = {
     },
     {
       name: 'content',
-      type: 'array',
-      fields: [
-        {
-          name: 'text',
-          type: 'text',
-          required: true,
-        },
-      ],
+      type: 'richText',
+      required: true,
     },
     {
       name: 'image',
