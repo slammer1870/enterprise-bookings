@@ -38,6 +38,67 @@ export const bookingsRouter = {
 
       return booking as Booking;
     }),
+  createOrUpdateBooking: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        status: z.enum(["confirmed", "cancelled"]).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, status = "confirmed" } = input;
+      const lesson = await ctx.payload.findByID({
+        collection: "lessons",
+        id,
+        depth: 3,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${id} not found`,
+        });
+      }
+
+      const booking = await ctx.payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: id },
+          user: { equals: ctx.user.id },
+        },
+        depth: 2,
+        limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      if (booking.docs.length === 0) {
+        return await ctx.payload.create({
+          collection: "bookings",
+          data: {
+            lesson: id,
+            user: ctx.user.id,
+            status,
+          },
+          overrideAccess: false,
+          user: ctx.user,
+        });
+      }
+
+      const updatedBooking = await ctx.payload.update({
+        collection: "bookings",
+        id: booking.docs[0]?.id as number,
+        data: {
+          status,
+        },
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      return updatedBooking as Booking;
+    }),
   cancelBooking: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {

@@ -22,8 +22,8 @@ export const CheckInButton = ({
   const queryClient = useQueryClient()
   const router = useRouter()
 
-  const { mutate: createBooking, isPending: isCreatingBooking } = useMutation(
-    trpc.bookings.createBooking.mutationOptions({
+  const { mutate: createOrUpdateBooking, isPending: isCreatingBooking } = useMutation(
+    trpc.bookings.createOrUpdateBooking.mutationOptions({
       onSuccess: () => {
         toast.success('Booking created')
         queryClient.invalidateQueries({
@@ -89,7 +89,7 @@ export const CheckInButton = ({
         if (type === 'child') {
           router.push(`/bookings/children/${id}`)
         } else {
-          createBooking({ id })
+          createOrUpdateBooking({ id, status: 'confirmed' })
         }
       },
     },
@@ -111,7 +111,7 @@ export const CheckInButton = ({
         if (type === 'child') {
           router.push(`/bookings/children/${id}`)
         } else {
-          createBooking({ id })
+          createOrUpdateBooking({ id, status: 'confirmed' })
         }
       },
     },

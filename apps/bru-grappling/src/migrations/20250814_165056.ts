@@ -2,12 +2,11 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TABLE "pages_blocks_about_sections_content" DISABLE ROW LEVEL SECURITY;
-  DROP TABLE "pages_blocks_about_sections_content" CASCADE;
+   DROP TABLE IF EXISTS "pages_blocks_about_sections_content" CASCADE;
   ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-08-14T16:50:56.058Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-08-14T16:50:56.058Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-08-14T16:50:56.058Z';
-  ALTER TABLE "pages_blocks_about_sections" ADD COLUMN "content" jsonb NOT NULL;`)
+  ALTER TABLE "pages_blocks_about_sections" ADD COLUMN IF NOT EXISTS "content" jsonb NOT NULL;`)
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {

@@ -1,4 +1,4 @@
-import { Booking, Lesson,  User } from "@repo/shared-types";
+import { Booking, Lesson, User } from "@repo/shared-types";
 import { AccessArgs } from "payload";
 import { validateLessonStatus, validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
@@ -7,7 +7,6 @@ export const childrenCreateBookingMembershipAccess = async ({
   req,
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
-  console.log("childrenCreateBookingMembershipAccess", data);
   if (!req.user) return false;
 
   const { payload } = req;
