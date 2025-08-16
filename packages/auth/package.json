@@ -23,7 +23,7 @@
     "react-hook-form": "*",
     "sharp": "0.34.2",
     "stripe": "*",
-    "zod": "^4.0.15"
+    "zod": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

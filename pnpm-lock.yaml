@@ -748,7 +748,7 @@ importers:
         specifier: 17.7.0
         version: 17.7.0
       zod:
-        specifier: ^4.0.15
+        specifier: '*'
         version: 4.0.15
     devDependencies:
       '@repo/eslint-config':
