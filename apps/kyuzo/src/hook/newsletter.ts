@@ -5,6 +5,11 @@ import crypto from 'crypto'
 
 import { CollectionAfterChangeHook } from 'payload'
 
+mailchimp.setConfig({
+  apiKey: process.env.MAILCHIMP_API_KEY!,
+  server: process.env.MAILCHIMP_SERVER!,
+})
+
 export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
   const { name, email } = data
 
