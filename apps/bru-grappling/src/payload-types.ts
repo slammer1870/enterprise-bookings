@@ -237,12 +237,21 @@ export interface Page {
           }
         | {
             title: string;
-            content?:
-              | {
-                  text: string;
-                  id?: string | null;
-                }[]
-              | null;
+            content: {
+              root: {
+                type: string;
+                children: {
+                  type: string;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
             image: number | Media;
             id?: string | null;
             blockName?: string | null;
@@ -254,7 +263,21 @@ export interface Page {
                   image: number | Media;
                   name: string;
                   role: string;
-                  bio: string;
+                  bio: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: string;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
                   id?: string | null;
                 }[]
               | null;
@@ -1017,12 +1040,7 @@ export interface PagesSelect<T extends boolean = true> {
           | T
           | {
               title?: T;
-              content?:
-                | T
-                | {
-                    text?: T;
-                    id?: T;
-                  };
+              content?: T;
               image?: T;
               id?: T;
               blockName?: T;
