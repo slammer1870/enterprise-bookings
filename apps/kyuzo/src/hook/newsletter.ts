@@ -11,7 +11,6 @@ mailchimp.setConfig({
 })
 
 export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
-  console.log('newsletter', data)
   const { submissionData } = data
 
   const name = submissionData.find((item: any) => item.field === 'name')?.value
