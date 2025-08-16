@@ -11,7 +11,11 @@ mailchimp.setConfig({
 })
 
 export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
-  const { name, email } = data
+  console.log('newsletter', data)
+  const { submissionData } = data
+
+  const name = submissionData.find((item: any) => item.field === 'name')?.value
+  const email = submissionData.find((item: any) => item.field === 'email')?.value
 
   if (name === undefined || email === undefined) {
     req.payload.logger.error('Name or email is not set')
