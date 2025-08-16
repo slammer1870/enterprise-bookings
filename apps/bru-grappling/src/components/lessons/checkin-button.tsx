@@ -22,7 +22,7 @@ export const CheckInButton = ({
   const queryClient = useQueryClient()
   const router = useRouter()
 
-  const { mutate: createBooking } = useMutation(
+  const { mutate: createBooking, isPending: isCreatingBooking } = useMutation(
     trpc.bookings.createBooking.mutationOptions({
       onSuccess: () => {
         toast.success('Booking created')
@@ -36,7 +36,7 @@ export const CheckInButton = ({
     }),
   )
 
-  const { mutate: cancelBooking } = useMutation(
+  const { mutate: cancelBooking, isPending: isCancellingBooking } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
       onSuccess: () => {
         toast.success('Booking cancelled')
@@ -47,7 +47,7 @@ export const CheckInButton = ({
     }),
   )
 
-  const { mutate: joinWaitlist } = useMutation(
+  const { mutate: joinWaitlist, isPending: isJoiningWaitlist } = useMutation(
     trpc.bookings.joinWaitlist.mutationOptions({
       onSuccess: () => {
         toast.success('Joined waitlist')
@@ -58,7 +58,7 @@ export const CheckInButton = ({
     }),
   )
 
-  const { mutate: leaveWaitlist } = useMutation(
+  const { mutate: leaveWaitlist, isPending: isLeavingWaitlist } = useMutation(
     trpc.bookings.leaveWaitlist.mutationOptions({
       onSuccess: () => {
         toast.success('Left waitlist')
@@ -81,10 +81,10 @@ export const CheckInButton = ({
     }
   > = {
     active: {
-      label: type === 'child' ? 'Check Child In' : 'Check In',
+      label: isCreatingBooking ? 'Creating...' : type === 'child' ? 'Check Child In' : 'Check In',
       variant: 'default' as const,
       className: 'w-full bg-green-600 hover:bg-green-700',
-      disabled: false,
+      disabled: isCreatingBooking,
       action: () => {
         if (type === 'child') {
           router.push(`/bookings/children/${id}`)
@@ -94,19 +94,19 @@ export const CheckInButton = ({
       },
     },
     booked: {
-      label: 'Cancel Booking',
+      label: isCancellingBooking ? 'Cancelling...' : 'Cancel Booking',
       variant: 'destructive' as const,
       className: 'w-full',
-      disabled: false,
+      disabled: isCancellingBooking,
       action: () => {
         cancelBooking({ id })
       },
     },
     trialable: {
-      label: 'Book Trial Class',
+      label: isCreatingBooking ? 'Creating...' : 'Book Trial Class',
       variant: 'default' as const,
       className: 'w-full bg-blue-600 hover:bg-blue-700',
-      disabled: false,
+      disabled: isCreatingBooking,
       action: () => {
         if (type === 'child') {
           router.push(`/bookings/children/${id}`)
@@ -116,28 +116,28 @@ export const CheckInButton = ({
       },
     },
     waitlist: {
-      label: 'Join Waitlist',
+      label: isJoiningWaitlist ? 'Joining...' : 'Join Waitlist',
       variant: 'secondary' as const,
       className: 'w-full bg-yellow-600 hover:bg-yellow-700 text-white',
-      disabled: false,
+      disabled: isJoiningWaitlist,
       action: () => {
         joinWaitlist({ id })
       },
     },
     waiting: {
-      label: 'Leave Waitlist',
+      label: isLeavingWaitlist ? 'Leaving...' : 'Leave Waitlist',
       variant: 'outline' as const,
       className: 'w-full border-yellow-600 text-yellow-600 hover:bg-yellow-50',
-      disabled: false,
+      disabled: isLeavingWaitlist,
       action: () => {
         leaveWaitlist({ id })
       },
     },
     childrenBooked: {
-      label: 'Manage Children',
+      label: isCreatingBooking ? 'Creating...' : 'Manage Children',
       variant: 'secondary' as const,
       className: 'w-full bg-purple-600 hover:bg-purple-700 text-white',
-      disabled: false,
+      disabled: isCreatingBooking,
       action: () => {
         router.push(`/bookings/children/${id}`)
       },
