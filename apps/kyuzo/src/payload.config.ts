@@ -37,6 +37,9 @@ import {
 
 import { Posts } from '@repo/website/src/collections/posts'
 
+import mailchimp from '@mailchimp/mailchimp_marketing'
+import { newsletter } from './hook/newsletter'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -79,6 +82,11 @@ export default buildConfig({
     formBuilderPlugin({
       fields: {
         // Customize form fields if need
+      },
+      formSubmissionOverrides: {
+        hooks: {
+          afterChange: [newsletter],
+        },
       },
     }),
     magicLinkPlugin({

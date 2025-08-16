@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "4.1.0",
+    "@mailchimp/mailchimp_marketing": "^3.0.80",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
@@ -37,6 +38,7 @@
     "@repo/shared-utils": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/website": "workspace:*",
+    "@types/mailchimp__mailchimp_marketing": "^3.0.21",
     "cross-env": "^7.0.3",
     "graphql": "^16.10.0",
     "lucide-react": "0.475.0",
