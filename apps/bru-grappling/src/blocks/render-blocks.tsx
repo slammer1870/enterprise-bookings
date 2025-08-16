@@ -8,6 +8,9 @@ import { LearningBlock } from './learning'
 import { MeetTheTeamBlock } from './meet-the-team'
 import { ScheduleBlock } from './schedule'
 import { TestimonialsBlock } from './testimonials'
+import { Contact } from './contact'
+
+import { FormBlock } from '@repo/website/src/blocks/form'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -16,6 +19,8 @@ const blockComponents = {
   meetTheTeam: MeetTheTeamBlock,
   schedule: ScheduleBlock,
   testimonials: TestimonialsBlock,
+  contact: Contact,
+  'form-block': FormBlock,
 }
 
 export const RenderBlocks: React.FC<{
