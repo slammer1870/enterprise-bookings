@@ -55,20 +55,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"block_name" varchar
   );
   
-  CREATE TABLE "pages_blocks_about_sections_content" (
-  	"_order" integer NOT NULL,
-  	"_parent_id" varchar NOT NULL,
-  	"id" varchar PRIMARY KEY NOT NULL,
-  	"text" varchar,
-  	"link_url" varchar,
-  	"link_text" varchar
-  );
-  
   CREATE TABLE "pages_blocks_about_sections" (
   	"_order" integer NOT NULL,
   	"_parent_id" varchar NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
   	"title" varchar NOT NULL,
+  	"content" jsonb NOT NULL,
   	"image_id" integer NOT NULL,
   	"image_position" "enum_pages_blocks_about_sections_image_position" DEFAULT 'right'
   );
@@ -81,19 +73,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"block_name" varchar
   );
   
-  CREATE TABLE "pages_blocks_learning_content" (
-  	"_order" integer NOT NULL,
-  	"_parent_id" varchar NOT NULL,
-  	"id" varchar PRIMARY KEY NOT NULL,
-  	"text" varchar NOT NULL
-  );
-  
   CREATE TABLE "pages_blocks_learning" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"_path" text NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
   	"title" varchar NOT NULL,
+  	"content" jsonb NOT NULL,
   	"image_id" integer NOT NULL,
   	"block_name" varchar
   );
@@ -105,7 +91,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"image_id" integer NOT NULL,
   	"name" varchar NOT NULL,
   	"role" varchar NOT NULL,
-  	"bio" varchar NOT NULL
+  	"bio" jsonb NOT NULL
   );
   
   CREATE TABLE "pages_blocks_meet_the_team" (
@@ -121,6 +107,47 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_parent_id" integer NOT NULL,
   	"_path" text NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE "pages_blocks_testimonials_testimonials" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" varchar NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"image_id" integer NOT NULL,
+  	"name" varchar NOT NULL,
+  	"role" varchar NOT NULL,
+  	"testimonial" jsonb NOT NULL
+  );
+  
+  CREATE TABLE "pages_blocks_testimonials" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"title" varchar NOT NULL,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE "pages_blocks_contact" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"title" varchar NOT NULL,
+  	"description" varchar NOT NULL,
+  	"form_id" integer NOT NULL,
+  	"block_name" varchar
+  );
+  
+  CREATE TABLE "pages_blocks_form_block" (
+  	"_order" integer NOT NULL,
+  	"_parent_id" integer NOT NULL,
+  	"_path" text NOT NULL,
+  	"id" varchar PRIMARY KEY NOT NULL,
+  	"form_id" integer NOT NULL,
+  	"enable_intro" boolean,
+  	"intro_content" jsonb,
   	"block_name" varchar
   );
   
@@ -349,7 +376,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "lessons" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"date" timestamp(3) with time zone DEFAULT '2025-08-07T13:39:30.379Z' NOT NULL,
+  	"date" timestamp(3) with time zone DEFAULT '2025-08-16T20:20:24.679Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
   	"end_time" timestamp(3) with time zone NOT NULL,
   	"lock_out_time" numeric DEFAULT 0 NOT NULL,
@@ -589,12 +616,23 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone
   );
   
+  CREATE TABLE "footer" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"company_name" varchar DEFAULT 'Brú Grappling Studio' NOT NULL,
+  	"logo_id" integer NOT NULL,
+  	"email" varchar DEFAULT 'info@brugrappling.ie' NOT NULL,
+  	"location_url" varchar DEFAULT 'https://goo.gl/maps/aqepRdNh9YcYNGuEA' NOT NULL,
+  	"instagram_url" varchar DEFAULT 'https://www.instagram.com/bru_grappling/' NOT NULL,
+  	"updated_at" timestamp(3) with time zone,
+  	"created_at" timestamp(3) with time zone
+  );
+  
   CREATE TABLE "scheduler_week_days_time_slot" (
   	"_order" integer NOT NULL,
   	"_parent_id" varchar NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"start_time" timestamp(3) with time zone DEFAULT '2025-08-07T13:39:30.379Z' NOT NULL,
-  	"end_time" timestamp(3) with time zone DEFAULT '2025-08-07T13:39:30.379Z' NOT NULL,
+  	"start_time" timestamp(3) with time zone DEFAULT '2025-08-16T20:20:24.680Z' NOT NULL,
+  	"end_time" timestamp(3) with time zone DEFAULT '2025-08-16T20:20:24.680Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
   	"instructor_id" integer,
@@ -621,17 +659,22 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "pages_blocks_hero" ADD CONSTRAINT "pages_blocks_hero_background_image_id_media_id_fk" FOREIGN KEY ("background_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "pages_blocks_hero" ADD CONSTRAINT "pages_blocks_hero_logo_id_media_id_fk" FOREIGN KEY ("logo_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "pages_blocks_hero" ADD CONSTRAINT "pages_blocks_hero_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "pages_blocks_about_sections_content" ADD CONSTRAINT "pages_blocks_about_sections_content_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_about_sections"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_about_sections" ADD CONSTRAINT "pages_blocks_about_sections_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "pages_blocks_about_sections" ADD CONSTRAINT "pages_blocks_about_sections_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_about"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_about" ADD CONSTRAINT "pages_blocks_about_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "pages_blocks_learning_content" ADD CONSTRAINT "pages_blocks_learning_content_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_learning"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_learning" ADD CONSTRAINT "pages_blocks_learning_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "pages_blocks_learning" ADD CONSTRAINT "pages_blocks_learning_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_meet_the_team_team_members" ADD CONSTRAINT "pages_blocks_meet_the_team_team_members_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "pages_blocks_meet_the_team_team_members" ADD CONSTRAINT "pages_blocks_meet_the_team_team_members_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_meet_the_team"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_meet_the_team" ADD CONSTRAINT "pages_blocks_meet_the_team_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_schedule" ADD CONSTRAINT "pages_blocks_schedule_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "pages_blocks_testimonials_testimonials" ADD CONSTRAINT "pages_blocks_testimonials_testimonials_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "pages_blocks_testimonials_testimonials" ADD CONSTRAINT "pages_blocks_testimonials_testimonials_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages_blocks_testimonials"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "pages_blocks_testimonials" ADD CONSTRAINT "pages_blocks_testimonials_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "pages_blocks_contact" ADD CONSTRAINT "pages_blocks_contact_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "pages_blocks_contact" ADD CONSTRAINT "pages_blocks_contact_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "pages_blocks_form_block" ADD CONSTRAINT "pages_blocks_form_block_form_id_forms_id_fk" FOREIGN KEY ("form_id") REFERENCES "public"."forms"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "pages_blocks_form_block" ADD CONSTRAINT "pages_blocks_form_block_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages" ADD CONSTRAINT "pages_meta_image_id_media_id_fk" FOREIGN KEY ("meta_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "posts_blocks_content" ADD CONSTRAINT "posts_blocks_content_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "posts" ADD CONSTRAINT "posts_hero_image_id_media_id_fk" FOREIGN KEY ("hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
@@ -688,6 +731,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_preferences"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "navbar_navigation_items" ADD CONSTRAINT "navbar_navigation_items_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."navbar"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "footer" ADD CONSTRAINT "footer_logo_id_media_id_fk" FOREIGN KEY ("logo_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_class_option_id_class_options_id_fk" FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."scheduler_week_days"("id") ON DELETE cascade ON UPDATE no action;
@@ -701,16 +745,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "pages_blocks_hero_path_idx" ON "pages_blocks_hero" USING btree ("_path");
   CREATE INDEX "pages_blocks_hero_background_image_idx" ON "pages_blocks_hero" USING btree ("background_image_id");
   CREATE INDEX "pages_blocks_hero_logo_idx" ON "pages_blocks_hero" USING btree ("logo_id");
-  CREATE INDEX "pages_blocks_about_sections_content_order_idx" ON "pages_blocks_about_sections_content" USING btree ("_order");
-  CREATE INDEX "pages_blocks_about_sections_content_parent_id_idx" ON "pages_blocks_about_sections_content" USING btree ("_parent_id");
   CREATE INDEX "pages_blocks_about_sections_order_idx" ON "pages_blocks_about_sections" USING btree ("_order");
   CREATE INDEX "pages_blocks_about_sections_parent_id_idx" ON "pages_blocks_about_sections" USING btree ("_parent_id");
   CREATE INDEX "pages_blocks_about_sections_image_idx" ON "pages_blocks_about_sections" USING btree ("image_id");
   CREATE INDEX "pages_blocks_about_order_idx" ON "pages_blocks_about" USING btree ("_order");
   CREATE INDEX "pages_blocks_about_parent_id_idx" ON "pages_blocks_about" USING btree ("_parent_id");
   CREATE INDEX "pages_blocks_about_path_idx" ON "pages_blocks_about" USING btree ("_path");
-  CREATE INDEX "pages_blocks_learning_content_order_idx" ON "pages_blocks_learning_content" USING btree ("_order");
-  CREATE INDEX "pages_blocks_learning_content_parent_id_idx" ON "pages_blocks_learning_content" USING btree ("_parent_id");
   CREATE INDEX "pages_blocks_learning_order_idx" ON "pages_blocks_learning" USING btree ("_order");
   CREATE INDEX "pages_blocks_learning_parent_id_idx" ON "pages_blocks_learning" USING btree ("_parent_id");
   CREATE INDEX "pages_blocks_learning_path_idx" ON "pages_blocks_learning" USING btree ("_path");
@@ -724,6 +764,20 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "pages_blocks_schedule_order_idx" ON "pages_blocks_schedule" USING btree ("_order");
   CREATE INDEX "pages_blocks_schedule_parent_id_idx" ON "pages_blocks_schedule" USING btree ("_parent_id");
   CREATE INDEX "pages_blocks_schedule_path_idx" ON "pages_blocks_schedule" USING btree ("_path");
+  CREATE INDEX "pages_blocks_testimonials_testimonials_order_idx" ON "pages_blocks_testimonials_testimonials" USING btree ("_order");
+  CREATE INDEX "pages_blocks_testimonials_testimonials_parent_id_idx" ON "pages_blocks_testimonials_testimonials" USING btree ("_parent_id");
+  CREATE INDEX "pages_blocks_testimonials_testimonials_image_idx" ON "pages_blocks_testimonials_testimonials" USING btree ("image_id");
+  CREATE INDEX "pages_blocks_testimonials_order_idx" ON "pages_blocks_testimonials" USING btree ("_order");
+  CREATE INDEX "pages_blocks_testimonials_parent_id_idx" ON "pages_blocks_testimonials" USING btree ("_parent_id");
+  CREATE INDEX "pages_blocks_testimonials_path_idx" ON "pages_blocks_testimonials" USING btree ("_path");
+  CREATE INDEX "pages_blocks_contact_order_idx" ON "pages_blocks_contact" USING btree ("_order");
+  CREATE INDEX "pages_blocks_contact_parent_id_idx" ON "pages_blocks_contact" USING btree ("_parent_id");
+  CREATE INDEX "pages_blocks_contact_path_idx" ON "pages_blocks_contact" USING btree ("_path");
+  CREATE INDEX "pages_blocks_contact_form_idx" ON "pages_blocks_contact" USING btree ("form_id");
+  CREATE INDEX "pages_blocks_form_block_order_idx" ON "pages_blocks_form_block" USING btree ("_order");
+  CREATE INDEX "pages_blocks_form_block_parent_id_idx" ON "pages_blocks_form_block" USING btree ("_parent_id");
+  CREATE INDEX "pages_blocks_form_block_path_idx" ON "pages_blocks_form_block" USING btree ("_path");
+  CREATE INDEX "pages_blocks_form_block_form_idx" ON "pages_blocks_form_block" USING btree ("form_id");
   CREATE UNIQUE INDEX "pages_slug_idx" ON "pages" USING btree ("slug");
   CREATE INDEX "pages_meta_meta_image_idx" ON "pages" USING btree ("meta_image_id");
   CREATE INDEX "pages_updated_at_idx" ON "pages" USING btree ("updated_at");
@@ -872,6 +926,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "payload_migrations_created_at_idx" ON "payload_migrations" USING btree ("created_at");
   CREATE INDEX "navbar_navigation_items_order_idx" ON "navbar_navigation_items" USING btree ("_order");
   CREATE INDEX "navbar_navigation_items_parent_id_idx" ON "navbar_navigation_items" USING btree ("_parent_id");
+  CREATE INDEX "footer_logo_idx" ON "footer" USING btree ("logo_id");
   CREATE INDEX "scheduler_week_days_time_slot_order_idx" ON "scheduler_week_days_time_slot" USING btree ("_order");
   CREATE INDEX "scheduler_week_days_time_slot_parent_id_idx" ON "scheduler_week_days_time_slot" USING btree ("_parent_id");
   CREATE INDEX "scheduler_week_days_time_slot_class_option_idx" ON "scheduler_week_days_time_slot" USING btree ("class_option_id");
@@ -885,14 +940,16 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   await db.execute(sql`
    DROP TABLE "media" CASCADE;
   DROP TABLE "pages_blocks_hero" CASCADE;
-  DROP TABLE "pages_blocks_about_sections_content" CASCADE;
   DROP TABLE "pages_blocks_about_sections" CASCADE;
   DROP TABLE "pages_blocks_about" CASCADE;
-  DROP TABLE "pages_blocks_learning_content" CASCADE;
   DROP TABLE "pages_blocks_learning" CASCADE;
   DROP TABLE "pages_blocks_meet_the_team_team_members" CASCADE;
   DROP TABLE "pages_blocks_meet_the_team" CASCADE;
   DROP TABLE "pages_blocks_schedule" CASCADE;
+  DROP TABLE "pages_blocks_testimonials_testimonials" CASCADE;
+  DROP TABLE "pages_blocks_testimonials" CASCADE;
+  DROP TABLE "pages_blocks_contact" CASCADE;
+  DROP TABLE "pages_blocks_form_block" CASCADE;
   DROP TABLE "pages" CASCADE;
   DROP TABLE "posts_blocks_content" CASCADE;
   DROP TABLE "posts" CASCADE;
@@ -934,6 +991,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "payload_migrations" CASCADE;
   DROP TABLE "navbar_navigation_items" CASCADE;
   DROP TABLE "navbar" CASCADE;
+  DROP TABLE "footer" CASCADE;
   DROP TABLE "scheduler_week_days_time_slot" CASCADE;
   DROP TABLE "scheduler_week_days" CASCADE;
   DROP TABLE "scheduler" CASCADE;
