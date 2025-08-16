@@ -286,6 +286,35 @@ export interface Page {
             blockType: 'meetTheTeam';
           }
         | ScheduleBlock
+        | {
+            title: string;
+            testimonials?:
+              | {
+                  image: number | Media;
+                  name: string;
+                  role: string;
+                  testimonial: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: string;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'testimonials';
+          }
       )[]
     | null;
   meta?: {
@@ -1061,6 +1090,22 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
         schedule?: T | ScheduleBlockSelect<T>;
+        testimonials?:
+          | T
+          | {
+              title?: T;
+              testimonials?:
+                | T
+                | {
+                    image?: T;
+                    name?: T;
+                    role?: T;
+                    testimonial?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
       };
   meta?:
     | T

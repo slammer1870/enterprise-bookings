@@ -1,18 +1,24 @@
 import type { Block } from 'payload'
 
-export const MeetTheTeam: Block = {
-  slug: 'meetTheTeam',
+export const Testimonials: Block = {
+  slug: 'testimonials',
   labels: {
-    singular: 'Meet The Team',
-    plural: 'Meet The Team Blocks',
+    singular: 'Testimonials',
+    plural: 'Testimonials Blocks',
   },
   fields: [
     {
-      name: 'teamMembers',
+      name: 'title',
+      type: 'text',
+      required: true,
+      label: 'Section Title',
+    },
+    {
+      name: 'testimonials',
       type: 'array',
-      label: 'Team Members',
+      label: 'Testimonials',
       minRows: 1,
-      maxRows: 10,
+      maxRows: 12,
       fields: [
         {
           name: 'image',
@@ -31,12 +37,13 @@ export const MeetTheTeam: Block = {
           name: 'role',
           type: 'text',
           required: true,
-          label: 'Role',
+          label: 'Role/Occupation',
         },
         {
-          name: 'bio',
+          name: 'testimonial',
           type: 'richText',
           required: true,
+          label: 'Testimonial Text',
         },
       ],
     },

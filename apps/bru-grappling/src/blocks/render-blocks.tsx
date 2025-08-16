@@ -7,6 +7,7 @@ import { AboutBlock } from './about'
 import { LearningBlock } from './learning'
 import { MeetTheTeamBlock } from './meet-the-team'
 import { ScheduleBlock } from './schedule'
+import { TestimonialsBlock } from './testimonials'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -14,6 +15,7 @@ const blockComponents = {
   learning: LearningBlock,
   meetTheTeam: MeetTheTeamBlock,
   schedule: ScheduleBlock,
+  testimonials: TestimonialsBlock,
 }
 
 export const RenderBlocks: React.FC<{
