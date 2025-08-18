@@ -30,7 +30,9 @@ export const generateLessonsFromSchedule: TaskHandler<
     payload.config.admin.timezones.defaultTimezone || "Europe/Dublin";
 
   const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0); // Set to earliest possible time (00:00:00.000)
   const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999); // Set to latest possible time (23:59:59.999)
 
   try {
     if (clearExisting) {
@@ -41,12 +43,12 @@ export const generateLessonsFromSchedule: TaskHandler<
           where: {
             and: [
               {
-                date: {
+                startTime: {
                   greater_than_equal: start.toISOString(),
                 },
               },
               {
-                date: {
+                endTime: {
                   less_than_equal: end.toISOString(),
                 },
               },
