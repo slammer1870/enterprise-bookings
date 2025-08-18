@@ -60,7 +60,7 @@ export const generateLessonsFromSchedule: TaskHandler<
         const lessonsToNotDelete = lessons.docs.reduce(
           (acc: any[], lesson: any) => {
             if (
-              lesson.bookings.docs.some(
+              lesson.bookings?.docs?.some(
                 (booking: any) => booking.status === "confirmed"
               )
             ) {
