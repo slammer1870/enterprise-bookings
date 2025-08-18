@@ -52,7 +52,7 @@ export const generateLessonsFromSchedule: TaskHandler<
               },
             ],
           },
-          depth: 2,
+          depth: 4,
           limit: 0,
         });
 
@@ -94,7 +94,6 @@ export const generateLessonsFromSchedule: TaskHandler<
       const scheduleDay = week.days.find((day: any) => {
         return week.days.indexOf(day) === dayOfWeek - 1;
       });
-
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
         currentDate = addDays(currentDate, 1);
