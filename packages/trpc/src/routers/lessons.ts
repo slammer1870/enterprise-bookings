@@ -86,7 +86,7 @@ export const lessonsRouter = {
           },
         },
         depth: 2,
-        sort: "-startTime",
+        sort: "startTime",
         overrideAccess: false,
         user: user,
       });
