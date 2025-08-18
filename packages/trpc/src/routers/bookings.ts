@@ -47,20 +47,6 @@ export const bookingsRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const { id, status = "confirmed" } = input;
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id,
-        depth: 3,
-        overrideAccess: false,
-        user: ctx.user,
-      });
-
-      if (!lesson) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Lesson with id ${id} not found`,
-        });
-      }
 
       const booking = await ctx.payload.find({
         collection: "bookings",
@@ -102,10 +88,12 @@ export const bookingsRouter = {
   cancelBooking: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const { id } = input;
+
       const booking = await ctx.payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: input.id },
+          lesson: { equals: id },
           user: { equals: ctx.user.id },
         },
         depth: 2,
@@ -136,21 +124,6 @@ export const bookingsRouter = {
   joinWaitlist: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id: input.id,
-        depth: 3,
-        overrideAccess: false,
-        user: ctx.user,
-      });
-
-      if (!lesson) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Lesson with id ${input.id} not found`,
-        });
-      }
-
       const existingBooking = await ctx.payload.find({
         collection: "bookings",
         where: {
