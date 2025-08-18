@@ -2,6 +2,7 @@ import { TaskHandler } from "payload";
 import { addDays } from "date-fns";
 
 import { TaskGenerateLessonsFromSchedule } from "../types";
+import { Lesson } from "@repo/shared-types";
 
 export const generateLessonsFromSchedule: TaskHandler<
   "generateLessonsFromSchedule"
@@ -36,9 +37,10 @@ export const generateLessonsFromSchedule: TaskHandler<
 
   try {
     if (clearExisting) {
+      payload.logger.info("Clearing existing lessons");
       try {
         // First find lessons that have no bookings
-        const lessons = await payload.find({
+        const lessonQuery = await payload.find({
           collection: "lessons",
           where: {
             and: [
@@ -58,31 +60,31 @@ export const generateLessonsFromSchedule: TaskHandler<
           limit: 0,
         });
 
-        // Filter lessons that have no bookings
-        const lessonsToNotDelete = lessons.docs.reduce(
-          (acc: any[], lesson: any) => {
-            if (
-              lesson.bookings?.docs?.some(
-                (booking: any) => booking.status === "confirmed"
-              )
-            ) {
-              acc.push(lesson.id);
-            }
-            return acc;
-          },
-          []
-        );
+        const lessons = lessonQuery.docs as Lesson[];
 
-        if (lessonsToNotDelete.length > 0) {
-          await payload.delete({
-            collection: "lessons",
-            where: {
-              id: {
-                not_in: lessonsToNotDelete,
-              },
+        let lessonsToNotDelete: number[] = [];
+        // Filter lessons that have no bookings
+        lessonsToNotDelete = lessons.reduce((acc: number[], lesson: Lesson) => {
+          if (
+            lesson.bookings?.docs?.some(
+              (booking: any) => booking.status === "confirmed"
+            )
+          ) {
+            acc.push(lesson.id);
+          }
+          return acc;
+        }, []);
+
+        const deleted = await payload.delete({
+          collection: "lessons",
+          where: {
+            id: {
+              not_in: lessonsToNotDelete,
             },
-          });
-        }
+          },
+        });
+
+        console.log("Deleted", deleted);
       } catch (error) {
         console.error("Error clearing existing lessons:", error);
       }
