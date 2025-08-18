@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { stripeProtectedProcedure } from "../trpc";
-import { stripe } from "@repo/shared-utils";
 
 export const paymentsRouter = {
   createCustomerCheckoutSession: stripeProtectedProcedure

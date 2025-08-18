@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
-import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
+import { ClassOption, Lesson } from "@repo/shared-types";
 
 export const lessonsRouter = {
   getById: protectedProcedure
@@ -86,11 +86,11 @@ export const lessonsRouter = {
           },
         },
         depth: 2,
+        sort: "-startTime",
         overrideAccess: false,
         user: user,
       });
 
       return lessons.docs.map((lesson) => lesson as Lesson);
     }),
-  
 } satisfies TRPCRouterRecord;
