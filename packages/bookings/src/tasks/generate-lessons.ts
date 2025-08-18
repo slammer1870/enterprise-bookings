@@ -75,16 +75,37 @@ export const generateLessonsFromSchedule: TaskHandler<
           return acc;
         }, []);
 
-        const deleted = await payload.delete({
-          collection: "lessons",
-          where: {
-            id: {
-              not_in: lessonsToNotDelete,
+        if (lessonsToNotDelete.length > 0) {
+          const deleted = await payload.delete({
+            collection: "lessons",
+            where: {
+              id: {
+                not_in: lessonsToNotDelete,
+              },
             },
-          },
-        });
+          });
 
-        console.log("Deleted", deleted);
+          payload.logger.info("Deleted", deleted);
+        } else {
+          payload.logger.info("Deleting all lessons");
+          await payload.delete({
+            collection: "lessons",
+            where: {
+              and: [
+                {
+                  startTime: {
+                    greater_than_equal: start.toISOString(),
+                  },
+                },
+                {
+                  endTime: {
+                    less_than_equal: end.toISOString(),
+                  },
+                },
+              ],
+            },
+          });
+        }
       } catch (error) {
         console.error("Error clearing existing lessons:", error);
       }
