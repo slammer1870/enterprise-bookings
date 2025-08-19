@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+import { useConfirm } from '@repo/ui/components/ui/use-confirm'
+
 export const CheckInButton = ({
   bookingStatus,
   type,
@@ -21,6 +23,11 @@ export const CheckInButton = ({
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const router = useRouter()
+
+  const [ConfirmationDialog, confirm] = useConfirm(
+    'Are you sure you want to cancel this booking?',
+    '',
+  )
 
   const { mutate: createOrUpdateBooking, isPending: isCreatingBooking } = useMutation(
     trpc.bookings.createOrUpdateBooking.mutationOptions({
@@ -99,7 +106,11 @@ export const CheckInButton = ({
       className: 'w-full',
       disabled: isCancellingBooking,
       action: () => {
-        cancelBooking({ id })
+        confirm().then((result) => {
+          if (result) {
+            cancelBooking({ id })
+          }
+        })
       },
     },
     trialable: {
@@ -154,13 +165,16 @@ export const CheckInButton = ({
   } as const
 
   return (
-    <Button
-      variant={config[bookingStatus].variant}
-      className={config[bookingStatus].className}
-      disabled={config[bookingStatus].disabled}
-      onClick={config[bookingStatus].action as MouseEventHandler<HTMLButtonElement>}
-    >
-      {config[bookingStatus].label}
-    </Button>
+    <>
+      <ConfirmationDialog />
+      <Button
+        variant={config[bookingStatus].variant}
+        className={config[bookingStatus].className}
+        disabled={config[bookingStatus].disabled}
+        onClick={config[bookingStatus].action as MouseEventHandler<HTMLButtonElement>}
+      >
+        {config[bookingStatus].label}
+      </Button>
+    </>
   )
 }

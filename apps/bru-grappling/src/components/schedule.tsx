@@ -25,7 +25,7 @@ export default function ScheduleComponent() {
     <>
       <ToggleDate date={selectedDate} setDate={setSelectedDate} />
       {isLoading ? (
-        <div className="flex flex-col justify-center items-center h-full">
+        <div className="flex flex-col justify-start items-center h-full">
           <Loader2 className="w-10 h-10 animate-spin mb-4" />
           <span className="text-sm">Loading schedule...</span>
         </div>
