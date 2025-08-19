@@ -26,7 +26,9 @@ export const Contact: React.FC<Props> = ({ title, description, form }) => {
           <h3 className="mb-2 text-xl font-medium lg:text-3xl">{title}</h3>
           <p className="mb-4 text-gray-700 lg:text-lg">{description}</p>
         </div>
-        <FormBlock enableIntro={false} form={form} />
+        <div className="lg:w-1/3">
+          <FormBlock enableIntro={false} form={form} />
+        </div>
       </div>
     </section>
   )
