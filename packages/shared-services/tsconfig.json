@@ -1,5 +1,5 @@
 {
-  "extends": "@repo/typescript-config/package.json",
+  "extends": "@repo/typescript-config/nextjs.json",
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
@@ -8,6 +8,5 @@
       "@repo/shared-services": ["src/index.ts"],
       "@repo/shared-services/access/*": ["src/access/*"]
     }
-  },
-  "version": "0.0.1"
+  }
 }

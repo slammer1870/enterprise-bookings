@@ -90,6 +90,8 @@ export interface Config {
       bookings: 'bookings';
     };
     users: {
+      lessons: 'lessons';
+      children: 'users';
       userSubscription: 'subscriptions';
     };
   };
@@ -117,10 +119,12 @@ export interface Config {
   };
   globals: {
     navbar: Navbar;
+    footer: Footer;
     scheduler: Scheduler;
   };
   globalsSelect: {
     navbar: NavbarSelect<false> | NavbarSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
@@ -207,16 +211,21 @@ export interface Page {
             sections?:
               | {
                   title: string;
-                  content?:
-                    | {
-                        text?: string | null;
-                        link?: {
-                          url?: string | null;
-                          text?: string | null;
-                        };
-                        id?: string | null;
-                      }[]
-                    | null;
+                  content: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: string;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
                   image: number | Media;
                   imagePosition?: ('left' | 'right') | null;
                   id?: string | null;
@@ -228,12 +237,21 @@ export interface Page {
           }
         | {
             title: string;
-            content?:
-              | {
-                  text: string;
-                  id?: string | null;
-                }[]
-              | null;
+            content: {
+              root: {
+                type: string;
+                children: {
+                  type: string;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            };
             image: number | Media;
             id?: string | null;
             blockName?: string | null;
@@ -245,7 +263,21 @@ export interface Page {
                   image: number | Media;
                   name: string;
                   role: string;
-                  bio: string;
+                  bio: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: string;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
                   id?: string | null;
                 }[]
               | null;
@@ -254,6 +286,65 @@ export interface Page {
             blockType: 'meetTheTeam';
           }
         | ScheduleBlock
+        | {
+            title: string;
+            testimonials?:
+              | {
+                  image: number | Media;
+                  name: string;
+                  role: string;
+                  testimonial: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: string;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  };
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'testimonials';
+          }
+        | {
+            title: string;
+            description: string;
+            form: number | Form;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'contact';
+          }
+        | {
+            form: number | Form;
+            enableIntro?: boolean | null;
+            introContent?: {
+              root: {
+                type: string;
+                children: {
+                  type: string;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            } | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'form-block';
+          }
       )[]
     | null;
   meta?: {
@@ -275,49 +366,6 @@ export interface ScheduleBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts".
- */
-export interface Post {
-  id: number;
-  title: string;
-  excerpt: string;
-  heroImage?: (number | null) | Media;
-  content: {
-    content: {
-      root: {
-        type: string;
-        children: {
-          type: string;
-          version: number;
-          [k: string]: unknown;
-        }[];
-        direction: ('ltr' | 'rtl') | null;
-        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-        indent: number;
-        version: number;
-      };
-      [k: string]: unknown;
-    };
-    id?: string | null;
-    blockName?: string | null;
-    blockType: 'content';
-  }[];
-  publishedAt?: string | null;
-  slug: string;
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -495,6 +543,49 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  title: string;
+  excerpt: string;
+  heroImage?: (number | null) | Media;
+  content: {
+    content: {
+      root: {
+        type: string;
+        children: {
+          type: string;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    };
+    id?: string | null;
+    blockName?: string | null;
+    blockType: 'content';
+  }[];
+  publishedAt?: string | null;
+  slug: string;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-submissions".
  */
 export interface FormSubmission {
@@ -553,6 +644,21 @@ export interface Lesson {
  */
 export interface User {
   id: number;
+  image?: (number | null) | Media;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Parent of the user
+   */
+  parent?: (number | null) | User;
+  children?: {
+    docs?: (number | User)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   name: string;
   roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
@@ -643,6 +749,14 @@ export interface Plan {
    * Skip syncing to Stripe
    */
   skipSync?: boolean | null;
+  /**
+   * Is this a membership for adults or children?
+   */
+  type?: ('adult' | 'child') | null;
+  /**
+   * The number of children who are subscribing to the plan
+   */
+  quantity?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -973,18 +1087,7 @@ export interface PagesSelect<T extends boolean = true> {
                 | T
                 | {
                     title?: T;
-                    content?:
-                      | T
-                      | {
-                          text?: T;
-                          link?:
-                            | T
-                            | {
-                                url?: T;
-                                text?: T;
-                              };
-                          id?: T;
-                        };
+                    content?: T;
                     image?: T;
                     imagePosition?: T;
                     id?: T;
@@ -996,12 +1099,7 @@ export interface PagesSelect<T extends boolean = true> {
           | T
           | {
               title?: T;
-              content?:
-                | T
-                | {
-                    text?: T;
-                    id?: T;
-                  };
+              content?: T;
               image?: T;
               id?: T;
               blockName?: T;
@@ -1022,6 +1120,40 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
         schedule?: T | ScheduleBlockSelect<T>;
+        testimonials?:
+          | T
+          | {
+              title?: T;
+              testimonials?:
+                | T
+                | {
+                    image?: T;
+                    name?: T;
+                    role?: T;
+                    testimonial?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        contact?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              form?: T;
+              id?: T;
+              blockName?: T;
+            };
+        'form-block'?:
+          | T
+          | {
+              form?: T;
+              enableIntro?: T;
+              introContent?: T;
+              id?: T;
+              blockName?: T;
+            };
       };
   meta?:
     | T
@@ -1311,6 +1443,10 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  image?: T;
+  lessons?: T;
+  parent?: T;
+  children?: T;
   name?: T;
   roles?: T;
   stripeCustomerId?: T;
@@ -1371,6 +1507,8 @@ export interface PlansSelect<T extends boolean = true> {
   priceJSON?: T;
   status?: T;
   skipSync?: T;
+  type?: T;
+  quantity?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1454,6 +1592,20 @@ export interface Navbar {
   createdAt?: string | null;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  companyName: string;
+  logo: number | Media;
+  email: string;
+  locationUrl: string;
+  instagramUrl: string;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * Create recurring lessons across your weekly schedule
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1525,6 +1677,20 @@ export interface NavbarSelect<T extends boolean = true> {
         isExternal?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  companyName?: T;
+  logo?: T;
+  email?: T;
+  locationUrl?: T;
+  instagramUrl?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

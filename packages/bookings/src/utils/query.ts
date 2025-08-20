@@ -11,20 +11,16 @@ export const getLessonsQuery = (date: Date) => {
     limit: "100",
     page: "1",
     where: {
-      or: [
+      and: [
         {
-          and: [
-            {
-              startTime: {
-                greater_than_equal: startOfDay.toISOString(),
-              },
-            },
-            {
-              startTime: {
-                less_than_equal: endOfDay.toISOString(),
-              },
-            },
-          ],
+          startTime: {
+            greater_than_equal: startOfDay.toISOString(),
+          },
+        },
+        {
+          startTime: {
+            less_than_equal: endOfDay.toISOString(),
+          },
         },
       ],
     },

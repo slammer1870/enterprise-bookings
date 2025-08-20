@@ -35,9 +35,8 @@ export const MeetTheTeam: Block = {
         },
         {
           name: 'bio',
-          type: 'textarea',
+          type: 'richText',
           required: true,
-          label: 'Bio',
         },
       ],
     },

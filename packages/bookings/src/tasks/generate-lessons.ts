@@ -2,6 +2,7 @@ import { TaskHandler } from "payload";
 import { addDays } from "date-fns";
 
 import { TaskGenerateLessonsFromSchedule } from "../types";
+import { Lesson } from "@repo/shared-types";
 
 export const generateLessonsFromSchedule: TaskHandler<
   "generateLessonsFromSchedule"
@@ -30,57 +31,61 @@ export const generateLessonsFromSchedule: TaskHandler<
     payload.config.admin.timezones.defaultTimezone || "Europe/Dublin";
 
   const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0); // Set to earliest possible time (00:00:00.000)
   const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999); // Set to latest possible time (23:59:59.999)
 
   try {
     if (clearExisting) {
+      payload.logger.info("Clearing existing lessons");
       try {
         // First find lessons that have no bookings
-        const lessons = await payload.find({
+        const lessonQuery = await payload.find({
           collection: "lessons",
           where: {
             and: [
               {
-                date: {
+                startTime: {
                   greater_than_equal: start.toISOString(),
                 },
               },
               {
-                date: {
+                endTime: {
                   less_than_equal: end.toISOString(),
                 },
               },
             ],
           },
-          depth: 2,
+          depth: 4,
           limit: 0,
         });
 
-        // Filter lessons that have no bookings
-        const lessonsToNotDelete = lessons.docs.reduce(
-          (acc: any[], lesson: any) => {
-            if (
-              lesson.bookings.docs.some(
-                (booking: any) => booking.status === "confirmed"
-              )
-            ) {
-              acc.push(lesson.id);
-            }
-            return acc;
-          },
-          []
-        );
+        const lessons = lessonQuery.docs as Lesson[];
 
-        if (lessonsToNotDelete.length > 0) {
-          await payload.delete({
-            collection: "lessons",
-            where: {
-              id: {
-                not_in: lessonsToNotDelete,
-              },
+        let lessonsToNotDelete: number[] = [];
+        // Filter lessons that have no bookings
+        lessonsToNotDelete = lessons.reduce((acc: number[], lesson: Lesson) => {
+          if (
+            lesson.bookings?.docs?.some(
+              (booking: any) => booking.status === "confirmed"
+            )
+          ) {
+            acc.push(lesson.id);
+          }
+          return acc;
+        }, []);
+
+        await payload.delete({
+          collection: "lessons",
+          where: {
+            id: {
+              not_in: lessonsToNotDelete,
             },
-          });
-        }
+          },
+          context: {
+            triggerAfterChange: false,
+          },
+        });
       } catch (error) {
         console.error("Error clearing existing lessons:", error);
       }
@@ -94,7 +99,6 @@ export const generateLessonsFromSchedule: TaskHandler<
       const scheduleDay = week.days.find((day: any) => {
         return week.days.indexOf(day) === dayOfWeek - 1;
       });
-
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
         currentDate = addDays(currentDate, 1);

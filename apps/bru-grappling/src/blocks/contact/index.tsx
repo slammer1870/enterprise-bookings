@@ -6,7 +6,6 @@ import type { Form } from '@payloadcms/plugin-form-builder/types'
 type Props = {
   title: string
   description: string
-  product: string
   form: Form & {
     fields: Array<{
       name: string
@@ -19,7 +18,7 @@ type Props = {
   }
 }
 
-export const Contact: React.FC<Props> = ({ title, description, product, form }) => {
+export const Contact: React.FC<Props> = ({ title, description, form }) => {
   return (
     <section id="contact" className="z-10 py-20 lg:py-24">
       <div className="container mx-auto px-4 lg:flex lg:items-center lg:justify-between">
@@ -27,7 +26,9 @@ export const Contact: React.FC<Props> = ({ title, description, product, form }) 
           <h3 className="mb-2 text-xl font-medium lg:text-3xl">{title}</h3>
           <p className="mb-4 text-gray-700 lg:text-lg">{description}</p>
         </div>
-        <FormBlock enableIntro={false} form={form} />
+        <div className="lg:w-1/3">
+          <FormBlock enableIntro={false} form={form} />
+        </div>
       </div>
     </section>
   )

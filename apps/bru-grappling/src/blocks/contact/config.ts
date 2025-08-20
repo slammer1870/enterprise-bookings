@@ -4,20 +4,20 @@ export const Contact: Block = {
   slug: 'contact',
   labels: {
     singular: 'Contact',
-    plural: 'Contact',
+    plural: 'Contact Blocks',
   },
   fields: [
     {
       name: 'title',
       type: 'text',
       required: true,
-      defaultValue: 'Looking for more information?',
+      label: 'Section Title',
     },
     {
       name: 'description',
       type: 'text',
       required: true,
-      defaultValue: 'Enter your details and one of our team will be in touch.',
+      label: 'Description Text',
     },
     {
       name: 'form',
@@ -25,6 +25,7 @@ export const Contact: Block = {
       relationTo: 'forms' as CollectionSlug,
       required: true,
       hasMany: false,
+      label: 'Contact Form',
     },
   ],
 }

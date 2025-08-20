@@ -40,6 +40,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
       id: { equals: id },
     },
     depth: 5,
+    overrideAccess: false,
+    user: user,
   })
 
   const lesson = lessonQuery.docs[0] as Lesson
@@ -114,7 +116,15 @@ export default async function BookingPage({ params }: BookingPageProps) {
           />
         </TabsContent>
         <TabsContent value="dropin">
-          <DropInView lesson={lesson} />
+          {lesson.classOption.paymentMethods?.allowedDropIn ? (
+            <DropInView
+              bookingStatus={lesson.bookingStatus}
+              dropIn={lesson.classOption.paymentMethods.allowedDropIn}
+              quantity={1}
+            />
+          ) : (
+            <div>Drop-in payment option is not available</div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

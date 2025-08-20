@@ -9,43 +9,69 @@ import { ClassOption, Lesson } from "@repo/shared-types";
 export const lessonsRouter = {
   getById: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ ctx, input }): Promise<Lesson> => {
+    .query(async ({ ctx, input }) => {
       const lesson = await ctx.payload.findByID({
         collection: "lessons",
         id: input.id,
         depth: 2,
         overrideAccess: false,
+        user: ctx.user,
       });
 
-      return lesson as Lesson;
-    }),
-
-  getByIdForChildren: protectedProcedure
-    .input(z.object({ id: z.number() }))
-    .query(async ({ ctx, input }): Promise<Lesson> => {
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id: input.id,
-        depth: 2,
-        overrideAccess: false,
-      });
-
-      // Validate that the class option has type 'child'
-      const classOption = lesson.classOption as ClassOption;
-      if (!classOption || classOption.type !== "child") {
+      if (!lesson) {
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
+          code: "NOT_FOUND",
+          message: `Lesson with id ${input.id} not found`,
         });
       }
 
       return lesson as Lesson;
     }),
 
+  getByIdForChildren: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }) => {
+      try {
+        const lesson = await ctx.payload.findByID({
+          collection: "lessons",
+          id: input.id,
+          depth: 2,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+
+        if (!lesson) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Lesson with id ${input.id} not found`,
+          });
+        }
+
+        // Fetch classOption separately to avoid relationship depth issues
+        const classOption = lesson.classOption as ClassOption;
+        // Validate that the class option has type 'child'
+        if (!classOption || classOption.type !== "child") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
+          });
+        }
+
+        return lesson as Lesson;
+      } catch (error) {
+        console.error("Error in getByIdForChildren:", error);
+        throw error;
+      }
+    }),
+
   getByDate: publicProcedure
     .input(z.object({ date: z.string() }))
-    .query(async ({ ctx, input }): Promise<Lesson[]> => {
+    .query(async ({ ctx, input }) => {
+      const { user } = await ctx.payload.auth({
+        headers: ctx.headers,
+      });
+
       const startOfDay = new Date(input.date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(input.date);
@@ -60,7 +86,9 @@ export const lessonsRouter = {
           },
         },
         depth: 2,
+        sort: "startTime",
         overrideAccess: false,
+        user: user,
       });
 
       return lessons.docs.map((lesson) => lesson as Lesson);

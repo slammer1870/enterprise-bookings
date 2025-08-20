@@ -7,6 +7,7 @@
  * The pieces you will need to use are documented accordingly near the end
  */
 import { initTRPC, TRPCError } from "@trpc/server";
+import Stripe from "stripe";
 import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
@@ -27,12 +28,14 @@ import { z, ZodError } from "zod/v4";
 export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
+  stripe?: Stripe;
 }) => {
   const payload = opts.payload;
 
   return {
     headers: opts.headers,
     payload,
+    stripe: opts.stripe,
   };
 };
 /**
@@ -69,36 +72,13 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 export const createTRPCRouter = t.router;
 
 /**
- * Middleware for timing procedure execution and adding an articifial delay in development.
- *
- * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating
- * network latency that would occur in production but not in local development.
- */
-const timingMiddleware = t.middleware(async ({ next, path }) => {
-  const start = Date.now();
-
-  if (t._config.isDev) {
-    // artificial delay in dev 100-500ms
-    const waitMs = Math.floor(Math.random() * 400) + 100;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
-  const result = await next();
-
-  const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
-  return result;
-});
-
-/**
  * Public (unauthed) procedure
  *
  * This is the base piece you use to build new queries and mutations on your
  * tRPC API. It does not guarantee that a user querying is authorized, but you
  * can still access user session data if they are logged in
  */
-export const publicProcedure = t.procedure.use(timingMiddleware);
+export const publicProcedure = t.procedure;
 
 /**
  * Protected (authenticated) procedure
@@ -116,11 +96,50 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
     canSetHeaders: false,
   });
 
-  if (!auth.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+  if (!auth.user)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be logged in to access this resource",
+    });
 
   return opts.next({
     ctx: {
+      ...ctx,
       user: auth.user,
+    },
+  });
+});
+
+export const stripePublicProcedure = publicProcedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.stripe)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Stripe is not configured",
+    });
+
+  return opts.next({
+    ctx: {
+      ...ctx,
+      stripe: ctx.stripe,
+    },
+  });
+});
+
+export const stripeProtectedProcedure = protectedProcedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.stripe)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Stripe is not configured",
+    });
+
+  return opts.next({
+    ctx: {
+      ...ctx,
+      stripe: ctx.stripe,
     },
   });
 });

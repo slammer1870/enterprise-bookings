@@ -30,6 +30,9 @@ importers:
 
   apps/bru-grappling:
     dependencies:
+      '@hookform/resolvers':
+        specifier: 4.1.0
+        version: 4.1.0(react-hook-form@7.56.3(react@19.1.0))
       '@payloadcms/db-postgres':
         specifier: '*'
         version: 3.47.0(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))
@@ -111,6 +114,9 @@ importers:
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
       graphql:
         specifier: ^16.10.0
         version: 16.11.0
@@ -135,6 +141,9 @@ importers:
       react-error-boundary:
         specifier: ^6.0.0
         version: 6.0.0(react@19.1.0)
+      react-hook-form:
+        specifier: 7.56.3
+        version: 7.56.3(react@19.1.0)
       sharp:
         specifier: 0.34.2
         version: 0.34.2
@@ -147,7 +156,13 @@ importers:
       vitest:
         specifier: 3.2.3
         version: 3.2.3(@types/debug@4.1.12)(@types/node@22.16.4)(jiti@1.21.7)(jsdom@26.1.0)(sass@1.77.4)(tsx@4.19.2)(yaml@2.8.0)
+      zod:
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3.2.0
+        version: 3.3.1
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
@@ -158,7 +173,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -288,7 +303,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -334,7 +349,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -460,8 +475,8 @@ importers:
         specifier: ^10.1.1
         version: 10.1.1(typescript@5.7.3)
       zod:
-        specifier: ^3.25.67
-        version: 3.25.76
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -470,7 +485,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -603,7 +618,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -649,7 +664,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -739,8 +754,8 @@ importers:
         specifier: 17.7.0
         version: 17.7.0
       zod:
-        specifier: ^3.25.67
-        version: 3.25.76
+        specifier: '*'
+        version: 4.0.15
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -758,7 +773,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -857,8 +872,8 @@ importers:
         specifier: ^3.4.14
         version: 3.4.17(ts-node@10.9.2(@types/node@22.16.4)(typescript@5.7.3))
       zod:
-        specifier: ^3.25.67
-        version: 3.25.76
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -894,7 +909,7 @@ importers:
         specifier: ^6.14.0
         version: 6.14.0
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -948,14 +963,14 @@ importers:
         specifier: 2.0.1
         version: 2.0.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       zod:
-        specifier: ^3.25.67
-        version: 3.25.76
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -1081,8 +1096,8 @@ importers:
         specifier: ^10.1.1
         version: 10.1.1(typescript@5.7.3)
       zod:
-        specifier: ^3.25.67
-        version: 3.25.76
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@playwright/test':
         specifier: ^1.54.1
@@ -1094,7 +1109,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -1255,7 +1270,7 @@ importers:
         specifier: ^6.14.0
         version: 6.14.0
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -1290,6 +1305,9 @@ importers:
 
   packages/payments:
     dependencies:
+      '@payloadcms/plugin-stripe':
+        specifier: '*'
+        version: 3.47.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.4.1(@playwright/test@1.54.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
       '@payloadcms/ui':
         specifier: '*'
         version: 3.47.0(@types/react@19.1.0)(monaco-editor@0.52.2)(next@15.4.1(@playwright/test@1.54.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4))(payload@3.43.0(graphql@16.11.0)(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
@@ -1343,7 +1361,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -1398,7 +1416,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -1495,9 +1513,15 @@ importers:
 
   packages/trpc:
     dependencies:
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../shared-services
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       '@tanstack/react-query':
         specifier: ^5.17.15
         version: 5.83.0(react@19.1.0)
@@ -1513,24 +1537,36 @@ importers:
       '@trpc/server':
         specifier: ^11.4.3
         version: 11.4.3(typescript@5.7.3)
+      '@trpc/tanstack-react-query':
+        specifier: ^11.4.3
+        version: 11.4.3(@tanstack/react-query@5.83.0(react@19.1.0))(@trpc/client@11.4.3(@trpc/server@11.4.3(typescript@5.7.3))(typescript@5.7.3))(@trpc/server@11.4.3(typescript@5.7.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.7.3)
       next:
-        specifier: ^15.1.6
+        specifier: '*'
         version: 15.4.1(@babel/core@7.28.0)(@playwright/test@1.54.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4)
       payload:
         specifier: 3.43.0
         version: 3.43.0(graphql@16.11.0)(typescript@5.7.3)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      stripe:
+        specifier: 17.7.0
+        version: 17.7.0
       superjson:
         specifier: 1.9.1
         version: 1.9.1
       zod:
-        specifier: ^3.22.4
-        version: 3.25.76
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@types/react':
+        specifier: '*'
+        version: 19.1.0
       typescript:
-        specifier: ^5.7.2
+        specifier: 5.7.3
         version: 5.7.3
 
   packages/typescript-config:
@@ -1626,8 +1662,8 @@ importers:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.16.4)(typescript@5.7.3)))
       zod:
-        specifier: ^3.25.67
-        version: 3.25.76
+        specifier: ^4.0.15
+        version: 4.0.15
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -1648,7 +1684,7 @@ importers:
         specifier: ^22.10.7
         version: 22.16.4
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -1706,7 +1742,7 @@ importers:
         specifier: workspace:*
         version: link:../typescript-config
       '@types/react':
-        specifier: 19.1.0
+        specifier: '*'
         version: 19.1.0
       '@types/react-dom':
         specifier: 19.1.2
@@ -9396,8 +9432,8 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.0.15:
+    resolution: {integrity: sha512-2IVHb9h4Mt6+UXkyMs0XbfICUh1eUrlJJAOupBHUhLRnKkruawyDddYRCs0Eizt900ntIMk9/4RksYl+FgSpcQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -18604,6 +18640,6 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod@3.25.76: {}
+  zod@4.0.15: {}
 
   zwitch@2.0.4: {}

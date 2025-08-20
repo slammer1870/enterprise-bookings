@@ -1,10 +1,11 @@
 // storage-adapter-import-placeholder
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
+// import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { stripePlugin } from '@payloadcms/plugin-stripe'
 
 import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
@@ -18,27 +19,30 @@ import { Pages } from './collections/Pages'
 import { magicLinkPlugin } from '@repo/auth/server'
 import { bookingsPlugin } from '@repo/bookings'
 import { paymentsPlugin } from '@repo/payments'
-import { membershipsPlugin } from '@repo/memberships'
+import {
+  membershipsPlugin,
+  productUpdated,
+  subscriptionCanceled,
+  subscriptionCreated,
+  subscriptionUpdated,
+} from '@repo/memberships'
 import { rolesPlugin } from '@repo/roles'
 
 import { Navbar } from './globals/navbar/config'
+import { Footer } from './globals/footer/config'
 
 import { Posts } from '@repo/website/src/collections/posts'
 
-import {
-  bookingCreateMembershipDropinAccess,
-  bookingUpdateMembershipDropinAccess,
-} from '@repo/shared-services/src/access/booking-membership-dropin'
+import { Booking, Lesson } from '@repo/shared-types'
 
-import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
-
-import { Booking, Lesson, User } from '@repo/shared-types'
-
-import { checkRole } from '@repo/shared-utils'
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
-} from '@repo/shared-services/src/access/children-booking-membership'
+} from '@repo/shared-services'
+
+import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
+
+import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -53,8 +57,8 @@ export default buildConfig({
   collections: [Users, Media, Pages, Posts],
   editor: lexicalEditor(),
   email: resendAdapter({
-    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
-    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
+    defaultFromAddress: 'hello@brugrappling.com',
+    defaultFromName: 'Brú Grappling',
     apiKey: process.env.RESEND_API_KEY || '',
   }),
   secret: process.env.PAYLOAD_SECRET || 'sectre',
@@ -67,7 +71,7 @@ export default buildConfig({
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
   }),
-  globals: [Navbar],
+  globals: [Navbar, Footer],
   sharp: sharp as unknown as SharpDependency,
   plugins: [
     //payloadCloudPlugin(),
@@ -203,6 +207,7 @@ export default buildConfig({
         }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
+          read: isBookingAdminOrParentOrOwner,
           create: childrenCreateBookingMembershipAccess,
           update: childrenUpdateBookingMembershipAccess,
         }),
@@ -217,6 +222,54 @@ export default buildConfig({
     membershipsPlugin({
       enabled: true,
       paymentMethodSlugs: [],
+      plansOverrides: {
+        fields: ({ defaultFields }) => [
+          ...defaultFields,
+          {
+            name: 'type',
+            type: 'select',
+            label: 'Membership Type',
+            options: [
+              { label: 'Adult', value: 'adult' },
+              { label: 'Child', value: 'child' },
+            ],
+            defaultValue: 'adult',
+            required: false,
+            admin: {
+              description: 'Is this a membership for adults or children?',
+              position: 'sidebar',
+            },
+          },
+          {
+            name: 'quantity',
+            type: 'number',
+            required: false,
+            defaultValue: 1,
+            min: 1,
+            max: 10,
+            admin: {
+              description: 'The number of children who are subscribing to the plan',
+              condition: (data) => {
+                return Boolean(data?.type === 'child') // Only show if `type` is selected
+              },
+              position: 'sidebar',
+            },
+          },
+        ],
+      },
+    }),
+    stripePlugin({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY as string,
+      stripeWebhooksEndpointSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      isTestKey: Boolean(process.env.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY),
+      rest: false,
+      webhooks: {
+        'payment_intent.succeeded': paymentIntentSucceeded,
+        'customer.subscription.created': subscriptionCreated,
+        'customer.subscription.updated': subscriptionUpdated,
+        'customer.subscription.deleted': subscriptionCanceled,
+        'product.updated': productUpdated,
+      },
     }),
     seoPlugin({
       collections: ['pages', 'posts'],

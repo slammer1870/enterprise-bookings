@@ -1,15 +1,37 @@
 'use client'
 
-import { Schedule } from '@repo/bookings/src/components/schedule'
-import { ScheduleProvider } from '@repo/bookings/src/providers/schedule'
+import { useState } from 'react'
+
+import { useTRPC } from '@repo/trpc'
+import { useQuery } from '@tanstack/react-query'
+
+import { ToggleDate } from '@repo/ui/components/toggle-date'
+
+import { LessonList } from './lessons/lesson-list'
+import { Loader2 } from 'lucide-react'
 
 export default function ScheduleComponent() {
+  const trpc = useTRPC()
+
+  const [selectedDate, setSelectedDate] = useState(new Date())
+
+  const { data: lessons, isLoading } = useQuery({
+    ...trpc.lessons.getByDate.queryOptions({
+      date: selectedDate.toISOString(),
+    }),
+  })
+
   return (
-    <ScheduleProvider>
-      <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">
-        <h2 className="text-2xl font-medium text-center mb-4">Schedule</h2>
-        <Schedule />
-      </div>
-    </ScheduleProvider>
+    <>
+      <ToggleDate date={selectedDate} setDate={setSelectedDate} />
+      {isLoading ? (
+        <div className="flex flex-col justify-start items-center h-full">
+          <Loader2 className="w-10 h-10 animate-spin mb-4" />
+          <span className="text-sm">Loading schedule...</span>
+        </div>
+      ) : (
+        <LessonList lessons={lessons || []} />
+      )}
+    </>
   )
 }

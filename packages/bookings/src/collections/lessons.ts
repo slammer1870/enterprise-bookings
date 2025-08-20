@@ -279,6 +279,9 @@ const defaultHooks: HooksConfig = {
             equals: id,
           },
         },
+        context: {
+          triggerAfterChange: false,
+        },
       });
     },
   ],

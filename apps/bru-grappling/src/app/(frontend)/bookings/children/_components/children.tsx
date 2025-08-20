@@ -1,11 +1,17 @@
 'use client'
 
-import { useTRPC } from '@/trpc/react'
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
-import { useSuspenseQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 
-import { PaymentGateway } from './payment-gateway'
+import { useTRPC } from '@repo/trpc'
+import { useSuspenseQuery } from '@tanstack/react-query'
+
+import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
+
+import { PaymentGateway } from '@/app/(frontend)/bookings/children/_components/payments/payment-gateway'
+
+import { ChildrensBookingForm } from './childrens-booking-form'
+import { ChildBookingDetail } from './child-booking-detail'
+import { ManageCurrentBookings } from './bookings/manage-current-bookings'
 
 export const ChildrensBooking = () => {
   const params = useParams()
@@ -18,10 +24,26 @@ export const ChildrensBooking = () => {
     trpc.lessons.getByIdForChildren.queryOptions({ id: parseInt(id) }),
   )
 
+  const hasPaymentMethods = Boolean(
+    data?.classOption.paymentMethods?.allowedDropIn ||
+      data?.classOption.paymentMethods?.allowedPlans?.length,
+  )
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-w-2xl mx-auto pt-24 px-4">
       <BookingSummary lesson={data} />
-      <PaymentGateway paymentMethods={data.classOption.paymentMethods} />
+      <ManageCurrentBookings lessonId={data.id} />
+      {hasPaymentMethods ? (
+        <PaymentGateway
+          paymentMethods={data.classOption.paymentMethods}
+          lessonDate={new Date(data.date)}
+          lessonId={data.id}
+          bookingStatus={data.bookingStatus}
+          remainingCapacity={data.remainingCapacity}
+        />
+      ) : (
+        <ChildrensBookingForm lessonId={data.id} />
+      )}
     </div>
   )
 }

@@ -1,12 +1,14 @@
 import React from 'react'
 import Image from 'next/image'
 import type { Media } from '@/payload-types'
+import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
+import { RichText } from '@payloadcms/richtext-lexical/react'
 
 type TeamMember = {
   image: Media
   name: string
   role: string
-  bio: string
+  bio: SerializedEditorState
 }
 
 type Props = {
@@ -29,16 +31,19 @@ export const MeetTheTeamBlock: React.FC<Props> = ({ teamMembers }) => {
               <div className="relative mx-auto mb-4 h-36 w-36 md:mb-8">
                 <Image
                   src={member.image.url || ''}
-                  layout="fill"
-                  objectFit="cover"
                   className="rounded-full"
                   alt={member.name}
+                  fill
+                  sizes="100vw"
+                  style={{
+                    objectFit: 'cover',
+                  }}
                 />
               </div>
               <h5 className="mb-4 text-xl font-medium">
                 {member.name} - <span className="font-normal text-gray-800">{member.role}</span>
               </h5>
-              <p className="text-lg text-gray-700">{member.bio}</p>
+              <RichText data={member.bio} className="prose" />
             </div>
           ))}
         </div>
