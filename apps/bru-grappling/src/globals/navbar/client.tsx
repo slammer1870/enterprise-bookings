@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@repo/auth'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { Button } from '@repo/ui/components/ui/button'
 
 import { Navbar as NavbarType } from '@/payload-types'
 
@@ -148,21 +149,22 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                 </Link>
               )}
               {!user && (
-                <Link href="/#contact">
-                  <li
-                    className="ml-9 mt-4 cursor-pointer bg-gray-200 px-4 py-1 text-center text-gray-900 lg:mt-0 lg:ml-20 lg:w-auto"
-                    onClick={handleOpen}
-                  >
-                    Contact
-                  </li>
-                </Link>
+                <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
+                  <Button asChild variant="secondary" size="sm" onClick={handleOpen}>
+                    <Link href="/dashboard">Members</Link>
+                  </Button>
+                </li>
               )}
               {user && (
-                <li
-                  className="ml-9 mt-4 cursor-pointer bg-[#FECE7E] px-3 py-1 text-center text-gray-700 lg:mt-0 lg:ml-20 lg:w-auto"
-                  onClick={() => logout()}
-                >
-                  Logout
+                <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90"
+                    onClick={() => logout().then(() => router.push('/'))}
+                  >
+                    Logout
+                  </Button>
                 </li>
               )}
             </ul>
