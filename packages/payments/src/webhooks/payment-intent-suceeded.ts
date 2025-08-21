@@ -98,7 +98,7 @@ export const paymentIntentSucceeded = async (
       if (existingBookings.length > 0) {
         await payload.update({
           collection: "bookings",
-          id: existingBookings[0]?.id as string,
+          id: existingBookings[0]?.id as number,
           data: {
             status: "confirmed",
           },
