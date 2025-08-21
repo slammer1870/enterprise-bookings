@@ -120,7 +120,6 @@ export const PaymentTabs = ({
               dropIn={dropIn}
               quantity={pendingBookings.length}
               metadata={{
-                lessonId: lessonId.toString(),
                 bookingIds: [
                   ...new Set(pendingBookings.map((booking) => booking.id.toString())),
                 ].join(','),
@@ -153,7 +152,6 @@ export const PaymentTabs = ({
           actionLabel="Subscribe"
           lessonId={lessonId}
           metadata={{
-            lessonId: lessonId.toString(),
             bookingIds: [...new Set(pendingBookings.map((booking) => booking.id.toString()))].join(
               ',',
             ),
