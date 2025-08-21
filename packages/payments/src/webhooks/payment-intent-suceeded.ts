@@ -68,6 +68,8 @@ export const paymentIntentSucceeded = async (
     // - Individual booking entries: { booking_1: "123", booking_2: "456" }
 
     if (metadata.lessonId) {
+      const lessonId = parseInt(metadata.lessonId);
+
       const userQuery = await payload.find({
         collection: "users",
         where: {
@@ -88,7 +90,7 @@ export const paymentIntentSucceeded = async (
       const existingBookingsQuery = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: metadata.lessonId },
+          lesson: { equals: lessonId },
           user: { equals: user.id },
         },
       });
@@ -107,7 +109,7 @@ export const paymentIntentSucceeded = async (
         const createBooking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: metadata.lessonId,
+            lesson: lessonId,
             status: "confirmed",
             user: { equals: user.id },
           },
@@ -115,7 +117,7 @@ export const paymentIntentSucceeded = async (
 
         payload.logger.info(`Created booking ${createBooking.id}`, {
           paymentIntentId: event.data.object.id,
-          lessonId: metadata.lessonId,
+          lessonId: lessonId,
         });
 
         return;
