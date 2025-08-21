@@ -150,7 +150,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
               )}
               {!user && (
                 <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
-                  <Button asChild variant="secondary" size="sm" onClick={handleOpen}>
+                  <Button asChild variant="secondary" onClick={handleOpen}>
                     <Link href="/dashboard">Members</Link>
                   </Button>
                 </li>
@@ -159,7 +159,6 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                 <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
                   <Button
                     variant="default"
-                    size="sm"
                     className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90"
                     onClick={() => logout().then(() => router.push('/'))}
                   >
