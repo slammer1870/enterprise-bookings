@@ -8,6 +8,7 @@ import { Testimonials } from '../blocks/testimonials/config'
 import { Contact } from '../blocks/contact/config'
 
 import { FormBlock } from '@repo/website/src/blocks/form/config'
+import { Faqs } from '@repo/website/src/blocks/faqs/config'
 
 import { revalidatePage, revalidateDelete } from '@repo/website/src/hooks/revalidate-page'
 
@@ -39,7 +40,17 @@ export const Pages: CollectionConfig = {
     {
       name: 'layout',
       type: 'blocks',
-      blocks: [Hero, About, Learning, MeetTheTeam, Schedule, Testimonials, Contact, FormBlock],
+      blocks: [
+        Hero,
+        About,
+        Learning,
+        MeetTheTeam,
+        Schedule,
+        Testimonials,
+        Contact,
+        FormBlock,
+        Faqs,
+      ],
     },
   ],
 }

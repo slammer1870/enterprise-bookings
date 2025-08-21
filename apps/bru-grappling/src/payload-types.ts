@@ -199,9 +199,9 @@ export interface Page {
               text: string;
               link: string;
             };
-            secondaryButton: {
-              text: string;
-              link: string;
+            secondaryButton?: {
+              text?: string | null;
+              link?: string | null;
             };
             id?: string | null;
             blockName?: string | null;
@@ -344,6 +344,18 @@ export interface Page {
             id?: string | null;
             blockName?: string | null;
             blockType: 'form-block';
+          }
+        | {
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
           }
       )[]
     | null;
@@ -1151,6 +1163,19 @@ export interface PagesSelect<T extends boolean = true> {
               form?: T;
               enableIntro?: T;
               introContent?: T;
+              id?: T;
+              blockName?: T;
+            };
+        faqs?:
+          | T
+          | {
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
               id?: T;
               blockName?: T;
             };

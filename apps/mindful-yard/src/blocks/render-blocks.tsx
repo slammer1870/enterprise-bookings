@@ -6,7 +6,7 @@ import { HeroBlock } from './hero'
 
 import { ScheduleBlock } from './schedule'
 import { LocationBlock } from './location'
-import { FaqsBlock } from './faqs'
+import { FaqsBlock } from '@repo/website/src/blocks/faqs'
 
 const blockComponents = {
   hero: HeroBlock,
