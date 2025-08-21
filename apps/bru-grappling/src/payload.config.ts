@@ -138,7 +138,7 @@ export default buildConfig({
                   // returns a Where query dynamically by the type of relationship
                   if (data.type === 'child') {
                     return {
-                      type: { equals: 'child' },
+                      type: { in: ['child', 'family'] },
                     }
                   } else if (data.type === 'adult') {
                     return {
@@ -232,6 +232,7 @@ export default buildConfig({
             options: [
               { label: 'Adult', value: 'adult' },
               { label: 'Child', value: 'child' },
+              { label: 'Family', value: 'family' },
             ],
             defaultValue: 'adult',
             required: false,
