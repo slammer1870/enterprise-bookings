@@ -42,6 +42,7 @@ export const Hero: Block = {
     {
       name: 'primaryButton',
       type: 'group',
+      required: true,
       fields: [
         {
           name: 'text',
@@ -60,17 +61,18 @@ export const Hero: Block = {
     {
       name: 'secondaryButton',
       type: 'group',
+      required: false,
       fields: [
         {
           name: 'text',
           type: 'text',
-          required: true,
+          required: false,
           label: 'Button Text',
         },
         {
           name: 'link',
           type: 'text',
-          required: true,
+          required: false,
           label: 'Button Link',
         },
       ],
