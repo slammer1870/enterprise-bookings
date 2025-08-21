@@ -118,12 +118,11 @@ export const checkUserSubscription = async (
         startDate: { less_than_equal: new Date() },
         endDate: { greater_than_equal: new Date() },
         plan: {
-          in: [allowedPlans.map((plan) => plan.id)],
+          in: allowedPlans.map((plan) => plan.id),
         },
         or: [
           { cancelAt: { greater_than: new Date() } },
           { cancelAt: { exists: false } },
-          { cancelAt: { equals: null } },
         ],
       },
       depth: 2,

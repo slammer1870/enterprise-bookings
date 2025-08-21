@@ -243,7 +243,6 @@ export const bookingsRouter = {
                 or: [
                   { cancelAt: { greater_than: new Date(lesson.startTime) } },
                   { cancelAt: { exists: false } },
-                  { cancelAt: { equals: null } },
                 ],
               },
             ],
