@@ -45,7 +45,7 @@ export default function LoginForm() {
   const { magicLink } = useAuth();
 
   const loginSchema = z.object({
-    email: z.string().email(),
+    email: z.email(),
   });
 
   type FormData = z.infer<typeof loginSchema>;
