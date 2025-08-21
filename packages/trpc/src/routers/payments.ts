@@ -60,9 +60,6 @@ export const paymentsRouter = {
 
       const priceId = JSON.parse(product?.docs[0]?.priceJSON as string)?.id;
 
-      const configurations =
-        await ctx.stripe.billingPortal.configurations.list();
-
       const subscription = await ctx.stripe.subscriptions.list({
         customer: ctx.user.stripeCustomerId as string,
         limit: 1,
@@ -75,52 +72,27 @@ export const paymentsRouter = {
 
       let configId: string | undefined;
 
-      if (configurations.data.length > 0) {
-        // Use the first configuration (typically the default one)
-        configId = configurations.data[0]?.id || "";
-        console.log(`Using existing configuration: ${configId}`);
-      } else {
-        // Create a new configuration if none exist
-        const newConfig = await ctx.stripe.billingPortal.configurations.create({
-          business_profile: {
-            headline: "Manage your subscription",
+      // Create a new configuration if none exist
+      const newConfig = await ctx.stripe.billingPortal.configurations.create({
+        business_profile: {
+          headline: "Manage your subscription",
+        },
+        features: {
+          subscription_update: {
+            enabled: true,
+            default_allowed_updates: ["price"],
+            proration_behavior: "create_prorations",
           },
-          features: {
-            subscription_update: {
-              enabled: true,
-              default_allowed_updates: ["price"],
-              proration_behavior: "create_prorations",
-            },
-            customer_update: {
-              enabled: true,
-              allowed_updates: ["email", "address"],
-            },
-            invoice_history: { enabled: true },
+          customer_update: {
+            enabled: true,
+            allowed_updates: ["email", "address"],
           },
-        });
+          invoice_history: { enabled: true },
+        },
+      });
 
-        configId = newConfig.id;
-        console.log(`Created new configuration: ${configId}`);
-      }
-
-      const config = await ctx.stripe.billingPortal.configurations.update(
-        configId,
-        {
-          features: {
-            subscription_update: {
-              enabled: true,
-              default_allowed_updates: ["price"],
-              proration_behavior: "create_prorations",
-              products: [
-                {
-                  product: input.productId,
-                  prices: [priceId],
-                },
-              ],
-            },
-          },
-        }
-      );
+      configId = newConfig.id;
+      console.log(`Created new configuration: ${configId}`);
 
       const session = await ctx.stripe.billingPortal.sessions.create({
         customer: ctx.user.stripeCustomerId as string,
