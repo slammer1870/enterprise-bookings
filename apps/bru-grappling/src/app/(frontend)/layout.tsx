@@ -21,6 +21,11 @@ const roboto = Roboto({
   variable: '--font-roboto',
 })
 
+export const metadata = {
+  description: 'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin',
+  title: 'Bru Grappling',
+}
+
 export default async function RootLayout({
   children,
   unauthenticated,

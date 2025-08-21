@@ -63,8 +63,9 @@ function ForgotPasswordFormContent() {
   const onSubmit = useCallback(
     async (data: FormData) => {
       try {
+        const normalizedEmail = data.email.toLowerCase();
         await forgotPassword({
-          email: data.email,
+          email: normalizedEmail,
         });
       } catch (error: any) {
         form.setError("root", {

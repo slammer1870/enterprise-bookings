@@ -60,8 +60,9 @@ export default function LoginForm() {
   const onSubmit = useCallback(
     async (data: FormData) => {
       try {
+        const normalizedEmail = data.email.toLowerCase();
         await magicLink({
-          email: data.email,
+          email: normalizedEmail,
           callbackUrl: callbackUrl.current || "/",
         }).then(() => {
           router.push("/magic-link-sent");
