@@ -199,9 +199,9 @@ export interface Page {
               text: string;
               link: string;
             };
-            secondaryButton: {
-              text: string;
-              link: string;
+            secondaryButton?: {
+              text?: string | null;
+              link?: string | null;
             };
             id?: string | null;
             blockName?: string | null;
