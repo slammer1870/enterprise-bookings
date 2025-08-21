@@ -1,3 +1,10 @@
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Bru Grappling - Magic link sent',
+  description: 'Check your email for a magic link to sign in.',
+}
+
 export default function MagicLinkSentPage() {
   return (
     <div className="h-screen flex flex-col items-center justify-center">
