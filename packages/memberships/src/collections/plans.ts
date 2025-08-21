@@ -195,6 +195,7 @@ export const generatePlansCollection = (config: MembershipsPluginConfig) => {
   const plansConfig: CollectionConfig = {
     ...(config?.plansOverrides || {}),
     slug: "plans",
+    defaultSort: "priceInformation.price",
     labels: {
       ...(config?.plansOverrides?.labels || defaultLabels),
     },
