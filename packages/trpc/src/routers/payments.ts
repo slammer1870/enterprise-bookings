@@ -82,6 +82,12 @@ export const paymentsRouter = {
             enabled: true,
             default_allowed_updates: ["price"],
             proration_behavior: "create_prorations",
+            products: [
+              {
+                product: input.productId,
+                prices: [priceId],
+              },
+            ],
           },
           customer_update: {
             enabled: true,
