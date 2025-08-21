@@ -1,6 +1,7 @@
 import React from 'react'
 import Image from "next/image"
 import Link from 'next/link'
+import { Button } from '@repo/ui/components/ui/button'
 import type { Media } from '@/payload-types'
 
 export const HeroBlock: React.FC<{
@@ -53,19 +54,27 @@ export const HeroBlock: React.FC<{
               <h2 className="mb-2 text-3xl font-medium uppercase leading-snug">{subtitle}</h2>
               <h3 className="mb-8 text-xl text-gray-700">{description}</h3>
             </div>
-            <div className="flex w-full flex-col lg:flex-row">
-              <Link
-                href={primaryButton.link}
-                className="mb-4 w-full bg-[#FECE7E] p-2 text-center font-medium lg:mr-4 lg:mb-0"
+            <div className="flex w-full flex-col lg:flex-row gap-4">
+              <Button
+                asChild
+                variant="default"
+                size="lg"
+                className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium"
               >
-                {primaryButton.text}
-              </Link>
-              <Link
-                href={secondaryButton.link}
-                className="w-full bg-gray-300 p-2 text-center font-medium"
+                <Link href={primaryButton.link}>
+                  {primaryButton.text}
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="secondary"
+                size="lg"
+                className="w-full font-medium"
               >
-                {secondaryButton.text}
-              </Link>
+                <Link href={secondaryButton.link}>
+                  {secondaryButton.text}
+                </Link>
+              </Button>
             </div>
           </div>
         </div>
