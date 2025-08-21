@@ -46,7 +46,7 @@ export default function RegisterForm() {
 
   const registerSchema = z.object({
     name: z.string().min(1),
-    email: z.string().email(),
+    email: z.email(),
   });
 
   type FormData = z.infer<typeof registerSchema>;
@@ -62,12 +62,13 @@ export default function RegisterForm() {
   const onSubmit = useCallback(
     async (data: FormData) => {
       try {
+        const normalizedEmail = data.email.toLowerCase();
         await register({
           name: data.name,
-          email: data.email,
+          email: normalizedEmail,
         }).then(() => {
           magicLink({
-            email: data.email,
+            email: normalizedEmail,
             callbackUrl: callbackUrl.current || "/dashboard",
           }).then(() => {
             router.push("/magic-link-sent");

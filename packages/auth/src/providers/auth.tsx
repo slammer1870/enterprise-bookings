@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         body: JSON.stringify({
           name: args.name,
-          email: args.email,
+          email: args.email.toLowerCase(),
           password: args.password,
           passwordConfirm: args.passwordConfirm,
         }),
@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       },
       body: JSON.stringify({
         name: args.name,
-        email: args.email,
+        email: args.email.toLowerCase(),
       }),
     });
 
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: args.email,
+          email: args.email.toLowerCase(),
           password: args.password,
         }),
       });
@@ -158,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email: args.email,
+        email: args.email.toLowerCase(),
         callbackUrl: args.callbackUrl || "/",
       }),
     });
@@ -232,7 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: args.email,
+          email: args.email.toLowerCase(),
         }),
       });
 

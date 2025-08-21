@@ -45,9 +45,11 @@ export function AttendeeForm({
     field: keyof Omit<Attendee, "id">,
     value: string
   ) => {
+    // Normalize email to lowercase
+    const normalizedValue = field === "email" ? value.toLowerCase() : value;
     setAttendees(
       attendees.map((attendee) =>
-        attendee.id === id ? { ...attendee, [field]: value } : attendee
+        attendee.id === id ? { ...attendee, [field]: normalizedValue } : attendee
       )
     );
   };

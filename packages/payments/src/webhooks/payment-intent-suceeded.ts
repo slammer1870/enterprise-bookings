@@ -111,7 +111,7 @@ export const paymentIntentSucceeded = async (
           data: {
             lesson: lessonId,
             status: "confirmed",
-            user: { equals: user.id },
+            user: user.id,
           },
         });
 

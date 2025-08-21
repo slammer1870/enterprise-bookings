@@ -69,9 +69,10 @@ export default function UserPassRegisterForm() {
   const onSubmit = useCallback(
     async (data: FormData) => {
       try {
+        const normalizedEmail = data.email.toLowerCase();
         await create({
           name: data.name,
-          email: data.email,
+          email: normalizedEmail,
           password: data.password,
           passwordConfirm: data.passwordConfirm,
         }).then(() => {

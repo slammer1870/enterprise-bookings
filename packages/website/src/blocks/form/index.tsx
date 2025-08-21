@@ -111,7 +111,15 @@ export const FormBlock: React.FC<
       const submitForm = async () => {
         setError(undefined);
 
-        const dataToSend = Object.entries(data).map(([name, value]) => ({
+        // Normalize email fields to lowercase
+        const normalizedData = { ...data };
+        formFromProps.fields.forEach((field) => {
+          if (field.blockType === "email" && normalizedData[field.name]) {
+            normalizedData[field.name] = (normalizedData[field.name] as string).toLowerCase();
+          }
+        });
+
+        const dataToSend = Object.entries(normalizedData).map(([name, value]) => ({
           field: name,
           value,
         }));
@@ -172,7 +180,7 @@ export const FormBlock: React.FC<
 
       void submitForm();
     },
-    [router, formID, redirect, confirmationType]
+    [router, formID, redirect, confirmationType, formFromProps.fields]
   );
 
   return (

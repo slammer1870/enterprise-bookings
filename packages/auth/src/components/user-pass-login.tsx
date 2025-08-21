@@ -73,8 +73,9 @@ function LoginFormContent() {
   const onSubmit = useCallback(
     async (data: FormData) => {
       try {
+        const normalizedEmail = data.email.toLowerCase();
         await login({
-          email: data.email,
+          email: normalizedEmail,
           password: data.password,
         }).then(() => {
           router.push(callbackUrl.current || "/dashboard");
