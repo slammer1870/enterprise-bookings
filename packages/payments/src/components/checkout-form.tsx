@@ -47,7 +47,7 @@ function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
       elements,
       confirmParams: {
         // Make sure to change this to your payment completion page
-        return_url: window.location.href,
+        return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
       },
     });
 
@@ -56,7 +56,10 @@ function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
     // your `return_url`. For some payment methods like iDEAL, your customer will
     // be redirected to an intermediate site first to authorize the payment, then
     // redirected to the `return_url`.
-    if (error && (error.type === "card_error" || error.type === "validation_error")) {
+    if (
+      error &&
+      (error.type === "card_error" || error.type === "validation_error")
+    ) {
       setMessage(error.message || "An unexpected error occurred.");
     } else if (error) {
       setMessage("An unexpected error occurred.");
@@ -121,9 +124,9 @@ export default function CheckoutForm({
       try {
         setIsLoading(true);
         setError(null);
-        
-        console.log('Creating payment intent with price:', price);
-        
+
+        console.log("Creating payment intent with price:", price);
+
         const response = await fetch("/api/stripe/create-payment-intent", {
           method: "POST",
           headers: {
@@ -137,39 +140,39 @@ export default function CheckoutForm({
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Payment intent creation failed:', {
+          console.error("Payment intent creation failed:", {
             status: response.status,
             statusText: response.statusText,
             body: errorText,
           });
-          
-          let errorMessage = 'Failed to initialize payment';
-          
+
+          let errorMessage = "Failed to initialize payment";
+
           if (response.status === 401) {
-            errorMessage = 'You must be logged in to make a payment';
+            errorMessage = "You must be logged in to make a payment";
           } else if (response.status === 400) {
-            errorMessage = 'Invalid payment request';
+            errorMessage = "Invalid payment request";
           } else if (response.status >= 500) {
-            errorMessage = 'Server error - please try again later';
+            errorMessage = "Server error - please try again later";
           }
-          
+
           setError(errorMessage);
           return;
         }
 
         const data = await response.json();
-        
+
         if (!data.clientSecret) {
-          console.error('No client secret received from payment intent');
-          setError('Failed to initialize payment - missing client secret');
+          console.error("No client secret received from payment intent");
+          setError("Failed to initialize payment - missing client secret");
           return;
         }
-        
-        console.log('Payment intent created successfully');
+
+        console.log("Payment intent created successfully");
         setClientSecret(data.clientSecret);
       } catch (err) {
-        console.error('Error creating payment intent:', err);
-        setError('Network error - please check your connection and try again');
+        console.error("Error creating payment intent:", err);
+        setError("Network error - please check your connection and try again");
       } finally {
         setIsLoading(false);
       }
@@ -181,8 +184,8 @@ export default function CheckoutForm({
   // Check if Stripe is properly configured
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-      console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not configured');
-      setError('Payment system is not properly configured');
+      console.error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not configured");
+      setError("Payment system is not properly configured");
     }
   }, []);
 
