@@ -37,7 +37,6 @@ export const createPaymentIntent: PayloadHandler = async (
     receipt_email: user.email,
     customer: userQuery.stripeCustomerId || undefined,
     metadata: metadata,
-    return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
   });
 
   return new Response(
