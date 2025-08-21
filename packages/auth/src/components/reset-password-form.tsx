@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, Suspense } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -34,6 +34,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../providers/auth";
 
 export const ResetPasswordForm = () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetPasswordFormContent />
+    </Suspense>
+  );
+};
+
+function ResetPasswordFormContent() {
   const router = useRouter();
 
   const { resetPassword } = useAuth();
