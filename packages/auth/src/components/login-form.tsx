@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, Suspense } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -36,6 +36,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../providers/auth";
 
 export default function LoginForm() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginFormContent />
+    </Suspense>
+  );
+}
+
+function LoginFormContent() {
   const searchParams = useSearchParams();
 
   const callbackUrl = useRef(searchParams?.get("callbackUrl"));
