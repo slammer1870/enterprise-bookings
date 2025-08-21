@@ -123,11 +123,13 @@ export const AddChild = ({
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Child&apos;s email</FormLabel>
                   <FormControl>
                     <Input placeholder="john.doe@example.com" {...field} />
                   </FormControl>
-                  <FormDescription>This is the email of the child.</FormDescription>
+                  <FormDescription>
+                    This is the email of the child (you can use a dummy email).
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
