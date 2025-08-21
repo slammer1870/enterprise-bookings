@@ -121,6 +121,9 @@ export default async function BookingPage({ params }: BookingPageProps) {
               bookingStatus={lesson.bookingStatus}
               dropIn={lesson.classOption.paymentMethods.allowedDropIn}
               quantity={1}
+              metadata={{
+                lessonId: lesson.id.toString(),
+              }}
             />
           ) : (
             <div>Drop-in payment option is not available</div>
