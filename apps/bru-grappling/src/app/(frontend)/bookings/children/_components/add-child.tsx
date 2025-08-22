@@ -65,8 +65,43 @@ export const AddChild = ({
 
         toast.success('Child added successfully')
         setIsOpen(false)
+        form.reset()
       },
-      onError: () => {
+      onError: (error) => {
+        // Clear any existing errors first
+        form.clearErrors()
+        
+        const errorMessage = error?.message || 'An unexpected error occurred'
+        
+        // Handle specific error cases
+        if (errorMessage.includes('E11000') || errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
+          form.setError('email', {
+            message: 'This email is already in use. Please use a different email address.',
+          })
+          return
+        }
+        
+        // Handle validation errors
+        if (errorMessage.includes('ValidationError') || errorMessage.includes('invalid')) {
+          if (errorMessage.toLowerCase().includes('email')) {
+            form.setError('email', {
+              message: 'Please enter a valid email address.',
+            })
+            return
+          }
+          if (errorMessage.toLowerCase().includes('name')) {
+            form.setError('name', {
+              message: 'Please enter a valid name.',
+            })
+            return
+          }
+        }
+        
+        // Handle general errors with root error (displays at bottom of form)
+        form.setError('root', {
+          message: errorMessage,
+        })
+        
         toast.error('Failed to add child')
       },
     }),
@@ -88,7 +123,17 @@ export const AddChild = ({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        setIsOpen(open)
+        if (open) {
+          // Clear form and errors when opening dialog
+          form.reset()
+          form.clearErrors()
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="ghost" className="w-full">
           + Add new child
@@ -139,8 +184,12 @@ export const AddChild = ({
                 {isPending ? 'Adding...' : 'Add child'}
               </Button>
             </div>
+            {form.formState.errors.root && (
+              <div className="text-red-500 text-sm mt-2">
+                {form.formState.errors.root.message}
+              </div>
+            )}
           </form>
-          <FormMessage />
         </Form>
       </DialogContent>
     </Dialog>
