@@ -18,6 +18,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
   const isBrowser = typeof window !== 'undefined'
 
   const handleScroll = useCallback(() => {
+    // Safety check for window object to prevent client-side errors during SSR/hydration
+    if (typeof window === 'undefined') return
+    
     if (window.scrollY >= 10 || pathname !== '/') {
       setScroll(true)
     } else {
