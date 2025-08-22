@@ -17,13 +17,13 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
 
   const isBrowser = typeof window !== 'undefined'
 
-  const handleScroll = useCallback(() => {
+  const handleScroll = () => {
     if (window.scrollY >= 10 || pathname !== '/') {
       setScroll(true)
     } else {
       setScroll(false)
     }
-  }, [pathname])
+  }
 
   useEffect(() => {
     if (isBrowser) {
@@ -31,7 +31,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
       window.addEventListener('scroll', handleScroll)
       return () => window.removeEventListener('scroll', handleScroll)
     }
-  }, [router, handleScroll, isBrowser])
+  }, [router, isBrowser])
 
   const handleOpen = () => {
     setOpen(!open)
