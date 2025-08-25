@@ -7,10 +7,6 @@ export const adminOrUserOrParentOrInstructor: Access = ({
   req: { user },
   id,
 }) => {
-  if (!user) {
-    return false;
-  }
-
   if (user && checkRole(["admin"], user as unknown as User)) {
     return true;
   }
