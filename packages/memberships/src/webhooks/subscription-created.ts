@@ -12,7 +12,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
   const planId = event.data.object.items.data[0]?.plan?.product;
 
-  const { lesson_id } = event.data.object.metadata;
+  const { lessonId } = event.data.object.metadata;
 
   try {
     const user = await payload.find({
@@ -46,12 +46,12 @@ export const subscriptionCreated: StripeWebhookHandler<{
       },
     });
 
-    if (lesson_id) {
+    if (lessonId) {
       const booking = await payload.find({
         collection: "bookings",
         where: {
           user: { equals: user.docs[0]?.id as number },
-          lesson: { equals: lesson_id as unknown as number },
+          lesson: { equals: lessonId as unknown as number },
         },
         limit: 1,
       });
@@ -60,7 +60,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson_id as unknown as number,
+            lesson: lessonId as unknown as number,
             user: user.docs[0]?.id as number,
             status: "confirmed",
           },
