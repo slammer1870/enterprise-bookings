@@ -11,6 +11,8 @@ export const adminOrUserOrParentOrInstructor: Access = ({
     return true;
   }
 
+  const userForQuery = user && typeof user === "object" ? user?.id : user;
+
   return {
     or: [
       {
@@ -20,12 +22,12 @@ export const adminOrUserOrParentOrInstructor: Access = ({
       },
       {
         parent: {
-          equals: user?.id,
+          equals: userForQuery,
         },
       },
       {
         id: {
-          equals: user?.id,
+          equals: userForQuery,
         },
       },
     ],
