@@ -77,7 +77,7 @@ export const lessonsRouter = {
       const endOfDay = new Date(input.date);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const lessons = await ctx.payload.find({
+      const queryOptions: any = {
         collection: "lessons",
         where: {
           startTime: {
@@ -88,8 +88,14 @@ export const lessonsRouter = {
         depth: 2,
         sort: "startTime",
         overrideAccess: false,
-        user: user,
-      });
+      };
+
+      // Only add user parameter if user exists
+      if (user) {
+        queryOptions.user = user;
+      }
+
+      const lessons = await ctx.payload.find(queryOptions);
 
       return lessons.docs.map((lesson) => lesson as Lesson);
     }),
