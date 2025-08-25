@@ -20,7 +20,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
   const handleScroll = useCallback(() => {
     // Safety check for window object to prevent client-side errors during SSR/hydration
     if (typeof window === 'undefined') return
-    
+
     if (window.scrollY >= 10 || pathname !== '/') {
       setScroll(true)
     } else {
@@ -154,7 +154,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
               {!user && (
                 <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
                   <Button asChild variant="secondary" onClick={handleOpen}>
-                    <Link href="/dashboard">Members</Link>
+                    <Link href="/login">Members</Link>
                   </Button>
                 </li>
               )}
