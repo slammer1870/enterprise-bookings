@@ -35,6 +35,8 @@ import { Posts } from '@repo/website/src/collections/posts'
 
 import { Booking, Lesson } from '@repo/shared-types'
 
+import { migrations } from './migrations'
+
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
@@ -66,6 +68,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: postgresAdapter({
+    prodMigrations: migrations,
     pool: {
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',

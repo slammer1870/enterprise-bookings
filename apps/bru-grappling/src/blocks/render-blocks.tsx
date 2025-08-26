@@ -12,6 +12,7 @@ import { Contact } from './contact'
 
 import { FormBlock } from '@repo/website/src/blocks/form'
 import { FaqsBlock } from '@repo/website/src/blocks/faqs'
+import { ContentBlock } from '@repo/website/src/blocks/content'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -23,6 +24,7 @@ const blockComponents = {
   contact: Contact,
   'form-block': FormBlock,
   faqs: FaqsBlock,
+  content: ContentBlock,
 }
 
 export const RenderBlocks: React.FC<{
