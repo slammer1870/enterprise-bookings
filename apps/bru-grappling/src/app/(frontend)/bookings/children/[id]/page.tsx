@@ -15,7 +15,7 @@ export default async function ChildrensBookingPage({ params }: BookingPageProps)
 
   // Auth check
   const { user } = await getMeUser({
-    nullUserRedirect: `/login?callbackUrl=/bookings/children/${id}`,
+    nullUserRedirect: `/register?callbackUrl=/bookings/children/${id}`,
   })
 
   prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))
