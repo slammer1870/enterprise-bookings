@@ -27,7 +27,7 @@ export const HeroWaitlistBlock: React.FC<{
   introContent: SerializedEditorState
 }> = ({ backgroundImage, logo, title, subtitle, description, form, enableIntro, introContent }) => {
   return (
-    <section className="relative min-h-screen z-10">
+    <section className="relative min-h-fit lg:min-h-screen z-10">
       <Image
         src={backgroundImage.url || ''}
         alt={backgroundImage.alt}
@@ -38,36 +38,38 @@ export const HeroWaitlistBlock: React.FC<{
           objectFit: 'cover',
         }}
       />
-      <div className="absolute flex h-full w-full items-center justify-center bg-white bg-opacity-50">
-        <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-4 lg:-mt-20 lg:mb-0 lg:flex-row gap-4">
-          <div className="mx-auto w-2/3 lg:w-1/2 xl:w-auto">
-            <Image
-              src={logo.url || ''}
-              alt={logo.alt || ''}
-              height={600}
-              width={600}
-              className="h-auto max-w-full p-4 lg:p-12"
-              unoptimized
-              style={{
-                maxWidth: '100%',
-                height: 'auto',
-              }}
-            />
-          </div>
-          <div className="lg:w-1/2">
-            <div className="mb-8 lg:mb-0">
-              <h1 className="text-lg font-medium text-gray-700">{title}</h1>
-              <h2 className="mb-2 text-3xl font-medium uppercase leading-snug">{subtitle}</h2>
-              <h3 className="mb-8 text-xl text-gray-700">{description}</h3>
+      <div className="relative lg:absolute inset-0 bg-white bg-opacity-50">
+        <div className="container mx-auto px-4 py-8 lg:py-20 lg:flex lg:items-center lg:min-h-screen">
+          <div className="flex flex-col items-center lg:flex-row lg:gap-12 lg:justify-between w-full">
+            {/* Logo Section */}
+            <div className="w-full max-w-md lg:w-1/2 lg:flex lg:justify-center mb-8 lg:mb-0 p-8 lg:p-0">
+              <Image
+                src={logo.url || ''}
+                alt={logo.alt || ''}
+                height={600}
+                width={600}
+                className="h-auto w-full max-w-sm lg:max-w-md"
+                unoptimized
+              />
             </div>
-            <div className="w-full flex flex-col gap-4 justify-start items-start">
-              {enableIntro && (
-                <div>
-                  <RichText data={introContent} className="prose prose-h3::m-0 w-full" />
+
+            {/* Content Section */}
+            <div className="w-full lg:w-1/2 text-left">
+              <div className="mb-6">
+                <h1 className="text-lg font-medium text-gray-700">{title}</h1>
+                <h2 className="mb-2 text-3xl font-medium uppercase leading-snug">{subtitle}</h2>
+                <h3 className="mb-6 text-xl text-gray-700">{description}</h3>
+              </div>
+
+              <div className="space-y-4">
+                {enableIntro && (
+                  <div>
+                    <RichText data={introContent} className="prose prose-h3::m-0 w-full" />
+                  </div>
+                )}
+                <div className="w-full">
+                  <FormBlock enableIntro={true} form={form} />
                 </div>
-              )}
-              <div className="w-full">
-                <FormBlock enableIntro={true} form={form} />
               </div>
             </div>
           </div>
