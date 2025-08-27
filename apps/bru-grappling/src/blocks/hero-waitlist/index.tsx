@@ -1,24 +1,31 @@
 import React from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Button } from '@repo/ui/components/ui/button'
 import type { Media } from '@/payload-types'
+import type { Form as FormType } from '@payloadcms/plugin-form-builder/types'
 
-export const HeroBlock: React.FC<{
+import { FormBlock } from '@repo/website/src/blocks/form'
+import { RichText } from '@payloadcms/richtext-lexical/react'
+import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
+
+export const HeroWaitlistBlock: React.FC<{
   backgroundImage: Media
   logo: Media
   title: string
   subtitle: string
   description: string
-  primaryButton: {
-    text: string
-    link: string
+  form: FormType & {
+    fields: Array<{
+      name: string
+      label: string
+      type: string
+      required?: boolean
+      blockType?: string
+      defaultValue?: string
+    }>
   }
-  secondaryButton?: {
-    text: string
-    link: string
-  }
-}> = ({ backgroundImage, logo, title, subtitle, description, primaryButton, secondaryButton }) => {
+  enableIntro: boolean
+  introContent: SerializedEditorState
+}> = ({ backgroundImage, logo, title, subtitle, description, form, enableIntro, introContent }) => {
   return (
     <section className="relative min-h-screen z-10">
       <Image
@@ -53,20 +60,15 @@ export const HeroBlock: React.FC<{
               <h2 className="mb-2 text-3xl font-medium uppercase leading-snug">{subtitle}</h2>
               <h3 className="mb-8 text-xl text-gray-700">{description}</h3>
             </div>
-            <div className="flex w-full flex-col lg:flex-row gap-4">
-              <Button
-                asChild
-                variant="default"
-                size="lg"
-                className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium"
-              >
-                <Link href={primaryButton.link}>{primaryButton.text}</Link>
-              </Button>
-              {secondaryButton?.link && secondaryButton.text && (
-                <Button asChild variant="secondary" size="lg" className="w-full font-medium">
-                  <Link href={secondaryButton.link}>{secondaryButton.text}</Link>
-                </Button>
+            <div className="w-full flex flex-col gap-4 justify-start items-start">
+              {enableIntro && (
+                <div>
+                  <RichText data={introContent} className="prose prose-h3::m-0 w-full" />
+                </div>
               )}
+              <div className="w-full">
+                <FormBlock enableIntro={true} form={form} />
+              </div>
             </div>
           </div>
         </div>
