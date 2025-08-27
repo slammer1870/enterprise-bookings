@@ -39,10 +39,10 @@ export const HeroWaitlistBlock: React.FC<{
         }}
       />
       <div className="relative lg:absolute inset-0 bg-white bg-opacity-50">
-        <div className="container mx-auto px-4 py-8 lg:py-20 lg:flex lg:items-center lg:min-h-screen">
+        <div className="container mx-auto px-4 pt-8 pb-12 lg:py-20 lg:flex lg:items-center lg:min-h-screen">
           <div className="flex flex-col items-center lg:flex-row lg:gap-12 lg:justify-between w-full">
             {/* Logo Section */}
-            <div className="w-full max-w-md lg:w-1/2 lg:flex lg:justify-center mb-8 lg:mb-0 p-8 lg:p-0">
+            <div className="w-full max-w-md lg:w-1/2 lg:flex lg:justify-center p-12 lg:p-0">
               <Image
                 src={logo.url || ''}
                 alt={logo.alt || ''}
