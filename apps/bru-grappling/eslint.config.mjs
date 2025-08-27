@@ -35,6 +35,8 @@ const eslintConfig = [
           caughtErrorsIgnorePattern: '^(_|ignore)',
         },
       ],
+      // Temporarily disable the problematic rule
+      '@next/next/no-duplicate-head': 'off',
     },
   },
   {

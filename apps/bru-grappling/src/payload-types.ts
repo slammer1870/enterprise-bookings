@@ -357,6 +357,33 @@ export interface Page {
             blockName?: string | null;
             blockType: 'faqs';
           }
+        | {
+            backgroundImage: number | Media;
+            logo: number | Media;
+            title: string;
+            subtitle: string;
+            description: string;
+            form: number | Form;
+            enableIntro?: boolean | null;
+            introContent?: {
+              root: {
+                type: string;
+                children: {
+                  type: string;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            } | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'hero-waitlist';
+          }
       )[]
     | null;
   meta?: {
@@ -1176,6 +1203,20 @@ export interface PagesSelect<T extends boolean = true> {
                     answer?: T;
                     id?: T;
                   };
+              id?: T;
+              blockName?: T;
+            };
+        'hero-waitlist'?:
+          | T
+          | {
+              backgroundImage?: T;
+              logo?: T;
+              title?: T;
+              subtitle?: T;
+              description?: T;
+              form?: T;
+              enableIntro?: T;
+              introContent?: T;
               id?: T;
               blockName?: T;
             };

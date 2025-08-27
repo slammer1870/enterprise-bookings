@@ -6,6 +6,7 @@ import { MeetTheTeam } from '../blocks/meet-the-team/config'
 import { Schedule } from '../blocks/schedule/config'
 import { Testimonials } from '../blocks/testimonials/config'
 import { Contact } from '../blocks/contact/config'
+import { HeroWaitlist } from '../blocks/hero-waitlist/config'
 
 import { FormBlock } from '@repo/website/src/blocks/form/config'
 import { Faqs } from '@repo/website/src/blocks/faqs/config'
@@ -50,6 +51,7 @@ export const Pages: CollectionConfig = {
         Contact,
         FormBlock,
         Faqs,
+        HeroWaitlist,
       ],
     },
   ],
