@@ -38,10 +38,15 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
     const price = stripeProduct.default_price as Stripe.Price;
 
     newDoc.priceJSON = price;
+    payload.logger.info(
+      `Price: ${price.unit_amount && price.unit_amount / 100}`
+    );
+    payload.logger.info(`Interval: ${price.recurring?.interval}`);
+    payload.logger.info(`Interval Count: ${price.recurring?.interval_count}`);
     newDoc.priceInformation = {
       price: price.unit_amount && price.unit_amount / 100,
       intervalCount: price.recurring?.interval_count,
-      intervalType: price.recurring?.interval,
+      interval: price.recurring?.interval,
     };
     newDoc.status = stripeProduct.active ? "active" : "inactive";
   } catch (error: unknown) {
