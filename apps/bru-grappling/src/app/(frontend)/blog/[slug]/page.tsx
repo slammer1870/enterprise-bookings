@@ -4,6 +4,7 @@ import configPromise from '@payload-config'
 import { CollectionSlug, getPayload } from 'payload'
 import { draftMode } from 'next/headers'
 import React, { cache } from 'react'
+import Script from 'next/script'
 
 import { Post } from '@repo/shared-types'
 
