@@ -46,6 +46,7 @@
     "next-plausible": "^3.12.4",
     "next-sitemap": "^4.2.3",
     "payload": "*",
+    "payload-plugin-masquerade": "^1.4.1",
     "react": "*",
     "react-dom": "*",
     "react-hook-form": "*",

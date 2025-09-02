@@ -38,8 +38,9 @@ import {
 import { Posts } from '@repo/website/src/collections/posts'
 import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
-import mailchimp from '@mailchimp/mailchimp_marketing'
 import { newsletter } from './hook/newsletter'
+
+import { masqueradePlugin } from 'payload-plugin-masquerade'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -214,6 +215,9 @@ export default buildConfig({
       uploadsCollection: 'media',
       generateTitle: ({ doc }) => `Kyuzo Jiu Jitsu — ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
+    }),
+    masqueradePlugin({
+      enabled: false,
     }),
     // storage-adapter-placeholder
   ],
