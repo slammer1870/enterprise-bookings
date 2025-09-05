@@ -1,6 +1,6 @@
 /** @type {import('next-sitemap').IConfig} */
 export default {
-  siteUrl: process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie',
+  siteUrl: 'https://brugrappling.ie',
   generateRobotsTxt: false, // We're creating our own robots.txt
   generateIndexSitemap: false, // We're creating our own main sitemap
   exclude: [
@@ -13,7 +13,7 @@ export default {
     '/dashboard/*',
     '/bookings/*',
     '/login',
-    '/register'
+    '/register',
   ],
   robotsTxtOptions: {
     policies: [
@@ -30,7 +30,7 @@ export default {
           '/dashboard/',
           '/bookings/',
           '/login',
-          '/register'
+          '/register',
         ],
       },
     ],
