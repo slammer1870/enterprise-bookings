@@ -63,12 +63,14 @@ export const subscriptionsRouter = {
             id: z.number(),
             sessionsInformation: z
               .object({
-                sessions: z.number().optional(),
+                sessions: z.number().nullable().optional(),
                 interval: z
                   .enum(["day", "week", "month", "quarter", "year"])
+                  .nullable()
                   .optional(),
-                intervalCount: z.number().optional(),
+                intervalCount: z.number().nullable().optional(),
               })
+              .nullable()
               .optional(),
           }),
         }),
@@ -83,11 +85,14 @@ export const subscriptionsRouter = {
 
       if (
         !plan.sessionsInformation ||
-        !plan.sessionsInformation.sessions ||
+        plan.sessionsInformation.sessions == null ||
         !plan.sessionsInformation.interval ||
-        !plan.sessionsInformation.intervalCount
+        plan.sessionsInformation.intervalCount == null
       ) {
-        payload.logger.info("Plan does not have sessions information");
+        payload.logger.info("Plan does not have sessions information", {
+          planId: plan.id,
+          sessionsInformation: plan.sessionsInformation,
+        });
         return false;
       }
 
