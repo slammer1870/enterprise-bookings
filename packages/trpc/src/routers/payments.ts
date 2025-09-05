@@ -24,6 +24,7 @@ export const paymentsRouter = {
         ],
         metadata: input.metadata,
         mode: input.mode,
+        customer: ctx.user.stripeCustomerId as string,
         success_url:
           input.successUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
         cancel_url:

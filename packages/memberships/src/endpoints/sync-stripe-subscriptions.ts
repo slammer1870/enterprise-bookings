@@ -6,7 +6,7 @@ import { syncStripeSubscriptions } from "../lib/sync-stripe-subscriptions";
 export const syncStripeSubscriptionsEndpoint: PayloadHandler = async (
   req
 ): Promise<Response> => {
-  const { user } = req as { user: User };
+  const user = req.user as User | null;
 
   if (!user) {
     throw new APIError("Unauthorized", 401);
