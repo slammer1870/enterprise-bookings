@@ -33,8 +33,6 @@ import { Footer } from './globals/footer/config'
 
 import { Posts } from '@repo/website/src/collections/posts'
 
-import { Booking, Lesson } from '@repo/shared-types'
-
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
@@ -43,6 +41,8 @@ import {
 import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
 import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
+
+import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -165,45 +165,7 @@ export default buildConfig({
       bookingOverrides: {
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
-          afterChange: [
-            ...(defaultHooks.afterChange || []),
-            async ({ req, doc, context }) => {
-              if (context.triggerAfterChange === false) {
-                return
-              }
-
-              const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
-
-              Promise.resolve().then(async () => {
-                const lessonQuery = await req.payload.findByID({
-                  collection: 'lessons',
-                  id: lessonId,
-                  depth: 2,
-                })
-
-                const lesson = lessonQuery as Lesson
-
-                if (
-                  lesson?.bookings?.docs?.some((booking: Booking) => booking.status === 'confirmed')
-                ) {
-                  await req.payload.update({
-                    collection: 'lessons',
-                    id: lessonId,
-                    data: {
-                      lockOutTime: 0,
-                    },
-                  })
-                } else {
-                  await req.payload.update({
-                    collection: 'lessons',
-                    id: lessonId,
-                    data: { lockOutTime: lesson.originalLockOutTime },
-                  })
-                }
-              })
-              return doc
-            },
-          ],
+          afterChange: [...(defaultHooks.afterChange || []), setLockout],
         }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
