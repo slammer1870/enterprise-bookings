@@ -41,6 +41,8 @@ import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'
 
+import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -114,54 +116,7 @@ export default buildConfig({
       bookingOverrides: {
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
-          afterChange: [
-            ...(defaultHooks.afterChange || []),
-            async ({ req, doc, context }) => {
-              if (context.triggerAfterChange === false) {
-                return
-              }
-
-              const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
-
-              const confirmed = doc.status === 'confirmed'
-
-              Promise.resolve().then(async () => {
-                if (confirmed) {
-                  await req.payload.update({
-                    collection: 'lessons',
-                    id: lessonId,
-                    data: {
-                      lockOutTime: 0,
-                    },
-                  })
-                  return doc
-                }
-
-                const lesson = (await req.payload.findByID({
-                  collection: 'lessons',
-                  id: lessonId,
-                  depth: 2,
-                })) as Lesson
-
-                if (
-                  !lesson.bookings?.docs
-                    ?.filter((booking) => booking.id != doc.id)
-                    .some((booking) => booking.status === 'confirmed')
-                ) {
-                  await req.payload.update({
-                    collection: 'lessons',
-                    id: lessonId,
-                    data: {
-                      lockOutTime: lesson.originalLockOutTime,
-                    },
-                  })
-                  return doc
-                }
-
-                return doc
-              })
-            },
-          ],
+          afterChange: [...(defaultHooks.afterChange || []), setLockout],
         }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
