@@ -142,7 +142,7 @@ export default buildConfig({
                     }
                   } else if (data.type === 'adult') {
                     return {
-                      type: { equals: 'adult' },
+                      type: { in: ['adult', 'family'] },
                     }
                   }
                   // Default case - return all plans
