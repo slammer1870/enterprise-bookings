@@ -26,11 +26,11 @@ import { Button } from "@repo/ui/components/ui/button";
 
 import { Input } from "@repo/ui/components/ui/input";
 
-import { z } from "zod";
+import { z, ZodError } from "zod";
 
 import { useForm } from "react-hook-form";
 
-import { zodResolver } from "@hookform/resolvers/zod";
+//import { zodResolver } from "@hookform/resolvers/zod";
 
 //import { FaGoogle, FaGithub } from "react-icons/fa";
 
@@ -44,10 +44,14 @@ export default function UserPassRegisterForm() {
 
   const registerSchema = z
     .object({
-      name: z.string().min(1),
-      email: z.string().email(),
-      password: z.string().min(8),
-      passwordConfirm: z.string().min(8),
+      name: z.string().min(1, "Name is required"),
+      email: z.email("Invalid email address"),
+      password: z
+        .string()
+        .min(8, "Password must be at least 8 characters long"),
+      passwordConfirm: z
+        .string()
+        .min(8, "Password confirmation must be at least 8 characters long"),
     })
     .refine((data) => data.password === data.passwordConfirm, {
       message: "Passwords do not match",
@@ -56,8 +60,28 @@ export default function UserPassRegisterForm() {
 
   type FormData = z.infer<typeof registerSchema>;
 
-  const form = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
+  const customResolver = async (data: any) => {
+    try {
+      const validatedData = registerSchema.parse(data);
+      return { values: validatedData, errors: {} };
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const fieldErrors: any = {};
+        error.issues.forEach((err: any) => {
+          const fieldPath = err.path.join(".");
+          fieldErrors[fieldPath] = {
+            type: err.code,
+            message: err.message,
+          };
+        });
+        return { values: {}, errors: fieldErrors };
+      }
+      throw error;
+    }
+  };
+
+  const form = useForm<FormData>({
+    resolver: customResolver, // Use the custom resolver instead of zodResolver because zodResolver is not working as expected
     defaultValues: {
       name: "",
       email: "",
