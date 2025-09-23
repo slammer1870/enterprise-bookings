@@ -29,10 +29,12 @@ WORKDIR /app
 # Copy package files and install dependencies in the same stage
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/bru-grappling/package.json ./apps/bru-grappling/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/shared-utils/package.json ./packages/shared-utils/
 COPY packages/shared-services/package.json ./packages/shared-services/
 COPY packages/trpc/package.json ./packages/trpc/
+COPY packages/ui/package.json ./packages/ui/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
