@@ -34,7 +34,7 @@ export const MeetTheTeamBlock: React.FC<Props> = ({ teamMembers }) => {
                   className="rounded-full"
                   alt={member.name}
                   fill
-                  sizes="100vw"
+                  sizes="144px"
                   style={{
                     objectFit: 'cover',
                   }}
