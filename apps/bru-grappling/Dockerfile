@@ -21,11 +21,25 @@ RUN \
   else echo "Lockfile not found." && exit 1; \
   fi
 
-
-# Rebuild the source code only when needed
+# Single stage build to avoid copying large node_modules
 FROM base AS builder
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+
+# Copy package files and install dependencies in the same stage
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY apps/bru-grappling/package.json ./apps/bru-grappling/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/shared-utils/package.json ./packages/shared-utils/
+COPY packages/typescript-config/package.json ./packages/typescript-config/
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --no-frozen-lockfile --filter bru-grappling; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+
+# Copy source code
 COPY . .
 
 # Next.js collects completely anonymous telemetry data about general usage.
