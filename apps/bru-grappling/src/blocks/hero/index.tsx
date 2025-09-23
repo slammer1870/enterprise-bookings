@@ -1,7 +1,7 @@
 import React from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@repo/ui/components/ui/button'
+import { OptimizedImage } from '@/components/OptimizedImage'
 import type { Media } from '@/payload-types'
 
 export const HeroBlock: React.FC<{
@@ -21,9 +21,8 @@ export const HeroBlock: React.FC<{
 }> = ({ backgroundImage, logo, title, subtitle, description, primaryButton, secondaryButton }) => {
   return (
     <section className="relative min-h-screen z-10">
-      <Image
-        src={backgroundImage.url || ''}
-        alt={backgroundImage.alt}
+      <OptimizedImage
+        media={backgroundImage}
         className="opacity-20"
         fill
         sizes="100vw"
@@ -35,9 +34,8 @@ export const HeroBlock: React.FC<{
       <div className="absolute flex h-full w-full items-center justify-center bg-white bg-opacity-50">
         <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-4 lg:-mt-20 lg:mb-0 lg:flex-row gap-4">
           <div className="mx-auto w-2/3 lg:w-1/2 xl:w-auto">
-            <Image
-              src={logo.url || ''}
-              alt={logo.alt || ''}
+            <OptimizedImage
+              media={logo}
               height={600}
               width={600}
               className="h-auto max-w-full p-4 lg:p-12"

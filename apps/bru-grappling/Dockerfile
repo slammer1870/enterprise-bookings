@@ -39,6 +39,8 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/apps/bru-grappling/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/bru-grappling/.next/static ./apps/bru-grappling/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/bru-grappling/public ./apps/bru-grappling/public
+# Copy media folder for local images
+COPY --from=builder --chown=nextjs:nodejs /app/apps/bru-grappling/media ./apps/bru-grappling/media
 
 # Set production environment variables
 ENV NODE_ENV=production

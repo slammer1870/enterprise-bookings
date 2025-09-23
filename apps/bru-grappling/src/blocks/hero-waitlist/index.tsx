@@ -1,11 +1,11 @@
 import React from 'react'
-import Image from 'next/image'
 import type { Media } from '@/payload-types'
 import type { Form as FormType } from '@payloadcms/plugin-form-builder/types'
 
 import { FormBlock } from '@repo/website/src/blocks/form'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
+import { OptimizedImage } from '@/components/OptimizedImage'
 
 export const HeroWaitlistBlock: React.FC<{
   backgroundImage: Media
@@ -28,9 +28,8 @@ export const HeroWaitlistBlock: React.FC<{
 }> = ({ backgroundImage, logo, title, subtitle, description, form, enableIntro, introContent }) => {
   return (
     <section className="relative min-h-fit lg:min-h-screen z-10">
-      <Image
-        src={backgroundImage.url || ''}
-        alt={backgroundImage.alt}
+      <OptimizedImage
+        media={backgroundImage}
         className="opacity-20"
         fill
         sizes="100vw"
@@ -43,13 +42,11 @@ export const HeroWaitlistBlock: React.FC<{
           <div className="flex flex-col items-center lg:flex-row lg:gap-12 lg:justify-between w-full">
             {/* Logo Section */}
             <div className="w-full max-w-md lg:w-1/2 lg:flex lg:justify-center p-12 lg:p-0">
-              <Image
-                src={logo.url || ''}
-                alt={logo.alt || ''}
+              <OptimizedImage
+                media={logo}
                 height={600}
                 width={600}
                 className="h-auto w-full max-w-sm lg:max-w-md"
-                unoptimized
               />
             </div>
 
