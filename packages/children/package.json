@@ -10,10 +10,10 @@
     "@repo/bookings": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/memberships": "workspace:*",
-    "@hookform/resolvers": "4.1.0",
+    "@hookform/resolvers": "*",
     "react-hook-form": "*",
-    "zod": "^4.0.15",
-    "sonner": "2.0.1",
+    "zod": "*",
+    "sonner": "*",
     "lucide-react": "0.475.0"
   },
   "devDependencies": {

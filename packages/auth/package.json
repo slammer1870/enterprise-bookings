@@ -2,7 +2,7 @@
   "name": "@repo/auth",
   "version": "0.0.1",
   "dependencies": {
-    "@hookform/resolvers": "4.1.0",
+    "@hookform/resolvers": "*",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",

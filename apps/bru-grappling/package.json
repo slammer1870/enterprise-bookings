@@ -3,7 +3,7 @@
   "description": "A blank template to get started with Payload 3.0",
   "version": "1.0.0",
   "dependencies": {
-    "@hookform/resolvers": "4.1.0",
+    "@hookform/resolvers": "*",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
@@ -43,14 +43,13 @@
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "*",
     "sharp": "0.34.2",
-    "sonner": "2.0.1",
+    "sonner": "*",
     "superjson": "1.9.1",
     "vitest": "3.2.3",
-    "zod": "^4.0.15"
+    "zod": "*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
-    "@repo/eslint-config": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.10.7",

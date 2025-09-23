@@ -2,6 +2,9 @@ import { withPayload } from '@payloadcms/next/withPayload'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable standalone output for Docker
+  output: 'standalone',
+  
   // SEO and Performance optimizations
   poweredByHeader: false,
   compress: true,
