@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Media } from '@/payload-types'
 
 // Type definition for footer data until it's added to payload-types
@@ -30,7 +31,22 @@ export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
           href="/"
           className="title-font flex items-center justify-center font-medium text-gray-900 md:justify-start"
         >
-          <img src={logo} alt="logo" className="h-12" />
+          {logo ? (
+            <Image 
+              src={logo} 
+              alt="logo" 
+              height={48}
+              width={200}
+              className="h-12 w-auto"
+              sizes="200px"
+              style={{
+                maxWidth: '100%',
+                height: 'auto',
+              }}
+            />
+          ) : (
+            <span className="text-lg font-bold">BRÚ</span>
+          )}
         </Link>
         <p className="my-4 text-sm text-gray-700 sm:ml-4 sm:mt-0 sm:border-l-2 sm:border-gray-200 sm:py-2 sm:pl-4 lg:my-0">
           © {currentYear} {companyName}
