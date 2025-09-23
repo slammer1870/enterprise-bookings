@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@date-fns/tz": "^1.2.0",
-    "@hookform/resolvers": "4.1.0",
+    "@hookform/resolvers": "*",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
@@ -24,10 +24,10 @@
     "react-email": "^3.0.7",
     "react-hook-form": "*",
     "sharp": "0.34.2",
-    "sonner": "2.0.1",
+    "sonner": "*",
     "stripe": "*",
     "tailwindcss": "^3.4.14",
-    "zod": "^4.0.15"
+    "zod": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

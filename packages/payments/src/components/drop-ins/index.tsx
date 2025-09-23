@@ -18,8 +18,6 @@ export const DropInView = ({
   quantity?: number;
   metadata?: Record<string, string>;
 }) => {
-  console.log(dropIn);
-
   // Add safety check for undefined dropIn
   if (!dropIn) {
     console.error("DropInView: dropIn is undefined");

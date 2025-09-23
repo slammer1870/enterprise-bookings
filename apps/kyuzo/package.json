@@ -16,7 +16,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start"
   },
   "dependencies": {
-    "@hookform/resolvers": "4.1.0",
+    "@hookform/resolvers": "*",
     "@mailchimp/mailchimp_marketing": "^3.0.80",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
@@ -50,9 +50,9 @@
     "react-dom": "*",
     "react-hook-form": "*",
     "sharp": "0.34.2",
-    "sonner": "2.0.1",
+    "sonner": "*",
     "ts-essentials": "^10.1.1",
-    "zod": "^4.0.15"
+    "zod": "*"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
