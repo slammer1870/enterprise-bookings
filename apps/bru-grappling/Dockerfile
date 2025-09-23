@@ -11,26 +11,13 @@ WORKDIR /app
 # Install dependencies based on the preferred package manager
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/bru-grappling/package.json ./apps/bru-grappling/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/bookings/package.json ./packages/bookings/
-COPY packages/children/package.json ./packages/children/
-COPY packages/eslint-config/package.json ./packages/eslint-config/
-COPY packages/integration-testing/package.json ./packages/integration-testing/
-COPY packages/memberships/package.json ./packages/memberships/
-COPY packages/payments/package.json ./packages/payments/
-COPY packages/roles/package.json ./packages/roles/
-COPY packages/shared-services/package.json ./packages/shared-services/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/shared-utils/package.json ./packages/shared-utils/
-COPY packages/testing-config/package.json ./packages/testing-config/
-COPY packages/trpc/package.json ./packages/trpc/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
-COPY packages/ui/package.json ./packages/ui/
-COPY packages/website/package.json ./packages/website/
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --no-frozen-lockfile; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --no-frozen-lockfile --filter bru-grappling; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
