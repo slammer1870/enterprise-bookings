@@ -30,6 +30,7 @@ export const TestimonialsBlock: React.FC<Props> = ({ title, testimonials }) => {
                 <Image
                   src={testimonial.image.url || ''}
                   fill
+                  sizes="96px"
                   style={{ objectFit: 'cover' }}
                   className="rounded-full"
                   alt={`Testimonial ${testimonial.name}`}

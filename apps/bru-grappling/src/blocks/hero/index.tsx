@@ -27,6 +27,7 @@ export const HeroBlock: React.FC<{
         className="opacity-20"
         fill
         sizes="100vw"
+        priority
         style={{
           objectFit: 'cover',
         }}
@@ -40,7 +41,8 @@ export const HeroBlock: React.FC<{
               height={600}
               width={600}
               className="h-auto max-w-full p-4 lg:p-12"
-              unoptimized
+              priority
+              sizes="(max-width: 768px) 66vw, (max-width: 1024px) 50vw, 600px"
               style={{
                 maxWidth: '100%',
                 height: 'auto',
