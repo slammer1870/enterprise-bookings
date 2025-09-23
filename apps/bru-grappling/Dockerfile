@@ -30,6 +30,8 @@ WORKDIR /app
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY apps/bru-grappling/package.json ./apps/bru-grappling/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/bookings/package.json ./packages/bookings/
+COPY packages/payments/package.json ./packages/payments/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/shared-utils/package.json ./packages/shared-utils/
 COPY packages/shared-services/package.json ./packages/shared-services/
