@@ -169,7 +169,22 @@ export default buildConfig({
         'product.updated': productUpdated,
       },
     }),
-    formBuilderPlugin({}),
+    formBuilderPlugin({
+      formOverrides: {
+        access: {
+          create: ({ req: { user } }) => checkRole(['admin'], user as User),
+          update: ({ req: { user } }) => checkRole(['admin'], user as User),
+          delete: ({ req: { user } }) => checkRole(['admin'], user as User),
+        },
+      },
+      formSubmissionOverrides: {
+        access: {
+          read: ({ req: { user } }) => checkRole(['admin'], user as User),
+          update: ({ req: { user } }) => checkRole(['admin'], user as User),
+          delete: ({ req: { user } }) => checkRole(['admin'], user as User),
+        },
+      },
+    }),
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',
