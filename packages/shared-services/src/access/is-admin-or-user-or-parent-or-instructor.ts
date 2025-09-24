@@ -7,8 +7,13 @@ export const adminOrUserOrParentOrInstructor: Access = ({
   req: { user },
   id,
 }) => {
+  // Allow unauthenticated users to see instructors only
   if (!user) {
-    return false;
+    return {
+      "lessons.instructor": {
+        exists: true,
+      },
+    } as Where;
   }
 
   if (user && checkRole(["admin"], user as unknown as User)) {

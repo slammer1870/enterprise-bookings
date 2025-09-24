@@ -12,6 +12,7 @@
     "@repo/roles": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
+    "@repo/shared-services": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
