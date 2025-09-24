@@ -43,6 +43,9 @@ import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/
 import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
 
 import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
+import { checkRole } from '@repo/shared-utils'
+
+import { User } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -75,7 +78,22 @@ export default buildConfig({
   sharp: sharp as unknown as SharpDependency,
   plugins: [
     //payloadCloudPlugin(),
-    formBuilderPlugin({}),
+    formBuilderPlugin({
+      formOverrides: {
+        access: {
+          create: ({ req: { user } }) => checkRole(['admin'], user as User),
+          update: ({ req: { user } }) => checkRole(['admin'], user as User),
+          delete: ({ req: { user } }) => checkRole(['admin'], user as User),
+        },
+      },
+      formSubmissionOverrides: {
+        access: {
+          read: ({ req: { user } }) => checkRole(['admin'], user as User),
+          update: ({ req: { user } }) => checkRole(['admin'], user as User),
+          delete: ({ req: { user } }) => checkRole(['admin'], user as User),
+        },
+      },
+    }),
     magicLinkPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',

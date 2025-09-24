@@ -38,8 +38,10 @@ import {
 import { Posts } from '@repo/website/src/collections/posts'
 import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
-import mailchimp from '@mailchimp/mailchimp_marketing'
 import { newsletter } from './hook/newsletter'
+import { checkRole } from '@repo/shared-utils'
+
+import { User } from '@repo/shared-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -84,7 +86,19 @@ export default buildConfig({
       fields: {
         // Customize form fields if need
       },
+      formOverrides: {
+        access: {
+          create: ({ req: { user } }) => checkRole(['admin'], user as User),
+          update: ({ req: { user } }) => checkRole(['admin'], user as User),
+          delete: ({ req: { user } }) => checkRole(['admin'], user as User),
+        },
+      },
       formSubmissionOverrides: {
+        access: {
+          read: ({ req: { user } }) => checkRole(['admin'], user as User),
+          update: ({ req: { user } }) => checkRole(['admin'], user as User),
+          delete: ({ req: { user } }) => checkRole(['admin'], user as User),
+        },
         hooks: {
           afterChange: [newsletter],
         },
