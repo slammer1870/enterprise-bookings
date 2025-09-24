@@ -10,6 +10,10 @@ export const bookingCreateDropinAccess = async ({
 }: AccessArgs<Booking>) => {
   const user = req.user as unknown as User | null;
 
+  if (!user) {
+    return false;
+  }
+
   if (!data?.lesson) return false;
 
   const lessonId =
