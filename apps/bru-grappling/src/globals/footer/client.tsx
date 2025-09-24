@@ -36,7 +36,7 @@ export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
               src={logo} 
               alt="logo" 
               height={48}
-              width={200}
+              width={48}
               className="h-12 w-auto"
               sizes="200px"
               style={{
