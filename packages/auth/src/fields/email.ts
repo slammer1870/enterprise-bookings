@@ -9,9 +9,6 @@ export const email: Field = {
   unique: true,
   access: {
     read: ({ req: { user }, siblingData }) => {
-      console.log("FIELD ACCESS", siblingData);
-      console.log("USER", user);
-
       if (siblingData?.id === user?.id) {
         return true;
       }
