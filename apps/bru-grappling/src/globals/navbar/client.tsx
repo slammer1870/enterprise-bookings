@@ -45,20 +45,32 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
       className={`transform ${
         scroll ? `bg-white` : `bg-transparent`
       } fixed z-20 w-full transition-all duration-300 ease-in-out`}
+      role="navigation"
+      aria-label="Main navigation"
     >
       <div className="container mx-auto flex items-center justify-between p-4 text-gray-900">
-        <Link href="/">
-          <h1 className="text-2xl font-medium text-black hover:cursor-pointer">
-            {data?.logo || 'BRÚ'}
-          </h1>
+        <Link
+          href="/"
+          className="text-2xl font-medium text-black hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+          aria-label="Go to homepage"
+        >
+          <h1>{data?.logo || 'BRÚ'}</h1>
         </Link>
-        <menu className="flex w-1/3 justify-end lg:w-full">
-          <button className="z-40 lg:hidden" onClick={handleOpen}>
+        <div className="flex w-1/3 justify-end lg:w-full">
+          <button
+            className="z-40 lg:hidden p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            onClick={handleOpen}
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+          >
             {open ? (
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 30.829 30.829"
                 className="h-6 w-6"
+                aria-hidden="true"
+                focusable="false"
               >
                 <line
                   id="Line_25"
@@ -84,6 +96,8 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 39.471 28.5"
                 className="h-6 w-auto"
+                aria-hidden="true"
+                focusable="false"
               >
                 <line
                   id="Line_1"
@@ -115,55 +129,80 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
               </svg>
             )}
           </button>
+          {/* Mobile menu overlay */}
           <div
             className={`${
               open ? 'block' : 'hidden'
             } absolute top-0 z-20 h-screen w-screen bg-black opacity-50 lg:hidden`}
             onClick={handleOpen}
+            aria-hidden="true"
           ></div>
           <div
+            id="mobile-menu"
             className={`transform ${
               open ? '-translate-x-0' : 'translate-x-full'
             } fixed right-0 top-0 bg-white z-30 flex h-screen w-1/2 items-start transition-all duration-300 ease-in-out md:w-1/4 lg:relative lg:flex lg:h-auto lg:w-11/12 lg:translate-x-0 lg:flex-row lg:items-center lg:bg-transparent lg:py-0 xl:w-full`}
+            aria-hidden={!open ? 'true' : 'false'}
           >
-            <ul className="mt-20 flex flex-col pr-6 text-sm lg:relative lg:mt-0 lg:h-auto lg:w-full lg:flex-row lg:items-center lg:justify-end lg:bg-transparent lg:px-0 lg:py-0 lg:pr-0 lg:text-base">
+            <ul
+              className="mt-20 flex flex-col pr-6 text-sm lg:relative lg:mt-0 lg:h-auto lg:w-full lg:flex-row lg:items-center lg:justify-end lg:bg-transparent lg:px-0 lg:py-0 lg:pr-0 lg:text-base"
+              role="list"
+            >
               {data?.navigationItems?.map((item: any, index: number) =>
                 item.isExternal ? (
-                  <a
-                    key={index}
-                    href={item.link}
-                    className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0"
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link key={index} href={item.link}>
-                    <li className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0" onClick={handleOpen}>
+                  <li key={index} role="listitem">
+                    <a
+                      href={item.link}
+                      className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0 block p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${item.label} (opens in new tab)`}
+                    >
                       {item.label}
-                    </li>
-                  </Link>
+                    </a>
+                  </li>
+                ) : (
+                  <li key={index} role="listitem">
+                    <Link
+                      href={item.link}
+                      className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0 block p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      onClick={handleOpen}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
                 ),
               )}
               {user && (
-                <Link href="/dashboard">
-                  <li className="ml-9 mt-4 cursor-pointer lg:mt-0 lg:ml-20" onClick={handleOpen}>
+                <li role="listitem">
+                  <Link
+                    href="/dashboard"
+                    className="ml-9 mt-4 cursor-pointer lg:mt-0 lg:ml-20 block p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    onClick={handleOpen}
+                  >
                     Dashboard
-                  </li>
-                </Link>
+                  </Link>
+                </li>
               )}
               {!user && (
-                <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
-                  <Button asChild variant="secondary" onClick={handleOpen}>
+                <li className="ml-9 mt-4 lg:mt-0 lg:ml-20" role="listitem">
+                  <Button
+                    asChild
+                    variant="secondary"
+                    onClick={handleOpen}
+                    className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
                     <Link href="/login">Members</Link>
                   </Button>
                 </li>
               )}
               {user && (
-                <li className="ml-9 mt-4 lg:mt-0 lg:ml-20">
+                <li className="ml-9 mt-4 lg:mt-0 lg:ml-20" role="listitem">
                   <Button
                     variant="default"
-                    className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90"
+                    className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     onClick={() => logout().then(() => router.push('/'))}
+                    aria-label="Logout from your account"
                   >
                     Logout
                   </Button>
@@ -171,7 +210,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
               )}
             </ul>
           </div>
-        </menu>
+        </div>
       </div>
     </nav>
   )
