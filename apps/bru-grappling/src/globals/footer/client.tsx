@@ -35,10 +35,10 @@ export const FooterGlobal: React.FC<{ data?: FooterType }> = ({ data }) => {
             <Image 
               src={logo} 
               alt="logo" 
-              height={48}
-              width={200}
-              className="h-12 w-auto"
-              sizes="200px"
+              height={32}
+              width={32}
+              className="h-8 w-auto"
+              sizes="54px"
               style={{
                 maxWidth: '100%',
                 height: 'auto',
