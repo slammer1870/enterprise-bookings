@@ -34,7 +34,7 @@ export const createPaymentIntent: PayloadHandler = async (
     amount: formatAmountForStripe(amount, "eur"),
     automatic_payment_methods: { enabled: true },
     currency: "eur",
-    receipt_email: user.email,
+    receipt_email: userQuery.email,
     customer: userQuery.stripeCustomerId || undefined,
     metadata: metadata,
   });

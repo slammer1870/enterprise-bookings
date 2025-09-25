@@ -51,14 +51,14 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
       <div className="container mx-auto flex items-center justify-between p-4 text-gray-900">
         <Link
           href="/"
-          className="text-2xl font-medium text-black hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+          className="text-2xl font-medium text-black hover:cursor-pointer focus:outline-none rounded"
           aria-label="Go to homepage"
         >
           <h1>{data?.logo || 'BRÚ'}</h1>
         </Link>
         <div className="flex w-1/3 justify-end lg:w-full">
           <button
-            className="z-40 lg:hidden p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="z-40 lg:hidden p-2 rounded focus:outline-none"
             onClick={handleOpen}
             aria-expanded={open}
             aria-controls="mobile-menu"
@@ -153,7 +153,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                   <li key={index} role="listitem">
                     <a
                       href={item.link}
-                      className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0 block p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0 block p-2 rounded hover:bg-gray-100 focus:outline-none"
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`${item.label} (opens in new tab)`}
@@ -165,7 +165,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                   <li key={index} role="listitem">
                     <Link
                       href={item.link}
-                      className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0 block p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      className="ml-9 mt-4 cursor-pointer lg:ml-20 lg:mt-0 block p-2 rounded hover:bg-gray-100 focus:outline-none"
                       onClick={handleOpen}
                     >
                       {item.label}
@@ -177,7 +177,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                 <li role="listitem">
                   <Link
                     href="/dashboard"
-                    className="ml-9 mt-4 cursor-pointer lg:mt-0 lg:ml-20 block p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="ml-9 mt-4 cursor-pointer lg:mt-0 lg:ml-20 block p-2 rounded hover:bg-gray-100 focus:outline-none"
                     onClick={handleOpen}
                   >
                     Dashboard
@@ -190,7 +190,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                     asChild
                     variant="secondary"
                     onClick={handleOpen}
-                    className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="focus:outline-none"
                   >
                     <Link href="/login">Members</Link>
                   </Button>
@@ -200,7 +200,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                 <li className="ml-9 mt-4 lg:mt-0 lg:ml-20" role="listitem">
                   <Button
                     variant="default"
-                    className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90 focus:outline-none"
                     onClick={() => logout().then(() => router.push('/'))}
                     aria-label="Logout from your account"
                   >
