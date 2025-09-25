@@ -21,10 +21,22 @@ export const metadata = {
   metadataBase: new URL('https://brugrappling.ie'),
   title: {
     default: 'Brú Grappling - Brazilian Jiu Jitsu Dublin',
-    template: '%s | Brú Grappling'
+    template: '%s | Brú Grappling',
   },
-  description: 'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin. Expert instruction, flexible schedules, and a welcoming community.',
-  keywords: ['Brazilian Jiu Jitsu', 'BJJ', 'Grappling', 'Martial Arts', 'Dublin', 'Ireland', 'Self Defense', 'Fitness', 'Kids BJJ', 'Adult BJJ'],
+  description:
+    'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin. Expert instruction, flexible schedules, and a welcoming community.',
+  keywords: [
+    'Brazilian Jiu Jitsu',
+    'BJJ',
+    'Grappling',
+    'Martial Arts',
+    'Dublin',
+    'Ireland',
+    'Self Defense',
+    'Fitness',
+    'Kids BJJ',
+    'Adult BJJ',
+  ],
   authors: [{ name: 'Brú Grappling' }],
   creator: 'Brú Grappling',
   publisher: 'Brú Grappling',
@@ -39,7 +51,8 @@ export const metadata = {
     url: 'https://brugrappling.ie',
     siteName: 'Brú Grappling',
     title: 'Brú Grappling - Brazilian Jiu Jitsu Dublin',
-    description: 'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin. Expert instruction, flexible schedules, and a welcoming community.',
+    description:
+      'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin. Expert instruction, flexible schedules, and a welcoming community.',
     images: [
       {
         url: '/logo.png',
@@ -84,53 +97,51 @@ export default async function RootLayout({
 }) {
   // Organization structured data
   const organizationData = {
-    "@context": "https://schema.org",
-    "@type": "SportsActivityLocation",
-    "name": "Brú Grappling",
-    "description": "Brazilian Jiu Jitsu and Grappling Academy in Dublin, Ireland",
-    "url": "https://brugrappling.ie",
-    "logo": "https://brugrappling.ie/logo.png",
-    "image": "https://brugrappling.ie/logo.png",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Dublin",
-      "addressCountry": "IE"
+    '@context': 'https://schema.org',
+    '@type': 'SportsActivityLocation',
+    name: 'Brú Grappling',
+    description: 'Brazilian Jiu Jitsu and Grappling Academy in Dublin, Ireland',
+    url: 'https://brugrappling.ie',
+    logo: 'https://brugrappling.ie/logo.png',
+    image: 'https://brugrappling.ie/logo.png',
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Dublin',
+      addressCountry: 'IE',
     },
-    "geo": {
-      "@type": "GeoCoordinates",
-      "latitude": "53.3498",
-      "longitude": "-6.2603"
+    geo: {
+      '@type': 'GeoCoordinates',
+      latitude: '53.3498',
+      longitude: '-6.2603',
     },
-    "telephone": "+353-1-XXX-XXXX",
-    "email": "info@brugrappling.ie",
-    "openingHours": "Mo-Fr 06:00-22:00, Sa-Su 08:00-18:00",
-    "currenciesAccepted": "EUR",
-    "paymentMethod": "Cash, Credit Card, Debit Card",
-    "sameAs": [
-      "https://www.instagram.com/bru_grappling"
-    ],
-    "hasOfferCatalog": {
-      "@type": "OfferCatalog",
-      "name": "BJJ Classes and Memberships",
-      "itemListElement": [
+    telephone: '+353-1-XXX-XXXX',
+    email: 'info@brugrappling.ie',
+    openingHours: 'Mo-Fr 06:00-22:00, Sa-Su 08:00-18:00',
+    currenciesAccepted: 'EUR',
+    paymentMethod: 'Cash, Credit Card, Debit Card',
+    sameAs: ['https://www.instagram.com/bru_grappling'],
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'BJJ Classes and Memberships',
+      itemListElement: [
         {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "Adult Brazilian Jiu Jitsu Classes",
-            "description": "Brazilian Jiu Jitsu training for adults"
-          }
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: 'Adult Brazilian Jiu Jitsu Classes',
+            description: 'Brazilian Jiu Jitsu training for adults',
+          },
         },
         {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "Kids Brazilian Jiu Jitsu Classes",
-            "description": "Brazilian Jiu Jitsu training for children"
-          }
-        }
-      ]
-    }
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Service',
+            name: 'Kids Brazilian Jiu Jitsu Classes',
+            description: 'Brazilian Jiu Jitsu training for children',
+          },
+        },
+      ],
+    },
   }
 
   return (
@@ -149,7 +160,7 @@ export default async function RootLayout({
       <PlausibleProvider domain="brugrappling.ie">
         <AuthProvider>
           <TRPCReactProvider>
-            <body className={roboto.className}>
+            <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-right-bottom lg:bg-center">
               <Navbar />
               {children}
               {unauthenticated}
