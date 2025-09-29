@@ -4,7 +4,7 @@ import { RegisterLoginTabs } from '@repo/auth'
 import { Suspense } from 'react'
 
 export default async function Register() {
-  const user = await getMeUser({ validUserRedirect: '/dashboard' })
+  const user = await getMeUser({ validUserRedirect: '/' })
 
   return (
     <div className="flex h-screen w-screen items-center justify-center">
