@@ -3,7 +3,7 @@ import { getMeUser } from '@repo/auth'
 import { RegisterLoginTabs } from '@repo/auth'
 
 export default async function Register() {
-  const user = await getMeUser({ validUserRedirect: '/dashboard' })
+  const user = await getMeUser({ validUserRedirect: '/' })
 
   return (
     <div className="flex h-screen w-screen items-center justify-center">
