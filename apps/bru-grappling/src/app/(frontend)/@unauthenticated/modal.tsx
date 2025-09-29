@@ -14,7 +14,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
     // @ts-ignore
     if (!dialogRef.current?.open) {
       // @ts-ignore
-      dialogRef.current?.showModal() //this may be causing loop
+      dialogRef.current?.showModal()
     }
   }, [])
 
