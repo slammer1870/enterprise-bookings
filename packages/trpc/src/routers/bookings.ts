@@ -4,22 +4,22 @@ import { TRPCError } from "@trpc/server";
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure } from "../trpc";
 
-import { Booking, ClassOption, Subscription } from "@repo/shared-types";
+import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
 
 export const bookingsRouter = {
   checkIn: protectedProcedure
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
-      
+
       // Fetch lesson with full depth for business logic validation
-      const lesson = await ctx.payload.findByID({
+      const lesson = (await ctx.payload.findByID({
         collection: "lessons",
         id: lessonId,
         depth: 3,
         overrideAccess: false,
         user: ctx.user,
-      });
+      })) as Lesson;
 
       if (!lesson) {
         throw new TRPCError({
@@ -81,9 +81,9 @@ export const bookingsRouter = {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "REDIRECT_TO_BOOKING_PAYMENT",
-          cause: { 
+          cause: {
             redirectUrl: `/bookings/${lessonId}`,
-            originalError: error.message 
+            originalError: error.message,
           },
         });
       }
