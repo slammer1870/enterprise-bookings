@@ -39,16 +39,44 @@ export const CheckInButton = ({
     action()
   }
 
-  const { mutate: createOrUpdateBooking, isPending: isCreatingBooking } = useMutation(
-    trpc.bookings.createOrUpdateBooking.mutationOptions({
-      onSuccess: () => {
-        toast.success('Booking created')
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
-        })
-      },
+  const handleUnifiedCheckIn = async () => {
+    // Centralized check-in flow - let the server handle all business logic
+    try {
+      await checkInMutation({ lessonId: id })
+      
+      // If successful, user was checked in
+      toast.success('Checked in successfully!')
+      queryClient.invalidateQueries({
+        queryKey: trpc.lessons.getByDate.queryKey(),
+      })
+    } catch (error: any) {
+      // Handle specific redirect cases based on server response
+      if (error.message === 'REDIRECT_TO_CHILDREN_BOOKING') {
+        const redirectUrl = error.data?.cause?.redirectUrl || `/bookings/children/${id}`
+        router.push(redirectUrl)
+      } else if (error.message === 'REDIRECT_TO_BOOKING_PAYMENT') {
+        const redirectUrl = error.data?.cause?.redirectUrl || `/bookings/${id}`
+        toast.info('Please complete your booking to check in')
+        router.push(redirectUrl)
+      } else {
+        // Generic error handling
+        toast.error('Failed to check in. Please try again.')
+        console.error('Check-in error:', error)
+      }
+    }
+  }
+
+  const { mutateAsync: checkInMutation, isPending: isCheckingIn } = useMutation(
+    trpc.bookings.checkIn.mutationOptions({
       onError: (error) => {
-        toast.error('Failed to create booking')
+        console.error('Check-in error:', error)
+      },
+    }),
+  )
+
+  const { mutateAsync: createOrUpdateBooking, isPending: isCreatingBooking } = useMutation(
+    trpc.bookings.createOrUpdateBooking.mutationOptions({
+      onError: (error) => {
         console.error('Booking error:', error)
       },
     }),
@@ -99,70 +127,59 @@ export const CheckInButton = ({
     }
   > = {
     active: {
-      label: isCreatingBooking ? 'Creating...' : type === 'child' ? 'Check Child In' : 'Check In',
+      label: isCheckingIn ? 'Checking In...' : type === 'child' ? 'Check Child In' : 'Check In',
       variant: 'default' as const,
       className: 'w-full bg-green-600 hover:bg-green-700',
-      disabled: isCreatingBooking,
-      action: () => requireAuth(() => {
-        if (type === 'child') {
-          router.push(`/bookings/children/${id}`)
-        } else {
-          createOrUpdateBooking({ id, status: 'confirmed' })
-        }
-      }),
+      disabled: isCheckingIn,
+      action: () => requireAuth(() => handleUnifiedCheckIn()),
     },
     booked: {
       label: isCancellingBooking ? 'Cancelling...' : 'Cancel Booking',
       variant: 'destructive' as const,
       className: 'w-full',
       disabled: isCancellingBooking,
-      action: () => requireAuth(() => {
-        confirm().then((result) => {
-          if (result) {
-            cancelBooking({ id })
-          }
-        })
-      }),
+      action: () =>
+        requireAuth(() => {
+          confirm().then((result) => {
+            if (result) {
+              cancelBooking({ id })
+            }
+          })
+        }),
     },
     trialable: {
-      label: isCreatingBooking ? 'Creating...' : 'Book Trial Class',
+      label: isCheckingIn ? 'Booking...' : 'Book Trial Class',
       variant: 'default' as const,
       className: 'w-full bg-blue-600 hover:bg-blue-700',
-      disabled: isCreatingBooking,
-      action: () => requireAuth(() => {
-        if (type === 'child') {
-          router.push(`/bookings/children/${id}`)
-        } else {
-          createOrUpdateBooking({ id, status: 'confirmed' })
-        }
-      }),
+      disabled: isCheckingIn,
+      action: () => requireAuth(() => handleUnifiedCheckIn()),
     },
     waitlist: {
       label: isJoiningWaitlist ? 'Joining...' : 'Join Waitlist',
       variant: 'secondary' as const,
       className: 'w-full bg-yellow-600 hover:bg-yellow-700 text-white',
       disabled: isJoiningWaitlist,
-      action: () => requireAuth(() => {
-        joinWaitlist({ id })
-      }),
+      action: () =>
+        requireAuth(() => {
+          joinWaitlist({ id })
+        }),
     },
     waiting: {
       label: isLeavingWaitlist ? 'Leaving...' : 'Leave Waitlist',
       variant: 'outline' as const,
       className: 'w-full border-yellow-600 text-yellow-600 hover:bg-yellow-50',
       disabled: isLeavingWaitlist,
-      action: () => requireAuth(() => {
-        leaveWaitlist({ id })
-      }),
+      action: () =>
+        requireAuth(() => {
+          leaveWaitlist({ id })
+        }),
     },
     childrenBooked: {
-      label: isCreatingBooking ? 'Creating...' : 'Manage Children',
+      label: isCheckingIn ? 'Loading...' : 'Manage Children',
       variant: 'secondary' as const,
       className: 'w-full bg-purple-600 hover:bg-purple-700 text-white',
-      disabled: isCreatingBooking,
-      action: () => requireAuth(() => {
-        router.push(`/bookings/children/${id}`)
-      }),
+      disabled: isCheckingIn,
+      action: () => requireAuth(() => handleUnifiedCheckIn()),
     },
     closed: {
       label: 'Closed',
