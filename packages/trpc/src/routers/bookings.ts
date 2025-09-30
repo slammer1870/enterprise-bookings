@@ -7,6 +7,87 @@ import { protectedProcedure } from "../trpc";
 import { Booking, ClassOption, Subscription } from "@repo/shared-types";
 
 export const bookingsRouter = {
+  checkIn: protectedProcedure
+    .input(z.object({ lessonId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const { lessonId } = input;
+      
+      // Fetch lesson with full depth for business logic validation
+      const lesson = await ctx.payload.findByID({
+        collection: "lessons",
+        id: lessonId,
+        depth: 3,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${lessonId} not found`,
+        });
+      }
+
+      // Business Logic: Handle children's lessons differently
+      if (lesson.classOption.type === "child") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "REDIRECT_TO_CHILDREN_BOOKING",
+          cause: { redirectUrl: `/bookings/children/${lessonId}` },
+        });
+      }
+
+      // Try to create/update booking - this will use existing access controls
+      // which handle membership validation, subscription limits, etc.
+      try {
+        const existingBooking = await ctx.payload.find({
+          collection: "bookings",
+          where: {
+            lesson: { equals: lessonId },
+            user: { equals: ctx.user.id },
+          },
+          depth: 2,
+          limit: 1,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+
+        if (existingBooking.docs.length === 0) {
+          // Create new booking
+          return await ctx.payload.create({
+            collection: "bookings",
+            data: {
+              lesson: lessonId,
+              user: ctx.user.id,
+              status: "confirmed",
+            },
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        } else {
+          // Update existing booking
+          return await ctx.payload.update({
+            collection: "bookings",
+            id: existingBooking.docs[0]?.id as number,
+            data: {
+              status: "confirmed",
+            },
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } catch (error: any) {
+        // If booking creation/update fails due to membership/payment issues
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "REDIRECT_TO_BOOKING_PAYMENT",
+          cause: { 
+            redirectUrl: `/bookings/${lessonId}`,
+            originalError: error.message 
+          },
+        });
+      }
+    }),
   createBooking: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
