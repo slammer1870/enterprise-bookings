@@ -40,7 +40,14 @@ export const subscriptionsRouter = {
           collection: "subscriptions",
           where: {
             user: { equals: user.id },
-            status: { not_equals: "canceled" },
+            status: {
+              not_in: [
+                "canceled",
+                "unpaid",
+                "incomplete_expired",
+                "incomplete",
+              ],
+            },
             startDate: { less_than: new Date() },
             endDate: { greater_than: new Date() },
             plan: { in: input.plans },
