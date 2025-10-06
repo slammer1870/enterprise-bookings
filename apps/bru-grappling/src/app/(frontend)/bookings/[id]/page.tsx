@@ -74,7 +74,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
       and: [
         {
           user: { equals: user.id },
-          status: { not_equals: 'canceled' },
+          status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
         },
       ],
     },
