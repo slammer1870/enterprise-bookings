@@ -45,7 +45,7 @@ async function getSubscriptionData(payload: any, userId: number) {
       and: [
         {
           user: { equals: userId },
-          status: { not_equals: 'canceled' },
+          status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
         },
       ],
     },

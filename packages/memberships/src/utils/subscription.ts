@@ -26,7 +26,14 @@ export const getActiveSubscription = async (): Promise<Subscription | null> => {
         },
         {
           status: {
-            not_equals: "canceled",
+            status: {
+              not_in: [
+                "canceled",
+                "unpaid",
+                "incomplete_expired",
+                "incomplete",
+              ],
+            },
           },
         },
         {
@@ -77,7 +84,12 @@ export const getActiveChildSubscription =
           },
           {
             status: {
-              not_equals: "canceled",
+              not_in: [
+                "canceled",
+                "unpaid",
+                "incomplete_expired",
+                "incomplete",
+              ],
             },
           },
           {

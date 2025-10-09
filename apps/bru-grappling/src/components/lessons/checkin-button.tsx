@@ -43,12 +43,8 @@ export const CheckInButton = ({
     // Centralized check-in flow - let the server handle all business logic
     try {
       await checkInMutation({ lessonId: id })
-      
+
       // If successful, user was checked in
-      toast.success('Checked in successfully!')
-      queryClient.invalidateQueries({
-        queryKey: trpc.lessons.getByDate.queryKey(),
-      })
     } catch (error: any) {
       // Handle specific redirect cases based on server response
       if (error.message === 'REDIRECT_TO_CHILDREN_BOOKING') {
@@ -68,6 +64,12 @@ export const CheckInButton = ({
 
   const { mutateAsync: checkInMutation, isPending: isCheckingIn } = useMutation(
     trpc.bookings.checkIn.mutationOptions({
+      onSuccess: () => {
+        toast.success('Checked in successfully!')
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        })
+      },
       onError: (error) => {
         console.error('Check-in error:', error)
       },

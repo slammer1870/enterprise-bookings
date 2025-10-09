@@ -59,7 +59,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       });
 
       // Create the magic link URL
-      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}${
+      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}&utm_source=email&utm_medium=magic_link${
         url && `&callbackUrl=${url}`
       }`;
 
