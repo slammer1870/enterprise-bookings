@@ -18,6 +18,7 @@
   "dependencies": {
     "@hookform/resolvers": "4.1.0",
     "@mailchimp/mailchimp_marketing": "^3.0.80",
+    "@next/third-parties": "^15.5.4",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
