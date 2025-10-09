@@ -10,6 +10,8 @@ import { Toaster } from 'sonner'
 
 import PlausibleProvider from 'next-plausible'
 
+import { GoogleTagManager } from '@next/third-parties/google'
+
 export const metadata = {
   description: 'Sign up today to get started on your Jiu Jitsu Journey!',
   title: 'Kyuzo Brazilian Jiu Jitsu',
@@ -20,6 +22,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en">
+      <GoogleTagManager gtmId="AW-11536098613" />
       <PlausibleProvider domain="kyuzo.ie">
         <AuthProvider>
           <body>

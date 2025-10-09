@@ -43,6 +43,8 @@ import { checkRole } from '@repo/shared-utils'
 
 import { User } from '@repo/shared-types'
 
+import { masqueradePlugin } from 'payload-plugin-masquerade'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -228,6 +230,9 @@ export default buildConfig({
       uploadsCollection: 'media',
       generateTitle: ({ doc }) => `Kyuzo Jiu Jitsu — ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
+    }),
+    masqueradePlugin({
+      enabled: false,
     }),
     // storage-adapter-placeholder
   ],
