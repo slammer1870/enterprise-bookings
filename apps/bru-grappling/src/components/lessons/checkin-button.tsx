@@ -43,11 +43,11 @@ export const CheckInButton = ({
     // Centralized check-in flow - let the server handle all business logic
     try {
       await checkInMutation({ lessonId: id })
-      
+
       // If successful, user was checked in
       toast.success('Checked in successfully!')
       queryClient.invalidateQueries({
-        queryKey: trpc.lessons.getByDate.queryKey(),
+        queryKey: trpc.lessons.getById.queryKey({ id }),
       })
     } catch (error: any) {
       // Handle specific redirect cases based on server response
@@ -87,7 +87,7 @@ export const CheckInButton = ({
       onSuccess: () => {
         toast.success('Booking cancelled')
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
+          queryKey: trpc.lessons.getById.queryKey({ id }),
         })
       },
     }),
@@ -98,7 +98,7 @@ export const CheckInButton = ({
       onSuccess: () => {
         toast.success('Joined waitlist')
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
+          queryKey: trpc.lessons.getById.queryKey({ id }),
         })
       },
     }),
@@ -109,7 +109,7 @@ export const CheckInButton = ({
       onSuccess: () => {
         toast.success('Left waitlist')
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
+          queryKey: trpc.lessons.getById.queryKey({ id }),
         })
       },
     }),
