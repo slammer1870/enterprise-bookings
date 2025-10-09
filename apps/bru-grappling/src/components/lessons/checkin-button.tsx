@@ -45,10 +45,6 @@ export const CheckInButton = ({
       await checkInMutation({ lessonId: id })
 
       // If successful, user was checked in
-      toast.success('Checked in successfully!')
-      queryClient.invalidateQueries({
-        queryKey: trpc.lessons.getById.queryKey({ id }),
-      })
     } catch (error: any) {
       // Handle specific redirect cases based on server response
       if (error.message === 'REDIRECT_TO_CHILDREN_BOOKING') {
@@ -68,6 +64,12 @@ export const CheckInButton = ({
 
   const { mutateAsync: checkInMutation, isPending: isCheckingIn } = useMutation(
     trpc.bookings.checkIn.mutationOptions({
+      onSuccess: () => {
+        toast.success('Checked in successfully!')
+        queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        })
+      },
       onError: (error) => {
         console.error('Check-in error:', error)
       },
@@ -87,7 +89,7 @@ export const CheckInButton = ({
       onSuccess: () => {
         toast.success('Booking cancelled')
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getById.queryKey({ id }),
+          queryKey: trpc.lessons.getByDate.queryKey(),
         })
       },
     }),
@@ -98,7 +100,7 @@ export const CheckInButton = ({
       onSuccess: () => {
         toast.success('Joined waitlist')
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getById.queryKey({ id }),
+          queryKey: trpc.lessons.getByDate.queryKey(),
         })
       },
     }),
@@ -109,7 +111,7 @@ export const CheckInButton = ({
       onSuccess: () => {
         toast.success('Left waitlist')
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getById.queryKey({ id }),
+          queryKey: trpc.lessons.getByDate.queryKey(),
         })
       },
     }),
