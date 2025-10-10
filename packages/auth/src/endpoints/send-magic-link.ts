@@ -6,7 +6,7 @@ import { PluginTypes } from "../types";
 
 import { render } from "@react-email/components";
 import { MagicLinkEmail } from "../email/sign-in";
-import { User } from "@repo/shared-types";
+import { User, UTMParams } from "@repo/shared-types";
 
 export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/send-magic-link",
@@ -18,7 +18,11 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       throw new APIError("Invalid request body", 400);
     }
 
-    const { email, callbackUrl, utmParams } = await req.json();
+    const { email, callbackUrl, utmParams } = await req.json() as {
+      email: string;
+      callbackUrl?: string;
+      utmParams?: UTMParams;
+    };
 
     const url: string | undefined = callbackUrl;
 
@@ -60,9 +64,13 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
       // Build UTM parameters string
       let utmString = "";
-      if (utmParams && utmParams.trim()) {
-        // Use provided UTM parameters
-        utmString = `&${utmParams}`;
+      if (utmParams && Object.values(utmParams).some(value => value)) {
+        // Convert UTMParams object to query string
+        const utmEntries = Object.entries(utmParams)
+          .filter(([_, value]) => value)
+          .map(([key, value]) => `${key}=${encodeURIComponent(value!)}`)
+          .join('&');
+        utmString = `&${utmEntries}`;
       } else {
         // Fallback to default UTM parameters
         utmString = "&utm_source=email&utm_medium=magic_link";
@@ -105,7 +113,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
       return new Response(JSON.stringify("Magic Link Sent"), { status: 200 }); // Ensure to return a Response object
     } catch (error) {
-      console.log("Magin clink error", error);
+      console.log("Magic link error", error);
       throw new APIError("Error sending email", 500);
     }
   },
