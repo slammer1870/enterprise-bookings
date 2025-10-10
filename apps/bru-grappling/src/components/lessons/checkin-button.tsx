@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@repo/auth'
 
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
+import { useAnalyticsTracker } from '@repo/analytics'
 
 export const CheckInButton = ({
   bookingStatus,
@@ -25,6 +26,7 @@ export const CheckInButton = ({
   const queryClient = useQueryClient()
   const router = useRouter()
   const { user } = useAuth()
+  const { trackEvent } = useAnalyticsTracker()
 
   const [ConfirmationDialog, confirm] = useConfirm(
     'Are you sure you want to cancel this booking?',
@@ -133,7 +135,11 @@ export const CheckInButton = ({
       variant: 'default' as const,
       className: 'w-full bg-green-600 hover:bg-green-700',
       disabled: isCheckingIn,
-      action: () => requireAuth(() => handleUnifiedCheckIn()),
+      action: () =>
+        requireAuth(() => {
+          handleUnifiedCheckIn()
+          trackEvent('Check In Initiated')
+        }),
     },
     booked: {
       label: isCancellingBooking ? 'Cancelling...' : 'Cancel Booking',
@@ -154,7 +160,11 @@ export const CheckInButton = ({
       variant: 'default' as const,
       className: 'w-full bg-blue-600 hover:bg-blue-700',
       disabled: isCheckingIn,
-      action: () => requireAuth(() => handleUnifiedCheckIn()),
+      action: () =>
+        requireAuth(() => {
+          handleUnifiedCheckIn()
+          trackEvent('Trial Class Booking Initiated')
+        }),
     },
     waitlist: {
       label: isJoiningWaitlist ? 'Joining...' : 'Join Waitlist',

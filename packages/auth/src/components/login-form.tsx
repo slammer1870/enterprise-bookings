@@ -34,6 +34,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 //import { FaGoogle, FaGithub } from "react-icons/fa";
 
 import { useAuth } from "../providers/auth";
+import { useAnalyticsTracker } from "@repo/analytics";
 
 export default function LoginForm() {
   return (
@@ -51,7 +52,7 @@ function LoginFormContent() {
   const router = useRouter();
 
   const { magicLink } = useAuth();
-
+  const { trackEvent } = useAnalyticsTracker();
   const loginSchema = z.object({
     email: z.email(),
   });
@@ -73,6 +74,7 @@ function LoginFormContent() {
           email: normalizedEmail,
           callbackUrl: callbackUrl.current || "/",
         }).then(() => {
+          trackEvent("Login Completed");
           router.push("/magic-link-sent");
         });
       } catch (error) {
