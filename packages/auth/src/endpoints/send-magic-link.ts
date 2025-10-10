@@ -21,8 +21,10 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
     const { email, callbackUrl, utmParams } = await req.json() as {
       email: string;
       callbackUrl?: string;
-      utmParams?: UTMParams;
+      utmParams?: UTMParams | string;
     };
+
+    console.log("Raw utmParams:", utmParams, typeof utmParams);
 
     const url: string | undefined = callbackUrl;
 
@@ -64,15 +66,50 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
       // Build UTM parameters string
       let utmString = "";
-      if (utmParams && Object.values(utmParams).some(value => value)) {
-        // Convert UTMParams object to query string
-        const utmEntries = Object.entries(utmParams)
-          .filter(([_, value]) => value)
-          .map(([key, value]) => `${key}=${encodeURIComponent(value!)}`)
-          .join('&');
-        utmString = `&${utmEntries}`;
-      } else {
-        // Fallback to default UTM parameters
+      if (utmParams) {
+        if (typeof utmParams === 'string') {
+          // If utmParams is a URL string, extract query parameters
+          try {
+            const url = new URL(utmParams);
+            const searchParams = url.searchParams;
+            const utmEntries: string[] = [];
+            
+            // Extract only UTM and Facebook parameters from the URL (exclude timestamp and other non-UTM params)
+            const validUtmParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id', 'utm_adset_id', 'utm_campaign_id', 'fbclid'];
+            validUtmParams.forEach(param => {
+              const value = searchParams.get(param);
+              if (value) {
+                utmEntries.push(`${param}=${encodeURIComponent(value)}`);
+              }
+            });
+            
+            if (utmEntries.length > 0) {
+              utmString = `&${utmEntries.join('&')}`;
+            }
+          } catch (error) {
+            console.log("Error parsing UTM URL:", error);
+            // Fallback to treating it as a query string
+            utmString = utmParams.startsWith('&') ? utmParams : `&${utmParams}`;
+          }
+        } else if (typeof utmParams === 'object') {
+          // Convert UTMParams object to query string, filtering out non-UTM parameters and null/undefined values
+          const validUtmParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id', 'utm_adset_id', 'utm_campaign_id', 'fbclid'];
+          const utmEntries = Object.entries(utmParams)
+            .filter(([key, value]) => {
+              // Only include valid UTM parameters that have non-null, non-undefined, non-empty values
+              return validUtmParams.includes(key) && value !== null && value !== undefined && value !== '';
+            })
+            .map(([key, value]) => `${key}=${encodeURIComponent(value!)}`)
+            .join('&');
+          if (utmEntries.length > 0) {
+            utmString = `&${utmEntries}`;
+          }
+        }
+        console.log("utmString", utmString);
+      }
+      
+      // Fallback to default UTM parameters if no valid UTM params found
+      if (!utmString) {
         utmString = "&utm_source=email&utm_medium=magic_link";
       }
 
