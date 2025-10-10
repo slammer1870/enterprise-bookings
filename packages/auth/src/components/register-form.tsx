@@ -34,6 +34,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 //import { FaGoogle, FaGithub } from "react-icons/fa";
 
 import { useAuth } from "../providers/auth";
+import { getStoredUTMParams } from "@repo/analytics";
 
 export default function RegisterForm() {
   return (
@@ -71,13 +72,20 @@ function RegisterFormContent() {
     async (data: FormData) => {
       try {
         const normalizedEmail = data.email.toLowerCase();
+
+        // Get UTM parameters for tracking and magic link
+        const utmParams = getStoredUTMParams();
+
         await register({
           name: data.name,
           email: normalizedEmail,
         }).then(() => {
+          // Track registration conversion with UTM attribution
+
           magicLink({
             email: normalizedEmail,
             callbackUrl: callbackUrl.current || "/dashboard",
+            utmParams: utmParams, // Pass UTM params to magic link
           }).then(() => {
             router.push("/magic-link-sent");
           });

@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "next-plausible": "*"
+    "next-plausible": "*",
+    "@repo/shared-types": "workspace:*"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

@@ -690,6 +690,9 @@ importers:
 
   packages/analytics:
     dependencies:
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
       next:
         specifier: '*'
         version: 15.4.1(@babel/core@7.28.0)(@playwright/test@1.54.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.77.4)
@@ -736,6 +739,9 @@ importers:
       '@react-email/components':
         specifier: ^0.0.34
         version: 0.0.34(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@repo/analytics':
+        specifier: workspace:*
+        version: link:../analytics
       '@repo/roles':
         specifier: workspace:*
         version: link:../roles

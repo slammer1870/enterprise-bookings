@@ -1,2 +1,2 @@
 export { UTMTracker } from "./utm-tracker";
-export { useAnalyticsTracker } from "./analytic-tracking";
+export { useAnalyticsTracker, getStoredUTMParams } from "./analytic-tracking";
