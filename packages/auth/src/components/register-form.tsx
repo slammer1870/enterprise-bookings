@@ -34,7 +34,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 //import { FaGoogle, FaGithub } from "react-icons/fa";
 
 import { useAuth } from "../providers/auth";
-import { getStoredUTMParams } from "@repo/analytics";
+import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
 
 export default function RegisterForm() {
   return (
@@ -52,6 +52,7 @@ function RegisterFormContent() {
   const router = useRouter();
 
   const { register, magicLink } = useAuth();
+  const { trackEvent } = useAnalyticsTracker();
 
   const registerSchema = z.object({
     name: z.string().min(1),
@@ -87,6 +88,7 @@ function RegisterFormContent() {
             callbackUrl: callbackUrl.current || "/dashboard",
             utmParams: utmParams, // Pass UTM params to magic link
           }).then(() => {
+            trackEvent("Registration Completed");
             router.push("/magic-link-sent");
           });
         });
