@@ -16,6 +16,7 @@
     "@payloadcms/db-postgres": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
+    "@repo/analytics": "workspace:*",
     "@repo/eslint-config": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

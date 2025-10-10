@@ -18,6 +18,8 @@ import { Button } from "@repo/ui/components/ui/button";
 
 import CardSkeleton from "./card-skeleton";
 
+import { useAnalyticsTracker } from "@repo/analytics";
+
 // Make sure to call loadStripe outside of a component's render to avoid
 // recreating the Stripe object on every render.
 // This is your test publishable API key.
@@ -25,9 +27,16 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
 
-function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
+function PaymentForm({
+  priceComponent,
+  price,
+}: {
+  priceComponent: React.ReactNode;
+  price: number;
+}) {
   const stripe = useStripe();
   const elements = useElements();
+  const { trackEvent } = useAnalyticsTracker();
 
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +75,9 @@ function PaymentForm({ priceComponent }: { priceComponent: React.ReactNode }) {
     }
 
     setIsLoading(false);
+    trackEvent("Payment Button Clicked", {
+      revenue: { amount: price, currency: "EUR" },
+    });
   };
 
   const paymentElementOptions = {
@@ -209,7 +221,7 @@ export default function CheckoutForm({
 
   return (
     <Elements stripe={stripePromise} options={{ appearance, clientSecret }}>
-      <PaymentForm priceComponent={priceComponent} />
+      <PaymentForm priceComponent={priceComponent} price={price} />
     </Elements>
   );
 }

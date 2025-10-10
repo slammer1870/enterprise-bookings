@@ -35,6 +35,7 @@ type Logout = () => Promise<void>;
 type MagicLink = (args: {
   email: string;
   callbackUrl?: string;
+  utmParams?: string;
 }) => Promise<User>;
 
 type AuthContext = {
@@ -160,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       body: JSON.stringify({
         email: args.email.toLowerCase(),
         callbackUrl: args.callbackUrl || "/",
+        utmParams: args.utmParams || "", // Include UTM parameters in request
       }),
     });
 

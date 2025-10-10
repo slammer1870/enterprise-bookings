@@ -15,7 +15,7 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/verify-magic-link",
   method: "get",
   handler: async (req): Promise<Response> => {
-    const { token, callbackUrl } = req.query;
+    const { token, callbackUrl, ...otherParams } = req.query;
 
     if (!token) {
       throw new APIError("Token is required", 400);
@@ -73,12 +73,34 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       // success redirect
       // /////////////////////////////////////
 
-      const url: string = callbackUrl ? (callbackUrl as string) : "/";
+      let finalUrl: string = callbackUrl ? (callbackUrl as string) : "/";
+
+      // Preserve UTM parameters in the final redirect
+      const utmKeys = [
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+      ];
+      const utmParams = new URLSearchParams();
+
+      utmKeys.forEach((key) => {
+        if (otherParams[key]) {
+          utmParams.set(key, otherParams[key] as string);
+        }
+      });
+
+      // Add UTM parameters to callback URL if any exist
+      if (utmParams.toString()) {
+        const separator = finalUrl.includes("?") ? "&" : "?";
+        finalUrl = `${finalUrl}${separator}${utmParams.toString()}`;
+      }
 
       return new Response(null, {
         headers: {
           "Set-Cookie": cookie,
-          Location: url,
+          Location: finalUrl,
         },
         status: 302,
       });
