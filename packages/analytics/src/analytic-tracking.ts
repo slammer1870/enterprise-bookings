@@ -1,13 +1,5 @@
 import { usePlausible } from "next-plausible";
-
-export interface UTMParams {
-  utm_source?: string;
-  utm_medium?: string;
-  utm_campaign?: string;
-  utm_content?: string;
-  utm_term?: string;
-  fbclid?: string;
-}
+import { UTMParams } from "@repo/shared-types";
 
 export interface RevenueData {
   currency: string;
@@ -69,10 +61,7 @@ export const getStoredUTMParams = (): UTMParams => {
 export const useAnalyticsTracker = () => {
   const plausible = usePlausible();
 
-  const trackEvent = (
-    eventName: string,
-    additionalProps?: TrackingProps
-  ) => {
+  const trackEvent = (eventName: string, additionalProps?: TrackingProps) => {
     const utmParams = getStoredUTMParams();
 
     plausible(eventName, {

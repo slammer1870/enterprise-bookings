@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-import { User } from "@repo/shared-types";
+import { User, UTMParams } from "@repo/shared-types";
 
 // eslint-disable-next-line no-unused-vars
 type ResetPassword = (args: {
@@ -35,7 +35,7 @@ type Logout = () => Promise<void>;
 type MagicLink = (args: {
   email: string;
   callbackUrl?: string;
-  utmParams?: string;
+  utmParams?: UTMParams;
 }) => Promise<User>;
 
 type AuthContext = {
