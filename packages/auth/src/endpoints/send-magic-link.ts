@@ -18,7 +18,7 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       throw new APIError("Invalid request body", 400);
     }
 
-    const { email, callbackUrl } = await req.json();
+    const { email, callbackUrl, utmParams } = await req.json();
 
     const url: string | undefined = callbackUrl;
 
@@ -58,8 +58,18 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
         expiresIn: "15m", // Token expires in 15 minutes
       });
 
+      // Build UTM parameters string
+      let utmString = "";
+      if (utmParams && utmParams.trim()) {
+        // Use provided UTM parameters
+        utmString = `&${utmParams}`;
+      } else {
+        // Fallback to default UTM parameters
+        utmString = "&utm_source=email&utm_medium=magic_link";
+      }
+
       // Create the magic link URL
-      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}&utm_source=email&utm_medium=magic_link${
+      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}${utmString}${
         url && `&callbackUrl=${url}`
       }`;
 

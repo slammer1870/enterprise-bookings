@@ -8,6 +8,9 @@ import Script from 'next/script'
 import { Navbar } from '@/globals/navbar'
 import { Footer } from '@/globals/footer'
 import { TRPCReactProvider } from '@repo/trpc'
+import { Suspense } from 'react'
+
+import { UTMTracker } from '@repo/analytics'
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -161,6 +164,9 @@ export default async function RootLayout({
         <AuthProvider>
           <TRPCReactProvider>
             <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-right-bottom lg:bg-center">
+              <Suspense fallback={null}>
+                <UTMTracker />
+              </Suspense>
               <Navbar />
               {children}
               {unauthenticated}

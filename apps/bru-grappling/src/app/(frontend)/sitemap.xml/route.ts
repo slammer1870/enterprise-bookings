@@ -1,13 +1,13 @@
 import { getServerSideSitemap } from 'next-sitemap'
 
 export async function GET() {
-  const SITE_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie'
-  
-  const sitemap = [
-    {
-      loc: `${SITE_URL}/sitemap.xml`,
-      lastmod: new Date().toISOString(),
-    },
+  const SITE_URL =
+    process.env.NEXT_PUBLIC_SERVER_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    'https://brugrappling.ie'
+
+  // Main sitemap index that references other sitemaps
+  const sitemaps = [
     {
       loc: `${SITE_URL}/pages-sitemap.xml`,
       lastmod: new Date().toISOString(),
@@ -18,5 +18,5 @@ export async function GET() {
     },
   ]
 
-  return getServerSideSitemap(sitemap)
+  return getServerSideSitemap(sitemaps)
 }

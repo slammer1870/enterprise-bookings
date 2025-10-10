@@ -1,8 +1,12 @@
+'use client'
+
 import React from 'react'
 import Link from 'next/link'
 import { Button } from '@repo/ui/components/ui/button'
 import { OptimizedImage } from '@/components/OptimizedImage'
 import type { Media } from '@/payload-types'
+
+import { useAnalyticsTracker } from '@repo/analytics'
 
 export const HeroBlock: React.FC<{
   backgroundImage: Media
@@ -19,6 +23,8 @@ export const HeroBlock: React.FC<{
     link: string
   }
 }> = ({ backgroundImage, logo, title, subtitle, description, primaryButton, secondaryButton }) => {
+  const { trackEvent } = useAnalyticsTracker()
+
   return (
     <section className="relative min-h-screen z-10">
       <OptimizedImage
@@ -59,6 +65,9 @@ export const HeroBlock: React.FC<{
                 variant="default"
                 size="lg"
                 className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium"
+                onClick={() => {
+                  trackEvent('Trial Button Clicked')
+                }}
               >
                 <Link href={primaryButton.link}>{primaryButton.text}</Link>
               </Button>
