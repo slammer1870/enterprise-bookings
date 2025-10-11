@@ -35,6 +35,10 @@ export const CheckInButton = ({
 
   const requireAuth = (action: () => void) => {
     if (!user) {
+      if (bookingStatus === 'trialable') {
+        toast.info('Please sign in to continue')
+        return router.push(`/register?callbackUrl=/bookings/${id}`)
+      }
       toast.info('Please sign in to continue')
       return router.push(`/login?callbackUrl=/bookings/${id}`)
     }
