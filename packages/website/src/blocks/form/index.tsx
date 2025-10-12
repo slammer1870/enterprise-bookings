@@ -23,6 +23,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 
 import { RichText } from "@payloadcms/richtext-lexical/react";
+import { useAnalyticsTracker } from "@repo/analytics";
 
 export type Value = unknown;
 
@@ -105,6 +106,8 @@ export const FormBlock: React.FC<
   >();
   const router = useRouter();
 
+  const { trackEvent } = useAnalyticsTracker();
+
   const onSubmit = useCallback(
     (data: Data) => {
       let loadingTimerID: ReturnType<typeof setTimeout>;
@@ -115,14 +118,18 @@ export const FormBlock: React.FC<
         const normalizedData = { ...data };
         formFromProps.fields.forEach((field) => {
           if (field.blockType === "email" && normalizedData[field.name]) {
-            normalizedData[field.name] = (normalizedData[field.name] as string).toLowerCase();
+            normalizedData[field.name] = (
+              normalizedData[field.name] as string
+            ).toLowerCase();
           }
         });
 
-        const dataToSend = Object.entries(normalizedData).map(([name, value]) => ({
-          field: name,
-          value,
-        }));
+        const dataToSend = Object.entries(normalizedData).map(
+          ([name, value]) => ({
+            field: name,
+            value,
+          })
+        );
 
         // delay loading indicator by 1s
         loadingTimerID = setTimeout(() => {
@@ -158,6 +165,10 @@ export const FormBlock: React.FC<
 
             return;
           }
+
+          trackEvent("Form Submission Completed", {
+            form: formID,
+          });
 
           setIsLoading(false);
           setHasSubmitted(true);
