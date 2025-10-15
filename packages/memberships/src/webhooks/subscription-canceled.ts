@@ -46,24 +46,27 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       },
     });
 
-    await payload.update({
-      collection: "bookings",
-      where: {
-        user: { equals: user.docs[0]?.id as number },
-        "lesson.classOption.paymentMethods.allowedPlans": {
-          contains: planId,
+    // Only update bookings if we have a valid planId
+    if (planId) {
+      await payload.update({
+        collection: "bookings",
+        where: {
+          user: { equals: user.docs[0]?.id as number },
+          "lesson.classOption.paymentMethods.allowedPlans": {
+            contains: planId,
+          },
+          "lesson.startTime": {
+            greater_than: new Date(),
+          },
+          status: {
+            equals: "confirmed",
+          },
         },
-        "lesson.startTime": {
-          greater_than: new Date(),
+        data: {
+          status: "cancelled",
         },
-        status: {
-          equals: "confirmed",
-        },
-      },
-      data: {
-        status: "cancelled",
-      },
-    });
+      });
+    }
   } catch (error) {
     console.error("Error canceling subscription", error);
   }
