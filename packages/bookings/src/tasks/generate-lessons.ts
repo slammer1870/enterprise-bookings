@@ -78,9 +78,23 @@ export const generateLessonsFromSchedule: TaskHandler<
         await payload.delete({
           collection: "lessons",
           where: {
-            id: {
-              not_in: lessonsToNotDelete,
-            },
+            and: [
+              {
+                startTime: {
+                  greater_than_equal: start.toISOString(),
+                },
+              },
+              {
+                endTime: {
+                  less_than_equal: end.toISOString(),
+                },
+              },
+              {
+                id: {
+                  not_in: lessonsToNotDelete,
+                },
+              },
+            ],
           },
           context: {
             triggerAfterChange: false,
