@@ -51,6 +51,9 @@ function PaymentForm({
     }
 
     setIsLoading(true);
+    trackEvent("Payment Button Clicked", {
+      revenue: { amount: price, currency: "EUR" },
+    });
 
     const { error } = await stripe.confirmPayment({
       elements,
@@ -75,9 +78,6 @@ function PaymentForm({
     }
 
     setIsLoading(false);
-    trackEvent("Payment Button Clicked", {
-      revenue: { amount: price, currency: "EUR" },
-    });
   };
 
   const paymentElementOptions = {
