@@ -52,7 +52,7 @@ function PaymentForm({
 
     setIsLoading(true);
     trackEvent("Payment Button Clicked", {
-      revenue: { amount: price, currency: "EUR" },
+      revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
     });
 
     const { error } = await stripe.confirmPayment({
