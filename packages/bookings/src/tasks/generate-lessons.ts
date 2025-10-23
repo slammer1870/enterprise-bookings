@@ -123,9 +123,18 @@ export const generateLessonsFromSchedule: TaskHandler<
       const timeSlots = scheduleDay.timeSlot;
 
       for (const timeSlot of timeSlots) {
-        // Create timezone-aware dates to properly handle DST transitions
-        const startTime = new Date(timeSlot.startTime);
-        const endTime = new Date(timeSlot.endTime);
+        // Extract time components from the stored time slots
+        // Note: timeSlot times are stored as ISO strings, so we need to parse them
+        // in a way that preserves the intended wall-clock time (e.g., 7am = 7am)
+        const startTimeDate = new Date(timeSlot.startTime);
+        const endTimeDate = new Date(timeSlot.endTime);
+
+        // Extract hours and minutes using UTC methods to avoid DST shifts
+        // This ensures the wall-clock time (e.g., 7:00) is preserved
+        const startHours = startTimeDate.getUTCHours();
+        const startMinutes = startTimeDate.getUTCMinutes();
+        const endHours = endTimeDate.getUTCHours();
+        const endMinutes = endTimeDate.getUTCMinutes();
 
         // Use TZDate to create dates in the specified timezone
         // This ensures that times remain consistent across DST boundaries
@@ -133,8 +142,8 @@ export const generateLessonsFromSchedule: TaskHandler<
           currentDate.getFullYear(),
           currentDate.getMonth(),
           currentDate.getDate(),
-          startTime.getHours(),
-          startTime.getMinutes(),
+          startHours,
+          startMinutes,
           0,
           0,
           timeZone
@@ -144,8 +153,8 @@ export const generateLessonsFromSchedule: TaskHandler<
           currentDate.getFullYear(),
           currentDate.getMonth(),
           currentDate.getDate(),
-          endTime.getHours(),
-          endTime.getMinutes(),
+          endHours,
+          endMinutes,
           0,
           0,
           timeZone
