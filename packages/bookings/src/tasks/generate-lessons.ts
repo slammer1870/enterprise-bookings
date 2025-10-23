@@ -1,5 +1,6 @@
 import { TaskHandler } from "payload";
 import { addDays } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 
 import { TaskGenerateLessonsFromSchedule } from "../types";
 import { Lesson } from "@repo/shared-types";
@@ -122,22 +123,33 @@ export const generateLessonsFromSchedule: TaskHandler<
       const timeSlots = scheduleDay.timeSlot;
 
       for (const timeSlot of timeSlots) {
-        // TODO: TEst daylight savings time
-
+        // Create timezone-aware dates to properly handle DST transitions
         const startTime = new Date(timeSlot.startTime);
         const endTime = new Date(timeSlot.endTime);
 
-        const lessonStartTime = new Date(currentDate);
-        lessonStartTime.setHours(startTime.getHours());
-        lessonStartTime.setMinutes(startTime.getMinutes());
-        lessonStartTime.setSeconds(0);
-        lessonStartTime.setMilliseconds(0);
+        // Use TZDate to create dates in the specified timezone
+        // This ensures that times remain consistent across DST boundaries
+        const lessonStartTime = new TZDate(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          startTime.getHours(),
+          startTime.getMinutes(),
+          0,
+          0,
+          timeZone
+        );
 
-        const lessonEndTime = new Date(currentDate);
-        lessonEndTime.setHours(endTime.getHours());
-        lessonEndTime.setMinutes(endTime.getMinutes());
-        lessonEndTime.setSeconds(0);
-        lessonEndTime.setMilliseconds(0);
+        const lessonEndTime = new TZDate(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          endTime.getHours(),
+          endTime.getMinutes(),
+          0,
+          0,
+          timeZone
+        );
 
         const existingLesson = await payload.find({
           collection: "lessons",
@@ -166,10 +178,22 @@ export const generateLessonsFromSchedule: TaskHandler<
           continue;
         }
 
+        // Create a timezone-aware date for the lesson date field
+        const lessonDate = new TZDate(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          0,
+          0,
+          0,
+          0,
+          timeZone
+        );
+
         const newLesson = await payload.create({
           collection: "lessons",
           data: {
-            date: currentDate.toISOString(),
+            date: lessonDate.toISOString(),
             startTime: lessonStartTime.toISOString(),
             endTime: lessonEndTime.toISOString(),
             classOption:

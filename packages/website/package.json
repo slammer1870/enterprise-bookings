@@ -22,6 +22,7 @@
     "@types/react-dom": "19.1.2"
   },
   "dependencies": {
+    "@repo/analytics": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*"
   }
