@@ -22,7 +22,9 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en">
-      <GoogleTagManager gtmId="AW-11536098613" />
+      <head>
+        <GoogleTagManager gtmId="AW-11536098613" />
+      </head>
       <PlausibleProvider domain="kyuzo.ie">
         <AuthProvider>
           <body>

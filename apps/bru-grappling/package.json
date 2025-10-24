@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@hookform/resolvers": "*",
+    "@next/third-parties": "^15.5.4",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
@@ -33,6 +34,7 @@
     "@trpc/tanstack-react-query": "^11.4.3",
     "cross-env": "^7.0.3",
     "date-fns": "^4.1.0",
+    "google": "link:@next/third-parties/google",
     "graphql": "^16.10.0",
     "lucide-react": "0.475.0",
     "next": "*",

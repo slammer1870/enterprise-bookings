@@ -11,6 +11,8 @@ import { TRPCReactProvider } from '@repo/trpc'
 import { Suspense } from 'react'
 
 import { UTMTracker } from '@repo/analytics'
+import { GoogleTagManager } from '@next/third-parties/google'
+
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -159,6 +161,7 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationData) }}
         />
+        <GoogleTagManager gtmId="GTM-MLLFFCXN" />
       </head>
       <PlausibleProvider domain="brugrappling.ie">
         <AuthProvider>
