@@ -22,7 +22,7 @@ export const MeetTheTeamBlock: React.FC<Props> = ({ teamMembers }) => {
         <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
           Meet the team
         </h3>
-        <div className="flex flex-wrap">
+        <div className="flex flex-wrap justify-center">
           {teamMembers.map((member, index) => (
             <div
               key={member.name}
