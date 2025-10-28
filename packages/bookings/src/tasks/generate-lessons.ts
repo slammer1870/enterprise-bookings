@@ -111,9 +111,11 @@ export const generateLessonsFromSchedule: TaskHandler<
       const dayOfWeek = currentDate.getDay();
 
       // Find the corresponding day in the schedule
-      const scheduleDay = week.days.find((day: any) => {
-        return week.days.indexOf(day) === dayOfWeek - 1;
-      });
+      // JavaScript getDay(): 0=Sunday, 1=Monday, 2=Tuesday, ..., 6=Saturday
+      // week.days array: 0=Monday, 1=Tuesday, ..., 5=Saturday, 6=Sunday
+      // Convert JavaScript day (0-6, Sunday first) to schedule array index (0-6, Monday first)
+      const scheduleIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const scheduleDay = week.days[scheduleIndex];
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
         currentDate = addDays(currentDate, 1);
