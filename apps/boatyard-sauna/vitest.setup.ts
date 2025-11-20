@@ -1,3 +1,14 @@
+// Polyfills for Node.js 18 / jsdom environment
+// These MUST run before any modules load (especially webidl-conversions)
+
+// Ensure URL APIs are available for jsdom/webidl-conversions
+if (typeof globalThis.URL === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nodeUrl = require('url');
+  globalThis.URL = nodeUrl.URL;
+  globalThis.URLSearchParams = nodeUrl.URLSearchParams;
+}
+
 // File global polyfill for Node.js 18 - must run before undici loads
 if (typeof globalThis.File === 'undefined') {
   class FilePolyfill extends Blob {
@@ -24,13 +35,5 @@ if (typeof globalThis.File === 'undefined') {
   globalThis.File = FilePolyfill as unknown as typeof File;
 }
 
-// Polyfill for jsdom environment - ensure URL and URLSearchParams are available
-if (typeof globalThis.URL === 'undefined') {
-  // @ts-expect-error - Node.js 18 has URL, but jsdom might need it
-  globalThis.URL = URL;
-}
-
-// Any setup scripts you might need go here
-
-// Load .env files
+// Load .env files after polyfills are set up
 import 'dotenv/config'
