@@ -16,20 +16,20 @@
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
-    "@tanstack/react-query": "^5.17.15",
-    "@trpc/client": "^11.4.3",
-    "@trpc/next": "^11.4.3",
-    "@trpc/react-query": "^11.4.3",
-    "@trpc/tanstack-react-query": "^11.4.3",
-    "@trpc/server": "^11.4.3",
-    "react": "*",
-    "superjson": "1.9.1",
-    "zod": "*"
+    "@tanstack/react-query": "^5.90.10",
+    "@trpc/client": "^11.7.1",
+    "@trpc/next": "^11.7.1",
+    "@trpc/react-query": "^11.7.1",
+    "@trpc/server": "^11.7.1",
+    "@trpc/tanstack-react-query": "^11.7.1",
+    "react": "19.2.0",
+    "superjson": "2.2.5",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "@types/react": "*",
-    "typescript": "5.7.3"
+    "@types/react": "^19.2.6",
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "next": "*",

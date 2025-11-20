@@ -14,7 +14,10 @@ export const childrenCreateBookingMembershipAccess = async ({
   const userId = typeof req.user === "object" ? req.user.id : req.user;
 
   if (!userId) {
-    payload.logger.error(`User ID is required (userId: ${userId})`);
+    payload.logger.error({
+      message: "User ID is required",
+      userId,
+    });
     return false;
   }
 
@@ -27,14 +30,20 @@ export const childrenCreateBookingMembershipAccess = async ({
   })) as User;
 
   if (!user) {
-    payload.logger.error(`User not found (userId: ${userId})`);
+    payload.logger.error({
+      message: "User not found",
+      userId,
+    });
     return false;
   }
 
   if (checkRole(["admin"], user)) return true;
 
   if (!data?.lesson) {
-    payload.logger.error(`Lesson is required (lessonId: ${data?.lesson?.id})`);
+    payload.logger.error({
+      message: "Lesson is required",
+      lessonId: data?.lesson?.id,
+    });
     return false;
   }
 
@@ -49,13 +58,19 @@ export const childrenCreateBookingMembershipAccess = async ({
     })) as unknown as Lesson;
 
     if (!lesson) {
-      payload.logger.error(`Lesson not found (lessonId: ${lessonId})`);
+      payload.logger.error({
+        message: "Lesson not found",
+        lessonId,
+      });
       return false;
     }
 
     if (lesson.classOption.type == "child") {
       if (!user.parent) {
-        payload.logger.error(`User has no parent (userId: ${userId})`);
+        payload.logger.error({
+          message: "User has no parent",
+          userId,
+        });
         return false;
       }
 
@@ -69,17 +84,27 @@ export const childrenCreateBookingMembershipAccess = async ({
     }
 
     if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
-      payload.logger.info(`User is on waitlist (userId: ${userId}, lessonId: ${lessonId})`);
+      payload.logger.info({
+        message: "User is on waitlist",
+        userId,
+        lessonId,
+      });
       return true;
     }
 
     if (data.status === "pending") {
-      payload.logger.info(`Booking is pending (bookingId: ${data.id})`);
+      payload.logger.info({
+        message: "Booking is pending",
+        booking: data,
+      });
       return true;
     }
 
     if (!validateLessonStatus(lesson)) {
-      payload.logger.error(`Lesson status is not valid (lessonId: ${lesson.id})`);
+      payload.logger.error({
+        message: "Lesson status is not valid",
+        lesson,
+      });
       return false;
     }
 
@@ -98,7 +123,10 @@ export const childrenUpdateBookingMembershipAccess = async ({
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
   if (!req.user) {
-    req.payload.logger.error("User is not authenticated");
+    req.payload.logger.error({
+      message: "User is not authenticated",
+      userId: req.user,
+    });
     return false;
   }
 
@@ -117,7 +145,11 @@ export const childrenUpdateBookingMembershipAccess = async ({
     // If this is called during a read operation (no specific booking ID), allow it
     // The actual read access control is handled by the read access function
 
-    req.payload.logger.error(`Lesson ID or User ID is required (lessonId: ${lessonId}, userId: ${userId})`);
+    req.payload.logger.error({
+      message: "Lesson ID or User ID is required",
+      lessonId,
+      userId,
+    });
     return false;
   }
 
@@ -153,7 +185,10 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     if (!booking) {
-      req.payload.logger.error(`Booking not found (bookingId: ${id})`);
+      req.payload.logger.error({
+        message: "Booking not found",
+        bookingId: id,
+      });
       return false;
     }
 
@@ -165,7 +200,10 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
     if (lesson.classOption.type == "child") {
       if (!user?.parent) {
-        req.payload.logger.error(`User has no parent (userId: ${userId})`);
+        req.payload.logger.error({
+          message: "User has no parent",
+          userId,
+        });
         return false;
       }
 
@@ -179,7 +217,11 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     if (!lesson || !user) {
-      req.payload.logger.error(`Lesson or user not found (lessonId: ${lessonId}, userId: ${userId})`);
+      req.payload.logger.error({
+        message: "Lesson or user not found",
+        lessonId,
+        userId,
+      });
       return false;
     }
 
@@ -190,20 +232,29 @@ export const childrenUpdateBookingMembershipAccess = async ({
     if (data?.status === "pending") return true;
 
     if (lesson.bookingStatus === data?.status) {
-      req.payload.logger.info(
-        `Lesson booking status is the same as the request status (lessonId: ${lessonId}, userId: ${userId}, status: ${data?.status})`
-      );
+      req.payload.logger.info({
+        message: "Lesson booking status is the same as the request status",
+        lessonId,
+        userId,
+        status: data?.status,
+      });
       return true;
     }
 
     if (!validateLessonStatus(lesson)) {
-      req.payload.logger.error(`Lesson status is not valid (lessonId: ${lesson.id})`);
+      req.payload.logger.error({
+        message: "Lesson status is not valid",
+        lesson,
+      });
       return false;
     }
 
     return await validateLessonPaymentMethods(lesson, user, payload);
   } catch (error) {
-    req.payload.logger.error(`Error in childrenUpdateBookingMembershipAccess: ${error instanceof Error ? error.message : String(error)}`);
+    req.payload.logger.error({
+      message: "Error in childrenUpdateBookingMembershipAccess",
+      error,
+    });
     return false;
   }
 };
