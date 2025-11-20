@@ -4,25 +4,25 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@repo/shared-services": "workspace:*",
-    "@repo/shared-types": "workspace:*",
+    "@hookform/resolvers": "^5.2.2",
     "@repo/auth": "workspace:*",
     "@repo/bookings": "workspace:*",
-    "@repo/ui": "workspace:*",
     "@repo/memberships": "workspace:*",
-    "@hookform/resolvers": "*",
-    "react-hook-form": "*",
-    "zod": "*",
-    "sonner": "*",
-    "lucide-react": "0.475.0"
+    "@repo/shared-services": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "lucide-react": "0.554.0",
+    "react-hook-form": "7.66.1",
+    "sonner": "^2.0.7",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "@types/react": "*",
-    "@types/react-dom": "19.1.2",
-    "react": "*",
-    "react-dom": "*",
-    "typescript": "5.7.3"
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "typescript": "5.9.3"
   },
   "main": "./components/index.tsx",
   "types": "./components/index.tsx",

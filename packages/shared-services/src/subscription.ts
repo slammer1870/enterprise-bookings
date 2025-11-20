@@ -78,7 +78,8 @@ export const hasReachedSubscriptionLimit = async (
       where: query(subscription, plan, startDate, endDate),
     });
 
-    payload.logger.info("Bookings found for subscription", {
+    payload.logger.info({
+      message: "Bookings found for subscription",
       bookings,
       subscription,
       plan,
