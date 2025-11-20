@@ -6,13 +6,8 @@ export default defineConfig({
   plugins: [tsconfigPaths(), react()],
   test: {
     globals: true,
-    environment: 'jsdom',
+    environment: 'node', // Using 'node' since tests only use Payload API, not React/browser APIs
     setupFiles: ['./vitest.setup.ts'],
     include: ['tests/int/**/*.int.spec.ts'],
-    environmentOptions: {
-      jsdom: {
-        resources: 'usable',
-      },
-    },
   },
 });
