@@ -31,8 +31,14 @@ const query = (
   startDate: Date,
   endDate: Date
 ): Where => {
+  // Handle both user as ID and user as object
+  const userId =
+    typeof subscription.user === "object" && subscription.user !== null
+      ? subscription.user.id
+      : subscription.user;
+
   return {
-    user: { equals: subscription.user.id },
+    user: { equals: userId },
     "lesson.classOption.paymentMethods.allowedPlans": {
       contains: plan.id,
     },
@@ -110,20 +116,40 @@ export const checkUserSubscription = async (
     return true;
   }
 
+  // Handle both array of IDs and array of plan objects
+  const planIds = allowedPlans
+    .map((plan: any) => {
+      return typeof plan === "object" && plan !== null ? plan.id : plan;
+    })
+    .filter((id: any) => id !== undefined && id !== null);
+
+  if (planIds.length === 0) {
+    return true;
+  }
+
   try {
+    // Use lesson startTime to check if subscription is valid at that time
+    const lessonStartTime = new Date(lesson.startTime);
+
     const userSubscription = await payload.find({
       collection: "subscriptions" as CollectionSlug,
       where: {
-        user: { equals: user.id },
-        status: { equals: "active" },
-        startDate: { less_than_equal: new Date() },
-        endDate: { greater_than_equal: new Date() },
-        plan: {
-          in: allowedPlans.map((plan) => plan.id),
-        },
-        or: [
-          { cancelAt: { greater_than: new Date() } },
-          { cancelAt: { exists: false } },
+        and: [
+          { user: { equals: user.id } },
+          { status: { equals: "active" } },
+          { startDate: { less_than_equal: lessonStartTime } },
+          { endDate: { greater_than_equal: lessonStartTime } },
+          {
+            plan: {
+              in: planIds,
+            },
+          },
+          {
+            or: [
+              { cancelAt: { greater_than: lessonStartTime } },
+              { cancelAt: { exists: false } },
+            ],
+          },
         ],
       },
       depth: 2,

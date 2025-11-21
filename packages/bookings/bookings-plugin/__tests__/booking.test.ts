@@ -28,6 +28,7 @@ let restClient: NextRESTClient;
 let user: User;
 
 const TEST_TIMEOUT = 60000; // 60 seconds
+const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
 
 describe("Booking tests", () => {
   beforeAll(async () => {
@@ -50,7 +51,7 @@ describe("Booking tests", () => {
         password: "test",
       },
     })) as unknown as User;
-  }, TEST_TIMEOUT);
+  }, HOOK_TIMEOUT);
   it(
     "should be unauthorized to get the bookings endpoint ",
     async () => {

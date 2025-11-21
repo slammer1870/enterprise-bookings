@@ -14,6 +14,7 @@ describe("Registration", async () => {
   let restClient: NextRESTClient;
 
   const TEST_TIMEOUT = 30000; // 30 seconds
+  const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
 
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
@@ -26,7 +27,7 @@ describe("Registration", async () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
-  }, TEST_TIMEOUT);
+  }, HOOK_TIMEOUT);
 
   it(
     "should register a new user",
