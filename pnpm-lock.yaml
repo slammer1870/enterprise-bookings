@@ -160,18 +160,18 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../../packages/bookings
+        version: link:../../packages/bookings/bookings-plugin
       '@repo/children':
         specifier: workspace:*
         version: link:../../packages/children
       '@repo/memberships':
         specifier: workspace:*
         version: link:../../packages/memberships
-      '@repo/payments':
+      '@repo/payments-plugin':
         specifier: workspace:*
-        version: link:../../packages/payments
+        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -332,15 +332,15 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../../packages/bookings
+        version: link:../../packages/bookings/bookings-plugin
       '@repo/memberships':
         specifier: workspace:*
         version: link:../../packages/memberships
-      '@repo/payments':
+      '@repo/payments-plugin':
         specifier: workspace:*
-        version: link:../../packages/payments
+        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -511,15 +511,15 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../../packages/bookings
+        version: link:../../packages/bookings/bookings-plugin
       '@repo/memberships':
         specifier: workspace:*
         version: link:../../packages/memberships
-      '@repo/payments':
+      '@repo/payments-plugin':
         specifier: workspace:*
-        version: link:../../packages/payments
+        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -647,12 +647,12 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../../packages/bookings
-      '@repo/payments':
+        version: link:../../packages/bookings/bookings-plugin
+      '@repo/payments-plugin':
         specifier: workspace:*
-        version: link:../../packages/payments
+        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -934,7 +934,19 @@ importers:
         specifier: 4.0.12
         version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.4.2)(jsdom@27.2.0)(sass@1.77.4)(tsx@4.20.6)(yaml@2.8.1)
 
-  packages/bookings:
+  packages/bookings/bookings-next:
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../../typescript-config
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/bookings/bookings-plugin:
     dependencies:
       '@date-fns/tz':
         specifier: ^1.4.1
@@ -1020,25 +1032,25 @@ importers:
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../eslint-config
       '@repo/shared-services':
         specifier: workspace:*
-        version: link:../shared-services
+        version: link:../../shared-services
       '@repo/shared-types':
         specifier: workspace:*
-        version: link:../shared-types
+        version: link:../../shared-types
       '@repo/shared-utils':
         specifier: workspace:*
-        version: link:../shared-utils
+        version: link:../../shared-utils
       '@repo/testing-config':
         specifier: workspace:*
-        version: link:../testing-config
+        version: link:../../testing-config
       '@repo/typescript-config':
         specifier: workspace:*
-        version: link:../typescript-config
+        version: link:../../typescript-config
       '@repo/ui':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../../ui
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -1081,9 +1093,9 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../auth
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../bookings
+        version: link:../bookings/bookings-plugin
       '@repo/memberships':
         specifier: workspace:*
         version: link:../memberships
@@ -1166,15 +1178,15 @@ importers:
       '@repo/auth':
         specifier: workspace:*
         version: link:../auth
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../bookings
+        version: link:../bookings/bookings-plugin
       '@repo/memberships':
         specifier: workspace:*
         version: link:../memberships
-      '@repo/payments':
+      '@repo/payments-plugin':
         specifier: workspace:*
-        version: link:../payments
+        version: link:../payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../roles
@@ -1324,15 +1336,15 @@ importers:
       '@payloadcms/richtext-lexical':
         specifier: 3.64.0
         version: 3.64.0(@faceless-ui/modal@3.0.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@faceless-ui/scroll-info@2.0.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@payloadcms/next@3.64.0(graphql@16.12.0)(next@16.0.3(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(next@16.0.3(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(yjs@13.6.27)
-      '@repo/bookings':
+      '@repo/bookings-plugin':
         specifier: workspace:*
-        version: link:../bookings
+        version: link:../bookings/bookings-plugin
       '@repo/memberships':
         specifier: workspace:*
         version: link:../memberships
-      '@repo/payments':
+      '@repo/payments-plugin':
         specifier: workspace:*
-        version: link:../payments
+        version: link:../payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../roles
@@ -1446,7 +1458,19 @@ importers:
         specifier: 4.0.12
         version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.4.2)(jsdom@27.2.0)(sass@1.77.4)(tsx@4.20.6)(yaml@2.8.1)
 
-  packages/payments:
+  packages/payments/payments-next:
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../../typescript-config
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/payments/payments-plugin:
     dependencies:
       '@payloadcms/plugin-stripe':
         specifier: 3.64.0
@@ -1456,10 +1480,10 @@ importers:
         version: 3.64.0(@types/react@19.2.6)(monaco-editor@0.52.2)(next@15.5.6(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       '@repo/roles':
         specifier: workspace:*
-        version: link:../roles
+        version: link:../../roles
       '@repo/ui':
         specifier: workspace:*
-        version: link:../ui
+        version: link:../../ui
       '@stripe/react-stripe-js':
         specifier: ^5.4.0
         version: 5.4.0(@stripe/stripe-js@8.5.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -1490,22 +1514,22 @@ importers:
         version: 3.64.0(@faceless-ui/modal@3.0.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@faceless-ui/scroll-info@2.0.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(@payloadcms/next@3.64.0(@types/react@19.2.6)(graphql@16.12.0)(monaco-editor@0.52.2)(next@15.5.6(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(@types/react@19.2.6)(monaco-editor@0.52.2)(next@15.5.6(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3)(yjs@13.6.27)
       '@repo/analytics':
         specifier: workspace:*
-        version: link:../analytics
+        version: link:../../analytics
       '@repo/eslint-config':
         specifier: workspace:*
-        version: link:../eslint-config
+        version: link:../../eslint-config
       '@repo/shared-types':
         specifier: workspace:*
-        version: link:../shared-types
+        version: link:../../shared-types
       '@repo/shared-utils':
         specifier: workspace:*
-        version: link:../shared-utils
+        version: link:../../shared-utils
       '@repo/testing-config':
         specifier: workspace:*
-        version: link:../testing-config
+        version: link:../../testing-config
       '@repo/typescript-config':
         specifier: workspace:*
-        version: link:../typescript-config
+        version: link:../../typescript-config
       '@types/node':
         specifier: ^24.10.1
         version: 24.10.1

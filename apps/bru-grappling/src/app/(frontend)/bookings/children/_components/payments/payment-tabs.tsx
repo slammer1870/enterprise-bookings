@@ -13,7 +13,7 @@ import { SelectChildren } from '../select-children'
 import { useTRPC } from '@repo/trpc/client'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 
-import { DropInView } from '@repo/payments/src/components/drop-ins'
+import { DropInView } from '@repo/payments-plugin/src/components/drop-ins'
 
 export const PaymentTabs = ({
   paymentMethods,

@@ -13,10 +13,10 @@ import sharp from 'sharp'
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 
-import { bookingsPlugin } from '@repo/bookings'
-import { magicLinkPlugin } from '@repo/auth/server'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { authPlugin } from '@repo/auth/server'
 import { rolesPlugin } from '@repo/roles'
-import { paymentsPlugin } from '@repo/payments'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import {
   membershipsPlugin,
   subscriptionCreated,
@@ -84,7 +84,7 @@ export const config: Config = {
         // Customize form fields if needed
       },
     }),
-    magicLinkPlugin({
+    authPlugin({
       enabled: true,
       appName: 'Kyuzo',
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',

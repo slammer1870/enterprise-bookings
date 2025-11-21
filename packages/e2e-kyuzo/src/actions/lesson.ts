@@ -1,4 +1,4 @@
-import { getLesson } from '@repo/bookings/src/utils/lesson'
+import { getLesson } from '@repo/bookings-plugin/src/utils/lesson'
 import { Subscription } from '@repo/shared-types'
 
 export const getLessonBookingLimit = async (

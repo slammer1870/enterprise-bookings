@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { useTRPC } from '@repo/trpc'
 import { useSuspenseQuery } from '@tanstack/react-query'
 
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
+import { BookingSummary } from '@repo/bookings-plugin/src/components/ui/booking-summary'
 
 import { PaymentGateway } from '@/app/(frontend)/bookings/children/_components/payments/payment-gateway'
 

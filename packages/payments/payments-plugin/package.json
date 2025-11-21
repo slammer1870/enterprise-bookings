@@ -1,5 +1,5 @@
 {
-  "name": "@repo/payments",
+  "name": "@repo/payments-plugin",
   "version": "0.0.1",
   "dependencies": {
     "@payloadcms/plugin-stripe": "^3.64.0",

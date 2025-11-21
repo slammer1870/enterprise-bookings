@@ -263,7 +263,7 @@ const defaultAdmin: CollectionAdminOptions = {
     views: {
       list: {
         Component:
-          "@repo/bookings/src/components/lessons/lesson-admin#LessonAdmin",
+          "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin",
       },
     },
   },

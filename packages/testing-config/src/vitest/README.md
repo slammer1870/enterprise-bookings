@@ -24,7 +24,7 @@ export default createNodeConfig({
 });
 ```
 
-**Use for:** `@repo/auth`, `@repo/bookings`, `@repo/payments`, `@repo/memberships`, `@repo/integration-testing`
+**Use for:** `@repo/auth`, `@repo/bookings-plugin`, `@repo/payments-plugin`, `@repo/memberships`, `@repo/integration-testing`
 
 ### React Config (`react.ts`)
 For frontend/app packages that need React/JSdom testing.

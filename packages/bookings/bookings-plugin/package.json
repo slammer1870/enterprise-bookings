@@ -1,5 +1,5 @@
 {
-  "name": "@repo/bookings",
+  "name": "@repo/bookings-plugin",
   "version": "0.0.1",
   "dependencies": {
     "@date-fns/tz": "^1.4.1",

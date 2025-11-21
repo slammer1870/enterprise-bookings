@@ -7,12 +7,12 @@ import { Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
-import { bookingsPlugin } from "@repo/bookings";
+import { bookingsPlugin } from "@repo/bookings-plugin";
 import { membershipsPlugin } from "@repo/memberships";
-import { paymentsPlugin } from "@repo/payments";
+import { paymentsPlugin } from "@repo/payments-plugin";
 import { rolesPlugin } from "@repo/roles";
 import { checkRole } from "../../../shared-utils/src/check-role";
-import { isAdminOrOwner } from "@repo/bookings/src/access/bookings";
+import { isAdminOrOwner } from "@repo/bookings-plugin/src/access/bookings";
 import { Booking, Lesson, User } from "@repo/shared-types";
 
 import {

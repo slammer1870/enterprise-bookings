@@ -16,9 +16,9 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { magicLinkPlugin } from '@repo/auth/server'
-import { bookingsPlugin } from '@repo/bookings'
-import { paymentsPlugin } from '@repo/payments'
+import { authPlugin } from '@repo/auth/server'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import {
   membershipsPlugin,
   productUpdated,
@@ -40,9 +40,9 @@ import {
 
 import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
-import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
+import { paymentIntentSucceeded } from '@repo/payments-plugin/src/webhooks/payment-intent-suceeded'
 
-import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
+import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 import { checkRole } from '@repo/shared-utils'
 
 import { User } from '@repo/shared-types'
@@ -94,7 +94,7 @@ export default buildConfig({
         },
       },
     }),
-    magicLinkPlugin({
+    authPlugin({
       enabled: true,
       serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
       authCollection: 'users',

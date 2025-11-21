@@ -10,7 +10,7 @@ const days: Field = {
   admin: {
     components: {
       RowLabel:
-        "@repo/bookings/src/components/scheduler/day-row-label#DayRowLabel",
+        "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel",
     },
   },
   fields: [

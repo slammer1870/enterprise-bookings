@@ -6,7 +6,7 @@
  *
  * Usage in payload.config.ts:
  * ```typescript
- * import { paymentIntentSucceeded } from "@repo/payments";
+ * import { paymentIntentSucceeded } from "@repo/payments-plugin";
  *
  * export default buildConfig({
  *   // ... other config
