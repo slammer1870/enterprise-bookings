@@ -1,0 +1,14 @@
+{
+  "name": "@repo/bookings-next",
+  "version": "0.0.1",
+  "main": "./src/index.ts",
+  "type": "module",
+  "types": "./src/index.ts",
+  "dependencies": {},
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "5.9.3"
+  }
+}
+

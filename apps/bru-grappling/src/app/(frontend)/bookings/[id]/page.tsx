@@ -1,12 +1,12 @@
 import { getMeUser } from '@repo/auth'
 
-import { checkInAction } from '@repo/bookings/src/actions/bookings'
+import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 
 import { Lesson, Subscription, BookingDetails } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
+import { BookingSummary } from '@repo/bookings-plugin/src/components/ui/booking-summary'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 
@@ -17,7 +17,7 @@ import config from '@payload-config'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
 
 import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
-import { DropInView } from '@repo/payments/src/components/drop-ins'
+import { DropInView } from '@repo/payments-plugin/src/components/drop-ins'
 
 // Add these new types
 type BookingPageProps = {

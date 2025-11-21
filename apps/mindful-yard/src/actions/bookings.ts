@@ -8,7 +8,7 @@ import { Lesson, Transaction, User, Booking } from '@repo/shared-types'
 
 import { render } from '@react-email/components'
 
-import { BookingConfirmationEmail } from '@repo/bookings/src/emails/confirm-booking'
+import { BookingConfirmationEmail } from '@repo/bookings-plugin/src/emails/confirm-booking'
 
 const payload = await getPayload({
   config,

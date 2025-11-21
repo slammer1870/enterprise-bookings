@@ -7,7 +7,7 @@ import { buildConfig, Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
-import { magicLinkPlugin } from "../src/server";
+import { authPlugin } from "../src/server";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -65,7 +65,7 @@ export const config: Config = {
   sharp,
   plugins: [
     payloadCloudPlugin(),
-    magicLinkPlugin({
+    authPlugin({
       enabled: true,
       serverURL: "http://localhost:3000",
       appName: "Test App",
