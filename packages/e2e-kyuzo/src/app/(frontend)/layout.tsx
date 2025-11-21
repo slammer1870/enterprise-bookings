@@ -1,7 +1,7 @@
 import React from 'react'
 import './globals.css'
 
-import { AuthProvider } from '@repo/auth'
+import { AuthProvider } from '@repo/auth-next'
 
 import { Navbar } from '@/globals/navbar'
 import { Footer } from '@/globals/footer'

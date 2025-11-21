@@ -29,7 +29,8 @@
     "@payloadcms/plugin-stripe": "^3.64.0",
     "@payloadcms/richtext-lexical": "^3.64.0",
     "@payloadcms/ui": "^3.64.0",
-    "@repo/auth": "workspace:*",
+    "@repo/auth-next": "workspace:*",
+    "@repo/auth-plugin": "workspace:*",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/payments-plugin": "workspace:*",
@@ -72,10 +73,5 @@
   "engines": {
     "node": ">=20",
     "pnpm": "^9 || ^10"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp"
-    ]
   }
 }

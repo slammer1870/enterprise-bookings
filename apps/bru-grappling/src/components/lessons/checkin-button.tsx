@@ -8,7 +8,7 @@ import { MouseEventHandler } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useAuth } from '@repo/auth'
+import { useAuth } from '@repo/auth-next'
 
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
 import { useAnalyticsTracker } from '@repo/analytics'

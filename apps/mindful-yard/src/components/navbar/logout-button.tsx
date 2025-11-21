@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-import { useAuth } from '@repo/auth'
+import { useAuth } from '@repo/auth-next'
 
 export const LogoutButton = () => {
   const router = useRouter()

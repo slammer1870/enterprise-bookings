@@ -3,7 +3,7 @@ import './globals.css'
 import { Roboto } from 'next/font/google'
 import { Toaster } from 'sonner'
 
-import { AuthProvider } from '@repo/auth'
+import { AuthProvider } from '@repo/auth-next'
 
 import PlausibleProvider from 'next-plausible'
 

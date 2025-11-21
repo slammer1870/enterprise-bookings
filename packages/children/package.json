@@ -5,7 +5,7 @@
   "type": "module",
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@repo/auth": "workspace:*",
+    "@repo/auth-next": "workspace:*",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/shared-services": "workspace:*",

@@ -16,7 +16,7 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { authPlugin } from '@repo/auth/server'
+import { authPlugin } from '@repo/auth-plugin'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import {

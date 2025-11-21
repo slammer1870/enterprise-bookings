@@ -7,7 +7,7 @@ import { User } from '@repo/shared-types'
 
 import config from '@payload-config'
 
-import { generatePasswordSaltHash } from '@repo/auth/server'
+import { generatePasswordSaltHash } from '@repo/auth-plugin'
 import crypto from 'crypto'
 
 import { headers as getHeaders } from 'next/headers'
