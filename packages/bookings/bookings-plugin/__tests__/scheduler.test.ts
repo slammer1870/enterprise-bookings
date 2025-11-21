@@ -32,6 +32,7 @@ import { TZDate } from "@date-fns/tz";
 // Import the generation function directly
 
 const TEST_TIMEOUT = 30000; // 30 seconds
+const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -69,7 +70,7 @@ describe("Scheduler tests", () => {
         description: "Test Yoga Class",
       },
     })) as ClassOption;
-  }, TEST_TIMEOUT);
+  }, HOOK_TIMEOUT);
 
   beforeEach(async () => {
     // Login as admin

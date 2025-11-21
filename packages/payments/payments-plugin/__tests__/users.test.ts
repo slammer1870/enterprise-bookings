@@ -33,6 +33,7 @@ vi.mock("@repo/shared-utils", () => ({
 }));
 
 const TEST_TIMEOUT = 30000;
+const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
 
 describe("Payments tests", () => {
   beforeAll(async () => {
@@ -46,7 +47,7 @@ describe("Payments tests", () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
-  }, TEST_TIMEOUT);
+  }, HOOK_TIMEOUT);
 
   it(
     "should should register a first user and create a stripe customer",

@@ -22,6 +22,8 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
 import { DropIn, User } from "@repo/shared-types";
 
+import { createLesson, getSubscriptionStartDate } from "./lesson-helpers";
+
 let payload: Payload;
 let restClient: NextRESTClient;
 let user: any;
@@ -76,15 +78,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now (1 hour after start)
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 1",
       });
 
       const response = await restClient
@@ -140,15 +138,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 2",
       });
 
       const response = await restClient
@@ -191,15 +185,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 1 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 9, // 9 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 3",
       });
 
       const response = await restClient
@@ -218,6 +208,11 @@ describe("Booking tests", () => {
             }),
           })
         );
+
+      if (response.status !== 201) {
+        const errorData = await response.json();
+        console.log("Error response:", JSON.stringify(errorData, null, 2));
+      }
 
       expect(response.status).toBe(201);
     },
@@ -257,15 +252,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 4",
       });
 
       const response = await restClient
@@ -329,15 +320,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 5",
       });
 
       const response = await restClient
@@ -412,16 +399,14 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 6",
       });
+
+      console.log("lesson", lesson);
 
       const response = await restClient
         .login({
@@ -440,8 +425,13 @@ describe("Booking tests", () => {
           })
         );
 
-      const data = await response.json();
-      console.log(data);
+      if (response.status !== 201) {
+        const errorData = await response.json();
+        console.log(
+          "Error response for subscription test:",
+          JSON.stringify(errorData, null, 2)
+        );
+      }
 
       expect(response.status).toBe(201);
     },
@@ -481,7 +471,7 @@ describe("Booking tests", () => {
           user: user3.id,
           plan: plan.id,
           status: "active",
-          startDate: new Date(),
+          startDate: getSubscriptionStartDate(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
@@ -498,52 +488,37 @@ describe("Booking tests", () => {
         },
       });
 
-      const baseTime1 = Date.now() + 2 * 60 * 60 * 1000; // 2 hours from now
-      const lesson1 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(baseTime1),
-          endTime: new Date(baseTime1 + 60 * 60 * 1000), // 1 hour after start
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const baseDate = new Date();
+      const lesson1 = await createLesson(payload, {
+        baseDate,
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location Limit 1",
       });
 
-      const baseTime2 = Date.now() + 4 * 60 * 60 * 1000; // 4 hours from now
-      const lesson2 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(baseTime2),
-          endTime: new Date(baseTime2 + 60 * 60 * 1000), // 1 hour after start
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson2 = await createLesson(payload, {
+        baseDate,
+        startHoursOffset: 12, // 12 PM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location Limit 2",
       });
 
-      const baseTime3 = Date.now() + 1 * 60 * 60 * 1000; // 1 hour from now
-      const lesson3 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(baseTime3),
-          endTime: new Date(baseTime3 + 60 * 60 * 1000), // 1 hour after start
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson3 = await createLesson(payload, {
+        baseDate,
+        startHoursOffset: 14, // 2 PM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location Limit 3",
       });
 
-      const baseTime = Date.now() + 8 * 60 * 60 * 1000; // 8 hours from now
-      const lesson4 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(baseTime),
-          endTime: new Date(baseTime + 60 * 60 * 1000), // Exactly 1 hour after start time
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson4 = await createLesson(payload, {
+        baseDate,
+        startHoursOffset: 16, // 4 PM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location Limit 4",
       });
 
       const booking1 = await payload.create({
@@ -628,7 +603,7 @@ describe("Booking tests", () => {
           user: user3.id,
           plan: plan.id,
           status: "active",
-          startDate: new Date(),
+          startDate: getSubscriptionStartDate(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
@@ -653,28 +628,21 @@ describe("Booking tests", () => {
         },
       });
 
-      const baseTimeLesson = Date.now() + 2 * 60 * 60 * 1000;
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(baseTimeLesson),
-          endTime: new Date(baseTimeLesson + 60 * 60 * 1000),
-          classOption: classOptionWithPlan.id,
-          location: "Test Location",
-        },
+      const baseDate = new Date();
+      const lesson = await createLesson(payload, {
+        baseDate,
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOptionWithPlan.id,
+        location: "Test Location A",
       });
 
-      const baseTimeLesson1 = Date.now() + 4 * 60 * 60 * 1000;
-      const lesson1 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(baseTimeLesson1),
-          endTime: new Date(baseTimeLesson1 + 60 * 60 * 1000),
-          classOption: classOptionWithoutPlan.id,
-          location: "Test Location",
-        },
+      const lesson1 = await createLesson(payload, {
+        baseDate,
+        startHoursOffset: 12, // 12 PM
+        durationHours: 1,
+        classOption: classOptionWithoutPlan.id,
+        location: "Test Location B",
       });
 
       const booking = await payload.create({
@@ -758,15 +726,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 7",
       });
 
       const response = await restClient
@@ -841,17 +805,15 @@ describe("Booking tests", () => {
         },
       });
 
-      // First lesson - current week
-      const baseTime1 = Date.now() + 32 * 60 * 60 * 1000; // 32 hours from now
-      const lesson1 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(baseTime1),
-          startTime: new Date(baseTime1),
-          endTime: new Date(baseTime1 + 60 * 60 * 1000), // Exactly 1 hour after start time
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      // First lesson - current week (32 hours from now, which is tomorrow + 8 hours)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const lesson1 = await createLesson(payload, {
+        baseDate: tomorrow,
+        startHoursOffset: 8,
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location",
       });
 
       const booking1 = await payload.create({
@@ -864,16 +826,14 @@ describe("Booking tests", () => {
       });
 
       // Second lesson - next week (add 8 days to ensure it's in a different week)
-      const nextWeekDate = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000); // 8 days from now
-      const lesson2 = await payload.create({
-        collection: "lessons",
-        data: {
-          date: nextWeekDate,
-          startTime: nextWeekDate,
-          endTime: new Date(nextWeekDate.getTime() + 60 * 60 * 1000), // Exactly 1 hour after start time
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const nextWeekDate = new Date();
+      nextWeekDate.setDate(nextWeekDate.getDate() + 8);
+      const lesson2 = await createLesson(payload, {
+        baseDate: nextWeekDate,
+        startHoursOffset: 10,
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location",
       });
 
       const response = await restClient
@@ -965,15 +925,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 9",
       });
 
       const response = await restClient
@@ -1065,15 +1021,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 10",
       });
 
       const response = await restClient
@@ -1148,15 +1100,11 @@ describe("Booking tests", () => {
         },
       });
 
-      const lesson = await payload.create({
-        collection: "lessons",
-        data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
-          location: "Test Location",
-        },
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 10, // 10 AM
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location 11",
       });
 
       const response = await restClient

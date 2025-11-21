@@ -21,6 +21,7 @@ import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient"
 import { ClassOption, Lesson } from "@repo/shared-types";
 
 const TEST_TIMEOUT = 30000; // 30 seconds
+const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -47,7 +48,7 @@ describe("Lesson tests", () => {
         description: "Test Class Option",
       },
     })) as ClassOption;
-  }, TEST_TIMEOUT);
+  }, HOOK_TIMEOUT);
 
   it(
     "should should get the lessons endpoint",
