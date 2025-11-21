@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ChildrensBooking } from '../_components/children'
 
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
 // Add these new types
 type BookingPageProps = {

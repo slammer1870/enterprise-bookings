@@ -1,7 +1,7 @@
 'use client '
 
 import { User } from '@repo/shared-types'
-import { useAuth } from '@repo/auth'
+import { useAuth } from '@repo/auth-next'
 
 import { useState } from 'react'
 

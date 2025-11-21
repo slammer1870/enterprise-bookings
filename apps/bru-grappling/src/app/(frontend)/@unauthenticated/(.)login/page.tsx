@@ -1,4 +1,4 @@
-import { RegisterLoginTabs } from '@repo/auth'
+import { RegisterLoginTabs } from '@repo/auth-next'
 import { Modal } from '../modal'
 
 export default function Unauthenticated() {

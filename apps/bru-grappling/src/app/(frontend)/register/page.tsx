@@ -1,6 +1,6 @@
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
-import { RegisterLoginTabs } from '@repo/auth'
+import { RegisterLoginTabs } from '@repo/auth-next'
 import { Suspense } from 'react'
 
 export default async function Register() {

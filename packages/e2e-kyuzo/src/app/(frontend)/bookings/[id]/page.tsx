@@ -1,4 +1,4 @@
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
 import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 

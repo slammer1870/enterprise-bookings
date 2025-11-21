@@ -1,6 +1,6 @@
-import { UserPassLoginForm } from '@repo/auth'
+import { UserPassLoginForm } from '@repo/auth-next'
 
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
 export default async function Login() {
   await getMeUser({ validUserRedirect: '/dashboard' })

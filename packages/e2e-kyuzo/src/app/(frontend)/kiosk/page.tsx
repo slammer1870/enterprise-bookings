@@ -8,7 +8,7 @@ import { Lesson, User } from '@repo/shared-types'
 import { LessonCard } from './_components/lesson-card'
 import { createBooking } from './actions'
 
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
 import { checkRole } from '@repo/shared-utils'
 
