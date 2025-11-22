@@ -69,12 +69,10 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   const orphanedLessons = await db.execute<{
     instructor_id: number;
     user_id: number | null;
-    image_id: number | null;
   }>(sql`
     SELECT DISTINCT 
       l.instructor_id,
-      u.id as user_id,
-      u.image_id
+      u.id as user_id
     FROM lessons l
     LEFT JOIN instructors i ON i.id = l.instructor_id
     LEFT JOIN users u ON u.id = l.instructor_id
@@ -120,7 +118,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               collection: "instructors" as CollectionSlug,
               data: {
                 user: row.user_id,
-                image: row.image_id || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${row.user_id}`,
               } as any,
@@ -195,16 +192,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   // Step 5: Get all unique user IDs that are referenced as instructors in lessons
   // This handles both cases: old schema (direct user reference) and new schema (instructor reference that might need user lookup)
   let uniqueInstructorUsers: {
-    rows?: Array<{ user_id: number; image_id: number | null }>;
+    rows?: Array<{ user_id: number }>;
   };
 
   if (referencesUsers && columnExists) {
     // Old schema: instructor_id directly references users
     uniqueInstructorUsers = await db.execute<{
       user_id: number;
-      image_id: number | null;
     }>(sql`
-      SELECT DISTINCT l.instructor_id as user_id, u.image_id
+      SELECT DISTINCT l.instructor_id as user_id
       FROM lessons l
       INNER JOIN users u ON l.instructor_id = u.id
       WHERE l.instructor_id IS NOT NULL
@@ -222,9 +218,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     // Check if all instructor_ids are valid instructor records
     const invalidInstructors = await db.execute<{
       user_id: number;
-      image_id: number | null;
     }>(sql`
-      SELECT DISTINCT l.instructor_id as user_id, u.image_id
+      SELECT DISTINCT l.instructor_id as user_id
       FROM lessons l
       INNER JOIN users u ON l.instructor_id = u.id
       LEFT JOIN instructors i ON i.id = l.instructor_id
@@ -244,7 +239,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
   for (const row of uniqueInstructorUsers.rows || []) {
     const userId = row.user_id;
-    const imageId = row.image_id;
 
     try {
       // Check if instructor already exists for this user
@@ -275,14 +269,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               req,
             });
             
-            // Create new instructor record, copying image from user if available
+            // Create new instructor record
             // Set active to true by default for migrated instructors
             // Set name from user's name
             const newInstructor = await payload.create({
               collection: "instructors" as CollectionSlug,
               data: {
                 user: userId,
-                image: imageId || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${userId}`,
               } as any,
