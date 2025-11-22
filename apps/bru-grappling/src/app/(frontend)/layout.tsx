@@ -2,7 +2,7 @@ import './globals.css'
 
 import { Roboto } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { AuthProvider } from '@repo/auth-next'
+import { BetterAuthUIProvider } from '@/lib/auth/auth-provider'
 import PlausibleProvider from 'next-plausible'
 import Script from 'next/script'
 import { Navbar } from '@/globals/navbar'
@@ -118,7 +118,7 @@ export default async function RootLayout({
         <GoogleTagManager gtmId="GTM-MLLFFCXN" />
       </head>
       <PlausibleProvider domain="brugrappling.ie">
-        <AuthProvider>
+        <BetterAuthUIProvider>
           <TRPCReactProvider>
             <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-right-bottom lg:bg-center">
               <Suspense fallback={null}>
@@ -132,7 +132,7 @@ export default async function RootLayout({
               <Toaster />
             </body>
           </TRPCReactProvider>
-        </AuthProvider>
+        </BetterAuthUIProvider>
       </PlausibleProvider>
     </html>
   )

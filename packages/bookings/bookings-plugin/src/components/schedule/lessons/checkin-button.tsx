@@ -52,7 +52,12 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     if (!user) {
       toast.info("Please sign in to continue");
       setLoading(false);
-      return router.push(`register?callbackUrl=/bookings/${lesson.id}`, {
+      if (lesson.bookingStatus === 'trialable') {
+        return router.push(`/auth/sign-up?callbackUrl=/bookings/${lesson.id}`, {
+          scroll: false,
+        });
+      }
+      return router.push(`/auth/sign-in?callbackUrl=/bookings/${lesson.id}`, {
         scroll: false,
       });
     }

@@ -23,10 +23,7 @@ export function initAuth(options: InitAuthOptions) {
   } = options;
 
   // Merge plugins
-  const plugins = [
-    ...(betterAuthOptions.plugins || []),
-    ...extraPlugins,
-  ];
+  const plugins = [...(betterAuthOptions.plugins || []), ...extraPlugins];
 
   const config: BetterAuthOptions = {
     ...betterAuthOptions,
@@ -35,7 +32,10 @@ export function initAuth(options: InitAuthOptions) {
     }),
     baseURL: baseUrl,
     secret,
-    trustedOrigins: betterAuthOptions.trustedOrigins || [baseUrl, productionUrl],
+    trustedOrigins: betterAuthOptions.trustedOrigins || [
+      baseUrl,
+      productionUrl,
+    ],
     plugins: plugins.length > 0 ? plugins : undefined,
   };
 
@@ -52,4 +52,3 @@ export type {
   CreateBetterAuthOptionsParams,
   EnabledFeatures,
 } from "./utils/create-options";
-

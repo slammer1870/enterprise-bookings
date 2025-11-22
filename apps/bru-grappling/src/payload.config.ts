@@ -51,6 +51,8 @@ import { betterAuthPluginOptions } from './lib/auth/options'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+const allowedOrigins = [process.env.NEXT_PUBLIC_SERVER_URL].filter(Boolean) as string[]
+
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -59,6 +61,8 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Pages, Posts],
+  cors: allowedOrigins,
+  csrf: allowedOrigins,
   editor: lexicalEditor(),
   email: resendAdapter({
     defaultFromAddress: 'hello@brugrappling.com',

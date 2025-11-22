@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ChildrensBooking } from '../_components/children'
 
-import { getMeUser } from '@repo/auth-next'
+import { getSession } from '@/lib/auth/get-session'
 
 // Add these new types
 type BookingPageProps = {
@@ -14,8 +14,8 @@ export default async function ChildrensBookingPage({ params }: BookingPageProps)
   const { id } = await params
 
   // Auth check
-  const { user } = await getMeUser({
-    nullUserRedirect: `/register?callbackUrl=/bookings/children/${id}`,
+  const { user } = await getSession({
+    nullUserRedirect: `/auth/sign-up?callbackUrl=/bookings/children/${id}`,
   })
 
   prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))

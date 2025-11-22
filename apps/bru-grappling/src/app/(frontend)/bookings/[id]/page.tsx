@@ -1,4 +1,4 @@
-import { getMeUser } from '@repo/auth-next'
+import { getSession } from '@/lib/auth/get-session'
 
 import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 
@@ -28,8 +28,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
   const { id } = await params
 
   // Auth check
-  const { user } = await getMeUser({
-    nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
+  const { user } = await getSession({
+    nullUserRedirect: `/auth/sign-in?callbackUrl=/bookings/${id}`,
   })
 
   const payload = await getPayload({ config })
