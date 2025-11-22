@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { buildConfig, getPayload, Payload } from "payload";
 
@@ -35,6 +35,12 @@ describe("Verify Magic Link", async () => {
         password: user.password,
       },
     });
+  });
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
   });
 
   it("should verify a magic link to log in a user", async () => {

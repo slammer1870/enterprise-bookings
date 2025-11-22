@@ -219,16 +219,16 @@ const defaultFields: Field[] = [
       afterRead: [getRemainingCapacity],
     },
   },
-  // Temporarily disabled join field to debug "Cannot find field for path at lessons" error
-  // {
-  //   name: "bookings",
-  //   label: "Bookings",
-  //   type: "join",
-  //   collection: "bookings",
-  //   maxDepth: 3,
-  //   hasMany: true,
-  //   on: "lesson",
-  // },
+  {
+    name: "bookings",
+    label: "Bookings",
+    type: "join",
+    collection: "bookings",
+    maxDepth: 3,
+    defaultLimit: 0,
+    hasMany: true,
+    on: "lesson",
+  },
   {
     name: "bookingStatus",
     type: "text",

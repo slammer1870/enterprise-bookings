@@ -32,9 +32,7 @@
     "react": "*",
     "react-dom": "*"
   },
-  "scripts": {
-    "test": "vitest"
-  },
+  "scripts": {},
   "type": "module",
   "types": "./src/index.ts"
 }

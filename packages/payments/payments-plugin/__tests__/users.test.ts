@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 
 import { buildConfig, getPayload } from "payload";
 
@@ -48,6 +48,12 @@ describe("Payments tests", () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
   }, HOOK_TIMEOUT);
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
+  });
 
   it(
     "should should register a first user and create a stripe customer",

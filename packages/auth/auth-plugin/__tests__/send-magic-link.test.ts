@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { buildConfig, getPayload, Payload } from "payload";
 
 import { config, user } from "./config";
@@ -27,6 +27,12 @@ describe("Magic Link", async () => {
       collection: "users",
       data: user,
     });
+  });
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
   });
 
   it("should send a magic link to a user", async () => {

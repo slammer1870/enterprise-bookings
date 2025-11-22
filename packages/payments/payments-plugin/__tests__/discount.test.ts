@@ -1,5 +1,5 @@
 import type { Payload } from "payload";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { buildConfig, getPayload } from "payload";
 import { config } from "./config.js";
 import { setDbString } from "@repo/testing-config/src/utils/payload-config";
@@ -42,6 +42,12 @@ describe("Discount calculation tests", () => {
     const builtConfig = await buildConfig(config);
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
+  });
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
   });
 
   describe("calculateQuantityDiscount utility", () => {

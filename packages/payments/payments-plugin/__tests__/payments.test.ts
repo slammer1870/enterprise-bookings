@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { buildConfig, getPayload } from "payload";
 
@@ -33,6 +33,12 @@ describe("Payments tests", () => {
 
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
+  });
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
   });
 
   it("should should fail to get the customers endpoint if the user is not an admin", async () => {

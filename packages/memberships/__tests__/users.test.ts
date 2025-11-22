@@ -67,6 +67,12 @@ describe("Users tests", () => {
     restClient = new NextRESTClient(builtConfig);
   });
 
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
+  });
+
   it(
     "should should return a checkout session url",
     async () => {

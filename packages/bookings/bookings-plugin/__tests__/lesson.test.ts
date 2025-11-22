@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { buildConfig, getPayload } from "payload";
 
@@ -47,8 +47,14 @@ describe("Lesson tests", () => {
         places: 4,
         description: "Test Class Option",
       },
-    })) as ClassOption;
+      })) as ClassOption;
   }, HOOK_TIMEOUT);
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
+  });
 
   it(
     "should should get the lessons endpoint",
