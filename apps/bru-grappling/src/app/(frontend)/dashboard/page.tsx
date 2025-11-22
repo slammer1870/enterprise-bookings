@@ -1,4 +1,4 @@
-import { getMeUser } from '@repo/auth-next'
+import { getSession } from '@/lib/auth/get-session'
 
 import ScheduleComponent from '@/components/schedule'
 
@@ -16,7 +16,7 @@ import { Plan } from '@repo/shared-types'
 export const dynamic = 'force-dynamic'
 
 export default async function Dashboard() {
-  const { user, token } = await getMeUser({ nullUserRedirect: '/login' })
+  const { user } = await getSession({ nullUserRedirect: '/auth/sign-in' })
 
   const payload = await getPayload({ config })
 
@@ -51,8 +51,8 @@ export default async function Dashboard() {
         body: JSON.stringify({ price: planId, quantity: 1 }),
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `JWT ${token}`,
         },
+        credentials: 'include',
       },
     )
 
@@ -71,8 +71,8 @@ export default async function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `JWT ${token}`,
         },
+        credentials: 'include',
       },
     )
     const data = await response.json()
