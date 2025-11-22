@@ -108,22 +108,27 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     }
   };
 
-  const buttonStyles = {
-    closed: "bg-muted text-muted-foreground ",
-    waitlist: "bg-accent",
-    trialable: "bg-secondary",
-    active: "bg-primary",
-    booked: "bg-destructive",
-    childrenBooked: "bg-outline",
+  const getButtonClassName = () => {
+    const baseClasses = "w-full";
+    
+    if (status === "active" || status === "trialable") {
+      return `${baseClasses} bg-checkin hover:bg-checkin/90 text-checkin-foreground`;
+    }
+    
+    if (status === "booked" || status === "waiting") {
+      return `${baseClasses} bg-cancel hover:bg-cancel/90 text-cancel-foreground`;
+    }
+    
+    return baseClasses;
   };
 
   const buttonVariant: Record<Lesson["bookingStatus"], ButtonVariant> = {
     closed: "ghost",
     waitlist: "outline",
-    trialable: "secondary",
+    trialable: "default",
     active: "default",
-    booked: "destructive",
-    waiting: "destructive",
+    booked: "default",
+    waiting: "default",
     childrenBooked: "outline",
   };
 
@@ -132,8 +137,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
       <Button
         onClick={handleClick}
         variant={buttonVariant[status as keyof typeof buttonVariant]}
-        //className={`w-full p-2 border-none ${buttonStyles[status as keyof typeof buttonStyles]}`}
-        className="w-full"
+        className={getButtonClassName()}
         disabled={loading || status === "closed"}
       >
         {loading

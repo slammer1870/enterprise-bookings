@@ -1,6 +1,7 @@
 import type {
   CollectionAdminOptions,
   CollectionConfig,
+  CollectionSlug,
   Field,
   Labels,
 } from "payload";
@@ -107,7 +108,7 @@ const defaultHooks = {
         // If updating and user exists but name is missing, populate it
         try {
           const existing = await req.payload.findByID({
-            collection: 'instructors',
+            collection: 'instructors' as CollectionSlug,
             id: data.id || (req as any).params?.id,
             req,
           });
@@ -146,7 +147,7 @@ const defaultHooks = {
           
           // Update the document with the name
           await req.payload.update({
-            collection: 'instructors',
+            collection: 'instructors' as CollectionSlug,
             id: doc.id,
             data: { name: userName },
             req,

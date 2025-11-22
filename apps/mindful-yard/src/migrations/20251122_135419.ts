@@ -1,4 +1,5 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from "@payloadcms/db-postgres";
+import type { CollectionSlug } from "payload";
 
 /**
  * Migration to create instructors collection and migrate data from lessons.instructor (user) to instructors
@@ -88,7 +89,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
         try {
           // Check if instructor already exists for this user
           const existingInstructors = await payload.find({
-            collection: "instructors",
+            collection: "instructors" as CollectionSlug,
             where: {
               user: {
                 equals: row.user_id,
@@ -116,13 +117,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
             
             // Create new instructor record
             const newInstructor = await payload.create({
-              collection: "instructors",
+              collection: "instructors" as CollectionSlug,
               data: {
                 user: row.user_id,
                 image: row.image_id || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${row.user_id}`,
-              },
+              } as any,
               req,
             });
             instructorId =
@@ -248,7 +249,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     try {
       // Check if instructor already exists for this user
       const existingInstructors = await payload.find({
-        collection: "instructors",
+        collection: "instructors" as CollectionSlug,
         where: {
           user: {
             equals: userId,
@@ -261,11 +262,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       let instructorId: number;
 
       if (existingInstructors.docs && existingInstructors.docs.length > 0) {
+        const existingId = existingInstructors.docs[0]?.id;
         instructorId =
-          existingInstructors.docs[0]?.id &&
-          typeof existingInstructors.docs[0].id === "number"
-            ? existingInstructors.docs[0].id
-            : parseInt(existingInstructors.docs[0]?.id as string);
+          existingId && typeof existingId === "number"
+            ? existingId
+            : parseInt(String(existingId));
       } else {
             // Get user to get their name
             const user = await payload.findByID({
@@ -278,13 +279,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
             // Set active to true by default for migrated instructors
             // Set name from user's name
             const newInstructor = await payload.create({
-              collection: "instructors",
+              collection: "instructors" as CollectionSlug,
               data: {
                 user: userId,
                 image: imageId || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${userId}`,
-              },
+              } as any,
               req,
             });
         instructorId =

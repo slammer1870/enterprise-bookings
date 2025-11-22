@@ -1,4 +1,5 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from "@payloadcms/db-postgres";
+import type { CollectionSlug } from "payload";
 
 /**
  * Migration to create instructors collection and migrate data from lessons.instructor (user) to instructors
@@ -88,7 +89,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
         try {
           // Check if instructor already exists for this user
           const existingInstructors = await payload.find({
-            collection: "instructors",
+            collection: "instructors" as CollectionSlug,
             where: {
               user: {
                 equals: row.user_id,
@@ -116,7 +117,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
             
             // Create new instructor record
             const newInstructor = await payload.create({
-              collection: "instructors",
+              collection: "instructors" as CollectionSlug,
               data: {
                 user: row.user_id,
                 image: row.image_id || undefined,
@@ -248,7 +249,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     try {
       // Check if instructor already exists for this user
       const existingInstructors = await payload.find({
-        collection: "instructors",
+        collection: "instructors" as CollectionSlug,
         where: {
           user: {
             equals: userId,
@@ -278,7 +279,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
             // Set active to true by default for migrated instructors
             // Set name from user's name
             const newInstructor = await payload.create({
-              collection: "instructors",
+              collection: "instructors" as CollectionSlug,
               data: {
                 user: userId,
                 image: imageId || undefined,

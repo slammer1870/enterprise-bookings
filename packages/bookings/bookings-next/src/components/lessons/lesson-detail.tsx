@@ -71,3 +71,4 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
     </div>
   );
 }
+

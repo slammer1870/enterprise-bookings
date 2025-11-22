@@ -59,6 +59,30 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        checkin: {
+          DEFAULT: "hsl(var(--checkin))",
+          foreground: "hsl(var(--checkin-foreground))",
+        },
+        trialable: {
+          DEFAULT: "hsl(var(--trialable))",
+          foreground: "hsl(var(--trialable-foreground))",
+        },
+        cancel: {
+          DEFAULT: "hsl(var(--cancel))",
+          foreground: "hsl(var(--cancel-foreground))",
+        },
+        waitlist: {
+          DEFAULT: "hsl(var(--waitlist))",
+          foreground: "hsl(var(--waitlist-foreground))",
+        },
+        childrenBooked: {
+          DEFAULT: "hsl(var(--children-booked))",
+          foreground: "hsl(var(--children-booked-foreground))",
+        },
+        closed: {
+          DEFAULT: "hsl(var(--closed))",
+          foreground: "hsl(var(--closed-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

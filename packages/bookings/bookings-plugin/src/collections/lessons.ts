@@ -3,6 +3,7 @@ import {
   Field,
   Labels,
   CollectionAdminOptions,
+  CollectionSlug,
 } from "payload";
 
 import { getRemainingCapacity } from "../hooks/remaining-capacity";
@@ -182,7 +183,7 @@ const defaultFields: Field[] = [
         name: "instructor",
         label: "Instructor",
         type: "relationship",
-        relationTo: "instructors",
+        relationTo: "instructors" as CollectionSlug,
         required: false,
         filterOptions: () => {
           // Only show active instructors in the relationship dropdown
@@ -304,7 +305,7 @@ const defaultHooks: HooksConfig = {
         try {
           // Check if the instructor ID exists in instructors collection
           const instructor = await req.payload.findByID({
-            collection: 'instructors',
+            collection: 'instructors' as CollectionSlug,
             id: data.instructor,
             req,
           }).catch(() => null)
@@ -320,7 +321,7 @@ const defaultHooks: HooksConfig = {
             if (user) {
               // Check if an instructor record already exists for this user
               const existingInstructor = await req.payload.find({
-                collection: 'instructors',
+                collection: 'instructors' as CollectionSlug,
                 where: {
                   user: {
                     equals: data.instructor,
@@ -339,12 +340,12 @@ const defaultHooks: HooksConfig = {
               } else {
                 // Create new instructor record for this user
                 const newInstructor = await req.payload.create({
-                  collection: 'instructors',
+                  collection: 'instructors' as CollectionSlug,
                   data: {
                     user: data.instructor,
                     image: (user as any).image || undefined,
                     active: true,
-                  },
+                  } as any,
                   req,
                 })
                 data.instructor = typeof newInstructor.id === 'number'
