@@ -3,6 +3,7 @@ import type { Config, Plugin } from "payload";
 import { generateLessonCollection } from "../collections/lessons";
 import { generateClassOptionsCollection } from "../collections/class-options";
 import { generateBookingCollection } from "../collections/bookings";
+import { generateInstructorCollection } from "../collections/instructors";
 
 import { BookingsPluginConfig } from "../types";
 
@@ -21,10 +22,12 @@ export const bookingsPlugin =
 
     let collections = config.collections || [];
 
+    const instructors = generateInstructorCollection(pluginOptions);
     const lessons = generateLessonCollection(pluginOptions);
     const classOptions = generateClassOptionsCollection(pluginOptions);
     const bookings = generateBookingCollection(pluginOptions);
 
+    collections.push(instructors);
     collections.push(lessons);
     collections.push(classOptions);
     collections.push(bookings);
@@ -101,7 +104,7 @@ export const bookingsPlugin =
                     {
                       name: "instructor",
                       type: "relationship",
-                      relationTo: "users",
+                      relationTo: "instructors",
                     },
                     {
                       name: "lockOutTime",
