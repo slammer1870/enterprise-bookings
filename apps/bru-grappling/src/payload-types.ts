@@ -72,6 +72,7 @@ export interface Config {
     posts: Post;
     forms: Form;
     'form-submissions': FormSubmission;
+    instructors: Instructor;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
@@ -80,6 +81,7 @@ export interface Config {
     users: User;
     subscriptions: Subscription;
     plans: Plan;
+    'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -107,6 +109,7 @@ export interface Config {
     posts: PostsSelect<false> | PostsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    instructors: InstructorsSelect<false> | InstructorsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
@@ -115,6 +118,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
+    'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -255,7 +259,7 @@ export interface Page {
                     root: {
                       type: string;
                       children: {
-                        type: string;
+                        type: any;
                         version: number;
                         [k: string]: unknown;
                       }[];
@@ -281,7 +285,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: string;
+                  type: any;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -307,7 +311,7 @@ export interface Page {
                     root: {
                       type: string;
                       children: {
-                        type: string;
+                        type: any;
                         version: number;
                         [k: string]: unknown;
                       }[];
@@ -337,7 +341,7 @@ export interface Page {
                     root: {
                       type: string;
                       children: {
-                        type: string;
+                        type: any;
                         version: number;
                         [k: string]: unknown;
                       }[];
@@ -370,7 +374,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: string;
+                  type: any;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -409,7 +413,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: string;
+                  type: any;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -488,7 +492,7 @@ export interface Form {
               root: {
                 type: string;
                 children: {
-                  type: string;
+                  type: any;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -571,7 +575,7 @@ export interface Form {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -603,7 +607,7 @@ export interface Form {
           root: {
             type: string;
             children: {
-              type: string;
+              type: any;
               version: number;
               [k: string]: unknown;
             }[];
@@ -634,7 +638,7 @@ export interface Post {
       root: {
         type: string;
         children: {
-          type: string;
+          type: any;
           version: number;
           [k: string]: unknown;
         }[];
@@ -682,38 +686,21 @@ export interface FormSubmission {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
+ * via the `definition` "instructors".
  */
-export interface Lesson {
+export interface Instructor {
   id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
   /**
-   * The time in minutes before the lesson will be closed for new bookings.
+   * The user associated with this instructor
    */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | User;
-  classOption: number | ClassOption;
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  image?: (number | null) | Media;
   /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
+   * Whether this instructor is active and can be assigned to lessons
    */
   active?: boolean | null;
-  originalLockOutTime?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -755,25 +742,72 @@ export interface User {
   hash?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
   password?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
+ * via the `definition` "lessons".
  */
-export interface Subscription {
+export interface Lesson {
   id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
   /**
-   * Skip syncing to Stripe
+   * The time in minutes before the lesson will be closed for new bookings.
    */
-  skipSync?: boolean | null;
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | Instructor;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  originalLockOutTime?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child' | 'family';
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+    allowedDropIn?: (number | null) | DropIn;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -849,29 +883,6 @@ export interface Plan {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  /**
-   * Is this a class for adults or children?
-   */
-  type: 'adult' | 'child' | 'family';
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-    allowedDropIn?: (number | null) | DropIn;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "drop-ins".
  */
 export interface DropIn {
@@ -912,6 +923,26 @@ export interface Booking {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions".
  */
 export interface Transaction {
@@ -923,6 +954,23 @@ export interface Transaction {
   createdBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-kv".
+ */
+export interface PayloadKv {
+  id: number;
+  key: string;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1044,6 +1092,10 @@ export interface PayloadLockedDocument {
         value: number | FormSubmission;
       } | null)
     | ({
+        relationTo: 'instructors';
+        value: number | Instructor;
+      } | null)
+    | ({
         relationTo: 'lessons';
         value: number | Lesson;
       } | null)
@@ -1074,10 +1126,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'plans';
         value: number | Plan;
-      } | null)
-    | ({
-        relationTo: 'payload-jobs';
-        value: number | PayloadJob;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1519,6 +1567,19 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors_select".
+ */
+export interface InstructorsSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  description?: T;
+  image?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons_select".
  */
 export interface LessonsSelect<T extends boolean = true> {
@@ -1624,6 +1685,13 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1676,6 +1744,14 @@ export interface PlansSelect<T extends boolean = true> {
   classOptionsAllowedPlans?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-kv_select".
+ */
+export interface PayloadKvSelect<T extends boolean = true> {
+  key?: T;
+  data?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1809,7 +1885,7 @@ export interface Scheduler {
                  */
                 classOption?: (number | null) | ClassOption;
                 location?: string | null;
-                instructor?: (number | null) | User;
+                instructor?: (number | null) | Instructor;
                 /**
                  * Overrides the default lock out time
                  */
@@ -1914,7 +1990,7 @@ export interface TaskGenerateLessonsFromSchedule {
           endTime: string;
           classOption?: (number | null) | ClassOption;
           location?: string | null;
-          instructor?: (number | null) | User;
+          instructor?: (number | null) | Instructor;
           lockOutTime?: number | null;
         }[];
       }[];

@@ -19,6 +19,18 @@ const defaultFields: Field[] = [
     relationTo: "users",
     required: true,
     unique: true,
+    admin: {
+      description: "The user associated with this instructor",
+    },
+  },
+  {
+    name: "name",
+    label: "Name",
+    type: "text",
+    admin: {
+      readOnly: true,
+      hidden: true,
+    },
   },
   {
     name: "description",
@@ -70,10 +82,134 @@ const defaultAccess: AccessControls = {
 
 const defaultAdmin: CollectionAdminOptions = {
   group: "Bookings",
-  useAsTitle: "user",
+  useAsTitle: "name",
 };
 
-const defaultHooks: HooksConfig = {};
+const defaultHooks = {
+  beforeChange: [
+    async ({ data, req, operation }: any) => {
+      // Auto-populate name from user's name when creating or updating
+      if (data && data.user) {
+        try {
+          const userId = typeof data.user === 'object' && 'id' in data.user 
+            ? data.user.id 
+            : data.user;
+          const user = await req.payload.findByID({
+            collection: 'users',
+            id: userId,
+            req,
+          });
+          data.name = (user as any)?.name || `User ${userId}`;
+        } catch (error) {
+          data.name = data.name || `User ${data.user}`;
+        }
+      } else if (data && !data.name && operation === 'update') {
+        // If updating and user exists but name is missing, populate it
+        try {
+          const existing = await req.payload.findByID({
+            collection: 'instructors',
+            id: data.id || (req as any).params?.id,
+            req,
+          });
+          if (existing && existing.user) {
+            const userId = typeof existing.user === 'object' && 'id' in existing.user 
+              ? existing.user.id 
+              : existing.user;
+            const user = await req.payload.findByID({
+              collection: 'users',
+              id: userId,
+              req,
+            });
+            data.name = (user as any)?.name || `User ${userId}`;
+          }
+        } catch (error) {
+          // Ignore errors
+        }
+      }
+      return data;
+    },
+  ],
+  afterChange: [
+    async ({ doc, req, operation }: any) => {
+      // Ensure name is saved after change
+      if (doc && doc.user && (!doc.name || doc.name === '')) {
+        try {
+          const userId = typeof doc.user === 'object' && 'id' in doc.user 
+            ? doc.user.id 
+            : doc.user;
+          const user = await req.payload.findByID({
+            collection: 'users',
+            id: userId,
+            req,
+          });
+          const userName = (user as any)?.name || `User ${userId}`;
+          
+          // Update the document with the name
+          await req.payload.update({
+            collection: 'instructors',
+            id: doc.id,
+            data: { name: userName },
+            req,
+          });
+        } catch (error) {
+          // Ignore errors
+        }
+      }
+      return doc;
+    },
+  ],
+  afterRead: [
+    async ({ doc, req }: any) => {
+      // Ensure name is populated from user when reading (for display purposes)
+      // Handle both single doc and result objects with docs array
+      let docsToProcess: any[] = [];
+      
+      if (doc?.docs && Array.isArray(doc.docs)) {
+        // Result object with docs array
+        docsToProcess = doc.docs;
+      } else if (Array.isArray(doc)) {
+        // Array of docs
+        docsToProcess = doc;
+      } else if (doc) {
+        // Single doc
+        docsToProcess = [doc];
+      }
+      
+      for (const d of docsToProcess) {
+        if (d && d.user) {
+          // Check if user is already populated with name
+          if (typeof d.user === 'object' && 'name' in d.user && d.user.name) {
+            d.name = d.user.name;
+          } else if (!d.name || d.name === '') {
+            try {
+              const userId = typeof d.user === 'object' && 'id' in d.user 
+                ? d.user.id 
+                : d.user;
+              const user = await req.payload.findByID({
+                collection: 'users',
+                id: userId,
+                req,
+              });
+              // Update the document with the name for display
+              d.name = (user as any)?.name || `User ${userId}`;
+            } catch (error) {
+              d.name = d.name || `User ${d.user}`;
+            }
+          }
+        }
+      }
+      
+      // Return in the same format as received
+      if (doc?.docs && Array.isArray(doc.docs)) {
+        return { ...doc, docs: docsToProcess };
+      } else if (Array.isArray(doc)) {
+        return docsToProcess;
+      } else {
+        return docsToProcess[0] || doc;
+      }
+    },
+  ],
+} as HooksConfig;
 
 export const generateInstructorCollection = (
   config: BookingsPluginConfig

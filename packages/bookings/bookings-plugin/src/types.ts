@@ -5,6 +5,7 @@ import {
   CollectionAfterChangeHook,
   CollectionAfterDeleteHook,
   CollectionAfterErrorHook,
+  CollectionAfterReadHook,
   CollectionRefreshHook,
   CollectionBeforeDeleteHook,
   CollectionBeforeValidateHook,
@@ -91,6 +92,7 @@ export type HooksConfig = {
   afterDelete?: CollectionAfterDeleteHook[];
   afterError?: CollectionAfterErrorHook[];
   afterOperation?: CollectionAfterOperationHook[];
+  afterRead?: CollectionAfterReadHook[];
   refresh?: CollectionRefreshHook[];
   beforeDelete?: CollectionBeforeDeleteHook[];
   beforeValidate?: CollectionBeforeValidateHook[];
