@@ -472,3 +472,4 @@ export async function down({
     DROP TABLE IF EXISTS "instructors" CASCADE;
   `);
 }
+

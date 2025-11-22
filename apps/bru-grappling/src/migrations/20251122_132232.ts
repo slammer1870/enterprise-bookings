@@ -8,6 +8,7 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from "@payloadcms/db-postgres";
  * 2. Creates instructor records for each unique user referenced as an instructor in lessons
  * 3. Copies user image to instructor image if available
  * 4. Updates lessons to reference instructors instead of users
+ * 5. Populates the name field from the user's name
  *
  * Note: This migration should be run after Payload auto-generates the schema migration for the instructors collection.
  * If the instructors table doesn't exist yet, this migration will create it.
