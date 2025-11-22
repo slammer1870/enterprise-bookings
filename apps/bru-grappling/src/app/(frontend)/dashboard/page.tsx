@@ -13,6 +13,8 @@ import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
 
 import { Plan } from '@repo/shared-types'
 
+export const dynamic = 'force-dynamic'
+
 export default async function Dashboard() {
   const { user, token } = await getMeUser({ nullUserRedirect: '/login' })
 

@@ -255,8 +255,8 @@ export default buildConfig({
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',
-      generateTitle: ({ doc }) => `Brú Grappling — ${doc.title}`,
-      generateDescription: ({ doc }) => doc.excerpt,
+      generateTitle: ({ doc }) => `${doc.title} | Brú Grappling`,
+      generateDescription: ({ doc }) => doc.excerpt || doc.meta?.description,
     }),
   ],
 })
