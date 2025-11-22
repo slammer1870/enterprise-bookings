@@ -5,7 +5,7 @@ import { DropIn, Plan, Transaction } from "./payments";
 export type Instructor = {
   id: number;
   name?: string | null;
-  image?: {
+  profileImage?: {
     url: string;
   } | null;
   user?: number | User;

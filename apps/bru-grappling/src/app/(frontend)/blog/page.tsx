@@ -1,3 +1,6 @@
+// Mark this route as dynamic to avoid static generation issues with Payload GraphQL schema
+export const dynamic = 'force-dynamic'
+
 import payloadConfig from '@/payload.config'
 import { getPayload } from 'payload'
 import { CollectionSlug } from 'payload'

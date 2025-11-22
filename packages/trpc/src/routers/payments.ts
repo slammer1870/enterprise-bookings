@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { stripeProtectedProcedure } from "../trpc";
+import { stripeProtectedProcedure, requireCollections } from "../trpc";
+import { findSafe } from "../utils/collections";
 
 export const paymentsRouter = {
   createCustomerCheckoutSession: stripeProtectedProcedure
@@ -42,17 +43,19 @@ export const paymentsRouter = {
     return session;
   }),
   createCustomerUpgradePortal: stripeProtectedProcedure
+    .use(requireCollections("plans"))
     .input(
       z.object({
         productId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const product = await ctx.payload.find({
-        collection: "plans",
+      const product = await findSafe(ctx.payload, "plans", {
         where: {
           stripeProductId: { equals: input.productId },
         },
+        overrideAccess: false,
+        user: ctx.user,
       });
 
       if (product.docs.length === 0) {

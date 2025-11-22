@@ -14,6 +14,7 @@ interface CreateServerContextOptions {
   payload: Payload;
   headers: Headers;
   stripe?: Stripe;
+  session?: any | null;
 }
 
 /**
@@ -25,6 +26,8 @@ export const createServerTRPCContext = (opts: CreateServerContextOptions) => {
     headers: opts.headers,
     payload: opts.payload,
     stripe: opts.stripe,
+    session: opts.session ?? null,
+    user: opts.session?.user ?? null,
   };
 };
 
@@ -36,7 +39,8 @@ export function createServerTRPC(
     headers: Headers;
     payload: Payload;
     stripe: Stripe | undefined;
-    user?: User;
+    session: any | null;
+    user: User | null;
   }>
 ) {
   const getQueryClient = cache(createQueryClient);

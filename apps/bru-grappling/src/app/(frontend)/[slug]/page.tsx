@@ -1,5 +1,9 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+
+// Mark this route as dynamic to avoid static generation issues with Payload GraphQL schema
+export const dynamic = 'force-dynamic'
+
 import { getPayload } from 'payload'
 
 import config from '@/payload.config'
@@ -14,6 +18,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
 }
 
 export async function generateStaticParams() {
+  try {
   const payload = await getPayload({ config })
   const pages = await payload.find({
     collection: 'pages',
@@ -34,7 +39,13 @@ export async function generateStaticParams() {
       return { slug }
     })
 
-  return params
+    return params || []
+  } catch (error) {
+    console.error('Error generating static params for pages:', error)
+    // Return empty array on error to prevent build failure
+    // Pages will be generated dynamically at runtime
+    return []
+  }
 }
 
 type Args = {
