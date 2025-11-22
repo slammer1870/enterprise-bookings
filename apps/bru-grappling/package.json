@@ -16,6 +16,7 @@
     "@repo/analytics": "workspace:*",
     "@repo/auth-next": "workspace:*",
     "@repo/auth-plugin": "workspace:*",
+    "@repo/bookings-next": "workspace:*",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/children": "workspace:*",
     "@repo/memberships": "workspace:*",

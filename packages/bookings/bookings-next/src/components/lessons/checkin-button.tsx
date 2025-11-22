@@ -11,7 +11,16 @@ import { toast } from 'sonner'
 import { useAuth } from '@repo/auth-next'
 
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
-import { useAnalyticsTracker } from '@repo/analytics'
+
+// Optional analytics - only used if available
+let useAnalyticsTracker: (() => { trackEvent: (event: string) => void }) | null = null
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const analytics = require('@repo/analytics')
+  useAnalyticsTracker = analytics.useAnalyticsTracker
+} catch {
+  // Analytics package not available, that's okay
+}
 
 export const CheckInButton = ({
   bookingStatus,
@@ -26,7 +35,7 @@ export const CheckInButton = ({
   const queryClient = useQueryClient()
   const router = useRouter()
   const { user } = useAuth()
-  const { trackEvent } = useAnalyticsTracker()
+  const trackEvent = useAnalyticsTracker?.()?.trackEvent || (() => {})
 
   const [ConfirmationDialog, confirm] = useConfirm(
     'Are you sure you want to cancel this booking?',
@@ -123,6 +132,28 @@ export const CheckInButton = ({
     }),
   )
 
+  const getButtonClassName = (status: Lesson['bookingStatus']) => {
+    const baseClasses = 'w-full'
+    
+    switch (status) {
+      case 'active':
+        return `${baseClasses} bg-checkin hover:bg-checkin/90 text-checkin-foreground`
+      case 'trialable':
+        return `${baseClasses} bg-trialable hover:bg-trialable/90 text-trialable-foreground`
+      case 'booked':
+      case 'waiting':
+        return `${baseClasses} bg-cancel hover:bg-cancel/90 text-cancel-foreground`
+      case 'waitlist':
+        return `${baseClasses} bg-waitlist hover:bg-waitlist/90 text-waitlist-foreground`
+      case 'childrenBooked':
+        return `${baseClasses} bg-childrenBooked hover:bg-childrenBooked/90 text-childrenBooked-foreground`
+      case 'closed':
+        return `${baseClasses} bg-closed hover:bg-closed/90 text-closed-foreground opacity-50 cursor-not-allowed`
+      default:
+        return baseClasses
+    }
+  }
+
   const config: Record<
     Lesson['bookingStatus'],
     {
@@ -137,7 +168,7 @@ export const CheckInButton = ({
     active: {
       label: isCheckingIn ? 'Checking In...' : type === 'child' ? 'Check Child In' : 'Check In',
       variant: 'default' as const,
-      className: 'w-full bg-green-600 hover:bg-green-700',
+      className: getButtonClassName('active'),
       disabled: isCheckingIn,
       action: () =>
         requireAuth(() => {
@@ -147,8 +178,8 @@ export const CheckInButton = ({
     },
     booked: {
       label: isCancellingBooking ? 'Cancelling...' : 'Cancel Booking',
-      variant: 'destructive' as const,
-      className: 'w-full',
+      variant: 'default' as const,
+      className: getButtonClassName('booked'),
       disabled: isCancellingBooking,
       action: () =>
         requireAuth(() => {
@@ -162,7 +193,7 @@ export const CheckInButton = ({
     trialable: {
       label: isCheckingIn ? 'Booking...' : 'Book Trial Class',
       variant: 'default' as const,
-      className: 'w-full bg-blue-600 hover:bg-blue-700',
+      className: getButtonClassName('trialable'),
       disabled: isCheckingIn,
       action: () =>
         requireAuth(() => {
@@ -172,8 +203,8 @@ export const CheckInButton = ({
     },
     waitlist: {
       label: isJoiningWaitlist ? 'Joining...' : 'Join Waitlist',
-      variant: 'secondary' as const,
-      className: 'w-full bg-yellow-600 hover:bg-yellow-700 text-white',
+      variant: 'default' as const,
+      className: getButtonClassName('waitlist'),
       disabled: isJoiningWaitlist,
       action: () =>
         requireAuth(() => {
@@ -182,8 +213,8 @@ export const CheckInButton = ({
     },
     waiting: {
       label: isLeavingWaitlist ? 'Leaving...' : 'Leave Waitlist',
-      variant: 'outline' as const,
-      className: 'w-full border-yellow-600 text-yellow-600 hover:bg-yellow-50',
+      variant: 'default' as const,
+      className: getButtonClassName('waiting'),
       disabled: isLeavingWaitlist,
       action: () =>
         requireAuth(() => {
@@ -192,15 +223,15 @@ export const CheckInButton = ({
     },
     childrenBooked: {
       label: isCheckingIn ? 'Loading...' : 'Manage Children',
-      variant: 'secondary' as const,
-      className: 'w-full bg-purple-600 hover:bg-purple-700 text-white',
+      variant: 'default' as const,
+      className: getButtonClassName('childrenBooked'),
       disabled: isCheckingIn,
       action: () => requireAuth(() => handleUnifiedCheckIn()),
     },
     closed: {
       label: 'Closed',
-      variant: 'ghost' as const,
-      className: 'w-full opacity-50 cursor-not-allowed',
+      variant: 'default' as const,
+      className: getButtonClassName('closed'),
       disabled: true,
       action: () => {
         toast.error('Lesson is closed')
@@ -222,3 +253,4 @@ export const CheckInButton = ({
     </>
   )
 }
+

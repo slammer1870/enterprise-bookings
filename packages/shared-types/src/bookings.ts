@@ -2,6 +2,16 @@ import { User } from "./user";
 
 import { DropIn, Plan, Transaction } from "./payments";
 
+export type Instructor = {
+  id: number;
+  name?: string | null;
+  image?: {
+    url: string;
+  } | null;
+  user?: number | User;
+  active?: boolean | null;
+};
+
 export type Lesson = {
   id: number;
   date: string;
@@ -9,7 +19,7 @@ export type Lesson = {
   endTime: string;
   classOption: ClassOption;
   location: string;
-  instructor: User;
+  instructor?: Instructor | null;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
   bookingStatus:

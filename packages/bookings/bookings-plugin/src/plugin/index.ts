@@ -1,4 +1,4 @@
-import type { Config, Plugin } from "payload";
+import type { Config, CollectionSlug, Plugin } from "payload";
 
 import { generateLessonCollection } from "../collections/lessons";
 import { generateClassOptionsCollection } from "../collections/class-options";
@@ -104,7 +104,7 @@ export const bookingsPlugin =
                     {
                       name: "instructor",
                       type: "relationship",
-                      relationTo: "instructors",
+                      relationTo: "instructors" as CollectionSlug,
                     },
                     {
                       name: "lockOutTime",

@@ -1,4 +1,4 @@
-import { TaskHandler, Field, GlobalConfig, Payload } from "payload";
+import { TaskHandler, Field, GlobalConfig, Payload, CollectionSlug } from "payload";
 import { addDays } from "date-fns";
 
 const days: Field = {
@@ -116,7 +116,7 @@ const days: Field = {
           name: "instructor",
           label: "Instructor",
           type: "relationship",
-          relationTo: "instructors",
+          relationTo: "instructors" as CollectionSlug,
           hasMany: false,
           filterOptions: () => {
             // Only show active instructors in the relationship dropdown
