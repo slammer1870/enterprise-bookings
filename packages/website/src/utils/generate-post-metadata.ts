@@ -36,6 +36,21 @@ export async function generatePostMetadataFunction({
   // Type-safe access to post properties
   const title = (post as any).meta?.title || (post as any).title;
   const description = (post as any).meta?.description;
+  const image = (post as any).meta?.image;
+
+  const metadataBase = process.env.NEXT_PUBLIC_SERVER_URL
+    ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
+    : undefined;
+
+  const ogImage =
+    image && typeof image === "object" && image.url
+      ? {
+          url: image.url,
+          width: image.width || 1200,
+          height: image.height || 630,
+          alt: image.alt || title,
+        }
+      : undefined;
 
   return {
     title,
@@ -43,13 +58,16 @@ export async function generatePostMetadataFunction({
     openGraph: {
       title,
       description: description || "",
-      images:
-        (post as any).meta?.image && typeof (post as any).meta.image === "object"
-          ? [{ url: (post as any).meta.image.url || "" }]
-          : [],
+      type: "article",
+      ...(ogImage && { images: [ogImage] }),
+      ...(metadataBase && { url: new URL(`/blog/${slug}`, metadataBase).toString() }),
     },
-    metadataBase: process.env.NEXT_PUBLIC_SERVER_URL
-      ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
-      : undefined,
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: description || "",
+      ...(ogImage && { images: [ogImage.url] }),
+    },
+    ...(metadataBase && { metadataBase }),
   };
 }

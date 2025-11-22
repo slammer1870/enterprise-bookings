@@ -1,16 +1,11 @@
 User-agent: *
 Allow: /
 
-# Sitemaps
+# Sitemap
 Sitemap: https://brugrappling.ie/sitemap.xml
-Sitemap: https://brugrappling.ie/pages-sitemap.xml
-Sitemap: https://brugrappling.ie/posts-sitemap.xml
 
 # Disallow admin and API routes
 Disallow: /admin/
 Disallow: /api/
 Disallow: /_next/
 Disallow: /(payload)/
-
-# Crawl delay (optional)
-Crawl-delay: 1

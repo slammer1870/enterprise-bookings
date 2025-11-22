@@ -3,6 +3,8 @@ import { getMeUser } from '@repo/auth-next'
 import { RegisterLoginTabs } from '@repo/auth-next'
 import { Suspense } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function Login() {
   const user = await getMeUser({ validUserRedirect: '/' })
   return (
