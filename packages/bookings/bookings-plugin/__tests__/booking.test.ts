@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { getPayload } from "payload";
 
@@ -50,8 +50,15 @@ describe("Booking tests", () => {
         email: "test@test.com",
         password: "test",
       },
-    })) as unknown as User;
+      })) as unknown as User;
   }, HOOK_TIMEOUT);
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
+  });
+
   it(
     "should be unauthorized to get the bookings endpoint ",
     async () => {

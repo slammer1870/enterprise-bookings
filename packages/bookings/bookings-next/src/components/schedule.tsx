@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 
-import { useTRPC } from '@repo/trpc'
-import { useQuery } from '@tanstack/react-query'
+import { useTRPC } from "@repo/trpc";
+import { useQuery } from "@tanstack/react-query";
 
-import { ToggleDate } from '@repo/ui/components/toggle-date'
+import { ToggleDate } from "@repo/ui/components/toggle-date";
 
-import { LessonList } from './lessons/lesson-list'
-import { Loader2 } from 'lucide-react'
+import { LessonList } from "./lessons/lesson-list";
+import { Loader2 } from "lucide-react";
 
 export function Schedule() {
-  const trpc = useTRPC()
+  const trpc = useTRPC();
 
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const { data: lessons, isLoading } = useQuery({
     ...trpc.lessons.getByDate.queryOptions({
       date: selectedDate.toISOString(),
     }),
-  })
+  });
 
   return (
     <>
@@ -33,6 +33,5 @@ export function Schedule() {
         <LessonList lessons={Array.isArray(lessons) ? lessons : []} />
       )}
     </>
-  )
+  );
 }
-

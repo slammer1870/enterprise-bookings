@@ -69,6 +69,10 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
+  graphQL: {
+    disablePlaygroundInProduction: true,
+    disable: true, // Disable GraphQL to avoid schema validation errors
+  },
   db: postgresAdapter({
     pool: {
       connectionString:

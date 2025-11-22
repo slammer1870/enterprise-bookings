@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { buildConfig, getPayload, Payload } from "payload";
 
@@ -28,6 +28,12 @@ describe("Registration", async () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
   }, HOOK_TIMEOUT);
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
+  });
 
   it(
     "should register a new user",

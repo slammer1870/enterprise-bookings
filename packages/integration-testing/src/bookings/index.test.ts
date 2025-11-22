@@ -7,7 +7,7 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { getPayload } from "payload";
 
@@ -52,6 +52,13 @@ describe("Booking tests", () => {
       },
     })) as User;
   }, TEST_TIMEOUT);
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy();
+    }
+  });
+
   it(
     "should be authorised to create a booking because user is admin",
     async () => {

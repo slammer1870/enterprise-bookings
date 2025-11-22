@@ -1,7 +1,7 @@
 import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
 
-import { describe, it, beforeAll, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 
 let payload: Payload
 
@@ -9,6 +9,12 @@ describe('API', () => {
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
+  })
+
+  afterAll(async () => {
+    if (payload) {
+      await payload.db.destroy()
+    }
   })
 
   it('fetches users', async () => {

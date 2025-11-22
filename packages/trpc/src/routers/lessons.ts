@@ -88,19 +88,29 @@ export const lessonsRouter = {
         const endOfDay = new Date(input.date);
         endOfDay.setHours(23, 59, 59, 999);
 
-        const lessons = await ctx.payload.find({
-          collection: "lessons",
-          where: {
-            startTime: {
-              greater_than_equal: startOfDay.toISOString(),
-              less_than_equal: endOfDay.toISOString(),
-            },
+      const queryOptions: {
+        where: any;
+        depth: number;
+        sort: string;
+        overrideAccess: boolean;
+        user?: any;
+      } = {
+        where: {
+          startTime: {
+            greater_than_equal: startOfDay.toISOString(),
+            less_than_equal: endOfDay.toISOString(),
           },
-          depth: 2,
-          sort: "startTime",
-          overrideAccess: false,
-          user: user || undefined,
-        });
+        },
+        depth: 1,
+        sort: "startTime",
+        overrideAccess: false,
+      };
+
+      if (user) {
+        queryOptions.user = user;
+      }
+
+      const lessons = await findSafe(ctx.payload, "lessons", queryOptions);
 
         return lessons.docs.map((lesson: any) => lesson as Lesson);
       } catch (error) {
