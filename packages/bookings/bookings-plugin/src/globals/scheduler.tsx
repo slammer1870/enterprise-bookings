@@ -116,8 +116,16 @@ const days: Field = {
           name: "instructor",
           label: "Instructor",
           type: "relationship",
-          relationTo: "users",
+          relationTo: "instructors",
           hasMany: false,
+          filterOptions: () => {
+            // Only show active instructors in the relationship dropdown
+            return {
+              active: {
+                equals: true,
+              },
+            };
+          },
         },
         {
           name: "lockOutTime",

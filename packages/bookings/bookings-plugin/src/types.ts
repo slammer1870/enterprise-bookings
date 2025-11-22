@@ -65,6 +65,11 @@ export type BookingsPluginConfig = {
     hooks?: HooksOverride;
     access?: AccessOverride;
   } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
+  instructorOverrides?: {
+    fields?: FieldsOverride;
+    hooks?: HooksOverride;
+    access?: AccessOverride;
+  } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
 };
 
 export type AccessControls =
