@@ -120,7 +120,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               collection: "instructors" as CollectionSlug,
               data: {
                 user: row.user_id,
-                image: row.image_id || undefined,
+                profileImage: row.image_id || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${row.user_id}`,
               },
@@ -282,7 +282,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               collection: "instructors" as CollectionSlug,
               data: {
                 user: userId,
-                image: imageId || undefined,
+                profileImage: imageId || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${userId}`,
               },

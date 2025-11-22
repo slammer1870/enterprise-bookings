@@ -29,9 +29,9 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
         </div>
         {lesson.instructor ? (
           <div className="flex items-center justify-start mt-2">
-            {lesson.instructor.image && (
+            {lesson.instructor.profileImage && (
               <Image
-                src={(lesson.instructor.image.url as string) || ""}
+                src={(lesson.instructor.profileImage.url as string) || ""}
                 alt={lesson.classOption.name}
                 height={100}
                 width={100}

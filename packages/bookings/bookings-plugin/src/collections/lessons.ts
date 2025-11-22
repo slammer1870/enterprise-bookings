@@ -219,16 +219,16 @@ const defaultFields: Field[] = [
       afterRead: [getRemainingCapacity],
     },
   },
-  {
-    name: "bookings",
-    label: "Bookings",
-    type: "join",
-    collection: "bookings",
-    maxDepth: 3,
-    defaultLimit: 0,
-    hasMany: true,
-    on: "lesson",
-  },
+  // Temporarily disabled join field to debug "Cannot find field for path at lessons" error
+  // {
+  //   name: "bookings",
+  //   label: "Bookings",
+  //   type: "join",
+  //   collection: "bookings",
+  //   maxDepth: 3,
+  //   hasMany: true,
+  //   on: "lesson",
+  // },
   {
     name: "bookingStatus",
     type: "text",
@@ -343,7 +343,7 @@ const defaultHooks: HooksConfig = {
                   collection: 'instructors' as CollectionSlug,
                   data: {
                     user: data.instructor,
-                    image: (user as any).image || undefined,
+                    profileImage: (user as any).image || undefined,
                     active: true,
                   } as any,
                   req,

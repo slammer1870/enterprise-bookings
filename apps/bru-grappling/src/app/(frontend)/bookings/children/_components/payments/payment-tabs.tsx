@@ -73,8 +73,9 @@ export const PaymentTabs = ({
   )
 
   // Extract repeated calculations for better readability
-  const pendingBookings = bookedChildren.filter((booking) => booking.status === 'pending')
-  const activeBookings = bookedChildren.filter((booking) => booking.status !== 'cancelled')
+  const bookings = Array.isArray(bookedChildren) ? bookedChildren : []
+  const pendingBookings = bookings.filter((booking: any) => booking.status === 'pending')
+  const activeBookings = bookings.filter((booking: any) => booking.status !== 'cancelled')
   const activeBookingCount = activeBookings.length
 
   // Determine if user can add more children based on drop-in settings
@@ -105,13 +106,13 @@ export const PaymentTabs = ({
           {canAddMoreChildren ? (
             <SelectChildren
               lessonId={lessonId}
-              bookedChildren={bookedChildren.map((booking) => booking.user)}
+              bookedChildren={bookings.map((booking: any) => booking.user)}
               bookChild={(data) => bookChild({ ...data, status: 'pending' })}
               isBooking={isBooking}
             />
           ) : (
             <div className="flex flex-col gap-2">
-              {bookedChildren.length >= remainingCapacity && <p>This lesson is now full.</p>}
+              {bookings.length >= remainingCapacity && <p>This lesson is now full.</p>}
             </div>
           )}
           {pendingBookings.length > 0 && (
@@ -133,13 +134,13 @@ export const PaymentTabs = ({
         {canAddMoreChildren ? (
           <SelectChildren
             lessonId={lessonId}
-            bookedChildren={bookedChildren.map((booking) => booking.user)}
+            bookedChildren={bookings.map((booking: any) => booking.user)}
             bookChild={(data) => bookChild({ ...data, status: 'pending' })}
             isBooking={isBooking}
           />
         ) : (
           <div className="flex flex-col gap-2">
-            {bookedChildren.length >= remainingCapacity && <p>This lesson is now full.</p>}
+            {bookings.length >= remainingCapacity && <p>This lesson is now full.</p>}
           </div>
         )}
         <PlanList

@@ -30,7 +30,7 @@ export function Schedule() {
           <span className="text-sm">Loading schedule...</span>
         </div>
       ) : (
-        <LessonList lessons={lessons || []} />
+        <LessonList lessons={Array.isArray(lessons) ? lessons : []} />
       )}
     </>
   )

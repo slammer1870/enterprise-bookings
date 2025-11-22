@@ -16,7 +16,7 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { authPlugin } from '@repo/auth-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import {
@@ -46,6 +46,7 @@ import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 import { checkRole } from '@repo/shared-utils'
 
 import { User } from '@repo/shared-types'
+import { betterAuthPluginOptions } from './lib/auth/options'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -94,12 +95,7 @@ export default buildConfig({
         },
       },
     }),
-    authPlugin({
-      enabled: true,
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-      appName: 'Brú Grappling',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions),
     rolesPlugin({
       enabled: true,
     }),

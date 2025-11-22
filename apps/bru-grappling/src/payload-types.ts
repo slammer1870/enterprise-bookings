@@ -92,7 +92,6 @@ export interface Config {
       bookings: 'bookings';
     };
     users: {
-      lessons: 'lessons';
       children: 'users';
       userSubscription: 'subscriptions';
     };
@@ -690,7 +689,10 @@ export interface Instructor {
   user: number | User;
   name?: string | null;
   description?: string | null;
-  image?: (number | null) | Media;
+  /**
+   * Instructor profile image
+   */
+  profileImage?: (number | null) | Media;
   /**
    * Whether this instructor is active and can be assigned to lessons
    */
@@ -705,11 +707,6 @@ export interface Instructor {
 export interface User {
   id: number;
   image?: (number | null) | Media;
-  lessons?: {
-    docs?: (number | Lesson)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   /**
    * Parent of the user
    */
@@ -747,61 +744,21 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
+ * via the `definition` "subscriptions".
  */
-export interface Lesson {
+export interface Subscription {
   id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
   /**
-   * The time in minutes before the lesson will be closed for new bookings.
+   * Skip syncing to Stripe
    */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  originalLockOutTime?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  /**
-   * Is this a class for adults or children?
-   */
-  type: 'adult' | 'child' | 'family';
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-    allowedDropIn?: (number | null) | DropIn;
-  };
+  skipSync?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -869,6 +826,66 @@ export interface Plan {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | Instructor;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  originalLockOutTime?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child' | 'family';
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+    allowedDropIn?: (number | null) | DropIn;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "drop-ins".
  */
 export interface DropIn {
@@ -899,26 +916,6 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
- */
-export interface Subscription {
-  id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1554,7 +1551,7 @@ export interface InstructorsSelect<T extends boolean = true> {
   user?: T;
   name?: T;
   description?: T;
-  image?: T;
+  profileImage?: T;
   active?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1649,7 +1646,6 @@ export interface TransactionsSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   image?: T;
-  lessons?: T;
   parent?: T;
   children?: T;
   name?: T;

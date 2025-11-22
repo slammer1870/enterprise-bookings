@@ -34,6 +34,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     CREATE INDEX IF NOT EXISTS "instructors_user_id_idx" ON "instructors" USING btree ("user_id");
     CREATE INDEX IF NOT EXISTS "instructors_image_id_idx" ON "instructors" USING btree ("image_id");
     
+    -- Rename image_id to profile_image_id to match the new field name
+    DO $$ 
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'image_id')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'profile_image_id') THEN
+        ALTER TABLE "instructors" RENAME COLUMN "image_id" TO "profile_image_id";
+        ALTER TABLE "instructors" RENAME CONSTRAINT "instructors_image_id_media_id_fk" TO "instructors_profile_image_id_media_id_fk";
+        DROP INDEX IF EXISTS "instructors_image_id_idx";
+        CREATE INDEX IF NOT EXISTS "instructors_profile_image_id_idx" ON "instructors" USING btree ("profile_image_id");
+      END IF;
+    END $$;
+    
     -- Add active column if table exists but column doesn't
     DO $$ 
     BEGIN
@@ -283,7 +295,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               collection: "instructors" as CollectionSlug,
               data: {
                 user: userId,
-                image: imageId || undefined,
+                profileImage: imageId || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${userId}`,
               } as any,

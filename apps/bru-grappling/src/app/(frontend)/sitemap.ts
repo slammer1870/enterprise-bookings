@@ -1,3 +1,6 @@
+// Mark this route as dynamic to avoid static generation issues with Payload GraphQL schema
+export const dynamic = 'force-dynamic'
+
 import type { MetadataRoute } from 'next'
 import { getPayload } from 'payload'
 import config from '@payload-config'
@@ -30,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (page.slug) {
       sitemap.push({
         changeFrequency: 'weekly',
-        lastModified: page.updatedAt,
+        lastModified: page.updatedAt as unknown as string | Date,
         priority: page.slug === 'home' ? 1 : 0.8,
         url: `${serverUrl}/${page.slug === 'home' ? '' : page.slug}`,
       })
@@ -61,7 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (post.slug) {
       sitemap.push({
         changeFrequency: 'weekly',
-        lastModified: post.updatedAt,
+        lastModified: post.updatedAt as unknown as string | Date,
         priority: 0.7,
         url: `${serverUrl}/blog/${post.slug}`,
       })

@@ -42,24 +42,15 @@ export const Users: CollectionConfig = {
     },
   },
   fields: [
-    {
-      name: 'image',
-      type: 'upload',
-      relationTo: 'media',
-      required: false,
-      access: {
-        read: () => true,
-      },
-    },
-    {
-      name: 'lessons',
-      type: 'join',
-      collection: 'lessons',
-      on: 'instructor',
-      admin: {
-        condition: () => false,
-      },
-    },
+    // {
+    //   name: 'lessons',
+    //   type: 'join',
+    //   collection: 'lessons',
+    //   on: 'instructor',
+    //   admin: {
+    //     condition: () => false,
+    //   },
+    // },
     {
       name: 'parent',
       type: 'relationship',

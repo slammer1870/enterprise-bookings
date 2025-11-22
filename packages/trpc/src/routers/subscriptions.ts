@@ -1,15 +1,17 @@
 import { z } from "zod";
-import { protectedProcedure } from "../trpc";
+import { protectedProcedure, requireCollections } from "../trpc";
+import { findSafe } from "../utils/collections";
 
 import { Subscription } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 
 export const subscriptionsRouter = {
-  getSubscription: protectedProcedure.query(async ({ ctx }) => {
+  getSubscription: protectedProcedure
+    .use(requireCollections("subscriptions"))
+    .query(async ({ ctx }) => {
     const { user, payload } = ctx;
 
-    const userSubscription = await payload.find({
-      collection: "subscriptions",
+      const userSubscription = await findSafe(payload, "subscriptions", {
       where: {
         user: { equals: user.id },
         status: { equals: "active" },
@@ -18,11 +20,14 @@ export const subscriptionsRouter = {
       },
       limit: 1,
       depth: 2,
+        overrideAccess: false,
+        user: user,
     });
 
     return userSubscription.docs[0] || null;
   }),
   hasValidSubscription: protectedProcedure
+    .use(requireCollections("subscriptions"))
     .input(
       z.object({
         plans: z.array(z.number()),
@@ -36,8 +41,7 @@ export const subscriptionsRouter = {
       }
 
       try {
-        const userSubscription = await payload.find({
-          collection: "subscriptions",
+        const userSubscription = await findSafe(payload, "subscriptions", {
           where: {
             user: { equals: user.id },
             status: {
@@ -54,6 +58,8 @@ export const subscriptionsRouter = {
           },
           limit: 1,
           depth: 2,
+          overrideAccess: false,
+          user: user,
         });
 
         return (userSubscription.docs[0] as Subscription) ?? null;
@@ -66,6 +72,7 @@ export const subscriptionsRouter = {
       }
     }),
   limitReached: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(
       z.object({
         subscription: z.object({
@@ -118,8 +125,7 @@ export const subscriptionsRouter = {
       // if it is not, then we need to check the sessions limit
 
       try {
-        const bookings = await payload.find({
-          collection: "bookings",
+        const bookings = await findSafe(payload, "bookings", {
           depth: 5,
           where: {
             user: { equals: user.id },
@@ -132,6 +138,8 @@ export const subscriptionsRouter = {
             },
             status: { equals: "confirmed" },
           },
+          overrideAccess: false,
+          user: user,
         });
 
         payload.logger.info({

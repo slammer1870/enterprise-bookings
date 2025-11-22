@@ -41,9 +41,11 @@ export const SelectChildren = ({
 
   const { data: children, isPending } = useSuspenseQuery(trpc.users.getChildren.queryOptions())
 
+  const childrenList = Array.isArray(children) ? children : []
+
   return (
     <>
-      {children.length > 0 ? (
+      {childrenList.length > 0 ? (
         <Popover>
           <PopoverTrigger asChild disabled={isPending || isBooking} className="w-full">
             <Button
@@ -64,7 +66,7 @@ export const SelectChildren = ({
               <CommandList>
                 <CommandEmpty>No children found.</CommandEmpty>
                 <CommandGroup>
-                  {children?.map((child) => (
+                  {childrenList.map((child: any) => (
                     <CommandItem
                       value={child.name}
                       key={child.name}

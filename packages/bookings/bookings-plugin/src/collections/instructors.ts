@@ -40,11 +40,14 @@ const defaultFields: Field[] = [
     required: false,
   },
   {
-    name: "image",
-    label: "Image",
+    name: "profileImage",
+    label: "Profile Image",
     type: "upload",
     relationTo: "media",
     required: false,
+    admin: {
+      description: "Instructor profile image",
+    },
   },
   {
     name: "active",
@@ -53,7 +56,8 @@ const defaultFields: Field[] = [
     defaultValue: true,
     admin: {
       position: "sidebar",
-      description: "Whether this instructor is active and can be assigned to lessons",
+      description:
+        "Whether this instructor is active and can be assigned to lessons",
     },
   },
 ];
@@ -92,11 +96,12 @@ const defaultHooks = {
       // Auto-populate name from user's name when creating or updating
       if (data && data.user) {
         try {
-          const userId = typeof data.user === 'object' && 'id' in data.user 
-            ? data.user.id 
-            : data.user;
+          const userId =
+            typeof data.user === "object" && "id" in data.user
+              ? data.user.id
+              : data.user;
           const user = await req.payload.findByID({
-            collection: 'users',
+            collection: "users",
             id: userId,
             req,
           });
@@ -104,20 +109,21 @@ const defaultHooks = {
         } catch (error) {
           data.name = data.name || `User ${data.user}`;
         }
-      } else if (data && !data.name && operation === 'update') {
+      } else if (data && !data.name && operation === "update") {
         // If updating and user exists but name is missing, populate it
         try {
           const existing = await req.payload.findByID({
-            collection: 'instructors' as CollectionSlug,
+            collection: "instructors" as CollectionSlug,
             id: data.id || (req as any).params?.id,
             req,
           });
           if (existing && existing.user) {
-            const userId = typeof existing.user === 'object' && 'id' in existing.user 
-              ? existing.user.id 
-              : existing.user;
+            const userId =
+              typeof existing.user === "object" && "id" in existing.user
+                ? existing.user.id
+                : existing.user;
             const user = await req.payload.findByID({
-              collection: 'users',
+              collection: "users",
               id: userId,
               req,
             });
@@ -133,21 +139,22 @@ const defaultHooks = {
   afterChange: [
     async ({ doc, req, operation }: any) => {
       // Ensure name is saved after change
-      if (doc && doc.user && (!doc.name || doc.name === '')) {
+      if (doc && doc.user && (!doc.name || doc.name === "")) {
         try {
-          const userId = typeof doc.user === 'object' && 'id' in doc.user 
-            ? doc.user.id 
-            : doc.user;
+          const userId =
+            typeof doc.user === "object" && "id" in doc.user
+              ? doc.user.id
+              : doc.user;
           const user = await req.payload.findByID({
-            collection: 'users',
+            collection: "users",
             id: userId,
             req,
           });
           const userName = (user as any)?.name || `User ${userId}`;
-          
+
           // Update the document with the name
           await req.payload.update({
-            collection: 'instructors' as CollectionSlug,
+            collection: "instructors" as CollectionSlug,
             id: doc.id,
             data: { name: userName },
             req,
@@ -164,7 +171,7 @@ const defaultHooks = {
       // Ensure name is populated from user when reading (for display purposes)
       // Handle both single doc and result objects with docs array
       let docsToProcess: any[] = [];
-      
+
       if (doc?.docs && Array.isArray(doc.docs)) {
         // Result object with docs array
         docsToProcess = doc.docs;
@@ -175,19 +182,20 @@ const defaultHooks = {
         // Single doc
         docsToProcess = [doc];
       }
-      
+
       for (const d of docsToProcess) {
         if (d && d.user) {
           // Check if user is already populated with name
-          if (typeof d.user === 'object' && 'name' in d.user && d.user.name) {
+          if (typeof d.user === "object" && "name" in d.user && d.user.name) {
             d.name = d.user.name;
-          } else if (!d.name || d.name === '') {
+          } else if (!d.name || d.name === "") {
             try {
-              const userId = typeof d.user === 'object' && 'id' in d.user 
-                ? d.user.id 
-                : d.user;
+              const userId =
+                typeof d.user === "object" && "id" in d.user
+                  ? d.user.id
+                  : d.user;
               const user = await req.payload.findByID({
-                collection: 'users',
+                collection: "users",
                 id: userId,
                 req,
               });
@@ -199,7 +207,7 @@ const defaultHooks = {
           }
         }
       }
-      
+
       // Return in the same format as received
       if (doc?.docs && Array.isArray(doc.docs)) {
         return { ...doc, docs: docsToProcess };
@@ -212,11 +220,16 @@ const defaultHooks = {
   ],
 } as HooksConfig;
 
-export const generateInstructorCollection = (
-  config: BookingsPluginConfig
-) => {
+export const generateInstructorCollection = (config: BookingsPluginConfig) => {
+  // Determine fields first, before spreading instructorOverrides
+  // This prevents conflicts if instructorOverrides has a fields property
+  const fields =
+    config?.instructorOverrides?.fields &&
+    typeof config?.instructorOverrides?.fields === "function"
+      ? config.instructorOverrides.fields({ defaultFields })
+      : defaultFields;
+
   const instructorConfig: CollectionConfig = {
-    ...(config?.instructorOverrides || {}),
     slug: "instructors",
     labels: {
       ...(config?.instructorOverrides?.labels || defaultLabels),
@@ -236,13 +249,24 @@ export const generateInstructorCollection = (
         ? config.instructorOverrides.hooks({ defaultHooks })
         : defaultHooks),
     },
-    fields:
-      config?.instructorOverrides?.fields &&
-      typeof config?.instructorOverrides?.fields === "function"
-        ? config.instructorOverrides.fields({ defaultFields })
-        : defaultFields,
+    fields,
+    // Spread other instructorOverrides properties (but not fields, hooks, access, admin, labels, slug)
+    ...(config?.instructorOverrides
+      ? Object.fromEntries(
+          Object.entries(config.instructorOverrides).filter(
+            ([key]) =>
+              ![
+                "fields",
+                "hooks",
+                "access",
+                "admin",
+                "labels",
+                "slug",
+              ].includes(key)
+          )
+        )
+      : {}),
   };
 
   return instructorConfig;
 };
-

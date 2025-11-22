@@ -64,7 +64,11 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
         {canBookChild ? (
           <SelectChildren
             lessonId={lessonId}
-            bookedChildren={bookedChildren.map((booking) => booking.user)}
+            bookedChildren={
+              Array.isArray(bookedChildren)
+                ? bookedChildren.map((booking: any) => booking.user)
+                : []
+            }
             bookChild={(data) => bookChild({ ...data, status: 'confirmed' })}
             isBooking={isBooking}
           />

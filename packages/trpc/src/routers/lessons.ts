@@ -2,21 +2,26 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
-import { protectedProcedure, publicProcedure } from "../trpc";
+import { protectedProcedure, publicProcedure, requireCollections } from "../trpc";
+import { findByIdSafe, findSafe } from "../utils/collections";
 
 import { ClassOption, Lesson } from "@repo/shared-types";
 
 export const lessonsRouter = {
   getById: protectedProcedure
+    .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id: input.id,
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        input.id,
+        {
         depth: 2,
         overrideAccess: false,
         user: ctx.user,
-      });
+        }
+      );
 
       if (!lesson) {
         throw new TRPCError({
@@ -25,20 +30,24 @@ export const lessonsRouter = {
         });
       }
 
-      return lesson as Lesson;
+      return lesson;
     }),
 
   getByIdForChildren: protectedProcedure
+    .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       try {
-        const lesson = await ctx.payload.findByID({
-          collection: "lessons",
-          id: input.id,
+        const lesson = await findByIdSafe<Lesson>(
+          ctx.payload,
+          "lessons",
+          input.id,
+          {
           depth: 2,
           overrideAccess: false,
           user: ctx.user,
-        });
+          }
+        );
 
         if (!lesson) {
           throw new TRPCError({
@@ -58,7 +67,7 @@ export const lessonsRouter = {
           });
         }
 
-        return lesson as Lesson;
+        return lesson;
       } catch (error) {
         console.error("Error in getByIdForChildren:", error);
         throw error;
@@ -66,37 +75,41 @@ export const lessonsRouter = {
     }),
 
   getByDate: publicProcedure
+    .use(requireCollections("lessons"))
     .input(z.object({ date: z.string() }))
     .query(async ({ ctx, input }) => {
-      const { user } = await ctx.payload.auth({
-        headers: ctx.headers,
-      });
+      try {
+        const { user } = await ctx.payload.auth({
+          headers: ctx.headers,
+        });
 
-      const startOfDay = new Date(input.date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(input.date);
-      endOfDay.setHours(23, 59, 59, 999);
+        const startOfDay = new Date(input.date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(input.date);
+        endOfDay.setHours(23, 59, 59, 999);
 
-      const queryOptions: any = {
-        collection: "lessons",
-        where: {
-          startTime: {
-            greater_than_equal: startOfDay.toISOString(),
-            less_than_equal: endOfDay.toISOString(),
+        const lessons = await ctx.payload.find({
+          collection: "lessons",
+          where: {
+            startTime: {
+              greater_than_equal: startOfDay.toISOString(),
+              less_than_equal: endOfDay.toISOString(),
+            },
           },
-        },
-        depth: 2,
-        sort: "startTime",
-        overrideAccess: false,
-      };
+          depth: 2,
+          sort: "startTime",
+          overrideAccess: false,
+          user: user || undefined,
+        });
 
-      // Only add user parameter if user exists
-      if (user) {
-        queryOptions.user = user;
+        return lessons.docs.map((lesson: any) => lesson as Lesson);
+      } catch (error) {
+        console.error("Error in getByDate:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Failed to fetch lessons",
+          cause: error,
+        });
       }
-
-      const lessons = await ctx.payload.find(queryOptions);
-
-      return lessons.docs.map((lesson) => lesson as Lesson);
     }),
 } satisfies TRPCRouterRecord;
