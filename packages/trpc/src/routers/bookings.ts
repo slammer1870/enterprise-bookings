@@ -2,24 +2,29 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
-import { protectedProcedure } from "../trpc";
+import { protectedProcedure, requireCollections } from "../trpc";
+import { findByIdSafe, findSafe, createSafe, updateSafe } from "../utils/collections";
 
 import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
 
 export const bookingsRouter = {
   checkIn: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
 
       // Fetch lesson with full depth for business logic validation
-      const lesson = (await ctx.payload.findByID({
-        collection: "lessons",
-        id: lessonId,
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        lessonId,
+        {
         depth: 3,
         overrideAccess: false,
         user: ctx.user,
-      })) as Lesson;
+        }
+      );
 
       if (!lesson) {
         throw new TRPCError({
@@ -40,8 +45,7 @@ export const bookingsRouter = {
       // Try to create/update booking - this will use existing access controls
       // which handle membership validation, subscription limits, etc.
       try {
-        const existingBooking = await ctx.payload.find({
-          collection: "bookings",
+        const existingBooking = await findSafe(ctx.payload, "bookings", {
           where: {
             lesson: { equals: lessonId },
             user: { equals: ctx.user.id },
@@ -54,24 +58,19 @@ export const bookingsRouter = {
 
         if (existingBooking.docs.length === 0) {
           // Create new booking
-          return await ctx.payload.create({
-            collection: "bookings",
-            data: {
+          return await createSafe(ctx.payload, "bookings", {
               lesson: lessonId,
               user: ctx.user.id,
               status: "confirmed",
-            },
+          }, {
             overrideAccess: false,
             user: ctx.user,
           });
         } else {
           // Update existing booking
-          return await ctx.payload.update({
-            collection: "bookings",
-            id: existingBooking.docs[0]?.id as number,
-            data: {
+          return await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
               status: "confirmed",
-            },
+          }, {
             overrideAccess: false,
             user: ctx.user,
           });
@@ -89,15 +88,19 @@ export const bookingsRouter = {
       }
     }),
   createBooking: protectedProcedure
+    .use(requireCollections("lessons", "bookings", "subscriptions", "users"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id: input.id,
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        input.id,
+        {
         depth: 3,
         overrideAccess: false,
         user: ctx.user,
-      });
+        }
+      );
 
       if (!lesson) {
         throw new TRPCError({
@@ -106,13 +109,11 @@ export const bookingsRouter = {
         });
       }
 
-      const booking = await ctx.payload.create({
-        collection: "bookings",
-        data: {
+      const booking = await createSafe(ctx.payload, "bookings", {
           lesson: input.id,
           user: ctx.user.id,
           status: "confirmed",
-        },
+      }, {
         overrideAccess: false,
         user: ctx.user,
       });
@@ -120,6 +121,7 @@ export const bookingsRouter = {
       return booking as Booking;
     }),
   createOrUpdateBooking: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
     .input(
       z.object({
         id: z.number(),
@@ -129,8 +131,7 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }) => {
       const { id, status = "confirmed" } = input;
 
-      const booking = await ctx.payload.find({
-        collection: "bookings",
+      const booking = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: id },
           user: { equals: ctx.user.id },
@@ -142,24 +143,19 @@ export const bookingsRouter = {
       });
 
       if (booking.docs.length === 0) {
-        return await ctx.payload.create({
-          collection: "bookings",
-          data: {
+        return await createSafe(ctx.payload, "bookings", {
             lesson: id,
             user: ctx.user.id,
             status,
-          },
+        }, {
           overrideAccess: false,
           user: ctx.user,
         });
       }
 
-      const updatedBooking = await ctx.payload.update({
-        collection: "bookings",
-        id: booking.docs[0]?.id as number,
-        data: {
+      const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
           status,
-        },
+      }, {
         overrideAccess: false,
         user: ctx.user,
       });
@@ -167,12 +163,12 @@ export const bookingsRouter = {
       return updatedBooking as Booking;
     }),
   cancelBooking: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { id } = input;
 
-      const booking = await ctx.payload.find({
-        collection: "bookings",
+      const booking = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: id },
           user: { equals: ctx.user.id },
@@ -190,12 +186,9 @@ export const bookingsRouter = {
         });
       }
 
-      const updatedBooking = await ctx.payload.update({
-        collection: "bookings",
-        id: booking.docs[0]?.id as number,
-        data: {
+      const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
           status: "cancelled",
-        },
+      }, {
         overrideAccess: false,
         user: ctx.user,
       });
@@ -203,37 +196,36 @@ export const bookingsRouter = {
       return updatedBooking as Booking;
     }),
   joinWaitlist: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const existingBooking = await ctx.payload.find({
-        collection: "bookings",
+      const existingBooking = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: input.id },
           user: { equals: ctx.user.id },
         },
         depth: 2,
         limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
       });
 
       if (existingBooking.docs.length > 0) {
-        const updatedBooking = await ctx.payload.update({
-          collection: "bookings",
-          id: existingBooking.docs[0]?.id as number,
-          data: {
+        const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
             status: "waiting",
-          },
+        }, {
+          overrideAccess: false,
+          user: ctx.user,
         });
 
         return updatedBooking as Booking;
       }
 
-      const booking = await ctx.payload.create({
-        collection: "bookings",
-        data: {
+      const booking = await createSafe(ctx.payload, "bookings", {
           lesson: input.id,
           user: ctx.user.id,
           status: "waiting",
-        },
+      }, {
         overrideAccess: false,
         user: ctx.user,
       });
@@ -241,10 +233,10 @@ export const bookingsRouter = {
       return booking as Booking;
     }),
   leaveWaitlist: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const booking = await ctx.payload.find({
-        collection: "bookings",
+      const booking = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: input.id },
           user: { equals: ctx.user.id },
@@ -252,6 +244,8 @@ export const bookingsRouter = {
         },
         depth: 2,
         limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
       });
 
       if (booking.docs.length === 0) {
@@ -261,26 +255,29 @@ export const bookingsRouter = {
         });
       }
 
-      const updatedBooking = await ctx.payload.update({
-        collection: "bookings",
-        id: booking.docs[0]?.id as number,
-        data: {
+      const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
           status: "cancelled",
-        },
+      }, {
+        overrideAccess: false,
+        user: ctx.user,
       });
 
       return updatedBooking as Booking;
     }),
   canBookChild: protectedProcedure
+    .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const lesson = await ctx.payload.findByID({
-        collection: "lessons",
-        id: input.id,
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        input.id,
+        {
         depth: 3,
         overrideAccess: false,
         user: ctx.user,
-      });
+        }
+      );
 
       if (!lesson) {
         throw new TRPCError({
@@ -301,8 +298,7 @@ export const bookingsRouter = {
       const plans = classOption.paymentMethods?.allowedPlans;
 
       if (plans && plans.length > 0) {
-        const subscription = await ctx.payload.find({
-          collection: "subscriptions",
+        const subscription = await findSafe(ctx.payload, "subscriptions", {
           where: {
             user: {
               equals: ctx.user.id,
@@ -330,6 +326,8 @@ export const bookingsRouter = {
           },
           depth: 2,
           limit: 1,
+          overrideAccess: false,
+          user: ctx.user,
         });
 
         if (subscription.docs.length === 0) {
@@ -341,8 +339,7 @@ export const bookingsRouter = {
         const planQuantity = subscriptionDoc.plan.quantity;
 
         // First, get all children of the parent user
-        const childrenQuery = await ctx.payload.find({
-          collection: "users",
+        const childrenQuery = await findSafe(ctx.payload, "users", {
           where: {
             parent: { equals: ctx.user.id },
           },
@@ -353,8 +350,7 @@ export const bookingsRouter = {
 
         const childrenIds = childrenQuery.docs.map((child: any) => child.id);
 
-        const bookedSessions = await ctx.payload.find({
-          collection: "bookings",
+        const bookedSessions = await findSafe(ctx.payload, "bookings", {
           where: {
             lesson: {
               equals: lesson.id,
@@ -376,6 +372,7 @@ export const bookingsRouter = {
       return true;
     }),
   createChildBooking: protectedProcedure
+    .use(requireCollections("lessons", "bookings", "users"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -385,13 +382,16 @@ export const bookingsRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const { status = "pending" } = input;
-      const child = await ctx.payload.findByID({
-        collection: "users",
-        id: input.childId,
+      const child = await findByIdSafe<any>(
+        ctx.payload,
+        "users",
+        input.childId,
+        {
         depth: 4,
         overrideAccess: false,
         user: ctx.user,
-      });
+        }
+      );
 
       if (!child) {
         throw new TRPCError({
@@ -400,8 +400,7 @@ export const bookingsRouter = {
         });
       }
 
-      const existingBooking = await ctx.payload.find({
-        collection: "bookings",
+      const existingBooking = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: input.lessonId },
           user: { equals: child.id },
@@ -413,12 +412,9 @@ export const bookingsRouter = {
       });
 
       if (existingBooking.docs.length > 0) {
-        const updatedBooking = await ctx.payload.update({
-          collection: "bookings",
-          id: existingBooking.docs[0]?.id as number,
-          data: {
+        const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
             status: status,
-          },
+        }, {
           overrideAccess: false,
           user: child,
         });
@@ -426,23 +422,21 @@ export const bookingsRouter = {
         return updatedBooking as Booking;
       }
 
-      const booking = await ctx.payload.create({
-        collection: "bookings",
-        data: {
+      const booking = await createSafe(ctx.payload, "bookings", {
           lesson: input.lessonId,
           user: child.id,
           status: status,
-        },
+      }, {
         overrideAccess: false,
         user: child,
       });
       return booking as Booking;
     }),
   cancelChildBooking: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(z.object({ lessonId: z.number(), childId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const booking = await ctx.payload.find({
-        collection: "bookings",
+      const booking = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: input.lessonId },
           user: { equals: input.childId },
@@ -460,13 +454,16 @@ export const bookingsRouter = {
         });
       }
 
-      const child = await ctx.payload.findByID({
-        collection: "users",
-        id: input.childId,
+      const child = await findByIdSafe<any>(
+        ctx.payload,
+        "users",
+        input.childId,
+        {
         depth: 4,
         overrideAccess: false,
         user: ctx.user,
-      });
+        }
+      );
 
       if (!child) {
         throw new TRPCError({
@@ -475,12 +472,9 @@ export const bookingsRouter = {
         });
       }
 
-      const updatedBooking = await ctx.payload.update({
-        collection: "bookings",
-        id: booking.docs[0]?.id as number,
-        data: {
+      const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
           status: "cancelled",
-        },
+      }, {
         overrideAccess: false,
         user: child,
       });
@@ -488,10 +482,10 @@ export const bookingsRouter = {
       return updatedBooking as Booking;
     }),
   getChildrensBookings: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const bookings = await ctx.payload.find({
-        collection: "bookings",
+      const bookings = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: input.id },
           "user.parent": { equals: ctx.user.id },
@@ -502,6 +496,6 @@ export const bookingsRouter = {
         user: ctx.user,
       });
 
-      return bookings.docs.map((booking) => booking as Booking);
+      return bookings.docs.map((booking: any) => booking as Booking);
     }),
 } satisfies TRPCRouterRecord;

@@ -30,11 +30,24 @@ export const OPTIONS = () => {
 const handler = async (req: NextRequest) => {
   const payload = await getPayload({ config })
 
+  // Try to get session from better-auth
+  let session = null
+  if ((payload as any).betterAuth) {
+    try {
+      const sessionResult = await (payload as any).betterAuth.api.getSession({
+        headers: req.headers,
+      })
+      session = sessionResult?.data?.session || null
+    } catch (error) {
+      console.warn('Better-auth session fetch failed:', error)
+    }
+  }
+
   const response = await fetchRequestHandler({
     endpoint: '/api/trpc',
     router: appRouter,
     req,
-    createContext: () => createTRPCContext({ headers: req.headers, payload, stripe }),
+    createContext: () => createTRPCContext({ headers: req.headers, payload, stripe, session }),
     onError({ error, path }) {
       console.error(`>>> tRPC Error on '${path}'`, error)
     },

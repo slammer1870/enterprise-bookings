@@ -11,7 +11,7 @@ export const ManageCurrentBookings = ({ lessonId }: { lessonId: number }) => {
     tprc.bookings.getChildrensBookings.queryOptions({ id: lessonId }),
   )
 
-  if (!bookings.length) return null
+  if (!bookings || !Array.isArray(bookings) || !bookings.length) return null
 
   return (
     <div className="flex flex-col gap-4">

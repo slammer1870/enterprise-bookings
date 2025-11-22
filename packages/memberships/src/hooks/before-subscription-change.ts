@@ -30,17 +30,18 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
   if (logs) payload.logger.info(`Looking up product from Stripe...`);
 
   try {
-    const stripeSubscription = await stripe.subscriptions.retrieve(
+    const stripeSubscriptionResponse = await stripe.subscriptions.retrieve(
       data.stripeSubscriptionId
     );
+    const stripeSubscription = (stripeSubscriptionResponse as any).data || stripeSubscriptionResponse;
     if (logs)
       payload.logger.info(
         `Found subscription from Stripe: ${stripeSubscription.id}`
       );
-    payload.logger.info(
-      "Subscription start date:",
-      stripeSubscription.current_period_start
-    );
+    payload.logger.info({
+      message: "Subscription start date:",
+      current_period_start: stripeSubscription.current_period_start
+    });
     newDoc.startDate = new Date(
       stripeSubscription.current_period_start * 1000
     ).toISOString();
@@ -57,7 +58,9 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
       ).toISOString();
     }
   } catch (error: unknown) {
-    payload.logger.error(`Error fetching product from Stripe: ${error}`);
+    payload.logger.error({
+      message: `Error fetching product from Stripe: ${error}`
+    });
     return newDoc;
   }
 

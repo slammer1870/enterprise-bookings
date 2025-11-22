@@ -28,15 +28,16 @@ export function Modal({ children }: { children: React.ReactNode }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
       <dialog
         ref={dialogRef}
-        className="relative flex h-auto max-h-[600px] w-4/5 max-w-[400px] rounded-lg border-0 bg-white py-16 font-medium"
+        className="relative flex h-auto max-h-[90vh] w-[95vw] max-w-[450px] overflow-y-auto rounded-lg border-0 bg-white p-6 font-medium"
         onClose={onDismiss}
       >
         {children}
         <button
           onClick={onDismiss}
-          className="absolute right-[10px] top-[10px] flex h-[48px] w-[48px] cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-xl font-medium hover:bg-gray-200"
+          className="absolute right-[10px] top-[10px] flex h-[36px] w-[36px] cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-xl font-medium hover:bg-gray-100"
+          aria-label="Close"
         >
-          X
+          ×
         </button>
       </dialog>
     </div>,
