@@ -86,7 +86,7 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
-  
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -131,5 +131,24 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Fix for Tailwind v4: Ensure gap utilities work */
+@layer utilities {
+  .gap-2 {
+    gap: 0.5rem; /* 8px */
+  }
+  .gap-3 {
+    gap: 0.75rem; /* 12px */
+  }
+  .gap-4 {
+    gap: 1rem; /* 16px */
+  }
+  .gap-6 {
+    gap: 1.5rem; /* 24px */
+  }
+  .gap-8 {
+    gap: 2rem; /* 32px */
   }
 }
