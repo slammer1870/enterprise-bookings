@@ -44,6 +44,8 @@
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",
+    "./payloadStyles.css": "./src/styles/payloadStyles.css",
+    "./styles/payloadStyles.css": "./src/styles/payloadStyles.css",
     "./postcss.config": "./postcss.config.mjs",
     "./tailwind.config": "./tailwind.config.ts",
     "./lib/*": "./src/lib/*.ts",
