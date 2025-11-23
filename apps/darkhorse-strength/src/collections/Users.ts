@@ -17,39 +17,8 @@ export const Users: CollectionConfig = {
     delete: ({ req: { user } }) => checkRole(['admin'], user as User),
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
-  auth: {
-    maxLoginAttempts: 5,
-    tokenExpiration: 604800,
-    forgotPassword: {
-      generateEmailHTML: (args) => {
-        if (!args?.token || !args?.user) return ''
-        const resetPasswordURL = `${process.env.NEXT_PUBLIC_SERVER_URL}/reset-password?token=${args.token}`
-
-        return `  
-          <!doctype html>
-          <html>
-            <body>
-              <p>Hello, ${args.user.email}!</p>
-              <p>Click below to reset your password.</p>
-              <p>
-                <a href="${resetPasswordURL}">${resetPasswordURL}</a>
-              </p>
-            </body>
-          </html>
-        `
-      },
-    },
-  },
+  // auth configuration is now handled by better-auth
   fields: [
-    {
-      name: 'image',
-      type: 'upload',
-      relationTo: 'media',
-      required: false,
-      access: {
-        read: () => true,
-      },
-    },
     {
       name: 'lessons',
       type: 'join',
@@ -61,5 +30,6 @@ export const Users: CollectionConfig = {
     },
     // Email added by default
     // Add more fields as needed
+    // Note: 'image' field is provided by better-auth
   ],
 }

@@ -42,3 +42,4 @@ export function BetterAuthProvider({
     </BetterAuthContext.Provider>
   )
 }
+

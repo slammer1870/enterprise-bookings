@@ -103,7 +103,7 @@ export default buildConfig({
         },
       },
     }),
-    betterAuthPlugin(betterAuthPluginOptions),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
     }),

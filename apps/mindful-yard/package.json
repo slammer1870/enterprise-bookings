@@ -3,6 +3,7 @@
   "description": "A blank template to get started with Payload 3.0",
   "version": "1.0.0",
   "dependencies": {
+    "@daveyplate/better-auth-ui": "^3.2.11",
     "@payloadcms/db-postgres": "^3.64.0",
     "@payloadcms/email-resend": "^3.64.0",
     "@payloadcms/next": "^3.64.0",
@@ -21,6 +22,7 @@
     "@repo/ui": "workspace:*",
     "@repo/website": "workspace:*",
     "add": "^2.0.6",
+    "better-auth": "^1.4.1",
     "cross-env": "^10.1.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
@@ -29,6 +31,7 @@
     "next": "^16.0.3",
     "next-plausible": "^3.12.5",
     "payload": "3.64.0",
+    "payload-auth": "~1.0.0",
     "pnpm": "^10.23.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",

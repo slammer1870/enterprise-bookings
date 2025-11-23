@@ -12,7 +12,8 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { authPlugin } from '@repo/auth-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments-plugin'
 
@@ -74,11 +75,7 @@ export default buildConfig({
     rolesPlugin({
       enabled: true,
     }),
-    authPlugin({
-      enabled: true,
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
-      appName: 'The Mindful Yard',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {

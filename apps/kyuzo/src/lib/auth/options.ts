@@ -4,7 +4,7 @@ import type { BetterAuthPlugin as BetterAuthPluginType } from 'better-auth/types
 
 export const betterAuthPlugins = [
   magicLink({
-    sendMagicLink: async ({ email, token, url }, request) => {
+    sendMagicLink: async ({ email, token, url }, _request) => {
       console.log('Send magic link for user: ', email, token, url)
     },
   }),
@@ -18,7 +18,7 @@ export const betterAuthPlugins = [
 export type BetterAuthPlugins = typeof betterAuthPlugins
 
 export const betterAuthOptions = {
-  appName: 'payload-better-auth',
+  appName: 'Kyuzo',
   baseURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
   secret:
     process.env.BETTER_AUTH_SECRET ||
@@ -30,21 +30,14 @@ export const betterAuthOptions = {
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
-    // autoSignIn: true,
     async sendResetPassword({ user, url }: { user: any; url: string }) {
       console.log('Send reset password for user: ', user.id, 'at url', url)
     },
   },
-  /*socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-  },*/
   emailVerification: {
     sendOnSignUp: false,
     autoSignInAfterVerification: true,
-    async sendVerificationEmail({ user, url }: { user: any; url: string }) {
+    async sendVerificationEmail({ _user, url }: { _user: any; url: string }) {
       console.log('Send verification email for user: ', url)
     },
   },
@@ -52,19 +45,19 @@ export const betterAuthOptions = {
   user: {
     changeEmail: {
       enabled: true,
-      sendChangeEmailVerification: async ({ user, newEmail, url, token }: { user: any; newEmail: string; url: string; token: string }) => {
-        console.log('Send change email verification for user: ', user, newEmail, url, token)
+      sendChangeEmailVerification: async ({ _user, newEmail, url, token }: { _user: any; newEmail: string; url: string; token: string }) => {
+        console.log('Send change email verification for user: ', newEmail, url, token)
       },
     },
     deleteUser: {
       enabled: true,
-      sendDeleteAccountVerification: async ({ user, url, token }: { user: any; url: string; token: string }) => {
-        // Send delete account verification
+      sendDeleteAccountVerification: async ({ _user, url, token }: { _user: any; url: string; token: string }) => {
+        console.log('Send delete account verification: ', url, token)
       },
-      beforeDelete: async (user: any) => {
+      beforeDelete: async (_user: any) => {
         // Perform actions before user deletion
       },
-      afterDelete: async (user: any) => {
+      afterDelete: async (_user: any) => {
         // Perform cleanup after user deletion
       },
     },
@@ -97,12 +90,12 @@ export const betterAuthPluginOptions = {
   disableDefaultPayloadAuth: true,
   hidePluginCollections: false,
   users: {
-    slug: 'users', // not required, this is the default anyways
+    slug: 'users',
     hidden: false,
     adminRoles: ['admin'],
-    defaultRole: 'user',
+    defaultRole: 'customer',
     defaultAdminRole: 'admin',
-    roles: ['user', 'admin'],
+    roles: ['customer', 'admin'],
     allowedFields: ['name'],
   },
   accounts: {
@@ -115,7 +108,7 @@ export const betterAuthPluginOptions = {
     slug: 'verifications',
   },
   adminInvitations: {
-    sendInviteEmail: async ({ payload, email, url }: { payload: any; email: string; url: string }) => {
+    sendInviteEmail: async ({ _payload, email, url }: { _payload: any; email: string; url: string }) => {
       console.log('Send admin invite: ', email, url)
       return {
         success: true,
@@ -126,3 +119,4 @@ export const betterAuthPluginOptions = {
 }
 
 export type ConstructedBetterAuthPluginOptions = typeof betterAuthPluginOptions
+

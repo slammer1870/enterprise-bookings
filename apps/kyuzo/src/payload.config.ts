@@ -16,7 +16,8 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { authPlugin } from '@repo/auth-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
@@ -106,12 +107,7 @@ export default buildConfig({
         },
       },
     }),
-    authPlugin({
-      enabled: true,
-      appName: 'Kyuzo',
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
     }),
