@@ -16,6 +16,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start"
   },
   "dependencies": {
+    "@daveyplate/better-auth-ui": "^3.2.11",
     "@hookform/resolvers": "^5.2.2",
     "@mailchimp/mailchimp_marketing": "^3.0.80",
     "@next/third-parties": "^16.0.3",
@@ -41,6 +42,7 @@
     "@repo/ui": "workspace:*",
     "@repo/website": "workspace:*",
     "@types/mailchimp__mailchimp_marketing": "^3.0.22",
+    "better-auth": "^1.4.1",
     "cross-env": "^10.1.0",
     "graphql": "^16.12.0",
     "lucide-react": "0.554.0",
@@ -48,6 +50,7 @@
     "next-plausible": "^3.12.5",
     "next-sitemap": "^4.2.3",
     "payload": "3.64.0",
+    "payload-auth": "~1.0.0",
     "payload-plugin-masquerade": "^1.4.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",

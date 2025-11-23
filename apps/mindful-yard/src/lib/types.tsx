@@ -9,3 +9,4 @@ export type Account = Awaited<
 export type DeviceSession = Awaited<
   ReturnType<PayloadWithBetterAuth['betterAuth']['api']['listSessions']>
 >[number]
+

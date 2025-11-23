@@ -19,15 +19,7 @@ export const Users: CollectionConfig = {
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
   fields: [
-    {
-      name: 'image',
-      type: 'upload',
-      relationTo: 'media',
-      required: false,
-      access: {
-        read: () => true,
-      },
-    },
+    // Note: 'image' field is provided by better-auth
     {
       name: 'lessons',
       type: 'join',

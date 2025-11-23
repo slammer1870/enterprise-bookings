@@ -39,6 +39,17 @@ export const config: Config = {
       },
       auth: true,
       fields: [
+        {
+          name: "roles",
+          type: "select",
+          hasMany: true,
+          defaultValue: ["customer"],
+          options: [
+            { label: "Admin", value: "admin" },
+            { label: "Customer", value: "customer" },
+          ],
+          required: true,
+        },
         // Email added by default
         // Add more fields as needed
       ],

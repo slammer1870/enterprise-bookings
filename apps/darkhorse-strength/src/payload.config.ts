@@ -19,7 +19,8 @@ import { Pages } from './collections/Pages'
 import { Posts } from '@repo/website/src/collections/posts'
 
 import { rolesPlugin } from '@repo/roles'
-import { authPlugin } from '@repo/auth-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
@@ -78,12 +79,7 @@ export default buildConfig({
   sharp: sharp as unknown as SharpDependency,
   plugins: [
     payloadCloudPlugin(),
-    authPlugin({
-      enabled: true,
-      appName: 'Darkhorse Strength',
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
     }),

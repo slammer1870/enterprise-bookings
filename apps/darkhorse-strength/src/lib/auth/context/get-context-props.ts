@@ -43,3 +43,4 @@ export const getContextProps = (): {
   const currentUserPromise = currentUser()
   return { sessionPromise, userAccountsPromise, deviceSessionsPromise, currentUserPromise }
 }
+
