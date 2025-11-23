@@ -37,7 +37,7 @@ export const HeroWaitlistBlock: React.FC<{
           objectFit: 'cover',
         }}
       />
-      <div className="relative lg:absolute inset-0 bg-white bg-opacity-50">
+      <div className="relative lg:absolute inset-0 bg-white/50">
         <div className="container mx-auto px-4 pt-8 pb-12 lg:py-20 lg:flex lg:items-center lg:min-h-screen">
           <div className="flex flex-col items-center lg:flex-row lg:gap-12 lg:justify-between w-full">
             {/* Logo Section */}
