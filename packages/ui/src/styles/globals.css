@@ -1,7 +1,9 @@
 @import "tailwindcss";
+
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../../../components/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
+
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -78,6 +80,13 @@
 }
 
 @theme inline {
+  /* Breakpoints - same as Tailwind v3 defaults */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { DatePicker } from "./date-picker";
 
-import { Button } from "@payloadcms/ui";
+import { Button, Gutter } from "@payloadcms/ui";
 
 import { Toaster } from "sonner";
 
@@ -19,23 +19,25 @@ export const LessonAdmin: React.FC<{
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
   return (
-    <div className="mx-20">
-      <div className="flex flex-row justify-start items-center mb-4 gap-6">
+    <Gutter>
+      <div className="flex flex-row justify-start items-center mb-4 gap-3">
         <h1>Lessons</h1>
         <Link
           href={{
             pathname: "/admin/collections/lessons/create",
           }}
         >
-          <Button buttonStyle="pill" className="whitespace-nowrap py-0">
+          <Button buttonStyle="pill" className="whitespace-nowrap">
             Create New
           </Button>
         </Link>
         <span className="w-full text-center font-medium text-lg hidden md:block"></span>
       </div>
-      <div className="flex flex-col md:flex-row gap-8">
-        <DatePicker />
-        <div className="flex flex-col gap-4 w-full">
+      <div className="flex flex-col md:flex-row">
+        <div className="mb-8 md:mb-0 md:mr-8">
+          <DatePicker />
+        </div>
+        <div className="flex flex-col w-full">
           <Suspense
             key={
               searchParams[
@@ -53,6 +55,6 @@ export const LessonAdmin: React.FC<{
         </div>
       </div>
       <Toaster />
-    </div>
+    </Gutter>
   );
 };
