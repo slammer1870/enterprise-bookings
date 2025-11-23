@@ -60,6 +60,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^24.10.1",
+    "@tailwindcss/postcss": "next",
     "@types/react": "^19.2.6",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "^10.4.22",
@@ -67,7 +68,7 @@
     "eslint-config-next": "15.5.6",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
-    "tailwindcss": "^3.4.18",
+    "tailwindcss": "next",
     "typescript": "5.9.3"
   },
   "engines": {

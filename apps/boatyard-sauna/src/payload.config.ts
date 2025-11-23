@@ -9,7 +9,6 @@ import { betterAuthPlugin } from 'payload-auth/better-auth'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
-import { betterAuthPluginOptions } from './lib/auth/options'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -34,7 +33,6 @@ export default buildConfig({
   }),
   sharp,
   plugins: [
-    betterAuthPlugin(betterAuthPluginOptions),
     // storage-adapter-placeholder
   ],
 })
