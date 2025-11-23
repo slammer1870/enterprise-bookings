@@ -7,6 +7,7 @@ export const betterAuthPlugins = [
     sendMagicLink: async ({ email, token, url }, request) => {
       console.log('Send magic link for user: ', email, token, url)
     },
+    disableSignUp: true,
   }),
   admin({
     adminUserIds: ['1'],
@@ -35,6 +36,13 @@ export const betterAuthOptions = {
       console.log('Send reset password for user: ', user.id, 'at url', url)
     },
   },
+  magicLink: {
+    enabled: true,
+    disableSignUp: true,
+    sendMagicLink: async ({ email, token, url }: { email: string; token: string; url: string }) => {
+      console.log('Send magic link for user: ', email, token, url)
+    },
+  },
   /*socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -52,13 +60,31 @@ export const betterAuthOptions = {
   user: {
     changeEmail: {
       enabled: true,
-      sendChangeEmailVerification: async ({ user, newEmail, url, token }: { user: any; newEmail: string; url: string; token: string }) => {
+      sendChangeEmailVerification: async ({
+        user,
+        newEmail,
+        url,
+        token,
+      }: {
+        user: any
+        newEmail: string
+        url: string
+        token: string
+      }) => {
         console.log('Send change email verification for user: ', user, newEmail, url, token)
       },
     },
     deleteUser: {
       enabled: true,
-      sendDeleteAccountVerification: async ({ user, url, token }: { user: any; url: string; token: string }) => {
+      sendDeleteAccountVerification: async ({
+        user,
+        url,
+        token,
+      }: {
+        user: any
+        url: string
+        token: string
+      }) => {
         // Send delete account verification
       },
       beforeDelete: async (user: any) => {
@@ -115,7 +141,15 @@ export const betterAuthPluginOptions = {
     slug: 'verifications',
   },
   adminInvitations: {
-    sendInviteEmail: async ({ payload, email, url }: { payload: any; email: string; url: string }) => {
+    sendInviteEmail: async ({
+      payload,
+      email,
+      url,
+    }: {
+      payload: any
+      email: string
+      url: string
+    }) => {
       console.log('Send admin invite: ', email, url)
       return {
         success: true,

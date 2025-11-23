@@ -12,12 +12,3 @@ export const authClient = createAuthClient({
 })
 
 export const { signIn, signUp, signOut, useSession, magicLink } = authClient
-
-// Helper function to get callback URL from current URL
-export function getCallbackUrl(): string {
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('callbackUrl') || '/dashboard'
-  }
-  return '/dashboard'
-}
