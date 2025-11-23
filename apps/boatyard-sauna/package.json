@@ -22,7 +22,6 @@
     "@payloadcms/next": "3.64.0",
     "@payloadcms/richtext-lexical": "3.64.0",
     "@payloadcms/ui": "3.64.0",
-    "@repo/better-auth": "workspace:*",
     "@repo/trpc": "workspace:*",
     "@tanstack/react-query": "^5.90.10",
     "@trpc/client": "^11.7.1",
