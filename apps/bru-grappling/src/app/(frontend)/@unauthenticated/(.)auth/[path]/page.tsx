@@ -2,17 +2,12 @@ import { AuthView } from '@daveyplate/better-auth-ui'
 import { Modal } from '../../modal'
 import { AuthTabs } from '@/components/auth/auth-tabs'
 
+import { authViewPaths } from '@daveyplate/better-auth-ui/server'
+
 export const dynamicParams = false
 
 export function generateStaticParams() {
-  // Generate static params for common auth routes
-  return [
-    { path: 'sign-in' },
-    { path: 'sign-up' },
-    { path: 'magic-link' },
-    { path: 'forgot-password' },
-    { path: 'reset-password' },
-  ]
+  return Object.values(authViewPaths).map((path) => ({ path }))
 }
 
 export default async function AuthModalPage({ params }: { params: Promise<{ path: string }> }) {
@@ -26,7 +21,7 @@ export default async function AuthModalPage({ params }: { params: Promise<{ path
       {showTabs ? (
         <AuthTabs defaultView={path === 'sign-up' ? 'sign-up' : 'sign-in'} />
       ) : (
-        <AuthView path={path} />
+        <AuthView path={path} redirectTo="/dashboard" />
       )}
     </Modal>
   )
