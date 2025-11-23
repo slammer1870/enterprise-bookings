@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tailwindcss-animate" layer(utilities);
 @import "@tailwindcss/typography" layer(utilities);
 
 @theme {
