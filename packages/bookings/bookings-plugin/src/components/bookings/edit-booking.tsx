@@ -157,7 +157,7 @@ export function EditBooking({ booking }: { booking: Booking }) {
                   <Button variant="outline">View Transaction</Button>
                 </Link>
               ) : (
-                <span className="text-sm text-gray-500"></span>
+                <span className="text-sm text-gray-500 dark:text-gray-400"></span>
               )}
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 Save
