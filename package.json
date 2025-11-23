@@ -1,8 +1,10 @@
 {
   "name": "enterprise-bookings",
   "devDependencies": {
+    "@tailwindcss/postcss": "4.1.17",
     "prettier": "^3.6.2",
     "syncpack": "^13.0.4",
+    "tailwindcss": "4.1.17",
     "turbo": "^2.6.1",
     "typescript": "5.9.3"
   },

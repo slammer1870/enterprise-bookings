@@ -1,12 +1,16 @@
-import type { Config } from "tailwindcss";
 import baseConfig from "@repo/ui/tailwind.config";
 
-const config = {
+/** @type {import('tailwindcss').Config} */
+export default {
   ...baseConfig,
   content: [
-    ...(baseConfig.content as string[]),
+    "./src/**/*.{ts,tsx}",
+    "../../packages/ui/src/**/*.{ts,tsx}",
+    "../../packages/bookings/**/*.{ts,tsx}",
+    "../../packages/auth/**/*.{ts,tsx}",
+    "../../packages/payments/**/*.{ts,tsx}",
+    "../../packages/website/**/*.{ts,tsx}",
     "./node_modules/@daveyplate/better-auth-ui/dist/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-} satisfies Config;
+};
 
-export default config;
