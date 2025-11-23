@@ -7,6 +7,9 @@ import type { CollectionSlug } from "payload";
 export function hasCollection(payload: any, collectionSlug: string): boolean {
   try {
     const collections = payload.config?.collections || [];
+
+
+
     const found = collections.some(
       (col: any) => col?.slug === collectionSlug || col === collectionSlug
     );

@@ -120,3 +120,7 @@ export const betterAuthPluginOptions = {
 
 export type ConstructedBetterAuthPluginOptions = typeof betterAuthPluginOptions
 
+
+
+
+
