@@ -22,7 +22,7 @@ export const LessonList: React.FC<{
           <TableHead>End Time</TableHead>
           <TableHead>Class Name</TableHead>
           <TableHead>Bookings</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="text-right" style={{ textAlign: 'right' }}>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

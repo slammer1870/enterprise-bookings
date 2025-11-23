@@ -73,7 +73,8 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
             variant="secondary"
             size="sm"
             onClick={() => toggleBookings(lesson.id)}
-            className="flex items-center border-solid border border-gray-700 dark:border-gray-300 bg-transparent shadow-none"
+            className="flex items-center border border-gray-700 dark:border-gray-300 bg-transparent shadow-none"
+            style={{ borderWidth: '1px', borderStyle: 'solid' }}
           >
             {lesson.bookings.docs.length}
             {expandedLessons.has(lesson.id) ? (
@@ -84,7 +85,9 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
           </Button>
         </TableCell>
         <TableCell className="text-right">
-          <ManageLesson lessonId={lesson.id} />
+          <div className="flex justify-end">
+            <ManageLesson lessonId={lesson.id} />
+          </div>
         </TableCell>
       </TableRow>
       {expandedLessons.has(lesson.id) && (
