@@ -27,7 +27,7 @@ export const LessonAdmin: React.FC<{
             pathname: "/admin/collections/lessons/create",
           }}
         >
-          <Button buttonStyle="pill" className="whitespace-nowrap">
+          <Button buttonStyle="pill" size="small" className="whitespace-nowrap">
             Create New
           </Button>
         </Link>
