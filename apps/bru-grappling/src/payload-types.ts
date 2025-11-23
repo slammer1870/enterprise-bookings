@@ -265,6 +265,7 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
+  roles?: ('customer' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
@@ -1854,6 +1855,7 @@ export interface UsersSelect<T extends boolean = true> {
   banned?: T;
   banReason?: T;
   banExpires?: T;
+  roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
   email?: T;

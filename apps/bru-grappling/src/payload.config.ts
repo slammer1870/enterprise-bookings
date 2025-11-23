@@ -105,7 +105,7 @@ export default buildConfig({
     }),
     betterAuthPlugin(betterAuthPluginOptions),
     rolesPlugin({
-      enabled: false,
+      enabled: true,
     }),
     bookingsPlugin({
       enabled: true,
