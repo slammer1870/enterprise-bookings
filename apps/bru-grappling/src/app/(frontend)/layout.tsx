@@ -124,7 +124,7 @@ export default async function RootLayout({
       <PlausibleProvider domain="brugrappling.ie">
         <BetterAuthProvider {...getContextProps()}>
           <TRPCReactProvider>
-            <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-right-bottom lg:bg-center">
+            <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-bottom-right lg:bg-center">
               <BetterAuthUIProvider>
                 <Suspense fallback={null}>
                   <UTMTracker />
