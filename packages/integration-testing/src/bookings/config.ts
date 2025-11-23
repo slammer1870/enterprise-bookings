@@ -71,9 +71,6 @@ export const config: Config = {
   sharp,
   plugins: [
     payloadCloudPlugin(),
-    rolesPlugin({
-      enabled: true,
-    }),
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {

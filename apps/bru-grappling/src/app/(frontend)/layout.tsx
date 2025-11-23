@@ -2,7 +2,6 @@ import './globals.css'
 
 import { Roboto } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { BetterAuthUIProvider } from '@/lib/auth/auth-provider'
 import PlausibleProvider from 'next-plausible'
 import Script from 'next/script'
 import { Navbar } from '@/globals/navbar'
@@ -13,6 +12,10 @@ import { Suspense } from 'react'
 import { UTMTracker } from '@repo/analytics'
 import { GoogleTagManager } from '@next/third-parties/google'
 
+import { BetterAuthProvider } from '@/lib/auth/context'
+import { BetterAuthUIProvider } from '@/lib/auth/provider'
+
+import { getContextProps } from '@/lib/auth/context/get-context-props'
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -53,7 +56,7 @@ export default async function RootLayout({
   unauthenticated: React.ReactNode
 }) {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie'
-  
+
   // Organization structured data
   const organizationData = {
     '@context': 'https://schema.org',
@@ -118,21 +121,23 @@ export default async function RootLayout({
         <GoogleTagManager gtmId="GTM-MLLFFCXN" />
       </head>
       <PlausibleProvider domain="brugrappling.ie">
-        <BetterAuthUIProvider>
+        <BetterAuthProvider {...getContextProps()}>
           <TRPCReactProvider>
             <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-right-bottom lg:bg-center">
-              <Suspense fallback={null}>
-                <UTMTracker />
-              </Suspense>
-              <Navbar />
-              {children}
-              {unauthenticated}
-              <Footer />
-              <div id="modal-root" />
-              <Toaster />
+              <BetterAuthUIProvider>
+                <Suspense fallback={null}>
+                  <UTMTracker />
+                </Suspense>
+                <Navbar />
+                {children}
+                {unauthenticated}
+                <Footer />
+                <div id="modal-root" />
+                <Toaster />
+              </BetterAuthUIProvider>
             </body>
           </TRPCReactProvider>
-        </BetterAuthUIProvider>
+        </BetterAuthProvider>
       </PlausibleProvider>
     </html>
   )

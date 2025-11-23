@@ -28,11 +28,11 @@ import { MetaDescriptionComponent as MetaDescriptionComponent_a8a977ebc872c5d5ea
 import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
-import { LessonAdmin as LessonAdmin_28f82c8ab580570e6e2e631b3f76d105 } from '@repo/bookings-plugin/src/components/lessons/lesson-admin'
+import { LessonAdmin as LessonAdmin_a8ce920709833e15274cf94b2365830c } from '@repo/bookings-plugin/src/components/lessons/lesson-admin'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { default as default_93204d94190b460b2a4b3e03089a6c3a } from '@/fields/last-check-in'
 import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
-import { DayRowLabel as DayRowLabel_5db892d6791db3696a6450921707b1cc } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
+import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
 
 export const importMap = {
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -65,9 +65,9 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#MetaImageComponent": MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
-  "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_28f82c8ab580570e6e2e631b3f76d105,
+  "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_a8ce920709833e15274cf94b2365830c,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "@/fields/last-check-in#default": default_93204d94190b460b2a4b3e03089a6c3a,
   "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
-  "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_5db892d6791db3696a6450921707b1cc
+  "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7
 }
