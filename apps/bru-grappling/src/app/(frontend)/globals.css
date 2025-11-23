@@ -1,8 +1,6 @@
 @import "tailwindcss";
-@import "react-day-picker/dist/style.css";
 
-@layer base {
-  :root {
+:root {
     --background: 0 0% 100%;
     --foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
@@ -46,4 +44,3 @@
     --destructive-foreground: 210 40% 98%;
     --ring: 216 34% 17%;
   }
-}

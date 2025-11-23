@@ -1,21 +1,14 @@
-import type { Config } from "tailwindcss";
-import sharedConfig from "@repo/ui/tailwind.config";
+import baseConfig from "@repo/ui/tailwind.config";
 
-const config: Config = {
-  ...sharedConfig,
+/** @type {import('tailwindcss').Config} */
+export default {
+  ...baseConfig,
   content: [
-    "./src/app/**/*.{ts,tsx}",
-    "./src/components/**/*.{ts,tsx}",
-    "./src/blocks/**/*.{ts,tsx}",
-    "./src/globals/**/*.{ts,tsx}",
-    "./src/graphics/**/*.{ts,tsx}",
-    "../../packages/ui/src/components/**/*.{ts,tsx}",
-    "../../packages/bookings/src/components/**/*.{ts,tsx}",
-    "../../packages/auth/src/components/**/*.{ts,tsx}",
-    "../../packages/payments/src/components/**/*.{ts,tsx}",
-    "../../packages/children/src/components/**/*.{ts,tsx}",
-    "../../packages/memberships/src/components/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+    "../../packages/ui/src/**/*.{ts,tsx}",
+    "../../packages/bookings-plugin/**/*.{ts,tsx}",
+    "../../packages/auth/**/*.{ts,tsx}",
+    "../../packages/payments-plugin/**/*.{ts,tsx}",
+    "../../packages/website/**/*.{ts,tsx}",
   ],
 };
-
-export default config;
