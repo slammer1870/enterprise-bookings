@@ -1,21 +1,6 @@
 import { toNextJsHandler } from 'better-auth/next-js'
-import { getPayload } from 'payload'
-import config from '@payload-config'
-import { cache } from 'react'
+import { getPayload } from '@/lib/payload'
 
-const getPayloadInstance = cache(async () => {
-  return await getPayload({ config })
-})
+const payload = await getPayload()
 
-export async function GET(request: Request) {
-  const payload = await getPayloadInstance()
-  const handler = toNextJsHandler((payload as any).betterAuth)
-  return handler.GET(request)
-}
-
-export async function POST(request: Request) {
-  const payload = await getPayloadInstance()
-  const handler = toNextJsHandler((payload as any).betterAuth)
-  return handler.POST(request)
-}
-
+export const { POST, GET } = toNextJsHandler(payload.betterAuth)

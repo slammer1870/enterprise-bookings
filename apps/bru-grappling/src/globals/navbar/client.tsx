@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { useSession, signOut } from '@/lib/auth/auth-client'
+import { useSession, signOut } from '@/lib/auth/client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@repo/ui/components/ui/button'

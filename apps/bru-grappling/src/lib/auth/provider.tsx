@@ -3,7 +3,7 @@
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { authClient } from "./auth-client";
+import { authClient } from "./client";
 import { Suspense } from "react";
 
 function AuthUIProviderContent({ children }: { children: React.ReactNode }) {

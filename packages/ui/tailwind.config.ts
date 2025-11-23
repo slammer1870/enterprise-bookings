@@ -22,6 +22,7 @@ const config = {
     "../../packages/e2e-kyuzo/src/graphics/**/*.{ts,tsx}",
     "../../packages/e2e-kyuzo/src/app/(frontend)/**/*.{ts,tsx,js,jsx}",
     "../../packages/website/src/blocks/**/*.{ts,tsx}",
+    "./node_modules/@daveyplate/better-auth-ui/dist/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
