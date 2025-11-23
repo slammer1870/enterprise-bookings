@@ -1,4 +1,4 @@
-import './globals.css'
+import '@repo/ui/globals.css'
 
 import { Roboto } from 'next/font/google'
 import { Toaster } from 'sonner'
