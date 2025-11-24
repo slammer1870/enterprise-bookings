@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useRef, Suspense } from "react";
-
 import { useRouter, useSearchParams } from "next/navigation";
-
 import {
   Card,
   CardContent,
@@ -11,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/ui/card";
-
 import {
   Form,
   FormControl,
@@ -20,41 +17,33 @@ import {
   FormLabel,
   FormMessage,
 } from "@repo/ui/components/ui/form";
-
 import { Button } from "@repo/ui/components/ui/button";
-
 import { Input } from "@repo/ui/components/ui/input";
-
 import { z } from "zod";
-
 import { useForm } from "react-hook-form";
-
 import { zodResolver } from "@hookform/resolvers/zod";
-
-//import { FaGoogle, FaGithub } from "react-icons/fa";
-
-import { useAuth } from "../providers/auth";
 import { useAnalyticsTracker } from "@repo/analytics";
 
-export default function LoginForm() {
+interface LoginFormProps {
+  sendMagicLink: (args: { email: string; callbackURL: string }) => Promise<void>;
+}
+
+export default function LoginForm({ sendMagicLink }: LoginFormProps) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <LoginFormContent />
+      <LoginFormContent sendMagicLink={sendMagicLink} />
     </Suspense>
   );
 }
 
-function LoginFormContent() {
+function LoginFormContent({ sendMagicLink }: LoginFormProps) {
   const searchParams = useSearchParams();
-
-  const callbackUrl = useRef(searchParams?.get("callbackUrl"));
-
+  const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
   const router = useRouter();
-
-  const { magicLink } = useAuth();
   const { trackEvent } = useAnalyticsTracker();
+
   const loginSchema = z.object({
-    email: z.email(),
+    email: z.string().email("Invalid email address"),
   });
 
   type FormData = z.infer<typeof loginSchema>;
@@ -70,20 +59,23 @@ function LoginFormContent() {
     async (data: FormData) => {
       try {
         const normalizedEmail = data.email.toLowerCase();
-        await magicLink({
+
+        // Send magic link via better auth client
+        await sendMagicLink({
           email: normalizedEmail,
-          callbackUrl: callbackUrl.current || "/",
-        }).then(() => {
-          trackEvent("Login Completed");
-          router.push("/magic-link-sent");
+          callbackURL: callbackUrl.current || "/dashboard",
         });
-      } catch (error) {
+
+        trackEvent("Login Completed");
+        router.push("/magic-link-sent");
+      } catch (error: any) {
+        const errorMessage = error?.message || "An error occurred during login";
         form.setError("email", {
-          message: error as string,
+          message: errorMessage,
         });
       }
     },
-    [magicLink, router]
+    [sendMagicLink, router, trackEvent]
   );
 
   return (

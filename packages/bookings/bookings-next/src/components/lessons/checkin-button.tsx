@@ -6,7 +6,7 @@ import { Booking, Lesson } from "@repo/shared-types";
 import { Button, buttonVariants } from "@repo/ui/components/ui/button";
 import type { ComponentProps, MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@repo/auth-next";
 
@@ -35,8 +35,9 @@ export const CheckInButton = ({
 }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
   const router = useRouter();
-  const { user } = useAuth();
+
   const trackEvent = useAnalyticsTracker?.()?.trackEvent || (() => {});
 
   const [ConfirmationDialog, confirm] = useConfirm(
@@ -44,8 +45,10 @@ export const CheckInButton = ({
     ""
   );
 
+  const { data: session } = useQuery(trpc.auth.getSession.queryOptions());
+
   const requireAuth = (action: () => void) => {
-    if (!user) {
+    if (!session) {
       if (bookingStatus === "trialable") {
         toast.info("Please sign in to continue");
         return router.push(`/auth/sign-up?callbackUrl=/bookings/${id}`);
@@ -93,15 +96,6 @@ export const CheckInButton = ({
       },
     })
   );
-
-  const { mutateAsync: createOrUpdateBooking, isPending: isCreatingBooking } =
-    useMutation(
-      trpc.bookings.createOrUpdateBooking.mutationOptions({
-        onError: (error) => {
-          console.error("Booking error:", error);
-        },
-      })
-    );
 
   const { mutate: cancelBooking, isPending: isCancellingBooking } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({

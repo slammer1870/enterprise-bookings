@@ -121,7 +121,7 @@ export const betterAuthPluginOptions = {
     loginMethods: ['emailPassword'],
   },
   disableDefaultPayloadAuth: true,
-  hidePluginCollections: false,
+  hidePluginCollections: true,
   users: {
     slug: 'users', // not required, this is the default anyways
     hidden: false,
