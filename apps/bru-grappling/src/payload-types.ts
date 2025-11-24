@@ -95,6 +95,7 @@ export interface Config {
       bookings: 'bookings';
     };
     users: {
+      lessons: 'lessons';
       children: 'users';
       userSubscription: 'subscriptions';
     };
@@ -226,6 +227,11 @@ export interface Account {
  */
 export interface User {
   id: number;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   /**
    * Parent of the user
    */
@@ -293,21 +299,137 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
+ * via the `definition` "lessons".
  */
-export interface Subscription {
+export interface Lesson {
   id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
   /**
-   * Skip syncing to Stripe
+   * The time in minutes before the lesson will be closed for new bookings.
    */
-  skipSync?: boolean | null;
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | Instructor;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  originalLockOutTime?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors".
+ */
+export interface Instructor {
+  id: number;
+  /**
+   * The user associated with this instructor
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * Instructor profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this instructor is active and can be assigned to lessons
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    card?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    tablet?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    desktop?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child' | 'family';
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+    allowedDropIn?: (number | null) | DropIn;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -374,6 +496,61 @@ export interface Plan {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  price: number;
+  adjustable: boolean;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        type: 'normal' | 'trial' | 'bulk';
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethods: 'card'[];
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Sessions are active sessions for users. They are used to authenticate users with a session token
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -430,59 +607,6 @@ export interface Verification {
   expiresAt: string;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-  sizes?: {
-    thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    card?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    tablet?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    desktop?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -942,124 +1066,6 @@ export interface FormSubmission {
         id?: string | null;
       }[]
     | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
- */
-export interface Instructor {
-  id: number;
-  /**
-   * The user associated with this instructor
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * Instructor profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this instructor is active and can be assigned to lessons
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the lesson will be closed for new bookings.
-   */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  originalLockOutTime?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  /**
-   * Is this a class for adults or children?
-   */
-  type: 'adult' | 'child' | 'family';
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-    allowedDropIn?: (number | null) | DropIn;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "drop-ins".
- */
-export interface DropIn {
-  id: number;
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-  price: number;
-  adjustable: boolean;
-  discountTiers?:
-    | {
-        minQuantity: number;
-        discountPercent: number;
-        type: 'normal' | 'trial' | 'bulk';
-        id?: string | null;
-      }[]
-    | null;
-  paymentMethods: 'card'[];
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  user: number | User;
-  lesson: number | Lesson;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
   updatedAt: string;
   createdAt: string;
 }
@@ -1844,6 +1850,7 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  lessons?: T;
   parent?: T;
   children?: T;
   name?: T;

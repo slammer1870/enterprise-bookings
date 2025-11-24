@@ -146,13 +146,37 @@ export async function createSafe(
     });
   }
 
-  return await payload.create({
-    collection: collectionSlug as unknown as CollectionSlug,
-    data,
-    depth: options.depth ?? 0,
-    overrideAccess: options.overrideAccess ?? false,
-    user: options.user,
-  });
+  try {
+    return await payload.create({
+      collection: collectionSlug as unknown as CollectionSlug,
+      data,
+      depth: options.depth ?? 0,
+      overrideAccess: options.overrideAccess ?? false,
+      user: options.user,
+      showHiddenFields: false,
+    });
+  } catch (error: any) {
+    // Handle the specific error about missing join fields (like "lessons")
+    // This can happen when Payload tries to process join fields that don't exist in the schema
+    // The field might be commented out but Payload still tries to process it
+    const errorMessage = error?.message || error?.cause?.message || "";
+    if (errorMessage.includes("Cannot find field for path")) {
+      // Log the error for debugging but provide a more helpful error message
+      console.error(
+        `Payload error creating ${collectionSlug}:`,
+        errorMessage,
+        "\nThis may be due to a commented-out join field in the collection schema."
+      );
+      
+      // Re-throw with a more helpful error message
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to create ${collectionSlug}. This may be due to a schema configuration issue with join fields.`,
+        cause: error,
+      });
+    }
+    throw error;
+  }
 }
 
 /**

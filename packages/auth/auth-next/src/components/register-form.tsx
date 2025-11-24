@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useRef, Suspense } from "react";
-
 import { useSearchParams, useRouter } from "next/navigation";
-
 import {
   Card,
   CardContent,
@@ -11,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/ui/card";
-
 import {
   Form,
   FormControl,
@@ -20,48 +17,46 @@ import {
   FormLabel,
   FormMessage,
 } from "@repo/ui/components/ui/form";
-
 import { Button } from "@repo/ui/components/ui/button";
-
 import { Input } from "@repo/ui/components/ui/input";
-
 import { z } from "zod";
-
 import { useForm } from "react-hook-form";
-
 import { zodResolver } from "@hookform/resolvers/zod";
-
-//import { FaGoogle, FaGithub } from "react-icons/fa";
-
-import { useAuth } from "../providers/auth";
 import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
+import { useTRPC } from "@repo/trpc";
+import { useMutation } from "@tanstack/react-query";
 
-export default function RegisterForm() {
+interface RegisterFormProps {
+  sendMagicLink: (args: { email: string; callbackURL: string }) => Promise<void>;
+}
+
+export default function RegisterForm({ sendMagicLink }: RegisterFormProps) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <RegisterFormContent />
+      <RegisterFormContent sendMagicLink={sendMagicLink} />
     </Suspense>
   );
 }
 
-function RegisterFormContent() {
+function RegisterFormContent({ sendMagicLink }: RegisterFormProps) {
   const searchParams = useSearchParams();
-
   const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
-
   const router = useRouter();
-
-  const { register, magicLink } = useAuth();
+  const trpc = useTRPC();
   const { trackEvent } = useAnalyticsTracker();
 
+  const { mutateAsync: registerMutation, isPending } = useMutation(
+    trpc.auth.registerPasswordless.mutationOptions()
+  );
+
   const registerSchema = z.object({
-    name: z.string().min(1),
-    email: z.email(),
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Invalid email address"),
   });
 
   type FormData = z.infer<typeof registerSchema>;
 
-  const form = useForm<z.infer<typeof registerSchema>>({
+  const form = useForm<FormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       name: "",
@@ -77,28 +72,29 @@ function RegisterFormContent() {
         // Get UTM parameters for tracking and magic link
         const utmParams = getStoredUTMParams();
 
-        await register({
+        // Register user via tRPC
+        await registerMutation({
           name: data.name,
           email: normalizedEmail,
-        }).then(() => {
-          // Track registration conversion with UTM attribution
-
-          magicLink({
-            email: normalizedEmail,
-            callbackUrl: callbackUrl.current || "/dashboard",
-            utmParams: utmParams, // Pass UTM params to magic link
-          }).then(() => {
-            trackEvent("Registration Completed");
-            router.push("/magic-link-sent");
-          });
         });
-      } catch (error) {
+
+        // Send magic link via better auth client
+        await sendMagicLink({
+          email: normalizedEmail,
+          callbackURL: callbackUrl.current || "/dashboard",
+        });
+
+        trackEvent("Registration Completed");
+        router.push("/magic-link-sent");
+      } catch (error: any) {
+        const errorMessage =
+          error?.message || "An error occurred during registration";
         form.setError("email", {
-          message: error as string,
+          message: errorMessage,
         });
       }
     },
-    [magicLink, register, router]
+    [registerMutation, sendMagicLink, router, trackEvent]
   );
 
   return (
@@ -140,11 +136,13 @@ function RegisterFormContent() {
             />
             <Button
               type="submit"
-              disabled={form.formState.isSubmitting}
+              disabled={form.formState.isSubmitting || isPending}
               className="w-full bg-black text-white hover:bg-gray-800"
               variant="default"
             >
-              {form.formState.isSubmitting ? "Submitting..." : "Submit"}
+              {form.formState.isSubmitting || isPending
+                ? "Submitting..."
+                : "Submit"}
             </Button>
           </form>
         </Form>
