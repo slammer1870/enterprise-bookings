@@ -2,6 +2,21 @@ import { z } from "zod";
 
 import { stripeProtectedProcedure, requireCollections } from "../trpc";
 import { findSafe } from "../utils/collections";
+import { TRPCError } from "@trpc/server";
+
+// Helper function to safely get stripeCustomerId
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getStripeCustomerId = (user: any): string => {
+  const customerId = user?.stripeCustomerId;
+  if (!customerId || typeof customerId !== "string") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Stripe customer ID not found. Please ensure the payments plugin is configured.",
+    });
+  }
+  return customerId;
+};
 
 export const paymentsRouter = {
   createCustomerCheckoutSession: stripeProtectedProcedure
@@ -16,6 +31,8 @@ export const paymentsRouter = {
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const customerId = getStripeCustomerId(ctx.user);
+
       const session = await ctx.stripe.checkout.sessions.create({
         line_items: [
           {
@@ -25,7 +42,7 @@ export const paymentsRouter = {
         ],
         metadata: input.metadata,
         mode: input.mode,
-        customer: ctx.user.stripeCustomerId as string,
+        customer: customerId,
         success_url:
           input.successUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
         cancel_url:
@@ -35,8 +52,10 @@ export const paymentsRouter = {
       return session;
     }),
   createCustomerPortal: stripeProtectedProcedure.mutation(async ({ ctx }) => {
+    const customerId = getStripeCustomerId(ctx.user);
+
     const session = await ctx.stripe.billingPortal.sessions.create({
-      customer: ctx.user.stripeCustomerId as string,
+      customer: customerId,
       return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
     });
 
@@ -64,8 +83,10 @@ export const paymentsRouter = {
 
       const priceId = JSON.parse(product?.docs[0]?.priceJSON as string)?.id;
 
+      const customerId = getStripeCustomerId(ctx.user);
+
       const subscription = await ctx.stripe.subscriptions.list({
-        customer: ctx.user.stripeCustomerId as string,
+        customer: customerId,
         limit: 1,
         status: "active",
       });
@@ -105,7 +126,7 @@ export const paymentsRouter = {
       console.log(`Created new configuration: ${configId}`);
 
       const session = await ctx.stripe.billingPortal.sessions.create({
-        customer: ctx.user.stripeCustomerId as string,
+        customer: customerId,
         configuration: configId,
         return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
         flow_data: {
