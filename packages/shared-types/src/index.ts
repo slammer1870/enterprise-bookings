@@ -7,3 +7,4 @@ export * from "./posts";
 export * from "./seo";
 export * from "./plugins";
 export * from "./utm";
+export * from "./auth";
