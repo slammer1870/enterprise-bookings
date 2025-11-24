@@ -29,51 +29,13 @@ export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
   stripe?: Stripe;
-  session?: any | null;
 }) => {
   const payload = opts.payload;
-
-  // Try to get session from better-auth first, then fall back to Payload auth
-  let session = opts.session ?? null;
-  let user = null;
-
-  if (session?.user) {
-    // Session from better-auth is already provided
-    user = session.user;
-  } else if ((payload as any).betterAuth) {
-    // Try to get session from better-auth
-    try {
-      const sessionResult = await (payload as any).betterAuth.api.getSession({
-        headers: opts.headers,
-      });
-      session = sessionResult?.data?.session || null;
-      user = session?.user || null;
-    } catch (error) {
-      // If better-auth fails, fall back to Payload auth
-      console.warn("Better-auth session fetch failed:", error);
-    }
-  }
-
-  // If no better-auth session, fall back to Payload auth
-  if (!user) {
-    try {
-      const auth = await payload.auth({
-        headers: opts.headers,
-        canSetHeaders: false,
-      });
-      user = auth.user || null;
-    } catch (error) {
-      // Auth failed, user remains null
-      console.warn("Payload auth failed:", error);
-    }
-  }
 
   return {
     headers: opts.headers,
     payload,
     stripe: opts.stripe,
-    session,
-    user,
   };
 };
 /**
@@ -129,17 +91,6 @@ export const publicProcedure = t.procedure;
 export const protectedProcedure = publicProcedure.use(async (opts) => {
   const { ctx } = opts;
 
-  // Check if we already have a user from better-auth session
-  if (ctx.user) {
-    return opts.next({
-      ctx: {
-        ...ctx,
-        user: ctx.user,
-      },
-    });
-  }
-
-  // Fall back to Payload auth
   const auth = await ctx.payload.auth({
     headers: ctx.headers,
     canSetHeaders: false,
