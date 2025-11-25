@@ -6,6 +6,7 @@
     "@payloadcms/next": "^3.64.0",
     "@payloadcms/ui": "^3.64.0",
     "@repo/analytics": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/trpc": "workspace:*",
     "@repo/ui": "workspace:*",

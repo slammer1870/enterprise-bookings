@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, Suspense } from "react";
+import { useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
@@ -22,9 +22,10 @@ import { Input } from "@repo/ui/components/ui/input";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAnalyticsTracker } from "@repo/analytics";
+import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
 import { useTRPC } from "@repo/trpc";
 import { useMutation } from "@tanstack/react-query";
+import { buildUTMCallbackUrl } from "@repo/shared-utils";
 
 export default function LoginForm() {
   return (
@@ -36,7 +37,16 @@ export default function LoginForm() {
 
 function LoginFormContent() {
   const searchParams = useSearchParams();
-  const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
+  const searchParamsString = searchParams?.get("callbackUrl") || "/";
+  const callbackUrl = useMemo(
+    () =>
+      buildUTMCallbackUrl({
+        searchParamsString,
+        storedParams: getStoredUTMParams(),
+        defaultOverrides: { utm_content: "login" },
+      }),
+    [searchParamsString]
+  );
   const router = useRouter();
   const { trackEvent } = useAnalyticsTracker();
   const trpc = useTRPC();
@@ -65,7 +75,7 @@ function LoginFormContent() {
         // Request magic-link via tRPC so better-auth handles delivery server-side
         await signInMagicLink({
           email: normalizedEmail,
-          callbackURL: callbackUrl.current,
+          callbackURL: callbackUrl,
         });
 
         trackEvent("Login Completed");
