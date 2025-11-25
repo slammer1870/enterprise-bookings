@@ -23,24 +23,26 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAnalyticsTracker } from "@repo/analytics";
+import { useTRPC } from "@repo/trpc";
+import { useMutation } from "@tanstack/react-query";
 
-interface LoginFormProps {
-  sendMagicLink: (args: { email: string; callbackURL: string }) => Promise<void>;
-}
-
-export default function LoginForm({ sendMagicLink }: LoginFormProps) {
+export default function LoginForm() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <LoginFormContent sendMagicLink={sendMagicLink} />
+      <LoginFormContent />
     </Suspense>
   );
 }
 
-function LoginFormContent({ sendMagicLink }: LoginFormProps) {
+function LoginFormContent() {
   const searchParams = useSearchParams();
   const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
   const router = useRouter();
   const { trackEvent } = useAnalyticsTracker();
+  const trpc = useTRPC();
+  const { mutateAsync: signInMagicLink, isPending } = useMutation(
+    trpc.auth.signInMagicLink.mutationOptions()
+  );
 
   const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -60,10 +62,10 @@ function LoginFormContent({ sendMagicLink }: LoginFormProps) {
       try {
         const normalizedEmail = data.email.toLowerCase();
 
-        // Send magic link via better auth client
-        await sendMagicLink({
+        // Request magic-link via tRPC so better-auth handles delivery server-side
+        await signInMagicLink({
           email: normalizedEmail,
-          callbackURL: callbackUrl.current || "/dashboard",
+          callbackURL: callbackUrl.current,
         });
 
         trackEvent("Login Completed");
@@ -75,7 +77,7 @@ function LoginFormContent({ sendMagicLink }: LoginFormProps) {
         });
       }
     },
-    [sendMagicLink, router, trackEvent]
+    [signInMagicLink, router, trackEvent]
   );
 
   return (
@@ -104,11 +106,13 @@ function LoginFormContent({ sendMagicLink }: LoginFormProps) {
             />
             <Button
               type="submit"
-              disabled={form.formState.isSubmitting}
+              disabled={form.formState.isSubmitting || isPending}
               className="w-full bg-black text-white hover:bg-gray-800"
               variant="default"
             >
-              {form.formState.isSubmitting ? "Sending..." : "Submit"}
+              {form.formState.isSubmitting || isPending
+                ? "Sending..."
+                : "Submit"}
             </Button>
           </form>
         </Form>

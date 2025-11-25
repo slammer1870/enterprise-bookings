@@ -25,7 +25,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
   if (!isMounted) return null // Prevent rendering on the server
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <dialog
         ref={dialogRef}
         className="relative flex h-auto max-h-[600px] w-4/5 max-w-[400px] rounded-lg border-0 bg-white py-16 font-medium"

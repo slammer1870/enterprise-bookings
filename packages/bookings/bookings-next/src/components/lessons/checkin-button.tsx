@@ -51,10 +51,14 @@ export const CheckInButton = ({
     if (!session) {
       if (bookingStatus === "trialable") {
         toast.info("Please sign in to continue");
-        return router.push(`/register?callbackUrl=/bookings/${id}`);
+        return router.push(
+          `/complete-booking?mode=register&callbackUrl=/bookings/${id}`
+        );
       }
       toast.info("Please sign in to continue");
-      return router.push(`/login?callbackUrl=/bookings/${id}`);
+      return router.push(
+        `/complete-booking?mode=login&callbackUrl=/bookings/${id}`
+      );
     }
     action();
   };

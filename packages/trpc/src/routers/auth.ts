@@ -61,4 +61,40 @@ export const authRouter = {
 
       return user;
     }),
+  signInMagicLink: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        callbackURL: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.toLowerCase();
+
+      const user = await findSafe(ctx.payload, "users", {
+        where: { email: { equals: email } },
+        limit: 1,
+        overrideAccess: true,
+      });
+
+      if (!user.docs.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "User not found" });
+      }
+
+      if (!ctx.betterAuth)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Better Auth plugin is not configured.",
+        });
+
+      await ctx.betterAuth.api.signInMagicLink({
+        body: {
+          email: email, // required
+          callbackURL: input.callbackURL,
+        },
+        headers: ctx.headers,
+      });
+
+      return { success: true };
+    }),
 };
