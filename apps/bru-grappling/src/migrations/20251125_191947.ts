@@ -30,8 +30,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "media" ADD COLUMN "sizes_desktop_mime_type" varchar;
   ALTER TABLE "media" ADD COLUMN "sizes_desktop_filesize" numeric;
   ALTER TABLE "media" ADD COLUMN "sizes_desktop_filename" varchar;
-  ALTER TABLE "pages_blocks_hero_waitlist" ADD COLUMN "enable_intro" boolean;
-  ALTER TABLE "pages_blocks_hero_waitlist" ADD COLUMN "intro_content" jsonb;
   CREATE INDEX "media_sizes_thumbnail_sizes_thumbnail_filename_idx" ON "media" USING btree ("sizes_thumbnail_filename");
   CREATE INDEX "media_sizes_card_sizes_card_filename_idx" ON "media" USING btree ("sizes_card_filename");
   CREATE INDEX "media_sizes_tablet_sizes_tablet_filename_idx" ON "media" USING btree ("sizes_tablet_filename");
@@ -71,7 +69,5 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   ALTER TABLE "media" DROP COLUMN "sizes_desktop_height";
   ALTER TABLE "media" DROP COLUMN "sizes_desktop_mime_type";
   ALTER TABLE "media" DROP COLUMN "sizes_desktop_filesize";
-  ALTER TABLE "media" DROP COLUMN "sizes_desktop_filename";
-  ALTER TABLE "pages_blocks_hero_waitlist" DROP COLUMN "enable_intro";
-  ALTER TABLE "pages_blocks_hero_waitlist" DROP COLUMN "intro_content";`)
+  ALTER TABLE "media" DROP COLUMN "sizes_desktop_filename";`)
 }
