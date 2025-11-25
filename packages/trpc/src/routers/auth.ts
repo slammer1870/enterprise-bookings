@@ -60,4 +60,48 @@ export const authRouter = {
 
       return user;
     }),
+  signInMagicLink: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        callbackURL: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.toLowerCase();
+      const callbackURL =
+        input.callbackURL ??
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/auth/magic-link`;
+
+      const user = await findSafe(ctx.payload, "users", {
+        where: { email: { equals: email } },
+        limit: 1,
+        overrideAccess: true,
+      });
+
+      console.log("user", user);
+
+      if (!user.docs.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "User not found" });
+      }
+
+      if (!ctx.betterAuth)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Better Auth plugin is not configured.",
+        });
+
+      await ctx.betterAuth.api.signInMagicLink({
+        body: {
+          email: email, // required
+          //callbackURL: "/dashboard",
+          //newUserCallbackURL: "/welcome",
+          //errorCallbackURL: "/error",
+        },
+        // This endpoint requires session cookies.
+        headers: ctx.headers,
+      });
+
+      return { success: true };
+    }),
 };
