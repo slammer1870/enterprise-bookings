@@ -31,8 +31,8 @@
 
   --radius: 0.5rem;
 
-  /* Check-in button colors - using active color for bru-grappling */
-  --checkin: 142 76% 36%; /* Green color */
+  /* Check-in button colors - updated to brand yellow */
+  --checkin: 45 94% 52%; /* Yellow */
   --checkin-foreground: 0 0% 98%; /* White color */
 
   /* Other button state colors */
@@ -78,8 +78,8 @@
   --ring: 212.7 26.8% 83.9%;
 
   /* Check-in button colors for dark mode */
-  --checkin: 210 40% 98%;
-  --checkin-foreground: 222.2 47.4% 11.2%;
+  --checkin: 45 94% 52%;
+  --checkin-foreground: 210 40% 98%;
 
   /* Other button state colors for dark mode */
   --trialable: 217 91% 60%;
