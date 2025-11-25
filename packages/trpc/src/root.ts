@@ -6,7 +6,7 @@ import { bookingsRouter } from "./routers/bookings";
 import { authRouter } from "./routers/auth";
 
 import { createTRPCRouter } from "./trpc";
-``;
+
 export const appRouter = createTRPCRouter({
   lessons: lessonsRouter,
   bookings: bookingsRouter,

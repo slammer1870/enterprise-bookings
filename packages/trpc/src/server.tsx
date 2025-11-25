@@ -6,38 +6,27 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "./root";
 import { appRouter } from "./root";
 import { createQueryClient } from "./query-client";
-import { Payload } from "payload";
-import Stripe from "stripe";
+import { createTRPCContext } from "./trpc";
 import { User } from "@repo/shared-types";
 
-interface CreateServerContextOptions {
-  payload: Payload;
-  headers: Headers;
-  stripe?: Stripe;
-}
+type CreateServerContextOptions = Parameters<typeof createTRPCContext>[0];
+type BaseTRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 
 /**
  * Creates server-side tRPC context
  * Apps should call this with their payload instance
  */
-export const createServerTRPCContext = (opts: CreateServerContextOptions) => {
-  return {
-    headers: opts.headers,
-    payload: opts.payload,
-    stripe: opts.stripe,
-  };
+export const createServerTRPCContext = async (
+  opts: CreateServerContextOptions
+) => {
+  return createTRPCContext(opts);
 };
 
 /**
  * Factory function to create server-side tRPC utilities for a specific app
  */
 export function createServerTRPC(
-  createContext: () => Promise<{
-    headers: Headers;
-    payload: Payload;
-    stripe: Stripe | undefined;
-    user?: User;
-  }>
+  createContext: () => Promise<BaseTRPCContext & { user?: User }>
 ) {
   const getQueryClient = cache(createQueryClient);
 
