@@ -70,17 +70,12 @@ export const authRouter = {
     )
     .mutation(async ({ ctx, input }) => {
       const email = input.email.toLowerCase();
-      const callbackURL =
-        input.callbackURL ??
-        `${process.env.NEXT_PUBLIC_SERVER_URL}/api/auth/magic-link`;
 
       const user = await findSafe(ctx.payload, "users", {
         where: { email: { equals: email } },
         limit: 1,
         overrideAccess: true,
       });
-
-      console.log("user", user);
 
       if (!user.docs.length) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "User not found" });
@@ -95,11 +90,8 @@ export const authRouter = {
       await ctx.betterAuth.api.signInMagicLink({
         body: {
           email: email, // required
-          //callbackURL: "/dashboard",
-          //newUserCallbackURL: "/welcome",
-          //errorCallbackURL: "/error",
+          callbackURL: input.callbackURL,
         },
-        // This endpoint requires session cookies.
         headers: ctx.headers,
       });
 

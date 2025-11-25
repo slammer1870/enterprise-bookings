@@ -80,7 +80,7 @@ function RegisterFormContent() {
         // Send magic link via tRPC (Better Auth under the hood)
         await sendMagicLinkMutation({
           email: normalizedEmail,
-          callbackURL: callbackUrl.current || "/dashboard",
+          callbackURL: callbackUrl.current,
         });
 
         trackEvent("Registration Completed");

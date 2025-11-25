@@ -65,7 +65,7 @@ function LoginFormContent() {
         // Request magic-link via tRPC so better-auth handles delivery server-side
         await signInMagicLink({
           email: normalizedEmail,
-          // callbackURL: callbackUrl.current || "/dashboard",
+          callbackURL: callbackUrl.current,
         });
 
         trackEvent("Login Completed");
