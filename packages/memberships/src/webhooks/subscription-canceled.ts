@@ -28,6 +28,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       where: {
         stripeSubscriptionId: { equals: event.data.object.id },
       },
+      depth: 0,
     });
 
     if (subscription.totalDocs === 0) {
@@ -36,7 +37,9 @@ export const subscriptionCanceled: StripeWebhookHandler<{
 
     await payload.update({
       collection: "subscriptions",
-      id: subscription.docs[0]?.id as number,
+      where: {
+        stripeSubscriptionId: { equals: event.data.object.id },
+      },
       data: {
         status: "canceled",
         endDate: new Date().toISOString(),
@@ -51,7 +54,9 @@ export const subscriptionCanceled: StripeWebhookHandler<{
       await payload.update({
         collection: "bookings",
         where: {
-          user: { equals: user.docs[0]?.id as number },
+          user: {
+            in: subscription.docs.map((subscription) => subscription.user),
+          },
           "lesson.classOption.paymentMethods.allowedPlans": {
             contains: planId,
           },
