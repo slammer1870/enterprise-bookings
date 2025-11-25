@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, Suspense } from "react";
+import { useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -25,6 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
 import { useTRPC } from "@repo/trpc";
 import { useMutation } from "@tanstack/react-query";
+import { buildUTMCallbackUrl } from "@repo/shared-utils";
 
 export default function RegisterForm() {
   return (
@@ -36,7 +37,16 @@ export default function RegisterForm() {
 
 function RegisterFormContent() {
   const searchParams = useSearchParams();
-  const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
+  const searchParamsString = searchParams?.get("callbackUrl") || "/";
+  const callbackUrl = useMemo(
+    () =>
+      buildUTMCallbackUrl({
+        searchParamsString,
+        storedParams: getStoredUTMParams(),
+        defaultOverrides: { utm_content: "register" },
+      }),
+    [searchParamsString]
+  );
   const router = useRouter();
   const trpc = useTRPC();
   const { trackEvent } = useAnalyticsTracker();
@@ -68,9 +78,6 @@ function RegisterFormContent() {
       try {
         const normalizedEmail = data.email.toLowerCase();
 
-        // Get UTM parameters for tracking and magic link
-        const utmParams = getStoredUTMParams();
-
         // Register user via tRPC
         await registerMutation({
           name: data.name,
@@ -80,7 +87,7 @@ function RegisterFormContent() {
         // Send magic link via tRPC (Better Auth under the hood)
         await sendMagicLinkMutation({
           email: normalizedEmail,
-          callbackURL: callbackUrl.current,
+          callbackURL: callbackUrl,
         });
 
         trackEvent("Registration Completed");
