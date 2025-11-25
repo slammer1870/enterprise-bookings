@@ -78,6 +78,34 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* Booking action colors (defaults can be overridden per app) */
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 84.2% 60.2%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+
+  /* Booking action colors (dark mode defaults) */
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 62.8% 30.6%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
 }
 
 @theme inline {
@@ -124,6 +152,18 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-checkin: var(--checkin);
+  --color-checkin-foreground: var(--checkin-foreground);
+  --color-trialable: var(--trialable);
+  --color-trialable-foreground: var(--trialable-foreground);
+  --color-cancel: var(--cancel);
+  --color-cancel-foreground: var(--cancel-foreground);
+  --color-waitlist: var(--waitlist);
+  --color-waitlist-foreground: var(--waitlist-foreground);
+  --color-childrenBooked: var(--children-booked);
+  --color-childrenBooked-foreground: var(--children-booked-foreground);
+  --color-closed: var(--closed);
+  --color-closed-foreground: var(--closed-foreground);
 }
 
 @layer base {
@@ -151,5 +191,66 @@
   }
   .gap-8 {
     gap: 2rem; /* 32px */
+  }
+
+  /* Booking action utilities (explicit until Tailwind tokens cover packages) */
+  .bg-checkin {
+    background-color: hsl(var(--checkin));
+  }
+  .hover\:bg-checkin\/90:hover {
+    background-color: hsl(var(--checkin) / 0.9);
+  }
+  .text-checkin-foreground {
+    color: hsl(var(--checkin-foreground));
+  }
+
+  .bg-trialable {
+    background-color: hsl(var(--trialable));
+  }
+  .hover\:bg-trialable\/90:hover {
+    background-color: hsl(var(--trialable) / 0.9);
+  }
+  .text-trialable-foreground {
+    color: hsl(var(--trialable-foreground));
+  }
+
+  .bg-cancel {
+    background-color: hsl(var(--cancel));
+  }
+  .hover\:bg-cancel\/90:hover {
+    background-color: hsl(var(--cancel) / 0.9);
+  }
+  .text-cancel-foreground {
+    color: hsl(var(--cancel-foreground));
+  }
+
+  .bg-waitlist {
+    background-color: hsl(var(--waitlist));
+  }
+  .hover\:bg-waitlist\/90:hover {
+    background-color: hsl(var(--waitlist) / 0.9);
+  }
+  .text-waitlist-foreground {
+    color: hsl(var(--waitlist-foreground));
+  }
+
+  .bg-childrenBooked {
+    background-color: hsl(var(--children-booked));
+  }
+  .hover\:bg-childrenBooked\/90:hover {
+    background-color: hsl(var(--children-booked) / 0.9);
+  }
+  .text-childrenBooked-foreground {
+    color: hsl(var(--children-booked-foreground));
+  }
+
+  .bg-closed {
+    background-color: hsl(var(--closed));
+  }
+  .hover\:bg-closed\/90:hover {
+    background-color: hsl(var(--closed) / 0.9);
+  }
+  .text-closed-foreground {
+    color: hsl(var(--closed-foreground));
   }
 }
