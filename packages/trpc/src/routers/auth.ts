@@ -26,6 +26,7 @@ export const authRouter = {
           },
         },
         limit: 1,
+        overrideAccess: true,
       });
 
       if (existingUser.docs.length > 0) {

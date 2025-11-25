@@ -20,4 +20,10 @@ const createContext = cache(async () => {
   })
 })
 
-export const { trpc, getQueryClient, HydrateClient, prefetch } = createServerTRPC(createContext)
+type ServerTRPC = ReturnType<typeof createServerTRPC>
+const serverTRPC: ServerTRPC = createServerTRPC(createContext)
+
+export const trpc: ServerTRPC['trpc'] = serverTRPC.trpc
+export const getQueryClient: ServerTRPC['getQueryClient'] = serverTRPC.getQueryClient
+export const HydrateClient: ServerTRPC['HydrateClient'] = serverTRPC.HydrateClient
+export const prefetch: ServerTRPC['prefetch'] = serverTRPC.prefetch

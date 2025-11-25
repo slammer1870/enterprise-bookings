@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { RegisterForm, LoginForm } from '@repo/auth-next'
-import { signIn } from '@/lib/auth/client'
 
 interface AuthTabsProps {
   defaultView?: 'sign-in' | 'sign-up'
@@ -36,11 +35,7 @@ function AuthTabsContent({ defaultView = 'sign-in' }: AuthTabsProps) {
         />
       </TabsContent>
       <TabsContent value="sign-up" className="mt-4">
-        <RegisterForm
-          sendMagicLink={async (args: { email: string; callbackURL: string }) => {
-            await signIn.magicLink(args)
-          }}
-        />
+        <RegisterForm />
       </TabsContent>
     </Tabs>
   )

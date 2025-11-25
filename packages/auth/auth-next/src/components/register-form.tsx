@@ -26,19 +26,15 @@ import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
 import { useTRPC } from "@repo/trpc";
 import { useMutation } from "@tanstack/react-query";
 
-interface RegisterFormProps {
-  sendMagicLink: (args: { email: string; callbackURL: string }) => Promise<void>;
-}
-
-export default function RegisterForm({ sendMagicLink }: RegisterFormProps) {
+export default function RegisterForm() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <RegisterFormContent sendMagicLink={sendMagicLink} />
+      <RegisterFormContent />
     </Suspense>
   );
 }
 
-function RegisterFormContent({ sendMagicLink }: RegisterFormProps) {
+function RegisterFormContent() {
   const searchParams = useSearchParams();
   const callbackUrl = useRef(searchParams?.get("callbackUrl") || "/dashboard");
   const router = useRouter();
@@ -47,6 +43,9 @@ function RegisterFormContent({ sendMagicLink }: RegisterFormProps) {
 
   const { mutateAsync: registerMutation, isPending } = useMutation(
     trpc.auth.registerPasswordless.mutationOptions()
+  );
+  const { mutateAsync: sendMagicLinkMutation } = useMutation(
+    trpc.auth.signInMagicLink.mutationOptions()
   );
 
   const registerSchema = z.object({
@@ -78,8 +77,8 @@ function RegisterFormContent({ sendMagicLink }: RegisterFormProps) {
           email: normalizedEmail,
         });
 
-        // Send magic link via better auth client
-        await sendMagicLink({
+        // Send magic link via tRPC (Better Auth under the hood)
+        await sendMagicLinkMutation({
           email: normalizedEmail,
           callbackURL: callbackUrl.current || "/dashboard",
         });
@@ -87,14 +86,13 @@ function RegisterFormContent({ sendMagicLink }: RegisterFormProps) {
         trackEvent("Registration Completed");
         router.push("/magic-link-sent");
       } catch (error: any) {
-        const errorMessage =
-          error?.message || "An error occurred during registration";
+        const errorMessage = error?.message || "An error occurred during login";
         form.setError("email", {
           message: errorMessage,
         });
       }
     },
-    [registerMutation, sendMagicLink, router, trackEvent]
+    [registerMutation, sendMagicLinkMutation, router, trackEvent]
   );
 
   return (

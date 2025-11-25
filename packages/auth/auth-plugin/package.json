@@ -17,6 +17,8 @@
     "jsonwebtoken": "^9.0.2",
     "node-mocks-http": "^1.17.2",
     "payload": "3.64.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-email": "^5.0.4",
     "sharp": "0.34.5",
     "stripe": "20.0.0",
@@ -26,6 +28,8 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^24.10.1",
+    "@types/react": "^19.0.4",
+    "@types/react-dom": "^19.0.4",
     "eslint": "^9.39.1",
     "typescript": "5.9.3",
     "vitest": "4.0.12"
