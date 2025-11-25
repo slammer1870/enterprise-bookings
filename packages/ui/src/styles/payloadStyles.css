@@ -12,8 +12,9 @@
 /* Import Tailwind utilities */
 @import "tailwindcss/utilities.css" layer(utilities);
 
-@source "../../../apps/**/*.{ts,tsx}";
-@source "../../../components/**/*.{ts,tsx}";
+@source "../../../../apps/**/*.{ts,tsx}";
+@source "../../../../components/**/*.{ts,tsx}";
+@source "../../../../packages/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
 /* Support Payload’s dark mode toggle by adding a custom variant */
