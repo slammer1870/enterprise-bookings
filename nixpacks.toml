@@ -1,14 +1,14 @@
 [phases.setup]
-nixPkgs = ["nodejs_18", "pnpm-9_x", "openssl"]
+nixPkgs = ["nodejs_20", "pnpm-9_x", "openssl"]
 
 [phases.install]
 cmds = ["pnpm install"]
 
 [phases.build]
-cmds = ["pnpm run build --filter bru-grappling"]
+cmds = ["pnpm run build --filter kyuzo"]
 
 [start]
-cmd = "cd apps/bru-grappling && pnpm run start"
+cmd = "cd apps/kyuzo && pnpm run start"
 
 [variables]
 NODE_ENV = "production"
