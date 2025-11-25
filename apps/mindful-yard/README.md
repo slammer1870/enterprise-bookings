@@ -23,7 +23,7 @@ A modern web application built with Next.js and Payload CMS, designed to manage 
 
 ## Prerequisites
 
-- Node.js (^18.20.2 || >=20.9.0)
+- Node.js (>=20)
 - pnpm package manager
 - PostgreSQL database
 - Docker (optional)

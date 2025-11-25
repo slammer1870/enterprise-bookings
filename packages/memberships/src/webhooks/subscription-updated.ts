@@ -27,7 +27,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
     const subscription = await payload.find({
       collection: "subscriptions",
-      depth: 2,
+      depth: 0,
       where: {
         stripeSubscriptionId: { equals: event.data.object.id },
       },
@@ -39,7 +39,9 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
     await payload.update({
       collection: "subscriptions",
-      id: subscription.docs[0]?.id as number,
+      where: {
+        stripeSubscriptionId: { equals: event.data.object.id },
+      },
       data: {
         status: event.data.object.status,
         cancelAt: event.data.object.cancel_at
@@ -57,7 +59,9 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     if (plan.docs[0]?.id) {
       await payload.update({
         collection: "subscriptions",
-        id: subscription.docs[0]?.id as number,
+        where: {
+          stripeSubscriptionId: { equals: event.data.object.id },
+        },
         data: {
           plan: plan.docs[0]?.id,
         },
@@ -68,7 +72,9 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       const booking = await payload.find({
         collection: "bookings",
         where: {
-          user: { equals: user.docs[0]?.id },
+          user: {
+            in: subscription.docs.map((subscription) => subscription.user),
+          },
           lesson: { equals: lesson_id as unknown as number },
         },
         limit: 1,
@@ -95,4 +101,3 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     console.error("Error updating subscription", error);
   }
 };
- 
