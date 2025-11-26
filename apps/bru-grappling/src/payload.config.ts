@@ -6,6 +6,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
+import { mcpPlugin } from '@payloadcms/plugin-mcp'
 
 import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
@@ -78,6 +79,31 @@ export default buildConfig({
   sharp: sharp as unknown as SharpDependency,
   plugins: [
     //payloadCloudPlugin(),
+    mcpPlugin({
+      collections: {
+        users: {
+          enabled: true,
+        },
+        lessons: {
+          enabled: true,
+        },
+        'class-options': {
+          enabled: true,
+        },
+        bookings: {
+          enabled: true,
+        },
+        'drop-ins': {
+          enabled: true,
+        },
+        subscriptions: {
+          enabled: true,
+        },
+        plans: {
+          enabled: true,
+        },
+      },
+    }),
     formBuilderPlugin({
       formOverrides: {
         access: {

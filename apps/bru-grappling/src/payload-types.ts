@@ -63,6 +63,7 @@ export type SupportedTimezones =
 
 export interface Config {
   auth: {
+    'payload-mcp-api-keys': PayloadMcpApiKeyAuthOperations;
     users: UserAuthOperations;
   };
   blocks: {};
@@ -70,6 +71,7 @@ export interface Config {
     media: Media;
     pages: Page;
     posts: Post;
+    'payload-mcp-api-keys': PayloadMcpApiKey;
     forms: Form;
     'form-submissions': FormSubmission;
     lessons: Lesson;
@@ -99,6 +101,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
+    'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
@@ -128,9 +131,13 @@ export interface Config {
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
-  user: User & {
-    collection: 'users';
-  };
+  user:
+    | (PayloadMcpApiKey & {
+        collection: 'payload-mcp-api-keys';
+      })
+    | (User & {
+        collection: 'users';
+      });
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
@@ -140,6 +147,24 @@ export interface Config {
       };
     };
     workflows: unknown;
+  };
+}
+export interface PayloadMcpApiKeyAuthOperations {
+  forgotPassword: {
+    email: string;
+    password: string;
+  };
+  login: {
+    email: string;
+    password: string;
+  };
+  registerFirstUser: {
+    email: string;
+    password: string;
+  };
+  unlock: {
+    email: string;
+    password: string;
   };
 }
 export interface UserAuthOperations {
@@ -658,58 +683,156 @@ export interface Post {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * API keys control which collections, resources, tools, and prompts MCP clients can access
+ *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions".
+ * via the `definition` "payload-mcp-api-keys".
  */
-export interface FormSubmission {
+export interface PayloadMcpApiKey {
   id: number;
-  form: number | Form;
-  submissionData?:
-    | {
-        field: string;
-        value: string;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
   /**
-   * The time in minutes before the lesson will be closed for new bookings.
+   * The user that the API key is associated with.
    */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | User;
-  classOption: number | ClassOption;
+  user: number | User;
   /**
-   * The number of places remaining
+   * A useful label for the API key.
    */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
+  label?: string | null;
+  /**
+   * The purpose of the API key.
+   */
+  description?: string | null;
+  users?: {
+    /**
+     * Allow clients to find users.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create users.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update users.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete users.
+     */
+    delete?: boolean | null;
   };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  originalLockOutTime?: number | null;
+  lessons?: {
+    /**
+     * Allow clients to find lessons.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create lessons.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update lessons.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete lessons.
+     */
+    delete?: boolean | null;
+  };
+  classOptions?: {
+    /**
+     * Allow clients to find class-options.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create class-options.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update class-options.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete class-options.
+     */
+    delete?: boolean | null;
+  };
+  bookings?: {
+    /**
+     * Allow clients to find bookings.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create bookings.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update bookings.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete bookings.
+     */
+    delete?: boolean | null;
+  };
+  dropIns?: {
+    /**
+     * Allow clients to find drop-ins.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create drop-ins.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update drop-ins.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete drop-ins.
+     */
+    delete?: boolean | null;
+  };
+  subscriptions?: {
+    /**
+     * Allow clients to find subscriptions.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create subscriptions.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update subscriptions.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete subscriptions.
+     */
+    delete?: boolean | null;
+  };
+  plans?: {
+    /**
+     * Allow clients to find plans.
+     */
+    find?: boolean | null;
+    /**
+     * Allow clients to create plans.
+     */
+    create?: boolean | null;
+    /**
+     * Allow clients to update plans.
+     */
+    update?: boolean | null;
+    /**
+     * Allow clients to delete plans.
+     */
+    delete?: boolean | null;
+  };
   updatedAt: string;
   createdAt: string;
+  enableAPIKey?: boolean | null;
+  apiKey?: string | null;
+  apiKeyIndex?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -753,21 +876,61 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
+ * via the `definition` "lessons".
  */
-export interface Subscription {
+export interface Lesson {
   id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
   /**
-   * Skip syncing to Stripe
+   * The time in minutes before the lesson will be closed for new bookings.
    */
-  skipSync?: boolean | null;
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  originalLockOutTime?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child' | 'family';
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+    allowedDropIn?: (number | null) | DropIn;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -835,29 +998,6 @@ export interface Plan {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  /**
-   * Is this a class for adults or children?
-   */
-  type: 'adult' | 'child' | 'family';
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-    allowedDropIn?: (number | null) | DropIn;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "drop-ins".
  */
 export interface DropIn {
@@ -888,6 +1028,43 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions".
+ */
+export interface FormSubmission {
+  id: number;
+  form: number | Form;
+  submissionData?:
+    | {
+        field: string;
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1017,6 +1194,10 @@ export interface PayloadLockedDocument {
         value: number | Post;
       } | null)
     | ({
+        relationTo: 'payload-mcp-api-keys';
+        value: number | PayloadMcpApiKey;
+      } | null)
+    | ({
         relationTo: 'forms';
         value: number | Form;
       } | null)
@@ -1061,10 +1242,15 @@ export interface PayloadLockedDocument {
         value: number | PayloadJob;
       } | null);
   globalSlug?: string | null;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: number | PayloadMcpApiKey;
+      }
+    | {
+        relationTo: 'users';
+        value: number | User;
+      };
   updatedAt: string;
   createdAt: string;
 }
@@ -1074,10 +1260,15 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: number;
-  user: {
-    relationTo: 'users';
-    value: number | User;
-  };
+  user:
+    | {
+        relationTo: 'payload-mcp-api-keys';
+        value: number | PayloadMcpApiKey;
+      }
+    | {
+        relationTo: 'users';
+        value: number | User;
+      };
   key?: string | null;
   value?:
     | {
@@ -1348,6 +1539,76 @@ export interface PostsSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-mcp-api-keys_select".
+ */
+export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
+  user?: T;
+  label?: T;
+  description?: T;
+  users?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  lessons?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  classOptions?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  bookings?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  dropIns?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  subscriptions?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  plans?:
+    | T
+    | {
+        find?: T;
+        create?: T;
+        update?: T;
+        delete?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  enableAPIKey?: T;
+  apiKey?: T;
+  apiKeyIndex?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
