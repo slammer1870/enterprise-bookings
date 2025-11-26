@@ -32,6 +32,7 @@ import { LessonAdmin as LessonAdmin_28f82c8ab580570e6e2e631b3f76d105 } from '@re
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
 import { DayRowLabel as DayRowLabel_5db892d6791db3696a6450921707b1cc } from '@repo/bookings/src/components/scheduler/day-row-label'
+import { WeekViewCalendar as WeekViewCalendar_e1998fcf599260bd5eac4e35603cd109 } from '@repo/bookings/src/components/scheduler/week-view-calendar'
 
 export const importMap = {
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -67,5 +68,6 @@ export const importMap = {
   "@repo/bookings/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_28f82c8ab580570e6e2e631b3f76d105,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
-  "@repo/bookings/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_5db892d6791db3696a6450921707b1cc
+  "@repo/bookings/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_5db892d6791db3696a6450921707b1cc,
+  "@repo/bookings/src/components/scheduler/week-view-calendar#WeekViewCalendar": WeekViewCalendar_e1998fcf599260bd5eac4e35603cd109
 }
