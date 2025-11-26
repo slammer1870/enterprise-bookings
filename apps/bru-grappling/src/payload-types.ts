@@ -2107,7 +2107,11 @@ export interface Scheduler {
    */
   defaultClassOption: number | ClassOption;
   /**
-   * The days of the week and their time slots
+   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
+   */
+  clearExisting?: boolean | null;
+  /**
+   * Set up your weekly schedule template. Time slots set for each day will apply to all instances of that day between the start and end dates (e.g., Monday slots apply to every Monday in the date range).
    */
   week?: {
     days?:
@@ -2137,10 +2141,6 @@ export interface Scheduler {
         }[]
       | null;
   };
-  /**
-   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
-   */
-  clearExisting?: boolean | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2185,6 +2185,7 @@ export interface SchedulerSelect<T extends boolean = true> {
   endDate?: T;
   lockOutTime?: T;
   defaultClassOption?: T;
+  clearExisting?: T;
   week?:
     | T
     | {
@@ -2206,7 +2207,6 @@ export interface SchedulerSelect<T extends boolean = true> {
               id?: T;
             };
       };
-  clearExisting?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
