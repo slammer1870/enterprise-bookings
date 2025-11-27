@@ -144,7 +144,6 @@ export function calendarEventToTimeSlot(event: CalendarEvent): TimeSlotData {
 
   return {
     ...event.resource.slotData,
-    id: event.id,
     startTime,
     endTime,
   };

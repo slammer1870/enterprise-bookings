@@ -42,14 +42,16 @@ export const WeekViewCalendar: React.FC<WeekViewCalendarProps> = ({
   field,
 }) => {
   const { value, setValue } = useField<WeekData>({ path });
-  
+  console.log("[WeekViewCalendar] value:", value);
+
   // Also access the nested days field directly to ensure changes are properly tracked
   const daysPath = `${path}.days`;
   console.log("[WeekViewCalendar] daysPath:", daysPath);
   const { setValue: setDaysValue } = useField<any[]>({ path: daysPath });
-  
+
   // Use useFormFields to get direct access to the form fields state for debugging
   const weekFieldInForm = useFormFields(([fields]) => fields[path]);
+  console.log("[WeekViewCalendar] weekFieldInForm:", weekFieldInForm);
 
   // Track if we've initialized the week structure to prevent resetting user changes
   const [hasInitialized, setHasInitialized] = React.useState(false);

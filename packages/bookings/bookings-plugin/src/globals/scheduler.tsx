@@ -160,38 +160,66 @@ export const schedulerGlobal: GlobalConfig = {
   hooks: {
     beforeChange: [
       async ({ data, req }) => {
-        console.log("[Scheduler Global] beforeChange hook - week data:", JSON.stringify(data.week, null, 2));
-        console.log("[Scheduler Global] beforeChange hook - full data keys:", Object.keys(data || {}));
-        
+        console.log(
+          "[Scheduler Global] beforeChange hook - week data:",
+          JSON.stringify(data.week, null, 2)
+        );
+        console.log(
+          "[Scheduler Global] beforeChange hook - full data keys:",
+          Object.keys(data || {})
+        );
+
         // If week data is missing or empty, try to preserve any existing week data from the database
         if (!data.week || !data.week.days || data.week.days.length === 0) {
           try {
             const existingGlobal = await req.payload.findGlobal({
-              slug: 'scheduler',
+              slug: "scheduler",
             });
-            if (existingGlobal && existingGlobal.week && existingGlobal.week.days && existingGlobal.week.days.length > 0) {
-              console.log("[Scheduler Global] Preserving existing week data from database (", existingGlobal.week.days.length, "days with data)");
+            if (
+              existingGlobal &&
+              existingGlobal.week &&
+              existingGlobal.week.days &&
+              existingGlobal.week.days.length > 0
+            ) {
+              console.log(
+                "[Scheduler Global] Preserving existing week data from database (",
+                existingGlobal.week.days.length,
+                "days with data)"
+              );
               data.week = existingGlobal.week;
             } else {
-              console.log("[Scheduler Global] No existing week data found in database");
+              console.log(
+                "[Scheduler Global] No existing week data found in database"
+              );
             }
           } catch (error) {
-            console.error("[Scheduler Global] Error fetching existing global:", error);
+            console.error(
+              "[Scheduler Global] Error fetching existing global:",
+              error
+            );
           }
         } else {
-          console.log("[Scheduler Global] Week data present in form data (", data.week.days?.length || 0, "days)");
+          console.log(
+            "[Scheduler Global] Week data present in form data (",
+            data.week.days?.length || 0,
+            "days)"
+          );
         }
-        
+
         return data;
       },
     ],
     afterChange: [
       async ({ req, doc }) => {
+        console.log("[Scheduler Global] doc:", doc);
         console.log("[Scheduler Global] afterChange hook triggered");
-        console.log("[Scheduler Global] Week data:", JSON.stringify(doc.week, null, 2));
+        console.log(
+          "[Scheduler Global] Week data:",
+          JSON.stringify(doc.week, null, 2)
+        );
         console.log("[Scheduler Global] Start date:", doc.startDate);
         console.log("[Scheduler Global] End date:", doc.endDate);
-        
+
         const job = await req.payload.jobs.queue({
           task: "generateLessonsFromSchedule",
           input: {
@@ -289,7 +317,8 @@ export const schedulerGlobal: GlobalConfig = {
       name: "week",
       label: "Weekly Schedule Template",
       admin: {
-        description: "Set up your weekly schedule template. Time slots set for each day will apply to all instances of that day between the start and end dates (e.g., Monday slots apply to every Monday in the date range).",
+        description:
+          "Set up your weekly schedule template. Time slots set for each day will apply to all instances of that day between the start and end dates (e.g., Monday slots apply to every Monday in the date range).",
         components: {
           Field:
             "@repo/bookings-plugin/src/components/scheduler/week-view-calendar#WeekViewCalendar",
