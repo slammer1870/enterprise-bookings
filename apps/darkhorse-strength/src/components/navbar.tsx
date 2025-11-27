@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 
+import Image from 'next/image'
 import Link from 'next/link'
 
 import { usePathname, useRouter } from 'next/navigation'
@@ -51,7 +52,7 @@ const Navbar: React.FC = () => {
     >
       <div className="container mx-auto flex items-center justify-between px-4 py-2 text-background md:text-foreground">
         <Link href="/">
-          <img src="/logoBW.svg" alt="Logo" className="h-16" />
+          <Image src="/logoBW.svg" alt="Logo" width={64} height={64} className="h-16" />
         </Link>
         <menu className="flex w-1/3 justify-end md:w-full lg:w-2/3 xl:w-1/2">
           <button className="z-40 md:hidden" onClick={handleOpen}>
