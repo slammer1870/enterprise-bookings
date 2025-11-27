@@ -18,14 +18,20 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
-      ...(process.env.NEXT_PUBLIC_SERVER_URL ? [process.env.NEXT_PUBLIC_SERVER_URL] : ['https://brugrappling.ie']).map((item) => {
-        const url = new URL(item)
-
-        return {
-          hostname: url.hostname,
-          protocol: url.protocol.replace(':', ''),
-        }
-      }),
+      ...(process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie')
+        .split(',')
+        .map((item) => {
+          try {
+            const url = new URL(item.trim())
+            return {
+              hostname: url.hostname,
+              protocol: url.protocol.replace(':', ''),
+            }
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean),
     ],
   },
 
