@@ -112,7 +112,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
               let instructorId: number
 
-              if (existingInstructors.rows && existingInstructors.rows.length > 0) {
+              if (existingInstructors.rows && existingInstructors.rows.length > 0 && existingInstructors.rows[0]) {
                 // Use existing instructor
                 instructorId = existingInstructors.rows[0].id
                 console.log(`Using existing instructor ${instructorId} for user ${row.user_id}`)
@@ -131,6 +131,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
                   )
                   RETURNING id
                 `)
+                if (!newInstructor.rows[0]) {
+                  throw new Error(`Failed to create instructor for user ${row.user_id}: INSERT did not return id`)
+                }
                 instructorId = newInstructor.rows[0].id
                 console.log(`Created new instructor ${instructorId} for user ${row.user_id}${row.user_image_id ? ` (with image ${row.user_image_id})` : ''}`)
               }
@@ -226,7 +229,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
               let instructorId: number
 
-              if (existingInstructors.rows && existingInstructors.rows.length > 0) {
+              if (existingInstructors.rows && existingInstructors.rows.length > 0 && existingInstructors.rows[0]) {
                 instructorId = existingInstructors.rows[0].id
                 console.log(`Using existing instructor ${instructorId} for user ${row.user_id} (from scheduler)`)
               } else {
@@ -243,6 +246,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
                   )
                   RETURNING id
                 `)
+                if (!newInstructor.rows[0]) {
+                  throw new Error(`Failed to create instructor for user ${row.user_id}: INSERT did not return id`)
+                }
                 instructorId = newInstructor.rows[0].id
                 console.log(`Created new instructor ${instructorId} for user ${row.user_id} (from scheduler)${row.user_image_id ? ` (with image ${row.user_image_id})` : ''}`)
               }

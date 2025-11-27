@@ -37,3 +37,4 @@ AND NOT EXISTS (
   SELECT 1 FROM "instructors" WHERE "instructors"."id" = "lessons"."instructor_id"
 );
 
+

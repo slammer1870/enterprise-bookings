@@ -26,3 +26,4 @@ SELECT
     THEN 1 END) as orphaned_user_refs
 FROM lessons;
 
+
