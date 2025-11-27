@@ -29,6 +29,7 @@ import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c08
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { LessonAdmin as LessonAdmin_a8ce920709833e15274cf94b2365830c } from '@repo/bookings-plugin/src/components/lessons/lesson-admin'
+import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { default as default_93204d94190b460b2a4b3e03089a6c3a } from '@/fields/last-check-in'
 import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
@@ -66,6 +67,7 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_a8ce920709833e15274cf94b2365830c,
+  "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "@/fields/last-check-in#default": default_93204d94190b460b2a4b3e03089a6c3a,
   "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
