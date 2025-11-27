@@ -7,6 +7,8 @@ import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 
+import { migrations } from './migrations'
+
 import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
@@ -82,6 +84,7 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
+    prodMigrations: migrations,
   }),
   globals: [Navbar, Footer],
   sharp: sharp as unknown as SharpDependency,
