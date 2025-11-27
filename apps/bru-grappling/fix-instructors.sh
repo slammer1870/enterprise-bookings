@@ -22,3 +22,4 @@ echo ""
 # Run the SQL fix script
 psql "$DATABASE_URI" -f fix-instructor-migration.sql
 
+
