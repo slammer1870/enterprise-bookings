@@ -86,7 +86,7 @@ const defaultFields: Field[] = [
     access: {
       read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
     },
-    unique: true,
+    unique: false,
     required: false,
     admin: {
       components: {

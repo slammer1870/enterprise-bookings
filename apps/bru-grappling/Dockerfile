@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile optimized for Coolify deployment
 # Stage 1: Dependencies and build
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Install system dependencies
 RUN apk add --no-cache libc6-compat
@@ -24,7 +24,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build --filter=bru-grappling
 
 # Stage 2: Production runtime
-FROM node:18-alpine AS runner
+FROM node:20-alpine AS runner
 
 # Install system dependencies
 RUN apk add --no-cache libc6-compat
