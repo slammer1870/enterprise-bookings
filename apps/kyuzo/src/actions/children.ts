@@ -79,12 +79,12 @@ export const createChild = async (childData: ChildData) => {
   }
 
   try {
-    const user = await payload.create({
+    const newUser = await payload.create({
       collection: 'users',
-      data: userData,
+      data: userData as any,
     })
 
-    return user
+    return newUser
   } catch (error) {
     console.error(error)
     throw new Error((error as string) || 'Failed to create child')
