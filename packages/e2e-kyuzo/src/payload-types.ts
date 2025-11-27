@@ -67,9 +67,6 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    accounts: Account;
-    sessions: Session;
-    verifications: Verification;
     media: Media;
     pages: Page;
     posts: Post;
@@ -95,14 +92,10 @@ export interface Config {
     };
     users: {
       lessons: 'lessons';
-      children: 'users';
       userSubscription: 'subscriptions';
     };
   };
   collectionsSelect: {
-    accounts: AccountsSelect<false> | AccountsSelect<true>;
-    sessions: SessionsSelect<false> | SessionsSelect<true>;
-    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
@@ -169,192 +162,6 @@ export interface UserAuthOperations {
   };
 }
 /**
- * Accounts are used to store user accounts for authentication providers
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts".
- */
-export interface Account {
-  id: number;
-  /**
-   * The user that the account belongs to
-   */
-  user: number | User;
-  /**
-   * The id of the account as provided by the SSO or equal to userId for credential accounts
-   */
-  accountId: string;
-  /**
-   * The id of the provider as provided by the SSO
-   */
-  providerId: string;
-  /**
-   * The access token of the account. Returned by the provider
-   */
-  accessToken?: string | null;
-  /**
-   * The refresh token of the account. Returned by the provider
-   */
-  refreshToken?: string | null;
-  /**
-   * The date and time when the access token will expire
-   */
-  accessTokenExpiresAt?: string | null;
-  /**
-   * The date and time when the refresh token will expire
-   */
-  refreshTokenExpiresAt?: string | null;
-  /**
-   * The scope of the account. Returned by the provider
-   */
-  scope?: string | null;
-  /**
-   * The id token for the account. Returned by the provider
-   */
-  idToken?: string | null;
-  /**
-   * The hashed password of the account. Mainly used for email and password authentication
-   */
-  password?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  lessons?: {
-    docs?: (number | Lesson)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Parent of the user
-   */
-  parent?: (number | null) | User;
-  children?: {
-    docs?: (number | User)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Users chosen display name
-   */
-  name?: string | null;
-  /**
-   * Whether the email of the user has been verified
-   */
-  emailVerified: boolean;
-  /**
-   * The image of the user
-   */
-  image?: string | null;
-  /**
-   * The role of the user
-   */
-  role: 'customer' | 'admin';
-  updatedAt: string;
-  createdAt: string;
-  /**
-   * Whether the user is banned from the platform
-   */
-  banned?: boolean | null;
-  /**
-   * The reason for the ban
-   */
-  banReason?: string | null;
-  /**
-   * The date and time when the ban will expire
-   */
-  banExpires?: string | null;
-  roles?: ('customer' | 'admin')[] | null;
-  stripeCustomerId?: string | null;
-  userSubscription?: {
-    docs?: (number | Subscription)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * The email of the user
-   */
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the lesson will be closed for new bookings.
-   */
-  lockOutTime: number;
-  location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
- */
-export interface Instructor {
-  id: number;
-  /**
-   * The user associated with this instructor
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * Instructor profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this instructor is active and can be assigned to lessons
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -372,180 +179,6 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  /**
-   * Is this a class for adults or children?
-   */
-  type: 'adult' | 'child';
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans".
- */
-export interface Plan {
-  id: number;
-  name: string;
-  /**
-   * Features that are included in this plan
-   */
-  features?:
-    | {
-        feature?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Sessions included in this plan (if applicable)
-   */
-  sessionsInformation?: {
-    sessions?: number | null;
-    intervalCount?: number | null;
-    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-  };
-  stripeProductId?: string | null;
-  /**
-   * Price information for the plan
-   */
-  priceInformation?: {
-    /**
-     * Price of the plan
-     */
-    price?: number | null;
-    /**
-     * Number of intervals per period
-     */
-    intervalCount?: number | null;
-    /**
-     * How often the price is charged
-     */
-    interval?: ('day' | 'week' | 'month' | 'year') | null;
-  };
-  priceJSON?: string | null;
-  /**
-   * Status of the plan
-   */
-  status: 'active' | 'inactive';
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  /**
-   * Is this a membership for adults or children?
-   */
-  type?: ('adult' | 'child') | null;
-  /**
-   * The number of children who are subscribing to the plan
-   */
-  quantity?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  user: number | User;
-  lesson: number | Lesson;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
- */
-export interface Subscription {
-  id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Sessions are active sessions for users. They are used to authenticate users with a session token
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions".
- */
-export interface Session {
-  id: number;
-  /**
-   * The user that the session belongs to
-   */
-  user: number | User;
-  /**
-   * The unique session token
-   */
-  token: string;
-  /**
-   * The date and time when the session will expire
-   */
-  expiresAt: string;
-  /**
-   * The IP address of the device
-   */
-  ipAddress?: string | null;
-  /**
-   * The user agent information of the device
-   */
-  userAgent?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  /**
-   * The admin who is impersonating this session
-   */
-  impersonatedBy?: (number | null) | User;
-}
-/**
- * Verifications are used to verify authentication requests
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications".
- */
-export interface Verification {
-  id: number;
-  /**
-   * The identifier of the verification request
-   */
-  identifier: string;
-  /**
-   * The value to be verified
-   */
-  value: string;
-  /**
-   * The date and time when the verification request will expire
-   */
-  expiresAt: string;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -617,92 +250,8 @@ export interface Page {
             blockName?: string | null;
             blockType: 'about';
           }
-        | {
-            heading: string;
-            description: string;
-            image: number | Media;
-            ageGroups?:
-              | {
-                  title: string;
-                  description: string;
-                  id?: string | null;
-                }[]
-              | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'kids-program';
-          }
-        | {
-            heading: string;
-            image: number | Media;
-            programs?:
-              | {
-                  title: string;
-                  description: string;
-                  id?: string | null;
-                }[]
-              | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'adults-program';
-          }
-        | {
-            heading: string;
-            teamMembers?:
-              | {
-                  name: string;
-                  role: string;
-                  bio: string;
-                  id?: string | null;
-                }[]
-              | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'coaching-team';
-          }
-        | {
-            heading: string;
-            description: string;
-            form: number | Form;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'contact-form';
-          }
-        | {
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'latest-posts';
-          }
-        | {
-            content: {
-              root: {
-                type: string;
-                children: {
-                  type: any;
-                  version: number;
-                  [k: string]: unknown;
-                }[];
-                direction: ('ltr' | 'rtl') | null;
-                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-                indent: number;
-                version: number;
-              };
-              [k: string]: unknown;
-            };
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'content';
-          }
       )[]
     | null;
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -920,14 +469,6 @@ export interface Post {
   }[];
   publishedAt?: string | null;
   slug: string;
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -946,6 +487,220 @@ export interface FormSubmission {
         id?: string | null;
       }[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors".
+ */
+export interface Instructor {
+  id: number;
+  /**
+   * The user associated with this instructor
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * Instructor profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this instructor is active and can be assigned to lessons
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  image?: (number | null) | Media;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  parent?: (number | null) | User;
+  name: string;
+  roles?: ('customer' | 'admin')[] | null;
+  stripeCustomerId?: string | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | Instructor;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Is this a class for adults or children?
+   */
+  type: 'adult' | 'child';
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Sessions included in this plan (if applicable)
+   */
+  sessionsInformation?: {
+    sessions?: number | null;
+    intervalCount?: number | null;
+    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  };
+  stripeProductId?: string | null;
+  /**
+   * Price information for the plan
+   */
+  priceInformation?: {
+    /**
+     * Price of the plan
+     */
+    price?: number | null;
+    /**
+     * Number of intervals per period
+     */
+    intervalCount?: number | null;
+    /**
+     * How often the price is charged
+     */
+    interval?: ('day' | 'week' | 'month' | 'year') | null;
+  };
+  priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  /**
+   * Is this a membership for adults, family or children?
+   */
+  type: 'adult' | 'family' | 'child';
+  /**
+   * The number of children who are subscribing to the plan
+   */
+  quantity?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1080,18 +835,6 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'accounts';
-        value: number | Account;
-      } | null)
-    | ({
-        relationTo: 'sessions';
-        value: number | Session;
-      } | null)
-    | ({
-        relationTo: 'verifications';
-        value: number | Verification;
-      } | null)
-    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -1187,49 +930,6 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts_select".
- */
-export interface AccountsSelect<T extends boolean = true> {
-  user?: T;
-  accountId?: T;
-  providerId?: T;
-  accessToken?: T;
-  refreshToken?: T;
-  accessTokenExpiresAt?: T;
-  refreshTokenExpiresAt?: T;
-  scope?: T;
-  idToken?: T;
-  password?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions_select".
- */
-export interface SessionsSelect<T extends boolean = true> {
-  user?: T;
-  token?: T;
-  expiresAt?: T;
-  ipAddress?: T;
-  userAgent?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  impersonatedBy?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications_select".
- */
-export interface VerificationsSelect<T extends boolean = true> {
-  identifier?: T;
-  value?: T;
-  expiresAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
@@ -1291,81 +991,6 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        'kids-program'?:
-          | T
-          | {
-              heading?: T;
-              description?: T;
-              image?: T;
-              ageGroups?:
-                | T
-                | {
-                    title?: T;
-                    description?: T;
-                    id?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
-        'adults-program'?:
-          | T
-          | {
-              heading?: T;
-              image?: T;
-              programs?:
-                | T
-                | {
-                    title?: T;
-                    description?: T;
-                    id?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
-        'coaching-team'?:
-          | T
-          | {
-              heading?: T;
-              teamMembers?:
-                | T
-                | {
-                    name?: T;
-                    role?: T;
-                    bio?: T;
-                    id?: T;
-                  };
-              id?: T;
-              blockName?: T;
-            };
-        'contact-form'?:
-          | T
-          | {
-              heading?: T;
-              description?: T;
-              form?: T;
-              id?: T;
-              blockName?: T;
-            };
-        'latest-posts'?:
-          | T
-          | {
-              id?: T;
-              blockName?: T;
-            };
-        content?:
-          | T
-          | {
-              content?: T;
-              id?: T;
-              blockName?: T;
-            };
-      };
-  meta?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -1399,13 +1024,6 @@ export interface PostsSelect<T extends boolean = true> {
       };
   publishedAt?: T;
   slug?: T;
-  meta?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1637,21 +1255,15 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  image?: T;
   lessons?: T;
   parent?: T;
-  children?: T;
   name?: T;
-  emailVerified?: T;
-  image?: T;
-  role?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
+  updatedAt?: T;
+  createdAt?: T;
   email?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;
@@ -1811,14 +1423,13 @@ export interface Navbar {
  */
 export interface Footer {
   id: number;
-  brandName: string;
-  copyrightText: string;
-  socialLinks?: {
-    facebook?: string | null;
-    twitter?: string | null;
-    instagram?: string | null;
-    youtube?: string | null;
-  };
+  logo: string;
+  navigationItems: {
+    label: string;
+    link: string;
+    isExternal?: boolean | null;
+    id?: string | null;
+  }[];
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -1903,15 +1514,14 @@ export interface NavbarSelect<T extends boolean = true> {
  * via the `definition` "footer_select".
  */
 export interface FooterSelect<T extends boolean = true> {
-  brandName?: T;
-  copyrightText?: T;
-  socialLinks?:
+  logo?: T;
+  navigationItems?:
     | T
     | {
-        facebook?: T;
-        twitter?: T;
-        instagram?: T;
-        youtube?: T;
+        label?: T;
+        link?: T;
+        isExternal?: T;
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;
