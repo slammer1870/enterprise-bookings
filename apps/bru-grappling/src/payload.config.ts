@@ -84,7 +84,7 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
-    prodMigrations: migrations,
+    // prodMigrations: migrations,
     // push: false, // Disable automatic schema pushing - rely on migrations only
   }),
   globals: [Navbar, Footer],
