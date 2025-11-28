@@ -23,10 +23,22 @@ export default async function Dashboard() {
   }
   const payload = await getPayload({ config })
 
+  // Extract user ID - handle both object and number cases
+  const userId = typeof user === 'object' && user?.id 
+    ? user.id 
+    : typeof user === 'number' 
+    ? user 
+    : null;
+  
+  // Validate userId is a valid number
+  if (!userId || typeof userId !== 'number' || isNaN(userId)) {
+    redirect('/auth/sign-in')
+  }
+
   const subscription = await payload.find({
     collection: 'subscriptions',
     where: {
-      user: { equals: user },
+      user: { equals: userId },
       status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
       endDate: { greater_than: new Date() },
     },
