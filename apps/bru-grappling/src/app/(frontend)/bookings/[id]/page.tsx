@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/auth/get-session'
+import { getSession } from '@/lib/auth/context/get-context-props'
 
 import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 
@@ -28,9 +28,12 @@ export default async function BookingPage({ params }: BookingPageProps) {
   const { id } = await params
 
   // Auth check
-  const { user } = await getSession({
-    nullUserRedirect: `/auth/sign-in?callbackUrl=/bookings/${id}`,
-  })
+  const session = await getSession()
+  const user = session?.user
+
+  if (!user) {
+    redirect('/auth/sign-in?callbackUrl=/bookings/${id}')
+  }
 
   const payload = await getPayload({ config })
 
@@ -60,7 +63,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   // Handle active/trialable status
   if (['active', 'trialable'].includes(lesson.bookingStatus)) {
-    const checkIn = await checkInAction(lesson.id, user.id)
+    const checkIn = await checkInAction(lesson.id, Number(user.id))
     if (checkIn.success) {
       redirect('/dashboard')
     }
@@ -77,7 +80,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
     where: {
       and: [
         {
-          user: { equals: user.id },
+          user: { equals: Number(user.id) },
           status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
         },
       ],

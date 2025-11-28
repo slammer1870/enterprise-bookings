@@ -120,7 +120,7 @@ export const betterAuthPluginOptions = {
   admin: {
     loginMethods: ['emailPassword'],
   },
-  disableDefaultPayloadAuth: true,
+  disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
   users: {
     slug: 'users', // not required, this is the default anyways
