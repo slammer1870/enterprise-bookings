@@ -1,5 +1,5 @@
 import { Booking, Lesson, User } from "@repo/shared-types";
-import { AccessArgs } from "payload";
+import { AccessArgs, CollectionSlug } from "payload";
 import { validateLessonStatus, validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
 
@@ -52,7 +52,7 @@ export const childrenCreateBookingMembershipAccess = async ({
 
   try {
     const lesson = (await payload.findByID({
-      collection: "lessons",
+      collection: "lessons" as unknown as CollectionSlug,
       id: lessonId,
       depth: 3,
     })) as unknown as Lesson;
@@ -167,13 +167,13 @@ export const childrenUpdateBookingMembershipAccess = async ({
   try {
     if (id) {
       booking = (await payload.findByID({
-        collection: "bookings",
+        collection: "bookings" as unknown as CollectionSlug,
         id,
         depth: 3,
       })) as unknown as Booking;
     } else {
       const bookingQuery = await payload.find({
-        collection: "bookings",
+        collection: "bookings" as unknown as CollectionSlug,
         where: {
           lesson: { equals: lessonId },
           user: { equals: userId },
@@ -193,7 +193,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     const lesson = (await payload.findByID({
-      collection: "lessons",
+      collection: "lessons" as unknown as CollectionSlug,
       id: booking.lesson.id,
       depth: 3,
     })) as unknown as Lesson;

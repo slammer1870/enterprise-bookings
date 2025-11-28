@@ -8,14 +8,14 @@ export function hasCollection(payload: any, collectionSlug: string): boolean {
   try {
     const collections = payload.config?.collections || [];
 
-
-
     const found = collections.some(
       (col: any) => col?.slug === collectionSlug || col === collectionSlug
     );
     if (!found) {
-      console.log(`Collection "${collectionSlug}" not found. Available collections:`, 
-        collections.map((col: any) => col?.slug || col));
+      console.log(
+        `Collection "${collectionSlug}" not found. Available collections:`,
+        collections.map((col: any) => col?.slug || col)
+      );
     }
     return found;
   } catch (error) {
@@ -27,7 +27,7 @@ export function hasCollection(payload: any, collectionSlug: string): boolean {
 /**
  * Middleware to ensure required collections exist before executing a procedure
  * This prevents errors when an app doesn't have certain collections
- * 
+ *
  * @example
  * const procedure = protectedProcedure
  *   .use(requireCollections("bookings", "lessons"))
@@ -38,7 +38,7 @@ export function requireCollections(...collectionSlugs: string[]) {
   return async ({ ctx, next }: any) => {
     // Check each required collection
     const missingCollections: string[] = [];
-    
+
     for (const slug of collectionSlugs) {
       if (!hasCollection(ctx.payload, slug)) {
         missingCollections.push(slug);
@@ -78,7 +78,7 @@ export async function findByIdSafe<T>(
 
   try {
     return (await payload.findByID({
-      collection: collectionSlug as unknown as CollectionSlug,
+      collection: collectionSlug as CollectionSlug,
       id,
       depth: options.depth ?? 0,
       overrideAccess: options.overrideAccess ?? false,
@@ -95,8 +95,9 @@ export async function findByIdSafe<T>(
 
 /**
  * Helper function to safely find documents in a collection
+ * @template T - The expected type of the documents returned
  */
-export async function findSafe(
+export async function findSafe<T = any>(
   payload: any,
   collectionSlug: string,
   options: {
@@ -107,7 +108,18 @@ export async function findSafe(
     user?: any;
     sort?: string;
   } = {}
-) {
+): Promise<{
+  docs: T[];
+  totalDocs: number;
+  limit: number;
+  totalPages: number;
+  page?: number;
+  pagingCounter: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
+  prevPage?: number | null;
+  nextPage?: number | null;
+}> {
   if (!hasCollection(payload, collectionSlug)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -115,21 +127,33 @@ export async function findSafe(
     });
   }
 
-  return await payload.find({
-    collection: collectionSlug as unknown as CollectionSlug,
+  return (await payload.find({
+    collection: collectionSlug as CollectionSlug,
     where: options.where,
     limit: options.limit,
     depth: options.depth ?? 0,
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
     ...(options.sort && { sort: options.sort }),
-  });
+  })) as Promise<{
+    docs: T[];
+    totalDocs: number;
+    limit: number;
+    totalPages: number;
+    page?: number;
+    pagingCounter: number;
+    hasPrevPage: boolean;
+    hasNextPage: boolean;
+    prevPage?: number | null;
+    nextPage?: number | null;
+  }>;
 }
 
 /**
  * Helper function to safely create a document in a collection
+ * @template T - The expected type of the created document
  */
-export async function createSafe(
+export async function createSafe<T = any>(
   payload: any,
   collectionSlug: string,
   data: any,
@@ -138,7 +162,7 @@ export async function createSafe(
     overrideAccess?: boolean;
     user?: any;
   } = {}
-) {
+): Promise<T> {
   if (!hasCollection(payload, collectionSlug)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -147,14 +171,14 @@ export async function createSafe(
   }
 
   try {
-    return await payload.create({
-      collection: collectionSlug as unknown as CollectionSlug,
+    return (await payload.create({
+      collection: collectionSlug as CollectionSlug,
       data,
       depth: options.depth ?? 0,
       overrideAccess: options.overrideAccess ?? false,
       user: options.user,
       showHiddenFields: false,
-    });
+    })) as T;
   } catch (error: any) {
     // Handle the specific error about missing join fields (like "lessons")
     // This can happen when Payload tries to process join fields that don't exist in the schema
@@ -167,7 +191,7 @@ export async function createSafe(
         errorMessage,
         "\nThis may be due to a commented-out join field in the collection schema."
       );
-      
+
       // Re-throw with a more helpful error message
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -181,8 +205,9 @@ export async function createSafe(
 
 /**
  * Helper function to safely update a document in a collection
+ * @template T - The expected type of the updated document
  */
-export async function updateSafe(
+export async function updateSafe<T = any>(
   payload: any,
   collectionSlug: string,
   id: number | string,
@@ -192,7 +217,7 @@ export async function updateSafe(
     overrideAccess?: boolean;
     user?: any;
   } = {}
-) {
+): Promise<T> {
   if (!hasCollection(payload, collectionSlug)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -200,13 +225,12 @@ export async function updateSafe(
     });
   }
 
-  return await payload.update({
-    collection: collectionSlug as unknown as CollectionSlug,
+  return (await payload.update({
+    collection: collectionSlug as CollectionSlug,
     id,
     data,
     depth: options.depth ?? 0,
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
-  });
+  })) as T;
 }
-

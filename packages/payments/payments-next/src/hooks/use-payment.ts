@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { calculateQuantityDiscount } from "../utils/discount";
 import { DiscountResult, DiscountTier } from "@repo/shared-types";
@@ -40,3 +42,4 @@ export function usePayment({
     price,
   };
 }
+

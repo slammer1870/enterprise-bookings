@@ -49,3 +49,4 @@ export function PaymentDetailsForm({ paymentMethod }: PaymentDetailsFormProps) {
     </div>
   );
 }
+
