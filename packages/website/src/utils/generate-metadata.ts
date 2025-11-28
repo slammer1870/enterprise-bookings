@@ -36,6 +36,21 @@ export async function generateMetadataFunction({
   // Type-safe access to page properties
   const title = (page as any).meta?.title || (page as any).title;
   const description = (page as any).meta?.description;
+  const image = (page as any).meta?.image;
+
+  const metadataBase = process.env.NEXT_PUBLIC_SERVER_URL
+    ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
+    : undefined;
+
+  const ogImage =
+    image && typeof image === "object" && image.url
+      ? {
+          url: image.url,
+          width: image.width || 1200,
+          height: image.height || 630,
+          alt: image.alt || title,
+        }
+      : undefined;
 
   return {
     title,
@@ -43,13 +58,15 @@ export async function generateMetadataFunction({
     openGraph: {
       title,
       description: description || "",
-      images:
-        (page as any).meta?.image && typeof (page as any).meta.image === "object"
-          ? [{ url: (page as any).meta.image.url || "" }]
-          : [],
+      ...(ogImage && { images: [ogImage] }),
+      ...(metadataBase && { url: new URL(slug === "home" ? "" : slug, metadataBase).toString() }),
     },
-    metadataBase: process.env.NEXT_PUBLIC_SERVER_URL
-      ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
-      : undefined,
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: description || "",
+      ...(ogImage && { images: [ogImage.url] }),
+    },
+    ...(metadataBase && { metadataBase }),
   };
 }

@@ -7,7 +7,7 @@ import { User } from '@repo/shared-types'
 
 import config from '@payload-config'
 
-import { generatePasswordSaltHash } from '@repo/auth/server'
+import { generatePasswordSaltHash } from '@repo/auth-plugin'
 import crypto from 'crypto'
 
 import { headers as getHeaders } from 'next/headers'
@@ -79,12 +79,12 @@ export const createChild = async (childData: ChildData) => {
   }
 
   try {
-    const user = await payload.create({
+    const newUser = await payload.create({
       collection: 'users',
-      data: userData,
+      data: userData as any,
     })
 
-    return user
+    return newUser
   } catch (error) {
     console.error(error)
     throw new Error((error as string) || 'Failed to create child')

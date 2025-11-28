@@ -15,10 +15,11 @@ import sharp from 'sharp'
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 
-import { bookingsPlugin } from '@repo/bookings'
-import { magicLinkPlugin } from '@repo/auth/server'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
-import { paymentsPlugin } from '@repo/payments'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
 
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
@@ -106,12 +107,7 @@ export default buildConfig({
         },
       },
     }),
-    magicLinkPlugin({
-      enabled: true,
-      appName: 'Kyuzo',
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
     }),

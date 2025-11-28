@@ -1,8 +1,8 @@
 'use client'
 
-import { Schedule } from '@repo/bookings/src/components/schedule'
+import { Schedule } from '@repo/bookings-plugin/src/components/schedule'
 
-import { ScheduleProvider } from '@repo/bookings/src/providers/schedule'
+import { ScheduleProvider } from '@repo/bookings-plugin/src/providers/schedule'
 
 export const ScheduleBlock = () => {
   return (

@@ -19,9 +19,10 @@ import { Pages } from './collections/Pages'
 import { Posts } from '@repo/website/src/collections/posts'
 
 import { rolesPlugin } from '@repo/roles'
-import { magicLinkPlugin } from '@repo/auth/server'
-import { bookingsPlugin } from '@repo/bookings'
-import { paymentsPlugin } from '@repo/payments'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
 
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
@@ -36,12 +37,12 @@ import {
   bookingUpdateMembershipDropinAccess,
 } from '@repo/shared-services/src/access/booking-membership-dropin'
 
-import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'
 
-import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
+import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -77,12 +78,7 @@ export default buildConfig({
   sharp: sharp as unknown as SharpDependency,
   plugins: [
     payloadCloudPlugin(),
-    magicLinkPlugin({
-      enabled: true,
-      appName: 'Darkhorse Strength',
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
     }),

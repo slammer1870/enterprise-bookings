@@ -27,7 +27,7 @@ import { LinkFeatureClient as LinkFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { RelationshipFeatureClient as RelationshipFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { BlockquoteFeatureClient as BlockquoteFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { UploadFeatureClient as UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
-import { FetchLessons as FetchLessons_511233d99c928e84af9e3b44860d4aef } from '@repo/bookings/src/components/lessons/fetch-lessons'
+import { FetchLessons as FetchLessons_511233d99c928e84af9e3b44860d4aef } from '@repo/bookings-plugin/src/components/lessons/fetch-lessons'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import type { ImportMap } from 'payload'
 
@@ -61,6 +61,6 @@ export const importMap: ImportMap = {
   "@payloadcms/richtext-lexical/client#RelationshipFeatureClient": RelationshipFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#BlockquoteFeatureClient": BlockquoteFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#UploadFeatureClient": UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
-  "@repo/bookings/src/components/lessons/fetch-lessons#FetchLessons": FetchLessons_511233d99c928e84af9e3b44860d4aef,
+  "@repo/bookings-plugin/src/components/lessons/fetch-lessons#FetchLessons": FetchLessons_511233d99c928e84af9e3b44860d4aef,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f
 }

@@ -229,8 +229,12 @@ jobs:
     strategy:
       matrix:
         app:
-          - name: e2e-kyuzo
-            db: e2e_kyuzo
+          # - name: e2e-kyuzo
+          #   db: e2e_kyuzo
+          #   app_path: packages/e2e-kyuzo
+          - name: boatyard-sauna
+            db: e2e_boatyard_sauna
+            app_path: apps/boatyard-sauna
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
@@ -306,17 +310,18 @@ jobs:
 
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
-        working-directory: packages/e2e-kyuzo
+        working-directory: ${{ matrix.app.app_path }}
 
       - name: Run E2E tests for ${{ matrix.app.name }}
         run: pnpm test:e2e:ci
+        working-directory: ${{ matrix.app.app_path }}
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-${{ matrix.app.name }}
-          path: packages/e2e-kyuzo/playwright-report/
+          path: ${{ matrix.app.app_path }}/playwright-report/
           retention-days: 30
 
       - name: Upload Test Results
@@ -324,5 +329,5 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: test-results-${{ matrix.app.name }}
-          path: packages/e2e-kyuzo/test-results/
+          path: ${{ matrix.app.app_path }}/test-results/
           retention-days: 30

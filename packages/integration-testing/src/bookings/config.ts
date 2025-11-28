@@ -7,12 +7,12 @@ import { Config } from "payload";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 
-import { bookingsPlugin } from "@repo/bookings";
+import { bookingsPlugin } from "@repo/bookings-plugin";
 import { membershipsPlugin } from "@repo/memberships";
-import { paymentsPlugin } from "@repo/payments";
+import { paymentsPlugin } from "@repo/payments-plugin";
 import { rolesPlugin } from "@repo/roles";
 import { checkRole } from "../../../shared-utils/src/check-role";
-import { isAdminOrOwner } from "@repo/bookings/src/access/bookings";
+import { isAdminOrOwner } from "@repo/bookings-plugin/src/access/bookings";
 import { Booking, Lesson, User } from "@repo/shared-types";
 
 import {
@@ -39,6 +39,17 @@ export const config: Config = {
       },
       auth: true,
       fields: [
+        {
+          name: "roles",
+          type: "select",
+          hasMany: true,
+          defaultValue: ["customer"],
+          options: [
+            { label: "Admin", value: "admin" },
+            { label: "Customer", value: "customer" },
+          ],
+          required: true,
+        },
         // Email added by default
         // Add more fields as needed
       ],
@@ -71,9 +82,6 @@ export const config: Config = {
   sharp,
   plugins: [
     payloadCloudPlugin(),
-    rolesPlugin({
-      enabled: true,
-    }),
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {

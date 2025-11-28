@@ -10,7 +10,7 @@ export const Users: CollectionConfig = {
   admin: {
     useAsTitle: 'email',
   },
-  auth: true,
+  // auth configuration is now handled by better-auth
   access: {
     create: () => true,
     read: adminOrUserOrInstructor,

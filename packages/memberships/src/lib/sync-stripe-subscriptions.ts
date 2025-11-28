@@ -34,7 +34,7 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
 
     const newSubscriptions = [];
 
-    for (const stripeSubscription of subscriptionsToSync) {
+    for (const stripeSubscription of subscriptionsToSync as Stripe.Subscription[]) {
       const existingSubscription = await payload.find({
         collection: "subscriptions",
         where: { stripeSubscriptionId: { equals: stripeSubscription.id } },
@@ -57,9 +57,9 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
       let user: User;
 
       if (userQuery.docs.length === 0) {
-        payload.logger.info(
-          `Creating user for subscription ${stripeSubscription.id}`
-        );
+        payload.logger.info({
+          message: `Creating user for subscription ${stripeSubscription.id}`
+        });
 
         if (customer.email === null || customer.name === null) {
           console.log(
@@ -81,7 +81,10 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
             stripeCustomerId: customer.id,
             password: hash,
             salt,
-          },
+            ...(('emailVerified' in payload.collections.users.config.fields) && { emailVerified: true }),
+            ...(('role' in payload.collections.users.config.fields) && { role: 'user' }),
+          } as any,
+          draft: false,
         });
 
         user = newUser as User;
@@ -147,15 +150,15 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
           plan: plan.id,
           status: stripeSubscription.status,
           startDate: new Date(
-            stripeSubscription.current_period_start * 1000
+            (stripeSubscription as any).current_period_start * 1000
           ).toISOString(),
-          endDate: stripeSubscription.current_period_end
+          endDate: (stripeSubscription as any).current_period_end
             ? new Date(
-                stripeSubscription.current_period_end * 1000
+                (stripeSubscription as any).current_period_end * 1000
               ).toISOString()
             : null,
-          cancelAt: stripeSubscription.cancel_at
-            ? new Date(stripeSubscription.cancel_at * 1000).toISOString()
+          cancelAt: (stripeSubscription as any).cancel_at
+            ? new Date((stripeSubscription as any).cancel_at * 1000).toISOString()
             : null,
         },
       });

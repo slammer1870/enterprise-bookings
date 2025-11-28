@@ -7,6 +7,8 @@ import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 
+import { migrations } from './migrations'
+
 import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
@@ -16,9 +18,9 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { magicLinkPlugin } from '@repo/auth/server'
-import { bookingsPlugin } from '@repo/bookings'
-import { paymentsPlugin } from '@repo/payments'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import {
   membershipsPlugin,
   productUpdated,
@@ -40,15 +42,18 @@ import {
 
 import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
-import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
+import { paymentIntentSucceeded } from '@repo/payments-plugin/src/webhooks/payment-intent-suceeded'
 
-import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
+import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 import { checkRole } from '@repo/shared-utils'
 
 import { User } from '@repo/shared-types'
+import { betterAuthPluginOptions } from './lib/auth/options'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+const allowedOrigins = [process.env.NEXT_PUBLIC_SERVER_URL].filter(Boolean) as string[]
 
 export default buildConfig({
   admin: {
@@ -58,6 +63,8 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Pages, Posts],
+  cors: allowedOrigins,
+  csrf: allowedOrigins,
   editor: lexicalEditor(),
   email: resendAdapter({
     defaultFromAddress: 'hello@brugrappling.com',
@@ -68,11 +75,17 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
+  graphQL: {
+    disablePlaygroundInProduction: true,
+    disable: true, // Disable GraphQL to avoid schema validation errors
+  },
   db: postgresAdapter({
     pool: {
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
+    // prodMigrations: migrations,
+    // push: false, // Disable automatic schema pushing - rely on migrations only
   }),
   globals: [Navbar, Footer],
   sharp: sharp as unknown as SharpDependency,
@@ -94,12 +107,7 @@ export default buildConfig({
         },
       },
     }),
-    magicLinkPlugin({
-      enabled: true,
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-      appName: 'Brú Grappling',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
     }),
@@ -255,8 +263,8 @@ export default buildConfig({
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',
-      generateTitle: ({ doc }) => `Brú Grappling — ${doc.title}`,
-      generateDescription: ({ doc }) => doc.excerpt,
+      generateTitle: ({ doc }) => `${doc.title} | Brú Grappling`,
+      generateDescription: ({ doc }) => doc.excerpt || doc.meta?.description,
     }),
   ],
 })

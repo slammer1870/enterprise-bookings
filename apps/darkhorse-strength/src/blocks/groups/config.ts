@@ -1,7 +1,5 @@
 import { Block } from 'payload'
 
-import { FormBlock } from '@repo/website/src/blocks/form/config'
-
 export const Groups: Block = {
   slug: 'groups',
   labels: {
