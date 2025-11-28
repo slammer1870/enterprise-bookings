@@ -535,7 +535,21 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
-    ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_instructors_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
+    -- Add scheduler instructor constraint if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_instructor_id_instructors_id_fk') THEN
+      ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_instructors_id_fk" 
+        FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") 
+        ON DELETE set null ON UPDATE no action;
+    END IF;
+   EXCEPTION WHEN OTHERS THEN null;
+   END $$;
+  DO $$ BEGIN
+    -- Ensure scheduler class_option_id constraint exists (might have been added in earlier migration)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_class_option_id_class_options_id_fk') THEN
+      ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_class_option_id_class_options_id_fk" 
+        FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") 
+        ON DELETE set null ON UPDATE no action;
+    END IF;
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   CREATE INDEX IF NOT EXISTS "class_options_payment_methods_payment_methods_allowed_dr_idx" ON "class_options" USING btree ("payment_methods_allowed_drop_in_id");
