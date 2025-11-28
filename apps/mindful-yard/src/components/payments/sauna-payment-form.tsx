@@ -11,12 +11,11 @@ import { format } from 'date-fns'
 // Import our new components
 import { PriceForm } from '@repo/bookings-plugin/src/components/ui/price-form'
 import { BookingSummary } from '@repo/bookings-plugin/src/components/ui/booking-summary'
-import { PaymentMethodSelector } from '@repo/payments-plugin/src/components/ui/payment-method-selector'
-import { PaymentDetailsForm } from '@repo/payments-plugin/src/components/ui/payment-details-form'
+import { PaymentMethodSelector, PaymentDetailsForm } from '@repo/payments-next'
 
 // Import our hooks and services
 import { useAttendees } from '@repo/bookings-plugin/src/hooks/use-attendees'
-import { usePayment } from '@repo/payments-plugin/src/hooks/use-payment'
+import { usePayment } from '@repo/payments-next'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@repo/ui/components/ui/tabs'
 

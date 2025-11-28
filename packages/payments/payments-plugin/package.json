@@ -18,6 +18,7 @@
     "@payloadcms/richtext-lexical": "^3.64.0",
     "@repo/analytics": "workspace:*",
     "@repo/eslint-config": "workspace:*",
+    "@repo/payments-next": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",

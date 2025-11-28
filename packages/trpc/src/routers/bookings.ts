@@ -45,7 +45,7 @@ export const bookingsRouter = {
       // Try to create/update booking - this will use existing access controls
       // which handle membership validation, subscription limits, etc.
       try {
-        const existingBooking = await findSafe(ctx.payload, "bookings", {
+        const existingBooking = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
             lesson: { equals: lessonId },
             user: { equals: ctx.user.id },
@@ -109,7 +109,7 @@ export const bookingsRouter = {
         });
       }
 
-      const booking = await createSafe(ctx.payload, "bookings", {
+      const booking = await createSafe<Booking>(ctx.payload, "bookings", {
           lesson: input.id,
           user: ctx.user.id,
           status: "confirmed",
@@ -118,7 +118,7 @@ export const bookingsRouter = {
         user: ctx.user,
       });
 
-      return booking as Booking;
+      return booking;
     }),
   createOrUpdateBooking: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
@@ -128,10 +128,10 @@ export const bookingsRouter = {
         status: z.enum(["confirmed", "cancelled"]).optional(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<Booking> => {
       const { id, status = "confirmed" } = input;
 
-      const booking = await findSafe(ctx.payload, "bookings", {
+      const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           lesson: { equals: id },
           user: { equals: ctx.user.id },
@@ -165,10 +165,10 @@ export const bookingsRouter = {
   cancelBooking: protectedProcedure
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }): Promise<Booking> => {
       const { id } = input;
 
-      const booking = await findSafe(ctx.payload, "bookings", {
+      const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           lesson: { equals: id },
           user: { equals: ctx.user.id },
@@ -498,40 +498,104 @@ export const bookingsRouter = {
 
       return bookings.docs.map((booking: any) => booking as Booking);
     }),
-  hasChildBookedBefore: protectedProcedure
-    .input(z.object({ childIds: z.array(z.number()).optional() }))
-    .query(async ({ ctx, input }) => {
-      // Check if:
-      // 1. Any of the specific children have been booked before, OR
-      // 2. The parent has ever booked any of their children before
-      // Trial pricing should only apply if the child has never been booked AND parent has never booked any child
-      
-      const whereConditions: any[] = [
-        {
-          "user.parent": { equals: ctx.user.id },
-          status: { equals: "confirmed" },
-        },
-      ];
+  /**
+   * Validates if a user can be checked in for a lesson and attempts check-in if possible.
+   * This is designed to be called at the page level before rendering booking components.
+   * 
+   * @returns Object indicating whether check-in succeeded and redirect should occur
+   */
+  validateAndAttemptCheckIn: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
+    .input(z.object({ lessonId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const { lessonId } = input;
 
-      // If specific child IDs are provided, also check if those specific children have been booked
-      if (input.childIds && input.childIds.length > 0) {
-        whereConditions.push({
-          user: { in: input.childIds },
-          status: { equals: "confirmed" },
+      // Fetch lesson with full depth for validation
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        lessonId,
+        {
+          depth: 3,
+          overrideAccess: false,
+          user: ctx.user,
+        }
+      );
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${lessonId} not found`,
         });
       }
 
-      const bookings = await ctx.payload.find({
-        collection: "bookings",
-        where: {
-          or: whereConditions,
-        },
-        limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
-      });
+      // Check if lesson status allows immediate check-in
+      if (!['active', 'trialable'].includes(lesson.bookingStatus || '')) {
+        return {
+          shouldRedirect: false,
+          error: null,
+          reason: `Lesson status is ${lesson.bookingStatus}, check-in not available`,
+        };
+      }
 
-      // Return true if any booking matches (either specific child OR parent's any child)
-      return bookings.docs.length > 0;
+      // Attempt check-in by calling the existing checkIn procedure logic
+      try {
+        // Business Logic: Handle children's lessons differently
+        if (lesson.classOption.type === "child") {
+          return {
+            shouldRedirect: false,
+            error: "REDIRECT_TO_CHILDREN_BOOKING",
+            reason: "This is a children's lesson",
+            redirectUrl: `/bookings/children/${lessonId}`,
+          };
+        }
+
+        // Try to create/update booking
+        const existingBooking = await findSafe(ctx.payload, "bookings", {
+          where: {
+            lesson: { equals: lessonId },
+            user: { equals: ctx.user.id },
+          },
+          depth: 2,
+          limit: 1,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+
+        if (existingBooking.docs.length === 0) {
+          // Create new booking
+          await createSafe(ctx.payload, "bookings", {
+            lesson: lessonId,
+            user: ctx.user.id,
+            status: "confirmed",
+          }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        } else {
+          // Update existing booking
+          await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
+            status: "confirmed",
+          }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+
+        // Check-in succeeded
+        return {
+          shouldRedirect: true,
+          error: null,
+          reason: null,
+        };
+      } catch (error: any) {
+        // If booking creation/update fails due to membership/payment issues
+        return {
+          shouldRedirect: false,
+          error: "REDIRECT_TO_BOOKING_PAYMENT",
+          reason: error.message || "Check-in failed - payment required",
+          redirectUrl: `/bookings/${lessonId}`,
+        };
+      }
     }),
 } satisfies TRPCRouterRecord;

@@ -1,23 +1,18 @@
 import { getSession } from '@/lib/auth/context/get-context-props'
 
-import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
-
-import { Lesson, Subscription, BookingDetails } from '@repo/shared-types'
+import { Lesson } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { BookingSummary } from '@repo/bookings-plugin/src/components/ui/booking-summary'
+import { createCaller } from '@/trpc/server'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
+import { BookingSummary } from '@repo/bookings-next'
 
 import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { hasReachedSubscriptionLimit } from '@repo/shared-services'
-
-import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
-import { DropInView } from '@repo/payments-plugin/src/components/drop-ins'
+import { PaymentMethods } from '@repo/payments-next'
 
 // Add these new types
 type BookingPageProps = {
@@ -57,87 +52,26 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
-  if (lesson.classOption.type === 'child') {
-    redirect(`/bookings/children/${id}`)
-  }
-
-  // Handle active/trialable status
-  if (['active', 'trialable'].includes(lesson.bookingStatus)) {
-    const checkIn = await checkInAction(lesson.id, Number(user.id))
-    if (checkIn.success) {
-      redirect('/dashboard')
-    }
-  }
-
-  // Note: bookingDetails was replaced with direct lesson usage in BookingSummary
-
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
-    (plan) => plan.status === 'active',
-  )
-
-  const subscriptionQuery = await payload.find({
-    collection: 'subscriptions',
-    where: {
-      and: [
-        {
-          user: { equals: Number(user.id) },
-          status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
-        },
-      ],
-    },
-    depth: 3,
+  // Attempt check-in if lesson status allows it (using tRPC procedure)
+  const caller = await createCaller()
+  const checkInResult = await caller.bookings.validateAndAttemptCheckIn({
+    lessonId: id,
   })
 
-  const subscription = subscriptionQuery.docs[0] as Subscription | null
+  // Handle redirects based on check-in result
+  if (checkInResult.shouldRedirect) {
+    redirect('/dashboard')
+  }
 
-  const subscriptionLimitReached = subscription
-    ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.startTime))
-    : false
+  // Handle special redirect cases
+  if (checkInResult.error === 'REDIRECT_TO_CHILDREN_BOOKING' && checkInResult.redirectUrl) {
+    redirect(checkInResult.redirectUrl)
+  }
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
       <BookingSummary lesson={lesson} />
-      <div className="">
-        <h4 className="font-medium">Payment Methods</h4>
-        <p className="font-light text-sm">Please select a payment method to continue:</p>
-      </div>
-      <Tabs defaultValue="membership">
-        <TabsList className="flex w-full justify-around gap-4">
-          {allowedPlans && allowedPlans.length > 0 && (
-            <TabsTrigger value="membership" className="w-full">
-              Membership
-            </TabsTrigger>
-          )}
-          {lesson.classOption.paymentMethods?.allowedDropIn &&
-            subscription?.status !== 'past_due' && (
-              <TabsTrigger value="dropin" className="w-full">
-                Drop-in
-              </TabsTrigger>
-            )}
-        </TabsList>
-        <TabsContent value="membership">
-          <PlanView
-            allowedPlans={allowedPlans}
-            subscription={subscription}
-            lessonDate={new Date(lesson.startTime)}
-            subscriptionLimitReached={subscriptionLimitReached}
-          />
-        </TabsContent>
-        <TabsContent value="dropin">
-          {lesson.classOption.paymentMethods?.allowedDropIn ? (
-            <DropInView
-              bookingStatus={lesson.bookingStatus}
-              dropIn={lesson.classOption.paymentMethods.allowedDropIn}
-              quantity={1}
-              metadata={{
-                lessonId: lesson.id.toString(),
-              }}
-            />
-          ) : (
-            <div>Drop-in payment option is not available</div>
-          )}
-        </TabsContent>
-      </Tabs>
+      <PaymentMethods lesson={lesson} />
     </div>
   )
 }

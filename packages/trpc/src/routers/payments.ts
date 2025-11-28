@@ -139,4 +139,55 @@ export const paymentsRouter = {
 
       return session;
     }),
+  /**
+   * Creates a payment intent for one-time payments (e.g., drop-ins)
+   */
+  createPaymentIntent: stripeProtectedProcedure
+    .use(requireCollections("users"))
+    .input(
+      z.object({
+        amount: z.number(),
+        metadata: z.record(z.string(), z.string()).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { user, stripe } = ctx;
+      const { amount, metadata } = input;
+
+      // Get user details to access email and customer ID
+      const userDoc = await findSafe(ctx.payload, "users", {
+        where: {
+          id: { equals: user.id },
+        },
+        limit: 1,
+        overrideAccess: false,
+        user: user,
+      });
+
+      if (userDoc.docs.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      const userData = userDoc.docs[0] as any;
+
+      // Format amount for Stripe (convert to cents)
+      const amountInCents = Math.round(amount * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        automatic_payment_methods: { enabled: true },
+        currency: "eur",
+        receipt_email: userData.email,
+        customer: userData.stripeCustomerId || undefined,
+        metadata: metadata,
+      });
+
+      return {
+        clientSecret: paymentIntent.client_secret as string,
+        amount: amount,
+      };
+    }),
 };

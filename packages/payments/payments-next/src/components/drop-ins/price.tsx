@@ -17,3 +17,4 @@ export const PriceView = ({ price }: { price: DiscountResult }) => {
     </div>
   );
 };
+

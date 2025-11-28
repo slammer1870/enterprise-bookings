@@ -224,6 +224,9 @@ importers:
       '@repo/memberships':
         specifier: workspace:*
         version: link:../../packages/memberships
+      '@repo/payments-next':
+        specifier: workspace:*
+        version: link:../../packages/payments/payments-next
       '@repo/payments-plugin':
         specifier: workspace:*
         version: link:../../packages/payments/payments-plugin
@@ -753,6 +756,9 @@ importers:
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
+      '@repo/payments-next':
+        specifier: workspace:*
+        version: link:../../packages/payments/payments-next
       '@repo/payments-plugin':
         specifier: workspace:*
         version: link:../../packages/payments/payments-plugin
@@ -1675,6 +1681,43 @@ importers:
         version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(jsdom@27.2.0)(lightningcss@1.30.2)(sass@1.77.4)(tsx@4.20.6)(yaml@2.8.1)
 
   packages/payments/payments-next:
+    dependencies:
+      '@repo/analytics':
+        specifier: workspace:*
+        version: link:../../analytics
+      '@repo/memberships':
+        specifier: workspace:*
+        version: link:../../memberships
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../../shared-types
+      '@repo/trpc':
+        specifier: workspace:*
+        version: link:../../trpc
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      '@stripe/react-stripe-js':
+        specifier: ^2.4.0
+        version: 2.9.0(@stripe/stripe-js@2.4.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@stripe/stripe-js':
+        specifier: ^2.4.0
+        version: 2.4.0
+      '@tanstack/react-query':
+        specifier: ^5.90.10
+        version: 5.90.10(react@19.2.0)
+      next:
+        specifier: 15.5.6
+        version: 15.5.6(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(sass@1.77.4)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
@@ -1734,6 +1777,9 @@ importers:
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../eslint-config
+      '@repo/payments-next':
+        specifier: workspace:*
+        version: link:../payments-next
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../../shared-types
@@ -5023,12 +5069,22 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
+  '@stripe/react-stripe-js@2.9.0':
+    resolution: {integrity: sha512-+/j2g6qKAKuWSurhgRMfdlIdKM+nVVJCy/wl0US2Ccodlqx0WqfIIBhUkeONkCG+V/b+bZzcj4QVa3E/rXtT4Q==}
+    peerDependencies:
+      '@stripe/stripe-js': ^1.44.1 || ^2.0.0 || ^3.0.0 || ^4.0.0
+      react: 19.2.0
+      react-dom: 19.2.0
+
   '@stripe/react-stripe-js@5.4.0':
     resolution: {integrity: sha512-3zaL1GVgxc9uWTXK22MKgulVGWH9KkSBKQvPLksMjtfXNyA2BW14aW6dB3Lxn00y/E8fo3GrNgngTF73d5qviw==}
     peerDependencies:
       '@stripe/stripe-js': '>=8.0.0 <9.0.0'
       react: 19.2.0
       react-dom: 19.2.0
+
+  '@stripe/stripe-js@2.4.0':
+    resolution: {integrity: sha512-WFkQx1mbs2b5+7looI9IV1BLa3bIApuN3ehp9FP58xGg7KL9hCHDECgW3BwO9l9L+xBPVAD7Yjn1EhGe6EDTeA==}
 
   '@stripe/stripe-js@5.6.0':
     resolution: {integrity: sha512-w8CEY73X/7tw2KKlL3iOk679V9bWseE4GzNz3zlaYxcTjmcmWOathRb0emgo/QQ3eoNzmq68+2Y2gxluAv3xGw==}
@@ -14390,12 +14446,21 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
+  '@stripe/react-stripe-js@2.9.0(@stripe/stripe-js@2.4.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@stripe/stripe-js': 2.4.0
+      prop-types: 15.8.1
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
+
   '@stripe/react-stripe-js@5.4.0(@stripe/stripe-js@8.5.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       '@stripe/stripe-js': 8.5.2
       prop-types: 15.8.1
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
+
+  '@stripe/stripe-js@2.4.0': {}
 
   '@stripe/stripe-js@5.6.0': {}
 

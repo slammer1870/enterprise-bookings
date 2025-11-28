@@ -10,3 +10,4 @@ export const CashPayment = ({ dropIn }: { dropIn: DropIn }) => {
     </div>
   );
 };
+
