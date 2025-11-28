@@ -14,20 +14,26 @@ import config from '@payload-config'
 
 import { PaymentMethods } from '@repo/payments-next'
 
-// Add these new types
+// Route params are always strings in Next.js App Router
 type BookingPageProps = {
-  params: Promise<{ id: number }>
+  params: Promise<{ id: string }>
 }
 
 export default async function BookingPage({ params }: BookingPageProps) {
-  const { id } = await params
+  const { id: idParam } = await params
+  
+  // Convert string ID to number and validate
+  const id = parseInt(idParam, 10)
+  if (isNaN(id)) {
+    redirect('/dashboard')
+  }
 
   // Auth check
   const session = await getSession()
   const user = session?.user
 
   if (!user) {
-    redirect('/auth/sign-in?callbackUrl=/bookings/${id}')
+    redirect(`/auth/sign-in?callbackUrl=/bookings/${id}`)
   }
 
   const payload = await getPayload({ config })
