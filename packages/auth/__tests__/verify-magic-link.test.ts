@@ -57,4 +57,24 @@ describe("Verify Magic Link", async () => {
 
     expect(response.headers.get("Set-Cookie")).toContain("payload-token");
   });
+  it("should fail if the callback URL is invalid", async () => {
+    const fieldsToSign = {
+      id: createdUser.id,
+      collection: "users",
+    };
+
+    const token = jwt.sign(fieldsToSign, payload.secret, {
+      expiresIn: "15m", // Token expires in 15 minutes
+    });
+
+    const response = await restClient.GET(
+      `/users/verify-magic-link?token=${token}&callbackUrl=https://evil.com`
+    );
+
+    expect(response.status).toBe(302);
+
+    expect(response.headers.get("Location")).toBe("/");
+
+    expect(response.headers.get("Set-Cookie")).toContain("payload-token");
+  });
 });
