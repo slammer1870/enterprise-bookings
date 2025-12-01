@@ -85,50 +85,6 @@ export const config: Config = {
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {
-        hooks: ({ defaultHooks }) => ({
-          ...(defaultHooks.afterChange || []),
-          afterChange: [
-            async ({ req, doc, context }) => {
-              if (context.triggerAfterChange === false) {
-                return;
-              }
-
-              const lessonId =
-                typeof doc.lesson === "object" ? doc.lesson.id : doc.lesson;
-
-              Promise.resolve().then(async () => {
-                const lessonQuery = await req.payload.findByID({
-                  collection: "lessons",
-                  id: lessonId,
-                  depth: 2,
-                });
-
-                const lesson = lessonQuery as Lesson;
-
-                if (
-                  lesson?.bookings?.docs?.some(
-                    (booking: Booking) => booking.status === "confirmed"
-                  )
-                ) {
-                  await req.payload.update({
-                    collection: "lessons",
-                    id: lessonId,
-                    data: {
-                      lockOutTime: 0,
-                    },
-                  });
-                } else {
-                  await req.payload.update({
-                    collection: "lessons",
-                    id: lessonId,
-                    data: { lockOutTime: lesson.originalLockOutTime },
-                  });
-                }
-              });
-              return doc;
-            },
-          ],
-        }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
           create: bookingCreateMembershipDropinAccess,
