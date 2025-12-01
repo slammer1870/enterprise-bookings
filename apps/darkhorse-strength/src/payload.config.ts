@@ -84,36 +84,7 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      lessonOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'originalLockOutTime',
-            type: 'number',
-            admin: {
-              hidden: true,
-            },
-          },
-        ],
-        hooks: ({ defaultHooks }) => ({
-          ...defaultHooks,
-          beforeOperation: [
-            ...(defaultHooks.beforeOperation || []),
-            async ({ args, operation }) => {
-              if (operation === 'create') {
-                args.data.originalLockOutTime = args.data.lockOutTime
-              }
-
-              return args
-            },
-          ],
-        }),
-      },
       bookingOverrides: {
-        hooks: ({ defaultHooks }) => ({
-          ...defaultHooks,
-          afterChange: [...(defaultHooks.afterChange || []), setLockout],
-        }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
           create: bookingCreateMembershipDropinAccess,

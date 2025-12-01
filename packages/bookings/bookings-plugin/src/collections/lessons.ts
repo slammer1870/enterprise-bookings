@@ -16,6 +16,7 @@ import type { BookingsPluginConfig } from "../types";
 import { AccessControls, HooksConfig } from "@repo/shared-types";
 
 import { lessonReadAccess } from "../access/lessons";
+import { setLockout } from "../hooks/set-lockout";
 
 const defaultFields: Field[] = [
   {
@@ -174,6 +175,14 @@ const defaultFields: Field[] = [
         defaultValue: 0,
       },
       {
+        name: "originalLockOutTime",
+        type: "number",
+        defaultValue: 0,
+        admin: {
+          hidden: true,
+        },
+      },
+      {
         name: "location",
         label: "Location",
         type: "text",
@@ -282,6 +291,14 @@ const defaultAdmin: CollectionAdminOptions = {
 };
 
 const defaultHooks: HooksConfig = {
+  beforeOperation: [
+    async ({ args, operation }) => {
+      if (operation === "create") {
+        args.data.originalLockOutTime = args.data.lockOutTime;
+      }
+      return args;
+    },
+  ],
   beforeDelete: [
     async ({ req, id }) => {
       await req.payload.delete({
@@ -301,27 +318,31 @@ const defaultHooks: HooksConfig = {
     async ({ data, req, operation }) => {
       // Backward compatibility: If instructor is set to a user ID instead of an instructor ID,
       // automatically create an instructor record for that user
-      if (data && data.instructor && operation === 'create') {
+      if (data && data.instructor && operation === "create") {
         try {
           // Check if the instructor ID exists in instructors collection
-          const instructor = await req.payload.findByID({
-            collection: 'instructors' as CollectionSlug,
-            id: data.instructor,
-            req,
-          }).catch(() => null)
+          const instructor = await req.payload
+            .findByID({
+              collection: "instructors" as CollectionSlug,
+              id: data.instructor,
+              req,
+            })
+            .catch(() => null);
 
           // If instructor doesn't exist, check if it's a user ID
           if (!instructor) {
-            const user = await req.payload.findByID({
-              collection: 'users',
-              id: data.instructor,
-              req,
-            }).catch(() => null)
+            const user = await req.payload
+              .findByID({
+                collection: "users",
+                id: data.instructor,
+                req,
+              })
+              .catch(() => null);
 
             if (user) {
               // Check if an instructor record already exists for this user
               const existingInstructor = await req.payload.find({
-                collection: 'instructors' as CollectionSlug,
+                collection: "instructors" as CollectionSlug,
                 where: {
                   user: {
                     equals: data.instructor,
@@ -329,43 +350,52 @@ const defaultHooks: HooksConfig = {
                 },
                 limit: 1,
                 req,
-              })
+              });
 
-              if (existingInstructor.docs && existingInstructor.docs.length > 0 && existingInstructor.docs[0]) {
+              if (
+                existingInstructor.docs &&
+                existingInstructor.docs.length > 0 &&
+                existingInstructor.docs[0]
+              ) {
                 // Use existing instructor
-                const existingDoc = existingInstructor.docs[0]
-                data.instructor = typeof existingDoc.id === 'number'
-                  ? existingDoc.id
-                  : parseInt(existingDoc.id as string)
+                const existingDoc = existingInstructor.docs[0];
+                data.instructor =
+                  typeof existingDoc.id === "number"
+                    ? existingDoc.id
+                    : parseInt(existingDoc.id as string);
               } else {
                 // Create new instructor record for this user
                 const newInstructor = await req.payload.create({
-                  collection: 'instructors' as CollectionSlug,
+                  collection: "instructors" as CollectionSlug,
                   data: {
                     user: data.instructor,
                     profileImage: (user as any).image || undefined,
                     active: true,
                   } as any,
                   req,
-                })
-                data.instructor = typeof newInstructor.id === 'number'
-                  ? newInstructor.id
-                  : parseInt(newInstructor.id as string)
+                });
+                data.instructor =
+                  typeof newInstructor.id === "number"
+                    ? newInstructor.id
+                    : parseInt(newInstructor.id as string);
               }
             }
           }
         } catch (error) {
-          console.error('Error handling instructor backward compatibility:', error)
+          console.error(
+            "Error handling instructor backward compatibility:",
+            error
+          );
           // If there's an error, set instructor to null to prevent the lesson creation from failing
           if (data) {
-            data.instructor = null
+            data.instructor = null;
           }
         }
       }
-      return data
+      return data;
     },
   ],
-  afterChange: [],
+  afterChange: [setLockout],
 };
 
 export const generateLessonCollection = (config: BookingsPluginConfig) => {
