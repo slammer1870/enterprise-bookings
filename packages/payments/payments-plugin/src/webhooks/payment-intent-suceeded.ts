@@ -106,6 +106,14 @@ export const paymentIntentSucceeded = async (
             status: "confirmed",
           },
         });
+
+        payload.logger.info({
+          message: `Updated booking ${existingBookings[0]?.id} to confirmed`,
+          paymentIntentId: event.data.object.id,
+          lessonId: lessonId,
+        });
+
+        return;
       } else {
         const createBooking = await payload.create({
           collection: "bookings",
