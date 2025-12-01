@@ -13,6 +13,7 @@ import { User } from "@repo/shared-types";
 
 import { validateCallbackUrl } from "../utils/validate-callback-url";
 
+
 export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/verify-magic-link",
   method: "get",
