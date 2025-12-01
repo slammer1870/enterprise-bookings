@@ -41,7 +41,6 @@ import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'
-import { updateSubscriptionLastCheckIn } from './hooks/update-subscription-last-checkin'
 
 import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 
@@ -85,40 +84,7 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      lessonOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'originalLockOutTime',
-            type: 'number',
-            admin: {
-              hidden: true,
-            },
-          },
-        ],
-        hooks: ({ defaultHooks }) => ({
-          ...defaultHooks,
-          beforeOperation: [
-            ...(defaultHooks.beforeOperation || []),
-            async ({ args, operation }) => {
-              if (operation === 'create') {
-                args.data.originalLockOutTime = args.data.lockOutTime
-              }
-
-              return args
-            },
-          ],
-        }),
-      },
       bookingOverrides: {
-        hooks: ({ defaultHooks }) => ({
-          ...defaultHooks,
-          afterChange: [
-            ...(defaultHooks.afterChange || []),
-            setLockout,
-            updateSubscriptionLastCheckIn,
-          ],
-        }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
           create: bookingCreateMembershipDropinAccess,
@@ -140,24 +106,18 @@ export default buildConfig({
           {
             name: 'lastCheckIn',
             type: 'date',
+            virtual: true,
+            readOnly: true,
             required: false,
-            validate: () => {
-              return true
-            },
+            validate: () => true, // Skip validation for virtual fields
             admin: {
-              date: {
-                pickerAppearance: 'dayOnly',
-              },
-              description:
-                'Last confirmed booking date. Automatically updated when bookings are confirmed.',
-              position: 'sidebar',
+              hidden: true,
+              readOnly: true,
               components: {
                 Cell: '@/fields/last-check-in',
               },
-              readOnly: true,
             },
             hooks: {
-              // Fallback hook to ensure lastCheckIn is always up-to-date when reading
               afterRead: [getLastCheckIn],
             },
           },
