@@ -8,6 +8,8 @@ import { render } from "@react-email/components";
 import { MagicLinkEmail } from "../email/sign-in";
 import { User, UTMParams } from "@repo/shared-types";
 
+import { validateCallbackUrl } from "../utils/validate-callback-url";
+
 export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/send-magic-link",
   method: "post",
@@ -26,7 +28,11 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
 
     console.log("Raw utmParams:", utmParams, typeof utmParams);
 
-    const url: string | undefined = callbackUrl;
+    // Validate callback URL to prevent open redirect attacks
+    const validatedCallbackUrl = validateCallbackUrl(
+      callbackUrl,
+      pluginOptions.serverURL,
+    );
 
     if (!email) {
       throw new APIError("Invalid request body", 400);
@@ -114,9 +120,11 @@ export const sendMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       }
 
       // Create the magic link URL
-      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}${utmString}${
-        url && `&callbackUrl=${url}`
-      }`;
+      // Only include callbackUrl if it's validated and safe
+      const callbackUrlParam = validatedCallbackUrl
+        ? `&callbackUrl=${encodeURIComponent(validatedCallbackUrl)}`
+        : "";
+      const magicLink = `${pluginOptions.serverURL}/api/users/verify-magic-link?token=${token}${utmString}${callbackUrlParam}`;
 
       const emailHtml = await render(
         MagicLinkEmail({

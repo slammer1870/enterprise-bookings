@@ -11,6 +11,8 @@ import { PluginTypes } from "../types";
 
 import { User } from "@repo/shared-types";
 
+import { validateCallbackUrl } from "../utils/validate-callback-url";
+
 export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
   path: "/verify-magic-link",
   method: "get",
@@ -73,7 +75,13 @@ export const verifyMagicLink = (pluginOptions: PluginTypes): Endpoint => ({
       // success redirect
       // /////////////////////////////////////
 
-      let finalUrl: string = callbackUrl ? (callbackUrl as string) : "/";
+      // Validate callback URL to prevent open redirect attacks
+      const validatedCallbackUrl = validateCallbackUrl(
+        callbackUrl as string | undefined,
+        pluginOptions.serverURL,
+      );
+
+      let finalUrl: string = validatedCallbackUrl || "/";
 
       // Preserve UTM parameters in the final redirect
       const utmKeys = [
