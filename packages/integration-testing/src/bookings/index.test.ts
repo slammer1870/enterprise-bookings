@@ -55,7 +55,7 @@ describe("Booking tests", () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy();
+      await (payload.db as any).destroy();
     }
   });
 

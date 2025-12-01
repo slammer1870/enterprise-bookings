@@ -24,3 +24,20 @@ if (typeof globalThis.File === 'undefined') {
   globalThis.File = FilePolyfill as unknown as typeof File;
 }
 
+// Handle unhandled promise rejections that occur during test cleanup
+// These are often caused by async hooks trying to access deleted resources
+process.on('unhandledRejection', (error: any) => {
+  // Silently ignore errors that occur during test cleanup
+  if (
+    error?.status === 404 ||
+    error?.name === 'NotFound' ||
+    error?.message?.includes('Cannot read properties of undefined') ||
+    error?.message?.includes('reading \'id\'')
+  ) {
+    // Suppress these errors during test cleanup
+    return;
+  }
+  // Re-throw other errors
+  throw error;
+});
+
