@@ -6,6 +6,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
+import { mcpPlugin } from '@payloadcms/plugin-mcp'
 
 import { migrations } from './migrations'
 
@@ -90,7 +91,39 @@ export default buildConfig({
   globals: [Navbar, Footer],
   sharp: sharp as unknown as SharpDependency,
   plugins: [
-    //payloadCloudPlugin(),
+    mcpPlugin({
+      disabled: false,
+      collections: {
+        users: {
+          enabled: true,
+          description: 'Users are the people who use the system',
+        },
+        lessons: {
+          enabled: true,
+          description: 'Lessons are the classes that are offered',
+        },
+        'class-options': {
+          enabled: true,
+          description: 'Class options are the options for a class',
+        },
+        bookings: {
+          enabled: true,
+          description: 'Bookings are the bookings for a class',
+        },
+        'drop-ins': {
+          enabled: true,
+          description: 'Drop ins are the drop ins for a class',
+        },
+        subscriptions: {
+          enabled: true,
+          description: 'Subscriptions are the subscriptions for a user',
+        },
+        plans: {
+          enabled: true,
+          description: 'Plans are the plans for a subscription',
+        },
+      },
+    }),
     formBuilderPlugin({
       formOverrides: {
         access: {
