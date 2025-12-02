@@ -45,10 +45,11 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev',
     url: 'http://localhost:3000',
-    timeout: 120000, // 2 minutes for server startup
+    timeout: 180000, // 3 minutes for server startup (migrations may take time)
     reuseExistingServer: !process.env.CI,
     env: {
       NODE_ENV: 'test',
+      CI: process.env.CI || 'false',
     },
   },
 })
