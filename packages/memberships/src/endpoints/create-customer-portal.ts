@@ -3,9 +3,9 @@
 import { stripe } from "@repo/shared-utils";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { APIError, PayloadHandler } from "payload";
+import { User } from "@repo/shared-types";
 
 import Stripe from "stripe";
 
@@ -22,9 +22,7 @@ export const createCustomerPortal: PayloadHandler = async (
     throw new APIError("Unauthorized", 401);
   }
 
-  if (!user.stripeCustomerId) {
-    throw new APIError("User has no Stripe customer ID", 400);
-  }
+  const userAsUser = user as unknown as User;
 
   const origin =
     (await headers()).get("origin") ||
@@ -34,7 +32,7 @@ export const createCustomerPortal: PayloadHandler = async (
   try {
     const portalSession: Stripe.BillingPortal.Session =
       await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId as string,
+        customer: userAsUser.stripeCustomerId as string,
         return_url: `${origin}/dashboard`,
       });
 

@@ -8,6 +8,8 @@ import { APIError, PayloadHandler } from "payload";
 
 import Stripe from "stripe";
 
+import { User } from "@repo/shared-types";
+
 export const createCheckoutSession: PayloadHandler = async (
   req
 ): Promise<Response> => {
@@ -20,6 +22,12 @@ export const createCheckoutSession: PayloadHandler = async (
   if (!user) {
     throw new APIError("Unauthorized", 401);
   }
+
+  if (user.collection !== "users") {
+    throw new APIError("Invalid user type", 400);
+  }
+
+  const userAsUser = user as unknown as User;
 
   const { price, quantity = 1, metadata } = await req.json();
 
@@ -41,7 +49,7 @@ export const createCheckoutSession: PayloadHandler = async (
             price: price,
           },
         ],
-        customer: user.stripeCustomerId || undefined,
+        customer: userAsUser.stripeCustomerId || undefined,
         success_url: successUrl,
         cancel_url: cancelUrl,
         subscription_data: {
