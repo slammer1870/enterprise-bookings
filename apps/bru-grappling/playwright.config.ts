@@ -49,7 +49,7 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       NODE_ENV: 'test',
-      CI: process.env.CI || 'false',
+      CI: 'true', // Explicitly set CI to ensure payload config detects it
     },
   },
 })
