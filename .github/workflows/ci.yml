@@ -312,7 +312,14 @@ jobs:
           echo "Postgres is up!"
 
       - name: Run database migrations for ${{ matrix.app.name }}
-        run: pnpm payload migrate:fresh --force-accept-warning
+        env:
+          DATABASE_URI: postgres://postgres:postgres@localhost:5432/${{ matrix.app.db }}
+          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
+          NODE_ENV: test
+          CI: true
+        run: |
+          pnpm payload migrate:fresh --force-accept-warning
+          sleep 2  # Give migrations time to fully complete
         working-directory: ${{ matrix.app.app_path }}
 
       - name: Install Playwright Browsers
