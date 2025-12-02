@@ -25,6 +25,9 @@ export default defineConfig({
   expect: {
     timeout: 10000, // 10 seconds for assertions
   },
+  /* Global setup to create TestContainer database */
+  globalSetup: './tests/e2e/global-setup.ts',
+  globalTeardown: './tests/e2e/global-teardown.ts',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -43,13 +46,15 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000/admin', // Use simple health check endpoint instead of homepage
+    command: 'pnpm payload migrate:fresh --force-accept-warning && pnpm dev',
+    url: 'http://localhost:3000/api/health', // Use simple health check endpoint
     timeout: 180000, // 3 minutes for server startup (migrations may take time)
     reuseExistingServer: !process.env.CI,
     env: {
       NODE_ENV: 'test',
-      CI: 'true', // Explicitly set CI to ensure payload config detects it
+      CI: process.env.CI || 'false',
+      // DATABASE_URI will be set by globalSetup before webServer starts
+      // Playwright will automatically pass it to the webServer process
     },
   },
 })
