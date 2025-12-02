@@ -1,6 +1,6 @@
 import type { Account, DeviceSession, Session } from '@/lib/auth/types'
 import { getPayload } from '@/lib/payload'
-import type { User } from '@repo/shared-types'
+import type { TypedUser } from 'payload'
 import { headers as requestHeaders } from 'next/headers'
 
 export const getSession = async (): Promise<Session | null> => {
@@ -24,18 +24,18 @@ export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
   return sessions
 }
 
-export const currentUser = async (): Promise<User | null> => {
+export const currentUser = async (): Promise<TypedUser | null> => {
   const payload = await getPayload()
   const headers = await requestHeaders()
   const { user } = await payload.auth({ headers })
-  return user as User | null
+  return user
 }
 
 export const getContextProps = (): {
   sessionPromise: Promise<Session | null>
   userAccountsPromise: Promise<Account[]>
   deviceSessionsPromise: Promise<DeviceSession[]>
-  currentUserPromise: Promise<User | null>
+  currentUserPromise: Promise<TypedUser | null>
 } => {
   const sessionPromise = getSession()
   const userAccountsPromise = getUserAccounts()
