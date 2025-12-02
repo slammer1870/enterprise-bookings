@@ -1,4 +1,6 @@
 import { test, expect, Page } from '@playwright/test'
+import { getPayload } from 'payload'
+import config from '@/payload.config'
 
 test.describe('Frontend', () => {
   let page: Page
@@ -8,13 +10,38 @@ test.describe('Frontend', () => {
     page = await context.newPage()
   })
 
+  test.beforeEach(async () => {
+    // Ensure database is clean - delete all users before each test
+    const payloadConfig = await config
+    const payload = await getPayload({ config: payloadConfig })
+    
+    try {
+      const users = await payload.find({
+        collection: 'users',
+        limit: 1000,
+      })
+      
+      // Delete all users
+      for (const user of users.docs) {
+        await payload.delete({
+          collection: 'users',
+          id: user.id,
+        })
+      }
+    } catch (error) {
+      // Ignore errors if no users exist
+      console.log('No users to delete or error deleting users:', error)
+    }
+  })
 
   test('can create first admin user', async ({ page }) => {
-    // Navigate to admin panel
-    await page.goto('http://localhost:3000/admin')
+    // Navigate to admin panel and wait for navigation
+    await page.goto('http://localhost:3000/admin', { waitUntil: 'networkidle' })
 
-    // Expect redirect to create-first-user page
-    await expect(page).toHaveURL(/.*\/admin\/create-first-user/, { timeout: 15000 })
+    // Wait for redirect to create-first-user page
+    // Payload redirects to /admin/create-first-user when no users exist
+    await page.waitForURL(/.*\/admin\/create-first-user/, { timeout: 15000 })
+    await expect(page).toHaveURL(/.*\/admin\/create-first-user/, { timeout: 5000 })
 
     // Wait for the form to be visible
     const form = page.locator('form')

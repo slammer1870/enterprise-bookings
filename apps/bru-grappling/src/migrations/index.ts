@@ -3,6 +3,7 @@ import * as migration_20251125_191947 from './20251125_191947';
 import * as migration_20251127_120004 from './20251127_120004';
 import * as migration_20251127_165503 from './20251127_165503';
 import * as migration_20251128_110901 from './20251128_110901';
+import * as migration_20251202_204832_add_mcp_api_keys_locked_documents_column from './20251202_204832_add_mcp_api_keys_locked_documents_column';
 
 export const migrations = [
   {
@@ -28,6 +29,11 @@ export const migrations = [
   {
     up: migration_20251128_110901.up,
     down: migration_20251128_110901.down,
-    name: '20251128_110901'
+    name: '20251128_110901',
+  },
+  {
+    up: migration_20251202_204832_add_mcp_api_keys_locked_documents_column.up,
+    down: migration_20251202_204832_add_mcp_api_keys_locked_documents_column.down,
+    name: '20251202_204832_add_mcp_api_keys_locked_documents_column'
   },
 ];
