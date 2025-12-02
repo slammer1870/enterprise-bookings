@@ -311,6 +311,10 @@ jobs:
           done
           echo "Postgres is up!"
 
+      - name: Run database migrations for ${{ matrix.app.name }}
+        run: pnpm payload migrate:fresh --force-accept-warning
+        working-directory: ${{ matrix.app.app_path }}
+
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
         working-directory: ${{ matrix.app.app_path }}
