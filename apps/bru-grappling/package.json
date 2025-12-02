@@ -57,22 +57,30 @@
     "sonner": "^2.0.7",
     "superjson": "2.2.5",
     "vitest": "4.0.12",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "dotenv": "17.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@repo/eslint-config": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.17",
+    "@testing-library/react": "16.3.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
     "autoprefixer": "^10.4.22",
     "eslint": "^9.39.1",
     "eslint-config-next": "15.5.6",
+    "jsdom": "27.2.0",
+    "playwright": "1.56.1",
+    "playwright-core": "1.56.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite-tsconfig-paths": "5.1.4"
   },
   "engines": {
     "node": ">=20"
@@ -90,7 +98,10 @@
     "lint": "cross-env NODE_OPTIONS=--no-deprecation next lint",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
-    "test": "vitest",
+    "test": "pnpm run test:int && pnpm run test:e2e",
+    "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec playwright test",
+    "test:e2e:ci": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec playwright test",
+    "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",
     "test:seo": "node scripts/test-seo.js"
   },
   "type": "module"
