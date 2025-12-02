@@ -44,7 +44,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev',
-    url: 'http://localhost:3000/api/health', // Use simple health check endpoint instead of homepage
+    url: 'http://localhost:3000/admin', // Use simple health check endpoint instead of homepage
     timeout: 180000, // 3 minutes for server startup (migrations may take time)
     reuseExistingServer: !process.env.CI,
     env: {
@@ -53,4 +53,3 @@ export default defineConfig({
     },
   },
 })
-
