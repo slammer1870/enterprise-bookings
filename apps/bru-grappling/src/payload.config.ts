@@ -44,7 +44,6 @@ import {
 
 import { paymentIntentSucceeded } from '@repo/payments-plugin'
 
-import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 import { checkRole } from '@repo/shared-utils'
 
 import { User } from '@repo/shared-types'
