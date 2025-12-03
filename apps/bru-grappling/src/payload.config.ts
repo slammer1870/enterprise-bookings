@@ -34,7 +34,7 @@ import { rolesPlugin } from '@repo/roles'
 import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
 
-import { Posts } from '@repo/website/src/collections/posts'
+import { Posts } from '@repo/website'
 
 import {
   childrenCreateBookingMembershipAccess,
