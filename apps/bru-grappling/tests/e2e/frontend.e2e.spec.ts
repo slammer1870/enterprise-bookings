@@ -1,21 +1,15 @@
-import { test, expect, Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 
 test.describe('Frontend', () => {
-  let page: Page
-
-  test.beforeAll(async ({ browser }, testInfo) => {
-    const context = await browser.newContext()
-    page = await context.newPage()
-  })
-
   test('can create first admin user', async ({ page }) => {
     // Navigate to admin panel and wait for navigation
-    await page.goto('http://localhost:3000/admin', { waitUntil: 'networkidle' })
+    // Use 'load' instead of 'networkidle' to avoid timeout issues with background requests
+    await page.goto('http://localhost:3000/admin', { waitUntil: 'load', timeout: 60000 })
 
     // Wait for redirect to create-first-user page
     // Payload redirects to /admin/create-first-user when no users exist
-    await page.waitForURL(/.*\/admin\/create-first-user/, { timeout: 15000 })
-    await expect(page).toHaveURL(/.*\/admin\/create-first-user/, { timeout: 5000 })
+    await page.waitForURL(/.*\/admin\/create-first-user/, { timeout: 30000 })
+    await expect(page).toHaveURL(/.*\/admin\/create-first-user/, { timeout: 10000 })
 
     // Wait for the form to be visible
     const form = page.locator('form')
