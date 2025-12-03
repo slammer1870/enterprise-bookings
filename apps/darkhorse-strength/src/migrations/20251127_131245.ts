@@ -123,7 +123,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN
-    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "role" "enum_users_role" DEFAULT 'user' NOT NULL;
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "role" "enum_users_role" DEFAULT 'customer' NOT NULL;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN

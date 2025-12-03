@@ -6,6 +6,7 @@ import * as migration_20250723_110130 from './20250723_110130';
 import * as migration_20251122_135419 from './20251122_135419';
 import * as migration_20251125_191947 from './20251125_191947';
 import * as migration_20251127_120002 from './20251127_120002';
+import * as migration_20251202_210000_add_better_auth_user_columns from './20251202_210000_add_better_auth_user_columns';
 
 export const migrations = [
   {
@@ -47,5 +48,10 @@ export const migrations = [
     up: migration_20251127_120002.up,
     down: migration_20251127_120002.down,
     name: '20251127_120002',
+  },
+  {
+    up: migration_20251202_210000_add_better_auth_user_columns.up,
+    down: migration_20251202_210000_add_better_auth_user_columns.down,
+    name: '20251202_210000_add_better_auth_user_columns',
   },
 ];
