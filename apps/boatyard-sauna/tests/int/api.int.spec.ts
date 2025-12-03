@@ -13,7 +13,7 @@ describe('API', () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy()
+      await payload.db?.destroy?.()
     }
   })
 

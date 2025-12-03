@@ -9,6 +9,7 @@ import { betterAuthPlugin } from 'payload-auth/better-auth'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -30,6 +31,12 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
+    ...(process.env.NODE_ENV === 'test' || process.env.CI
+      ? {
+          migrations: migrations,
+          push: false, // Disable automatic schema pushing in test/CI - rely on migrations only
+        }
+      : {}),
   }),
   sharp,
   plugins: [
