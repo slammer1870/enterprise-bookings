@@ -297,6 +297,7 @@ export interface Lesson {
    * The time in minutes before the lesson will be closed for new bookings.
    */
   lockOutTime: number;
+  originalLockOutTime?: number | null;
   location?: string | null;
   instructor?: (number | null) | Instructor;
   classOption: number | ClassOption;
@@ -317,7 +318,6 @@ export interface Lesson {
    * Whether the lesson is active and will be shown on the schedule
    */
   active?: boolean | null;
-  originalLockOutTime?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1452,6 +1452,7 @@ export interface LessonsSelect<T extends boolean = true> {
   startTime?: T;
   endTime?: T;
   lockOutTime?: T;
+  originalLockOutTime?: T;
   location?: T;
   instructor?: T;
   classOption?: T;
@@ -1459,7 +1460,6 @@ export interface LessonsSelect<T extends boolean = true> {
   bookings?: T;
   bookingStatus?: T;
   active?: T;
-  originalLockOutTime?: T;
   updatedAt?: T;
   createdAt?: T;
 }
