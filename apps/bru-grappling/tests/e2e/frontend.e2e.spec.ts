@@ -1,6 +1,4 @@
 import { test, expect, Page } from '@playwright/test'
-import { getPayload } from 'payload'
-import config from '@/payload.config'
 
 test.describe('Frontend', () => {
   let page: Page
@@ -8,30 +6,6 @@ test.describe('Frontend', () => {
   test.beforeAll(async ({ browser }, testInfo) => {
     const context = await browser.newContext()
     page = await context.newPage()
-  })
-
-  test.beforeEach(async () => {
-    // Ensure database is clean - delete all users before each test
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
-    
-    try {
-      const users = await payload.find({
-        collection: 'users',
-        limit: 1000,
-      })
-      
-      // Delete all users
-      for (const user of users.docs) {
-        await payload.delete({
-          collection: 'users',
-          id: user.id,
-        })
-      }
-    } catch (error) {
-      // Ignore errors if no users exist
-      console.log('No users to delete or error deleting users:', error)
-    }
   })
 
   test('can create first admin user', async ({ page }) => {
