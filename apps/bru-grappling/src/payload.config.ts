@@ -39,11 +39,10 @@ import { Posts } from '@repo/website'
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
+  isBookingAdminOrParentOrOwner,
 } from '@repo/shared-services'
 
-import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
-
-import { paymentIntentSucceeded } from '@repo/payments-plugin/src/webhooks/payment-intent-suceeded'
+import { paymentIntentSucceeded } from '@repo/payments-plugin'
 
 import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 import { checkRole } from '@repo/shared-utils'
