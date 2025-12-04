@@ -1,0 +1,321 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "Open Menu" [ref=e4] [cursor=pointer]:
+      - generic "Open" [ref=e6]:
+        - img [ref=e7]
+    - generic [ref=e9]:
+      - complementary [ref=e10]:
+        - navigation [ref=e12]:
+          - generic [ref=e13]:
+            - button "Collections" [ref=e14] [cursor=pointer]:
+              - generic [ref=e15]: Collections
+              - img [ref=e17]
+            - generic [ref=e21]:
+              - link "Accounts" [ref=e22] [cursor=pointer]:
+                - /url: /admin/collections/accounts
+                - generic [ref=e23]: Accounts
+              - link "Sessions" [ref=e24] [cursor=pointer]:
+                - /url: /admin/collections/sessions
+                - generic [ref=e25]: Sessions
+              - link "Verifications" [ref=e26] [cursor=pointer]:
+                - /url: /admin/collections/verifications
+                - generic [ref=e27]: Verifications
+              - link "Media" [ref=e28] [cursor=pointer]:
+                - /url: /admin/collections/media
+                - generic [ref=e29]: Media
+              - link "Forms" [ref=e30] [cursor=pointer]:
+                - /url: /admin/collections/forms
+                - generic [ref=e31]: Forms
+              - link "Form Submissions" [ref=e32] [cursor=pointer]:
+                - /url: /admin/collections/form-submissions
+                - generic [ref=e33]: Form Submissions
+              - link "Users" [ref=e34] [cursor=pointer]:
+                - /url: /admin/collections/users
+                - generic [ref=e35]: Users
+          - generic [ref=e36]:
+            - button "Globals" [ref=e37] [cursor=pointer]:
+              - generic [ref=e38]: Globals
+              - img [ref=e40]
+            - generic [ref=e44]:
+              - link "Navbar" [ref=e45] [cursor=pointer]:
+                - /url: /admin/globals/navbar
+                - generic [ref=e46]: Navbar
+              - link "Footer" [ref=e47] [cursor=pointer]:
+                - /url: /admin/globals/footer
+                - generic [ref=e48]: Footer
+          - generic [ref=e49]:
+            - button "Website" [ref=e50] [cursor=pointer]:
+              - generic [ref=e51]: Website
+              - img [ref=e53]
+            - link "Pages" [ref=e58] [cursor=pointer]:
+              - /url: /admin/collections/pages
+              - generic [ref=e59]: Pages
+          - generic [ref=e60]:
+            - button "Blog" [ref=e61] [cursor=pointer]:
+              - generic [ref=e62]: Blog
+              - img [ref=e64]
+            - link "Posts" [ref=e69] [cursor=pointer]:
+              - /url: /admin/collections/posts
+              - generic [ref=e70]: Posts
+          - generic [ref=e71]:
+            - button "MCP" [ref=e72] [cursor=pointer]:
+              - generic [ref=e73]: MCP
+              - img [ref=e75]
+            - link "API Keys" [ref=e80] [cursor=pointer]:
+              - /url: /admin/collections/payload-mcp-api-keys
+              - generic [ref=e81]: API Keys
+          - generic [ref=e82]:
+            - button "Bookings" [ref=e83] [cursor=pointer]:
+              - generic [ref=e84]: Bookings
+              - img [ref=e86]
+            - generic [ref=e90]:
+              - link "Instructors" [ref=e91] [cursor=pointer]:
+                - /url: /admin/collections/instructors
+                - generic [ref=e92]: Instructors
+              - link "Lessons" [ref=e93] [cursor=pointer]:
+                - /url: /admin/collections/lessons
+                - generic [ref=e94]: Lessons
+              - link "Class Options" [ref=e95] [cursor=pointer]:
+                - /url: /admin/collections/class-options
+                - generic [ref=e96]: Class Options
+              - link "Lesson Scheduler" [ref=e97] [cursor=pointer]:
+                - /url: /admin/globals/scheduler
+                - generic [ref=e98]: Lesson Scheduler
+          - generic [ref=e99]:
+            - button "Products" [ref=e100] [cursor=pointer]:
+              - generic [ref=e101]: Products
+              - img [ref=e103]
+            - generic [ref=e107]:
+              - link "Drop Ins" [ref=e108] [cursor=pointer]:
+                - /url: /admin/collections/drop-ins
+                - generic [ref=e109]: Drop Ins
+              - link "Plans" [ref=e110] [cursor=pointer]:
+                - /url: /admin/collections/plans
+                - generic [ref=e111]: Plans
+          - generic [ref=e112]:
+            - button "Billing" [ref=e113] [cursor=pointer]:
+              - generic [ref=e114]: Billing
+              - img [ref=e116]
+            - link "Subscriptions" [ref=e121] [cursor=pointer]:
+              - /url: /admin/collections/subscriptions
+              - generic [ref=e122]: Subscriptions
+          - link "Log out" [ref=e124] [cursor=pointer]:
+            - /url: /admin/logout
+            - img [ref=e125]
+      - generic [ref=e129]:
+        - banner [ref=e130]:
+          - generic [ref=e133]:
+            - generic "Dashboard" [ref=e137]:
+              - img [ref=e138]
+            - link "Account" [ref=e141] [cursor=pointer]:
+              - /url: /admin/account
+              - img "yas" [ref=e142]
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - heading "Collections" [level=2] [ref=e146]
+            - list [ref=e147]:
+              - listitem [ref=e148]:
+                - generic [ref=e149] [cursor=pointer]:
+                  - heading "Accounts" [level=3] [ref=e150]
+                  - link "Create new Accounts" [ref=e152]:
+                    - /url: /admin/collections/accounts/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Accounts" [ref=e153]:
+                    - /url: /admin/collections/accounts
+              - listitem [ref=e154]:
+                - generic [ref=e155] [cursor=pointer]:
+                  - heading "Sessions" [level=3] [ref=e156]
+                  - link "Create new Sessions" [ref=e158]:
+                    - /url: /admin/collections/sessions/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Sessions" [ref=e159]:
+                    - /url: /admin/collections/sessions
+              - listitem [ref=e160]:
+                - generic [ref=e161] [cursor=pointer]:
+                  - heading "Verifications" [level=3] [ref=e162]
+                  - link "Create new Verifications" [ref=e164]:
+                    - /url: /admin/collections/verifications/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Verifications" [ref=e165]:
+                    - /url: /admin/collections/verifications
+              - listitem [ref=e166]:
+                - generic [ref=e167] [cursor=pointer]:
+                  - heading "Media" [level=3] [ref=e168]
+                  - link "Create new Media" [ref=e170]:
+                    - /url: /admin/collections/media/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Media" [ref=e171]:
+                    - /url: /admin/collections/media
+              - listitem [ref=e172]:
+                - generic [ref=e173] [cursor=pointer]:
+                  - heading "Forms" [level=3] [ref=e174]
+                  - link "Create new Forms" [ref=e176]:
+                    - /url: /admin/collections/forms/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Forms" [ref=e177]:
+                    - /url: /admin/collections/forms
+              - listitem [ref=e178]:
+                - generic [ref=e179] [cursor=pointer]:
+                  - heading "Form Submissions" [level=3] [ref=e180]
+                  - link "Create new Form Submissions" [ref=e182]:
+                    - /url: /admin/collections/form-submissions/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Form Submissions" [ref=e183]:
+                    - /url: /admin/collections/form-submissions
+              - listitem [ref=e184]:
+                - generic [ref=e185] [cursor=pointer]:
+                  - heading "Users" [level=3] [ref=e186]
+                  - link "Create new Users" [ref=e188]:
+                    - /url: /admin/collections/users/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Users" [ref=e189]:
+                    - /url: /admin/collections/users
+          - generic [ref=e190]:
+            - heading "Globals" [level=2] [ref=e191]
+            - list [ref=e192]:
+              - listitem [ref=e193]:
+                - generic [ref=e194] [cursor=pointer]:
+                  - heading "Navbar" [level=3] [ref=e195]
+                  - link "Edit Navbar" [ref=e196]:
+                    - /url: /admin/globals/navbar
+              - listitem [ref=e197]:
+                - generic [ref=e198] [cursor=pointer]:
+                  - heading "Footer" [level=3] [ref=e199]
+                  - link "Edit Footer" [ref=e200]:
+                    - /url: /admin/globals/footer
+          - generic [ref=e201]:
+            - heading "Website" [level=2] [ref=e202]
+            - list [ref=e203]:
+              - listitem [ref=e204]:
+                - generic [ref=e205] [cursor=pointer]:
+                  - heading "Pages" [level=3] [ref=e206]
+                  - link "Create new Pages" [ref=e208]:
+                    - /url: /admin/collections/pages/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Pages" [ref=e209]:
+                    - /url: /admin/collections/pages
+          - generic [ref=e210]:
+            - heading "Blog" [level=2] [ref=e211]
+            - list [ref=e212]:
+              - listitem [ref=e213]:
+                - generic [ref=e214] [cursor=pointer]:
+                  - heading "Posts" [level=3] [ref=e215]
+                  - link "Create new Posts" [ref=e217]:
+                    - /url: /admin/collections/posts/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Posts" [ref=e218]:
+                    - /url: /admin/collections/posts
+          - generic [ref=e219]:
+            - heading "MCP" [level=2] [ref=e220]
+            - list [ref=e221]:
+              - listitem [ref=e222]:
+                - generic [ref=e223] [cursor=pointer]:
+                  - heading "API Keys" [level=3] [ref=e224]
+                  - link "Create new API Keys" [ref=e226]:
+                    - /url: /admin/collections/payload-mcp-api-keys/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all API Keys" [ref=e227]:
+                    - /url: /admin/collections/payload-mcp-api-keys
+          - generic [ref=e228]:
+            - heading "Bookings" [level=2] [ref=e229]
+            - list [ref=e230]:
+              - listitem [ref=e231]:
+                - generic [ref=e232] [cursor=pointer]:
+                  - heading "Instructors" [level=3] [ref=e233]
+                  - link "Create new Instructors" [ref=e235]:
+                    - /url: /admin/collections/instructors/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Instructors" [ref=e236]:
+                    - /url: /admin/collections/instructors
+              - listitem [ref=e237]:
+                - generic [ref=e238] [cursor=pointer]:
+                  - heading "Lessons" [level=3] [ref=e239]
+                  - link "Create new Lessons" [ref=e241]:
+                    - /url: /admin/collections/lessons/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Lessons" [ref=e242]:
+                    - /url: /admin/collections/lessons
+              - listitem [ref=e243]:
+                - generic [ref=e244] [cursor=pointer]:
+                  - heading "Class Options" [level=3] [ref=e245]
+                  - link "Create new Class Options" [ref=e247]:
+                    - /url: /admin/collections/class-options/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Class Options" [ref=e248]:
+                    - /url: /admin/collections/class-options
+              - listitem [ref=e249]:
+                - generic [ref=e250] [cursor=pointer]:
+                  - heading "Lesson Scheduler" [level=3] [ref=e251]
+                  - link "Edit Lesson Scheduler" [ref=e252]:
+                    - /url: /admin/globals/scheduler
+          - generic [ref=e253]:
+            - heading "Products" [level=2] [ref=e254]
+            - list [ref=e255]:
+              - listitem [ref=e256]:
+                - generic [ref=e257] [cursor=pointer]:
+                  - heading "Drop Ins" [level=3] [ref=e258]
+                  - link "Create new Drop Ins" [ref=e260]:
+                    - /url: /admin/collections/drop-ins/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Drop Ins" [ref=e261]:
+                    - /url: /admin/collections/drop-ins
+              - listitem [ref=e262]:
+                - generic [ref=e263] [cursor=pointer]:
+                  - heading "Plans" [level=3] [ref=e264]
+                  - link "Create new Plans" [ref=e266]:
+                    - /url: /admin/collections/plans/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Plans" [ref=e267]:
+                    - /url: /admin/collections/plans
+          - generic [ref=e268]:
+            - heading "Billing" [level=2] [ref=e269]
+            - list [ref=e270]:
+              - listitem [ref=e271]:
+                - generic [ref=e272] [cursor=pointer]:
+                  - heading "Subscriptions" [level=3] [ref=e273]
+                  - link "Create new Subscriptions" [ref=e275]:
+                    - /url: /admin/collections/subscriptions/create
+                    - generic:
+                      - generic:
+                        - img
+                  - link "Show all Subscriptions" [ref=e276]:
+                    - /url: /admin/collections/subscriptions
+  - status [ref=e277]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e283] [cursor=pointer]:
+    - img [ref=e284]
+  - alert [ref=e287]: Dashboard - Payload
+```

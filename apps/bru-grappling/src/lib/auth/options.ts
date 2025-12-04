@@ -97,8 +97,7 @@ export const betterAuthOptions = {
   },
   session: {
     cookieCache: {
-      enabled: true,
-      maxAge: 5 * 60, // Cache duration in seconds
+      enabled: false, // Disabled to avoid cookie size limits
     },
   },
   account: {
