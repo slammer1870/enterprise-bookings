@@ -5,6 +5,29 @@ test.describe('Frontend', () => {
     // Navigate to admin panel and wait for navigation
     // Use 'load' instead of 'networkidle' to avoid timeout issues with background requests
     await page.goto('http://localhost:3000/admin', { waitUntil: 'load', timeout: 60000 })
+    await page.waitForTimeout(2000) // Wait for redirects
+
+    const currentUrl = page.url()
+    
+    // If admin user already exists, we'll be redirected to login
+    // This is expected behavior when database is not fresh
+    if (currentUrl.includes('/admin/login')) {
+      // Admin user exists - sign in instead
+      const emailInput = page.getByRole('textbox', { name: /email/i }).first()
+      const passwordInput = page.getByRole('textbox', { name: /password/i }).first()
+      const loginButton = page.getByRole('button', { name: /login/i }).first()
+      
+      await emailInput.fill('admin@brugrappling.ie')
+      await passwordInput.fill('TestPassword123!')
+      await loginButton.click()
+      
+      // Wait for redirect after login
+      await page.waitForTimeout(3000)
+      await page.waitForURL(/\/admin/, { timeout: 15000 })
+      await expect(page).not.toHaveURL(/\/admin\/login/)
+      await expect(page).not.toHaveURL(/\/admin\/create-first-user/)
+      return
+    }
 
     // Wait for redirect to create-first-user page
     // Payload redirects to /admin/create-first-user when no users exist
