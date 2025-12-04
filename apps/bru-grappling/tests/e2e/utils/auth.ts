@@ -149,9 +149,9 @@ export async function signUp(page: Page, email: string, password: string, name?:
   await passwordInput.fill(password)
   
   // Fill confirm password if it exists
-  const passwordInputs = page.getByRole('textbox', { name: /password/i }).all()
-  const passwordCount = await passwordInputs.length
-  if (passwordCount > 1) {
+  const passwordInputs = await page.getByRole('textbox', { name: /password/i }).all()
+  const passwordCount = passwordInputs.length
+  if (passwordCount > 1 && passwordInputs[1]) {
       await passwordInputs[1].fill(password)
   }
   
