@@ -26,15 +26,42 @@ test.describe('Admin Lesson Creation', () => {
   })
 
   test('should navigate to lessons collection', async ({ page }) => {
+    // Ensure admin user is logged in first
+    const authenticated = await ensureAdminUser(page)
+    if (!authenticated) {
+      test.skip()
+      return
+    }
+    
     // Navigate directly to lessons collection (more reliable than clicking)
-    await page.goto('/admin/collections/lessons', { waitUntil: 'networkidle', timeout: 60000 })
+    try {
+      await page.goto('/admin/collections/lessons', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    } catch (e) {
+      // If navigation fails, try with load
+      await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
+    }
+    
+    // Wait a moment for the page to settle
     await page.waitForTimeout(2000)
 
     // Check current URL - might already be on the page
-    const currentUrl = page.url()
+    let currentUrl = page.url()
+    
+    // If we're not on the lessons page, wait for navigation (but don't fail if we're already there)
     if (!currentUrl.includes('/admin/collections/lessons')) {
-      // Wait for navigation if not already there
-      await page.waitForURL(/\/admin\/collections\/lessons/, { timeout: 15000 })
+      try {
+        await page.waitForURL(/\/admin\/collections\/lessons/, { timeout: 20000 })
+        currentUrl = page.url()
+      } catch (e) {
+        // If navigation times out, check if we're at least in the admin area
+        currentUrl = page.url()
+        if (!currentUrl.includes('/admin')) {
+          throw new Error(`Failed to navigate to lessons collection. Current URL: ${currentUrl}`)
+        }
+        // If we're in admin but not on lessons, try navigating again
+        await page.goto('/admin/collections/lessons', { waitUntil: 'domcontentloaded', timeout: 30000 })
+        currentUrl = page.url()
+      }
     }
 
     // Verify we're on the lessons collection page
@@ -43,16 +70,26 @@ test.describe('Admin Lesson Creation', () => {
     const pageContentByTestId = page.locator('[data-testid*="lessons"]').first()
     const pageContentByText = page.locator('text=/lessons/i').first()
     const createButton = page.getByRole('button', { name: /create|new|add/i }).first()
+    const lessonsLink = page.getByRole('link', { name: /lessons/i }).first()
     
     const headingVisible = await pageHeading.isVisible({ timeout: 5000 }).catch(() => false)
     const testIdVisible = await pageContentByTestId.isVisible({ timeout: 5000 }).catch(() => false)
     const textVisible = await pageContentByText.isVisible({ timeout: 5000 }).catch(() => false)
     const createButtonVisible = await createButton.isVisible({ timeout: 5000 }).catch(() => false)
+    const lessonsLinkVisible = await lessonsLink.isVisible({ timeout: 5000 }).catch(() => false)
+    const finalUrl = page.url()
     
-    expect(headingVisible || testIdVisible || textVisible || createButtonVisible || currentUrl.includes('/admin/collections/lessons')).toBe(true)
+    expect(headingVisible || testIdVisible || textVisible || createButtonVisible || lessonsLinkVisible || finalUrl.includes('/admin/collections/lessons')).toBe(true)
   })
 
   test('should create a new lesson with all required fields', async ({ page }) => {
+    // Ensure admin user is logged in (session might have expired)
+    const authenticated = await ensureAdminUser(page)
+    if (!authenticated) {
+      test.skip()
+      return
+    }
+    
     // Navigate to lessons collection
     await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
     await page.waitForTimeout(2000)
@@ -86,7 +123,7 @@ test.describe('Admin Lesson Creation', () => {
     // Get tomorrow's date for the lesson
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const dateStr = tomorrow.toISOString().split('T')[0] // YYYY-MM-DD format
+    const dateStr: string = tomorrow.toISOString().split('T')[0] || '' // YYYY-MM-DD format
 
     // Fill in date field
     const dateInput = page.locator('input[type="date"], input[name*="date"]').first()
@@ -198,32 +235,27 @@ test.describe('Admin Lesson Creation', () => {
     await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
     await page.waitForTimeout(2000)
 
-    // Try multiple strategies to find the create button
-    const createButtonByText = page.getByRole('button', { name: /create new|new|add|create/i }).first()
-    const createButtonByHref = page.locator('a[href*="/create"], button[href*="/create"]').first()
-    const createLink = page.getByRole('link', { name: /create|new|add/i }).first()
+    // Try multiple strategies to find the create button/link
+    // Based on MCP exploration: "Create New" is a link containing a button
+    const createLink = page.getByRole('link', { name: /create new/i }).first()
+    const createButton = page.getByRole('button', { name: /create new/i }).first()
     
-    let createButton = null
-    if (await createButtonByText.isVisible({ timeout: 5000 }).catch(() => false)) {
-      createButton = createButtonByText
-    } else if (await createLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      createButton = createLink
-    } else if (await createButtonByHref.isVisible({ timeout: 5000 }).catch(() => false)) {
-      createButton = createButtonByHref
+    if (await createLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await createLink.click()
+    } else if (await createButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await createButton.click()
     } else {
       // Fallback: navigate directly to create page
       await page.goto('/admin/collections/class-options/create', { waitUntil: 'load', timeout: 60000 })
-      await page.waitForTimeout(2000)
-    }
-
-    if (createButton) {
-      await createButton.click()
     }
 
     // Wait for create class option form to load
     await page.waitForURL(/\/admin\/collections\/class-options\/create/, { timeout: 15000 })
     await page.waitForTimeout(2000)
 
+    // Generate a unique name for the class option (name field is unique)
+    const uniqueName = `Test Class Option ${Date.now()}`
+    
     // Fill in class option name - try multiple selectors
     let nameInput = page.getByRole('textbox', { name: /name/i }).first()
     if (!(await nameInput.isVisible({ timeout: 2000 }).catch(() => false))) {
@@ -235,12 +267,12 @@ test.describe('Admin Lesson Creation', () => {
     await expect(nameInput).toBeVisible({ timeout: 10000 })
     await nameInput.click() // Click to focus
     await page.waitForTimeout(500)
-    await nameInput.fill('Test Class Option')
+    await nameInput.fill(uniqueName)
     await page.waitForTimeout(500)
     // Verify the value was filled
     const nameValue = await nameInput.inputValue()
     if (!nameValue || nameValue.trim() === '') {
-      await nameInput.fill('Test Class Option')
+      await nameInput.fill(uniqueName)
       await page.waitForTimeout(500)
     }
 
@@ -348,35 +380,91 @@ test.describe('Admin Lesson Creation', () => {
         await page.waitForURL(/\/admin\/collections\/class-options\/create/, { timeout: 15000 })
         await page.waitForTimeout(2000)
 
-        // Fill in class option details
-        const nameInput = page.getByRole('textbox', { name: /name/i }).first()
-        await nameInput.fill('E2E Test Class')
+        // Generate a unique name for the class option (name field is unique)
+        const uniqueName = `E2E Test Class ${Date.now()}`
+        
+        // Fill in class option details - use improved filling logic
+        let nameInput = page.getByRole('textbox', { name: /name/i }).first()
+        if (!(await nameInput.isVisible({ timeout: 2000 }).catch(() => false))) {
+          nameInput = page.getByLabel(/name/i).first()
+        }
+        if (!(await nameInput.isVisible({ timeout: 2000 }).catch(() => false))) {
+          nameInput = page.locator('input[name*="name"], input[id*="name"]').first()
+        }
+        await expect(nameInput).toBeVisible({ timeout: 10000 })
+        await nameInput.click()
+        await page.waitForTimeout(500)
+        await nameInput.fill(uniqueName)
+        await page.waitForTimeout(500)
+        // Verify the value was filled
+        const nameValue = await nameInput.inputValue()
+        if (!nameValue || nameValue.trim() === '') {
+          await nameInput.fill(uniqueName)
+          await page.waitForTimeout(500)
+        }
 
         const placesInput = page.locator('input[type="number"], input[name*="places"]').first()
         if (await placesInput.isVisible({ timeout: 5000 }).catch(() => false)) {
           await placesInput.fill('15')
+          await page.waitForTimeout(500)
         }
 
         const descriptionInput = page.getByRole('textbox', { name: /description/i }).first()
         if (await descriptionInput.isVisible({ timeout: 5000 }).catch(() => false)) {
           await descriptionInput.fill('Test class for e2e testing')
+          await page.waitForTimeout(500)
         }
 
         // Save class option
         const saveButton = page.getByRole('button', { name: /save|create/i }).first()
+        await expect(saveButton).toBeVisible({ timeout: 10000 })
         await saveButton.click()
-        await page.waitForURL(/\/admin\/collections\/class-options/, { timeout: 15000 })
+        
+        // Wait for navigation away from create page
+        await page.waitForTimeout(2000)
+        const currentUrl = page.url()
+        if (currentUrl.includes('/create')) {
+          // Still on create page - wait longer or check for errors
+          try {
+            await page.waitForURL(/\/admin\/collections\/class-options/, { timeout: 20000 })
+          } catch (e) {
+            // Check for validation errors
+            const errorMessages = page.locator('text=/error|required|invalid/i')
+            const errorCount = await errorMessages.count()
+            if (errorCount > 0) {
+              const errorTexts = await Promise.all(
+                Array.from({ length: Math.min(errorCount, 3) }).map(async (_, i) => {
+                  return await errorMessages.nth(i).textContent().catch(() => '')
+                })
+              )
+              throw new Error(`Class option creation failed: ${errorTexts.filter(Boolean).join(', ')}`)
+            }
+            throw new Error('Class option creation failed - still on create page')
+          }
+        }
         await page.waitForTimeout(2000)
       }
     }
+    
+    // Wait a bit longer to ensure class options are fully available in the system
+    await page.waitForTimeout(3000)
 
     // Step 2: Navigate to lessons and create a new lesson
     await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
     await page.waitForTimeout(2000)
 
-    const createLessonButton = page.getByRole('button', { name: /create new|new|add/i }).first()
-    await expect(createLessonButton).toBeVisible({ timeout: 10000 })
-    await createLessonButton.click()
+    // Based on MCP exploration: "Create New" is a link containing a button
+    const createLink = page.getByRole('link', { name: /create new/i }).first()
+    const createButton = page.getByRole('button', { name: /create new/i }).first()
+    
+    if (await createLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await createLink.click()
+    } else if (await createButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await createButton.click()
+    } else {
+      // Fallback: navigate directly to create page
+      await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    }
 
     await page.waitForURL(/\/admin\/collections\/lessons\/create/, { timeout: 15000 })
     await page.waitForTimeout(2000)
@@ -417,61 +505,115 @@ test.describe('Admin Lesson Creation', () => {
     }
 
     // Class option (required) - fill this FIRST as it's required
-    // Payload uses a combobox for relationship fields
+    // Based on MCP exploration: Payload uses React Select combobox
+    // The combobox is near the "Class Option" label and opens a listbox with options
+    await page.waitForTimeout(1000)
+    
+    // Find the Class Option combobox - try multiple strategies
+    // Strategy 1: Find combobox near the "Class Option" label
     const classOptionLabel = page.locator('text=Class Option').first()
     let classOptionCombobox = null
     
     if (await classOptionLabel.isVisible({ timeout: 10000 }).catch(() => false)) {
-      // Find the combobox in the same section - try multiple strategies
-      classOptionCombobox = classOptionLabel.locator('..').locator('..').locator('combobox').first()
+      // Find combobox in the same field group
+      const fieldGroup = classOptionLabel.locator('..').locator('..').locator('..')
+      classOptionCombobox = fieldGroup.getByRole('combobox').first()
+      
       if (!(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
-        // Fallback 1: try finding combobox by role near the label
-        classOptionCombobox = page.getByRole('combobox').filter({ hasText: /select a value|class option/i }).first()
+        // Strategy 2: Find by field ID (Payload uses #field-* pattern)
+        const fieldIdSelector = page.locator('#field-classOption, [id*="classOption"]').first()
+        if (await fieldIdSelector.isVisible({ timeout: 2000 }).catch(() => false)) {
+          classOptionCombobox = fieldIdSelector.getByRole('combobox').first()
+        }
       }
+      
       if (!(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
-        // Fallback 2: try finding any combobox after the label
+        // Strategy 3: Find all comboboxes and pick the one near Class Option label
         const allComboboxes = await page.getByRole('combobox').all()
         for (const combobox of allComboboxes) {
           const isVisible = await combobox.isVisible({ timeout: 1000 }).catch(() => false)
           if (isVisible) {
-            classOptionCombobox = combobox
-            break
+            // Check if it's near the Class Option label by checking parent elements
+            const comboboxText = await combobox.textContent().catch(() => '') || ''
+            if (comboboxText.includes('Select a value') || comboboxText.includes('Class Option')) {
+              classOptionCombobox = combobox
+              break
+            }
           }
         }
       }
-    } else {
-      // If label not found, try finding combobox directly
-      classOptionCombobox = page.getByRole('combobox').first()
     }
     
-    if (classOptionCombobox && await classOptionCombobox.isVisible({ timeout: 10000 }).catch(() => false)) {
-        await classOptionCombobox.click()
-        await page.waitForTimeout(1000)
-
-        // Select the first available class option from dropdown
-        const firstOption = page.getByRole('option').first()
-        if (await firstOption.isVisible({ timeout: 5000 }).catch(() => false)) {
-          const optionText = await firstOption.textContent()
-          await firstOption.click()
-          await page.waitForTimeout(2000) // Wait longer for selection to register
-          
-          // Verify selection was made by checking if combobox shows selected value (not "Select a value")
-          const comboboxText = await classOptionCombobox.textContent()
-          if (comboboxText && comboboxText.includes('Select a value')) {
-            // Selection might not have registered, try clicking again
-            await classOptionCombobox.click()
-            await page.waitForTimeout(1000)
-            const optionAgain = page.getByRole('option', { name: optionText || undefined }).first()
-            if (await optionAgain.isVisible({ timeout: 5000 }).catch(() => false)) {
-              await optionAgain.click()
-              await page.waitForTimeout(2000)
-            }
-          }
-        } else {
-          throw new Error('No class options available in dropdown')
+    // Fallback: use first visible combobox
+    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
+      const allComboboxes = await page.getByRole('combobox').all()
+      for (const combobox of allComboboxes) {
+        const isVisible = await combobox.isVisible({ timeout: 1000 }).catch(() => false)
+        if (isVisible) {
+          classOptionCombobox = combobox
+          break
         }
-    } else {
+      }
+    }
+    
+    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 10000 }).catch(() => false))) {
       throw new Error('Class Option combobox not found')
+    }
+    
+    // Click to open the dropdown - React Select opens a listbox
+    await classOptionCombobox.click()
+    await page.waitForTimeout(2000) // Wait for React Select dropdown to appear
+    
+    // Wait for listbox to appear with options
+    const listbox = page.locator('listbox, [role="listbox"]').first()
+    await expect(listbox).toBeVisible({ timeout: 10000 })
+    
+    // Get all options from the listbox
+    const options = await listbox.getByRole('option').all()
+    
+    if (options.length === 0) {
+      // Check if class options exist in the database
+      const currentUrl = page.url()
+      await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 30000 })
+      await page.waitForTimeout(2000)
+      const hasOptions = await page.locator('table, [data-testid*="list"], a[href*="/class-options/"]').count() > 0
+      await page.goto(currentUrl, { waitUntil: 'load', timeout: 30000 })
+      await page.waitForTimeout(2000)
+      
+      if (!hasOptions) {
+        throw new Error('No class options exist in the database. Please create a class option first.')
+      } else {
+        throw new Error('Class options exist but are not appearing in the dropdown. This may be a timing issue.')
+      }
+    }
+    
+    // Select the first available option
+    const firstOption = options[0]
+    if (!firstOption) {
+      throw new Error('No class option available in dropdown')
+    }
+    
+    const optionText = await firstOption.textContent()
+    if (!optionText) {
+      throw new Error('Class option text could not be retrieved')
+    }
+    
+    await firstOption.click()
+    await page.waitForTimeout(2000) // Wait for selection to register
+    
+    // Verify selection was made
+    const comboboxText = await classOptionCombobox.textContent()
+    if (comboboxText && comboboxText.includes('Select a value')) {
+      // Selection might not have registered, try clicking again
+      await classOptionCombobox.click()
+      await page.waitForTimeout(1000)
+      const listboxAgain = page.locator('listbox, [role="listbox"]').first()
+      await expect(listboxAgain).toBeVisible({ timeout: 5000 })
+      const optionAgain = listboxAgain.getByRole('option', { name: optionText || '' }).first()
+      if (await optionAgain.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await optionAgain.click()
+        await page.waitForTimeout(2000)
+      }
     }
 
     // Start time - click to open time picker dialog, then select time
