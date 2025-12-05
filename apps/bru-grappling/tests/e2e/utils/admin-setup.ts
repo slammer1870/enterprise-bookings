@@ -74,18 +74,34 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
     return true
   }
   
-  // If redirected to login, admin exists but we need to sign in
-  if (currentUrl.includes('/admin/login')) {
-    const emailInput = page.getByRole('textbox', { name: /email/i }).first()
-    const passwordInput = page.getByRole('textbox', { name: /password/i }).first()
-    const loginButton = page.getByRole('button', { name: /login/i }).first()
-    
-    await expect(emailInput).toBeVisible({ timeout: 10000 })
-    await emailInput.fill(TEST_USERS.admin.email)
-    await expect(passwordInput).toBeVisible({ timeout: 10000 })
-    await passwordInput.fill(TEST_USERS.admin.password)
-    await expect(loginButton).toBeVisible({ timeout: 10000 })
-    await loginButton.click()
+          // If redirected to login, admin exists but we need to sign in
+          if (currentUrl.includes('/admin/login')) {
+            // Wait for login form to fully load
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+            await page.waitForTimeout(2000)
+            
+            // Try multiple selector strategies for login form elements
+            let emailInput = page.getByRole('textbox', { name: /email/i }).first()
+            let passwordInput = page.getByRole('textbox', { name: /password/i }).first()
+            let loginButton = page.getByRole('button', { name: /login/i }).first()
+            
+            // Fallback selectors if role-based doesn't work
+            if (!(await emailInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+              emailInput = page.locator('input[type="email"], input[name*="email"]').first()
+            }
+            if (!(await passwordInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+              passwordInput = page.locator('input[type="password"], input[name*="password"]').first()
+            }
+            if (!(await loginButton.isVisible({ timeout: 3000 }).catch(() => false))) {
+              loginButton = page.locator('button[type="submit"], button:has-text("Login"), button:has-text("Sign in"), button:has-text("Log in")').first()
+            }
+            
+            await expect(emailInput).toBeVisible({ timeout: 15000 })
+            await emailInput.fill(TEST_USERS.admin.email)
+            await expect(passwordInput).toBeVisible({ timeout: 15000 })
+            await passwordInput.fill(TEST_USERS.admin.password)
+            await expect(loginButton).toBeVisible({ timeout: 15000 })
+            await loginButton.click()
     
     // Wait for redirect after login - may take a moment
     await page.waitForTimeout(2000)
