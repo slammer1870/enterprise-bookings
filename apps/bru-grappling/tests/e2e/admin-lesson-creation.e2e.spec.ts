@@ -231,12 +231,32 @@ test.describe('Admin Lesson Creation', () => {
   })
 
   test('should create class option before creating lesson', async ({ page }) => {
+    // Ensure admin user is authenticated first
+    const authenticated = await ensureAdminUser(page)
+    if (!authenticated) {
+      test.skip('Admin user could not be authenticated or created.')
+      return
+    }
+    
     // Navigate directly to create page (more reliable than clicking)
     await page.goto('/admin/collections/class-options/create', { waitUntil: 'load', timeout: 60000 })
     await page.waitForTimeout(2000)
     
+    // Verify we're on the create page (might be redirected to login if not authenticated)
+    const currentUrl = page.url()
+    if (currentUrl.includes('/admin/login') || currentUrl.includes('/admin/create-first-user')) {
+      // Try to authenticate again
+      const reAuth = await ensureAdminUser(page)
+      if (!reAuth) {
+        throw new Error(`Failed to authenticate. Current URL: ${currentUrl}`)
+      }
+      // Navigate again after authentication
+      await page.goto('/admin/collections/class-options/create', { waitUntil: 'load', timeout: 60000 })
+      await page.waitForTimeout(2000)
+    }
+    
     // Verify we're on the create page
-    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/create/)
+    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/create/, { timeout: 10000 })
 
     // Generate a unique name for the class option (name field is unique)
     const uniqueName = `Test Class Option ${Date.now()}`
@@ -272,22 +292,30 @@ test.describe('Admin Lesson Creation', () => {
       await page.waitForTimeout(500)
     }
 
-    // Fill in places (capacity)
-    const placesInput = page.locator('input[type="number"], input[name*="places"]').first()
-    if (await placesInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await placesInput.fill('20')
-    } else {
-      const placesField = page.getByLabel(/places|capacity/i).first()
-      if (await placesField.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await placesField.fill('20')
-      }
+    // Fill in places (capacity) - required field
+    let placesInput = page.locator('input[type="number"], input[name*="places"]').first()
+    if (!(await placesInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      placesInput = page.getByLabel(/places|capacity/i).first()
     }
+    if (!(await placesInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      placesInput = page.locator('input[type="number"]').first()
+    }
+    await expect(placesInput).toBeVisible({ timeout: 15000 })
+    await placesInput.fill('20')
+    await page.waitForTimeout(500)
 
-    // Fill in description
-    const descriptionInput = page.getByRole('textbox', { name: /description/i }).first()
-    if (await descriptionInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await descriptionInput.fill('A test class option for e2e testing')
+    // Fill in description - required field
+    let descriptionInput = page.getByRole('textbox', { name: /description/i }).first()
+    if (!(await descriptionInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      descriptionInput = page.getByLabel(/description/i).first()
     }
+    if (!(await descriptionInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      // Try finding by field ID
+      descriptionInput = page.locator('#field-description textarea, #field-description input, [id*="description"]').first()
+    }
+    await expect(descriptionInput).toBeVisible({ timeout: 15000 })
+    await descriptionInput.fill('A test class option for e2e testing')
+    await page.waitForTimeout(500)
 
     // Select type (adult, child, or family)
     const typeSelect = page.locator('select[name*="type"], input[id*="react-select"]').first()
