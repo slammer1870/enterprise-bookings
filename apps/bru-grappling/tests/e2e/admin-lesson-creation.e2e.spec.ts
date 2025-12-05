@@ -231,27 +231,12 @@ test.describe('Admin Lesson Creation', () => {
   })
 
   test('should create class option before creating lesson', async ({ page }) => {
-    // Navigate to class options collection
-    await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
+    // Navigate directly to create page (more reliable than clicking)
+    await page.goto('/admin/collections/class-options/create', { waitUntil: 'load', timeout: 60000 })
     await page.waitForTimeout(2000)
-
-    // Try multiple strategies to find the create button/link
-    // Based on MCP exploration: "Create New" is a link containing a button
-    const createLink = page.getByRole('link', { name: /create new/i }).first()
-    const createButton = page.getByRole('button', { name: /create new/i }).first()
     
-    if (await createLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await createLink.click()
-    } else if (await createButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await createButton.click()
-    } else {
-      // Fallback: navigate directly to create page
-      await page.goto('/admin/collections/class-options/create', { waitUntil: 'load', timeout: 60000 })
-    }
-
-    // Wait for create class option form to load
-    await page.waitForURL(/\/admin\/collections\/class-options\/create/, { timeout: 15000 })
-    await page.waitForTimeout(2000)
+    // Verify we're on the create page
+    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/create/)
 
     // Generate a unique name for the class option (name field is unique)
     const uniqueName = `Test Class Option ${Date.now()}`
