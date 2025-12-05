@@ -234,7 +234,7 @@ test.describe('Admin Lesson Creation', () => {
     // Ensure admin user is authenticated first
     const authenticated = await ensureAdminUser(page)
     if (!authenticated) {
-      test.skip('Admin user could not be authenticated or created.')
+      test.skip()
       return
     }
     
@@ -368,12 +368,12 @@ test.describe('Admin Lesson Creation', () => {
     await page.waitForTimeout(2000)
     
     // Verify class option was created
-    const currentUrl = page.url()
-    const onDetailPage = /\/admin\/collections\/class-options\/\d+/.test(currentUrl)
-    const onListPage = currentUrl.includes('/admin/collections/class-options') && !currentUrl.includes('/create')
+    const finalUrl = page.url()
+    const onDetailPage = /\/admin\/collections\/class-options\/\d+/.test(finalUrl)
+    const onListPage = finalUrl.includes('/admin/collections/class-options') && !finalUrl.includes('/create')
 
     // If still on create page, check for errors
-    if (currentUrl.includes('/create')) {
+    if (finalUrl.includes('/create')) {
       const errorMessage = page.locator('text=/error|required|invalid/i').first()
       const hasError = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false)
       
