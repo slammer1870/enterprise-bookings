@@ -241,15 +241,12 @@ test.describe('Admin Lesson Creation', () => {
     // Generate a unique name for the class option (name field is unique)
     const uniqueName = `Test Class Option ${Date.now()}`
     
-    // Fill in class option name - try multiple selectors
-    let nameInput = page.getByRole('textbox', { name: /name/i }).first()
-    if (!(await nameInput.isVisible({ timeout: 2000 }).catch(() => false))) {
-      nameInput = page.getByLabel(/name/i).first()
-    }
-    if (!(await nameInput.isVisible({ timeout: 2000 }).catch(() => false))) {
-      nameInput = page.locator('input[name*="name"], input[id*="name"]').first()
-    }
-    await expect(nameInput).toBeVisible({ timeout: 10000 })
+    // Fill in class option name - based on MCP exploration, it's a textbox with label "Name *"
+    // Wait for form to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    
+    const nameInput = page.getByRole('textbox', { name: /^name\s*\*/i }).first()
+    await expect(nameInput).toBeVisible({ timeout: 15000 })
     await nameInput.click() // Click to focus
     await page.waitForTimeout(500)
     await nameInput.fill(uniqueName)
@@ -529,20 +526,32 @@ test.describe('Admin Lesson Creation', () => {
       }
     }
     
-    // Fallback: use first visible combobox
+    // Fallback: use the second combobox (Class Option is typically after Instructor)
     if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
       const allComboboxes = await page.getByRole('combobox').all()
-      for (const combobox of allComboboxes) {
-        const isVisible = await combobox.isVisible({ timeout: 1000 }).catch(() => false)
+      // Class Option is typically the second combobox (after Instructor)
+      if (allComboboxes.length >= 2 && allComboboxes[1]) {
+        const isVisible = await allComboboxes[1].isVisible({ timeout: 2000 }).catch(() => false)
         if (isVisible) {
-          classOptionCombobox = combobox
-          break
+          classOptionCombobox = allComboboxes[1]
+        }
+      }
+      // If that doesn't work, try the last one
+      if ((!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 1000 }).catch(() => false))) && allComboboxes.length > 0) {
+        const lastCombobox = allComboboxes[allComboboxes.length - 1]
+        if (lastCombobox) {
+          const isVisible = await lastCombobox.isVisible({ timeout: 2000 }).catch(() => false)
+          if (isVisible) {
+            classOptionCombobox = lastCombobox
+          }
         }
       }
     }
     
-    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 10000 }).catch(() => false))) {
-      throw new Error('Class Option combobox not found')
+    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 15000 }).catch(() => false))) {
+      // Take a screenshot for debugging
+      await page.screenshot({ path: 'test-results/class-option-combobox-not-found.png', fullPage: true }).catch(() => {})
+      throw new Error('Class Option combobox not found. Check screenshot: test-results/class-option-combobox-not-found.png')
     }
     
     // Click to open the dropdown - React Select opens a listbox
@@ -687,20 +696,43 @@ test.describe('Admin Lesson Creation', () => {
     
     await saveButton.click()
     
-    // Wait a moment for any validation errors to appear
-    await page.waitForTimeout(2000)
+    // Wait a moment for any validation errors to appear or for navigation
+    await page.waitForTimeout(3000)
 
-    // Check for validation errors before waiting for navigation
-    const errorMessages = page.locator('text=/error|required|invalid|missing/i')
+    // Check current URL - might have navigated already
+    let currentUrlAfterClick = page.url()
+    if (!currentUrlAfterClick.includes('/create')) {
+      // Successfully navigated away from create page
+      await page.waitForTimeout(2000)
+      return
+    }
+
+    // Still on create page - check for validation errors more thoroughly
+    // Check for toast notifications with errors
+    const toastErrors = page.locator('.payload-toast-container .toast--error, .toast--error').or(page.locator('[role="alert"]').filter({ hasText: /error/i }))
+    const toastErrorCount = await toastErrors.count()
+    if (toastErrorCount > 0) {
+      const toastTexts = await Promise.all(
+        Array.from({ length: Math.min(toastErrorCount, 3) }).map(async (_, i) => {
+          return await toastErrors.nth(i).textContent().catch(() => '')
+        })
+      )
+      await page.screenshot({ path: 'test-results/toast-errors.png', fullPage: true }).catch(() => {})
+      throw new Error(`Toast error messages: ${toastTexts.filter(Boolean).join(', ')}`)
+    }
+
+    // Check for validation errors in form fields
+    const errorMessages = page.locator('text=/error|required|invalid|missing|field is invalid/i')
     const errorCount = await errorMessages.count()
     
     if (errorCount > 0) {
       // Get error text for debugging
       const errorTexts = await Promise.all(
-        Array.from({ length: Math.min(errorCount, 3) }).map(async (_, i) => {
+        Array.from({ length: Math.min(errorCount, 5) }).map(async (_, i) => {
           return await errorMessages.nth(i).textContent().catch(() => '')
         })
       )
+      await page.screenshot({ path: 'test-results/validation-errors.png', fullPage: true }).catch(() => {})
       throw new Error(`Form validation errors: ${errorTexts.filter(Boolean).join(', ')}`)
     }
 
@@ -717,23 +749,21 @@ test.describe('Admin Lesson Creation', () => {
     } catch (e) {
       // If navigation didn't happen, take a screenshot and check current state
       await page.screenshot({ path: 'test-results/after-save-timeout.png', fullPage: true }).catch(() => {})
-      const currentUrl = page.url()
-      const stillOnCreate = currentUrl.includes('/create')
+      currentUrlAfterClick = page.url()
       
-      if (stillOnCreate) {
-        // Check for any error messages
-        const errors = page.locator('text=/error|required|invalid|missing/i')
-        const hasErrors = await errors.count() > 0
-        
-        if (hasErrors) {
-          const errorText = await errors.first().textContent().catch(() => 'Unknown error')
-          throw new Error(`Lesson creation failed - still on create page. Error: ${errorText}`)
-        }
-        
-        throw new Error(`Lesson creation failed - still on create page after save. Current URL: ${currentUrl}`)
+      // Check for any error messages one more time
+      const finalErrors = page.locator('text=/error|required|invalid|missing|field is invalid/i')
+      const finalErrorCount = await finalErrors.count()
+      if (finalErrorCount > 0) {
+        const finalErrorTexts = await Promise.all(
+          Array.from({ length: Math.min(finalErrorCount, 3) }).map(async (_, i) => {
+            return await finalErrors.nth(i).textContent().catch(() => '')
+          })
+        )
+        throw new Error(`Form validation errors preventing save: ${finalErrorTexts.filter(Boolean).join(', ')}`)
       }
       
-      throw e
+      throw new Error(`Lesson creation failed - still on create page after save. Current URL: ${currentUrlAfterClick}`)
     }
     
     await page.waitForTimeout(2000)
