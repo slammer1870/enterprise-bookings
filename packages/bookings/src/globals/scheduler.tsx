@@ -127,6 +127,16 @@ const days: Field = {
             description: "Overrides the default lock out time",
           },
         },
+        {
+          name: "active",
+          label: "Active",
+          type: "checkbox",
+          defaultValue: true,
+          admin: {
+            description:
+              "Whether the time slot is active and will be shown on the schedule",
+          },
+        },
       ],
     },
   ],

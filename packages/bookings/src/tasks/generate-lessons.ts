@@ -216,6 +216,7 @@ export const generateLessonsFromSchedule: TaskHandler<
             location: timeSlot.location || null,
             instructor: Number(timeSlot.instructor) || null,
             lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
+            active: timeSlot.active || true,
           },
         });
         console.log("New lesson", newLesson);
