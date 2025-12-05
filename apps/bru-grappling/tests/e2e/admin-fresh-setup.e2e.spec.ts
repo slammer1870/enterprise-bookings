@@ -74,14 +74,29 @@ test.describe('Admin Fresh Setup', () => {
     
     // If admin user already exists, sign in first
     if (currentUrl.includes('/admin/login')) {
-      // Sign in with admin credentials
-      const emailInput = page.getByRole('textbox', { name: /email/i }).first()
-      const passwordInput = page.getByRole('textbox', { name: /password/i }).first()
-      const loginButton = page.getByRole('button', { name: /login/i }).first()
+      // Wait for login form to fully load
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+      await page.waitForTimeout(2000)
       
-      await expect(emailInput).toBeVisible({ timeout: 10000 })
-      await expect(passwordInput).toBeVisible({ timeout: 10000 })
-      await expect(loginButton).toBeVisible({ timeout: 10000 })
+      // Sign in with admin credentials - try multiple selectors
+      let emailInput = page.getByRole('textbox', { name: /email/i }).first()
+      let passwordInput = page.getByRole('textbox', { name: /password/i }).first()
+      let loginButton = page.getByRole('button', { name: /login/i }).first()
+      
+      // Fallback selectors if role-based doesn't work
+      if (!(await emailInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+        emailInput = page.locator('input[type="email"], input[name*="email"]').first()
+      }
+      if (!(await passwordInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+        passwordInput = page.locator('input[type="password"], input[name*="password"]').first()
+      }
+      if (!(await loginButton.isVisible({ timeout: 3000 }).catch(() => false))) {
+        loginButton = page.locator('button[type="submit"], button:has-text("Login"), button:has-text("Sign in")').first()
+      }
+      
+      await expect(emailInput).toBeVisible({ timeout: 15000 })
+      await expect(passwordInput).toBeVisible({ timeout: 15000 })
+      await expect(loginButton).toBeVisible({ timeout: 15000 })
       
       await emailInput.fill('admin@brugrappling.ie')
       await passwordInput.fill('TestPassword123!')

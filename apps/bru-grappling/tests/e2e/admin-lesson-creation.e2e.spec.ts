@@ -241,12 +241,26 @@ test.describe('Admin Lesson Creation', () => {
     // Generate a unique name for the class option (name field is unique)
     const uniqueName = `Test Class Option ${Date.now()}`
     
-    // Fill in class option name - based on MCP exploration, it's a textbox with label "Name *"
     // Wait for form to fully load
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(2000) // Additional wait for form rendering
     
-    const nameInput = page.getByRole('textbox', { name: /^name\s*\*/i }).first()
-    await expect(nameInput).toBeVisible({ timeout: 15000 })
+    // Fill in class option name - try multiple selector strategies
+    let nameInput = page.getByRole('textbox', { name: /^name\s*\*/i }).first()
+    if (!(await nameInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      // Try without asterisk
+      nameInput = page.getByRole('textbox', { name: /^name$/i }).first()
+    }
+    if (!(await nameInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      // Try with label
+      nameInput = page.getByLabel(/^name$/i).first()
+    }
+    if (!(await nameInput.isVisible({ timeout: 3000 }).catch(() => false))) {
+      // Try by field ID or name attribute
+      nameInput = page.locator('input[name*="name"], input[id*="name"], #field-name input').first()
+    }
+    
+    await expect(nameInput).toBeVisible({ timeout: 20000 })
     await nameInput.click() // Click to focus
     await page.waitForTimeout(500)
     await nameInput.fill(uniqueName)
@@ -489,35 +503,61 @@ test.describe('Admin Lesson Creation', () => {
     // Class option (required) - fill this FIRST as it's required
     // Based on MCP exploration: Payload uses React Select combobox
     // The combobox is near the "Class Option" label and opens a listbox with options
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(2000) // Wait for form to render
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(1000) // Additional wait
     
     // Find the Class Option combobox - try multiple strategies
-    // Strategy 1: Find combobox near the "Class Option" label
-    const classOptionLabel = page.locator('text=Class Option').first()
     let classOptionCombobox = null
     
-    if (await classOptionLabel.isVisible({ timeout: 10000 }).catch(() => false)) {
-      // Find combobox in the same field group
-      const fieldGroup = classOptionLabel.locator('..').locator('..').locator('..')
-      classOptionCombobox = fieldGroup.getByRole('combobox').first()
-      
-      if (!(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
-        // Strategy 2: Find by field ID (Payload uses #field-* pattern)
-        const fieldIdSelector = page.locator('#field-classOption, [id*="classOption"]').first()
-        if (await fieldIdSelector.isVisible({ timeout: 2000 }).catch(() => false)) {
-          classOptionCombobox = fieldIdSelector.getByRole('combobox').first()
+    // Strategy 1: Find by field ID (Payload uses #field-* pattern)
+    const fieldIdSelectors = [
+      '#field-classOption',
+      '[id*="classOption"]',
+      '[id*="class-option"]',
+      '#field-class_option'
+    ]
+    
+    for (const selector of fieldIdSelectors) {
+      const fieldContainer = page.locator(selector).first()
+      if (await fieldContainer.isVisible({ timeout: 2000 }).catch(() => false)) {
+        classOptionCombobox = fieldContainer.getByRole('combobox').first()
+        if (await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false)) {
+          break
         }
       }
-      
-      if (!(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
-        // Strategy 3: Find all comboboxes and pick the one near Class Option label
-        const allComboboxes = await page.getByRole('combobox').all()
-        for (const combobox of allComboboxes) {
-          const isVisible = await combobox.isVisible({ timeout: 1000 }).catch(() => false)
-          if (isVisible) {
-            // Check if it's near the Class Option label by checking parent elements
-            const comboboxText = await combobox.textContent().catch(() => '') || ''
-            if (comboboxText.includes('Select a value') || comboboxText.includes('Class Option')) {
+    }
+    
+    // Strategy 2: Find combobox near the "Class Option" label
+    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
+      const classOptionLabel = page.locator('text=Class Option, label:has-text("Class Option")').first()
+      if (await classOptionLabel.isVisible({ timeout: 5000 }).catch(() => false)) {
+        // Find combobox in the same field group - try multiple parent levels
+        for (let i = 1; i <= 5; i++) {
+          let parentPath = classOptionLabel
+          for (let j = 0; j < i; j++) {
+            parentPath = parentPath.locator('..')
+          }
+          const combobox = parentPath.getByRole('combobox').first()
+          if (await combobox.isVisible({ timeout: 1000 }).catch(() => false)) {
+            classOptionCombobox = combobox
+            break
+          }
+        }
+      }
+    }
+    
+    // Strategy 3: Find all comboboxes and pick the one that shows "Select a value"
+    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
+      const allComboboxes = await page.getByRole('combobox').all()
+      for (const combobox of allComboboxes) {
+        const isVisible = await combobox.isVisible({ timeout: 1000 }).catch(() => false)
+        if (isVisible) {
+          const comboboxText = await combobox.textContent().catch(() => '') || ''
+          if (comboboxText.includes('Select a value')) {
+            // Verify it's near Class Option by checking surrounding text
+            const parentText = await combobox.locator('..').locator('..').textContent().catch(() => '') || ''
+            if (parentText.includes('Class Option') || parentText.includes('Class')) {
               classOptionCombobox = combobox
               break
             }
@@ -526,7 +566,7 @@ test.describe('Admin Lesson Creation', () => {
       }
     }
     
-    // Fallback: use the second combobox (Class Option is typically after Instructor)
+    // Strategy 4: Use the second combobox (Class Option is typically after Instructor)
     if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
       const allComboboxes = await page.getByRole('combobox').all()
       // Class Option is typically the second combobox (after Instructor)
@@ -548,10 +588,21 @@ test.describe('Admin Lesson Creation', () => {
       }
     }
     
-    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 15000 }).catch(() => false))) {
+    if (!classOptionCombobox || !(await classOptionCombobox.isVisible({ timeout: 20000 }).catch(() => false))) {
       // Take a screenshot for debugging
       await page.screenshot({ path: 'test-results/class-option-combobox-not-found.png', fullPage: true }).catch(() => {})
-      throw new Error('Class Option combobox not found. Check screenshot: test-results/class-option-combobox-not-found.png')
+      
+      // Log all comboboxes found for debugging
+      const allComboboxes = await page.getByRole('combobox').all()
+      const comboboxInfo = await Promise.all(
+        allComboboxes.map(async (cb, idx) => {
+          const text = await cb.textContent().catch(() => '')
+          const isVisible = await cb.isVisible({ timeout: 500 }).catch(() => false)
+          return `Combobox ${idx}: visible=${isVisible}, text="${text}"`
+        })
+      )
+      
+      throw new Error(`Class Option combobox not found. Found ${allComboboxes.length} comboboxes: ${comboboxInfo.join('; ')}. Check screenshot: test-results/class-option-combobox-not-found.png`)
     }
     
     // Click to open the dropdown - React Select opens a listbox
