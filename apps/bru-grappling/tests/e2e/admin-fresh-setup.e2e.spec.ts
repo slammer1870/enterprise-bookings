@@ -65,8 +65,11 @@ test.describe('Admin Fresh Setup', () => {
   test('should create first admin user successfully', async ({ page }) => {
     await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
     
-    // Check if we're redirected to login (admin exists) or create-first-user (no admin)
+    // Wait for page to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
     await page.waitForTimeout(2000)
+    
+    // Check if we're redirected to login (admin exists) or create-first-user (no admin)
     const currentUrl = page.url()
     
     // If admin user already exists, sign in first
@@ -75,6 +78,10 @@ test.describe('Admin Fresh Setup', () => {
       const emailInput = page.getByRole('textbox', { name: /email/i }).first()
       const passwordInput = page.getByRole('textbox', { name: /password/i }).first()
       const loginButton = page.getByRole('button', { name: /login/i }).first()
+      
+      await expect(emailInput).toBeVisible({ timeout: 10000 })
+      await expect(passwordInput).toBeVisible({ timeout: 10000 })
+      await expect(loginButton).toBeVisible({ timeout: 10000 })
       
       await emailInput.fill('admin@brugrappling.ie')
       await passwordInput.fill('TestPassword123!')
@@ -106,15 +113,43 @@ test.describe('Admin Fresh Setup', () => {
     }
     
     // Otherwise, wait for create-first-user page
-    await page.waitForURL(/.*\/admin\/create-first-user/, { timeout: 30000 })
+    // Try multiple strategies to detect the page
+    try {
+      await page.waitForURL(/.*\/admin\/create-first-user/, { timeout: 30000 })
+    } catch (e) {
+      // Fallback: check if we're already on the page
+      const url = page.url()
+      if (!url.includes('/admin/create-first-user')) {
+        // Try waiting for the heading or form elements
+        const heading = page.getByRole('heading', { name: /welcome|create first user/i }).first()
+        const emailInputCheck = page.getByRole('textbox', { name: /email/i }).first()
+        
+        try {
+          await expect(heading.or(emailInputCheck)).toBeVisible({ timeout: 10000 })
+        } catch (e2) {
+          throw new Error(`Failed to navigate to create-first-user page. Current URL: ${url}. Error: ${e}`)
+        }
+      }
+    }
 
+    // Wait for form to fully load
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+    await page.waitForTimeout(1000)
+    
     // Fill in the form
-    const emailInput = page.getByRole('textbox', { name: 'Email *' }).first()
-    const passwordInput = page.getByRole('textbox', { name: 'New Password' }).first()
-    const confirmPasswordInput = page.getByRole('textbox', { name: 'Confirm Password' }).first()
-    const nameInput = page.getByRole('textbox', { name: 'Name' }).first()
-    const emailVerifiedCheckbox = page.getByRole('checkbox', { name: 'Email Verified *' }).first()
-    const createButton = page.getByRole('button', { name: 'Create' }).first()
+    const emailInput = page.getByRole('textbox', { name: /^email\s*\*/i }).first()
+    const passwordInput = page.getByRole('textbox', { name: /new password/i }).first()
+    const confirmPasswordInput = page.getByRole('textbox', { name: /confirm password/i }).first()
+    const nameInput = page.getByRole('textbox', { name: /^name$/i }).first()
+    const emailVerifiedCheckbox = page.getByRole('checkbox', { name: /email verified/i }).first()
+    const createButton = page.getByRole('button', { name: /^create$/i }).first()
+
+    await expect(emailInput).toBeVisible({ timeout: 15000 })
+    await expect(passwordInput).toBeVisible({ timeout: 15000 })
+    await expect(confirmPasswordInput).toBeVisible({ timeout: 15000 })
+    await expect(nameInput).toBeVisible({ timeout: 15000 })
+    await expect(emailVerifiedCheckbox).toBeVisible({ timeout: 15000 })
+    await expect(createButton).toBeVisible({ timeout: 15000 })
 
     await emailInput.fill('admin@brugrappling.ie')
     await passwordInput.fill('TestPassword123!')
@@ -122,7 +157,10 @@ test.describe('Admin Fresh Setup', () => {
     await nameInput.fill('Admin User')
 
     // Check email verified checkbox
-    await emailVerifiedCheckbox.click()
+    const isChecked = await emailVerifiedCheckbox.isChecked()
+    if (!isChecked) {
+      await emailVerifiedCheckbox.click()
+    }
 
     // Select Admin role from the dropdown
     const roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
