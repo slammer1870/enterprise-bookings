@@ -64,8 +64,19 @@ export const getContextProps = (): {
   currentUserPromise: Promise<TypedUser | null>
 } => {
   const sessionPromise = getSession()
-  const userAccountsPromise = getUserAccounts()
-  const deviceSessionsPromise = getDeviceSessions()
+  
+  // Only fetch accounts and sessions if user is authenticated
+  // This prevents unnecessary API calls and errors when user is not logged in
+  const userAccountsPromise = sessionPromise.then(async (session) => {
+    if (!session?.user) return []
+    return getUserAccounts()
+  })
+  
+  const deviceSessionsPromise = sessionPromise.then(async (session) => {
+    if (!session?.user) return []
+    return getDeviceSessions()
+  })
+  
   const currentUserPromise = currentUser()
   return { sessionPromise, userAccountsPromise, deviceSessionsPromise, currentUserPromise }
 }
