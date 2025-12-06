@@ -1583,6 +1583,10 @@ export interface Scheduler {
                  * Overrides the default lock out time
                  */
                 lockOutTime?: number | null;
+                /**
+                 * Whether the time slot is active and will be shown on the schedule
+                 */
+                active?: boolean | null;
                 id?: string | null;
               }[]
             | null;
@@ -1658,6 +1662,7 @@ export interface SchedulerSelect<T extends boolean = true> {
                     location?: T;
                     instructor?: T;
                     lockOutTime?: T;
+                    active?: T;
                     id?: T;
                   };
               id?: T;

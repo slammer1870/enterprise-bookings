@@ -112,7 +112,7 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
 
     return new Response('Seeded database successfully', { status: 200 })
   } catch (error) {
-    req.payload.logger.error('Failed to seed database', { error: error })
+    req.payload.logger.error(`Failed to seed database: ${error instanceof Error ? error.message : String(error)}`)
     return new Response('Failed to seed database ' + error, { status: 500 })
   }
 }

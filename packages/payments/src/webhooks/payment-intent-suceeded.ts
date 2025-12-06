@@ -80,10 +80,9 @@ export const paymentIntentSucceeded = async (
       const user = userQuery.docs[0];
 
       if (!user) {
-        payload.logger.error("User not found", {
-          paymentIntentId: event.data.object.id,
-          customerId: event.data.object.customer,
-        });
+        payload.logger.error(
+          `User not found - Payment Intent: ${event.data.object.id}, Customer: ${event.data.object.customer}`
+        );
         return;
       }
 
@@ -115,10 +114,9 @@ export const paymentIntentSucceeded = async (
           },
         });
 
-        payload.logger.info(`Created booking ${createBooking.id}`, {
-          paymentIntentId: event.data.object.id,
-          lessonId: lessonId,
-        });
+        payload.logger.info(
+          `Created booking ${createBooking.id} - Payment Intent: ${event.data.object.id}, Lesson: ${lessonId}`
+        );
 
         return;
       }
@@ -158,21 +156,13 @@ export const paymentIntentSucceeded = async (
 
     if (bookingIds.length === 0) {
       payload.logger.info(
-        "Payment intent succeeded but no booking IDs found in metadata",
-        {
-          paymentIntentId: event.data.object.id,
-          metadata,
-        }
+        `Payment intent succeeded but no booking IDs found in metadata - Payment Intent: ${event.data.object.id}, Metadata: ${JSON.stringify(metadata)}`
       );
       return;
     }
 
     payload.logger.info(
-      `Processing payment intent succeeded for ${bookingIds.length} booking(s)`,
-      {
-        paymentIntentId: event.data.object.id,
-        bookingIds,
-      }
+      `Processing payment intent succeeded for ${bookingIds.length} booking(s) - Payment Intent: ${event.data.object.id}, Booking IDs: ${bookingIds.join(', ')}`
     );
 
     // Update each booking to confirmed status
@@ -185,9 +175,9 @@ export const paymentIntentSucceeded = async (
         });
 
         if (!existingBooking) {
-          payload.logger.warn(`Booking with ID ${bookingId} not found`, {
-            paymentIntentId: event.data.object.id,
-          });
+          payload.logger.warn(
+            `Booking with ID ${bookingId} not found (Payment Intent: ${event.data.object.id})`
+          );
           return;
         }
 
@@ -200,28 +190,25 @@ export const paymentIntentSucceeded = async (
           },
         });
 
-        payload.logger.info(`Successfully confirmed booking ${bookingId}`, {
-          paymentIntentId: event.data.object.id,
-        });
+        payload.logger.info(
+          `Successfully confirmed booking ${bookingId} (Payment Intent: ${event.data.object.id})`
+        );
       } catch (error) {
-        payload.logger.error(`Error updating booking ${bookingId}`, {
-          paymentIntentId: event.data.object.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        payload.logger.error(
+          `Error updating booking ${bookingId} (Payment Intent: ${event.data.object.id}): ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     });
 
     // Wait for all updates to complete
     await Promise.all(updatePromises);
 
-    payload.logger.info("Payment intent processing completed", {
-      paymentIntentId: event.data.object.id,
-      totalBookings: bookingIds.length,
-    });
+    payload.logger.info(
+      `Payment intent processing completed (Payment Intent: ${event.data.object.id}, Total Bookings: ${bookingIds.length})`
+    );
   } catch (error) {
-    payload.logger.error("Error processing payment intent succeeded webhook", {
-      paymentIntentId: event.data.object.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    payload.logger.error(
+      `Error processing payment intent succeeded webhook (Payment Intent: ${event.data.object.id}): ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 };
