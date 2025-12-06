@@ -5,7 +5,9 @@
   "dependencies": {
     "@daveyplate/better-auth-ui": "^3.2.11",
     "@hookform/resolvers": "*",
+    "better-auth": "^1.2.5",
     "@next/third-parties": "^15.5.4",
+    "payload-auth": "^1.0.2",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/email-resend": "*",
     "@payloadcms/next": "*",
@@ -61,6 +63,7 @@
     "@eslint/eslintrc": "^3.2.0",
     "@repo/shared-types": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "^22.10.7",
     "@types/react": "*",
     "@types/react-dom": "19.1.2",
@@ -68,7 +71,7 @@
     "eslint": "^9.18.0",
     "eslint-config-next": "15.3.0",
     "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.14",
+    "tailwindcss": "^4.1.17",
     "typescript": "5.7.3"
   },
   "engines": {
