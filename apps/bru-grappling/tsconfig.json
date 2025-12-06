@@ -19,5 +19,5 @@
     ".next/types/**/*.ts",
     "tailwind.config.js"
 , "src/app/(payload)/admin/importMap.ts"  ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "playwright.config.ts", "tests/**/*"]
 }

@@ -5,8 +5,6 @@
 @source "../../../../packages/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
-@import "tw-animate-css";
-
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -78,34 +76,6 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
-
-  /* Booking action colors (defaults can be overridden per app) */
-  --checkin: 142 76% 36%;
-  --checkin-foreground: 0 0% 98%;
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 84.2% 60.2%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
-
-  /* Booking action colors (dark mode defaults) */
-  --checkin: 142 76% 36%;
-  --checkin-foreground: 0 0% 98%;
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 62.8% 30.6%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
 }
 
 @theme inline {
@@ -165,6 +135,37 @@
   --color-closed: var(--closed);
   --color-closed-foreground: var(--closed-foreground);
 }
+
+:root {
+  /* Booking action colors (defaults can be overridden per app) */
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 84.2% 60.2%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+
+  /* Booking action colors (dark mode defaults) */
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 62.8% 30.6%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+}
+
 
 @layer base {
   * {
