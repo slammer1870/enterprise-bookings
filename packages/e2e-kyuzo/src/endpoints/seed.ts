@@ -1,5 +1,4 @@
 import { type PayloadHandler } from 'payload'
-import { createLesson } from '../utils/lesson-helpers'
 
 export const seed: PayloadHandler = async (req): Promise<Response> => {
   const { payload } = req
@@ -78,19 +77,27 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
     })
 
     //create adult lesson for today
-    const lesson = await createLesson(payload, {
-      startHoursOffset: 20, // 8 PM
-      durationHours: 1,
-      classOption: classOption.id,
-      lockOutTime: 10,
+    const lesson = await payload.create({
+      collection: 'lessons',
+      data: {
+        classOption: classOption.id,
+        date: new Date().toISOString(),
+        startTime: new Date(new Date().setHours(20, 0, 0, 0)).toISOString(),
+        endTime: new Date(new Date().setHours(21, 0, 0, 0)).toISOString(),
+        lockOutTime: 10,
+      },
     })
 
     //create child lesson for today
-    const lessonChild = await createLesson(payload, {
-      startHoursOffset: 19, // 7 PM
-      durationHours: 0.5, // 30 minutes
-      classOption: classOptionChild.id,
-      lockOutTime: 10,
+    const lessonChild = await payload.create({
+      collection: 'lessons',
+      data: {
+        classOption: classOptionChild.id,
+        date: new Date().toISOString(),
+        startTime: new Date(new Date().setHours(19, 0, 0, 0)).toISOString(),
+        endTime: new Date(new Date().setHours(19, 30, 0, 0)).toISOString(),
+        lockOutTime: 10,
+      },
     })
 
     const page = await payload.create({
@@ -105,7 +112,7 @@ export const seed: PayloadHandler = async (req): Promise<Response> => {
 
     return new Response('Seeded database successfully', { status: 200 })
   } catch (error) {
-    req.payload.logger.error(error instanceof Error ? error : new Error(String(error)))
-    return new Response('Failed to seed database ' + String(error), { status: 500 })
+    req.payload.logger.error(`Failed to seed database: ${error instanceof Error ? error.message : String(error)}`)
+    return new Response('Failed to seed database ' + error, { status: 500 })
   }
 }

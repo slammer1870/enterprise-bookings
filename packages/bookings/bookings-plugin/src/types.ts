@@ -20,7 +20,9 @@ export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (args: {
   defaultHooks: HooksConfig;
 }) => HooksConfig;
-export type AccessOverride = (args: { defaultAccess: AccessControls }) => AccessControls;
+export type AccessOverride = (args: {
+  defaultAccess: AccessControls;
+}) => AccessControls;
 
 export type AccessControlHook = {
   name: string;
@@ -111,6 +113,7 @@ export interface TaskGenerateLessonsFromSchedule {
           location?: string | null;
           instructor?: (number | null) | User;
           lockOutTime?: number | null;
+          active?: boolean | null;
         }[];
       }[];
     };

@@ -17,9 +17,7 @@ export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
   const email = submissionData.find((item: any) => item.field === 'email')?.value
 
   if (name === undefined || email === undefined) {
-    req.payload.logger.error({
-      message: 'Name or email is not set',
-    })
+    req.payload.logger.error('Name or email is not set')
     return data
   }
 
@@ -38,11 +36,7 @@ export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
       tags: ['newsletter'],
     })
 
-    req.payload.logger.info({
-      message: 'Newsletter subscribed',
-      email,
-      name,
-    })
+    req.payload.logger.info(`Newsletter subscribed: ${email} (${name})`)
 
     return data
   } catch (err: any) {
@@ -52,21 +46,13 @@ export const newsletter: CollectionAfterChangeHook = async ({ data, req }) => {
       await mailchimp.lists.updateListMemberTags(process.env.MAILCHIMP_LIST_ID!, subscriberHash, {
         tags: [{ name: 'newsletter', status: 'active' }],
       })
-      req.payload.logger.info({
-        message: 'Newsletter already subscribed',
-        email,
-        name,
-      })
+      req.payload.logger.info(`Newsletter already subscribed: ${email} (${name})`)
 
       return data
     }
 
     console.error('Mailchimp error:', errorBody || err)
-    req.payload.logger.error({
-      message: 'Mailchimp error',
-      errorBody,
-      err,
-    })
+    req.payload.logger.error(`Mailchimp error: ${errorBody?.detail || err.message || String(err)}`)
     return data
   }
 }

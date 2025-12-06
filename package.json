@@ -1,12 +1,10 @@
 {
   "name": "enterprise-bookings",
   "devDependencies": {
-    "@tailwindcss/postcss": "4.1.17",
-    "prettier": "^3.6.2",
-    "syncpack": "^13.0.4",
-    "tailwindcss": "4.1.17",
-    "turbo": "^2.6.1",
-    "typescript": "5.9.3"
+    "prettier": "^3.4.2",
+    "syncpack": "^13.0.0",
+    "turbo": "^2.3.3",
+    "typescript": "5.7.3"
   },
   "engines": {
     "node": ">=20"
@@ -31,26 +29,22 @@
   },
   "pnpm": {
     "overrides": {
-      "stripe": "20.0.0",
-      "react-hook-form": "7.66.1",
-      "react": "19.2.0",
-      "react-dom": "19.2.0",
-      "payload": "3.64.0",
-      "@payloadcms/ui": "3.64.0",
-      "@payloadcms/next": "3.64.0",
-      "@payloadcms/richtext-lexical": "3.64.0",
-      "@payloadcms/db-postgres": "3.64.0",
-      "@payloadcms/plugin-form-builder": "3.64.0",
-      "@payloadcms/plugin-seo": "3.64.0",
-      "@payloadcms/plugin-stripe": "3.64.0",
-      "@payloadcms/plugin-nested-docs": "3.64.0",
-      "next": "15.5.6",
-      "eslint": "8.57.1"
-    },
-    "onlyBuiltDependencies": [
-      "sharp",
-      "esbuild",
-      "unrs-resolver"
-    ]
+      "stripe": "17.7.0",
+      "react-hook-form": "7.56.3",
+      "react": "19.2.1",
+      "react-dom": "19.2.1",
+      "payload": "3.43.0",
+      "@payloadcms/db-postgres": "3.43.0",
+      "@payloadcms/email-resend": "3.43.0",
+      "@payloadcms/next": "3.43.0",
+      "@payloadcms/payload-cloud": "3.43.0",
+      "@payloadcms/plugin-form-builder": "3.43.0",
+      "@payloadcms/plugin-nested-docs": "3.43.0",
+      "@payloadcms/plugin-seo": "3.43.0",
+      "@payloadcms/plugin-stripe": "3.43.0",
+      "@payloadcms/richtext-lexical": "3.43.0",
+      "@payloadcms/ui": "3.43.0",
+      "next": "15.4.8"
+    }
   }
 }

@@ -5,24 +5,17 @@
     "./src/utils/db": "./src/utils/db.ts",
     "./src/utils/payload-config": "./src/utils/payload-config.ts",
     "./src/helpers/NextRESTClient": "./src/helpers/NextRESTClient.ts",
-    "./src/helpers/credentials": "./src/helpers/credentials.ts",
-    "./src/vitest": "./src/vitest/index.ts",
-    "./src/vitest/configs": "./src/vitest/configs.ts"
+    "./src/helpers/credentials": "./src/helpers/credentials.ts"
   },
   "dependencies": {
-    "@payloadcms/db-postgres": "^3.64.0",
-    "@payloadcms/next": "^3.64.0",
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/next": "*",
+    "monaco-editor": "^0.52.2",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@testcontainers/postgresql": "^11.8.1",
-    "payload": "3.64.0",
+    "@testcontainers/postgresql": "^10.16.0",
+    "payload": "*",
     "qs-esm": "^7.0.2"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "5.1.1",
-    "typescript": "5.9.3",
-    "vite-tsconfig-paths": "5.1.4",
-    "vitest": "4.0.12"
   },
   "license": "MIT",
   "type": "module"
