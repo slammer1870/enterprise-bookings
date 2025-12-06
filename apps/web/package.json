@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "dependencies": {
     "@repo/ui": "workspace:*",
-    "next": "^16.0.3",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "next": "*",
+    "react": "*",
+    "react-dom": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^24.10.1",
-    "@types/react": "^19.2.6",
+    "@types/react": "*",
     "@types/react-dom": "19.2.3",
     "eslint": "^9.39.1",
     "eslint-config-next": "15.5.6",

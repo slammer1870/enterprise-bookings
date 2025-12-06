@@ -8,11 +8,11 @@
   },
   "dependencies": {
     "@repo/shared-types": "workspace:*",
-    "next-plausible": "^3.12.5"
+    "next-plausible": "*"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
-    "@types/react": "^19.2.6",
+    "@types/react": "*",
     "typescript": "5.9.3"
   },
   "peerDependencies": {

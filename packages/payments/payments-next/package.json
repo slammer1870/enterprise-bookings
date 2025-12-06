@@ -10,19 +10,19 @@
     "@repo/trpc": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/memberships": "workspace:*",
-    "@stripe/react-stripe-js": "^2.4.0",
-    "@stripe/stripe-js": "^2.4.0",
-    "@tanstack/react-query": "^5.90.10",
-    "next": "^16.0.3",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "sonner": "^2.0.7"
+    "@stripe/react-stripe-js": "^5.4.0",
+    "@stripe/stripe-js": "^8.5.2",
+    "@tanstack/react-query": "*",
+    "next": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sonner": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^24.10.1",
-    "@types/react": "^19.2.6",
+    "@types/react": "*",
     "@types/react-dom": "19.2.3",
     "typescript": "5.9.3"
   }
