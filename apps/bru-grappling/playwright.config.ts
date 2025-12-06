@@ -50,9 +50,12 @@ export default defineConfig({
     url: 'http://localhost:3000/api/health', // Use simple health check endpoint
     timeout: 180000, // 3 minutes for server startup (migrations may take time)
     reuseExistingServer: !process.env.CI,
+    stdout: 'pipe',
+    stderr: 'pipe',
     env: {
       NODE_ENV: 'test',
       CI: process.env.CI || 'false',
+      NODE_OPTIONS: '--no-deprecation',
       // DATABASE_URI will be set by globalSetup before webServer starts
       // Playwright will automatically pass it to the webServer process
     },

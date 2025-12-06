@@ -63,7 +63,6 @@ export type SupportedTimezones =
 
 export interface Config {
   auth: {
-    'payload-mcp-api-keys': PayloadMcpApiKeyAuthOperations;
     users: UserAuthOperations;
   };
   blocks: {};
@@ -71,10 +70,10 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
+    'admin-invitations': AdminInvitation;
     media: Media;
     pages: Page;
     posts: Post;
-    'payload-mcp-api-keys': PayloadMcpApiKey;
     forms: Form;
     'form-submissions': FormSubmission;
     instructors: Instructor;
@@ -86,7 +85,6 @@ export interface Config {
     users: User;
     subscriptions: Subscription;
     plans: Plan;
-    'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -106,10 +104,10 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
+    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
-    'payload-mcp-api-keys': PayloadMcpApiKeysSelect<false> | PayloadMcpApiKeysSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     instructors: InstructorsSelect<false> | InstructorsSelect<true>;
@@ -121,7 +119,6 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
-    'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -141,13 +138,9 @@ export interface Config {
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
-  user:
-    | (PayloadMcpApiKey & {
-        collection: 'payload-mcp-api-keys';
-      })
-    | (User & {
-        collection: 'users';
-      });
+  user: User & {
+    collection: 'users';
+  };
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
@@ -157,24 +150,6 @@ export interface Config {
       };
     };
     workflows: unknown;
-  };
-}
-export interface PayloadMcpApiKeyAuthOperations {
-  forgotPassword: {
-    email: string;
-    password: string;
-  };
-  login: {
-    email: string;
-    password: string;
-  };
-  registerFirstUser: {
-    email: string;
-    password: string;
-  };
-  unlock: {
-    email: string;
-    password: string;
   };
 }
 export interface UserAuthOperations {
@@ -281,7 +256,7 @@ export interface User {
   /**
    * The role of the user
    */
-  role: 'user' | 'admin';
+  role: 'admin' | 'user';
   updatedAt: string;
   createdAt: string;
   /**
@@ -313,13 +288,6 @@ export interface User {
   hash?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
   password?: string | null;
 }
 /**
@@ -635,6 +603,18 @@ export interface Verification {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations".
+ */
+export interface AdminInvitation {
+  id: number;
+  role: 'admin' | 'user';
+  token: string;
+  url?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
 export interface Page {
@@ -669,7 +649,7 @@ export interface Page {
                     root: {
                       type: string;
                       children: {
-                        type: any;
+                        type: string;
                         version: number;
                         [k: string]: unknown;
                       }[];
@@ -695,7 +675,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: any;
+                  type: string;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -721,7 +701,7 @@ export interface Page {
                     root: {
                       type: string;
                       children: {
-                        type: any;
+                        type: string;
                         version: number;
                         [k: string]: unknown;
                       }[];
@@ -751,7 +731,7 @@ export interface Page {
                     root: {
                       type: string;
                       children: {
-                        type: any;
+                        type: string;
                         version: number;
                         [k: string]: unknown;
                       }[];
@@ -784,7 +764,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: any;
+                  type: string;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -823,7 +803,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: any;
+                  type: string;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -902,7 +882,7 @@ export interface Form {
               root: {
                 type: string;
                 children: {
-                  type: any;
+                  type: string;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -985,7 +965,7 @@ export interface Form {
     root: {
       type: string;
       children: {
-        type: any;
+        type: string;
         version: number;
         [k: string]: unknown;
       }[];
@@ -1017,7 +997,7 @@ export interface Form {
           root: {
             type: string;
             children: {
-              type: any;
+              type: string;
               version: number;
               [k: string]: unknown;
             }[];
@@ -1048,7 +1028,7 @@ export interface Post {
       root: {
         type: string;
         children: {
-          type: any;
+          type: string;
           version: number;
           [k: string]: unknown;
         }[];
@@ -1076,158 +1056,6 @@ export interface Post {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
-}
-/**
- * API keys control which collections, resources, tools, and prompts MCP clients can access
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-mcp-api-keys".
- */
-export interface PayloadMcpApiKey {
-  id: number;
-  /**
-   * The user that the API key is associated with.
-   */
-  user: number | User;
-  /**
-   * A useful label for the API key.
-   */
-  label?: string | null;
-  /**
-   * The purpose of the API key.
-   */
-  description?: string | null;
-  users?: {
-    /**
-     * Allow clients to find users.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create users.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update users.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete users.
-     */
-    delete?: boolean | null;
-  };
-  lessons?: {
-    /**
-     * Allow clients to find lessons.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create lessons.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update lessons.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete lessons.
-     */
-    delete?: boolean | null;
-  };
-  classOptions?: {
-    /**
-     * Allow clients to find class-options.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create class-options.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update class-options.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete class-options.
-     */
-    delete?: boolean | null;
-  };
-  bookings?: {
-    /**
-     * Allow clients to find bookings.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create bookings.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update bookings.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete bookings.
-     */
-    delete?: boolean | null;
-  };
-  dropIns?: {
-    /**
-     * Allow clients to find drop-ins.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create drop-ins.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update drop-ins.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete drop-ins.
-     */
-    delete?: boolean | null;
-  };
-  subscriptions?: {
-    /**
-     * Allow clients to find subscriptions.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create subscriptions.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update subscriptions.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete subscriptions.
-     */
-    delete?: boolean | null;
-  };
-  plans?: {
-    /**
-     * Allow clients to find plans.
-     */
-    find?: boolean | null;
-    /**
-     * Allow clients to create plans.
-     */
-    create?: boolean | null;
-    /**
-     * Allow clients to update plans.
-     */
-    update?: boolean | null;
-    /**
-     * Allow clients to delete plans.
-     */
-    delete?: boolean | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-  enableAPIKey?: boolean | null;
-  apiKey?: string | null;
-  apiKeyIndex?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1259,23 +1087,6 @@ export interface Transaction {
   createdBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-kv".
- */
-export interface PayloadKv {
-  id: number;
-  key: string;
-  data:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1389,6 +1200,10 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
+        relationTo: 'admin-invitations';
+        value: number | AdminInvitation;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -1399,10 +1214,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'posts';
         value: number | Post;
-      } | null)
-    | ({
-        relationTo: 'payload-mcp-api-keys';
-        value: number | PayloadMcpApiKey;
       } | null)
     | ({
         relationTo: 'forms';
@@ -1447,17 +1258,16 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'plans';
         value: number | Plan;
+      } | null)
+    | ({
+        relationTo: 'payload-jobs';
+        value: number | PayloadJob;
       } | null);
   globalSlug?: string | null;
-  user:
-    | {
-        relationTo: 'payload-mcp-api-keys';
-        value: number | PayloadMcpApiKey;
-      }
-    | {
-        relationTo: 'users';
-        value: number | User;
-      };
+  user: {
+    relationTo: 'users';
+    value: number | User;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1467,15 +1277,10 @@ export interface PayloadLockedDocument {
  */
 export interface PayloadPreference {
   id: number;
-  user:
-    | {
-        relationTo: 'payload-mcp-api-keys';
-        value: number | PayloadMcpApiKey;
-      }
-    | {
-        relationTo: 'users';
-        value: number | User;
-      };
+  user: {
+    relationTo: 'users';
+    value: number | User;
+  };
   key?: string | null;
   value?:
     | {
@@ -1540,6 +1345,17 @@ export interface VerificationsSelect<T extends boolean = true> {
   identifier?: T;
   value?: T;
   expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations_select".
+ */
+export interface AdminInvitationsSelect<T extends boolean = true> {
+  role?: T;
+  token?: T;
+  url?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1789,76 +1605,6 @@ export interface PostsSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-mcp-api-keys_select".
- */
-export interface PayloadMcpApiKeysSelect<T extends boolean = true> {
-  user?: T;
-  label?: T;
-  description?: T;
-  users?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  lessons?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  classOptions?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  bookings?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  dropIns?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  subscriptions?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  plans?:
-    | T
-    | {
-        find?: T;
-        create?: T;
-        update?: T;
-        delete?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  enableAPIKey?: T;
-  apiKey?: T;
-  apiKeyIndex?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2133,13 +1879,6 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2191,14 +1930,6 @@ export interface PlansSelect<T extends boolean = true> {
   quantity?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-kv_select".
- */
-export interface PayloadKvSelect<T extends boolean = true> {
-  key?: T;
-  data?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
