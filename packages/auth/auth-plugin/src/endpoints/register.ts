@@ -1,9 +1,5 @@
 import { APIError, CollectionSlug, Endpoint } from "payload";
 
-import { generatePasswordSaltHash } from "../utils/password";
-
-import crypto from "crypto";
-
 import type { PluginTypes } from "../types";
 
 export const register = (pluginOptions: PluginTypes): Endpoint => ({
@@ -37,19 +33,12 @@ export const register = (pluginOptions: PluginTypes): Endpoint => ({
     }
 
     try {
-      const randomPassword = crypto.randomBytes(32).toString("hex");
-      const { hash, salt } = await generatePasswordSaltHash({
-        password: randomPassword,
-      });
-
       const user = await req.payload.create({
         collection: authCollectionSlug,
         data: {
           name: name,
           email: email.toLowerCase(),
-          hash: hash,
-          salt: salt,
-          password: randomPassword,
+          emailVerified: false,
         },
         showHiddenFields: false,
       });
