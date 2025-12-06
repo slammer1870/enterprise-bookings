@@ -2,11 +2,7 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--storage-state=./tests/e2e/.auth/storage.json"
-      ]
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }
