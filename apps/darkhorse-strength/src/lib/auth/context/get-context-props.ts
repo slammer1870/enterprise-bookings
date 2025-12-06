@@ -7,7 +7,7 @@ export const getSession = async (): Promise<Session | null> => {
   const payload = await getPayload()
   const headers = await requestHeaders()
   const session = await payload.betterAuth.api.getSession({ headers })
-  return session
+  return session as Session | null
 }
 
 export const getUserAccounts = async (): Promise<Account[]> => {
