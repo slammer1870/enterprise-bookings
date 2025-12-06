@@ -1,5 +1,6 @@
 import * as migration_20251205_183120 from './20251205_183120';
 import * as migration_20251206_110241 from './20251206_110241';
+import * as migration_20251206_170000_add_missing_locked_documents_columns from './20251206_170000_add_missing_locked_documents_columns';
 
 export const migrations = [
   {
@@ -11,5 +12,10 @@ export const migrations = [
     up: migration_20251206_110241.up,
     down: migration_20251206_110241.down,
     name: '20251206_110241'
+  },
+  {
+    up: migration_20251206_170000_add_missing_locked_documents_columns.up,
+    down: migration_20251206_170000_add_missing_locked_documents_columns.down,
+    name: '20251206_170000_add_missing_locked_documents_columns'
   },
 ];

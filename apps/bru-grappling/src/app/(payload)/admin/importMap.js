@@ -1,3 +1,5 @@
+import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
+import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { LexicalDiffComponent as LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -29,12 +31,15 @@ import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c08
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { LessonAdmin as LessonAdmin_a8ce920709833e15274cf94b2365830c } from '@repo/bookings-plugin/src/components/lessons/lesson-admin'
-import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
+import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
+import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
 
 export const importMap = {
+  "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
+  "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#LexicalDiffComponent": LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -66,8 +71,9 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_a8ce920709833e15274cf94b2365830c,
-  "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
+  "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
+  "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
   "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7
 }
