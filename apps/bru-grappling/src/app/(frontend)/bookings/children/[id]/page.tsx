@@ -18,7 +18,7 @@ export default async function ChildrensBookingPage({ params }: BookingPageProps)
   const session = await getSession()
   const user = session?.user
   if (!user) {
-    redirect(`/auth/sign-in?callbackUrl=/bookings/children/${id}`)
+    redirect(`/complete-booking?mode=login&callbackUrl=/bookings/${id}`)
   }
 
   prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))
