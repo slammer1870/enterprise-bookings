@@ -10,15 +10,20 @@ The Playwright MCP server is configured in your Cursor settings (`~/.cursor/mcp.
 
 ```
 tests/e2e/
-├── utils/           # Test utilities and helpers
-│   ├── auth.ts      # Authentication helpers
-│   └── helpers.ts   # General test helpers
-├── fixtures.ts      # Playwright fixtures for authenticated tests
-├── admin.e2e.spec.ts      # Admin panel tests
-├── auth.e2e.spec.ts       # Authentication tests
-├── bookings.e2e.spec.ts   # Booking flow tests
-├── dashboard.e2e.spec.ts  # Dashboard tests
-└── frontend.e2e.spec.ts   # Frontend tests (legacy)
+├── utils/                              # Test utilities and helpers
+│   ├── auth.ts                         # Authentication helpers
+│   ├── helpers.ts                      # General test helpers
+│   └── admin-setup.ts                  # Admin setup utilities
+├── fixtures.ts                         # Playwright fixtures for authenticated tests
+├── admin-fresh-setup.e2e.spec.ts      # Admin initial setup tests
+├── admin-lesson-creation.e2e.spec.ts  # Lesson creation tests
+├── admin-page-creation.e2e.spec.ts    # Page creation tests (NEW)
+├── admin-page-creation-mcp.e2e.spec.ts # Page creation with MCP (NEW)
+├── global-setup.ts                     # Global test setup
+├── global-teardown.ts                  # Global test teardown
+├── README.md                           # This file
+├── PAGE_CREATION_TESTING.md           # Page creation testing guide (NEW)
+└── MCP_USAGE_EXAMPLE.md               # MCP usage examples (NEW)
 ```
 
 ## Running Tests
@@ -30,7 +35,16 @@ pnpm test:e2e
 
 ### Run specific test file
 ```bash
-pnpm exec playwright test tests/e2e/auth.e2e.spec.ts
+pnpm exec playwright test tests/e2e/admin-lesson-creation.e2e.spec.ts
+```
+
+### Run page creation tests
+```bash
+# Standard page creation tests
+pnpm exec playwright test admin-page-creation.e2e.spec.ts
+
+# MCP-enhanced page creation tests
+pnpm exec playwright test admin-page-creation-mcp.e2e.spec.ts --debug
 ```
 
 ### Run tests in headed mode (see browser)
@@ -64,6 +78,12 @@ You can ask the AI assistant:
 - "Click on the sign in button and fill out the form"
 - "Take a screenshot of the booking page"
 - "What elements are visible on the schedule component?"
+
+### Detailed MCP Guides
+
+For comprehensive guides on using MCP with page creation tests:
+- **[Page Creation Testing Guide](./PAGE_CREATION_TESTING.md)** - Complete guide to testing page creation with blocks
+- **[MCP Usage Examples](./MCP_USAGE_EXAMPLE.md)** - Step-by-step examples of using MCP for interactive testing
 
 ## Test Utilities
 
