@@ -21,7 +21,7 @@ type BookingPageProps = {
 
 export default async function BookingPage({ params }: BookingPageProps) {
   const { id: idParam } = await params
-  
+
   // Convert string ID to number and validate
   const id = parseInt(idParam, 10)
   if (isNaN(id)) {
@@ -33,7 +33,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
   const user = session?.user
 
   if (!user) {
-    redirect(`/auth/sign-in?callbackUrl=/bookings/${id}`)
+    redirect(`/complete-booking?mode=login&callbackUrl=/bookings/${id}`)
   }
 
   const payload = await getPayload({ config })
