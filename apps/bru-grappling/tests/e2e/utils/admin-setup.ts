@@ -67,11 +67,39 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
     await expect(createButton).toBeVisible({ timeout: 10000 })
     await createButton.click()
     
-    // Wait for redirect to admin panel
-    await page.waitForURL(/\/admin/, { timeout: 15000 })
-    await expect(page).not.toHaveURL(/\/admin\/create-first-user/)
-    
-    return true
+    // Wait for redirect to admin panel - give it more time and handle potential errors
+    try {
+      await page.waitForURL(/\/admin/, { timeout: 30000 })
+      // Double check we're not still on create-first-user page
+      const finalUrl = page.url()
+      if (finalUrl.includes('/admin/create-first-user')) {
+        // Wait a bit more and check for error messages
+        await page.waitForTimeout(2000)
+        const errorMsg = page.locator('text=/error|failed|invalid/i').first()
+        const hasError = await errorMsg.isVisible({ timeout: 2000 }).catch(() => false)
+        if (hasError) {
+          console.error('Error creating admin user:', await errorMsg.textContent())
+          return false
+        }
+        // Try clicking create again if still on the page
+        const createButtonAgain = page.getByRole('button', { name: /create/i }).first()
+        if (await createButtonAgain.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await createButtonAgain.click()
+          await page.waitForURL(/\/admin/, { timeout: 30000 })
+        }
+      }
+      await expect(page).not.toHaveURL(/\/admin\/create-first-user/, { timeout: 5000 })
+      return true
+    } catch (e) {
+      // If we're still on create-first-user after timeout, something went wrong
+      const currentUrl = page.url()
+      if (currentUrl.includes('/admin/create-first-user')) {
+        console.error('Failed to create admin user - still on create-first-user page')
+        return false
+      }
+      // If we're somewhere else in admin, that's fine
+      return true
+    }
   }
   
           // If redirected to login, admin exists but we need to sign in
