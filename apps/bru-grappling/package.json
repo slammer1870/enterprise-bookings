@@ -3,6 +3,7 @@
   "description": "A blank template to get started with Payload 3.0",
   "version": "1.0.0",
   "dependencies": {
+    "@daveyplate/better-auth-ui": "^3.2.11",
     "@hookform/resolvers": "*",
     "@next/third-parties": "^15.5.4",
     "@payloadcms/db-postgres": "*",
@@ -10,6 +11,7 @@
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/plugin-form-builder": "*",
+    "@payloadcms/plugin-mcp": "*",
     "@payloadcms/plugin-seo": "*",
     "@payloadcms/plugin-stripe": "*",
     "@payloadcms/richtext-lexical": "*",
