@@ -122,11 +122,8 @@ export const childrenUpdateBookingMembershipAccess = async ({
   id,
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
+  // Silently reject if no user - this is expected for unauthenticated requests
   if (!req.user) {
-    req.payload.logger.error({
-      message: "User is not authenticated",
-      userId: req.user,
-    });
     return false;
   }
 
@@ -139,17 +136,9 @@ export const childrenUpdateBookingMembershipAccess = async ({
     searchParams?.get("where[and][1][user][equals]") ||
     (typeof req.user === "object" ? req.user.id : req.user);
 
-  // If we don't have lessonId or userId, this might be a read operation
-  // In that case, we can return true since read access is handled separately
+  // If we don't have lessonId or userId, this is likely a read/list operation
+  // Silently reject - read access is handled by the read access function
   if (!lessonId || !userId) {
-    // If this is called during a read operation (no specific booking ID), allow it
-    // The actual read access control is handled by the read access function
-
-    req.payload.logger.error({
-      message: "Lesson ID or User ID is required",
-      lessonId,
-      userId,
-    });
     return false;
   }
 
