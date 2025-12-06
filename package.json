@@ -34,6 +34,15 @@
       "react": "19.1.2",
       "react-dom": "19.1.2",
       "payload": "3.64.0",
+      "@payloadcms/db-postgres": "3.64.0",
+      "@payloadcms/email-resend": "3.64.0",
+      "@payloadcms/next": "3.64.0",
+      "@payloadcms/payload-cloud": "3.64.0",
+      "@payloadcms/plugin-form-builder": "3.64.0",
+      "@payloadcms/plugin-seo": "3.64.0",
+      "@payloadcms/plugin-stripe": "3.64.0",
+      "@payloadcms/richtext-lexical": "3.64.0",
+      "@payloadcms/ui": "3.64.0",
       "next": "15.5.7"
     }
   }

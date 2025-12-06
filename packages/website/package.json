@@ -24,6 +24,7 @@
   "dependencies": {
     "@repo/analytics": "workspace:*",
     "@repo/shared-types": "workspace:*",
-    "@repo/ui": "workspace:*"
+    "@repo/ui": "workspace:*",
+    "monaco-editor": "^0.52.2"
   }
 }

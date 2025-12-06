@@ -10,6 +10,7 @@
   "dependencies": {
     "@payloadcms/db-postgres": "*",
     "@payloadcms/next": "*",
+    "monaco-editor": "^0.52.2",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@testcontainers/postgresql": "^10.16.0",
