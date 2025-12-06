@@ -5,6 +5,7 @@
     "@payloadcms/db-postgres": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
+    "monaco-editor": "^0.52.2",
     "payload": "*",
     "sharp": "0.34.2"
   },

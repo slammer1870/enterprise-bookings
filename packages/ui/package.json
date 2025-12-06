@@ -2,7 +2,7 @@
   "name": "@repo/ui",
   "version": "0.0.0",
   "dependencies": {
-    "@hookform/resolvers": "^4.1.0",
+    "@hookform/resolvers": "*",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-avatar": "^1.1.2",
     "@radix-ui/react-collapsible": "^1.1.2",
@@ -25,7 +25,7 @@
     "react-day-picker": "8.10.1",
     "tailwind-merge": "3.0.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.0.15"
+    "zod": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

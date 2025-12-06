@@ -78,13 +78,9 @@ export const hasReachedSubscriptionLimit = async (
       where: query(subscription, plan, startDate, endDate),
     });
 
-    payload.logger.info("Bookings found for subscription", {
-      bookings,
-      subscription,
-      plan,
-      startDate,
-      endDate,
-    });
+    payload.logger.info(
+      `Bookings found for subscription (subscriptionId: ${subscription.id}, planId: ${plan.id}, count: ${bookings.docs.length})`
+    );
 
     if (bookings.docs.length >= plan.sessionsInformation.sessions) {
       return true;
@@ -130,10 +126,7 @@ export const checkUserSubscription = async (
     });
 
     if (userSubscription.docs.length === 0) {
-      payload.logger.error("User does not have an active subscription", {
-        lesson,
-        user,
-      });
+      payload.logger.error(`User does not have an active subscription (userId: ${user.id}, lessonId: ${lesson.id})`);
       return false;
     }
 
@@ -148,12 +141,7 @@ export const checkUserSubscription = async (
         new Date(subscription.cancelAt) <= new Date(lesson.startTime))
     ) {
       payload.logger.error(
-        "User has an active subscription that is cancelled by the date of this lesson",
-        {
-          lesson,
-          user,
-          subscription,
-        }
+        `User has an active subscription that is cancelled by the date of this lesson (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id})`
       );
       return false;
     }
@@ -164,11 +152,7 @@ export const checkUserSubscription = async (
       new Date(lesson.startTime)
     );
     if (reachedLimit) {
-      payload.logger.error("User has reached the subscription limit", {
-        lesson,
-        user,
-        subscription,
-      });
+      payload.logger.error(`User has reached the subscription limit (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id})`);
       return false;
     }
 
@@ -203,11 +187,7 @@ export const checkUserSubscription = async (
       const quantity = plan.quantity || 1;
 
       if (bookings.totalDocs >= quantity) {
-        payload.logger.error("User has reached the child subscription limit", {
-          lesson,
-          user,
-          subscription,
-        });
+        payload.logger.error(`User has reached the child subscription limit (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id}, limit: ${quantity})`);
         return false;
       }
     }

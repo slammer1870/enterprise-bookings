@@ -5,6 +5,7 @@
     "@payloadcms/db-postgres": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
+    "monaco-editor": "^0.52.2",
     "@repo/bookings": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/payments": "workspace:*",

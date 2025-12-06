@@ -58,7 +58,7 @@ export const subscriptionsRouter = {
 
         return (userSubscription.docs[0] as Subscription) ?? null;
       } catch (error) {
-        payload.logger.error("Error finding subscription:", error);
+        payload.logger.error(`Error finding subscription: ${error}`);
         return null;
       }
     }),
@@ -96,10 +96,7 @@ export const subscriptionsRouter = {
         !plan.sessionsInformation.interval ||
         plan.sessionsInformation.intervalCount == null
       ) {
-        payload.logger.info("Plan does not have sessions information", {
-          planId: plan.id,
-          sessionsInformation: plan.sessionsInformation,
-        });
+        payload.logger.info(`Plan does not have sessions information (planId: ${plan.id})`);
         return false;
       }
 
@@ -130,13 +127,9 @@ export const subscriptionsRouter = {
           },
         });
 
-        payload.logger.info("Bookings found for subscription", {
-          bookings,
-          subscription,
-          plan,
-          startDate,
-          endDate,
-        });
+        payload.logger.info(
+          `Bookings found for subscription (planId: ${plan.id}, count: ${bookings.docs.length})`
+        );
 
         if (bookings.docs.length >= plan.sessionsInformation.sessions) {
           return true;

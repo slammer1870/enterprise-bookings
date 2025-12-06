@@ -38,8 +38,7 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
         `Found subscription from Stripe: ${stripeSubscription.id}`
       );
     payload.logger.info(
-      "Subscription start date:",
-      stripeSubscription.current_period_start
+      `Subscription start date: ${stripeSubscription.current_period_start}`
     );
     newDoc.startDate = new Date(
       stripeSubscription.current_period_start * 1000

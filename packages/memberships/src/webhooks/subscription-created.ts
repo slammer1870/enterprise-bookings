@@ -74,6 +74,6 @@ export const subscriptionCreated: StripeWebhookHandler<{
       }
     }
   } catch (error) {
-    payload.logger.error("Error creating subscription", error);
+    payload.logger.error(`Error creating subscription: ${error}`);
   }
 };
