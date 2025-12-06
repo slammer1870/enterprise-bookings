@@ -1,12 +1,12 @@
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
-import { checkInAction } from '@repo/bookings/src/actions/bookings'
+import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 
 import { Lesson, Subscription } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
+import { BookingSummary } from '@repo/bookings-plugin/src/components/ui/booking-summary'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 
@@ -17,7 +17,6 @@ import config from '@payload-config'
 import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
 import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
-import { BookingDetails } from '@repo/shared-types'
 
 // Add these new types
 type BookingPageProps = {
@@ -80,14 +79,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
-  // Extract booking details
-  const bookingDetails: BookingDetails = {
-    date: lesson.date,
-    startTime: lesson.startTime,
-    endTime: lesson.endTime,
-    bookingType: lesson.classOption.name,
-  }
-
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
     (plan) => plan.status === 'active',
   )
@@ -113,7 +104,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
     if (data.url) {
       redirect(data.url)
-    } else {
     }
   }
 
@@ -130,7 +120,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
     if (data.url) {
       redirect(data.url)
-    } else {
     }
   }
 

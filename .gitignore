@@ -15,6 +15,7 @@ node_modules
 
 # Testing
 coverage
+.test-database-uri
 
 # Turbo
 .turbo

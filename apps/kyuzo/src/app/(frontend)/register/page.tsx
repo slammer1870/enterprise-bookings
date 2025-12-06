@@ -1,6 +1,6 @@
-import { UserPassRegisterForm } from '@repo/auth'
+import { UserPassRegisterForm } from '@repo/auth-next'
 
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
 export default async function Register() {
   await getMeUser({ validUserRedirect: '/dashboard' })

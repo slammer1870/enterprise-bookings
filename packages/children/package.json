@@ -4,25 +4,25 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@hookform/resolvers": "*",
+    "@repo/auth-next": "workspace:*",
+    "@repo/bookings-plugin": "workspace:*",
+    "@repo/memberships": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
-    "@repo/auth": "workspace:*",
-    "@repo/bookings": "workspace:*",
     "@repo/ui": "workspace:*",
-    "@repo/memberships": "workspace:*",
-    "@hookform/resolvers": "*",
+    "lucide-react": "0.554.0",
     "react-hook-form": "*",
-    "zod": "*",
     "sonner": "*",
-    "lucide-react": "0.475.0"
+    "zod": "*"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/react": "*",
-    "@types/react-dom": "19.1.2",
+    "@types/react-dom": "19.2.3",
     "react": "*",
     "react-dom": "*",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   },
   "main": "./components/index.tsx",
   "types": "./components/index.tsx",

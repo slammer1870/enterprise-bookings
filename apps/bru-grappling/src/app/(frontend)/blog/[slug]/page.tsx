@@ -1,5 +1,8 @@
 import type { Metadata } from 'next'
 
+// Mark this route as dynamic to avoid static generation issues with Payload GraphQL schema
+export const dynamic = 'force-dynamic'
+
 import configPromise from '@payload-config'
 import { CollectionSlug, getPayload } from 'payload'
 import { draftMode } from 'next/headers'
@@ -14,6 +17,7 @@ import Link from 'next/link'
 import { ContentBlock } from '@repo/website/src/blocks/content'
 
 export async function generateStaticParams() {
+  try {
   const payload = await getPayload({ config: configPromise })
   const postsQuery = await payload.find({
     collection: 'posts' as CollectionSlug,
@@ -33,6 +37,12 @@ export async function generateStaticParams() {
   })
 
   return params
+  } catch (error) {
+    console.error('Error generating static params for blog posts:', error)
+    // Return empty array on error to prevent build failure
+    // Pages will be generated dynamically at runtime
+    return []
+  }
 }
 
 type Args = {

@@ -1,4 +1,4 @@
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
 import ScheduleComponent from '@/components/schedule'
 

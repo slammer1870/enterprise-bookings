@@ -6,9 +6,9 @@
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
     "monaco-editor": "^0.52.2",
-    "@repo/bookings": "workspace:*",
+    "@repo/bookings-plugin": "workspace:*",
     "@repo/memberships": "workspace:*",
-    "@repo/payments": "workspace:*",
+    "@repo/payments-plugin": "workspace:*",
     "@repo/roles": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
@@ -16,8 +16,8 @@
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "payload": "*",
-    "sharp": "0.34.2",
-    "vitest": "3.2.3"
+    "sharp": "0.34.5",
+    "vitest": "4.0.12"
   },
   "private": true,
   "scripts": {

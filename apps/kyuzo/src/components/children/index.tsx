@@ -1,6 +1,6 @@
 import { Lesson } from '@repo/shared-types'
 
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
+import { BookingSummary } from '@repo/bookings-plugin/src/components/ui/booking-summary'
 
 import { ManagePayment } from '../manage-payment'
 import { getMeUser } from '@repo/shared-services/src/user'

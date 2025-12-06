@@ -8,10 +8,7 @@ import { Testimonials } from '../blocks/testimonials/config'
 import { Contact } from '../blocks/contact/config'
 import { HeroWaitlist } from '../blocks/hero-waitlist/config'
 
-import { FormBlock } from '@repo/website/src/blocks/form/config'
-import { Faqs } from '@repo/website/src/blocks/faqs/config'
-
-import { revalidatePage, revalidateDelete } from '@repo/website/src/hooks/revalidate-page'
+import { FormBlock, Faqs, revalidatePage, revalidateDelete } from '@repo/website'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',

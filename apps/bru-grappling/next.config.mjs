@@ -18,14 +18,20 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
-      ...(process.env.NEXT_PUBLIC_SERVER_URL ? [process.env.NEXT_PUBLIC_SERVER_URL] : ['https://brugrappling.ie']).map((item) => {
-        const url = new URL(item)
-
-        return {
-          hostname: url.hostname,
-          protocol: url.protocol.replace(':', ''),
-        }
-      }),
+      ...(process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie')
+        .split(',')
+        .map((item) => {
+          try {
+            const url = new URL(item.trim())
+            return {
+              hostname: url.hostname,
+              protocol: url.protocol.replace(':', ''),
+            }
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean),
     ],
   },
 
@@ -73,32 +79,6 @@ const nextConfig = {
       },
       {
         source: '/sitemap.xml',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/xml',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=86400',
-          },
-        ],
-      },
-      {
-        source: '/pages-sitemap.xml',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/xml',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=86400',
-          },
-        ],
-      },
-      {
-        source: '/posts-sitemap.xml',
         headers: [
           {
             key: 'Content-Type',

@@ -1,3 +1,6 @@
+// Mark this route as dynamic to avoid static generation issues with Payload GraphQL schema
+export const dynamic = 'force-dynamic'
+
 import payloadConfig from '@/payload.config'
 import { getPayload } from 'payload'
 import { CollectionSlug } from 'payload'
@@ -21,24 +24,25 @@ const getPosts = async (): Promise<Post[]> => {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const metadataBase = process.env.NEXT_PUBLIC_SERVER_URL
+    ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
+    : new URL('https://brugrappling.ie')
+
   return {
-    title: 'Blog - Brazilian Jiu Jitsu Articles & Tips',
-    description: 'Discover expert insights on Brazilian Jiu Jitsu, fitness, nutrition, and performance. Stay updated with the latest BJJ techniques and training advice.',
-    keywords: ['BJJ blog', 'Brazilian Jiu Jitsu tips', 'Grappling techniques', 'Martial arts training', 'BJJ fitness', 'Self defense tips'],
+    title: 'Blog',
+    description: 'Discover expert insights on Brazilian Jiu Jitsu, fitness, nutrition, and performance.',
     openGraph: {
-      title: 'Blog - Brazilian Jiu Jitsu Articles & Tips',
+      title: 'Blog',
       description: 'Discover expert insights on Brazilian Jiu Jitsu, fitness, nutrition, and performance.',
       type: 'website',
-      url: 'https://brugrappling.ie/blog',
+      url: new URL('/blog', metadataBase).toString(),
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'Blog - Brazilian Jiu Jitsu Articles & Tips',
+      title: 'Blog',
       description: 'Discover expert insights on Brazilian Jiu Jitsu, fitness, nutrition, and performance.',
     },
-    alternates: {
-      canonical: 'https://brugrappling.ie/blog',
-    },
+    metadataBase,
   }
 }
 

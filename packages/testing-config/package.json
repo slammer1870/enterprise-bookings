@@ -13,7 +13,7 @@
     "monaco-editor": "^0.52.2",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@testcontainers/postgresql": "^10.16.0",
+    "@testcontainers/postgresql": "^11.8.1",
     "payload": "*",
     "qs-esm": "^7.0.2"
   },

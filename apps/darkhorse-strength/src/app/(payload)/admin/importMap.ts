@@ -22,7 +22,7 @@ import { UploadFeatureClient as UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0
 import { HorizontalRuleFeatureClient as HorizontalRuleFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { InlineToolbarFeatureClient as InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
-import { FetchLessons as FetchLessons_511233d99c928e84af9e3b44860d4aef } from '@repo/bookings/src/components/lessons/fetch-lessons'
+import { FetchLessons as FetchLessons_511233d99c928e84af9e3b44860d4aef } from '@repo/bookings-plugin/src/components/lessons/fetch-lessons'
 import type { ImportMap } from 'payload'
 
 export const importMap: ImportMap = {
@@ -74,6 +74,6 @@ export const importMap: ImportMap = {
     InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   '@repo/ui/components/ui/custom-select#CustomSelect':
     CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
-  '@repo/bookings/src/components/lessons/fetch-lessons#FetchLessons':
+  '@repo/bookings-plugin/src/components/lessons/fetch-lessons#FetchLessons':
     FetchLessons_511233d99c928e84af9e3b44860d4aef,
 }
