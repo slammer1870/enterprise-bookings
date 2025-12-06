@@ -1,29 +1,36 @@
 import { z } from "zod";
-import { protectedProcedure } from "../trpc";
+import { protectedProcedure, requireCollections } from "../trpc";
+import { findByIdSafe, findSafe } from "../utils/collections";
 
 import { Subscription, Lesson, Plan } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 import { hasReachedSubscriptionLimit } from "@repo/shared-services";
 
 export const subscriptionsRouter = {
-  getSubscription: protectedProcedure.query(async ({ ctx }) => {
-    const { user, payload } = ctx;
+  getSubscription: protectedProcedure
+    .use(requireCollections("subscriptions"))
+    .query(async ({ ctx }) => {
+      const { user, payload } = ctx;
 
-    const userSubscription = await payload.find({
-      collection: "subscriptions",
-      where: {
-        user: { equals: user.id },
-        status: { equals: "active" },
-        startDate: { less_than_equal: new Date() },
-        endDate: { greater_than_equal: new Date() },
-      },
-      limit: 1,
-      depth: 2,
-    });
+      const userSubscription = await findSafe<Subscription>(
+        payload,
+        "subscriptions",
+        {
+          where: {
+            user: { equals: user.id },
+            status: { equals: "active" },
+            startDate: { less_than_equal: new Date() },
+            endDate: { greater_than_equal: new Date() },
+          },
+          limit: 1,
+          depth: 2,
+        }
+      );
 
-    return userSubscription.docs[0] || null;
-  }),
+      return userSubscription.docs[0] || null;
+    }),
   hasValidSubscription: protectedProcedure
+    .use(requireCollections("subscriptions"))
     .input(
       z.object({
         plans: z.array(z.number()),
@@ -37,33 +44,37 @@ export const subscriptionsRouter = {
       }
 
       try {
-        const userSubscription = await payload.find({
-          collection: "subscriptions",
-          where: {
-            user: { equals: user.id },
-            status: {
-              not_in: [
-                "canceled",
-                "unpaid",
-                "incomplete_expired",
-                "incomplete",
-              ],
+        const userSubscription = await findSafe<Subscription>(
+          payload,
+          "subscriptions",
+          {
+            where: {
+              user: { equals: user.id },
+              status: {
+                not_in: [
+                  "canceled",
+                  "unpaid",
+                  "incomplete_expired",
+                  "incomplete",
+                ],
+              },
+              startDate: { less_than: new Date() },
+              endDate: { greater_than: new Date() },
+              plan: { in: input.plans },
             },
-            startDate: { less_than: new Date() },
-            endDate: { greater_than: new Date() },
-            plan: { in: input.plans },
-          },
-          limit: 1,
-          depth: 2,
-        });
+            limit: 1,
+            depth: 2,
+          }
+        );
 
-        return (userSubscription.docs[0] as Subscription) ?? null;
+        return userSubscription.docs[0] ?? null;
       } catch (error) {
         payload.logger.error(`Error finding subscription: ${error}`);
         return null;
       }
     }),
   limitReached: protectedProcedure
+    .use(requireCollections("bookings"))
     .input(
       z.object({
         subscription: z.object({
@@ -112,21 +123,24 @@ export const subscriptionsRouter = {
       // if it is not, then we need to check the sessions limit
 
       try {
-        const bookings = await payload.find({
-          collection: "bookings",
-          depth: 5,
-          where: {
-            user: { equals: user.id },
-            "lesson.classOption.paymentMethods.allowedPlans": {
-              contains: plan.id,
+        const bookings = await findSafe(
+          payload,
+          "bookings",
+          {
+            depth: 5,
+            where: {
+              user: { equals: user.id },
+              "lesson.classOption.paymentMethods.allowedPlans": {
+                contains: plan.id,
+              },
+              "lesson.startTime": {
+                greater_than: startDate,
+                less_than: endDate,
+              },
+              status: { equals: "confirmed" },
             },
-            "lesson.startTime": {
-              greater_than: startDate,
-              less_than: endDate,
-            },
-            status: { equals: "confirmed" },
-          },
-        });
+          }
+        );
 
         payload.logger.info(
           `Bookings found for subscription (planId: ${plan.id}, count: ${bookings.docs.length})`
@@ -143,6 +157,7 @@ export const subscriptionsRouter = {
       return false;
     }),
   getSubscriptionForLesson: protectedProcedure
+    .use(requireCollections("lessons", "subscriptions"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -152,11 +167,12 @@ export const subscriptionsRouter = {
       const { user, payload } = ctx;
 
       // Get the lesson to check allowed plans
-      const lesson = await payload.findByID({
-        collection: "lessons",
-        id: input.lessonId,
-        depth: 2,
-      }) as Lesson;
+      const lesson = await findByIdSafe<Lesson>(
+        payload,
+        "lessons",
+        input.lessonId,
+        { depth: 2 }
+      );
 
       if (!lesson) {
         return {
@@ -176,29 +192,32 @@ export const subscriptionsRouter = {
       }
 
       // Find active subscription for this user with allowed plans
-      const userSubscription = await payload.find({
-        collection: "subscriptions",
-        where: {
-          user: { equals: user.id },
-          status: {
-            not_in: [
-              "canceled",
-              "unpaid",
-              "incomplete_expired",
-              "incomplete",
-            ],
+      const userSubscription = await findSafe<Subscription & { plan: Plan }>(
+        payload,
+        "subscriptions",
+        {
+          where: {
+            user: { equals: user.id },
+            status: {
+              not_in: [
+                "canceled",
+                "unpaid",
+                "incomplete_expired",
+                "incomplete",
+              ],
+            },
+            startDate: { less_than_equal: new Date() },
+            endDate: { greater_than_equal: new Date() },
+            plan: {
+              in: allowedPlans.map((plan: any) => plan.id || plan),
+            },
           },
-          startDate: { less_than_equal: new Date() },
-          endDate: { greater_than_equal: new Date() },
-          plan: {
-            in: allowedPlans.map((plan: any) => plan.id || plan),
-          },
-        },
-        limit: 1,
-        depth: 2,
-      });
+          limit: 1,
+          depth: 2,
+        }
+      );
 
-      const subscription = userSubscription.docs[0] as Subscription & { plan: Plan } | undefined;
+      const subscription = userSubscription.docs[0];
 
       if (!subscription) {
         return {
