@@ -2,9 +2,10 @@
   "name": "@repo/integration-testing",
   "version": "0.0.1",
   "devDependencies": {
-    "@payloadcms/db-postgres": "^3.64.0",
-    "@payloadcms/payload-cloud": "^3.64.0",
-    "@payloadcms/richtext-lexical": "^3.64.0",
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/payload-cloud": "*",
+    "@payloadcms/richtext-lexical": "*",
+    "monaco-editor": "^0.52.2",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/memberships": "workspace:*",
     "@repo/payments-plugin": "workspace:*",
@@ -14,12 +15,11 @@
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "payload": "3.64.0",
-    "sharp": "0.34.5",
-    "vitest": "4.0.12"
+    "payload": "*",
+    "sharp": "0.34.2",
+    "vitest": "3.2.3"
   },
   "private": true,
-  "type": "module",
   "scripts": {
     "test": "vitest --hook-timeout=1000000"
   }
