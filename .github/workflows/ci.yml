@@ -318,7 +318,7 @@ jobs:
           NODE_ENV: test
           CI: true
         run: |
-          pnpm run payload -- migrate:fresh --force-accept-warning
+          pnpm run payload migrate:fresh --force-accept-warning
           sleep 2  # Give migrations time to fully complete
         working-directory: ${{ matrix.app.app_path }}
 
