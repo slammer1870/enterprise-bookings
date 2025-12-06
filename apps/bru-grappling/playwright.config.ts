@@ -46,7 +46,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm payload migrate:fresh --force-accept-warning && pnpm dev',
+    command: 'pnpm run payload -- migrate:fresh --force-accept-warning && pnpm dev',
     url: 'http://localhost:3000/api/health', // Use simple health check endpoint
     timeout: 180000, // 3 minutes for server startup (migrations may take time)
     reuseExistingServer: !process.env.CI,
