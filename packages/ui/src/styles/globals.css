@@ -5,7 +5,7 @@
 @source "../../../../packages/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where([class~="dark"], [class~="dark"] *));
 
 :root {
   --background: oklch(1 0 0);

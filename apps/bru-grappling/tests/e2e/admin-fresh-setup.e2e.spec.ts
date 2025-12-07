@@ -178,14 +178,24 @@ test.describe('Admin Fresh Setup', () => {
     }
 
     // Select Admin role from the dropdown
-    const roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+    // Try multiple approaches to find the combobox
+    let roleCombobox = page.getByRole('combobox').first()
+    if (!(await roleCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
+      roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+    }
+    await expect(roleCombobox).toBeVisible({ timeout: 10000 })
     await roleCombobox.click()
-    await page.waitForTimeout(500) // Wait for dropdown to open
+    await page.waitForTimeout(1000) // Wait for dropdown to open
+
+    // Wait for listbox to appear
+    const listbox = page.locator('[role="listbox"]').first()
+    await expect(listbox).toBeVisible({ timeout: 5000 })
 
     // Select Admin option
     const adminOption = page.getByRole('option', { name: 'Admin' }).first()
     await expect(adminOption).toBeVisible({ timeout: 5000 })
     await adminOption.click()
+    await page.waitForTimeout(500)
 
     // Click Create button
     await createButton.click()
@@ -278,9 +288,18 @@ test.describe('Admin Fresh Setup', () => {
     await page.waitForURL(/.*\/admin\/create-first-user/, { timeout: 30000 })
 
     // Find and click the role combobox
-    const roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+    // Try multiple approaches to find the combobox
+    let roleCombobox = page.getByRole('combobox').first()
+    if (!(await roleCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
+      roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+    }
+    await expect(roleCombobox).toBeVisible({ timeout: 10000 })
     await roleCombobox.click()
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(1000)
+    
+    // Wait for listbox to appear
+    const listbox = page.locator('[role="listbox"]').first()
+    await expect(listbox).toBeVisible({ timeout: 5000 })
 
     // Check that both User and Admin options are available
     const userOption = page.getByRole('option', { name: 'User' }).first()

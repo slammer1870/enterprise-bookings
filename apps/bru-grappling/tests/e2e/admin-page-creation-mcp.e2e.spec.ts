@@ -160,13 +160,19 @@ test.describe('Admin Page Creation with MCP', () => {
     
     // Verify schedule component is visible
     // The schedule block should render a schedule component
-    const scheduleSection = page.locator('#schedule, [id*="schedule"], text=/schedule/i').first()
+    // Try multiple selectors separately since mixing CSS and text locators causes issues
+    const scheduleById = page.locator('#schedule').first()
+    const scheduleByIdContains = page.locator('[id*="schedule"]').first()
+    const scheduleByText = page.locator('text=/schedule/i').first()
     
     // Take screenshot whether or not it's visible for debugging
     await page.screenshot({ path: 'test-results/mcp-schedule-check.png', fullPage: true })
     
     // Check if schedule section exists (might not be visible if no classes scheduled)
-    const scheduleExists = await scheduleSection.count() > 0
+    const scheduleExists = 
+      (await scheduleById.count()) > 0 ||
+      (await scheduleByIdContains.count()) > 0 ||
+      (await scheduleByText.count()) > 0
     expect(scheduleExists).toBe(true)
   })
 
