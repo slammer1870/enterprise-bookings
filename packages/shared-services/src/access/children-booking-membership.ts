@@ -98,7 +98,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
   if (!req.user) {
-    req.payload.logger.error("User is not authenticated");
+    // Silently return false - this is expected for unauthenticated requests
     return false;
   }
 
