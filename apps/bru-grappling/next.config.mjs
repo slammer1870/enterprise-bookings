@@ -17,22 +17,21 @@ const nextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 365, // 1 year
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: [
-      ...(process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie')
-        .split(',')
-        .map((item) => {
-          try {
-            const url = new URL(item.trim())
-            return {
-              hostname: url.hostname,
-              protocol: url.protocol.replace(':', ''),
-            }
-          } catch {
-            return null
+    remotePatterns: (() => {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie'
+      const urls = serverUrl.split(',').map((url) => url.trim()).filter(Boolean)
+      return urls.map((url) => {
+        try {
+          const parsedUrl = new URL(url)
+          return {
+            hostname: parsedUrl.hostname,
+            protocol: parsedUrl.protocol.replace(':', ''),
           }
-        })
-        .filter(Boolean),
-    ],
+        } catch {
+          return null
+        }
+      }).filter(Boolean)
+    })(),
   },
 
   // Headers for security and performance
