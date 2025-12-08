@@ -340,13 +340,13 @@ test.describe('User Booking Flow', () => {
 
     // Fill name field
     console.log('Filling name field...')
-    const nameInput = page.locator('input[name="name"]').first()
+    const nameInput = page.getByRole('textbox', { name: /^name$/i }).first()
     await expect(nameInput).toBeVisible({ timeout: 10000 })
     await nameInput.fill(testName)
 
     // Fill email
     console.log('Filling email field...')
-    const emailInput = page.getByRole('textbox', { name: /email/i }).first()
+    const emailInput = page.getByRole('textbox', { name: /^email$/i }).first()
     await expect(emailInput).toBeVisible({ timeout: 10000 })
     await emailInput.fill(testEmail)
 
@@ -355,13 +355,13 @@ test.describe('User Booking Flow', () => {
     // Submit registration form
     console.log('Submitting registration form...')
     // Try multiple button selectors
-    const submitButton = page.locator('button[type="submit"]').first()
+    const submitButton = page.getByRole('button', { name: /^submit$/i }).first()
     await expect(submitButton).toBeVisible({ timeout: 10000 })
     console.log('Submit button found, clicking...')
     await submitButton.click()
 
     // Wait for registration to complete and redirect to magic link sent page
-    await page.waitForTimeout(5000) // Give more time for the submission
+    await page.waitForURL(/\/magic-link-sent/, { timeout: 15000 })
     await page.screenshot({
       path: 'test-results/screenshots/07-after-registration.png',
       fullPage: true,
@@ -477,18 +477,18 @@ test.describe('User Booking Flow', () => {
     // Fill login form with test email
     console.log('Filling login form...')
     const testEmail = `logintest${Date.now()}@example.com`
-    const emailInput = page.getByRole('textbox', { name: /email/i }).first()
+    const emailInput = page.getByRole('textbox', { name: /^email$/i }).first()
     await expect(emailInput).toBeVisible({ timeout: 10000 })
     await emailInput.fill(testEmail)
 
     // Click submit button (will send magic link)
-    const submitButton = page.locator('button[type="submit"]').first()
+    const submitButton = page.getByRole('button', { name: /^submit$/i }).first()
     await expect(submitButton).toBeVisible({ timeout: 10000 })
     console.log('Submit button found, clicking...')
     await submitButton.click()
 
     // Should be redirected to magic link sent page
-    await page.waitForTimeout(5000)
+    await page.waitForURL(/\/magic-link-sent/, { timeout: 15000 })
     const finalUrl = page.url()
     console.log(`Final URL after login attempt: ${finalUrl}`)
 
