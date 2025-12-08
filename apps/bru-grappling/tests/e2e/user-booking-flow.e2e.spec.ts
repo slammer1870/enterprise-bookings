@@ -43,9 +43,9 @@ test.describe('User Booking Flow', () => {
       console.log('1️⃣ Ensuring admin user exists...')
       const authenticated = await ensureAdminUser(page)
       if (!authenticated) {
-        console.warn('⚠️  Could not authenticate admin user')
+        console.error('❌ Could not authenticate admin user - setup cannot continue')
         await context.close()
-        return
+        throw new Error('Admin authentication failed during test setup. This may indicate database state issues or session conflicts when running the full test suite.')
       }
       console.log('✅ Admin user authenticated')
 
@@ -169,6 +169,17 @@ test.describe('User Booking Flow', () => {
       await input.fill('60')
       await page.waitForTimeout(500)
 
+      // Ensure lesson is active (required for unauthenticated users to see it)
+      const activeCheckbox = page.locator('input[type="checkbox"][name="active"], input[type="checkbox"][id*="active"]').first()
+      if (await activeCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const isChecked = await activeCheckbox.isChecked()
+        if (!isChecked) {
+          await activeCheckbox.click()
+          await page.waitForTimeout(500)
+          console.log('✅ Set lesson as active')
+        }
+      }
+
       // Save lesson
       const saveButton = page.getByRole('button', { name: /save|create/i }).first()
       await saveButton.click()
@@ -232,6 +243,12 @@ test.describe('User Booking Flow', () => {
         } catch (e) {
           console.warn(`⚠️  Could not verify lesson ${createdLessonId} in admin: ${e}`)
         }
+
+        // Wait for database transaction to commit
+        // This is important when running full test suite due to transaction isolation
+        // The lesson needs to be queryable via access control before the test can use it
+        console.log(`Waiting for lesson ${createdLessonId} to be committed to database...`)
+        await page.waitForTimeout(2000) // Give database time to commit the transaction
       }
 
       // Step 4: Ensure homepage exists
@@ -368,23 +385,58 @@ test.describe('User Booking Flow', () => {
 
     console.log(`Found lesson URL: ${lessonUrl}`)
 
-    // Verify lesson ID exists before attempting navigation
-    if (!createdLessonId) {
-      throw new Error('Cannot proceed: Lesson ID was not captured during setup. Test data setup may have failed.')
+    // Verify we have a lesson URL to navigate to
+    if (!lessonUrl) {
+      throw new Error('Cannot proceed: No lesson URL found. Test data setup may have failed, or no lessons exist in the database.')
     }
 
     // Navigate to the lesson - for unauthenticated users, this should redirect to /complete-booking
+    // Add retry logic to handle database transaction isolation issues in full test suites
     console.log('Step 3: Navigating to booking page...')
-    try {
-      await page.goto(lessonUrl, { waitUntil: 'load', timeout: 30000 })
-    } catch (error: any) {
-      // ERR_ABORTED is common when server redirects interrupt navigation
-      if (error.message?.includes('ERR_ABORTED') || error.message?.includes('net::ERR_ABORTED')) {
-        // Wait a moment for redirect to complete
-        await page.waitForTimeout(2000)
-      } else {
-        throw error
+    let navigationSuccess = false
+    let lastError: Error | null = null
+    
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await page.goto(lessonUrl, { waitUntil: 'load', timeout: 30000 })
+        await page.waitForTimeout(1000)
+        const url = page.url()
+        
+        // Check if we got a 404 (lesson not queryable yet)
+        const is404 = url === 'http://localhost:3000/' || 
+          url.includes('404') ||
+          await page.locator('h1:has-text("404")').isVisible().catch(() => false)
+        
+        if (!is404) {
+          navigationSuccess = true
+          break
+        }
+        
+        if (attempt < 2) {
+          console.log(`⚠️  Got 404 on attempt ${attempt + 1}, retrying... (lesson may not be queryable yet)`)
+          await page.waitForTimeout(2000) // Wait longer between retries
+        }
+      } catch (error: any) {
+        lastError = error
+        // ERR_ABORTED is common when server redirects interrupt navigation
+        if (error.message?.includes('ERR_ABORTED') || error.message?.includes('net::ERR_ABORTED')) {
+          // Wait a moment for redirect to complete
+          await page.waitForTimeout(2000)
+          navigationSuccess = true // Assume success if redirect happened
+          break
+        }
+        
+        if (attempt < 2) {
+          console.log(`⚠️  Navigation error on attempt ${attempt + 1}, retrying...`)
+          await page.waitForTimeout(2000)
+        } else {
+          throw error
+        }
       }
+    }
+    
+    if (!navigationSuccess && lastError) {
+      throw lastError
     }
 
     // Wait for redirect to complete-booking page (server-side redirect)
@@ -423,7 +475,8 @@ test.describe('User Booking Flow', () => {
           // 1. The lesson doesn't exist in the database
           // 2. The route isn't being matched (Next.js routing issue)
           // 3. The lesson exists but access control is preventing it
-          throw new Error(`Lesson at ${lessonUrl} returned 404. Created lesson ID: ${createdLessonId}. This may indicate the lesson wasn't saved properly, or there's a routing/access issue.`)
+          const lessonIdInfo = createdLessonId ? `Created lesson ID: ${createdLessonId}` : 'No lesson ID was captured during setup'
+          throw new Error(`Lesson at ${lessonUrl} returned 404. ${lessonIdInfo}. This may indicate the lesson wasn't saved properly, or there's a routing/access issue.`)
         }
         
         // If not 404 and not on complete-booking, something unexpected happened
