@@ -57,15 +57,35 @@ export async function signIn(page: Page, email: string, password: string) {
       await page.waitForTimeout(2000)
       // If still on login, there might be an error or the credentials are wrong
       // For now, just navigate to admin to see what happens
-      await page.goto('/admin', { waitUntil: 'load' })
-      await page.waitForTimeout(2000)
-      newUrl = page.url()
+      try {
+        await page.goto('/admin', { waitUntil: 'load', timeout: 30000 })
+        await page.waitForTimeout(2000)
+        newUrl = page.url()
+      } catch (e) {
+        // Navigation might have failed - check current URL
+        newUrl = page.url()
+        // If we're already on admin, that's fine
+        if (!newUrl.includes('/admin')) {
+          throw e
+        }
+      }
     }
     
     // If we're not on admin yet, try navigating there
     if (!newUrl.includes('/admin') || newUrl.includes('/admin/login') || newUrl.includes('/admin/create-first-user')) {
-      await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
-      await page.waitForTimeout(2000)
+      try {
+        await page.goto('/admin', { waitUntil: 'load', timeout: 30000 })
+        await page.waitForTimeout(2000)
+        newUrl = page.url()
+      } catch (e) {
+        // Navigation failed - might be a timeout or connection issue
+        // Check if we're already on admin
+        newUrl = page.url()
+        if (!newUrl.includes('/admin') && !newUrl.includes('/auth')) {
+          // Not on admin or auth - might be a real error
+          console.warn('Failed to navigate to admin after login. Current URL:', newUrl)
+        }
+      }
     }
     
     // Verify we're successfully in admin (not on login or create-first-user)

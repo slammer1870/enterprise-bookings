@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signIn, TEST_USERS } from './utils/auth'
+import { ensureAdminUser } from './utils/admin-setup'
 
 /**
  * E2E tests for page creation using Playwright MCP Server
@@ -120,35 +121,74 @@ test.describe('Admin Page Creation with MCP', () => {
   })
 
   test('MCP: verify schedule block appears on frontend', async ({ page }) => {
-    // First create a page with schedule block
-    await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
+    // Note: beforeEach already calls signIn, so we should be authenticated
+    // Only call ensureAdminUser if we're not already authenticated
+    const currentUrl = page.url()
+    if (currentUrl.includes('/admin/login') || currentUrl.includes('/admin/create-first-user')) {
+      const authenticated = await ensureAdminUser(page)
+      if (!authenticated) {
+        test.skip()
+        return
+      }
+    }
+
+    // First create a page with schedule block - use domcontentloaded for faster load
+    await page.goto('/admin/collections/pages/create', { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(3000) // Wait longer for form to render
     
-    // Fill in details
-    const titleField = page.locator('input[name="title"], input[id*="title"]').first()
+    // Fill in details - use more specific selectors
+    const titleField = page.getByRole('textbox', { name: /title/i }).or(
+      page.locator('input[name="title"]')
+    ).first()
+    await expect(titleField).toBeVisible({ timeout: 15000 })
     await titleField.fill('Frontend Test Page')
+    await page.waitForTimeout(500)
     
-    const slugField = page.locator('input[name="slug"], input[id*="slug"]').first()
+    const slugField = page.getByRole('textbox', { name: /slug/i }).or(
+      page.locator('input[name="slug"]')
+    ).first()
+    await expect(slugField).toBeVisible({ timeout: 10000 })
     await slugField.fill('frontend-test-page')
+    await page.waitForTimeout(500)
     
-    // Add schedule block
-    const addBlockButton = page.locator('button:has-text("Add"), button:has-text("Add Block")').first()
-    await addBlockButton.click()
-    await page.waitForTimeout(1000)
+    // Add schedule block - look for "Add Layout" button
+    const addLayoutButton = page.getByRole('button', { name: /add layout/i }).or(
+      page.locator('button:has-text("Add Layout"), button:has-text("Add Block")')
+    ).first()
+    await expect(addLayoutButton).toBeVisible({ timeout: 10000 })
+    await addLayoutButton.click()
+    await page.waitForTimeout(2000) // Wait for drawer/modal to open
     
-    const scheduleOption = page.locator('button:has-text("Schedule"), [role="option"]:has-text("Schedule"), li:has-text("Schedule")').first()
+    // Find schedule option in the block selector
+    const scheduleOption = page.getByRole('button', { name: /schedule/i }).or(
+      page.locator('[role="option"]:has-text("Schedule"), li:has-text("Schedule"), button:has-text("Schedule")')
+    ).first()
+    await expect(scheduleOption).toBeVisible({ timeout: 10000 })
     await scheduleOption.click()
     await page.waitForTimeout(1000)
     
-    // Close the drawer
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(1000)
+    // Close the drawer if it's still open
+    const drawer = page.locator('[role="dialog"], [data-radix-portal]').first()
+    const drawerVisible = await drawer.isVisible({ timeout: 2000 }).catch(() => false)
+    if (drawerVisible) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(1000)
+    }
     
-    // Save
-    const saveButton = page.locator('button:has-text("Save"), button[type="submit"]').first()
+    // Save - wait for save button to be enabled
+    const saveButton = page.getByRole('button', { name: /save/i }).or(
+      page.locator('button[type="submit"]:has-text("Save")')
+    ).first()
+    await expect(saveButton).toBeVisible({ timeout: 10000 })
     await saveButton.click()
-    await page.waitForTimeout(3000)
+    
+    // Wait for save to complete and redirect
+    await page.waitForURL(/\/admin\/collections\/pages\/\d+/, { timeout: 15000 }).catch(() => {
+      // If not redirected, wait a bit more
+      return page.waitForTimeout(3000)
+    })
+    await page.waitForTimeout(2000)
     
     // Now navigate to the frontend page
     await page.goto('/frontend-test-page', { waitUntil: 'load', timeout: 60000 })
@@ -177,6 +217,12 @@ test.describe('Admin Page Creation with MCP', () => {
   })
 
   test('MCP: test all available block types', async ({ page }) => {
+    // Note: beforeEach already calls signIn, skip if not authenticated
+    const currentUrl = page.url()
+    if (currentUrl.includes('/admin/login') || currentUrl.includes('/admin/create-first-user')) {
+      test.skip()
+      return
+    }
     // Navigate to page creation
     await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})

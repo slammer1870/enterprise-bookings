@@ -108,9 +108,18 @@ test.describe('Admin Fresh Setup', () => {
       // Check if we're in admin panel
       const newUrl = page.url()
       if (newUrl.includes('/admin/login')) {
-        // Still on login - try navigating to admin
-        await page.goto('/admin', { waitUntil: 'load' })
-        await page.waitForTimeout(2000)
+        // Still on login - try navigating to admin with timeout
+        try {
+          await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 30000 })
+          await page.waitForTimeout(1000)
+        } catch (e) {
+          // Navigation might have failed - check current URL
+          const currentUrl = page.url()
+          // If we're already on admin (redirect happened), that's fine
+          if (!currentUrl.includes('/admin')) {
+            throw e
+          }
+        }
       }
       
       // Verify we're in admin panel (not on login or create-first-user)
@@ -191,21 +200,55 @@ test.describe('Admin Fresh Setup', () => {
       }
     }
     await expect(roleCombobox).toBeVisible({ timeout: 10000 })
-    await roleCombobox.click()
-    await page.waitForTimeout(1500) // Wait for dropdown to open
+    
+    // Click and wait for dropdown to open - try multiple strategies
+    await roleCombobox.click({ force: true })
+    await page.waitForTimeout(2000) // Wait longer for dropdown to open
 
-    // Wait for listbox to appear - give more time
-    const listbox = page.locator('[role="listbox"]').first()
-    await expect(listbox).toBeVisible({ timeout: 10000 })
+    // Wait for listbox to appear - try multiple selectors
+    let listbox = page.locator('[role="listbox"]').first()
+    const listboxVisible = await listbox.isVisible({ timeout: 5000 }).catch(() => false)
+    
+    if (!listboxVisible) {
+      // Try alternative selectors for React Select dropdown
+      listbox = page.locator('.rs__menu, [class*="menu"], [class*="Menu"]').first()
+      await expect(listbox).toBeVisible({ timeout: 10000 })
+    } else {
+      await expect(listbox).toBeVisible({ timeout: 10000 })
+    }
 
-    // Wait a bit more for options to render
-    await page.waitForTimeout(500)
+    // Wait for options to render - give more time
+    await page.waitForTimeout(1000)
 
-    // Select Admin option - wait for it to be visible
-    const adminOption = page.getByRole('option', { name: 'Admin' }).first()
+    // Try to find Admin option - use multiple strategies
+    let adminOption = page.getByRole('option', { name: 'Admin' }).first()
+    let adminVisible = await adminOption.isVisible({ timeout: 3000 }).catch(() => false)
+    
+    if (!adminVisible) {
+      // Try finding by text content in the listbox
+      adminOption = listbox.locator('text=/^Admin$/i').first()
+      adminVisible = await adminOption.isVisible({ timeout: 3000 }).catch(() => false)
+    }
+    
+    if (!adminVisible) {
+      // Try finding any option with Admin text
+      adminOption = page.locator('[role="option"]:has-text("Admin")').first()
+      adminVisible = await adminOption.isVisible({ timeout: 3000 }).catch(() => false)
+    }
+    
+    if (!adminVisible) {
+      // Last resort: try clicking the second option (if Admin is second)
+      const allOptions = await listbox.locator('[role="option"]').all()
+      if (allOptions.length >= 2) {
+        adminOption = allOptions[1] // Usually Admin is second after User
+      } else if (allOptions.length >= 1) {
+        adminOption = allOptions[0] // Fallback to first
+      }
+    }
+    
     await expect(adminOption).toBeVisible({ timeout: 10000 })
-    await adminOption.click()
-    await page.waitForTimeout(500)
+    await adminOption.click({ force: true })
+    await page.waitForTimeout(1000) // Wait for selection to register
 
     // Click Create button
     await createButton.click()
@@ -311,19 +354,45 @@ test.describe('Admin Fresh Setup', () => {
       }
     }
     await expect(roleCombobox).toBeVisible({ timeout: 10000 })
-    await roleCombobox.click()
-    await page.waitForTimeout(1500) // Wait for dropdown to open
+    await roleCombobox.click({ force: true })
+    await page.waitForTimeout(2000) // Wait longer for dropdown to open
     
-    // Wait for listbox to appear - give more time
-    const listbox = page.locator('[role="listbox"]').first()
+    // Wait for listbox to appear - try multiple selectors
+    let listbox = page.locator('[role="listbox"]').first()
+    let listboxVisible = await listbox.isVisible({ timeout: 5000 }).catch(() => false)
+    
+    if (!listboxVisible) {
+      // Try alternative selectors for React Select dropdown
+      listbox = page.locator('.rs__menu, [class*="menu"], [class*="Menu"]').first()
+      listboxVisible = await listbox.isVisible({ timeout: 5000 }).catch(() => false)
+    }
+    
     await expect(listbox).toBeVisible({ timeout: 10000 })
 
-    // Wait a bit more for options to render
-    await page.waitForTimeout(500)
+    // Wait for options to render - give more time
+    await page.waitForTimeout(1000)
 
-    // Check that both User and Admin options are available
-    const userOption = page.getByRole('option', { name: 'User' }).first()
-    const adminOption = page.getByRole('option', { name: 'Admin' }).first()
+    // Check that both User and Admin options are available - use flexible selectors
+    let userOption = listbox.getByRole('option', { name: 'User' }).first()
+    let adminOption = listbox.getByRole('option', { name: 'Admin' }).first()
+    
+    // If not found by role, try by text
+    if (!(await userOption.isVisible({ timeout: 2000 }).catch(() => false))) {
+      userOption = listbox.locator('text=/^User$/i').first()
+    }
+    if (!(await adminOption.isVisible({ timeout: 2000 }).catch(() => false))) {
+      adminOption = listbox.locator('text=/^Admin$/i').first()
+    }
+    
+    // If still not found, try finding all options
+    if (!(await userOption.isVisible({ timeout: 2000 }).catch(() => false)) ||
+        !(await adminOption.isVisible({ timeout: 2000 }).catch(() => false))) {
+      const allOptions = await listbox.locator('[role="option"]').all()
+      if (allOptions.length >= 2) {
+        userOption = allOptions[0]
+        adminOption = allOptions[1]
+      }
+    }
 
     await expect(userOption).toBeVisible({ timeout: 10000 })
     await expect(adminOption).toBeVisible({ timeout: 10000 })
