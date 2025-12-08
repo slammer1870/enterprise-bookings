@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - navigation "Main navigation" [ref=e11]:
+    - generic [ref=e12]:
+      - link "Go to homepage" [ref=e13] [cursor=pointer]:
+        - /url: /
+        - heading "BRÚ" [level=1] [ref=e14]
+      - list [ref=e17]:
+        - listitem [ref=e18]:
+          - link [ref=e19] [cursor=pointer]:
+            - /url: /#schedule
+            - text: Schedule
+        - listitem [ref=e20]:
+          - link [ref=e21] [cursor=pointer]:
+            - /url: /kids
+            - text: Kids Classes
+        - listitem [ref=e22]:
+          - link [ref=e23] [cursor=pointer]:
+            - /url: /seminars
+            - text: Seminars
+        - listitem [ref=e24]:
+          - link [ref=e25] [cursor=pointer]:
+            - /url: /private-lessons
+            - text: Private Lessons
+        - listitem [ref=e26]:
+          - link [ref=e27] [cursor=pointer]:
+            - /url: https://store.brugrappling.ie/
+            - text: Online Store
+        - listitem [ref=e28]:
+          - link [ref=e29] [cursor=pointer]:
+            - /url: /auth/sign-in
+            - text: Members
+  - generic [ref=e31]:
+    - heading "404" [level=1] [ref=e32]
+    - heading "This page could not be found." [level=2] [ref=e34]
+  - contentinfo [ref=e35]:
+    - generic [ref=e36]:
+      - link "BRÚ" [ref=e37] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e38]: BRÚ
+      - paragraph [ref=e39]: © 2025 Brú Grappling Studio
+      - generic [ref=e40]:
+        - link "Email Us" [ref=e41] [cursor=pointer]:
+          - /url: mailto:info@brugrappling.ie
+          - img [ref=e42]
+          - generic [ref=e44]: Email Us
+        - link "Location" [ref=e45] [cursor=pointer]:
+          - /url: https://goo.gl/maps/aqepRdNh9YcYNGuEA
+          - img [ref=e46]
+          - generic [ref=e48]: Location
+        - link "Instagram" [ref=e49] [cursor=pointer]:
+          - /url: https://www.instagram.com/bru_grappling/
+          - img [ref=e50]
+          - generic [ref=e52]: Instagram
+  - region "Notifications alt+T"
+  - alert [ref=e53]
+```

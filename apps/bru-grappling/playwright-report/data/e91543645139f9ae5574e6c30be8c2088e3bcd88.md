@@ -1,0 +1,56 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation "Main navigation" [ref=e2]:
+    - generic [ref=e3]:
+      - link "Go to homepage" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - heading "BRÚ" [level=1] [ref=e5]
+      - list [ref=e8]:
+        - listitem [ref=e9]:
+          - link [ref=e10] [cursor=pointer]:
+            - /url: /#schedule
+            - text: Schedule
+        - listitem [ref=e11]:
+          - link [ref=e12] [cursor=pointer]:
+            - /url: /kids
+            - text: Kids Classes
+        - listitem [ref=e13]:
+          - link [ref=e14] [cursor=pointer]:
+            - /url: /seminars
+            - text: Seminars
+        - listitem [ref=e15]:
+          - link [ref=e16] [cursor=pointer]:
+            - /url: /private-lessons
+            - text: Private Lessons
+        - listitem [ref=e17]:
+          - link [ref=e18] [cursor=pointer]:
+            - /url: https://store.brugrappling.ie/
+            - text: Online Store
+        - listitem [ref=e19]:
+          - link [ref=e20] [cursor=pointer]:
+            - /url: /auth/sign-in
+            - text: Members
+  - article
+  - contentinfo [ref=e21]:
+    - generic [ref=e22]:
+      - link "BRÚ" [ref=e23] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e24]: BRÚ
+      - paragraph [ref=e25]: © 2025 Brú Grappling Studio
+      - generic [ref=e26]:
+        - link "Email Us" [ref=e27] [cursor=pointer]:
+          - /url: mailto:info@brugrappling.ie
+          - img [ref=e28]
+          - generic [ref=e30]: Email Us
+        - link "Location" [ref=e31] [cursor=pointer]:
+          - /url: https://goo.gl/maps/aqepRdNh9YcYNGuEA
+          - img [ref=e32]
+          - generic [ref=e34]: Location
+        - link "Instagram" [ref=e35] [cursor=pointer]:
+          - /url: https://www.instagram.com/bru_grappling/
+          - img [ref=e36]
+          - generic [ref=e38]: Instagram
+  - region "Notifications alt+T"
+```

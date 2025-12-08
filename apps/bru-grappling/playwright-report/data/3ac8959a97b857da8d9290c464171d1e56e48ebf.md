@@ -1,0 +1,166 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "Close Menu" [ref=e5]:
+      - generic "Collapse" [ref=e7]:
+        - img [ref=e8]
+    - generic [ref=e10]:
+      - complementary [ref=e11]:
+        - generic [ref=e12]:
+          - navigation [ref=e13]:
+            - generic [ref=e14]:
+              - button "Collections" [ref=e15]:
+                - generic [ref=e16]: Collections
+                - img [ref=e18]
+              - generic [ref=e22]:
+                - link "Media" [ref=e23] [cursor=pointer]:
+                  - /url: /admin/collections/media
+                - link "Forms" [ref=e24] [cursor=pointer]:
+                  - /url: /admin/collections/forms
+                - link "Form Submissions" [ref=e25] [cursor=pointer]:
+                  - /url: /admin/collections/form-submissions
+            - generic [ref=e26]:
+              - button "Globals" [ref=e27]:
+                - generic [ref=e28]: Globals
+                - img [ref=e30]
+              - generic [ref=e34]:
+                - link "Navbar" [ref=e35] [cursor=pointer]:
+                  - /url: /admin/globals/navbar
+                - link "Footer" [ref=e36] [cursor=pointer]:
+                  - /url: /admin/globals/footer
+            - generic [ref=e37]:
+              - button "Auth" [ref=e38]:
+                - generic [ref=e39]: Auth
+                - img [ref=e41]
+              - generic [ref=e45]:
+                - link "Accounts" [ref=e46] [cursor=pointer]:
+                  - /url: /admin/collections/accounts
+                - link "Users" [ref=e47] [cursor=pointer]:
+                  - /url: /admin/collections/users
+            - generic [ref=e48]:
+              - button "Website" [ref=e49]:
+                - generic [ref=e50]: Website
+                - img [ref=e52]
+              - link "Pages" [ref=e57] [cursor=pointer]:
+                - /url: /admin/collections/pages
+            - generic [ref=e58]:
+              - button "Blog" [ref=e59]:
+                - generic [ref=e60]: Blog
+                - img [ref=e62]
+              - link "Posts" [ref=e67] [cursor=pointer]:
+                - /url: /admin/collections/posts
+            - generic [ref=e68]:
+              - button "Bookings" [ref=e69]:
+                - generic [ref=e70]: Bookings
+                - img [ref=e72]
+              - generic [ref=e76]:
+                - link "Instructors" [ref=e77] [cursor=pointer]:
+                  - /url: /admin/collections/instructors
+                - link "Lessons" [ref=e78] [cursor=pointer]:
+                  - /url: /admin/collections/lessons
+                  - text: Lessons
+                - link "Class Options" [ref=e79] [cursor=pointer]:
+                  - /url: /admin/collections/class-options
+                - link "Lesson Scheduler" [ref=e80] [cursor=pointer]:
+                  - /url: /admin/globals/scheduler
+            - generic [ref=e81]:
+              - button "Products" [ref=e82]:
+                - generic [ref=e83]: Products
+                - img [ref=e85]
+              - generic [ref=e89]:
+                - link "Drop Ins" [ref=e90] [cursor=pointer]:
+                  - /url: /admin/collections/drop-ins
+                - link "Plans" [ref=e91] [cursor=pointer]:
+                  - /url: /admin/collections/plans
+            - generic [ref=e92]:
+              - button "Billing" [ref=e93]:
+                - generic [ref=e94]: Billing
+                - img [ref=e96]
+              - link "Subscriptions" [ref=e101] [cursor=pointer]:
+                - /url: /admin/collections/subscriptions
+            - link "Log out" [ref=e103] [cursor=pointer]:
+              - /url: /admin/logout
+              - img [ref=e104]
+          - button "Close" [ref=e108]:
+            - generic:
+              - generic "Close":
+                - img
+      - generic [ref=e110]:
+        - banner [ref=e111]:
+          - generic [ref=e113]:
+            - button "Close Menu" [ref=e114]:
+              - generic "Open" [ref=e116]:
+                - img [ref=e117]
+            - generic [ref=e119]:
+              - generic "Dashboard" [ref=e123]:
+                - img [ref=e124]
+              - link "Account" [ref=e127] [cursor=pointer]:
+                - /url: /admin/account
+                - img "yas" [ref=e128]
+        - generic [ref=e129]:
+          - 'heading "ID: 1" [level=1] [ref=e130]':
+            - generic "1" [ref=e131]: "ID: 1"
+          - list [ref=e134]:
+            - generic "Edit" [ref=e135]:
+              - generic [ref=e137]: Edit
+            - link "API" [ref=e138] [cursor=pointer]:
+              - /url: /admin/collections/lessons/1/api
+              - generic [ref=e140]: API
+        - main [ref=e141]:
+          - generic [ref=e142]:
+            - generic [ref=e144]:
+              - list [ref=e146]:
+                - listitem [ref=e147]:
+                  - paragraph [ref=e148]: "Last Modified:"
+                  - paragraph
+                - listitem [ref=e149]:
+                  - paragraph [ref=e150]: "Created:"
+                  - paragraph
+              - generic [ref=e151]:
+                - button "Save" [disabled] [ref=e154]:
+                  - generic [ref=e155]: Save
+                - generic:
+                  - generic:
+                    - button [disabled]
+            - generic [ref=e156]:
+              - generic [ref=e159]:
+                - generic [ref=e161]:
+                  - generic [ref=e163]: Date*
+                  - generic [ref=e168]: Start Time*
+                  - generic [ref=e173]: End Time*
+                - generic [ref=e178]:
+                  - generic [ref=e179]:
+                    - generic [ref=e180]: Lock Out Time (minutes)*
+                    - generic [ref=e181]:
+                      - spinbutton "Lock Out Time (minutes)*" [disabled] [ref=e183]: "60"
+                      - generic [ref=e184]: The time in minutes before the lesson will be closed for new bookings.
+                  - generic [ref=e185]:
+                    - text: Location
+                    - textbox "Location" [disabled] [ref=e187]
+                  - generic [ref=e188]: Instructor
+                - generic [ref=e190]: Class Option*
+                - generic [ref=e191]:
+                  - text: Remaining Capacity
+                  - generic [ref=e192]:
+                    - spinbutton "Remaining Capacity" [disabled] [ref=e194]: "20"
+                    - generic [ref=e195]: The number of places remaining
+                - generic [ref=e197]:
+                  - generic [ref=e198]:
+                    - heading "Bookings" [level=4] [ref=e199]
+                    - generic [ref=e200]:
+                      - button "Add new Booking" [ref=e201]: Add new
+                      - button "Columns" [ref=e202]:
+                        - text: Columns
+                        - img [ref=e204]
+                  - paragraph [ref=e206]: Loading
+              - generic [ref=e211]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]:
+                    - checkbox "Active" [checked] [disabled] [ref=e214]
+                    - img [ref=e216]
+                  - text: Active
+                - generic [ref=e218]: Whether the lesson is active and will be shown on the schedule
+  - region "Notifications alt+T"
+```
