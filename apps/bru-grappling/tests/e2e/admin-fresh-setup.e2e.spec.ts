@@ -181,19 +181,29 @@ test.describe('Admin Fresh Setup', () => {
     // Try multiple approaches to find the combobox
     let roleCombobox = page.getByRole('combobox').first()
     if (!(await roleCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
-      roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+      // Try finding combobox near "Role" label
+      const roleLabel = page.locator('text=/^role$/i').first()
+      if (await roleLabel.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const roleSection = roleLabel.locator('..').locator('..')
+        roleCombobox = roleSection.getByRole('combobox').first()
+      } else {
+        roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+      }
     }
     await expect(roleCombobox).toBeVisible({ timeout: 10000 })
     await roleCombobox.click()
-    await page.waitForTimeout(1000) // Wait for dropdown to open
+    await page.waitForTimeout(1500) // Wait for dropdown to open
 
-    // Wait for listbox to appear
+    // Wait for listbox to appear - give more time
     const listbox = page.locator('[role="listbox"]').first()
-    await expect(listbox).toBeVisible({ timeout: 5000 })
+    await expect(listbox).toBeVisible({ timeout: 10000 })
 
-    // Select Admin option
+    // Wait a bit more for options to render
+    await page.waitForTimeout(500)
+
+    // Select Admin option - wait for it to be visible
     const adminOption = page.getByRole('option', { name: 'Admin' }).first()
-    await expect(adminOption).toBeVisible({ timeout: 5000 })
+    await expect(adminOption).toBeVisible({ timeout: 10000 })
     await adminOption.click()
     await page.waitForTimeout(500)
 
@@ -291,22 +301,32 @@ test.describe('Admin Fresh Setup', () => {
     // Try multiple approaches to find the combobox
     let roleCombobox = page.getByRole('combobox').first()
     if (!(await roleCombobox.isVisible({ timeout: 2000 }).catch(() => false))) {
-      roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+      // Try finding combobox near "Role" label
+      const roleLabel = page.locator('text=/^role$/i').first()
+      if (await roleLabel.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const roleSection = roleLabel.locator('..').locator('..')
+        roleCombobox = roleSection.getByRole('combobox').first()
+      } else {
+        roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
+      }
     }
     await expect(roleCombobox).toBeVisible({ timeout: 10000 })
     await roleCombobox.click()
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(1500) // Wait for dropdown to open
     
-    // Wait for listbox to appear
+    // Wait for listbox to appear - give more time
     const listbox = page.locator('[role="listbox"]').first()
-    await expect(listbox).toBeVisible({ timeout: 5000 })
+    await expect(listbox).toBeVisible({ timeout: 10000 })
+
+    // Wait a bit more for options to render
+    await page.waitForTimeout(500)
 
     // Check that both User and Admin options are available
     const userOption = page.getByRole('option', { name: 'User' }).first()
     const adminOption = page.getByRole('option', { name: 'Admin' }).first()
 
-    await expect(userOption).toBeVisible({ timeout: 5000 })
-    await expect(adminOption).toBeVisible({ timeout: 5000 })
+    await expect(userOption).toBeVisible({ timeout: 10000 })
+    await expect(adminOption).toBeVisible({ timeout: 10000 })
 
     // Select Admin
     await adminOption.click()

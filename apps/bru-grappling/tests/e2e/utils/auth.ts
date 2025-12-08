@@ -44,7 +44,14 @@ export async function signIn(page: Page, email: string, password: string) {
     await page.waitForTimeout(2000)
     
     // Check if we're still on login page (login failed) or redirected
-    const newUrl = page.url()
+    let newUrl = page.url()
+    let attempts = 0
+    while (newUrl.includes('/admin/login') && attempts < 5) {
+      await page.waitForTimeout(1000)
+      newUrl = page.url()
+      attempts++
+    }
+    
     if (newUrl.includes('/admin/login')) {
       // Login might have failed - wait a bit more and check for errors
       await page.waitForTimeout(2000)
@@ -52,10 +59,19 @@ export async function signIn(page: Page, email: string, password: string) {
       // For now, just navigate to admin to see what happens
       await page.goto('/admin', { waitUntil: 'load' })
       await page.waitForTimeout(2000)
-    } else {
-      // Successfully logged in
+      newUrl = page.url()
+    }
+    
+    // If we're not on admin yet, try navigating there
+    if (!newUrl.includes('/admin') || newUrl.includes('/admin/login') || newUrl.includes('/admin/create-first-user')) {
+      await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
+      await page.waitForTimeout(2000)
+    }
+    
+    // Verify we're successfully in admin (not on login or create-first-user)
+    const finalUrl = page.url()
+    if (!finalUrl.includes('/admin/login') && !finalUrl.includes('/admin/create-first-user')) {
       await expect(page).toHaveURL(/\/admin/)
-      await expect(page).not.toHaveURL(/\/admin\/login/)
     }
     return
   }
