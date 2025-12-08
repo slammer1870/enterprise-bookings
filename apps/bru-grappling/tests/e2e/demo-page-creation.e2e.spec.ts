@@ -177,7 +177,16 @@ test.describe('DEMO: Page Creation with Schedule Block', () => {
     
     // Sign in
     await signIn(page, TEST_USERS.admin.email, TEST_USERS.admin.password)
-    await page.waitForURL(/\/admin/, { timeout: 15000 })
+    
+    // Wait for redirect to admin or navigate there if needed
+    const currentUrl = page.url()
+    if (!currentUrl.includes('/admin')) {
+      await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
+      await page.waitForTimeout(2000)
+    }
+    
+    // Verify we're in admin
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15000 })
     
     // Go to create page
     await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
