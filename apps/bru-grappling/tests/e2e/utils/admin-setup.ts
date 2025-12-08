@@ -155,9 +155,18 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
       }
       
       // Try navigating to admin directly - might already be logged in
-      await page.goto('/admin', { waitUntil: 'load' })
-      await page.waitForTimeout(2000)
-      newUrl = page.url()
+      try {
+        await page.goto('/admin', { waitUntil: 'load', timeout: 30000 })
+        await page.waitForTimeout(2000)
+        newUrl = page.url()
+      } catch (e) {
+        // Navigation might have timed out - check current URL
+        newUrl = page.url()
+        if (!newUrl.includes('/admin') && !newUrl.includes('/auth')) {
+          // Not on admin or auth - might be a real error
+          throw e
+        }
+      }
     }
     
     // Verify we're in admin panel

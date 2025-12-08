@@ -116,8 +116,19 @@ test.describe('Admin Lesson Creation', () => {
       await createButton.click()
     }
 
-    // Wait for create lesson form to load
-    await page.waitForURL(/\/admin\/collections\/lessons\/create/, { timeout: 15000 })
+    // Wait for create lesson form to load - check current URL first
+    const currentUrl = page.url()
+    if (!currentUrl.includes('/admin/collections/lessons/create')) {
+      try {
+        await page.waitForURL(/\/admin\/collections\/lessons\/create/, { timeout: 10000 })
+      } catch (e) {
+        // If timeout, check if we're already on the create page
+        const url = page.url()
+        if (!url.includes('/admin/collections/lessons/create')) {
+          throw e
+        }
+      }
+    }
     await page.waitForTimeout(2000)
 
     // Get tomorrow's date for the lesson
@@ -261,9 +272,9 @@ test.describe('Admin Lesson Creation', () => {
     // Generate a unique name for the class option (name field is unique)
     const uniqueName = `Test Class Option ${Date.now()}`
     
-    // Wait for form to fully load
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-    await page.waitForTimeout(2000) // Additional wait for form rendering
+    // Wait for form to fully load - use shorter timeout to avoid test timeout
+    await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {})
+    await page.waitForTimeout(1000) // Additional wait for form rendering
     
     // Fill in class option name - try multiple selector strategies
     let nameInput = page.getByRole('textbox', { name: /^name\s*\*/i }).first()
@@ -471,7 +482,8 @@ test.describe('Admin Lesson Creation', () => {
     }
     
     // Wait a bit longer to ensure class options are fully available in the system
-    await page.waitForTimeout(3000)
+    // Use shorter timeout to avoid test timeout
+    await page.waitForTimeout(1000)
 
     // Step 2: Navigate to lessons and create a new lesson
     await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
