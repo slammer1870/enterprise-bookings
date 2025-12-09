@@ -10,6 +10,10 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
   const { customer } = event.data.object;
 
+  payload.logger.info(
+    `Updating subscription ${event.data.object.id} for customer ${customer}`
+  );
+
   const planId = event.data.object.items.data[0]?.plan?.product;
 
   // Support both camelCase and snake_case for backward compatibility
