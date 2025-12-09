@@ -648,6 +648,9 @@ export interface Subscription {
    * Skip syncing to Stripe
    */
   skipSync?: boolean | null;
+  /**
+   * Last confirmed booking date. Automatically updated when bookings are confirmed.
+   */
   lastCheckIn?: string | null;
   updatedAt: string;
   createdAt: string;
