@@ -18,7 +18,8 @@ export const productUpdated: StripeWebhookHandler<{
       limit: 1,
     });
 
-    if (planQuery.totalDocs === 0) {
+    if (planQuery.totalDocs === 0 || !planQuery.docs[0]) {
+      payload.logger.info("Skipping product update: Plan not found");
       return;
     }
 
@@ -33,6 +34,6 @@ export const productUpdated: StripeWebhookHandler<{
       },
     });
   } catch (error) {
-    console.error("Error updating product", error);
+    payload.logger.error(`Error updating product: ${error}`);
   }
 };

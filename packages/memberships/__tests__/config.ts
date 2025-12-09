@@ -8,6 +8,8 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { membershipsPlugin } from "../src";
+import { bookingsPlugin } from "@repo/bookings";
+import { paymentsPlugin } from "@repo/payments";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -63,8 +65,16 @@ export const config: Config = {
   sharp,
   plugins: [
     payloadCloudPlugin(),
+    paymentsPlugin({
+      enabled: true,
+      acceptedPaymentMethods: ["card"],
+    }),
+    bookingsPlugin({
+      enabled: true,
+    }),
     membershipsPlugin({
       enabled: true,
+      paymentMethodSlugs: ["class-options"],
     }),
   ],
 };
