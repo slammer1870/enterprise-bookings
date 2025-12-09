@@ -69,23 +69,28 @@ export const findUserByCustomer = async (
   if (userByEmail.totalDocs > 0) {
     const user = userByEmail.docs[0] as User;
 
-    // Update user's stripeCustomerId if it's not set
-    if (!user.stripeCustomerId) {
+    // Update user's stripeCustomerId if it's not set or doesn't match
+    if (!user.stripeCustomerId || user.stripeCustomerId !== customerIdString) {
       try {
-        await payload.update({
+        const updatedUser = await payload.update({
           collection: "users",
           id: user.id as number,
           data: {
             stripeCustomerId: customerIdString,
           },
+          overrideAccess: true, // Bypass access control for webhook
         });
         payload.logger.info(
-          `Updated user ${user.id} with stripeCustomerId: ${customerIdString}`
+          `Updated user ${user.id} with stripeCustomerId: ${customerIdString} (was: ${user.stripeCustomerId || "none"})`
         );
+        // Return the updated user
+        return updatedUser as User;
       } catch (error) {
         payload.logger.error(
           `Error updating user stripeCustomerId: ${error}`
         );
+        // Return the original user even if update failed
+        return user;
       }
     }
 

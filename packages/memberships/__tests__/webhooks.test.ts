@@ -53,6 +53,22 @@ vi.mock("@repo/shared-utils", async () => {
       customers: {
         list: vi.fn().mockResolvedValue({ data: [] }),
         create: vi.fn().mockResolvedValue({ id: "cus_test123" }),
+        retrieve: vi.fn().mockImplementation((id: string) => {
+          // Return mock customer with email based on ID
+          // Default to test user email, but can be overridden in tests
+          const emailMap: Record<string, string> = {
+            "cus_new_customer_id": "email-fallback-test@example.com",
+            "cus_email_update": "email-update-test@example.com",
+            "cus_email_mismatch": "email-mismatch-test@example.com",
+          };
+          
+          return Promise.resolve({
+            id,
+            email: emailMap[id] || "webhook-test@example.com", // Default to test user email
+            name: "Test User",
+            deleted: false,
+          });
+        }),
       },
     },
   };
@@ -244,6 +260,23 @@ describe("Subscription Webhooks", () => {
         },
       },
     });
+
+    // Clean up test users (except the main testUser)
+    await payload.delete({
+      collection: "users",
+      where: {
+        id: {
+          not_equals: testUser.id,
+        },
+        email: {
+          in: [
+            "email-fallback-test@example.com",
+            "email-mismatch-test@example.com",
+            "email-update-test@example.com",
+          ],
+        },
+      },
+    });
   });
 
   describe("subscriptionCreated", () => {
@@ -281,6 +314,14 @@ describe("Subscription Webhooks", () => {
         testPlan.stripeProductId!
       );
 
+      // Mock customer retrieve to return null email for this test
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_nonexistent",
+        email: null,
+        deleted: false,
+      });
+
       await subscriptionCreated(mockEvent);
 
       const subscriptions = await payload.find({
@@ -291,6 +332,124 @@ describe("Subscription Webhooks", () => {
       });
 
       expect(subscriptions.totalDocs).toBe(0);
+    });
+
+    it("should find user by email when stripeCustomerId is not set", async () => {
+      // Mock customer list to return empty (so hook doesn't find existing customer)
+      // and customer create to return a different ID
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.list as any).mockResolvedValueOnce({ data: [] });
+      (stripe.customers.create as any).mockResolvedValueOnce({
+        id: "cus_auto_created",
+      });
+
+      // Create a user without stripeCustomerId
+      // The payments plugin hook will auto-create a customer and set stripeCustomerId
+      const userWithoutCustomerId = await payload.create({
+        collection: "users",
+        data: {
+          email: "email-fallback-test@example.com",
+          password: "password",
+          // No stripeCustomerId set - hook will set it to "cus_auto_created"
+        },
+      });
+
+      // Verify the hook set a stripeCustomerId
+      const createdUser = await payload.findByID({
+        collection: "users",
+        id: userWithoutCustomerId.id,
+      });
+      // The hook may have set it to "cus_test123" (default mock) or "cus_auto_created" (our mock)
+      expect(createdUser.stripeCustomerId).toBeTruthy();
+      const originalCustomerId = createdUser.stripeCustomerId;
+
+      // Mock customer retrieve to return email for the new customer ID
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_new_customer_id",
+        email: "email-fallback-test@example.com",
+        deleted: false,
+      });
+
+      const mockEvent = createMockSubscriptionEvent(
+        "sub_email_fallback",
+        "cus_new_customer_id",
+        testPlan.stripeProductId!
+      );
+
+      await subscriptionCreated(mockEvent);
+
+      // Verify subscription was created
+      const subscriptions = await payload.find({
+        collection: "subscriptions",
+        where: {
+          stripeSubscriptionId: { equals: "sub_email_fallback" },
+        },
+        depth: 0,
+      });
+
+      expect(subscriptions.totalDocs).toBe(1);
+      const subscription = subscriptions.docs[0];
+      const userId = typeof subscription?.user === "object" ? subscription.user.id : subscription?.user;
+      expect(userId).toBe(userWithoutCustomerId.id);
+
+      // Verify user's stripeCustomerId was updated from original to "cus_new_customer_id"
+      const updatedUser = await payload.findByID({
+        collection: "users",
+        id: userWithoutCustomerId.id,
+      });
+
+      expect(updatedUser.stripeCustomerId).toBe("cus_new_customer_id");
+      expect(updatedUser.stripeCustomerId).not.toBe(originalCustomerId);
+    });
+
+    it("should find user by email when stripeCustomerId doesn't match", async () => {
+      // Create a user with a different stripeCustomerId
+      const userWithDifferentId = await payload.create({
+        collection: "users",
+        data: {
+          email: "email-mismatch-test@example.com",
+          password: "password",
+          stripeCustomerId: "cus_old_id",
+        },
+      });
+
+      // Mock customer retrieve to return email
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_new_customer_id",
+        email: "email-mismatch-test@example.com",
+        deleted: false,
+      });
+
+      const mockEvent = createMockSubscriptionEvent(
+        "sub_email_mismatch",
+        "cus_new_customer_id",
+        testPlan.stripeProductId!
+      );
+
+      await subscriptionCreated(mockEvent);
+
+      // Verify subscription was created
+      const subscriptions = await payload.find({
+        collection: "subscriptions",
+        where: {
+          stripeSubscriptionId: { equals: "sub_email_mismatch" },
+        },
+        depth: 0,
+      });
+
+      expect(subscriptions.totalDocs).toBe(1);
+      const subscription = subscriptions.docs[0];
+      const userId = typeof subscription?.user === "object" ? subscription.user.id : subscription?.user;
+      expect(userId).toBe(userWithDifferentId.id);
+
+      // Verify user's stripeCustomerId was updated to the new one
+      const updatedUser = await payload.findByID({
+        collection: "users",
+        id: userWithDifferentId.id,
+      });
+
+      expect(updatedUser.stripeCustomerId).toBe("cus_new_customer_id");
     });
 
     it("should throw error if plan is not found", async () => {
@@ -484,6 +643,63 @@ describe("Subscription Webhooks", () => {
       expect(updatedPlanId).toBe(newPlan.id);
     });
 
+    it("should find user by email when stripeCustomerId is not set", async () => {
+      // Create a user without stripeCustomerId
+      const userWithoutCustomerId = await payload.create({
+        collection: "users",
+        data: {
+          email: "email-update-test@example.com",
+          password: "password",
+          // No stripeCustomerId set
+        },
+      });
+
+      // Create an existing subscription for this user
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: userWithoutCustomerId.id,
+          plan: testPlan.id,
+          status: "active",
+          stripeSubscriptionId: "sub_email_update",
+        },
+      });
+
+      // Mock customer retrieve to return email
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_new_customer_id",
+        email: "email-update-test@example.com",
+        deleted: false,
+      });
+
+      const mockEvent = createMockSubscriptionEvent(
+        "sub_email_update",
+        "cus_new_customer_id",
+        testPlan.stripeProductId!,
+        "active"
+      );
+
+      await subscriptionUpdated(mockEvent);
+
+      // Verify subscription was updated
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+        depth: 0,
+      });
+
+      expect(updated.status).toBe("active");
+
+      // Verify user's stripeCustomerId was updated
+      const updatedUser = await payload.findByID({
+        collection: "users",
+        id: userWithoutCustomerId.id,
+      });
+
+      expect(updatedUser.stripeCustomerId).toBe("cus_new_customer_id");
+    });
+
     it("should support both camelCase and snake_case metadata", async () => {
       const classOption = await payload.create({
         collection: "class-options",
@@ -566,6 +782,14 @@ describe("Subscription Webhooks", () => {
     });
 
     it("should skip if user is not found", async () => {
+      // Mock customer retrieve to return null email so user lookup fails
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_nonexistent",
+        email: null,
+        deleted: false,
+      });
+
       const mockEvent = createMockSubscriptionEvent(
         "sub_notfound",
         "cus_nonexistent",
@@ -685,6 +909,14 @@ describe("Subscription Webhooks", () => {
     });
 
     it("should skip if user is not found", async () => {
+      // Mock customer retrieve to return null email so user lookup fails
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_nonexistent",
+        email: null,
+        deleted: false,
+      });
+
       const mockEvent = createMockSubscriptionEvent(
         "sub_cancel_notfound",
         "cus_nonexistent",
@@ -748,6 +980,14 @@ describe("Subscription Webhooks", () => {
     });
 
     it("should skip if user is not found", async () => {
+      // Mock customer retrieve to return null email so user lookup fails
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_nonexistent",
+        email: null,
+        deleted: false,
+      });
+
       const mockEvent = createMockSubscriptionEvent(
         "sub_pause_notfound",
         "cus_nonexistent",
@@ -815,6 +1055,14 @@ describe("Subscription Webhooks", () => {
     });
 
     it("should skip if user is not found", async () => {
+      // Mock customer retrieve to return null email so user lookup fails
+      const { stripe } = await import("@repo/shared-utils");
+      (stripe.customers.retrieve as any).mockResolvedValueOnce({
+        id: "cus_nonexistent",
+        email: null,
+        deleted: false,
+      });
+
       const mockEvent = createMockSubscriptionEvent(
         "sub_resume_notfound",
         "cus_nonexistent",
