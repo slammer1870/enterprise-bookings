@@ -1,5 +1,6 @@
 import { StripeWebhookHandler } from "@payloadcms/plugin-stripe/types";
 import Stripe from "stripe";
+import { findUserByCustomer } from "./find-user-by-customer";
 
 export const subscriptionCreated: StripeWebhookHandler<{
   data: {
@@ -15,13 +16,9 @@ export const subscriptionCreated: StripeWebhookHandler<{
   const { lessonId } = event.data.object.metadata;
 
   try {
-    const user = await payload.find({
-      collection: "users",
-      where: { stripeCustomerId: { equals: customer as string } },
-      limit: 1,
-    });
+    const user = await findUserByCustomer(payload, customer as string);
 
-    if (user.totalDocs === 0) {
+    if (!user) {
       payload.logger.info("Skipping subscription creation: User not found");
       return;
     }
@@ -39,7 +36,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
     await payload.create({
       collection: "subscriptions",
       data: {
-        user: user.docs[0]?.id as number,
+        user: user.id as number,
         plan: plan.docs[0]?.id as number,
         status: "active",
         stripeSubscriptionId: event.data.object.id as string,
@@ -69,7 +66,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
       const booking = await payload.find({
         collection: "bookings",
         where: {
-          user: { equals: user.docs[0]?.id as number },
+          user: { equals: user.id as number },
           lesson: { equals: lessonIdNum },
         },
         limit: 1,
@@ -80,7 +77,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
           collection: "bookings",
           data: {
             lesson: lessonIdNum,
-            user: user.docs[0]?.id as number,
+            user: user.id as number,
             status: "confirmed",
           },
           overrideAccess: true, // Bypass access control for webhook
