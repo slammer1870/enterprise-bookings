@@ -43,15 +43,34 @@ export const subscriptionCreated: StripeWebhookHandler<{
         plan: plan.docs[0]?.id as number,
         status: "active",
         stripeSubscriptionId: event.data.object.id as string,
+        skipSync: true, // Prevent Stripe API call in beforeChange hook
       },
     });
 
     if (lessonId) {
+      // Convert lessonId to number and verify it exists
+      const lessonIdNum = Number(lessonId);
+      if (isNaN(lessonIdNum)) {
+        payload.logger.error(`Invalid lessonId in metadata: ${lessonId}`);
+        return;
+      }
+
+      // Verify lesson exists
+      try {
+        await payload.findByID({
+          collection: "lessons",
+          id: lessonIdNum,
+        });
+      } catch (error) {
+        payload.logger.error(`Lesson not found: ${lessonIdNum}`);
+        return;
+      }
+
       const booking = await payload.find({
         collection: "bookings",
         where: {
           user: { equals: user.docs[0]?.id as number },
-          lesson: { equals: lessonId as unknown as number },
+          lesson: { equals: lessonIdNum },
         },
         limit: 1,
       });
@@ -60,20 +79,26 @@ export const subscriptionCreated: StripeWebhookHandler<{
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lessonId as unknown as number,
+            lesson: lessonIdNum,
             user: user.docs[0]?.id as number,
             status: "confirmed",
           },
+          overrideAccess: true, // Bypass access control for webhook
         });
       } else {
         await payload.update({
           collection: "bookings",
           id: booking.docs[0]?.id as number,
           data: { status: "confirmed" },
+          overrideAccess: true, // Bypass access control for webhook
         });
       }
     }
   } catch (error) {
     payload.logger.error(`Error creating subscription: ${error}`);
+    // Re-throw critical errors
+    if (error instanceof Error && error.message === "Plan not found") {
+      throw error;
+    }
   }
 };

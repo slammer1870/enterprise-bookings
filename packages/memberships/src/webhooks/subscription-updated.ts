@@ -12,7 +12,9 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
   const planId = event.data.object.items.data[0]?.plan?.product;
 
-  const { lesson_id } = event.data.object.metadata;
+  // Support both camelCase and snake_case for backward compatibility
+  const lessonId =
+    event.data.object.metadata.lessonId || event.data.object.metadata.lesson_id;
 
   try {
     const user = await payload.find({
@@ -22,6 +24,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     });
 
     if (user.totalDocs === 0) {
+      payload.logger.info("Skipping subscription update: User not found");
       return;
     }
 
@@ -31,24 +34,18 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       where: {
         stripeSubscriptionId: { equals: event.data.object.id },
       },
+      limit: 1,
     });
 
-    if (subscription.totalDocs === 0) {
+    if (subscription.totalDocs === 0 || !subscription.docs[0]) {
       throw new Error("Subscription not found");
     }
 
-    await payload.update({
-      collection: "subscriptions",
-      where: {
-        stripeSubscriptionId: { equals: event.data.object.id },
-      },
-      data: {
-        status: event.data.object.status,
-        cancelAt: event.data.object.cancel_at
-          ? new Date(event.data.object.cancel_at * 1000).toISOString()
-          : null,
-      },
-    });
+    const foundSubscription = subscription.docs[0];
+    const subscriptionUserId =
+      typeof foundSubscription.user === "object"
+        ? foundSubscription.user.id
+        : foundSubscription.user;
 
     const plan = await payload.find({
       collection: "plans",
@@ -56,26 +53,51 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       limit: 1,
     });
 
-    if (plan.docs[0]?.id) {
-      await payload.update({
-        collection: "subscriptions",
-        where: {
-          stripeSubscriptionId: { equals: event.data.object.id },
-        },
-        data: {
-          plan: plan.docs[0]?.id,
-        },
-      });
-    }
+    // Combine both updates into a single operation
+    // Use skipSync to prevent beforeChange hook from calling Stripe API
+    await payload.update({
+      collection: "subscriptions",
+      id: foundSubscription.id as number,
+      data: {
+        status: event.data.object.status,
+        startDate: new Date(
+          event.data.object.current_period_start * 1000
+        ).toISOString(),
+        endDate: new Date(
+          event.data.object.current_period_end * 1000
+        ).toISOString(),
+        cancelAt: event.data.object.cancel_at
+          ? new Date(event.data.object.cancel_at * 1000).toISOString()
+          : null,
+        ...(plan.docs[0]?.id && { plan: plan.docs[0].id }),
+        skipSync: true, // Prevent Stripe API call in beforeChange hook
+      },
+    });
 
-    if (lesson_id) {
+    if (lessonId) {
+      // Convert lessonId to number and verify it exists
+      const lessonIdNum = Number(lessonId);
+      if (isNaN(lessonIdNum)) {
+        payload.logger.error(`Invalid lessonId in metadata: ${lessonId}`);
+        return;
+      }
+
+      // Verify lesson exists
+      try {
+        await payload.findByID({
+          collection: "lessons",
+          id: lessonIdNum,
+        });
+      } catch (error) {
+        payload.logger.error(`Lesson not found: ${lessonIdNum}`);
+        return;
+      }
+
       const booking = await payload.find({
         collection: "bookings",
         where: {
-          user: {
-            in: subscription.docs.map((subscription) => subscription.user),
-          },
-          lesson: { equals: lesson_id as unknown as number },
+          user: { equals: subscriptionUserId },
+          lesson: { equals: lessonIdNum },
         },
         limit: 1,
       });
@@ -84,20 +106,26 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson_id as unknown as number,
-            user: user.docs[0]?.id as number,
+            lesson: lessonIdNum,
+            user: subscriptionUserId,
             status: "confirmed",
           },
+          overrideAccess: true, // Bypass access control for webhook
         });
       } else {
         await payload.update({
           collection: "bookings",
           id: booking.docs[0]?.id as number,
           data: { status: "confirmed" },
+          overrideAccess: true, // Bypass access control for webhook
         });
       }
     }
   } catch (error) {
-    console.error("Error updating subscription", error);
+    payload.logger.error(`Error updating subscription: ${error}`);
+    // Re-throw critical errors
+    if (error instanceof Error && error.message === "Subscription not found") {
+      throw error;
+    }
   }
 };
