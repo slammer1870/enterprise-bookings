@@ -1,5 +1,6 @@
 import { StripeWebhookHandler } from "@payloadcms/plugin-stripe/types";
 import Stripe from "stripe";
+import { findUserByCustomer } from "./find-user-by-customer";
 
 export const subscriptionUpdated: StripeWebhookHandler<{
   data: {
@@ -21,13 +22,9 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     event.data.object.metadata.lessonId || event.data.object.metadata.lesson_id;
 
   try {
-    const user = await payload.find({
-      collection: "users",
-      where: { stripeCustomerId: { equals: customer } },
-      limit: 1,
-    });
+    const user = await findUserByCustomer(payload, customer as string);
 
-    if (user.totalDocs === 0) {
+    if (!user) {
       payload.logger.info("Skipping subscription update: User not found");
       return;
     }
