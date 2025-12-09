@@ -169,13 +169,6 @@ export default buildConfig({
                   }
                 },
               },
-              {
-                name: 'allowedDropIn',
-                label: 'Allowed Drop In',
-                type: 'relationship',
-                relationTo: 'drop-ins',
-                hasMany: false,
-              },
             ],
           },
         ],
@@ -197,7 +190,7 @@ export default buildConfig({
       enabled: true,
       enableDropIns: true,
       acceptedPaymentMethods: ['card'],
-      paymentMethodSlugs: [],
+      paymentMethodSlugs: ['class-options'],
     }),
     membershipsPlugin({
       enabled: true,
@@ -234,6 +227,16 @@ export default buildConfig({
                 return Boolean(data?.type === 'child') // Only show if `type` is selected
               },
               position: 'sidebar',
+            },
+          },
+          {
+            name: `classOptionsAllowedPlans`,
+            label: `Class Options Allowed Plans`,
+            type: 'join',
+            collection: 'class-options',
+            on: 'paymentMethods.allowedPlans',
+            admin: {
+              description: 'The classes that are available for this plan',
             },
           },
         ],
