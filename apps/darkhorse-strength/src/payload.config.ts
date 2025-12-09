@@ -149,11 +149,13 @@ export default buildConfig({
               date: {
                 pickerAppearance: 'dayOnly',
               },
-              description: 'Last confirmed booking date. Automatically updated when bookings are confirmed.',
+              description:
+                'Last confirmed booking date. Automatically updated when bookings are confirmed.',
               position: 'sidebar',
               components: {
                 Cell: '@/fields/last-check-in',
               },
+              readOnly: true,
             },
             hooks: {
               // Fallback hook to ensure lastCheckIn is always up-to-date when reading
