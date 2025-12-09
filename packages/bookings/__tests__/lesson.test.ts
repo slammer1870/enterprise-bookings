@@ -73,6 +73,7 @@ describe("Lesson tests", () => {
           date: tomorrow,
           startTime: tomorrow,
           endTime: oneHourLater,
+          lockOutTime: 720,
           classOption: classOption.id,
           location: "Test Location",
         },
