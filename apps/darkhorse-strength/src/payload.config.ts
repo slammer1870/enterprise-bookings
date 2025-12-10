@@ -41,6 +41,7 @@ import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'
+import { updateSubscriptionLastCheckIn } from './hooks/update-subscription-last-checkin'
 
 import { setLockout } from '@repo/bookings-plugin/src/hooks/set-lockout'
 
@@ -85,6 +86,14 @@ export default buildConfig({
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [
+            ...(defaultHooks.afterChange || []),
+            setLockout,
+            updateSubscriptionLastCheckIn,
+          ],
+        }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
           create: bookingCreateMembershipDropinAccess,
@@ -106,18 +115,21 @@ export default buildConfig({
           {
             name: 'lastCheckIn',
             type: 'date',
-            virtual: true,
-            readOnly: true,
             required: false,
-            validate: () => true, // Skip validation for virtual fields
             admin: {
-              hidden: true,
-              readOnly: true,
+              date: {
+                pickerAppearance: 'dayOnly',
+              },
+              description:
+                'Last confirmed booking date. Automatically updated when bookings are confirmed.',
+              position: 'sidebar',
               components: {
                 Cell: '@/fields/last-check-in',
               },
+              readOnly: true,
             },
             hooks: {
+              // Fallback hook to ensure lastCheckIn is always up-to-date when reading
               afterRead: [getLastCheckIn],
             },
           },

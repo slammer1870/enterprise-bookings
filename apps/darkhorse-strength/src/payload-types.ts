@@ -921,6 +921,187 @@ export interface Post {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  location?: string | null;
+  instructor?: (number | null) | User;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  originalLockOutTime?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  image?: (number | null) | Media;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  name: string;
+  roles?: ('customer' | 'admin')[] | null;
+  stripeCustomerId?: string | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  /**
+   * Last confirmed booking date. Automatically updated when bookings are confirmed.
+   */
+  lastCheckIn?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Sessions included in this plan (if applicable)
+   */
+  sessionsInformation?: {
+    sessions?: number | null;
+    intervalCount?: number | null;
+    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+  };
+  stripeProductId?: string | null;
+  /**
+   * Price information for the plan
+   */
+  priceInformation?: {
+    /**
+     * Price of the plan
+     */
+    price?: number | null;
+    /**
+     * Number of intervals per period
+     */
+    intervalCount?: number | null;
+    /**
+     * How often the price is charged
+     */
+    interval?: ('day' | 'week' | 'month' | 'year') | null;
+  };
+  priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  paymentMethods?: {
+    allowedPlans?: (number | Plan)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions".
  */
 export interface Transaction {
