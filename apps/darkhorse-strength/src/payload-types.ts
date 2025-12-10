@@ -70,6 +70,7 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
+    'admin-invitations': AdminInvitation;
     media: Media;
     pages: Page;
     posts: Post;
@@ -83,7 +84,6 @@ export interface Config {
     plans: Plan;
     forms: Form;
     'form-submissions': FormSubmission;
-    'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -105,6 +105,7 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
+    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
@@ -118,7 +119,6 @@ export interface Config {
     plans: PlansSelect<false> | PlansSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
-    'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -233,6 +233,10 @@ export interface User {
    */
   name?: string | null;
   /**
+   * The email of the user
+   */
+  email: string;
+  /**
    * Whether the email of the user has been verified
    */
   emailVerified: boolean;
@@ -243,7 +247,7 @@ export interface User {
   /**
    * The role of the user
    */
-  role: 'customer' | 'admin';
+  role: 'admin' | 'customer';
   updatedAt: string;
   createdAt: string;
   /**
@@ -265,24 +269,6 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  /**
-   * The email of the user
-   */
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -469,6 +455,9 @@ export interface Subscription {
    * Skip syncing to Stripe
    */
   skipSync?: boolean | null;
+  /**
+   * Last confirmed booking date. Automatically updated when bookings are confirmed.
+   */
   lastCheckIn?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -528,6 +517,18 @@ export interface Verification {
    * The date and time when the verification request will expire
    */
   expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations".
+ */
+export interface AdminInvitation {
+  id: number;
+  role: 'admin' | 'customer';
+  token: string;
+  url?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -674,7 +675,7 @@ export interface Page {
               root: {
                 type: string;
                 children: {
-                  type: any;
+                  type: string;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -744,7 +745,7 @@ export interface Form {
               root: {
                 type: string;
                 children: {
-                  type: any;
+                  type: string;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -827,7 +828,7 @@ export interface Form {
     root: {
       type: string;
       children: {
-        type: any;
+        type: string;
         version: number;
         [k: string]: unknown;
       }[];
@@ -859,7 +860,7 @@ export interface Form {
           root: {
             type: string;
             children: {
-              type: any;
+              type: string;
               version: number;
               [k: string]: unknown;
             }[];
@@ -890,7 +891,7 @@ export interface Post {
       root: {
         type: string;
         children: {
-          type: any;
+          type: string;
           version: number;
           [k: string]: unknown;
         }[];
@@ -949,23 +950,6 @@ export interface FormSubmission {
     | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-kv".
- */
-export interface PayloadKv {
-  id: number;
-  key: string;
-  data:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1079,6 +1063,10 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
+        relationTo: 'admin-invitations';
+        value: number | AdminInvitation;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
@@ -1129,6 +1117,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'form-submissions';
         value: number | FormSubmission;
+      } | null)
+    | ({
+        relationTo: 'payload-jobs';
+        value: number | PayloadJob;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1212,6 +1204,17 @@ export interface VerificationsSelect<T extends boolean = true> {
   identifier?: T;
   value?: T;
   expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations_select".
+ */
+export interface AdminInvitationsSelect<T extends boolean = true> {
+  role?: T;
+  token?: T;
+  url?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1510,6 +1513,7 @@ export interface TransactionsSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   lessons?: T;
   name?: T;
+  email?: T;
   emailVerified?: T;
   image?: T;
   role?: T;
@@ -1521,20 +1525,6 @@ export interface UsersSelect<T extends boolean = true> {
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1735,14 +1725,6 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-kv_select".
- */
-export interface PayloadKvSelect<T extends boolean = true> {
-  key?: T;
-  data?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

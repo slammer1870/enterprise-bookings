@@ -94,10 +94,16 @@ export interface Config {
     lessons: {
       bookings: 'bookings';
     };
+    'drop-ins': {
+      'class-optionsPaymentMethods': 'class-options';
+    };
     users: {
       lessons: 'lessons';
       children: 'users';
       userSubscription: 'subscriptions';
+    };
+    plans: {
+      classOptionsAllowedPlans: 'class-options';
     };
   };
   collectionsSelect: {
@@ -484,6 +490,14 @@ export interface Plan {
    * The number of children who are subscribing to the plan
    */
   quantity?: number | null;
+  /**
+   * The classes that are available for this plan
+   */
+  classOptionsAllowedPlans?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -507,6 +521,11 @@ export interface DropIn {
       }[]
     | null;
   paymentMethods: 'card'[];
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1835,6 +1854,7 @@ export interface DropInsSelect<T extends boolean = true> {
         id?: T;
       };
   paymentMethods?: T;
+  'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1926,6 +1946,7 @@ export interface PlansSelect<T extends boolean = true> {
   skipSync?: T;
   type?: T;
   quantity?: T;
+  classOptionsAllowedPlans?: T;
   updatedAt?: T;
   createdAt?: T;
 }
