@@ -29,24 +29,35 @@ const getParentId = (user: User): number | null => {
 const isLessonClosed = (
   startTime: string | undefined,
   lockOutTime: number | undefined,
-  currentTime: Date,
+  currentTime: Date
 ): boolean => {
   if (!startTime) {
     return false;
   }
-  
-  const startTimeMs = new Date(startTime).getTime();
-  
+
+  const startTimeDate = new Date(startTime);
+  const startTimeMs = startTimeDate.getTime();
+
+  // Check if date is valid
+  if (isNaN(startTimeMs)) {
+    return false;
+  }
+
   // If lesson has already started, it's closed
   if (currentTime.getTime() >= startTimeMs) {
     return true;
   }
-  
-  // If lockOutTime is not defined, only check if lesson has started
-  if (lockOutTime === undefined) {
+
+  // If lockOutTime is not defined or is null, only check if lesson has started
+  if (lockOutTime === undefined || lockOutTime === null) {
     return false;
   }
-  
+
+  // If lockOutTime is 0, only check if lesson has started (already checked above)
+  if (lockOutTime === 0) {
+    return false;
+  }
+
   // Check if we're past the lock-out deadline
   const lockOutDeadline = startTimeMs - lockOutTime * MILLISECONDS_PER_MINUTE;
   return currentTime.getTime() >= lockOutDeadline;
@@ -58,25 +69,28 @@ const getConfirmedBookingsCount = (bookings: Booking[]): number => {
 
 const hasUserConfirmedBooking = (
   bookings: Booking[],
-  userId: number,
+  userId: number
 ): boolean => {
   return bookings.some(
-    (booking) => getUserFromBooking(booking).id === userId && booking.status === "confirmed",
+    (booking) =>
+      getUserFromBooking(booking).id === userId &&
+      booking.status === "confirmed"
   );
 };
 
 const hasUserWaitingBooking = (
   bookings: Booking[],
-  userId: number,
+  userId: number
 ): boolean => {
   return bookings.some(
-    (booking) => getUserFromBooking(booking).id === userId && booking.status === "waiting",
+    (booking) =>
+      getUserFromBooking(booking).id === userId && booking.status === "waiting"
   );
 };
 
 const hasParentConfirmedBooking = (
   bookings: Booking[],
-  parentId: number,
+  parentId: number
 ): boolean => {
   return bookings.some((booking) => {
     const user = getUserFromBooking(booking);
@@ -88,7 +102,7 @@ const hasParentConfirmedBooking = (
 const isTrialable = (classOption: ClassOption): boolean => {
   return (
     classOption.paymentMethods?.allowedDropIn?.discountTiers?.some(
-      (tier) => tier.type === "trial",
+      (tier) => tier.type === "trial"
     ) ?? false
   );
 };
@@ -137,30 +151,30 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     const isFull = confirmedCount >= classOption.places;
     const trialable = isTrialable(classOption);
 
-    // Check if lesson is closed (lock-out time)
-    if (isLessonClosed(data.startTime, data.lockOutTime, currentTime)) {
+    if (isLessonClosed(data.startTime, undefined, currentTime)) {
       return "closed";
     }
 
-    // Check children bookings (only for child classes)
+    // Check children bookings (only for child classes) - check this first
     if (classOption.type === "child" && userId) {
       if (hasParentConfirmedBooking(bookings, userId)) {
         return "childrenBooked";
       }
     }
 
-    // Check if user already has a confirmed booking
+    // Check if user already has a confirmed booking - check before checking if lesson is closed
     if (userId && hasUserConfirmedBooking(bookings, userId)) {
       return "booked";
     }
 
     // Check if user is on waiting list
-    if (
-      userId &&
-      hasUserWaitingBooking(bookings, userId) &&
-      isFull
-    ) {
+    if (userId && hasUserWaitingBooking(bookings, userId) && isFull) {
       return "waiting";
+    }
+
+    // Check if lesson is closed (lock-out time) - check after user booking status
+    if (isLessonClosed(data.startTime, data.lockOutTime, currentTime)) {
+      return "closed";
     }
 
     // Check if class is full (waitlist)

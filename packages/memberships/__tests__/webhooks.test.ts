@@ -443,6 +443,147 @@ describe("Subscription Webhooks", () => {
       );
     });
 
+    it("should get dates from subscription items when not on subscription object", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "trialing",
+          stripeSubscriptionId: "sub_items_dates_test",
+        },
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      const mockEvent = createMockSubscriptionEvent(
+        "sub_items_dates_test",
+        testUser.stripeCustomerId!,
+        testPlan.stripeProductId!,
+        "active"
+      );
+      
+      // Remove dates from subscription object (simulating newer Stripe API behavior)
+      delete (mockEvent.event.data.object as any).current_period_start;
+      delete (mockEvent.event.data.object as any).current_period_end;
+      
+      // Add dates to subscription items instead
+      const itemStart = now + 10;
+      const itemEnd = now + 60 * 24 * 60 * 60 + 10;
+      (mockEvent.event.data.object.items.data[0] as any).current_period_start = itemStart;
+      (mockEvent.event.data.object.items.data[0] as any).current_period_end = itemEnd;
+      
+      mockEvent.event.data.object.cancel_at = now + 30 * 24 * 60 * 60;
+
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("active");
+      expect(updated.startDate).toBe(
+        new Date(itemStart * 1000).toISOString()
+      );
+      expect(updated.endDate).toBe(
+        new Date(itemEnd * 1000).toISOString()
+      );
+      expect(updated.cancelAt).toBe(
+        new Date((now + 30 * 24 * 60 * 60) * 1000).toISOString()
+      );
+    });
+
+    it("should prefer subscription object dates over item dates when both exist", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "trialing",
+          stripeSubscriptionId: "sub_prefer_sub_dates",
+        },
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      const mockEvent = createMockSubscriptionEvent(
+        "sub_prefer_sub_dates",
+        testUser.stripeCustomerId!,
+        testPlan.stripeProductId!,
+        "active"
+      );
+      
+      // Set dates on subscription object (should take precedence)
+      const subStart = now;
+      const subEnd = now + 60 * 24 * 60 * 60;
+      mockEvent.event.data.object.current_period_start = subStart;
+      mockEvent.event.data.object.current_period_end = subEnd;
+      
+      // Also set different dates on items (should be ignored)
+      const itemStart = now + 100;
+      const itemEnd = now + 100 * 24 * 60 * 60;
+      (mockEvent.event.data.object.items.data[0] as any).current_period_start = itemStart;
+      (mockEvent.event.data.object.items.data[0] as any).current_period_end = itemEnd;
+
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("active");
+      // Should use subscription object dates, not item dates
+      expect(updated.startDate).toBe(
+        new Date(subStart * 1000).toISOString()
+      );
+      expect(updated.endDate).toBe(
+        new Date(subEnd * 1000).toISOString()
+      );
+    });
+
+    it("should handle missing dates gracefully", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "active",
+          stripeSubscriptionId: "sub_no_dates",
+          startDate: new Date().toISOString(),
+          endDate: new Date().toISOString(),
+        },
+      });
+
+      const mockEvent = createMockSubscriptionEvent(
+        "sub_no_dates",
+        testUser.stripeCustomerId!,
+        testPlan.stripeProductId!,
+        "active"
+      );
+      
+      // Remove dates from both subscription object and items
+      delete (mockEvent.event.data.object as any).current_period_start;
+      delete (mockEvent.event.data.object as any).current_period_end;
+      delete (mockEvent.event.data.object.items.data[0] as any).current_period_start;
+      delete (mockEvent.event.data.object.items.data[0] as any).current_period_end;
+
+      // Should not throw, just skip updating dates
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("active");
+      // Dates should remain unchanged (undefined means field is not updated)
+      expect(updated.startDate).toBeDefined();
+      expect(updated.endDate).toBeDefined();
+    });
+
     it("should update plan when plan changes", async () => {
       const newPlan = await payload.create({
         collection: "plans",
@@ -588,6 +729,217 @@ describe("Subscription Webhooks", () => {
       await expect(subscriptionUpdated(mockEvent)).rejects.toThrow(
         "Subscription not found"
       );
+    });
+
+    it("should handle full Stripe event structure with all fields", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "active",
+          stripeSubscriptionId: "sub_full_event_test",
+        },
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      // Create a full Stripe event structure matching the first format provided
+      const fullStripeEvent = {
+        id: "evt_1ScYrfLTcotecfqxUVz6Z80n",
+        object: "event",
+        api_version: "2020-08-27",
+        created: now,
+        data: {
+          object: {
+            id: "sub_full_event_test",
+            object: "subscription",
+            customer: testUser.stripeCustomerId!,
+            status: "past_due",
+            current_period_start: now,
+            current_period_end: now + 30 * 24 * 60 * 60,
+            cancel_at: null,
+            cancel_at_period_end: false,
+            canceled_at: null,
+            created: now,
+            metadata: {},
+            items: {
+              object: "list",
+              data: [
+                {
+                  id: "si_test",
+                  object: "subscription_item",
+                  plan: {
+                    id: "plan_test",
+                    object: "plan",
+                    product: testPlan.stripeProductId!,
+                    active: true,
+                    amount: 1000,
+                    currency: "eur",
+                    interval: "month",
+                    interval_count: 1,
+                    created: now,
+                  } as Stripe.Plan,
+                  quantity: 1,
+                },
+              ],
+              has_more: false,
+              url: "",
+            },
+          } as Stripe.Subscription,
+          previous_attributes: {
+            status: "active",
+          },
+        },
+        livemode: true,
+        pending_webhooks: 0,
+        request: {
+          id: null,
+          idempotency_key: null,
+        },
+        type: "customer.subscription.updated",
+      };
+
+      const mockEvent = {
+        event: fullStripeEvent,
+        payload,
+        config: {} as any,
+        req: {} as any,
+        stripe: {} as any,
+      } as Parameters<typeof subscriptionUpdated>[0];
+
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("past_due");
+    });
+
+    it("should handle Stripe event with subscription object containing all fields from real webhook", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "incomplete",
+          stripeSubscriptionId: "sub_1ScRVpAZixUpWgxg1kTRrUVL",
+        },
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      // Create a full Stripe event matching the second format structure
+      // Note: This format has the subscription object with all fields including
+      // billing_mode, payment_settings, trial_settings, etc.
+      const fullStripeEvent = {
+        id: "evt_test",
+        object: "event",
+        api_version: "2020-08-27",
+        created: now,
+        data: {
+          object: {
+            id: "sub_1ScRVpAZixUpWgxg1kTRrUVL",
+            object: "subscription",
+            customer: testUser.stripeCustomerId!,
+            status: "active",
+            current_period_start: now,
+            current_period_end: now + 30 * 24 * 60 * 60,
+            cancel_at: null,
+            cancel_at_period_end: false,
+            canceled_at: null,
+            created: now,
+            currency: "eur",
+            metadata: {
+              lesson_id: "4675",
+            },
+            billing_mode: {
+              type: "classic",
+            },
+            payment_settings: {
+              payment_method_options: {
+                card: {
+                  request_three_d_secure: "automatic",
+                },
+              },
+              save_default_payment_method: "off",
+            },
+            trial_settings: {
+              end_behavior: {
+                missing_payment_method: "create_invoice",
+              },
+            },
+            items: {
+              object: "list",
+              data: [
+                {
+                  id: "si_test",
+                  object: "subscription_item",
+                  plan: {
+                    id: "plan_test",
+                    object: "plan",
+                    product: testPlan.stripeProductId!,
+                    active: true,
+                    amount: 11000,
+                    amount_decimal: "11000",
+                    currency: "eur",
+                    interval: "month",
+                    interval_count: 1,
+                    created: now,
+                  } as Stripe.Plan,
+                  price: {
+                    id: "price_test",
+                    object: "price",
+                    active: true,
+                    currency: "eur",
+                    unit_amount: 11000,
+                    unit_amount_decimal: "11000",
+                    recurring: {
+                      interval: "month",
+                      interval_count: 1,
+                      usage_type: "licensed",
+                    },
+                    type: "recurring",
+                  } as Stripe.Price,
+                  quantity: 1,
+                },
+              ],
+              has_more: false,
+              url: "",
+            },
+          } as unknown as Stripe.Subscription,
+          previous_attributes: {
+            default_payment_method: null,
+            status: "incomplete",
+          },
+        },
+        livemode: true,
+        pending_webhooks: 0,
+        request: {
+          id: null,
+          idempotency_key: null,
+        },
+        type: "customer.subscription.updated",
+      };
+
+      const mockEvent = {
+        event: fullStripeEvent,
+        payload,
+        config: {} as any,
+        req: {} as any,
+        stripe: {} as any,
+      } as Parameters<typeof subscriptionUpdated>[0];
+
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("active");
     });
   });
 

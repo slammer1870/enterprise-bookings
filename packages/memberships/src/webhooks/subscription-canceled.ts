@@ -40,12 +40,25 @@ export const subscriptionCanceled: StripeWebhookHandler<{
         ? foundSubscription.user.id
         : foundSubscription.user;
 
+    // Get current_period_end from subscription or items
+    // In newer Stripe API versions, this may only be on subscription items
+    // Note: TypeScript types may not include these on SubscriptionItem, but they exist in webhook payloads
+    const firstItem = event.data.object.items.data[0] as
+      | (Stripe.SubscriptionItem & {
+          current_period_end?: number;
+        })
+      | undefined;
+    const currentPeriodEnd =
+      event.data.object.current_period_end ?? firstItem?.current_period_end;
+
     await payload.update({
       collection: "subscriptions",
       id: foundSubscription.id as number,
       data: {
         status: "canceled",
-        endDate: new Date().toISOString(),
+        endDate: currentPeriodEnd
+          ? new Date(currentPeriodEnd * 1000).toISOString()
+          : new Date().toISOString(),
         cancelAt: event.data.object.cancel_at
           ? new Date(event.data.object.cancel_at * 1000).toISOString()
           : new Date().toISOString(),
