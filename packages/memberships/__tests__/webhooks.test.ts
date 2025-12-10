@@ -730,6 +730,217 @@ describe("Subscription Webhooks", () => {
         "Subscription not found"
       );
     });
+
+    it("should handle full Stripe event structure with all fields", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "active",
+          stripeSubscriptionId: "sub_full_event_test",
+        },
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      // Create a full Stripe event structure matching the first format provided
+      const fullStripeEvent = {
+        id: "evt_1ScYrfLTcotecfqxUVz6Z80n",
+        object: "event",
+        api_version: "2020-08-27",
+        created: now,
+        data: {
+          object: {
+            id: "sub_full_event_test",
+            object: "subscription",
+            customer: testUser.stripeCustomerId!,
+            status: "past_due",
+            current_period_start: now,
+            current_period_end: now + 30 * 24 * 60 * 60,
+            cancel_at: null,
+            cancel_at_period_end: false,
+            canceled_at: null,
+            created: now,
+            metadata: {},
+            items: {
+              object: "list",
+              data: [
+                {
+                  id: "si_test",
+                  object: "subscription_item",
+                  plan: {
+                    id: "plan_test",
+                    object: "plan",
+                    product: testPlan.stripeProductId!,
+                    active: true,
+                    amount: 1000,
+                    currency: "eur",
+                    interval: "month",
+                    interval_count: 1,
+                    created: now,
+                  } as Stripe.Plan,
+                  quantity: 1,
+                },
+              ],
+              has_more: false,
+              url: "",
+            },
+          } as Stripe.Subscription,
+          previous_attributes: {
+            status: "active",
+          },
+        },
+        livemode: true,
+        pending_webhooks: 0,
+        request: {
+          id: null,
+          idempotency_key: null,
+        },
+        type: "customer.subscription.updated",
+      };
+
+      const mockEvent = {
+        event: fullStripeEvent,
+        payload,
+        config: {} as any,
+        req: {} as any,
+        stripe: {} as any,
+      } as Parameters<typeof subscriptionUpdated>[0];
+
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("past_due");
+    });
+
+    it("should handle Stripe event with subscription object containing all fields from real webhook", async () => {
+      // Create an existing subscription
+      const existingSubscription = await payload.create({
+        collection: "subscriptions",
+        data: {
+          user: testUser.id,
+          plan: testPlan.id,
+          status: "incomplete",
+          stripeSubscriptionId: "sub_1ScRVpAZixUpWgxg1kTRrUVL",
+        },
+      });
+
+      const now = Math.floor(Date.now() / 1000);
+      // Create a full Stripe event matching the second format structure
+      // Note: This format has the subscription object with all fields including
+      // billing_mode, payment_settings, trial_settings, etc.
+      const fullStripeEvent = {
+        id: "evt_test",
+        object: "event",
+        api_version: "2020-08-27",
+        created: now,
+        data: {
+          object: {
+            id: "sub_1ScRVpAZixUpWgxg1kTRrUVL",
+            object: "subscription",
+            customer: testUser.stripeCustomerId!,
+            status: "active",
+            current_period_start: now,
+            current_period_end: now + 30 * 24 * 60 * 60,
+            cancel_at: null,
+            cancel_at_period_end: false,
+            canceled_at: null,
+            created: now,
+            currency: "eur",
+            metadata: {
+              lesson_id: "4675",
+            },
+            billing_mode: {
+              type: "classic",
+            },
+            payment_settings: {
+              payment_method_options: {
+                card: {
+                  request_three_d_secure: "automatic",
+                },
+              },
+              save_default_payment_method: "off",
+            },
+            trial_settings: {
+              end_behavior: {
+                missing_payment_method: "create_invoice",
+              },
+            },
+            items: {
+              object: "list",
+              data: [
+                {
+                  id: "si_test",
+                  object: "subscription_item",
+                  plan: {
+                    id: "plan_test",
+                    object: "plan",
+                    product: testPlan.stripeProductId!,
+                    active: true,
+                    amount: 11000,
+                    amount_decimal: "11000",
+                    currency: "eur",
+                    interval: "month",
+                    interval_count: 1,
+                    created: now,
+                  } as Stripe.Plan,
+                  price: {
+                    id: "price_test",
+                    object: "price",
+                    active: true,
+                    currency: "eur",
+                    unit_amount: 11000,
+                    unit_amount_decimal: "11000",
+                    recurring: {
+                      interval: "month",
+                      interval_count: 1,
+                      usage_type: "licensed",
+                    },
+                    type: "recurring",
+                  } as Stripe.Price,
+                  quantity: 1,
+                },
+              ],
+              has_more: false,
+              url: "",
+            },
+          } as unknown as Stripe.Subscription,
+          previous_attributes: {
+            default_payment_method: null,
+            status: "incomplete",
+          },
+        },
+        livemode: true,
+        pending_webhooks: 0,
+        request: {
+          id: null,
+          idempotency_key: null,
+        },
+        type: "customer.subscription.updated",
+      };
+
+      const mockEvent = {
+        event: fullStripeEvent,
+        payload,
+        config: {} as any,
+        req: {} as any,
+        stripe: {} as any,
+      } as Parameters<typeof subscriptionUpdated>[0];
+
+      await subscriptionUpdated(mockEvent);
+
+      const updated = await payload.findByID({
+        collection: "subscriptions",
+        id: existingSubscription.id,
+      });
+
+      expect(updated.status).toBe("active");
+    });
   });
 
   describe("subscriptionCanceled", () => {
