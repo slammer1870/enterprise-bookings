@@ -101,11 +101,12 @@ export default async function BookingPage({ params }: BookingPageProps) {
               Membership
             </TabsTrigger>
           )}
-          {lesson.classOption.paymentMethods?.allowedDropIn && (
-            <TabsTrigger value="dropin" className="w-full">
-              Drop-in
-            </TabsTrigger>
-          )}
+          {lesson.classOption.paymentMethods?.allowedDropIn &&
+            subscription?.status !== 'past_due' && (
+              <TabsTrigger value="dropin" className="w-full">
+                Drop-in
+              </TabsTrigger>
+            )}
         </TabsList>
         <TabsContent value="membership">
           <PlanView
