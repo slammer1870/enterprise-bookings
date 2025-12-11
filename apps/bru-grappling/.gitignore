@@ -11,6 +11,10 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+*.trace.zip
+**/screenshots/
 
 # next.js
 /.next/
