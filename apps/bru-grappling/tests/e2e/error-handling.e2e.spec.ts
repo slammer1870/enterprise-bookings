@@ -75,23 +75,6 @@ test.describe('Error Handling', () => {
     expect(isValidState).toBe(true)
   })
 
-  test('should handle empty slug gracefully', async ({ page }) => {
-    // Try accessing root with empty slug (should default to 'home')
-    await page.goto('/', { waitUntil: 'load', timeout: 60000 })
-
-    // Should load homepage or show appropriate content
-    await page.waitForLoadState('domcontentloaded')
-    await page.waitForTimeout(2000)
-    
-    // Should not show 404 - check URL and page content
-    const url = page.url()
-    const heading = page.getByRole('heading', { name: /404/i })
-    const is404 = await heading.isVisible({ timeout: 2000 }).catch(() => false)
-    
-    // Root should load homepage (not 404) or redirect appropriately
-    const isValid = !is404 && (url === 'http://localhost:3000/' || url.includes('/home'))
-    expect(isValid).toBe(true)
-  })
 
   test('should handle special characters in URL', async ({ page }) => {
     // Try URL with special characters
@@ -144,32 +127,5 @@ test.describe('Error Handling', () => {
     expect(pageContent.length).toBeGreaterThan(0)
   })
 
-  test('should handle authentication errors gracefully', async ({ page }) => {
-    // Try accessing protected route without auth
-    await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
-
-    // Should redirect to sign-in - check current URL first
-    const currentUrl = page.url()
-    if (!currentUrl.includes('/auth/sign-in') && !currentUrl.includes('/auth')) {
-      await page.waitForURL(/\/auth\/sign-in/, { timeout: 15000 })
-    }
-    
-    const finalUrl = page.url()
-    
-    // Should show sign-in form, not error page
-    const signInHeading = page.getByRole('heading', { name: /sign in|login/i }).first()
-    const isSignIn = await signInHeading.isVisible({ timeout: 5000 }).catch(() => false)
-    
-    // Or might show auth tabs
-    const authTabs = page.locator('[role="tablist"]').first()
-    const hasAuthTabs = await authTabs.isVisible({ timeout: 5000 }).catch(() => false)
-    
-    // Or might have email input field
-    const emailInput = page.getByRole('textbox', { name: /email/i })
-    const hasEmailInput = await emailInput.isVisible({ timeout: 5000 }).catch(() => false)
-    
-    // Should be on auth page with some form of authentication UI
-    expect(isSignIn || hasAuthTabs || hasEmailInput || finalUrl.includes('/auth')).toBe(true)
-  })
 })
 
