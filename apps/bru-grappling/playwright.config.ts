@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import os from 'os'
 
 /**
  * Read environment variables from file.
@@ -16,7 +17,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Run tests in parallel - use 50% of CPU cores, but max 4 workers */
-  workers: process.env.CI ? Math.min(4, Math.ceil(require('os').cpus().length * 0.5)) : undefined,
+  workers: process.env.CI ? Math.min(4, Math.ceil(os.cpus().length * 0.5)) : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? 'dot' : 'html',
   /* Global timeout for tests - reduced from 90s */
