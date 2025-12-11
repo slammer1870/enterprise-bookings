@@ -4,7 +4,12 @@ import { Lesson } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useSuspenseQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui/components/ui/tabs";
 import { PlanView } from "./plan-view";
 import { DropInView } from "./drop-ins";
 import { toast } from "sonner";
@@ -91,13 +96,20 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
     await createCustomerPortal();
   };
 
-  // Filter allowed plans to only active ones
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
-    (plan) => plan.status === "active"
-  );
+  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
 
-  const hasMembershipTab = allowedPlans && allowedPlans.length > 0;
-  const hasDropInTab = Boolean(lesson.classOption.paymentMethods?.allowedDropIn);
+  const activePlans = allowedPlans?.filter((plan) => plan.status === "active");
+
+  const hasSubscriptionWithPlan =
+    subscription &&
+    allowedPlans?.some((plan) => plan.id === subscription?.plan?.id);
+
+  const hasMembershipTab =
+    Boolean(activePlans && activePlans.length > 0) || hasSubscriptionWithPlan;
+
+  const hasDropInTab =
+    Boolean(lesson.classOption.paymentMethods?.allowedDropIn) &&
+    !hasSubscriptionWithPlan;
 
   if (!hasMembershipTab && !hasDropInTab) {
     return (
@@ -111,7 +123,9 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
     <div className="space-y-4">
       <div>
         <h4 className="font-medium">Payment Methods</h4>
-        <p className="font-light text-sm">Please select a payment method to continue:</p>
+        <p className="font-light text-sm">
+          Please select a payment method to continue:
+        </p>
       </div>
       <Tabs defaultValue={hasMembershipTab ? "membership" : "dropin"}>
         <TabsList className="flex w-full justify-around gap-4">
@@ -129,7 +143,7 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
         {hasMembershipTab && (
           <TabsContent value="membership">
             <PlanView
-              allowedPlans={allowedPlans}
+              allowedPlans={activePlans}
               subscription={subscription}
               lessonDate={new Date(lesson.startTime)}
               subscriptionLimitReached={subscriptionLimitReached}
@@ -158,5 +172,3 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
     </div>
   );
 }
-
-
