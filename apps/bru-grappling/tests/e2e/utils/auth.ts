@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test'
+import { waitForNavigation } from './wait-helpers'
 
 /**
  * Test user credentials
@@ -22,8 +23,8 @@ export const TEST_USERS = {
  */
 export async function signIn(page: Page, email: string, password: string) {
   // Try to access admin first to see if we need admin login or frontend sign-in
-  await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
-  await page.waitForTimeout(2000) // Wait for redirects
+  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 20000 })
+  await waitForNavigation(page, 500) // Wait for redirects
   
   const currentUrl = page.url()
   
@@ -37,53 +38,28 @@ export async function signIn(page: Page, email: string, password: string) {
     await emailInput.fill(email)
     await expect(passwordInput).toBeVisible({ timeout: 10000 })
     await passwordInput.fill(password)
-    await expect(loginButton).toBeVisible({ timeout: 10000 })
+    await expect(loginButton).toBeVisible({ timeout: 5000 })
     await loginButton.click()
     
-    // Wait for admin panel - may take a moment to redirect
-    await page.waitForTimeout(2000)
-    
-    // Check if we're still on login page (login failed) or redirected
-    let newUrl = page.url()
-    let attempts = 0
-    while (newUrl.includes('/admin/login') && attempts < 5) {
-      await page.waitForTimeout(1000)
-      newUrl = page.url()
-      attempts++
+    // Wait for redirect from login page
+    try {
+      await page.waitForURL(url => !url.includes('/admin/login'), { timeout: 5000 })
+    } catch {
+      // Might already be redirected
     }
     
+    let newUrl = page.url()
+    
+    // If still on login, try navigating to admin
     if (newUrl.includes('/admin/login')) {
-      // Login might have failed - wait a bit more and check for errors
-      await page.waitForTimeout(2000)
-      // If still on login, there might be an error or the credentials are wrong
-      // For now, just navigate to admin to see what happens
       try {
-        await page.goto('/admin', { waitUntil: 'load', timeout: 30000 })
-        await page.waitForTimeout(2000)
+        await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 15000 })
+        await waitForNavigation(page, 500)
         newUrl = page.url()
       } catch (e) {
-        // Navigation might have failed - check current URL
         newUrl = page.url()
-        // If we're already on admin, that's fine
         if (!newUrl.includes('/admin')) {
           throw e
-        }
-      }
-    }
-    
-    // If we're not on admin yet, try navigating there
-    if (!newUrl.includes('/admin') || newUrl.includes('/admin/login') || newUrl.includes('/admin/create-first-user')) {
-      try {
-        await page.goto('/admin', { waitUntil: 'load', timeout: 30000 })
-        await page.waitForTimeout(2000)
-        newUrl = page.url()
-      } catch (e) {
-        // Navigation failed - might be a timeout or connection issue
-        // Check if we're already on admin
-        newUrl = page.url()
-        if (!newUrl.includes('/admin') && !newUrl.includes('/auth')) {
-          // Not on admin or auth - might be a real error
-          console.warn('Failed to navigate to admin after login. Current URL:', newUrl)
         }
       }
     }
@@ -97,61 +73,48 @@ export async function signIn(page: Page, email: string, password: string) {
   }
   
   // Otherwise, use frontend sign-in
-  await page.goto('/auth/sign-in', { waitUntil: 'load' })
+  await page.goto('/auth/sign-in', { waitUntil: 'domcontentloaded' })
   
   // Wait for the form to be visible
   const emailInput = page.getByRole('textbox', { name: /email/i }).first()
-  await expect(emailInput).toBeVisible({ timeout: 10000 })
+  await expect(emailInput).toBeVisible({ timeout: 5000 })
   
   await emailInput.fill(email)
   
   // Password field also uses textbox role in this app
   const passwordInput = page.getByRole('textbox', { name: /password/i }).first()
-  await expect(passwordInput).toBeVisible({ timeout: 10000 })
+  await expect(passwordInput).toBeVisible({ timeout: 5000 })
   await passwordInput.fill(password)
   
   // Submit the form - look for Login button
   const submitButton = page.getByRole('button', { name: /login/i }).first()
-  await expect(submitButton).toBeVisible({ timeout: 10000 })
+  await expect(submitButton).toBeVisible({ timeout: 5000 })
   await submitButton.click()
   
   // Wait for navigation after sign in - may redirect to home, dashboard, or admin
-  // Use a more flexible wait that doesn't fail if we're already on a valid page
-  let finalUrl = page.url()
   try {
-    await page.waitForURL(/\/(dashboard|admin|\/)/, { timeout: 15000 })
-    finalUrl = page.url()
+    await page.waitForURL(/\/(dashboard|admin|\/)/, { timeout: 10000 })
   } catch (e) {
     // If timeout, check current URL - might already be on a valid page
-    finalUrl = page.url()
-    if (!finalUrl.includes('/auth/sign-in') && !finalUrl.includes('/auth/sign-up')) {
-      // We're not on sign-in page, assume we're signed in
-    } else {
+    const finalUrl = page.url()
+    if (finalUrl.includes('/auth/sign-in') || finalUrl.includes('/auth/sign-up')) {
       throw e
     }
   }
   
-  // Check if we're signed in by looking for logout button or dashboard link
-  const logoutButton = page.locator('button:has-text("Logout"), button:has-text("Sign Out")').first()
-  const dashboardLink = page.getByRole('link', { name: /dashboard/i }).first()
-  
-  // Wait a bit for page to fully load
-  await page.waitForTimeout(1000)
-  
   // If we're on home page but signed in, navigate to admin
-  finalUrl = page.url()
+  const finalUrl = page.url()
   if (finalUrl === 'http://localhost:3000/' || finalUrl.endsWith('/')) {
     // Check if we're actually signed in
-    const isSignedIn = await logoutButton.isVisible({ timeout: 2000 }).catch(() => false) ||
-                       await dashboardLink.isVisible({ timeout: 2000 }).catch(() => false)
+    const logoutButton = page.locator('button:has-text("Logout"), button:has-text("Sign Out")').first()
+    const dashboardLink = page.getByRole('link', { name: /dashboard/i }).first()
+    const isSignedIn = await logoutButton.isVisible({ timeout: 1000 }).catch(() => false) ||
+                       await dashboardLink.isVisible({ timeout: 1000 }).catch(() => false)
     
     if (isSignedIn) {
       // Navigate to admin panel
-      await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
-      await page.waitForURL(/\/admin/, { timeout: 10000 }).catch(() => {
-        // If still not on admin, might be redirecting - wait a bit more
-        return page.waitForTimeout(2000)
-      })
+      await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 20000 })
+      await page.waitForURL(/\/admin/, { timeout: 5000 }).catch(() => {})
     }
   }
 }
@@ -160,11 +123,11 @@ export async function signIn(page: Page, email: string, password: string) {
  * Sign up a new user via the UI
  */
 export async function signUp(page: Page, email: string, password: string, name?: string) {
-  await page.goto('/auth/sign-up', { waitUntil: 'load' })
+  await page.goto('/auth/sign-up', { waitUntil: 'domcontentloaded' })
   
   // Wait for the form to be visible
   const form = page.locator('form')
-  await expect(form).toBeVisible({ timeout: 10000 })
+  await expect(form).toBeVisible({ timeout: 5000 })
   
   // Fill name if provided - use textbox role
   if (name) {
@@ -176,12 +139,12 @@ export async function signUp(page: Page, email: string, password: string, name?:
   
   // Use textbox role for email (consistent with sign-in)
   const emailInput = page.getByRole('textbox', { name: /email/i }).first()
-  await expect(emailInput).toBeVisible({ timeout: 10000 })
+  await expect(emailInput).toBeVisible({ timeout: 5000 })
   await emailInput.fill(email)
   
   // Use textbox role for password (consistent with sign-in)
   const passwordInput = page.getByRole('textbox', { name: /password/i }).first()
-  await expect(passwordInput).toBeVisible({ timeout: 10000 })
+  await expect(passwordInput).toBeVisible({ timeout: 5000 })
   await passwordInput.fill(password)
   
   // Fill confirm password if it exists
@@ -193,11 +156,11 @@ export async function signUp(page: Page, email: string, password: string, name?:
   
   // Submit the form - look for Sign Up button
   const submitButton = page.getByRole('button', { name: /sign up|register/i }).first()
-  await expect(submitButton).toBeVisible({ timeout: 10000 })
+  await expect(submitButton).toBeVisible({ timeout: 5000 })
   await submitButton.click()
   
   // Wait for navigation after sign up
-  await page.waitForURL(/\/(dashboard|auth)/, { timeout: 15000 })
+  await page.waitForURL(/\/(dashboard|auth)/, { timeout: 10000 })
 }
 
 /**
@@ -209,7 +172,7 @@ export async function signOut(page: Page) {
   
   if (await signOutButton.count() > 0) {
     await signOutButton.click()
-    await page.waitForURL(/\/auth\/sign-in|\//, { timeout: 10000 })
+    await page.waitForURL(/\/auth\/sign-in|\//, { timeout: 5000 })
   }
 }
 
@@ -239,7 +202,7 @@ export async function isSignedIn(page: Page): Promise<boolean> {
   
   // Also check for sign out button/link
   const signOutButton = page.locator('button:has-text("Sign Out"), a:has-text("Sign Out"), button:has-text("Logout")').first()
-  const hasSignOut = await signOutButton.isVisible({ timeout: 2000 }).catch(() => false)
+  const hasSignOut = await signOutButton.isVisible({ timeout: 1000 }).catch(() => false)
   
   return count > 0 || hasSignOut
 }
@@ -250,8 +213,8 @@ export async function isSignedIn(page: Page): Promise<boolean> {
 export async function waitForAuth(page: Page) {
   // Wait for either sign in or dashboard to appear
   await Promise.race([
-    page.waitForURL(/\/auth\/sign-in/, { timeout: 5000 }).catch(() => {}),
-    page.waitForURL(/\/dashboard/, { timeout: 5000 }).catch(() => {}),
+    page.waitForURL(/\/auth\/sign-in/, { timeout: 3000 }).catch(() => {}),
+    page.waitForURL(/\/dashboard/, { timeout: 3000 }).catch(() => {}),
   ])
 }
 

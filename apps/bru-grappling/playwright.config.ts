@@ -15,15 +15,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Run tests in parallel - use 50% of CPU cores, but max 4 workers */
+  workers: process.env.CI ? Math.min(4, Math.ceil(require('os').cpus().length * 0.5)) : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
-  /* Global timeout for tests */
-  timeout: 90000, // 90 seconds per test
-  /* Global timeout for expect assertions */
+  reporter: process.env.CI ? 'dot' : 'html',
+  /* Global timeout for tests - reduced from 90s */
+  timeout: 60000, // 60 seconds per test
+  /* Global timeout for expect assertions - reduced from 10s */
   expect: {
-    timeout: 10000, // 10 seconds for assertions
+    timeout: 5000, // 5 seconds for assertions
   },
   /* Global setup to create TestContainer database */
   globalSetup: './tests/e2e/global-setup.ts',
@@ -32,12 +32,14 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: 'http://localhost:3000',
-    /* Increase action timeout */
-    actionTimeout: 15000,
-    /* Increase navigation timeout */
-    navigationTimeout: 30000,
+    /* Reduced action timeout */
+    actionTimeout: 10000,
+    /* Reduced navigation timeout */
+    navigationTimeout: 20000,
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    /* Use faster load strategy */
+    waitForLoadState: 'domcontentloaded',
   },
   projects: [
     {

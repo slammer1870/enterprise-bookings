@@ -1,25 +1,15 @@
 import { Page, expect } from '@playwright/test'
 import { TEST_USERS } from './auth'
+import { waitForNavigation } from './wait-helpers'
 
 /**
  * Ensure admin user exists - create if needed
  * This should be called before admin tests when using a fresh database
  */
 export async function ensureAdminUser(page: Page): Promise<boolean> {
-  try {
-    // Navigate to admin with longer timeout
-    await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
-  } catch (e) {
-    // If navigation times out, try again with networkidle
-    try {
-      await page.goto('/admin', { waitUntil: 'networkidle', timeout: 60000 })
-    } catch (e2) {
-      // If still fails, try domcontentloaded
-      await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    }
-  }
-  
-  await page.waitForTimeout(2000)
+  // Use faster domcontentloaded instead of load
+  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 20000 })
+  await waitForNavigation(page, 1000)
   
   const currentUrl = page.url()
   
@@ -52,14 +42,16 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
     
     // Select Admin role
     const roleCombobox = page.locator('input[id*="react-select"][id*="_r_c_"]').first()
-    if (await roleCombobox.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await roleCombobox.isVisible({ timeout: 3000 }).catch(() => false)) {
       await roleCombobox.click()
-      await page.waitForTimeout(500)
+      // Wait for dropdown to appear instead of fixed timeout
+      await page.waitForSelector('[role="option"]', { timeout: 2000 }).catch(() => {})
       
       const adminOption = page.getByRole('option', { name: 'Admin' }).first()
-      if (await adminOption.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (await adminOption.isVisible({ timeout: 3000 }).catch(() => false)) {
         await adminOption.click()
-        await page.waitForTimeout(500)
+        // Wait for selection to register
+        await page.waitForTimeout(200)
       }
     }
     
@@ -73,19 +65,18 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
       // Double check we're not still on create-first-user page
       const finalUrl = page.url()
       if (finalUrl.includes('/admin/create-first-user')) {
-        // Wait a bit more and check for error messages
-        await page.waitForTimeout(2000)
+        // Check for error messages quickly
         const errorMsg = page.locator('text=/error|failed|invalid/i').first()
-        const hasError = await errorMsg.isVisible({ timeout: 2000 }).catch(() => false)
+        const hasError = await errorMsg.isVisible({ timeout: 1000 }).catch(() => false)
         if (hasError) {
           console.error('Error creating admin user:', await errorMsg.textContent())
           return false
         }
         // Try clicking create again if still on the page
         const createButtonAgain = page.getByRole('button', { name: /create/i }).first()
-        if (await createButtonAgain.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await createButtonAgain.isVisible({ timeout: 1000 }).catch(() => false)) {
           await createButtonAgain.click()
-          await page.waitForURL(/\/admin/, { timeout: 30000 })
+          await page.waitForURL(/\/admin/, { timeout: 15000 })
         }
       }
       await expect(page).not.toHaveURL(/\/admin\/create-first-user/, { timeout: 5000 })
@@ -104,9 +95,8 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
   
           // If redirected to login, admin exists but we need to sign in
           if (currentUrl.includes('/admin/login')) {
-            // Wait for login form to fully load
-            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
-            await page.waitForTimeout(2000)
+            // Wait for login form to be ready
+            await waitForNavigation(page, 1000)
             
             // Try multiple selector strategies for login form elements
             let emailInput = page.getByRole('textbox', { name: /email/i }).first()
@@ -131,17 +121,14 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
             await expect(loginButton).toBeVisible({ timeout: 15000 })
             await loginButton.click()
     
-    // Wait for redirect after login - may take a moment
-    await page.waitForTimeout(2000)
-    
-    // Check if we're still on login page
-    let newUrl = page.url()
-    let attempts = 0
-    while (newUrl.includes('/admin/login') && attempts < 5) {
-      await page.waitForTimeout(1000)
-      newUrl = page.url()
-      attempts++
+    // Wait for redirect after login - use proper wait instead of polling
+    try {
+      await page.waitForURL(url => !url.includes('/admin/login'), { timeout: 5000 })
+    } catch {
+      // Might already be redirected
     }
+    
+    let newUrl = page.url()
     
     // If still on login page after attempts, login might have failed
     if (newUrl.includes('/admin/login')) {
@@ -156,8 +143,8 @@ export async function ensureAdminUser(page: Page): Promise<boolean> {
       
       // Try navigating to admin directly - might already be logged in
       try {
-        await page.goto('/admin', { waitUntil: 'load', timeout: 30000 })
-        await page.waitForTimeout(2000)
+        await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 15000 })
+        await waitForNavigation(page, 500)
         newUrl = page.url()
       } catch (e) {
         // Navigation might have timed out - check current URL
