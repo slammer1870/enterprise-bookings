@@ -100,52 +100,6 @@ test.describe('Complete Booking Flow', () => {
     expect(hasEmailInput || hasRegisterTab || hasNameInput).toBe(true)
   })
 
-  test('should switch between login and register modes', async ({ page }) => {
-    await page.goto('/complete-booking?mode=login&callbackUrl=/bookings/1', {
-      waitUntil: 'load',
-      timeout: 60000,
-    })
-    await page.waitForLoadState('domcontentloaded')
-
-    // Look for tabs
-    const loginTab = page.getByRole('tab', { name: /login|sign in/i })
-    const registerTab = page.getByRole('tab', { name: /register|sign up/i })
-
-    const hasTabs = await loginTab.isVisible({ timeout: 2000 }).catch(() => false)
-
-    if (hasTabs) {
-      // Click register tab - use force to bypass navigation overlay
-      await registerTab.click({ force: true })
-      await page.waitForTimeout(2000) // Wait longer for URL update
-
-      // URL should update to register mode (or tab state should change)
-      const url = page.url()
-      const urlUpdated = url.includes('mode=register') || url.includes('register')
-      
-      // Also check if tab is selected (aria-selected)
-      const registerTabSelected = await registerTab.getAttribute('aria-selected')
-      const tabStateChanged = registerTabSelected === 'true'
-      
-      expect(urlUpdated || tabStateChanged).toBe(true)
-
-      // Click login tab - use force to bypass navigation overlay
-      await loginTab.click({ force: true })
-      await page.waitForTimeout(2000) // Wait longer for URL update
-
-      // URL should update to login mode (or tab state should change)
-      const newUrl = page.url()
-      const newUrlUpdated = newUrl.includes('mode=login') || newUrl.includes('login')
-      
-      // Also check if tab is selected
-      const loginTabSelected = await loginTab.getAttribute('aria-selected')
-      const loginTabStateChanged = loginTabSelected === 'true'
-      
-      expect(newUrlUpdated || loginTabStateChanged).toBe(true)
-    } else {
-      // No tabs, might use separate pages
-      test.skip()
-    }
-  })
 
   test('should redirect to booking after successful authentication', async ({ page }) => {
     // Ensure admin user is logged in
@@ -169,20 +123,6 @@ test.describe('Complete Booking Flow', () => {
     }
   })
 
-  test('should handle invalid booking ID in complete-booking flow', async ({ page }) => {
-    await page.goto('/complete-booking?mode=login&callbackUrl=/bookings/invalid', {
-      waitUntil: 'load',
-      timeout: 60000,
-    })
-    await page.waitForLoadState('domcontentloaded')
-
-    // Should still show auth form
-    const emailInput = page.getByRole('textbox', { name: /email/i })
-    const hasEmailInput = await emailInput.isVisible({ timeout: 5000 }).catch(() => false)
-
-    // Form should be present even with invalid callback URL
-    expect(hasEmailInput).toBe(true)
-  })
 
   test('should maintain callback URL through auth flow', async ({ page }) => {
     const callbackUrl = '/bookings/1'

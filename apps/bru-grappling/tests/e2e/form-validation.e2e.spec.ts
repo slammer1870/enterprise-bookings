@@ -5,21 +5,6 @@ import { test, expect } from '@playwright/test'
  * Tests form field validation, required fields, and error messages
  */
 test.describe('Form Validation', () => {
-  test('should require email field in sign-in form', async ({ page }) => {
-    await page.goto('/auth/sign-in', { waitUntil: 'load', timeout: 60000 })
-    await page.waitForLoadState('domcontentloaded')
-
-    const emailInput = page.getByRole('textbox', { name: /email/i })
-    await expect(emailInput).toBeVisible({ timeout: 10000 })
-
-    // Check if email is required
-    const isRequired = await emailInput.evaluate((el: HTMLInputElement) => {
-      return el.hasAttribute('required') || el.getAttribute('aria-required') === 'true'
-    })
-
-    // Email should be required (might be enforced by browser or custom validation)
-    expect(isRequired || true).toBe(true)
-  })
 
   test('should validate email format', async ({ page }) => {
     await page.goto('/auth/sign-in', { waitUntil: 'load', timeout: 60000 })

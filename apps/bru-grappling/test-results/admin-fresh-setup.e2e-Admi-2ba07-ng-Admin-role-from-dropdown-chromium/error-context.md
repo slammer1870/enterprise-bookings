@@ -1,0 +1,115 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - heading "Welcome" [level=1] [ref=e5]
+    - paragraph [ref=e6]: To begin, create your first user.
+    - generic [ref=e7]:
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - text: Email
+          - generic [ref=e11]: "*"
+        - textbox "Email *" [ref=e13]
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - text: New Password
+          - generic [ref=e16]: "*"
+        - textbox "New Password" [ref=e19]
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - text: Confirm Password
+          - generic [ref=e22]: "*"
+        - textbox "Confirm Password" [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: Parent
+          - generic [ref=e28]:
+            - generic [ref=e29]:
+              - generic [ref=e30]:
+                - log [ref=e32]: Use Up and Down to choose options, press Enter to select the currently focused option, press Escape to exit the menu, press Tab to select the option and exit the menu.
+                - generic [ref=e33]:
+                  - generic [ref=e35]:
+                    - generic [ref=e36]: Select a value
+                    - combobox [expanded] [active] [ref=e38]
+                  - button [ref=e40] [cursor=pointer]:
+                    - img [ref=e41]
+                - listbox [ref=e44]:
+                  - generic [ref=e45]: No options
+              - button "Add new User" [ref=e47] [cursor=pointer]:
+                - img [ref=e48]
+            - generic [ref=e50]: Parent of the user
+        - generic [ref=e51]:
+          - generic [ref=e52]: Name
+          - generic [ref=e53]:
+            - textbox "Name" [ref=e54]
+            - generic [ref=e55]: Users chosen display name
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - checkbox "Email Verified *" [ref=e59]
+            - generic [ref=e60]:
+              - text: Email Verified
+              - generic [ref=e61]: "*"
+          - generic [ref=e62]: Whether the email of the user has been verified
+        - generic [ref=e63]:
+          - generic [ref=e64]: Image
+          - generic [ref=e65]:
+            - textbox "Image" [ref=e66]
+            - generic [ref=e67]: The image of the user
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - text: Role
+            - generic [ref=e70]: "*"
+          - generic [ref=e72]:
+            - log [ref=e74]
+            - generic [ref=e75]:
+              - generic [ref=e77]:
+                - generic [ref=e78]: User
+                - combobox [ref=e80]
+              - generic [ref=e81]:
+                - button [ref=e82] [cursor=pointer]:
+                  - img [ref=e83]
+                - button [ref=e85] [cursor=pointer]:
+                  - img [ref=e86]
+          - generic [ref=e88]: The role of the user
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - checkbox "Banned" [ref=e92]
+            - generic [ref=e93]: Banned
+          - generic [ref=e94]: Whether the user is banned from the platform
+        - generic [ref=e95]:
+          - generic [ref=e96]: Ban Reason
+          - generic [ref=e97]:
+            - textbox "Ban Reason" [ref=e98]
+            - generic [ref=e99]: The reason for the ban
+        - generic [ref=e100]:
+          - text: Ban Expires
+          - generic [ref=e102]:
+            - generic:
+              - img
+            - textbox [ref=e106]
+          - generic [ref=e107]: The date and time when the ban will expire
+        - generic [ref=e108]:
+          - generic [ref=e109]: Roles
+          - generic [ref=e110]:
+            - generic [ref=e112]:
+              - log [ref=e114]
+              - generic [ref=e115]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: Select a value
+                  - combobox [ref=e120]
+                - button [ref=e122] [cursor=pointer]:
+                  - img [ref=e123]
+            - status [ref=e125]
+        - generic [ref=e126]:
+          - generic [ref=e127]: Stripe Customer
+          - textbox "Stripe Customer" [ref=e129]
+      - button "Create" [ref=e131] [cursor=pointer]:
+        - generic:
+          - generic: Create
+  - status [ref=e132]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e138] [cursor=pointer]:
+    - img [ref=e139]
+  - alert [ref=e142]
+```
