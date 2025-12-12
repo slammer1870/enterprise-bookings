@@ -145,7 +145,6 @@ export default buildConfig({
             name: 'lastCheckIn',
             type: 'date',
             required: false,
-            defaultValue: undefined,
             admin: {
               date: {
                 pickerAppearance: 'dayOnly',
