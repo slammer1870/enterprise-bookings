@@ -51,7 +51,7 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
 
       const userQuery = await payload.find({
         collection: "users",
-        where: { email: { equals: customer.email } },
+        where: { email: { equals: customer.email?.toLowerCase() } },
       });
 
       let user: User;
