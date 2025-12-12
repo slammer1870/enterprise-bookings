@@ -145,6 +145,7 @@ export default buildConfig({
             name: 'lastCheckIn',
             type: 'date',
             required: false,
+            defaultValue: new Date().toISOString(), //default to today's date
             admin: {
               date: {
                 pickerAppearance: 'dayOnly',
