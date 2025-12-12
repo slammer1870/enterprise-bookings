@@ -145,7 +145,9 @@ export default buildConfig({
             name: 'lastCheckIn',
             type: 'date',
             required: false,
-            
+            validate: () => {
+              return true
+            },
             admin: {
               date: {
                 pickerAppearance: 'dayOnly',
