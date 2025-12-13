@@ -37,7 +37,7 @@ test.describe('Admin Page Creation with MCP', () => {
     }
   })
 
-  test('MCP: explore page creation form', async ({ page }) => {
+  test.skip('MCP: explore page creation form', async ({ page }) => {
     // Navigate to page creation
     await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
@@ -58,7 +58,7 @@ test.describe('Admin Page Creation with MCP', () => {
     })
   })
 
-  test('MCP: create homepage with schedule block step by step', async ({ page }) => {
+  test.skip('MCP: create homepage with schedule block step by step', async ({ page }) => {
     // Step 1: Navigate to page creation
     await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})

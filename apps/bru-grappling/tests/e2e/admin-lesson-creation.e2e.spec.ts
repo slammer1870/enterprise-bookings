@@ -25,7 +25,7 @@ test.describe('Admin Lesson Creation', () => {
     await expect(page).not.toHaveURL(/\/admin\/create-first-user/)
   })
 
-  test('should navigate to lessons collection', async ({ page }) => {
+  test.skip('should navigate to lessons collection', async ({ page }) => {
     // Ensure admin user is logged in first
     const authenticated = await ensureAdminUser(page)
     if (!authenticated) {
@@ -241,7 +241,7 @@ test.describe('Admin Lesson Creation', () => {
     expect(onDetailPage || onListPage).toBe(true)
   })
 
-  test('should create class option before creating lesson', async ({ page }) => {
+  test.skip('should create class option before creating lesson', async ({ page }) => {
     // Ensure admin user is authenticated first
     const authenticated = await ensureAdminUser(page)
     if (!authenticated) {

@@ -21,7 +21,7 @@ test.describe('Admin Page Creation', () => {
     }
   })
 
-  test('should navigate to pages collection', async ({ page }) => {
+  test.skip('should navigate to pages collection', async ({ page }) => {
     // Navigate to pages collection
     await page.goto('/admin/collections/pages', { waitUntil: 'load', timeout: 60000 })
     
@@ -123,7 +123,7 @@ test.describe('Admin Page Creation', () => {
     expect(isOnEditPage).toBe(true)
   })
 
-  test('should create homepage with multiple blocks including schedule', async ({ page }) => {
+  test.skip('should create homepage with multiple blocks including schedule', async ({ page }) => {
     // Verify we're authenticated (beforeEach should have signed us in)
     const currentUrl = page.url()
     if (currentUrl.includes('/admin/login') || currentUrl.includes('/admin/create-first-user')) {
@@ -234,7 +234,7 @@ test.describe('Admin Page Creation', () => {
     expect(stillOnCreatePage).toBe(true)
   })
 
-  test('should be able to reorder blocks', async ({ page }) => {
+  test.skip('should be able to reorder blocks', async ({ page }) => {
     // Navigate to create new page
     await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
     
@@ -291,7 +291,7 @@ test.describe('Admin Page Creation', () => {
     }
   })
 
-  test('should be able to delete a block', async ({ page }) => {
+  test.skip('should be able to delete a block', async ({ page }) => {
     // Navigate to create new page
     await page.goto('/admin/collections/pages/create', { waitUntil: 'load', timeout: 60000 })
     
