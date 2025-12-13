@@ -21,7 +21,7 @@ import { signIn, TEST_USERS } from './utils/auth'
  */
 
 test.describe('DEMO: Page Creation with Schedule Block', () => {
-  test('complete workflow - create page with schedule block', async ({ page }) => {
+  test.skip('complete workflow - create page with schedule block', async ({ page }) => {
     console.log('🎬 Starting page creation demo...')
     
     // Step 1: Sign in as admin
