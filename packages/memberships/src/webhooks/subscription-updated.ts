@@ -64,10 +64,13 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         })
       | undefined;
     const currentPeriodStart =
-      event.data.object.current_period_start ??
-      firstItem?.current_period_start;
+      event.data.object.current_period_start ?? firstItem?.current_period_start;
     const currentPeriodEnd =
       event.data.object.current_period_end ?? firstItem?.current_period_end;
+
+    payload.logger.info(
+      `Current period start: ${currentPeriodStart} as date: ${new Date(currentPeriodStart * 1000).toISOString()}`
+    );
 
     // Combine both updates into a single operation
     // Use skipSync to prevent beforeChange hook from calling Stripe API
@@ -78,10 +81,10 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         status: event.data.object.status,
         startDate: currentPeriodStart
           ? new Date(currentPeriodStart * 1000).toISOString()
-          : undefined,
+          : null,
         endDate: currentPeriodEnd
           ? new Date(currentPeriodEnd * 1000).toISOString()
-          : undefined,
+          : null,
         cancelAt: event.data.object.cancel_at
           ? new Date(event.data.object.cancel_at * 1000).toISOString()
           : null,
