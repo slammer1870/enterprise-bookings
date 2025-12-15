@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { ensureAdminLoggedIn } from './helpers'
 
 /**
  * E2E test for admin lesson creation flow
@@ -12,56 +13,23 @@ import { test, expect } from '@playwright/test'
  * the tests will handle login instead of creating first user.
  */
 
+
+
 /**
- * Helper function to ensure we're logged in as admin.
- * Creates first user if needed, or assumes we're already logged in.
+ * Helper to generate a unique class option name to satisfy uniqueness constraints.
  */
-async function ensureAdminLoggedIn(page: any): Promise<void> {
-  await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
-  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 10000 })
-
-  // If we're on create-first-user page, create the admin user
-  if (page.url().includes('/admin/create-first-user')) {
-    await page.getByRole('textbox', { name: 'Email *' }).fill('admin@example.com')
-    await page.getByRole('textbox', { name: 'New Password' }).fill('password123')
-    await page.getByRole('textbox', { name: 'Confirm Password' }).fill('password123')
-
-    // Select Admin role
-    const roleCombobox = page
-      .locator('text=Role')
-      .locator('..')
-      .locator('[role="combobox"]')
-      .first()
-    await roleCombobox.click()
-    await page.getByRole('option', { name: 'Admin' }).click()
-    await page.waitForTimeout(500)
-
-    // Check Email Verified checkbox
-    await page.getByRole('checkbox', { name: 'Email Verified *' }).setChecked(true)
-
-    // Click Create button
-    await page.getByRole('button', { name: 'Create' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
-  }
-
-  // If we're on login page, try to login (assuming user exists)
-  if (page.url().includes('/admin/login')) {
-    await page.getByRole('textbox', { name: 'Email' }).fill('admin@example.com')
-    await page.getByRole('textbox', { name: 'Password' }).fill('password123')
-    await page.getByRole('button', { name: 'Login' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
-  }
-
-  // Should be on admin dashboard now
-  await expect(page).toHaveURL(/\/admin$/)
+function uniqueClassName(base: string): string {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
+  return `${base} ${suffix}`
 }
 
 /**
  * Helper to create a class option with optional payment method configuration.
  */
-async function createClassOption(page: any, options: { name: string; description: string; places?: string }) {
+async function createClassOption(
+  page: any,
+  options: { name: string; description: string; places?: string },
+) {
   const { name, description, places = '10' } = options
 
   await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
@@ -149,7 +117,11 @@ async function selectClassOptionAndSaveLesson(page: any, className: string): Pro
 /**
  * Helper to navigate to the lessons list for tomorrow and assert the class name exists.
  */
-async function expectLessonVisibleForTomorrow(page: any, tomorrow: Date, className: string): Promise<void> {
+async function expectLessonVisibleForTomorrow(
+  page: any,
+  tomorrow: Date,
+  className: string,
+): Promise<void> {
   await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
   await page.waitForTimeout(2000)
 
@@ -178,9 +150,10 @@ test.describe('Admin Lesson Creation Flow', () => {
     // Step 1: Ensure we're logged in as admin
     await ensureAdminLoggedIn(page)
 
-    // Step 2: Create a class option
+    // Step 2: Create a class option (name must be unique)
+    const className = uniqueClassName('Test Class')
     await createClassOption(page, {
-      name: 'Test Class',
+      name: className,
       description: 'A test class option for e2e testing',
     })
 
@@ -198,16 +171,16 @@ test.describe('Admin Lesson Creation Flow', () => {
     await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
     const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
-    await selectClassOptionAndSaveLesson(page, 'Test Class')
+    await selectClassOptionAndSaveLesson(page, className)
 
     // Step 4: Navigate to lessons page and verify the lesson exists for tomorrow
-    await expectLessonVisibleForTomorrow(page, tomorrow, 'Test Class')
+    await expectLessonVisibleForTomorrow(page, tomorrow, className)
   })
 
   test('should create lesson for class option with drop-in payment only', async ({ page }) => {
     await ensureAdminLoggedIn(page)
 
-    const className = 'Test Class Drop In'
+    const className = uniqueClassName('Test Class Drop In')
     const description = 'A test class option with drop-in payment'
 
     // Create a class option configured for drop-in payments only
@@ -247,7 +220,7 @@ test.describe('Admin Lesson Creation Flow', () => {
   test('should create lesson for class option with subscription payment only', async ({ page }) => {
     await ensureAdminLoggedIn(page)
 
-    const className = 'Test Class Subscription'
+    const className = uniqueClassName('Test Class Subscription')
     const description = 'A test class option with subscription payment'
 
     // Create a class option configured for subscription-only access
@@ -289,7 +262,7 @@ test.describe('Admin Lesson Creation Flow', () => {
   }) => {
     await ensureAdminLoggedIn(page)
 
-    const className = 'Test Class Drop In + Subscription'
+    const className = uniqueClassName('Test Class Drop In + Subscription')
     const description = 'A test class option with both drop-in and subscription payments'
 
     // Create a class option configured for both drop-in and subscription
