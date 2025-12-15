@@ -8,10 +8,10 @@ import { createDbString } from '@repo/testing-config/src/utils/db'
  */
 async function globalSetup(config: FullConfig) {
   console.log('Running global setup...')
-  
+
   // If DATABASE_URI is not set, create a test database container
-  if (!process.env.DATABASE_URI) {
-    console.log('DATABASE_URI not set, creating test database container...')
+  if (!process.env.FORCE_EXISTING_DB) {
+    console.log('Existing database not forced, creating test database container...')
     try {
       const dbString = await createDbString()
       process.env.DATABASE_URI = dbString
@@ -21,7 +21,10 @@ async function globalSetup(config: FullConfig) {
       throw error
     }
   } else {
-    console.log('Using existing DATABASE_URI:', process.env.DATABASE_URI.replace(/:[^:@]+@/, ':****@'))
+    console.log(
+      'Using forced existing DATABASE_URI:',
+      process.env.DATABASE_URI?.replace(/:[^:@]+@/, ':****@') ?? 'not set',
+    )
   }
 
   // Note: Database migrations are handled by the webServer command
@@ -30,4 +33,3 @@ async function globalSetup(config: FullConfig) {
 }
 
 export default globalSetup
-
