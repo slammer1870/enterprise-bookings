@@ -35,22 +35,25 @@ async function ensureHomePageWithSchedule(page: any): Promise<void> {
  * Returns the Date for tomorrow.
  */
 async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'): Promise<Date> {
-  // Create a basic class option
+  // Ensure a basic class option exists; create it if it does not
   await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
-  await page.getByLabel('Create new Class Option').click()
+  const existingClassOptionRow = page.getByRole('row', { name: new RegExp(className, 'i') })
 
-  await page.getByRole('textbox', { name: 'Name *' }).fill(className)
-  await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
-  await page.getByRole('textbox', { name: 'Description *' }).fill('A test class option for e2e')
+  if ((await existingClassOptionRow.count()) === 0) {
+    // No matching class option found; create a basic one
+    await page.getByLabel('Create new Class Option').click()
 
-  await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
-  await page.waitForTimeout(1000)
-  await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+    await page.getByRole('textbox', { name: 'Name *' }).fill(className)
+    await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
+    await page.getByRole('textbox', { name: 'Description *' }).fill('A test class option for e2e')
 
-  // Create a lesson for tomorrow using this class option
-  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
+    await page.waitForTimeout(1000)
+    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+  }
 
+  // Compute tomorrow's date (used for both lookup and creation)
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
@@ -58,6 +61,24 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
     month: '2-digit',
     year: 'numeric',
   })
+
+  // First, check if a lesson already exists for tomorrow with this class option
+  await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
+  const tomorrowDay = tomorrow.getDate()
+  const dayButton = page.locator(`button:has-text("${tomorrowDay}")`).first()
+  if ((await dayButton.count()) > 0) {
+    await dayButton.click()
+    await page.waitForTimeout(2000)
+  }
+
+  const existingLessonCell = page.getByRole('cell', { name: className })
+  if ((await existingLessonCell.count()) > 0) {
+    // Lesson already exists for tomorrow with this class option; reuse it.
+    return tomorrow
+  }
+
+  // No existing lesson found; create a new lesson for tomorrow using this class option
+  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
 
   const dateInput = page.locator('#field-date').getByRole('textbox')
   await dateInput.click()
@@ -138,7 +159,7 @@ test.describe('User booking flow from schedule', () => {
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
 
     // User phase: navigate to home (has schedule) and view schedule
-    await page.goto('/', { waitUntil: 'load', timeout: 60000 })
+    await page.goto('/', { waitUntil: 'load', timeout: 15000 })
     await expect(page.locator('#schedule')).toBeVisible()
     await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
 
@@ -159,14 +180,10 @@ test.describe('User booking flow from schedule', () => {
 
     // Submit email to request magic link
     await page.getByRole('textbox', { name: /Email/i }).fill('user@example.com')
-    await page.getByRole('button', { name: /Submit|Send magic link/i }).click()
+    await page.getByRole('button', { name: 'Submit' }).click()
 
-    // Better Auth login form redirects to /magic-link-sent when the magic-link request succeeds
-    await page.waitForURL(/\/magic-link-sent$/, { timeout: 15000 })
-    await expect(page.getByText(/Magic link sent/i)).toBeVisible()
-
-    // NOTE: At this point the real user flow continues via the email client.
-    // For this E2E test we stop after verifying that the magic-link request
-    // completed successfully and the user sees the confirmation screen.
+    expect(page.getByRole('button', { name: 'Sending...' })).toBeVisible()
+    await page.waitForURL(/\/magic-link-sent$/, { timeout: 30000 })
+    expect(page.getByText(/Magic link sent/i)).toBeVisible()
   })
 })
