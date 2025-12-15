@@ -9,6 +9,7 @@ import * as migration_20251206_110241 from './20251206_110241';
 import * as migration_20251206_170000_add_missing_locked_documents_columns from './20251206_170000_add_missing_locked_documents_columns';
 import * as migration_20251208_153322 from './20251208_153322';
 import * as migration_20251212_093737_fix_mcp_api_keys_constraint from './20251212_093737_fix_mcp_api_keys_constraint';
+import * as migration_20251214_230732 from './20251214_230732';
 
 export const migrations = [
   {
@@ -59,11 +60,16 @@ export const migrations = [
   {
     up: migration_20251208_153322.up,
     down: migration_20251208_153322.down,
-    name: '20251208_153322'
+    name: '20251208_153322',
   },
   {
     up: migration_20251212_093737_fix_mcp_api_keys_constraint.up,
     down: migration_20251212_093737_fix_mcp_api_keys_constraint.down,
-    name: '20251212_093737_fix_mcp_api_keys_constraint'
+    name: '20251212_093737_fix_mcp_api_keys_constraint',
+  },
+  {
+    up: migration_20251214_230732.up,
+    down: migration_20251214_230732.down,
+    name: '20251214_230732'
   },
 ];
