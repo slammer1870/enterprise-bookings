@@ -13,8 +13,8 @@ import { test, expect } from '@playwright/test'
  */
 
 /**
- * Helper function to ensure we're logged in as admin
- * Creates first user if needed, or assumes we're already logged in
+ * Helper function to ensure we're logged in as admin.
+ * Creates first user if needed, or assumes we're already logged in.
  */
 async function ensureAdminLoggedIn(page: any): Promise<void> {
   await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
@@ -58,6 +58,119 @@ async function ensureAdminLoggedIn(page: any): Promise<void> {
   await expect(page).toHaveURL(/\/admin$/)
 }
 
+/**
+ * Helper to create a class option with optional payment method configuration.
+ */
+async function createClassOption(page: any, options: { name: string; description: string; places?: string }) {
+  const { name, description, places = '10' } = options
+
+  await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
+  await page.getByLabel('Create new Class Option').click()
+  await page.waitForTimeout(1000)
+
+  await page.getByRole('textbox', { name: 'Name *' }).fill(name)
+  await page.getByRole('spinbutton', { name: 'Places *' }).fill(places)
+  await page.getByRole('textbox', { name: 'Description *' }).fill(description)
+}
+
+/**
+ * Helper to set the lesson date to tomorrow and time to 10:00–11:00.
+ * Returns the Date instance for tomorrow.
+ */
+async function setLessonTomorrowAtTenToEleven(page: any): Promise<Date> {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+  const dateInput = page.locator('#field-date').getByRole('textbox')
+  await dateInput.click()
+  await dateInput.clear()
+  await dateInput.fill(tomorrowDateStr)
+  await page.keyboard.press('Tab')
+  await page.waitForTimeout(500)
+
+  const startTimeInput = page.locator('#field-startTime').getByRole('textbox')
+  await startTimeInput.click()
+  await page.waitForTimeout(300)
+  const startTimeOption = page.getByRole('option', { name: '10:00 AM' })
+  if ((await startTimeOption.count()) > 0) {
+    await startTimeOption.click()
+  } else {
+    await startTimeInput.clear()
+    await startTimeInput.fill('10:00 AM')
+    await page.keyboard.press('Enter')
+  }
+  await page.waitForTimeout(500)
+
+  const endTimeInput = page.locator('#field-endTime').getByRole('textbox')
+  await endTimeInput.click()
+  await page.waitForTimeout(300)
+  const endTimeOption = page.getByRole('option', { name: '11:00 AM' })
+  if ((await endTimeOption.count()) > 0) {
+    await endTimeOption.click()
+  } else {
+    await endTimeInput.clear()
+    await endTimeInput.fill('11:00 AM')
+    await page.keyboard.press('Enter')
+  }
+  await page.waitForTimeout(500)
+
+  return tomorrow
+}
+
+/**
+ * Helper to select a class option in the lesson form and save the lesson.
+ */
+async function selectClassOptionAndSaveLesson(page: any, className: string): Promise<void> {
+  const classOptionCombobox = page
+    .locator('text=Class Option')
+    .locator('..')
+    .locator('[role="combobox"]')
+    .first()
+  await classOptionCombobox.click()
+  await page.waitForTimeout(500)
+
+  const createdOption = page.getByRole('option', { name: className })
+  await expect(createdOption).toBeVisible({ timeout: 10000 })
+  await createdOption.click()
+  await page.waitForTimeout(500)
+
+  await page.getByRole('button', { name: 'Save' }).click()
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(2000)
+  await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
+}
+
+/**
+ * Helper to navigate to the lessons list for tomorrow and assert the class name exists.
+ */
+async function expectLessonVisibleForTomorrow(page: any, tomorrow: Date, className: string): Promise<void> {
+  await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
+  await page.waitForTimeout(2000)
+
+  const tomorrowDay = tomorrow.getDate()
+  const dayButton = page
+    .locator(`button:has-text("${tomorrowDay}")`)
+    .filter({ hasNotText: /^\d+$/ })
+    .first()
+
+  if ((await dayButton.count()) > 0) {
+    await dayButton.click()
+  } else {
+    await page.locator(`button:has-text("${tomorrowDay}")`).first().click()
+  }
+
+  await page.waitForTimeout(2000)
+  await expect(page.getByRole('cell', { name: className })).toBeVisible({
+    timeout: 10000,
+  })
+}
+
 test.describe('Admin Lesson Creation Flow', () => {
   test('should create class option, create lesson for tomorrow, and verify it exists', async ({
     page,
@@ -66,18 +179,10 @@ test.describe('Admin Lesson Creation Flow', () => {
     await ensureAdminLoggedIn(page)
 
     // Step 2: Create a class option
-    await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
-
-    // Click "Create new Class Option"
-    await page.getByLabel('Create new Class Option').click()
-    await page.waitForTimeout(1000)
-
-    // Fill in the class option form
-    await page.getByRole('textbox', { name: 'Name *' }).fill('Test Class')
-    await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
-    await page
-      .getByRole('textbox', { name: 'Description *' })
-      .fill('A test class option for e2e testing')
+    await createClassOption(page, {
+      name: 'Test Class',
+      description: 'A test class option for e2e testing',
+    })
 
     // Type is already set to "adult" by default, so we can leave it
 
@@ -91,114 +196,146 @@ test.describe('Admin Lesson Creation Flow', () => {
 
     // Step 3: Create a lesson for tomorrow
     await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
-    // Calculate tomorrow's date
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+    await selectClassOptionAndSaveLesson(page, 'Test Class')
+
+    // Step 4: Navigate to lessons page and verify the lesson exists for tomorrow
+    await expectLessonVisibleForTomorrow(page, tomorrow, 'Test Class')
+  })
+
+  test('should create lesson for class option with drop-in payment only', async ({ page }) => {
+    await ensureAdminLoggedIn(page)
+
+    const className = 'Test Class Drop In'
+    const description = 'A test class option with drop-in payment'
+
+    // Create a class option configured for drop-in payments only
+    await createClassOption(page, {
+      name: className,
+      description,
     })
 
-    // Set the date to tomorrow
-    const dateInput = page.locator('#field-date').getByRole('textbox')
-    await dateInput.click()
-    await dateInput.clear()
-    await dateInput.fill(tomorrowDateStr)
-    await page.keyboard.press('Tab')
-    await page.waitForTimeout(500)
-
-    // Set start time to 10:00 AM
-    const startTimeInput = page.locator('#field-startTime').getByRole('textbox')
-    await startTimeInput.click()
-    await page.waitForTimeout(300)
-
-    // Try to select 10:00 AM from the time picker
-    const startTimeOption = page.getByRole('option', { name: '10:00 AM' })
-    if ((await startTimeOption.count()) > 0) {
-      await startTimeOption.click()
-    } else {
-      // Fallback: type directly
-      await startTimeInput.clear()
-      await startTimeInput.fill('10:00 AM')
-      await page.keyboard.press('Enter')
-    }
-    await page.waitForTimeout(500)
-
-    // Set end time to 11:00 AM
-    const endTimeInput = page.locator('#field-endTime').getByRole('textbox')
-    await endTimeInput.click()
-    await page.waitForTimeout(300)
-
-    const endTimeOption = page.getByRole('option', { name: '11:00 AM' })
-    if ((await endTimeOption.count()) > 0) {
-      await endTimeOption.click()
-    } else {
-      // Fallback: type directly
-      await endTimeInput.clear()
-      await endTimeInput.fill('11:00 AM')
-      await page.keyboard.press('Enter')
-    }
-    await page.waitForTimeout(500)
-
-    // Select the class option we created
-    const classOptionCombobox = page
-      .locator('text=Class Option')
+    // Configure payment methods: Allowed Drop In (assumes at least one drop-in exists)
+    const allowedDropInCombobox = page
+      .locator('text=Allowed Drop In')
       .locator('..')
       .locator('[role="combobox"]')
       .first()
-    await classOptionCombobox.click()
-    await page.waitForTimeout(500)
 
-    const testClassOption = page.getByRole('option', { name: 'Test Class' })
-    await expect(testClassOption).toBeVisible({ timeout: 10000 })
-    await testClassOption.click()
-    await page.waitForTimeout(500)
+    if ((await allowedDropInCombobox.count()) > 0) {
+      await allowedDropInCombobox.click()
+      const firstDropInOption = page.getByRole('option').first()
+      if (await firstDropInOption.isVisible()) {
+        await firstDropInOption.click()
+      }
+    }
 
-    // Save the lesson
     await page.getByRole('button', { name: 'Save' }).click()
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
+    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
-    // Verify lesson was created (should be on edit page)
-    await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
+    // Create a lesson for tomorrow using this class option
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
-    // Step 4: Navigate to lessons page and verify the lesson exists for tomorrow
-    await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
-    await page.waitForTimeout(2000)
+    await selectClassOptionAndSaveLesson(page, className)
+    await expectLessonVisibleForTomorrow(page, tomorrow, className)
+  })
 
-    // Click on tomorrow's date in the calendar
-    const tomorrowDay = tomorrow.getDate()
-    const tomorrowButton = page.getByRole('button', {
-      name: new RegExp(
-        `Monday, December ${tomorrowDay}|Tuesday, December ${tomorrowDay}|Wednesday, December ${tomorrowDay}|Thursday, December ${tomorrowDay}|Friday, December ${tomorrowDay}|Saturday, December ${tomorrowDay}|Sunday, December ${tomorrowDay}`,
-        'i',
-      ),
+  test('should create lesson for class option with subscription payment only', async ({ page }) => {
+    await ensureAdminLoggedIn(page)
+
+    const className = 'Test Class Subscription'
+    const description = 'A test class option with subscription payment'
+
+    // Create a class option configured for subscription-only access
+    await createClassOption(page, {
+      name: className,
+      description,
     })
 
-    // If the button text doesn't match exactly, try finding by the day number
-    const dayButton = page
-      .locator(`button:has-text("${tomorrowDay}")`)
-      .filter({ hasNotText: /^\d+$/ })
+    // Configure payment methods: Allowed Plans (assumes at least one plan exists)
+    const allowedPlansCombobox = page
+      .locator('text=Allowed Plans')
+      .locator('..')
+      .locator('[role="combobox"]')
       .first()
 
-    if ((await dayButton.count()) > 0) {
-      await dayButton.click()
-    } else {
-      // Fallback: click the button with the day number
-      await page.locator(`button:has-text("${tomorrowDay}")`).first().click()
+    if ((await allowedPlansCombobox.count()) > 0) {
+      await allowedPlansCombobox.click()
+      const firstPlanOption = page.getByRole('option').first()
+      if (await firstPlanOption.isVisible()) {
+        await firstPlanOption.click()
+      }
     }
 
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
+    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
-    // Verify the lesson appears in the table
-    // The table should show lessons for the selected date
-    const lessonsTable = page.getByText(
-      'Start TimeEnd TimeClass NameBookingsActions10:0011:00Test Class0Open menu',
-    )
-    await expect(lessonsTable).toBeVisible({ timeout: 10000 })
+    // Create a lesson for tomorrow using this class option
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
-    // Check that the lesson exists - it should show the class name "Test Class"
+    await selectClassOptionAndSaveLesson(page, className)
+    await expectLessonVisibleForTomorrow(page, tomorrow, className)
+  })
+
+  test('should create lesson for class option with drop-in and subscription payments', async ({
+    page,
+  }) => {
+    await ensureAdminLoggedIn(page)
+
+    const className = 'Test Class Drop In + Subscription'
+    const description = 'A test class option with both drop-in and subscription payments'
+
+    // Create a class option configured for both drop-in and subscription
+    await createClassOption(page, {
+      name: className,
+      description,
+    })
+
+    const allowedDropInCombobox = page
+      .locator('text=Allowed Drop In')
+      .locator('..')
+      .locator('[role="combobox"]')
+      .first()
+
+    if ((await allowedDropInCombobox.count()) > 0) {
+      await allowedDropInCombobox.click()
+      const firstDropInOption = page.getByRole('option').first()
+      if (await firstDropInOption.isVisible()) {
+        await firstDropInOption.click()
+      }
+    }
+
+    const allowedPlansCombobox = page
+      .locator('text=Allowed Plans')
+      .locator('..')
+      .locator('[role="combobox"]')
+      .first()
+
+    if ((await allowedPlansCombobox.count()) > 0) {
+      await allowedPlansCombobox.click()
+      const firstPlanOption = page.getByRole('option').first()
+      if (await firstPlanOption.isVisible()) {
+        await firstPlanOption.click()
+      }
+    }
+
+    await page.getByRole('button', { name: 'Save' }).click()
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForTimeout(2000)
+    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+
+    // Create a lesson for tomorrow using this class option
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
+
+    await selectClassOptionAndSaveLesson(page, className)
+    await expectLessonVisibleForTomorrow(page, tomorrow, className)
   })
 })

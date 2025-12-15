@@ -1,6 +1,7 @@
+/// <reference types="node" />
 import { type FullConfig } from '@playwright/test'
-import { exec } from 'child_process'
-import util from 'util'
+import { exec } from 'node:child_process'
+import util from 'node:util'
 
 const execAsync = util.promisify(exec)
 
