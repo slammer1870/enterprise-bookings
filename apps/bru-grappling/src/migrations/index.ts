@@ -3,12 +3,10 @@ import * as migration_20251125_191947 from './20251125_191947';
 import * as migration_20251127_120004 from './20251127_120004';
 import * as migration_20251127_165503 from './20251127_165503';
 import * as migration_20251128_110901 from './20251128_110901';
-import * as migration_20251202_204832_add_mcp_api_keys_locked_documents_column from './20251202_204832_add_mcp_api_keys_locked_documents_column';
 import * as migration_20251205_183120 from './20251205_183120';
 import * as migration_20251206_110241 from './20251206_110241';
 import * as migration_20251206_170000_add_missing_locked_documents_columns from './20251206_170000_add_missing_locked_documents_columns';
 import * as migration_20251208_153322 from './20251208_153322';
-import * as migration_20251212_093737_fix_mcp_api_keys_constraint from './20251212_093737_fix_mcp_api_keys_constraint';
 import * as migration_20251214_230732 from './20251214_230732';
 
 export const migrations = [
@@ -38,11 +36,6 @@ export const migrations = [
     name: '20251128_110901',
   },
   {
-    up: migration_20251202_204832_add_mcp_api_keys_locked_documents_column.up,
-    down: migration_20251202_204832_add_mcp_api_keys_locked_documents_column.down,
-    name: '20251202_204832_add_mcp_api_keys_locked_documents_column',
-  },
-  {
     up: migration_20251205_183120.up,
     down: migration_20251205_183120.down,
     name: '20251205_183120',
@@ -61,11 +54,6 @@ export const migrations = [
     up: migration_20251208_153322.up,
     down: migration_20251208_153322.down,
     name: '20251208_153322',
-  },
-  {
-    up: migration_20251212_093737_fix_mcp_api_keys_constraint.up,
-    down: migration_20251212_093737_fix_mcp_api_keys_constraint.down,
-    name: '20251212_093737_fix_mcp_api_keys_constraint',
   },
   {
     up: migration_20251214_230732.up,
