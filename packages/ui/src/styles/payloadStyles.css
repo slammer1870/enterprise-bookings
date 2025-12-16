@@ -12,7 +12,12 @@
 /* Import Tailwind utilities */
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* Support Payload's dark mode toggle by adding a custom variant */
+@source "../../../../apps/**/*.{ts,tsx}";
+@source "../../../../components/**/*.{ts,tsx}";
+@source "../../../../packages/**/*.{ts,tsx}";
+@source "../**/*.{ts,tsx}";
+
+/* Support Payload’s dark mode toggle by adding a custom variant */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 :root {
@@ -281,13 +286,14 @@
     border-collapse: separate !important;
     border-spacing: 0 !important;
   }
-  
-  td, th {
+
+  td,
+  th {
     padding: 0 !important;
     border: none !important;
     background: transparent !important;
   }
-  
+
   /* Ensure calendar buttons aren't affected by PayloadCMS button styles */
   button {
     border: none !important;
@@ -298,7 +304,7 @@
     margin: 0 !important;
     padding: 0 !important;
   }
-  
+
   /* Fix for react-day-picker specific classes */
   .rdp-button {
     border: none !important;
@@ -306,23 +312,23 @@
     color: var(--foreground) !important;
     cursor: pointer !important;
   }
-  
+
   .rdp-button:hover {
     background: var(--accent) !important;
     color: var(--accent-foreground) !important;
   }
-  
+
   /* Ensure calendar cells maintain proper sizing */
   .rdp-day {
     width: var(--cell-size, 2rem) !important;
     height: var(--cell-size, 2rem) !important;
   }
-  
+
   /* Fix spacing issues */
   .rdp-week {
     gap: 0 !important;
   }
-  
+
   /* Ensure proper text alignment */
   .rdp-day_button {
     text-align: center !important;
@@ -330,13 +336,13 @@
     align-items: center !important;
     justify-content: center !important;
   }
-  
+
   /* Consistent text color, gray backgrounds for selected/hovered */
   button {
     color: var(--foreground) !important; /* Keep text color consistent */
     font-size: 0.85rem !important; /* Smaller numbers */
   }
-  
+
   /* Selected buttons - gray background */
   button[data-selected-single="true"],
   button[data-range-start="true"],
@@ -347,13 +353,15 @@
     outline: none !important;
     box-shadow: none !important;
   }
-  
+
   /* Hovered buttons - light gray background */
-  button:hover:not([data-selected-single="true"]):not([data-range-start="true"]):not([data-range-end="true"]) {
+  button:hover:not([data-selected-single="true"]):not(
+      [data-range-start="true"]
+    ):not([data-range-end="true"]) {
     background: oklch(0.95 0 0) !important; /* Light gray background */
     color: var(--foreground) !important; /* Keep text color the same */
   }
-  
+
   /* Selected buttons on hover - keep gray background */
   button[data-selected-single="true"]:hover,
   button[data-range-start="true"]:hover,
@@ -364,7 +372,7 @@
     outline: none !important;
     box-shadow: none !important;
   }
-  
+
   /* Range middle (between start and end) */
   button[data-range-middle="true"] {
     background: oklch(0.9 0 0) !important; /* Light gray */
