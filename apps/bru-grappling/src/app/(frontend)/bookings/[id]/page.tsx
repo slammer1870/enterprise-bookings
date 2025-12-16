@@ -54,6 +54,10 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
+  if (lesson.classOption.type === 'child') {
+    redirect(`/bookings/children/${id}`)
+  }
+
   // Handle active/trialable status
   if (['active', 'trialable'].includes(lesson.bookingStatus)) {
     const checkIn = await checkInAction(lesson.id, user.id)
