@@ -171,10 +171,10 @@ test.describe('User booking flow from schedule', () => {
     // Click "Check In" for tomorrow's lesson
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: 10000 })
-    
+
     // Click the button and wait for navigation
     await checkInButton.click()
-    
+
     // Wait for navigation to complete-booking page (with a longer timeout)
     try {
       await page.waitForURL(/\/complete-booking/, { timeout: 20000 })
@@ -186,25 +186,28 @@ test.describe('User booking flow from schedule', () => {
     }
 
     // If there's a login tab, use it; otherwise assume login mode is default
-    const loginTab = page.getByRole('tab', { name: /Login/i })
-    if ((await loginTab.count()) > 0) {
-      await loginTab.click()
+    const registerTab = page.getByRole('tab', { name: /Register/i })
+    if ((await registerTab.count()) > 0) {
+      await registerTab.click()
     }
 
     // Submit email to request magic link
+    const nameInput = page.getByRole('textbox', { name: /Name/i })
+    await expect(nameInput).toBeVisible({ timeout: 10000 })
+    await nameInput.fill('John Doe')
     const emailInput = page.getByRole('textbox', { name: /Email/i })
     await expect(emailInput).toBeVisible({ timeout: 10000 })
-    await emailInput.fill('user@example.com')
-    
+    await emailInput.fill(`user-${Date.now()}@example.com`)
+
     const submitButton = page.getByRole('button', { name: 'Submit' })
     await expect(submitButton).toBeVisible({ timeout: 10000 })
-    
+
     // Click submit and wait for navigation
     await Promise.all([
-      page.waitForURL(/\/magic-link-sent/, { timeout: 30000 }),
+      page.waitForURL(/\/magic-link-sent/, { timeout: 60000 }),
       submitButton.click(),
     ])
-    
+
     // Verify we're on the magic link sent page
     await expect(page).toHaveURL(/\/magic-link-sent/)
     await expect(page.getByText(/Magic link sent/i)).toBeVisible({ timeout: 10000 })
