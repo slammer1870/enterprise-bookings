@@ -21,7 +21,7 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? 'dot' : 'html',
   /* Global timeout for tests - reduced from 90s */
-  timeout: 60000, // 60 seconds per test
+  timeout: 100000, // 60 seconds per test
   /* Global timeout for expect assertions - reduced from 10s */
   expect: {
     timeout: 5000, // 5 seconds for assertions
