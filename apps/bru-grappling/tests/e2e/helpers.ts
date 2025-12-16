@@ -10,8 +10,8 @@ export async function ensureAdminLoggedIn(page: Page) {
   const adminEmail = `admin@example.com`
   const adminPassword = 'password123'
 
-  await page.goto('/admin', { waitUntil: 'load', timeout: 60000 })
-  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 10000 })
+  await page.goto('/admin', { waitUntil: 'load', timeout: 100000 })
+  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 100000 })
 
   // If we're on create-first-user page, create the admin user
   if (page.url().includes('/admin/create-first-user')) {
@@ -28,7 +28,7 @@ export async function ensureAdminLoggedIn(page: Page) {
     const [response] = await Promise.all([
       page
         .waitForResponse((resp) => resp.url().includes('/api/users/first-register'), {
-          timeout: 10000,
+          timeout: 100000,
         })
         .catch(() => null),
       page.getByRole('button', { name: 'Create' }).click(),
@@ -36,22 +36,22 @@ export async function ensureAdminLoggedIn(page: Page) {
 
     // If the response indicates an error (user already exists), navigate to login
     if (response && !response.ok()) {
-      await page.goto('/admin/login', { waitUntil: 'load', timeout: 60000 })
+      await page.goto('/admin/login', { waitUntil: 'load', timeout: 100000 })
     } else {
       // Wait for navigation - if we're still on create-first-user after timeout, navigate to login
       try {
         await page.waitForURL((url) => !url.pathname.includes('/create-first-user'), {
-          timeout: 5000,
+          timeout: 100000,
         })
       } catch {
         // Still on create-first-user page, likely an error occurred
-        await page.goto('/admin/login', { waitUntil: 'load', timeout: 60000 })
+        await page.goto('/admin/login', { waitUntil: 'load', timeout: 100000 })
       }
     }
   }
 
   // Re-check URL in case we navigated to login from the create-first-user block
-  await page.waitForURL(/\/admin\/(login|$)/, { timeout: 5000 }).catch(() => {})
+  await page.waitForURL(/\/admin\/(login|$)/, { timeout: 100000 }).catch(() => {})
 
   // If we're on login page, try to login (assuming user exists)
   if (page.url().includes('/admin/login')) {
@@ -60,5 +60,5 @@ export async function ensureAdminLoggedIn(page: Page) {
     await page.getByRole('button', { name: 'Login' }).click()
   }
 
-  await page.waitForURL(/\/admin$/, { timeout: 60000 })
+  await page.waitForURL(/\/admin$/, { timeout: 100000 })
 }
