@@ -122,24 +122,86 @@ async function expectLessonVisibleForTomorrow(
   tomorrow: Date,
   className: string,
 ): Promise<void> {
-  await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
-  await page.waitForTimeout(2000)
+  // Navigate to the lessons list and wait for the URL to stabilise
+  await page.goto('/admin/collections/lessons', { timeout: 60000 })
+  await expect(page).toHaveURL(/\/admin\/collections\/lessons/)
 
+  // Find tomorrow's date button by checking all day buttons with data-day attribute
   const tomorrowDay = tomorrow.getDate()
-  const dayButton = page
-    .locator(`button:has-text("${tomorrowDay}")`)
-    .filter({ hasNotText: /^\d+$/ })
-    .first()
-
-  if ((await dayButton.count()) > 0) {
-    await dayButton.click()
-  } else {
-    await page.locator(`button:has-text("${tomorrowDay}")`).first().click()
+  const tomorrowMonth = tomorrow.getMonth()
+  const tomorrowYear = tomorrow.getFullYear()
+  
+  // Get all day buttons and find the one matching tomorrow's date
+  const allDayButtons = page.locator('button[data-day]')
+  const count = await allDayButtons.count()
+  let dayButton: any = null
+  
+  for (let i = 0; i < count; i++) {
+    const button = allDayButtons.nth(i)
+    const dataDay = await button.getAttribute('data-day')
+    if (dataDay) {
+      // Parse the date - toLocaleDateString() returns a string like "12/16/2025"
+      // Try parsing it as a date
+      const buttonDate = new Date(dataDay)
+      // Check if the parsed date matches tomorrow (accounting for timezone issues)
+      if (!isNaN(buttonDate.getTime()) && 
+          buttonDate.getDate() === tomorrowDay && 
+          buttonDate.getMonth() === tomorrowMonth && 
+          buttonDate.getFullYear() === tomorrowYear) {
+        dayButton = button
+        break
+      }
+    }
+  }
+  
+  // If not found in current month, try navigating to next month
+  if (!dayButton) {
+    // Look for next month button (chevron right icon)
+    const calendarContainer = page.locator('[data-slot="calendar"]').or(page.locator('.rdp'))
+    const nextButton = calendarContainer.locator('button').filter({ has: page.locator('svg') }).last()
+    if ((await nextButton.count()) > 0) {
+      await nextButton.click()
+      await page.waitForTimeout(1000)
+      // Try again after navigating
+      const allDayButtonsAfterNav = page.locator('button[data-day]')
+      const countAfterNav = await allDayButtonsAfterNav.count()
+      for (let i = 0; i < countAfterNav; i++) {
+        const button = allDayButtonsAfterNav.nth(i)
+        const dataDay = await button.getAttribute('data-day')
+        if (dataDay) {
+          const buttonDate = new Date(dataDay)
+          if (!isNaN(buttonDate.getTime()) && 
+              buttonDate.getDate() === tomorrowDay && 
+              buttonDate.getMonth() === tomorrowMonth && 
+              buttonDate.getFullYear() === tomorrowYear) {
+            dayButton = button
+            break
+          }
+        }
+      }
+    }
   }
 
-  await page.waitForTimeout(2000)
+  if (dayButton) {
+    // Wait for navigation after clicking the day button
+    await Promise.all([
+      page.waitForURL(/\/admin\/collections\/lessons\?.*startTime/, { timeout: 10000 }),
+      dayButton.click(),
+    ])
+  } else {
+    throw new Error(`Could not find date button for tomorrow (${tomorrow.toLocaleDateString()})`)
+  }
+
+  // Wait for the table to load by waiting for network idle or a table element
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+  
+  // Wait for the lessons table to be visible (not the calendar grid)
+  await expect(page.locator('table').filter({ hasText: 'Start Time' })).toBeVisible({ timeout: 10000 })
+  await page.waitForTimeout(1000)
+
+  // Wait for the created lesson to appear instead of using a fixed timeout
   await expect(page.getByRole('cell', { name: className })).toBeVisible({
-    timeout: 10000,
+    timeout: 15000,
   })
 }
 
