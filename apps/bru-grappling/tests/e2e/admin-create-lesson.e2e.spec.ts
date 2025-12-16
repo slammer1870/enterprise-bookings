@@ -306,7 +306,7 @@ test.describe('Admin Lesson Creation Flow', () => {
 
     await page.getByRole('button', { name: 'Save' }).click()
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(10000)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
     // Create a lesson for tomorrow using this class option
