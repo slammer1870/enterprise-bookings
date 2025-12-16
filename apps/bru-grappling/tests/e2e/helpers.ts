@@ -33,7 +33,11 @@ export async function ensureAdminLoggedIn(page: any): Promise<void> {
     await page.waitForTimeout(10000)
 
     if (page.url().includes('/admin/create-first-user')) {
-      await page.goto('/admin/login', { waitUntil: 'load', timeout: 60000 })
+      await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await page.waitForURL(/\/admin\/login/, { timeout: 10000 })
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+      // Wait for the login form to be visible before interacting
+      await page.waitForSelector('input[name="email"], input[type="email"]', { timeout: 10000 })
       await page.getByRole('textbox', { name: 'Email' }).fill('admin@example.com')
       await page.getByRole('textbox', { name: 'Password' }).fill('password123')
       await page.getByRole('button', { name: 'Login' }).click()
