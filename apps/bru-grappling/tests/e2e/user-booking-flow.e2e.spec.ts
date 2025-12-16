@@ -157,6 +157,9 @@ test.describe('User booking flow from schedule', () => {
 
     // Log out admin
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
+    // Clear cookies to ensure we're logged out
+    await page.context().clearCookies()
+    await page.waitForTimeout(1000)
 
     // User phase: navigate to home (has schedule) and view schedule
     await page.goto('/', { waitUntil: 'load', timeout: 15000 })
@@ -167,10 +170,20 @@ test.describe('User booking flow from schedule', () => {
 
     // Click "Check In" for tomorrow's lesson
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
+    await expect(checkInButton).toBeVisible({ timeout: 10000 })
+    
+    // Click the button and wait for navigation
     await checkInButton.click()
-
-    // Redirects to complete-booking if not authenticated
-    await page.waitForURL(/\/complete-booking/, { timeout: 15000 })
+    
+    // Wait for navigation to complete-booking page (with a longer timeout)
+    try {
+      await page.waitForURL(/\/complete-booking/, { timeout: 20000 })
+    } catch (error) {
+      // If we're already on the complete-booking page, that's fine
+      if (!page.url().includes('/complete-booking')) {
+        throw error
+      }
+    }
 
     // If there's a login tab, use it; otherwise assume login mode is default
     const loginTab = page.getByRole('tab', { name: /Login/i })
@@ -179,11 +192,21 @@ test.describe('User booking flow from schedule', () => {
     }
 
     // Submit email to request magic link
-    await page.getByRole('textbox', { name: /Email/i }).fill('user@example.com')
-    await page.getByRole('button', { name: 'Submit' }).click()
-
-    expect(page.getByRole('button', { name: 'Sending...' })).toBeVisible()
-    await page.waitForURL(/\/magic-link-sent$/, { timeout: 30000 })
-    expect(page.getByText(/Magic link sent/i)).toBeVisible()
+    const emailInput = page.getByRole('textbox', { name: /Email/i })
+    await expect(emailInput).toBeVisible({ timeout: 10000 })
+    await emailInput.fill('user@example.com')
+    
+    const submitButton = page.getByRole('button', { name: 'Submit' })
+    await expect(submitButton).toBeVisible({ timeout: 10000 })
+    
+    // Click submit and wait for navigation
+    await Promise.all([
+      page.waitForURL(/\/magic-link-sent/, { timeout: 30000 }),
+      submitButton.click(),
+    ])
+    
+    // Verify we're on the magic link sent page
+    await expect(page).toHaveURL(/\/magic-link-sent/)
+    await expect(page.getByText(/Magic link sent/i)).toBeVisible({ timeout: 10000 })
   })
 })

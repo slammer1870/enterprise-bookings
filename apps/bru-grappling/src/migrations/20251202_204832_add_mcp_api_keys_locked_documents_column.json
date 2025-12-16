@@ -8025,12 +8025,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "payload_mcp_api_keys_id": {
-          "name": "payload_mcp_api_keys_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "forms_id": {
           "name": "forms_id",
           "type": "integer",
@@ -8224,21 +8218,6 @@
           "columns": [
             {
               "expression": "posts_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "payload_locked_documents_rels_payload_mcp_api_keys_id_idx": {
-          "name": "payload_locked_documents_rels_payload_mcp_api_keys_id_idx",
-          "columns": [
-            {
-              "expression": "payload_mcp_api_keys_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
