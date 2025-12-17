@@ -30,11 +30,13 @@ export async function ensureAdminLoggedIn(page: Page) {
   // Warm the server before the first admin navigation (slow on CI)
   await waitForServerReady(page.context().request)
 
-  await page.goto('/admin', { waitUntil: 'load', timeout: 100000 })
-  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 100000 })
+  // Initial admin navigation with networkidle for dev-server recompiles
+  await page.goto('/admin', { waitUntil: 'networkidle', timeout: 60000 })
+  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 60000 })
 
   // If we're on create-first-user page, create the admin user
   if (page.url().includes('/admin/create-first-user')) {
+    await page.getByRole('textbox', { name: 'Email *' }).waitFor({ state: 'visible', timeout: 20000 })
     await page.getByRole('textbox', { name: 'Email *' }).fill(adminEmail)
     await page.getByRole('textbox', { name: 'New Password' }).fill(adminPassword)
     await page.getByRole('textbox', { name: 'Confirm Password' }).fill(adminPassword)
@@ -61,11 +63,11 @@ export async function ensureAdminLoggedIn(page: Page) {
       // Wait for navigation - if we're still on create-first-user after timeout, navigate to login
       try {
         await page.waitForURL((url) => !url.pathname.includes('/create-first-user'), {
-          timeout: 100000,
+          timeout: 30000,
         })
       } catch {
         // Still on create-first-user page, likely an error occurred
-        await page.goto('/admin/login', { waitUntil: 'load', timeout: 100000 })
+        await page.goto('/admin/login', { waitUntil: 'networkidle', timeout: 30000 }).catch(() => {})
       }
     }
   }
@@ -74,7 +76,7 @@ export async function ensureAdminLoggedIn(page: Page) {
   // Keep timeout modest and retry with a fresh navigation if needed to avoid long stalls.
   const adminLanding = /\/admin\/(login|$)/
   try {
-    await page.waitForURL(adminLanding, { timeout: 30000 })
+    await page.waitForURL(adminLanding, { timeout: 30000, waitUntil: 'networkidle' })
   } catch {
     await page.goto('/admin', { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForURL(adminLanding, { timeout: 15000 }).catch(() => {})

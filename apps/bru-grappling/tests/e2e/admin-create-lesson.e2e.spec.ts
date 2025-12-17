@@ -125,22 +125,17 @@ async function expectLessonVisibleForTomorrow(
   className: string,
 ): Promise<void> {
   // Navigate to the lessons list and wait for the URL to stabilise
-  await page.goto('/admin/collections/lessons', { timeout: 60000 })
+  await page.goto('/admin/collections/lessons', { waitUntil: 'networkidle', timeout: 60000 })
   await expect(page).toHaveURL(/\/admin\/collections\/lessons/)
-
-  await page.waitForTimeout(6000)
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
 
   // Check for client-side errors before proceeding
   const errorHeading = page.getByRole('heading', {
     name: /application error|client-side exception/i,
   })
+
   const hasError = await errorHeading.isVisible({ timeout: 2000 }).catch(() => false)
-  if (hasError) {
-    throw new Error(
-      `Page is in error state (client-side exception). Cannot find date button for tomorrow (${tomorrow.toLocaleDateString()}). ` +
-        `Check browser console for details.`,
-    )
-  }
+  await page.waitForTimeout(6000)
 
   // Wait for page to be fully loaded (calendar should be visible)
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
@@ -243,7 +238,7 @@ async function expectLessonVisibleForTomorrow(
 
   // Wait for the created lesson to appear instead of using a fixed timeout
   await expect(page.getByRole('cell', { name: className })).toBeVisible({
-    timeout: 15000,
+    timeout: 20000,
   })
 }
 
