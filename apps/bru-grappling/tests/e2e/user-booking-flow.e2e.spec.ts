@@ -166,7 +166,7 @@ test.describe('User booking flow from schedule', () => {
     await page.context().clearCookies()
     await page.waitForTimeout(1000)
     // Warm server again for public page load (Next dev re-compiles in CI)
-  await waitForServerReady(page.context().request)
+    await waitForServerReady(page.context().request)
 
     // User phase: navigate to home (has schedule) and view schedule
     await page.goto('/', { waitUntil: 'load', timeout: 60000 })
@@ -177,26 +177,29 @@ test.describe('User booking flow from schedule', () => {
 
     // Click "Check In" for tomorrow's lesson
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
-  await expect(checkInButton).toBeVisible({ timeout: 20000 })
+    await expect(checkInButton).toBeVisible({ timeout: 20000 })
 
     // Click the button and wait for navigation
     await checkInButton.click()
 
-    // Wait for navigation to complete-booking page (with a longer timeout)
-  const reachedComplete = await page
-    .waitForURL(/\/complete-booking/, { timeout: 60000, waitUntil: 'networkidle' })
-    .then(() => true)
-    .catch(() => false)
+    await page.waitForTimeout(6000)
 
-  if (!reachedComplete) {
-    const completeHeadingVisible = await page
-      .getByRole('heading', { name: /complete.*booking/i })
-      .isVisible({ timeout: 5000 })
+    // Wait for navigation to complete-booking page (with a longer timeout)
+    const reachedComplete = await page
+      .waitForURL(/\/complete-booking/, { timeout: 10000, waitUntil: 'networkidle' })
+      .then(() => true)
       .catch(() => false)
-    if (!completeHeadingVisible) {
-      throw new Error('Did not reach complete-booking page after clicking Check In')
+
+    if (!reachedComplete) {
+      await page.waitForTimeout(6000)
+      const completeHeadingVisible = await page
+        .getByRole('heading', { name: /complete.*booking/i })
+        .isVisible({ timeout: 5000 })
+        .catch(() => false)
+      if (!completeHeadingVisible) {
+        throw new Error('Did not reach complete-booking page after clicking Check In')
+      }
     }
-  }
 
     // If there's a login tab, use it; otherwise assume login mode is default
     const registerTab = page.getByRole('tab', { name: /Register/i })
