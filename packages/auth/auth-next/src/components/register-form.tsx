@@ -37,15 +37,17 @@ export default function RegisterForm() {
 
 function RegisterFormContent() {
   const searchParams = useSearchParams();
-  const searchParamsString = searchParams?.get("callbackUrl") || "/";
+  const callbackUrlRaw = searchParams?.get("callbackUrl") || "/";
+  const searchParamsString = searchParams?.toString() || "";
   const callbackUrl = useMemo(
     () =>
       buildUTMCallbackUrl({
         searchParamsString,
+        fallbackPath: callbackUrlRaw,
         storedParams: getStoredUTMParams(),
         defaultOverrides: { utm_content: "register" },
       }),
-    [searchParamsString]
+    [searchParamsString, callbackUrlRaw]
   );
   const router = useRouter();
   const trpc = useTRPC();
