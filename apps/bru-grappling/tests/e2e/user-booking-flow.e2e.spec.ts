@@ -8,7 +8,7 @@ import { ensureAdminLoggedIn, waitForServerReady } from './helpers'
 async function ensureHomePageWithSchedule(page: any): Promise<void> {
   // Warm server before first admin navigation to avoid dev-server restarts on CI
   await waitForServerReady(page.context().request)
-  await page.goto('/admin/collections/pages', { waitUntil: 'networkidle', timeout: 60000 })
+  await page.goto('/admin/collections/pages', { waitUntil: 'domcontentloaded', timeout: 120000 })
 
   const homeRow = page.getByRole('row', { name: /home/i })
   if ((await homeRow.count()) > 0) {
@@ -31,7 +31,7 @@ async function ensureHomePageWithSchedule(page: any): Promise<void> {
   await page.getByRole('button', { name: /Schedule/i }).click()
 
   await page.getByRole('button', { name: /Save/i }).click()
-  await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
   await expect(page).toHaveURL(/\/admin\/collections\/pages\/\d+/)
 }
 
@@ -53,7 +53,7 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
     await page.getByRole('textbox', { name: 'Description *' }).fill('A test class option for e2e')
 
     await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
+    await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
     await page.waitForTimeout(1000)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
   }
@@ -83,7 +83,7 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
   }
 
   // No existing lesson found; create a new lesson for tomorrow using this class option
-  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
 
   const dateInput = page.locator('#field-date').getByRole('textbox')
   await dateInput.click()
@@ -121,7 +121,7 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
   await classOption.click()
 
   await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
   await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
 
   return tomorrow
@@ -154,6 +154,9 @@ async function goToTomorrowInSchedule(page: any): Promise<Date> {
 }
 
 test.describe('User booking flow from schedule', () => {
+  // CI dev server recompiles are slow; allow more time
+  test.setTimeout(180000)
+
   test('user can check in and then cancel tomorrow’s lesson', async ({ page }) => {
     // Admin phase: ensure prerequisites
     await ensureAdminLoggedIn(page)
@@ -186,7 +189,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Wait for navigation to complete-booking page (with a longer timeout)
     const reachedComplete = await page
-      .waitForURL(/\/complete-booking/, { timeout: 10000, waitUntil: 'networkidle' })
+      .waitForURL(/\/complete-booking/, { timeout: 30000, waitUntil: 'load' })
       .then(() => true)
       .catch(() => false)
 
@@ -220,7 +223,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Click submit and wait for navigation
     await Promise.all([
-      page.waitForURL(/\/magic-link-sent/, { timeout: 60000 }),
+      page.waitForURL(/\/magic-link-sent/, { timeout: 90000 }),
       submitButton.click(),
     ])
 
