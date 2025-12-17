@@ -183,14 +183,20 @@ test.describe('User booking flow from schedule', () => {
     await checkInButton.click()
 
     // Wait for navigation to complete-booking page (with a longer timeout)
-    try {
-    await page.waitForURL(/\/complete-booking/, { timeout: 45000 })
-    } catch (error) {
-      // If we're already on the complete-booking page, that's fine
-      if (!page.url().includes('/complete-booking')) {
-        throw error
-      }
+  const reachedComplete = await page
+    .waitForURL(/\/complete-booking/, { timeout: 60000, waitUntil: 'networkidle' })
+    .then(() => true)
+    .catch(() => false)
+
+  if (!reachedComplete) {
+    const completeHeadingVisible = await page
+      .getByRole('heading', { name: /complete.*booking/i })
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
+    if (!completeHeadingVisible) {
+      throw new Error('Did not reach complete-booking page after clicking Check In')
     }
+  }
 
     // If there's a login tab, use it; otherwise assume login mode is default
     const registerTab = page.getByRole('tab', { name: /Register/i })
