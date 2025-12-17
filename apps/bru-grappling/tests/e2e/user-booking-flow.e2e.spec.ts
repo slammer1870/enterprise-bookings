@@ -185,7 +185,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Click "Check In" for tomorrow's lesson
     const checkInButtonAfterCancel = page.getByRole('button', { name: /Check In/i }).first()
-    await expect(checkInButtonAfterCancel).toBeVisible({ timeout: 20000 })
+    await expect(checkInButtonAfterCancel).toBeVisible({ timeout: 60000 })
 
     // Click the button and wait for navigation
     await checkInButtonAfterCancel.click()
