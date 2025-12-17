@@ -91,7 +91,13 @@ export async function ensureAdminLoggedIn(page: Page) {
 
   // Initial admin navigation; avoid networkidle because Next dev server keeps sockets open
   await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
-  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
+  try {
+    await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
+  } catch {
+    // Retry once with a fresh navigation in case the first wait races a slow dev build on CI
+    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
+    await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
+  }
 
   // If we're on create-first-user page, create the admin user
   if (page.url().includes('/admin/create-first-user')) {
