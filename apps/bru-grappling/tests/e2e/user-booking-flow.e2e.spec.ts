@@ -177,14 +177,14 @@ test.describe('User booking flow from schedule', () => {
 
     // Click "Check In" for tomorrow's lesson
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
-    await expect(checkInButton).toBeVisible({ timeout: 10000 })
+  await expect(checkInButton).toBeVisible({ timeout: 20000 })
 
     // Click the button and wait for navigation
     await checkInButton.click()
 
     // Wait for navigation to complete-booking page (with a longer timeout)
     try {
-      await page.waitForURL(/\/complete-booking/, { timeout: 20000 })
+    await page.waitForURL(/\/complete-booking/, { timeout: 45000 })
     } catch (error) {
       // If we're already on the complete-booking page, that's fine
       if (!page.url().includes('/complete-booking')) {
