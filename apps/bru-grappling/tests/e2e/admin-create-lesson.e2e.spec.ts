@@ -31,7 +31,7 @@ async function createClassOption(
   const { name, description, places = '10' } = options
 
   await waitForServerReady(page.context().request)
-  await page.goto('/admin/collections/class-options', { waitUntil: 'networkidle', timeout: 60000 })
+  await page.goto('/admin/collections/class-options', { waitUntil: 'domcontentloaded', timeout: 120000 })
 
   await page.getByLabel('Create new Class Option').click()
 
@@ -111,7 +111,7 @@ async function selectClassOptionAndSaveLesson(page: any, className: string): Pro
   await page.waitForTimeout(500)
 
   await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
   await page.waitForTimeout(2000)
   await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
 }
@@ -125,9 +125,9 @@ async function expectLessonVisibleForTomorrow(
   className: string,
 ): Promise<void> {
   // Navigate to the lessons list and wait for the URL to stabilise
-  await page.goto('/admin/collections/lessons', { waitUntil: 'networkidle', timeout: 60000 })
+  await page.goto('/admin/collections/lessons', { waitUntil: 'domcontentloaded', timeout: 120000 })
   await expect(page).toHaveURL(/\/admin\/collections\/lessons/)
-  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
 
   // Check for client-side errors before proceeding
   const errorHeading = page.getByRole('heading', {
@@ -138,7 +138,7 @@ async function expectLessonVisibleForTomorrow(
   await page.waitForTimeout(6000)
 
   // Wait for page to be fully loaded (calendar should be visible)
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {})
 
   // Find tomorrow's date button by checking all day buttons with data-day attribute
   const tomorrowDay = tomorrow.getDate()
@@ -228,7 +228,7 @@ async function expectLessonVisibleForTomorrow(
   }
 
   // Wait for the table to load by waiting for network idle or a table element
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {})
 
   // Wait for the lessons table to be visible (not the calendar grid)
   await expect(page.locator('table').filter({ hasText: 'Start Time' })).toBeVisible({
@@ -243,6 +243,8 @@ async function expectLessonVisibleForTomorrow(
 }
 
 test.describe('Admin Lesson Creation Flow', () => {
+  // Allow extra headroom on CI where dev server recompiles are slow
+  test.setTimeout(180000)
   test('should create class option, create lesson for tomorrow, and verify it exists', async ({
     page,
   }) => {
@@ -260,14 +262,14 @@ test.describe('Admin Lesson Creation Flow', () => {
 
     // Save the class option
     await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
 
     // Verify class option was created (should be on edit page)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
     // Step 3: Create a lesson for tomorrow
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
     const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
     await selectClassOptionAndSaveLesson(page, className)
@@ -304,12 +306,12 @@ test.describe('Admin Lesson Creation Flow', () => {
     }
 
     await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(10000)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
     // Create a lesson for tomorrow using this class option
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
     const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
     await selectClassOptionAndSaveLesson(page, className)
@@ -344,12 +346,12 @@ test.describe('Admin Lesson Creation Flow', () => {
     }
 
     await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
     // Create a lesson for tomorrow using this class option
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
     const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
     await selectClassOptionAndSaveLesson(page, className)
@@ -399,12 +401,12 @@ test.describe('Admin Lesson Creation Flow', () => {
     }
 
     await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
 
     // Create a lesson for tomorrow using this class option
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 60000 })
+    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
     const tomorrow = await setLessonTomorrowAtTenToEleven(page)
 
     await selectClassOptionAndSaveLesson(page, className)
