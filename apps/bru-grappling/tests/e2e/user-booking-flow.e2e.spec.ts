@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test'
-import { ensureAdminLoggedIn } from './helpers'
+import { ensureAdminLoggedIn, waitForServerReady } from './helpers'
 
 /**
  * Ensure there is a home page with a Schedule block.
  * If a page with slug "home" does not exist, create one via the admin UI.
  */
 async function ensureHomePageWithSchedule(page: any): Promise<void> {
-  await page.goto('/admin/collections/pages', { waitUntil: 'load', timeout: 60000 })
+  // Warm server before first admin navigation to avoid dev-server restarts on CI
+  await waitForServerReady(page.context().request)
+  await page.goto('/admin/collections/pages', { waitUntil: 'networkidle', timeout: 60000 })
 
   const homeRow = page.getByRole('row', { name: /home/i })
   if ((await homeRow.count()) > 0) {
@@ -16,6 +18,9 @@ async function ensureHomePageWithSchedule(page: any): Promise<void> {
 
   // Create minimal home page with a Schedule block
   await page.getByLabel(/Create new Page/i).click()
+
+  // Wait for form fields to be ready instead of relying on page load alone
+  await page.getByRole('textbox', { name: 'Title *' }).waitFor({ state: 'visible', timeout: 10000 })
 
   await page.getByRole('textbox', { name: 'Title *' }).fill('Home')
   await page.getByRole('textbox', { name: /Slug/i }).fill('home')
@@ -142,7 +147,7 @@ async function goToTomorrowInSchedule(page: any): Promise<Date> {
   }
 
   await expect(page.locator('#schedule p', { hasText: tomorrowText })).toBeVisible({
-    timeout: 10000,
+    timeout: 20000,
   })
 
   return tomorrow
@@ -160,9 +165,11 @@ test.describe('User booking flow from schedule', () => {
     // Clear cookies to ensure we're logged out
     await page.context().clearCookies()
     await page.waitForTimeout(1000)
+    // Warm server again for public page load (Next dev re-compiles in CI)
+  await waitForServerReady(page.context().request)
 
     // User phase: navigate to home (has schedule) and view schedule
-    await page.goto('/', { waitUntil: 'load', timeout: 15000 })
+    await page.goto('/', { waitUntil: 'load', timeout: 60000 })
     await expect(page.locator('#schedule')).toBeVisible()
     await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
 
@@ -210,6 +217,9 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify we're on the magic link sent page
     await expect(page).toHaveURL(/\/magic-link-sent/)
-    await expect(page.getByText(/Magic link sent/i)).toBeVisible({ timeout: 10000 })
+    // Use a specific heading locator to avoid strict-mode ambiguity with live region text
+    await expect(page.getByRole('heading', { name: /Magic link sent/i })).toBeVisible({
+      timeout: 10000,
+    })
   })
 })

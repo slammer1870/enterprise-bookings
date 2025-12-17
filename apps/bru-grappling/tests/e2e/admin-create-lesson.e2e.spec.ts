@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { ensureAdminLoggedIn } from './helpers'
+import { ensureAdminLoggedIn, waitForServerReady } from './helpers'
 
 /**
  * E2E test for admin lesson creation flow
@@ -30,9 +30,13 @@ async function createClassOption(
 ) {
   const { name, description, places = '10' } = options
 
-  await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
+  await waitForServerReady(page.context().request)
+  await page.goto('/admin/collections/class-options', { waitUntil: 'networkidle', timeout: 60000 })
+
   await page.getByLabel('Create new Class Option').click()
-  await page.waitForTimeout(1000)
+
+  // Wait for the form to be visible instead of a fixed delay
+  await page.getByRole('textbox', { name: 'Name *' }).waitFor({ state: 'visible', timeout: 10000 })
 
   await page.getByRole('textbox', { name: 'Name *' }).fill(name)
   await page.getByRole('spinbutton', { name: 'Places *' }).fill(places)
