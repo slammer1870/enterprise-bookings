@@ -1,4 +1,21 @@
-import { expect, Page } from '@playwright/test'
+import { expect, Page, APIRequestContext } from '@playwright/test'
+
+/**
+ * Wait for the Next.js dev server + Payload API to respond.
+ * CI can be slow to compile the first request, so we poll /api/health.
+ */
+export async function waitForServerReady(request: APIRequestContext, attempts = 12, delayMs = 2500) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await request.get('/api/health', { timeout: 5000 })
+      if (res.ok()) return
+    } catch {
+      // ignore and retry
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
+  throw new Error('Server health check did not respond in time')
+}
 
 /**
  * Helper function to ensure we're logged in as admin.
@@ -9,6 +26,9 @@ export async function ensureAdminLoggedIn(page: Page) {
   // Create a unique email for the admin
   const adminEmail = `admin@example.com`
   const adminPassword = 'password123'
+
+  // Warm the server before the first admin navigation (slow on CI)
+  await waitForServerReady(page.context().request)
 
   await page.goto('/admin', { waitUntil: 'load', timeout: 100000 })
   await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 100000 })
@@ -51,7 +71,14 @@ export async function ensureAdminLoggedIn(page: Page) {
   }
 
   // Re-check URL in case we navigated to login from the create-first-user block
-  await page.waitForURL(/\/admin\/(login|$)/, { timeout: 100000 }).catch(() => {})
+  // Keep timeout modest and retry with a fresh navigation if needed to avoid long stalls.
+  const adminLanding = /\/admin\/(login|$)/
+  try {
+    await page.waitForURL(adminLanding, { timeout: 30000 })
+  } catch {
+    await page.goto('/admin', { waitUntil: 'networkidle', timeout: 30000 })
+    await page.waitForURL(adminLanding, { timeout: 15000 }).catch(() => {})
+  }
 
   // If we're on login page, try to login (assuming user exists)
   if (page.url().includes('/admin/login')) {
@@ -61,4 +88,5 @@ export async function ensureAdminLoggedIn(page: Page) {
   }
 
   await page.waitForURL(/\/admin$/, { timeout: 100000 })
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
 }
