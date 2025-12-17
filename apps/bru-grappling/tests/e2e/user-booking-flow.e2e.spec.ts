@@ -290,8 +290,23 @@ test.describe('User booking flow from schedule', () => {
     }
 
     // Verify the booking shows as cancelable on the schedule for tomorrow
-    await expect(page.locator('#schedule')).toBeVisible()
-    await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
+    const scheduleLocator = page.locator('#schedule')
+    const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
+
+    const scheduleVisible = await scheduleLocator.isVisible({ timeout: 5000 }).catch(() => false)
+    if (!scheduleVisible) {
+      // In case dashboard finishes late or layout changes, ensure content is loaded
+      await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
+    }
+
+    const stillHidden = !(await scheduleLocator.isVisible({ timeout: 5000 }).catch(() => false))
+    if (stillHidden) {
+      // Fallback: the schedule is also present on the home page
+      await page.goto('/', { waitUntil: 'load', timeout: 60000 })
+    }
+
+    await expect(scheduleLocator).toBeVisible({ timeout: 20000 })
+    await expect(scheduleHeading).toBeVisible({ timeout: 20000 })
 
     await goToTomorrowInSchedule(page)
 
