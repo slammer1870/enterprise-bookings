@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { ensureAdminLoggedIn, waitForServerReady } from './helpers'
+import {
+  clearTestMagicLinks,
+  ensureAdminLoggedIn,
+  pollForTestMagicLink,
+  waitForServerReady,
+} from './helpers'
 
 /**
  * Ensure there is a home page with a Schedule block.
@@ -204,6 +209,19 @@ test.describe('User booking flow from schedule', () => {
       }
     }
 
+    const callbackPath = (() => {
+      try {
+        const current = new URL(page.url())
+        const rawCallback = current.searchParams.get('callbackUrl')
+        if (rawCallback) {
+          return rawCallback.startsWith('http') ? new URL(rawCallback).pathname : rawCallback
+        }
+      } catch {
+        // ignore parsing errors and fall back
+      }
+      return '/'
+    })()
+
     // If there's a login tab, use it; otherwise assume login mode is default
     const registerTab = page.getByRole('tab', { name: /Register/i })
     if ((await registerTab.count()) > 0) {
@@ -216,7 +234,9 @@ test.describe('User booking flow from schedule', () => {
     await nameInput.fill('John Doe')
     const emailInput = page.getByRole('textbox', { name: /Email/i })
     await expect(emailInput).toBeVisible({ timeout: 10000 })
-    await emailInput.fill(`user-${Date.now()}@example.com`)
+    const email = `user-${Date.now()}@example.com`
+    await emailInput.fill(email)
+    await clearTestMagicLinks(page.context().request, email)
 
     const submitButton = page.getByRole('button', { name: 'Submit' })
     await expect(submitButton).toBeVisible({ timeout: 10000 })
@@ -233,5 +253,51 @@ test.describe('User booking flow from schedule', () => {
     await expect(page.getByRole('heading', { name: /Magic link sent/i })).toBeVisible({
       timeout: 10000,
     })
+
+    // Retrieve magic link via test-only endpoint and follow it
+    const magicLink = await pollForTestMagicLink(page.context().request, email, 15, 1000)
+    await page.goto(magicLink.url, { waitUntil: 'load', timeout: 60000 })
+
+    const landedOnCallback = await page
+      .waitForURL(
+        (url) => {
+          try {
+            return url.pathname.startsWith(callbackPath)
+          } catch {
+            return false
+          }
+        },
+        { timeout: 10000 },
+      )
+      .then(() => true)
+      .catch(() => false)
+
+    if (!landedOnCallback) {
+      await page.goto(callbackPath, { waitUntil: 'load', timeout: 30000 })
+    }
+
+    // Wait for callback path or dashboard (booking page may redirect post-login)
+    const redirected = await page
+      .waitForURL(
+        (url) => /\/dashboard/.test(url.pathname) || url.pathname.startsWith(callbackPath),
+        { timeout: 20000 },
+      )
+      .then(() => true)
+      .catch(() => false)
+
+    if (!redirected) {
+      await page.goto('/dashboard', { waitUntil: 'load', timeout: 30000 })
+    }
+
+    // Verify the booking shows as cancelable on the schedule for tomorrow
+    await expect(page.locator('#schedule')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
+
+    await goToTomorrowInSchedule(page)
+
+    const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
+    await expect(cancelButton).toBeVisible({ timeout: 20000 })
+
+    await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })
 })

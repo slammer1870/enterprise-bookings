@@ -2,11 +2,25 @@ import { admin, magicLink, openAPI } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
 import type { BetterAuthPlugin as BetterAuthPluginType } from 'better-auth/types'
 
+import { saveTestMagicLink } from './test-magic-link-store'
+
+const handleSendMagicLink = async ({
+  email,
+  token,
+  url,
+}: {
+  email: string
+  token: string
+  url: string
+}) => {
+  // Capture link for test harness; no-op outside test mode
+  saveTestMagicLink({ email, token, url })
+  console.log('Send magic link for user: ', email, token, url)
+}
+
 export const betterAuthPlugins = [
   magicLink({
-    sendMagicLink: async ({ email, token, url }, request) => {
-      console.log('Send magic link for user: ', email, token, url)
-    },
+    sendMagicLink: async ({ email, token, url }) => handleSendMagicLink({ email, token, url }),
     disableSignUp: true,
   }),
   admin({
@@ -39,9 +53,8 @@ export const betterAuthOptions = {
   magicLink: {
     enabled: true,
     disableSignUp: true,
-    sendMagicLink: async ({ email, token, url }: { email: string; token: string; url: string }) => {
-      console.log('Send magic link for user: ', email, token, url)
-    },
+    sendMagicLink: async ({ email, token, url }: { email: string; token: string; url: string }) =>
+      handleSendMagicLink({ email, token, url }),
   },
   /*socialProviders: {
     google: {

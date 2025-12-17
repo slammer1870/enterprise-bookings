@@ -57,6 +57,7 @@ export default defineConfig({
       NODE_ENV: 'test',
       CI: process.env.CI || 'false',
       NODE_OPTIONS: '--no-deprecation',
+      ENABLE_TEST_MAGIC_LINKS: 'true',
       // DATABASE_URI will be set by globalSetup before webServer starts
       // Playwright will automatically pass it to the webServer process
     },
