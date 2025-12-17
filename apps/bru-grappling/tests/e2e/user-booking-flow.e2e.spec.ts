@@ -184,11 +184,11 @@ test.describe('User booking flow from schedule', () => {
     await goToTomorrowInSchedule(page)
 
     // Click "Check In" for tomorrow's lesson
-    const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
-    await expect(checkInButton).toBeVisible({ timeout: 20000 })
+    const checkInButtonAfterCancel = page.getByRole('button', { name: /Check In/i }).first()
+    await expect(checkInButtonAfterCancel).toBeVisible({ timeout: 20000 })
 
     // Click the button and wait for navigation
-    await checkInButton.click()
+    await checkInButtonAfterCancel.click()
 
     await page.waitForTimeout(6000)
 
@@ -297,6 +297,14 @@ test.describe('User booking flow from schedule', () => {
 
     const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
     await expect(cancelButton).toBeVisible({ timeout: 20000 })
+    await cancelButton.click()
+
+    const confirmButton = page.getByRole('button', { name: /^Confirm$/i })
+    await expect(confirmButton).toBeVisible({ timeout: 10000 })
+    await confirmButton.click()
+
+    const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
+    await expect(checkInButton).toBeVisible({ timeout: 20000 })
 
     await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })
