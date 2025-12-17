@@ -290,7 +290,7 @@ test.describe('User booking flow from schedule', () => {
     }
 
     // Verify the booking shows as cancelable on the schedule for tomorrow
-    // The schedule should be on the dashboard - wait for it to appear
+    // The schedule should be on the dashboard - wait for it to appear 
     await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
     const scheduleLocator = page.locator('#schedule')
     const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
