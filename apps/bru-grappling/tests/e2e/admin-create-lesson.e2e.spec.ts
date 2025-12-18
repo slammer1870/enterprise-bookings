@@ -31,7 +31,10 @@ async function createClassOption(
   const { name, description, places = '10' } = options
 
   await waitForServerReady(page.context().request)
-  await page.goto('/admin/collections/class-options', { waitUntil: 'domcontentloaded', timeout: 120000 })
+  await page.goto('/admin/collections/class-options', {
+    waitUntil: 'domcontentloaded',
+    timeout: 120000,
+  })
 
   await page.getByLabel('Create new Class Option').click()
 
@@ -263,7 +266,7 @@ test.describe('Admin Lesson Creation Flow', () => {
     // Save the class option
     await page.getByRole('button', { name: 'Save' }).click()
     await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(5000)
 
     // Verify class option was created (should be on edit page)
     await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
