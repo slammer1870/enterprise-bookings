@@ -273,7 +273,8 @@ test.describe('User booking flow from schedule', () => {
       .catch(() => false)
 
     if (!landedOnCallback) {
-      await page.goto(callbackPath, { waitUntil: 'load', timeout: 30000 })
+      // Callback routes often redirect immediately; don't wait for full `load` (can hang in CI)
+      await page.goto(callbackPath, { waitUntil: 'domcontentloaded', timeout: 30000 })
     }
 
     // Wait for callback path or dashboard (booking page may redirect post-login)
