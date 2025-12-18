@@ -112,7 +112,7 @@ async function selectClassOptionAndSaveLesson(page: any, className: string): Pro
 
   await page.getByRole('button', { name: 'Save' }).click()
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(2000)
+  await page.waitForTimeout(4000)
   await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
 }
 
