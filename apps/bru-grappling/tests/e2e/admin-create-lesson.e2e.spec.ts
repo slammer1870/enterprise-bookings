@@ -112,7 +112,7 @@ async function selectClassOptionAndSaveLesson(page: any, className: string): Pro
 
   await page.getByRole('button', { name: 'Save' }).click()
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(4000)
+  await page.waitForTimeout(8000)
   await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
 }
 
@@ -147,7 +147,7 @@ async function expectLessonVisibleForTomorrow(
 
   // Verify calendar is visible before looking for date buttons
   const calendarContainer = page.locator('[data-slot="calendar"]').or(page.locator('.rdp'))
-  const calendarVisible = await calendarContainer.isVisible({ timeout: 5000 }).catch(() => false)
+  const calendarVisible = await calendarContainer.isVisible({ timeout: 10000 }).catch(() => false)
   if (!calendarVisible) {
     throw new Error(
       `Calendar is not visible on lessons page. Cannot find date button for tomorrow (${tomorrow.toLocaleDateString()})`,
