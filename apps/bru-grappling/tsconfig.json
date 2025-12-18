@@ -17,7 +17,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "tailwind.config.js"
-, "src/app/(payload)/admin/importMap.ts"  ],
-  "exclude": ["node_modules", "tests/**/*"]
+    "tailwind.config.js",
+    "src/app/(payload)/admin/importMap.ts"
+  ],
+  "exclude": ["node_modules"]
 }

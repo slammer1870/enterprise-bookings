@@ -1,4 +1,5 @@
 import { expect, Page, APIRequestContext } from '@playwright/test'
+import { waitForServerReady } from '@repo/testing-config/src/playwright'
 
 const MAGIC_LINK_ENDPOINT = '/api/test/magic-links'
 
@@ -9,22 +10,7 @@ type MagicLinkResponse = {
   createdAt: number
 }
 
-/**
- * Wait for the Next.js dev server + Payload API to respond.
- * CI can be slow to compile the first request, so we poll /api/health.
- */
-export async function waitForServerReady(request: APIRequestContext, attempts = 12, delayMs = 2500) {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const res = await request.get('/api/health', { timeout: 5000 })
-      if (res.ok()) return
-    } catch {
-      // ignore and retry
-    }
-    await new Promise((resolve) => setTimeout(resolve, delayMs))
-  }
-  throw new Error('Server health check did not respond in time')
-}
+export { waitForServerReady }
 
 /**
  * Clear stored magic links for a specific email or all (test-only endpoint).
@@ -95,8 +81,8 @@ export async function ensureAdminLoggedIn(page: Page) {
     await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
   } catch {
     // Retry once with a fresh navigation in case the first wait races a slow dev build on CI
-    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
-    await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
+  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
+  await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
   }
 
   // If we're on create-first-user page, create the admin user
