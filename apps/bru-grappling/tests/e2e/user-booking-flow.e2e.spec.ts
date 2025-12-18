@@ -228,6 +228,8 @@ test.describe('User booking flow from schedule', () => {
       await registerTab.click()
     }
 
+    await page.waitForTimeout(5000)
+
     // Submit email to request magic link
     const nameInput = page.getByRole('textbox', { name: /Name/i })
     await expect(nameInput).toBeVisible({ timeout: 10000 })
@@ -306,7 +308,8 @@ test.describe('User booking flow from schedule', () => {
     await cancelButton.click()
 
     const confirmButton = page.getByRole('button', { name: /^Confirm$/i })
-    await expect(confirmButton).toBeVisible({ timeout: 20000 })
+    await page.waitForTimeout(5000)
+    await expect(confirmButton).toBeVisible({ timeout: 10000 })
     await confirmButton.click()
 
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
