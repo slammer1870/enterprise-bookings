@@ -279,17 +279,19 @@ test.describe('User booking flow from schedule', () => {
       await page.goto(callbackPath, { waitUntil: 'domcontentloaded', timeout: 30000 })
     }
 
-    // Wait for callback path or dashboard (booking page may redirect post-login)
+    // Wait for callback path or dashboard (booking page may redirect post-login).
+    // If we don't get either fairly quickly, fail fast with a clear message rather than
+    // attempting extra navigation after the test timeout (which causes "page closed" errors in CI).
     const redirected = await page
       .waitForURL(
         (url) => /\/dashboard/.test(url.pathname) || url.pathname.startsWith(callbackPath),
-        { timeout: 20000 },
+        { timeout: 60000 },
       )
       .then(() => true)
       .catch(() => false)
 
     if (!redirected) {
-      await page.goto('/dashboard', { waitUntil: 'load', timeout: 30000 })
+      throw new Error(`Did not redirect to callback (${callbackPath}) or /dashboard after magic link`)
     }
 
     // Verify the booking shows as cancelable on the schedule for tomorrow
