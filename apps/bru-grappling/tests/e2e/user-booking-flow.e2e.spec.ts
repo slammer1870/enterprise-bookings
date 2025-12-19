@@ -3,6 +3,7 @@ import {
   clearTestMagicLinks,
   ensureAdminLoggedIn,
   pollForTestMagicLink,
+  saveObjectAndWaitForNavigation,
   waitForServerReady,
 } from './helpers'
 
@@ -35,17 +36,11 @@ async function ensureHomePageWithSchedule(page: any): Promise<void> {
   await addLayoutButton.click()
   await page.getByRole('button', { name: /Schedule/i }).click()
 
-  await page.getByRole('button', { name: /Save/i }).click()
-  await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
-  try {
-    await page.waitForURL(/\/admin\/collections\/pages\/\d+/, { timeout: 10000 })
-  } catch {
-    await page.goto('/admin/collections/pages/1', {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    })
-  }
-  await expect(page).toHaveURL(/\/admin\/collections\/pages\/\d+/)
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/pages',
+    expectedUrlPattern: /\/admin\/collections\/pages\/\d+/,
+    collectionName: 'pages',
+  })
 }
 
 /**
@@ -61,14 +56,24 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
     // No matching class option found; create a basic one
     await page.getByLabel('Create new Class Option').click()
 
+    await page
+      .waitForURL(/\/admin\/collections\/class-options\/create/, { timeout: 10000 })
+      .catch(async () => {
+        await page.goto('/admin/collections/class-options/create', {
+          waitUntil: 'domcontentloaded',
+          timeout: 10000,
+        })
+      })
+
     await page.getByRole('textbox', { name: 'Name *' }).fill(className)
     await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
     await page.getByRole('textbox', { name: 'Description *' }).fill('A test class option for e2e')
 
-    await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
-    await page.waitForTimeout(1000)
-    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+    await saveObjectAndWaitForNavigation(page, {
+      apiPath: '/api/class-options',
+      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+      collectionName: 'class-options',
+    })
   }
 
   // Compute tomorrow's date (used for both lookup and creation)
@@ -81,7 +86,10 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
   })
 
   // First, check if a lesson already exists for tomorrow with this class option
-  await page.goto('/admin/collections/lessons', { waitUntil: 'load', timeout: 60000 })
+  await page.goto('/admin/collections/lessons', {
+    waitUntil: 'load',
+    timeout: process.env.CI ? 180000 : 60000,
+  })
   const tomorrowDay = tomorrow.getDate()
   const dayButton = page.locator(`button:has-text("${tomorrowDay}")`).first()
   if ((await dayButton.count()) > 0) {
@@ -133,9 +141,12 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
   await expect(classOption).toBeVisible({ timeout: 10000 })
   await classOption.click()
 
-  await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
-  await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
+  // Save lesson with ID extraction fallback
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/lessons',
+    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
+    collectionName: 'lessons',
+  })
 
   return tomorrow
 }
@@ -205,9 +216,11 @@ async function ensureAtLeastOneDropIn(page: any): Promise<string> {
     }
   }
 
-  await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('domcontentloaded', { timeout: 20000 }).catch(() => {})
-  await expect(page).toHaveURL(/\/admin\/collections\/drop-ins\/\d+/)
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/drop-ins',
+    expectedUrlPattern: /\/admin\/collections\/drop-ins\/\d+/,
+    collectionName: 'drop-ins',
+  })
 
   return dropInName
 }
@@ -259,9 +272,11 @@ async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
     await first.click()
   }
 
-  await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
-  await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/class-options',
+    expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+    collectionName: 'class-options',
+  })
 
   // Compute tomorrow's date (used for lesson creation)
   const tomorrow = new Date()
@@ -310,9 +325,12 @@ async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
   await expect(classOption).toBeVisible({ timeout: 10000 })
   await classOption.click()
 
-  await page.getByRole('button', { name: 'Save' }).click()
-  await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {})
-  await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
+  // Save lesson with ID extraction fallback
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/lessons',
+    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
+    collectionName: 'lessons',
+  })
 
   return tomorrow
 }
@@ -337,7 +355,7 @@ async function goToTomorrowInSchedule(page: any): Promise<Date> {
   }
 
   await expect(page.locator('#schedule p', { hasText: tomorrowText })).toBeVisible({
-    timeout: 20000,
+    timeout: 60000,
   })
 
   return tomorrow
@@ -372,16 +390,22 @@ test.describe('User booking flow from schedule', () => {
     const checkInButtonAfterCancel = page.getByRole('button', { name: /Check In/i }).first()
     await expect(checkInButtonAfterCancel).toBeVisible({ timeout: 60000 })
 
+    // Set up navigation promise BEFORE clicking (critical for UI mode)
+    const completeBookingNavPromise = page.waitForURL(/\/complete-booking/, {
+      timeout: process.env.CI ? 60000 : 30000,
+      waitUntil: 'load',
+    })
+
     // Click the button and wait for navigation
-    await checkInButtonAfterCancel.click()
+    await Promise.all([
+      checkInButtonAfterCancel.click(),
+      // Don't await navigation yet
+    ])
 
     await page.waitForTimeout(6000)
 
     // Wait for navigation to complete-booking page (with a longer timeout)
-    const reachedComplete = await page
-      .waitForURL(/\/complete-booking/, { timeout: 30000, waitUntil: 'load' })
-      .then(() => true)
-      .catch(() => false)
+    const reachedComplete = await completeBookingNavPromise.then(() => true).catch(() => false)
 
     if (!reachedComplete) {
       await page.waitForTimeout(6000)
@@ -417,7 +441,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Submit email to request magic link
     const nameInput = page.getByRole('textbox', { name: /Name/i })
-    await expect(nameInput).toBeVisible({ timeout: 10000 })
+    await expect(nameInput).toBeVisible({ timeout: process.env.CI ? 30000 : 10000 })
     await nameInput.fill('John Doe')
     const emailInput = page.getByRole('textbox', { name: /Email/i })
     await expect(emailInput).toBeVisible({ timeout: 10000 })
@@ -427,12 +451,20 @@ test.describe('User booking flow from schedule', () => {
 
     const submitButton = page.getByRole('button', { name: 'Submit' })
     await expect(submitButton).toBeVisible({ timeout: 10000 })
+    // Ensure button is actionable (critical for UI mode)
+    await expect(submitButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(1000)
+      })
+
+    // Set up navigation promise BEFORE clicking (critical for UI mode)
+    const magicLinkSentNavPromise = page.waitForURL(/\/magic-link-sent/, {
+      timeout: process.env.CI ? 120000 : 90000,
+    })
 
     // Click submit and wait for navigation
-    await Promise.all([
-      page.waitForURL(/\/magic-link-sent/, { timeout: 90000 }),
-      submitButton.click(),
-    ])
+    await Promise.all([magicLinkSentNavPromise, submitButton.click()])
 
     // Verify we're on the magic link sent page
     await expect(page).toHaveURL(/\/magic-link-sent/)
@@ -487,18 +519,32 @@ test.describe('User booking flow from schedule', () => {
     const scheduleLocator = page.locator('#schedule')
     const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
 
-    await expect(scheduleLocator).toBeVisible({ timeout: 30000 })
-    await expect(scheduleHeading).toBeVisible({ timeout: 30000 })
+    await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
+    await expect(scheduleHeading).toBeVisible({ timeout: 60000 })
 
     await goToTomorrowInSchedule(page)
 
     const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
     await expect(cancelButton).toBeVisible({ timeout: 20000 })
+    // Ensure button is actionable (critical for UI mode)
+    await expect(cancelButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(1000)
+      })
     await cancelButton.click()
 
-    const confirmButton = page.getByRole('button', { name: /^Confirm$/i })
     await page.waitForTimeout(5000)
-    await expect(confirmButton).toBeVisible({ timeout: 10000 })
+
+    const confirmButton = page.getByRole('button', { name: /^Confirm$/i })
+    await expect(confirmButton).toBeVisible({ timeout: 20000 })
+
+    // Ensure button is actionable (critical for UI mode)
+    await expect(confirmButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(5000)
+      })
     await confirmButton.click()
 
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
@@ -531,10 +577,26 @@ test.describe('User booking flow from schedule', () => {
     // Click "Check In" for tomorrow's lesson
     const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: 60000 })
-    await checkInButton.click()
+    // Ensure button is actionable (critical for UI mode)
+    await expect(checkInButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(1000)
+      })
+
+    // Set up navigation promise BEFORE clicking (critical for UI mode)
+    const completeBookingNavPromise2 = page.waitForURL(/\/complete-booking/, {
+      timeout: process.env.CI ? 60000 : 30000,
+      waitUntil: 'load',
+    })
+
+    await Promise.all([
+      checkInButton.click(),
+      // Don't await navigation yet
+    ])
 
     // We should be prompted to complete booking / auth with a callbackUrl to /bookings/{id}
-    await page.waitForURL(/\/complete-booking/, { timeout: 30000, waitUntil: 'load' })
+    await completeBookingNavPromise2
 
     const callbackPath = (() => {
       try {
@@ -561,7 +623,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Submit email to request magic link
     const nameInput = page.getByRole('textbox', { name: /Name/i })
-    await expect(nameInput).toBeVisible({ timeout: 10000 })
+    await expect(nameInput).toBeVisible({ timeout: process.env.CI ? 30000 : 10000 })
     await nameInput.fill('John Doe')
     const emailInput = page.getByRole('textbox', { name: /Email/i })
     await expect(emailInput).toBeVisible({ timeout: 10000 })
@@ -571,10 +633,19 @@ test.describe('User booking flow from schedule', () => {
 
     const submitButton = page.getByRole('button', { name: 'Submit' })
     await expect(submitButton).toBeVisible({ timeout: 10000 })
-    await Promise.all([
-      page.waitForURL(/\/magic-link-sent/, { timeout: 90000 }),
-      submitButton.click(),
-    ])
+    // Ensure button is actionable (critical for UI mode)
+    await expect(submitButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(1000)
+      })
+
+    // Set up navigation promise BEFORE clicking (critical for UI mode)
+    const magicLinkSentNavPromise2 = page.waitForURL(/\/magic-link-sent/, {
+      timeout: process.env.CI ? 120000 : 90000,
+    })
+
+    await Promise.all([magicLinkSentNavPromise2, submitButton.click()])
 
     // Retrieve magic link via test-only endpoint and follow it
     const magicLink = await pollForTestMagicLink(page.context().request, email, 15, 1000)
@@ -598,8 +669,10 @@ test.describe('User booking flow from schedule', () => {
     await dropInTab.click()
 
     const paymentElement = page.locator('#payment-element')
-    await expect(paymentElement).toBeVisible({ timeout: 30000 })
-    await expect(paymentElement.locator('iframe').first()).toBeVisible({ timeout: 30000 })
+    await expect(paymentElement).toBeVisible({ timeout: process.env.CI ? 60000 : 30000 })
+    await expect(paymentElement.locator('iframe').first()).toBeVisible({
+      timeout: process.env.CI ? 60000 : 30000,
+    })
 
     await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })

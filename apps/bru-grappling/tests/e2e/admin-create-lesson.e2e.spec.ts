@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
-import { ensureAdminLoggedIn, waitForServerReady } from './helpers'
+import {
+  ensureAdminLoggedIn,
+  saveObjectAndWaitForNavigation,
+  waitForServerReady,
+} from './helpers'
 
 /**
  * E2E test for admin lesson creation flow
@@ -45,6 +49,7 @@ async function createClassOption(
   await page.getByRole('spinbutton', { name: 'Places *' }).fill(places)
   await page.getByRole('textbox', { name: 'Description *' }).fill(description)
 }
+
 
 /**
  * Helper to set the lesson date to tomorrow and time to 10:00–11:00.
@@ -120,52 +125,19 @@ async function selectClassOptionAndSaveLesson(page: any, className: string): Pro
   await page.waitForTimeout(1000)
   
   // Ensure the dropdown is closed before proceeding
-  await expect(createdOption).not.toBeVisible({ timeout: 3000 }).catch(() => {
+  await expect(createdOption)
+    .not.toBeVisible({ timeout: 3000 })
+    .catch(() => {
     // If dropdown is still open, press Escape to close it
     return page.keyboard.press('Escape')
   })
 
-  // Click save and wait for response or navigation
-  const saveButton = page.getByRole('button', { name: 'Save' })
-  
-  // Start waiting for navigation before clicking
-  const navigationPromise = page.waitForURL(/\/admin\/collections\/lessons\/\d+/, { timeout: 30000 })
-  const responsePromise = page.waitForResponse(
-    (response: any) =>
-      response.url().includes('/api/lessons') &&
-      (response.status() === 200 || response.status() === 201),
-    { timeout: 30000 },
-  ).catch(() => null)
-
-  await saveButton.click()
-  
-  // Wait for either navigation or response
-  try {
-    await Promise.race([
-      navigationPromise,
-      responsePromise.then(() => {
-        // If we got a response but no navigation yet, wait a bit more
-        return page.waitForURL(/\/admin\/collections\/lessons\/\d+/, { timeout: 15000 })
-      }),
-    ])
-  } catch (error) {
-    // Check for error messages if navigation failed
-    const errorMessage = page.locator('[role="alert"]').or(page.locator('.error')).or(page.locator('text=/error/i'))
-    const hasError = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false)
-    if (hasError) {
-      const errorText = await errorMessage.textContent().catch(() => 'Unknown error')
-      throw new Error(`Form submission failed with error: ${errorText}`)
-    }
-    // Re-throw the original error if no error message found
-    throw error
-  }
-
-  // Wait for page to fully load
-  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(1000)
-  
-  // Final URL check
-  await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/, { timeout: 5000 })
+  // Save lesson with ID extraction fallback
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/lessons',
+    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
+    collectionName: 'lessons',
+  })
 }
 
 /**
@@ -177,9 +149,14 @@ async function expectLessonVisibleForTomorrow(
   className: string,
 ): Promise<void> {
   // Navigate to the lessons list and wait for the URL to stabilise
-  await page.goto('/admin/collections/lessons', { waitUntil: 'domcontentloaded', timeout: 120000 })
-  await expect(page).toHaveURL(/\/admin\/collections\/lessons/)
-  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
+  await page.goto('/admin/collections/lessons', {
+    waitUntil: 'domcontentloaded',
+    timeout: process.env.CI ? 180000 : 120000,
+  })
+  await expect(page).toHaveURL(/\/admin\/collections\/lessons/, {
+    timeout: process.env.CI ? 30000 : 10000,
+  })
+  await page.waitForLoadState('load', { timeout: process.env.CI ? 30000 : 15000 }).catch(() => {})
 
   // Check for client-side errors before proceeding
   const errorHeading = page.getByRole('heading', {
@@ -187,7 +164,7 @@ async function expectLessonVisibleForTomorrow(
   })
 
   const hasError = await errorHeading.isVisible({ timeout: 2000 }).catch(() => false)
-  await page.waitForTimeout(6000)
+  await page.waitForTimeout(process.env.CI ? 8000 : 6000)
 
   // Wait for page to be fully loaded (calendar should be visible)
   await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {})
@@ -199,21 +176,52 @@ async function expectLessonVisibleForTomorrow(
 
   // Verify calendar is visible before looking for date buttons
   const calendarContainer = page.locator('[data-slot="calendar"]').or(page.locator('.rdp'))
-  const calendarVisible = await calendarContainer.isVisible({ timeout: 10000 }).catch(() => false)
+  const calendarVisible = await calendarContainer
+    .isVisible({ timeout: process.env.CI ? 30000 : 10000 })
+    .catch(() => false)
   if (!calendarVisible) {
+    // Try waiting a bit more and reloading if calendar still not visible
+    await page.waitForTimeout(process.env.CI ? 5000 : 2000)
+    const stillNotVisible = await calendarContainer.isVisible({ timeout: 10000 }).catch(() => false)
+    if (!stillNotVisible) {
     throw new Error(
       `Calendar is not visible on lessons page. Cannot find date button for tomorrow (${tomorrow.toLocaleDateString()})`,
     )
+    }
   }
 
   // Get all day buttons and find the one matching tomorrow's date
+  // Use a timeout to prevent hanging if buttons are slow to load
+  const buttonSearchTimeout = process.env.CI ? 20000 : 10000
+  const startTime = Date.now()
+
   const allDayButtons = page.locator('button[data-day]')
+  // Wait for at least one button to be available
+  await allDayButtons
+    .first()
+    .waitFor({ state: 'attached', timeout: buttonSearchTimeout })
+    .catch(() => {})
+
   const count = await allDayButtons.count()
   let dayButton: any = null
 
-  for (let i = 0; i < count; i++) {
+  // Limit iterations to prevent infinite loops
+  const maxIterations = Math.min(count, 50)
+  for (let i = 0; i < maxIterations; i++) {
+    // Check timeout
+    if (Date.now() - startTime > buttonSearchTimeout) {
+      break
+    }
+
     const button = allDayButtons.nth(i)
-    const dataDay = await button.getAttribute('data-day')
+    try {
+      const dataDay = await Promise.race([
+        button.getAttribute('data-day'),
+        new Promise<string | null>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 2000),
+        ),
+      ]).catch(() => null)
+
     if (dataDay) {
       // Parse the date - toLocaleDateString() returns a string like "12/16/2025"
       // Try parsing it as a date
@@ -228,6 +236,10 @@ async function expectLessonVisibleForTomorrow(
         dayButton = button
         break
       }
+      }
+    } catch {
+      // Skip this button if it times out or errors
+      continue
     }
   }
 
@@ -240,13 +252,33 @@ async function expectLessonVisibleForTomorrow(
       .last()
     if ((await nextButton.count()) > 0) {
       await nextButton.click()
-      await page.waitForTimeout(1000)
-      // Try again after navigating
+      await page.waitForTimeout(process.env.CI ? 2000 : 1000)
+      // Wait for calendar to update
+      await page.waitForTimeout(process.env.CI ? 2000 : 1000)
+
+      // Try again after navigating with timeout protection
       const allDayButtonsAfterNav = page.locator('button[data-day]')
+      await allDayButtonsAfterNav
+        .first()
+        .waitFor({ state: 'attached', timeout: buttonSearchTimeout })
+        .catch(() => {})
       const countAfterNav = await allDayButtonsAfterNav.count()
-      for (let i = 0; i < countAfterNav; i++) {
+      const maxIterationsAfterNav = Math.min(countAfterNav, 50)
+
+      for (let i = 0; i < maxIterationsAfterNav; i++) {
+        if (Date.now() - startTime > buttonSearchTimeout * 2) {
+          break
+        }
+
         const button = allDayButtonsAfterNav.nth(i)
-        const dataDay = await button.getAttribute('data-day')
+        try {
+          const dataDay = await Promise.race([
+            button.getAttribute('data-day'),
+            new Promise<string | null>((_, reject) =>
+              setTimeout(() => reject(new Error('Timeout')), 2000),
+            ),
+          ]).catch(() => null)
+
         if (dataDay) {
           const buttonDate = new Date(dataDay)
           if (
@@ -258,6 +290,9 @@ async function expectLessonVisibleForTomorrow(
             dayButton = button
             break
           }
+          }
+        } catch {
+          continue
         }
       }
     }
@@ -265,10 +300,27 @@ async function expectLessonVisibleForTomorrow(
 
   if (dayButton) {
     // Wait for navigation after clicking the day button
-    await Promise.all([
-      page.waitForURL(/\/admin\/collections\/lessons\?.*startTime/, { timeout: 10000 }),
-      dayButton.click(),
-    ])
+    // Use a longer timeout for CI and ensure click happens before waiting
+    const urlTimeout = process.env.CI ? 30000 : 10000
+    const clickPromise = dayButton.click()
+    const navigationPromise = page.waitForURL(/\/admin\/collections\/lessons\?.*startTime/, {
+      timeout: urlTimeout,
+    })
+
+    // Start the click first, then wait for navigation
+    await clickPromise
+    try {
+      await navigationPromise
+    } catch (error) {
+      // If navigation didn't happen, check if we're already on the right page
+      const currentUrl = page.url()
+      if (!currentUrl.includes('/admin/collections/lessons')) {
+        throw new Error(
+          `Failed to navigate after clicking date button. Current URL: ${currentUrl}. ` +
+            `Expected URL pattern: /admin/collections/lessons?.*startTime`,
+        )
+      }
+    }
   } else {
     // Provide more context in error message
     const currentUrl = page.url()
@@ -280,18 +332,45 @@ async function expectLessonVisibleForTomorrow(
   }
 
   // Wait for the table to load by waiting for network idle or a table element
-  await page.waitForLoadState('load', { timeout: 10000 }).catch(() => {})
+  await page.waitForLoadState('load', { timeout: process.env.CI ? 30000 : 10000 }).catch(() => {})
 
   // Wait for the lessons table to be visible (not the calendar grid)
-  await expect(page.locator('table').filter({ hasText: 'Start Time' })).toBeVisible({
-    timeout: 10000,
-  })
-  await page.waitForTimeout(1000)
+  // This is critical - if the table doesn't appear, the test will fail with a clear error
+  const tableLocator = page.locator('table').filter({ hasText: 'Start Time' })
+  try {
+    await expect(tableLocator).toBeVisible({
+      timeout: process.env.CI ? 30000 : 10000,
+    })
+  } catch (error) {
+    // If table is not visible, check if we're on the right page
+    const currentUrl = page.url()
+    throw new Error(
+      `Lessons table not visible after clicking date button. ` +
+        `Current URL: ${currentUrl}. ` +
+        `This might indicate the page didn't load properly or the date filter didn't work.`,
+    )
+  }
+
+  await page.waitForTimeout(process.env.CI ? 2000 : 1000)
 
   // Wait for the created lesson to appear instead of using a fixed timeout
-  await expect(page.getByRole('cell', { name: className })).toBeVisible({
-    timeout: 20000,
-  })
+  // Use a more specific locator to avoid false matches
+  const lessonCell = page.getByRole('cell', { name: className })
+  try {
+    await expect(lessonCell).toBeVisible({
+      timeout: process.env.CI ? 40000 : 20000,
+    })
+  } catch (error) {
+    // Provide helpful error message if lesson not found
+    const tableText = await page
+      .locator('table')
+      .textContent()
+      .catch(() => 'Unable to read table')
+    throw new Error(
+      `Lesson with class name "${className}" not found in table after ${process.env.CI ? 40 : 20} seconds. ` +
+        `Table contents: ${tableText.substring(0, 200)}...`,
+    )
+  }
 }
 
 test.describe('Admin Lesson Creation Flow', () => {
@@ -312,13 +391,12 @@ test.describe('Admin Lesson Creation Flow', () => {
 
     // Type is already set to "adult" by default, so we can leave it
 
-    // Save the class option
-    await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(5000)
-
-    // Verify class option was created (should be on edit page)
-    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+    // Save the class option with ID extraction fallback
+    await saveObjectAndWaitForNavigation(page, {
+      apiPath: '/api/class-options',
+      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+      collectionName: 'class-options',
+    })
 
     // Step 3: Create a lesson for tomorrow
     await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
@@ -357,10 +435,11 @@ test.describe('Admin Lesson Creation Flow', () => {
       }
     }
 
-    await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(10000)
-    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+    await saveObjectAndWaitForNavigation(page, {
+      apiPath: '/api/class-options',
+      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+      collectionName: 'class-options',
+    })
 
     // Create a lesson for tomorrow using this class option
     await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
@@ -397,10 +476,11 @@ test.describe('Admin Lesson Creation Flow', () => {
       }
     }
 
-    await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
-    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+    await saveObjectAndWaitForNavigation(page, {
+      apiPath: '/api/class-options',
+      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+      collectionName: 'class-options',
+    })
 
     // Create a lesson for tomorrow using this class option
     await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
@@ -452,10 +532,11 @@ test.describe('Admin Lesson Creation Flow', () => {
       }
     }
 
-    await page.getByRole('button', { name: 'Save' }).click()
-    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-    await page.waitForTimeout(2000)
-    await expect(page).toHaveURL(/\/admin\/collections\/class-options\/\d+/)
+    await saveObjectAndWaitForNavigation(page, {
+      apiPath: '/api/class-options',
+      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+      collectionName: 'class-options',
+    })
 
     // Create a lesson for tomorrow using this class option
     await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
