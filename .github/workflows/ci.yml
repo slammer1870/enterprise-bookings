@@ -241,7 +241,12 @@ jobs:
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
-      STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_1234567890' }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY || 'pk_test_1234567890' }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || 'whsec_1234567890' }}
+      PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY: ${{ secrets.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY || 'true' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'resend_api_key_1234567890' }}
+      ENABLE_TEST_MAGIC_LINKS: "true"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       TURBO_REMOTE_ONLY: true
