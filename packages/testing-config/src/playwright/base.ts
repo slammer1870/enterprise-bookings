@@ -24,18 +24,19 @@ export function createPlaywrightConfig(opts: SharedPlaywrightOptions): Playwrigh
     testDir: opts.testDir,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? Math.min(4, Math.ceil(os.cpus().length * 0.5)) : undefined,
+    // Reduce workers in CI to avoid resource contention with slow Next.js dev server
+    workers: process.env.CI ? Math.min(2, Math.ceil(os.cpus().length * 0.25)) : undefined,
     reporter: process.env.CI ? 'dot' : 'html',
     timeout: process.env.CI ? 180000 : 100000,
     expect: {
-      timeout: 5000,
+      timeout: process.env.CI ? 10000 : 5000,
     },
     globalSetup: opts.globalSetup,
     globalTeardown: opts.globalTeardown,
     use: {
       baseURL,
-      actionTimeout: process.env.CI ? 20000 : 10000,
-      navigationTimeout: process.env.CI ? 60000 : 20000,
+      actionTimeout: process.env.CI ? 30000 : 10000,
+      navigationTimeout: process.env.CI ? 120000 : 20000,
       trace: 'on-first-retry',
     },
     projects: [
