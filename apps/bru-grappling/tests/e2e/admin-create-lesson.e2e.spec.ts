@@ -105,18 +105,67 @@ async function selectClassOptionAndSaveLesson(page: any, className: string): Pro
     .locator('..')
     .locator('[role="combobox"]')
     .first()
+  
+  // Ensure combobox is visible and clickable
+  await expect(classOptionCombobox).toBeVisible({ timeout: 10000 })
   await classOptionCombobox.click()
   await page.waitForTimeout(500)
 
+  // Wait for and select the option
   const createdOption = page.getByRole('option', { name: className })
   await expect(createdOption).toBeVisible({ timeout: 10000 })
   await createdOption.click()
-  await page.waitForTimeout(500)
+  
+  // Wait for dropdown to close and selection to be applied
+  await page.waitForTimeout(1000)
+  
+  // Ensure the dropdown is closed before proceeding
+  await expect(createdOption).not.toBeVisible({ timeout: 3000 }).catch(() => {
+    // If dropdown is still open, press Escape to close it
+    return page.keyboard.press('Escape')
+  })
 
-  await page.getByRole('button', { name: 'Save' }).click()
+  // Click save and wait for response or navigation
+  const saveButton = page.getByRole('button', { name: 'Save' })
+  
+  // Start waiting for navigation before clicking
+  const navigationPromise = page.waitForURL(/\/admin\/collections\/lessons\/\d+/, { timeout: 30000 })
+  const responsePromise = page.waitForResponse(
+    (response: any) =>
+      response.url().includes('/api/lessons') &&
+      (response.status() === 200 || response.status() === 201),
+    { timeout: 30000 },
+  ).catch(() => null)
+
+  await saveButton.click()
+  
+  // Wait for either navigation or response
+  try {
+    await Promise.race([
+      navigationPromise,
+      responsePromise.then(() => {
+        // If we got a response but no navigation yet, wait a bit more
+        return page.waitForURL(/\/admin\/collections\/lessons\/\d+/, { timeout: 15000 })
+      }),
+    ])
+  } catch (error) {
+    // Check for error messages if navigation failed
+    const errorMessage = page.locator('[role="alert"]').or(page.locator('.error')).or(page.locator('text=/error/i'))
+    const hasError = await errorMessage.isVisible({ timeout: 2000 }).catch(() => false)
+    if (hasError) {
+      const errorText = await errorMessage.textContent().catch(() => 'Unknown error')
+      throw new Error(`Form submission failed with error: ${errorText}`)
+    }
+    // Re-throw the original error if no error message found
+    throw error
+  }
+
+  // Wait for page to fully load
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {})
-  await page.waitForTimeout(8000)
-  await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/)
+  await page.waitForTimeout(1000)
+  
+  // Final URL check
+  await expect(page).toHaveURL(/\/admin\/collections\/lessons\/\d+/, { timeout: 5000 })
 }
 
 /**
