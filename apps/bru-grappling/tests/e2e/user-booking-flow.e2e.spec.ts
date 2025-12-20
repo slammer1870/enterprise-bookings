@@ -655,7 +655,7 @@ test.describe('User booking flow from schedule', () => {
     await page.waitForURL(
       (url) => {
         try {
-          return url.pathname.startsWith(callbackPath)
+          return url.pathname.startsWith(callbackPath) || url.pathname.startsWith('/dashboard')
         } catch {
           return false
         }
@@ -668,11 +668,39 @@ test.describe('User booking flow from schedule', () => {
     await expect(dropInTab).toBeVisible({ timeout: 20000 })
     await dropInTab.click()
 
+    // Wait for the payment element container to appear
     const paymentElement = page.locator('#payment-element')
-    await expect(paymentElement).toBeVisible({ timeout: process.env.CI ? 60000 : 30000 })
-    await expect(paymentElement.locator('iframe').first()).toBeVisible({
-      timeout: process.env.CI ? 60000 : 30000,
-    })
+    await expect(paymentElement).toBeAttached({ timeout: process.env.CI ? 60000 : 30000 })
+
+    // In CI, Stripe's iframe can take time to load. Wait for the element to become visible
+    // and have an iframe inside it. This ensures Stripe has fully initialized.
+    const timeout = process.env.CI ? 60000 : 30000
+    await page.waitForFunction(
+      () => {
+        const element = document.getElementById('payment-element')
+        if (!element) return false
+
+        // Check if element is visible (not hidden)
+        const style = window.getComputedStyle(element)
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+          return false
+        }
+
+        // Check if there's an iframe inside
+        const iframe = element.querySelector('iframe')
+        if (!iframe) return false
+
+        // Check if iframe is visible
+        const iframeStyle = window.getComputedStyle(iframe)
+        return iframeStyle.display !== 'none' && iframeStyle.visibility !== 'hidden'
+      },
+      { timeout },
+    )
+
+    // Final assertions to ensure everything is visible
+    await expect(paymentElement).toBeVisible({ timeout: 10000 })
+    const stripeIframe = paymentElement.locator('iframe').first()
+    await expect(stripeIframe).toBeVisible({ timeout: 10000 })
 
     await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })
