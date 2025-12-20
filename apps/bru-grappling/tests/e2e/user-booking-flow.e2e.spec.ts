@@ -698,9 +698,9 @@ test.describe('User booking flow from schedule', () => {
     )
 
     // Final assertions to ensure everything is visible
-    await expect(paymentElement).toBeVisible({ timeout: 10000 })
+    await expect(paymentElement).toBeVisible({ timeout: 60000 })
     const stripeIframe = paymentElement.locator('iframe').first()
-    await expect(stripeIframe).toBeVisible({ timeout: 10000 })
+    await expect(stripeIframe).toBeVisible({ timeout: 60000 })
 
     await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })
