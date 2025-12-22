@@ -330,3 +330,40 @@ export async function ensureAdminLoggedIn(page: Page) {
   })
   await expect(page).toHaveURL(/\/admin$/)
 }
+
+/**
+ * Helper function to mock a Stripe payment intent succeeded webhook.
+ * This triggers the webhook handler to confirm a booking for a lesson.
+ */
+export async function mockPaymentIntentSucceededWebhook(
+  request: APIRequestContext,
+  options: {
+    lessonId: number
+    userEmail: string
+  },
+): Promise<void> {
+  const { lessonId, userEmail } = options
+
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const webhookResponse = await request.post(`${baseUrl}/api/test/mock-payment-intent-webhook`, {
+    data: {
+      userEmail, // Endpoint will look up user and use their actual stripeCustomerId
+      event: {
+        data: {
+          object: {
+            id: `pi_test_${Date.now()}`,
+            customer: '', // Will be set by endpoint based on user's actual stripeCustomerId
+            metadata: {
+              lessonId: lessonId.toString(),
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!webhookResponse.ok()) {
+    const errorText = await webhookResponse.text().catch(() => 'Unknown error')
+    throw new Error(`Failed to trigger webhook: ${webhookResponse.status()} - ${errorText}`)
+  }
+}

@@ -10,5 +10,6 @@ export default createPlaywrightConfig({
   webServerUrl: 'http://localhost:3000/api/health',
   extraWebServerEnv: {
     ENABLE_TEST_MAGIC_LINKS: 'true',
+    ENABLE_TEST_WEBHOOKS: 'true',
   },
 })
