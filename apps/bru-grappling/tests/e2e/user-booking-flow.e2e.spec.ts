@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   clearTestMagicLinks,
   ensureAdminLoggedIn,
+  mockPaymentIntentSucceededWebhook,
   pollForTestMagicLink,
   saveObjectAndWaitForNavigation,
   waitForServerReady,
@@ -673,6 +674,43 @@ test.describe('User booking flow from schedule', () => {
     // Wait for the payment element container to appear
     const paymentElement = page.locator('#payment-element')
     await expect(paymentElement).toBeAttached({ timeout: process.env.CI ? 60000 : 30000 })
+
+    // Extract lesson ID from the booking page URL
+    const currentUrl = page.url()
+    const lessonIdMatch = currentUrl.match(/\/bookings\/(\d+)/)
+    if (!lessonIdMatch || !lessonIdMatch[1]) {
+      throw new Error(`Could not extract lesson ID from URL: ${currentUrl}`)
+    }
+    const lessonId = parseInt(lessonIdMatch[1], 10)
+
+    // Mock the payment intent succeeded webhook to confirm the booking
+    await mockPaymentIntentSucceededWebhook(page.context().request, {
+      lessonId,
+      userEmail: email,
+    })
+
+    // Navigate to dashboard
+    await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
+    await expect(page).toHaveURL(/\/dashboard/)
+
+    // Wait for the schedule to load
+    const scheduleLocator = page.locator('#schedule')
+    await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
+
+    // Navigate to tomorrow in the schedule
+    await goToTomorrowInSchedule(page)
+
+    // Verify the lesson is booked - should show "Cancel Booking" button instead of "Check In"
+    const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
+    await expect(cancelButton).toBeVisible({ timeout: 20000 })
+
+    // Verify the lesson class name contains "drop in"
+    // The class name is in a div with class "text-xl font-medium" that's a sibling of the button's parent
+    const lessonContainer = cancelButton.locator('..').locator('..') // Go up to the outer container
+    const classNameElement = lessonContainer.locator('div.text-xl.font-medium').first()
+    await expect(classNameElement).toBeVisible({ timeout: 5000 })
+    const className = await classNameElement.textContent()
+    expect(className).toMatch(/drop.?in/i)
 
     await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })
