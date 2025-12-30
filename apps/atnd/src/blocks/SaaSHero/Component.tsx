@@ -36,9 +36,9 @@ export const SaaSHeroBlock: React.FC<Props> = ({
   return (
     <section
       className={cn(
-        'relative pt-12 md:pt-16 lg:pt-20 pb-24 md:pb-32 lg:pb-40 overflow-hidden',
+        'relative overflow-hidden',
         bgColorClasses[backgroundColor || 'default'],
-        className
+        className,
       )}
     >
       {backgroundMedia && typeof backgroundMedia === 'object' && (
@@ -52,21 +52,21 @@ export const SaaSHeroBlock: React.FC<Props> = ({
           />
         </div>
       )}
-      
+
       <div
         className={cn(
           {
             container: !disableInnerContainer,
             'px-4 md:px-6 lg:px-8': disableInnerContainer,
           },
-          'relative z-10'
+          'relative z-10',
         )}
       >
         <div
           className={cn(
             'flex flex-col gap-8 max-w-4xl',
             alignmentClasses[alignment || 'center'],
-            (alignment || 'center') === 'center' && 'mx-auto'
+            (alignment || 'center') === 'center' && 'mx-auto',
           )}
         >
           {headline && (
@@ -74,7 +74,7 @@ export const SaaSHeroBlock: React.FC<Props> = ({
               {headline}
             </h1>
           )}
-          
+
           {subheadline && (
             <div className="text-lg md:text-xl text-muted-foreground max-w-2xl">
               <RichText data={subheadline} enableGutter={false} enableProse={false} />
@@ -82,20 +82,15 @@ export const SaaSHeroBlock: React.FC<Props> = ({
           )}
 
           {links && links.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-4 mt-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               {links.map(({ link }, i) => (
-                <CMSLink
-                  key={i}
-                  size="lg"
-                  {...link}
-                  appearance={i === 0 ? 'default' : 'outline'}
-                />
+                <CMSLink key={i} size="lg" {...link} appearance={i === 0 ? 'default' : 'outline'} />
               ))}
             </div>
           )}
 
           {foregroundMedia && typeof foregroundMedia === 'object' && (
-            <div className="mt-12 w-full">
+            <div className="w-full">
               <Media
                 resource={foregroundMedia}
                 imgClassName="w-full rounded-lg border border-border shadow-2xl"
@@ -107,4 +102,3 @@ export const SaaSHeroBlock: React.FC<Props> = ({
     </section>
   )
 }
-
