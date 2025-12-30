@@ -36,8 +36,8 @@ export const SaaSHeroBlock: React.FC<Props> = ({
   return (
     <section
       className={cn(
-        'relative py-24 md:py-32 lg:py-40 overflow-hidden',
-        bgColorClasses[backgroundColor],
+        'relative pt-12 md:pt-16 lg:pt-20 pb-24 md:pb-32 lg:pb-40 overflow-hidden',
+        bgColorClasses[backgroundColor || 'default'],
         className
       )}
     >
@@ -57,6 +57,7 @@ export const SaaSHeroBlock: React.FC<Props> = ({
         className={cn(
           {
             container: !disableInnerContainer,
+            'px-4 md:px-6 lg:px-8': disableInnerContainer,
           },
           'relative z-10'
         )}

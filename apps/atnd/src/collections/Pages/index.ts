@@ -47,7 +47,7 @@ export const Pages: CollectionConfig<'pages'> = {
           slug: data?.slug,
           collection: 'pages',
           req,
-        }),
+        }) as string,
     },
     preview: (data, { req }) =>
       generatePreviewPath({
