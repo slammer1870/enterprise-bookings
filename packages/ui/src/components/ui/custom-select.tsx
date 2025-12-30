@@ -5,8 +5,6 @@ import type { TextFieldClientProps } from "payload";
 import {
   CopyToClipboard,
   SelectInput,
-  useField,
-  useFormFields,
 } from "@payloadcms/ui";
 
 import * as React from "react";
@@ -18,8 +16,6 @@ export const CustomSelect: React.FC<
 
   const { label, name } = field;
 
-  const { value, setValue } = useField<string>({ path });
-
   const [options, setOptions] = React.useState<
     {
       label: string;
@@ -27,9 +23,10 @@ export const CustomSelect: React.FC<
     }[]
   >([]);
 
-  const selectFieldValue = useFormFields(([fields]) => {
-    return fields[path]?.value as string;
-  });
+  // Use local state to track value
+  // Note: useField/useFormFields hooks require form context that may not be available
+  // SelectInput will handle form updates via the path prop
+  const [value, setValue] = React.useState<string>("");
 
   React.useEffect(() => {
     const getStripeOptions = async () => {
@@ -84,7 +81,7 @@ export const CustomSelect: React.FC<
 
   const href = `https://dashboard.stripe.com/${
     process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-  }${dataLabel}/${selectFieldValue}`;
+  }${dataLabel}/${value}`;
 
   return (
     <div className="mb-4">
@@ -115,10 +112,15 @@ export const CustomSelect: React.FC<
         name={name}
         options={options}
         value={value}
-        onChange={(e: any) => setValue(e?.value)}
+        onChange={(e: any) => {
+          // Update local state when SelectInput changes
+          // SelectInput will also update the form via the path prop
+          const newValue = e?.value || "";
+          setValue(newValue);
+        }}
         className="mb-2"
       />
-      {Boolean(selectFieldValue) && (
+      {Boolean(value) && (
         <div>
           <div>
             <span
@@ -128,8 +130,8 @@ export const CustomSelect: React.FC<
               }}
             >
               {`Manage "${
-                options.find((option) => option.value === selectFieldValue)
-                  ?.label || "Unknown"
+                options.find((option) => option.value === value)?.label ||
+                "Unknown"
               }" in Stripe`}
             </span>
             <CopyToClipboard value={href} />
@@ -144,7 +146,7 @@ export const CustomSelect: React.FC<
             <a
               href={`https://dashboard.stripe.com/${
                 process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-              }${dataLabel}/${selectFieldValue}`}
+              }${dataLabel}/${value}`}
               rel="noreferrer noopener"
               target="_blank"
             >
