@@ -38,9 +38,7 @@ export const CaseStudiesBlock: React.FC<Props> = ({
         {(heading || description) && (
           <div className="text-center max-w-3xl mx-auto mb-16">
             {heading && (
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-                {heading}
-              </h2>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">{heading}</h2>
             )}
             {description && (
               <div className="text-lg text-muted-foreground">
@@ -53,9 +51,7 @@ export const CaseStudiesBlock: React.FC<Props> = ({
         {caseStudies && caseStudies.length > 0 && (
           <div
             className={cn(
-              layout === 'grid'
-                ? 'grid grid-cols-1 lg:grid-cols-2 gap-8'
-                : 'flex flex-col gap-8'
+              layout === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-8' : 'flex flex-col gap-8',
             )}
           >
             {caseStudies.map((study, index) => (
@@ -63,22 +59,23 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                 key={index}
                 className="flex flex-col gap-6 p-8 rounded-lg border border-border bg-card hover:shadow-xl transition-shadow"
               >
-                {/* Company Logo */}
-                {study.companyLogo && typeof study.companyLogo === 'object' && (
-                  <div className="w-24 h-12 mb-2 opacity-80">
-                    <Media
-                      resource={study.companyLogo}
-                      imgClassName="w-full h-full object-contain object-left"
-                    />
-                  </div>
-                )}
-
-                {/* Quote */}
-                {study.quote && (
-                  <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
-                    "{study.quote}"
-                  </blockquote>
-                )}
+                <div className="flex items-center gap-4">
+                  {/* Company Logo */}
+                  {study.companyLogo && typeof study.companyLogo === 'object' && (
+                    <div className="w-24 h-12 mb-2 opacity-80">
+                      <Media
+                        resource={study.companyLogo}
+                        imgClassName="w-full h-full object-contain object-left"
+                      />
+                    </div>
+                  )}
+                  {/* Quote */}
+                  {study.quote && (
+                    <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
+                      "{study.quote}"
+                    </blockquote>
+                  )}{' '}
+                </div>
 
                 {/* Author */}
                 {study.author && (
@@ -96,9 +93,7 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                         <div className="font-semibold">{study.author.name}</div>
                       )}
                       {study.author.title && (
-                        <div className="text-sm text-muted-foreground">
-                          {study.author.title}
-                        </div>
+                        <div className="text-sm text-muted-foreground">{study.author.title}</div>
                       )}
                     </div>
                   </div>
@@ -110,9 +105,7 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                     {study.results.map((result, resultIndex) => (
                       <div key={resultIndex} className="text-center">
                         {result.metric && (
-                          <div className="text-2xl font-bold text-primary">
-                            {result.metric}
-                          </div>
+                          <div className="text-2xl font-bold text-primary">{result.metric}</div>
                         )}
                         {result.description && (
                           <div className="text-sm text-muted-foreground mt-1">
@@ -153,4 +146,3 @@ export const CaseStudiesBlock: React.FC<Props> = ({
     </section>
   )
 }
-
