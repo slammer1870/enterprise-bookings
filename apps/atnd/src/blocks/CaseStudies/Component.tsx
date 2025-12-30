@@ -27,11 +27,12 @@ export const CaseStudiesBlock: React.FC<Props> = ({
 
   return (
     <section
-      className={cn('py-24 md:py-32', bgColorClasses[backgroundColor], className)}
+      className={cn('py-24 md:py-32', bgColorClasses[backgroundColor || 'default'], className)}
     >
       <div
         className={cn({
           container: !disableInnerContainer,
+          'px-4 md:px-6 lg:px-8': disableInnerContainer,
         })}
       >
         {(heading || description) && (

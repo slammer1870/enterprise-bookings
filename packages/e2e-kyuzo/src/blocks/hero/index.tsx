@@ -50,9 +50,9 @@ export const HeroBlock: React.FC<HeroProps> = ({
       style={{ backgroundImage: `url(${backgroundImage.url})` }}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/70 from-40% via-white via-50% lg:via-70% to-white"></div>
-      <div className="z-30 mx-auto flex grow items-center justify-center p-4 pt-32 lg:h-screen lg:w-2/3 lg:pt-0">
+      <div className="z-30 mx-auto flex grow items-center justify-center p-6 md:p-8 pt-32 lg:h-screen lg:w-2/3 lg:pt-0">
         <div className="absolute z-10 h-[200px] w-[200px] rounded-full bg-[#FEEBD4] opacity-60 md:h-[300px] md:w-[300px] lg:h-[400px] lg:w-[400px]"></div>
-        <div className="z-50 max-w-md lg:max-w-2xl lg:p-4">
+        <div className="z-50 max-w-md lg:max-w-2xl lg:p-6">
           <h1 className="mb-2 text-[2.15rem] font-medium leading-tight md:text-5xl lg:text-4xl">
             {heading}
           </h1>
@@ -75,7 +75,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
           </div>
         </div>
       </div>
-      <div className="z-30 flex items-center justify-center bg-white p-4 pb-12 text-gray-900 md:pb-24 lg:h-screen lg:w-full lg:max-w-xl lg:bg-[#E73F43] lg:pt-32 lg:text-white">
+      <div className="z-30 flex items-center justify-center bg-white p-6 md:p-8 pb-12 text-gray-900 md:pb-24 lg:h-screen lg:w-full lg:max-w-xl lg:bg-[#E73F43] lg:pt-32 lg:text-white">
         <div className="w-full max-w-md lg:max-w-lg">
           <h3 className="text-xl md:text-2xl lg:text-3xl">{formTitle}</h3>
           <p className="mb-1 font-light md:text-lg lg:text-2xl lg:text-gray-100">
