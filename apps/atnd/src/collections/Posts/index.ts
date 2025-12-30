@@ -49,12 +49,14 @@ export const Posts: CollectionConfig<'posts'> = {
   admin: {
     defaultColumns: ['title', 'slug', 'updatedAt'],
     livePreview: {
-      url: ({ data, req }) =>
-        generatePreviewPath({
+      url: ({ data, req }) => {
+        const path = generatePreviewPath({
           slug: data?.slug,
           collection: 'posts',
           req,
-        }),
+        })
+        return path || '/posts'
+      },
     },
     preview: (data, { req }) =>
       generatePreviewPath({

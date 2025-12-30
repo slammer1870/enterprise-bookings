@@ -65,8 +65,8 @@ export const SaaSHeroBlock: React.FC<Props> = ({
         <div
           className={cn(
             'flex flex-col gap-8 max-w-4xl',
-            alignmentClasses[alignment],
-            alignment === 'center' && 'mx-auto'
+            alignmentClasses[alignment || 'center'],
+            (alignment || 'center') === 'center' && 'mx-auto'
           )}
         >
           {headline && (
