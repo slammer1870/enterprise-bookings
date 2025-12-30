@@ -57,10 +57,10 @@ export const SaaSCallToActionBlock: React.FC<Props> = ({
         <div
           className={cn(
             'relative z-10 p-12 md:p-16 rounded-2xl',
-            variantClasses[variant],
+            variantClasses[variant || 'default'],
             'flex flex-col gap-6 max-w-4xl',
-            alignmentClasses[alignment],
-            alignment === 'center' && 'mx-auto'
+            alignmentClasses[alignment || 'center'],
+            (alignment || 'center') === 'center' && 'mx-auto'
           )}
         >
           {heading && (
@@ -73,7 +73,7 @@ export const SaaSCallToActionBlock: React.FC<Props> = ({
             <div
               className={cn(
                 'text-lg',
-                variant === 'highlighted' ? 'text-primary-foreground/90' : 'text-muted-foreground'
+                (variant || 'default') === 'highlighted' ? 'text-primary-foreground/90' : 'text-muted-foreground'
               )}
             >
               <RichText data={description} enableGutter={false} enableProse={false} />
@@ -88,7 +88,7 @@ export const SaaSCallToActionBlock: React.FC<Props> = ({
                   size="lg"
                   {...link}
                   appearance={
-                    variant === 'highlighted'
+                    (variant || 'default') === 'highlighted'
                       ? i === 0
                         ? 'outline'
                         : 'default'
