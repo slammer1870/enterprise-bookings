@@ -18,7 +18,12 @@ export const getMediaUrl = (url: string | null | undefined, cacheTag?: string | 
     return cacheTag ? `${url}?${cacheTag}` : url
   }
 
-  // Otherwise prepend client-side URL
+  // If URL starts with /, it's a local path (served from public folder) - return as-is
+  if (url.startsWith('/')) {
+    return cacheTag ? `${url}?${cacheTag}` : url
+  }
+
+  // Otherwise prepend client-side URL for relative paths
   const baseUrl = getClientSideURL()
-  return cacheTag ? `${baseUrl}${url}?${cacheTag}` : `${baseUrl}${url}`
+  return cacheTag ? `${baseUrl}/${url}?${cacheTag}` : `${baseUrl}/${url}`
 }
