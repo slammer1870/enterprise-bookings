@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test'
 import {
   clearTestMagicLinks,
   ensureAdminLoggedIn,
+  ensureLessonForTomorrowWithSubscription,
   mockPaymentIntentSucceededWebhook,
+  mockSubscriptionCreatedWebhook,
   pollForTestMagicLink,
   saveObjectAndWaitForNavigation,
   waitForServerReady,
@@ -177,9 +179,10 @@ async function ensureAtLeastOneDropIn(page: any): Promise<string> {
   const dropInName = `E2E Drop In ${Date.now()}`
 
   // Create a new Drop In
-  const createButton = page.getByLabel(/Create new Drop In/i)
-  if ((await createButton.count()) > 0) {
-    await createButton.click()
+  // "Create new Drop In" is a link in Payload 3.64.0
+  const createLink = page.getByRole('link', { name: /Create new.*Drop In/i })
+  if ((await createLink.count()) > 0) {
+    await createLink.first().click()
   } else {
     // Fallback for older/newer Payload UI labels
     await page.getByRole('button', { name: /Create new.*Drop In/i }).click()
@@ -326,6 +329,9 @@ async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
   await expect(classOption).toBeVisible({ timeout: 10000 })
   await classOption.click()
 
+  // Verify the selected class option has the required payment method (drop-in)
+  await verifyClassOptionPaymentMethod(page, className, 'dropIn')
+
   // Save lesson with ID extraction fallback
   await saveObjectAndWaitForNavigation(page, {
     apiPath: '/api/lessons',
@@ -334,6 +340,56 @@ async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
   })
 
   return tomorrow
+}
+
+/**
+ * Verify that a class option has the required payment method configured.
+ * Uses API to check the class option without navigating away from the current page.
+ */
+async function verifyClassOptionPaymentMethod(
+  page: any,
+  className: string,
+  requiredMethod: 'dropIn' | 'subscription',
+): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const request = page.context().request
+
+  // Find the class option by name via API
+  const cookies = await page.context().cookies()
+  const classOptionsResponse = await request.get(
+    `${baseUrl}/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
+    {
+      headers: {
+        Cookie: cookies
+          .map((c: { name: string; value: string }) => `${c.name}=${c.value}`)
+          .join('; '),
+      },
+    },
+  )
+
+  if (!classOptionsResponse.ok()) {
+    throw new Error(`Failed to fetch class option "${className}": ${classOptionsResponse.status()}`)
+  }
+
+  const classOptionsData = await classOptionsResponse.json()
+  const classOption = classOptionsData.docs?.[0]
+
+  if (!classOption) {
+    throw new Error(`Class option "${className}" not found`)
+  }
+
+  // Verify the payment method is configured
+  if (requiredMethod === 'dropIn') {
+    const allowedDropIn = classOption.paymentMethods?.allowedDropIn
+    if (!allowedDropIn || (typeof allowedDropIn === 'object' && allowedDropIn === null)) {
+      throw new Error(`Class option "${className}" does not have an Allowed Drop In configured`)
+    }
+  } else if (requiredMethod === 'subscription') {
+    const allowedPlans = classOption.paymentMethods?.allowedPlans
+    if (!allowedPlans || !Array.isArray(allowedPlans) || allowedPlans.length === 0) {
+      throw new Error(`Class option "${className}" does not have Allowed Plans configured`)
+    }
+  }
 }
 
 /**
@@ -535,7 +591,7 @@ test.describe('User booking flow from schedule', () => {
       })
     await cancelButton.click()
 
-    await page.waitForTimeout(5000)
+    await page.waitForTimeout(10000)
 
     const confirmButton = page.getByRole('button', { name: /^Confirm$/i })
     await expect(confirmButton).toBeVisible({ timeout: 20000 })
@@ -711,6 +767,166 @@ test.describe('User booking flow from schedule', () => {
     await expect(classNameElement).toBeVisible({ timeout: 5000 })
     const className = await classNameElement.textContent()
     expect(className).toMatch(/drop.?in/i)
+
+    await clearTestMagicLinks(page.context().request, email).catch(() => {})
+  })
+
+  test('subscription lesson: after check-in + register/login, subscribe returns redirect URL and subscription webhook confirms booking', async ({
+    page,
+  }) => {
+    // Admin phase: ensure prerequisites
+    await ensureAdminLoggedIn(page)
+    await ensureHomePageWithSchedule(page)
+    await ensureLessonForTomorrowWithSubscription(page)
+
+    // Log out admin
+    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
+    await page.context().clearCookies()
+    await page.waitForTimeout(1000)
+    await waitForServerReady(page.context().request)
+
+    // User phase: navigate to home (has schedule) and view schedule
+    await page.goto('/', { waitUntil: 'load', timeout: 60000 })
+    await expect(page.locator('#schedule')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
+
+    await goToTomorrowInSchedule(page)
+
+    // Click "Check In" for tomorrow's lesson
+    const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
+    await expect(checkInButton).toBeVisible({ timeout: 60000 })
+    await expect(checkInButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(1000)
+      })
+
+    // Set up navigation promise BEFORE clicking (critical for UI mode)
+    const completeBookingNavPromise = page.waitForURL(/\/complete-booking/, {
+      timeout: process.env.CI ? 60000 : 30000,
+      waitUntil: 'load',
+    })
+
+    await Promise.all([
+      checkInButton.click(),
+      // Don't await navigation yet
+    ])
+
+    await completeBookingNavPromise
+
+    const callbackPath = (() => {
+      try {
+        const current = new URL(page.url())
+        const rawCallback = current.searchParams.get('callbackUrl')
+        if (rawCallback) {
+          return rawCallback.startsWith('http') ? new URL(rawCallback).pathname : rawCallback
+        }
+      } catch {
+        // ignore parsing errors and fall back
+      }
+      return '/'
+    })()
+
+    if (!/^\/bookings\/\d+/.test(callbackPath)) {
+      throw new Error(`Expected callbackUrl to start with /bookings/{id}, got: ${callbackPath}`)
+    }
+
+    // If there's a login tab, use Register; otherwise assume register mode is default
+    const registerTab = page.getByRole('tab', { name: /Register/i })
+    if ((await registerTab.count()) > 0) {
+      await registerTab.click()
+    }
+
+    // Submit email to request magic link
+    const nameInput = page.getByRole('textbox', { name: /Name/i })
+    await expect(nameInput).toBeVisible({ timeout: process.env.CI ? 30000 : 10000 })
+    await nameInput.fill('John Doe')
+    const emailInput = page.getByRole('textbox', { name: /Email/i })
+    await expect(emailInput).toBeVisible({ timeout: 10000 })
+    const email = `user-${Date.now()}@example.com`
+    await emailInput.fill(email)
+    await clearTestMagicLinks(page.context().request, email)
+
+    const submitButton = page.getByRole('button', { name: 'Submit' })
+    await expect(submitButton).toBeVisible({ timeout: 10000 })
+    await expect(submitButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => {
+        return page.waitForTimeout(1000)
+      })
+
+    const magicLinkSentNavPromise = page.waitForURL(/\/magic-link-sent/, {
+      timeout: process.env.CI ? 120000 : 90000,
+    })
+
+    await Promise.all([magicLinkSentNavPromise, submitButton.click()])
+
+    const magicLink = await pollForTestMagicLink(page.context().request, email, 15, 1000)
+    await page.goto(magicLink.url, { waitUntil: 'load', timeout: 60000 })
+
+    await page.waitForURL(
+      (url) => {
+        try {
+          return url.pathname.startsWith(callbackPath) || url.pathname.startsWith('/dashboard')
+        } catch {
+          return false
+        }
+      },
+      { timeout: 60000 },
+    )
+
+    // On booking page, open Membership tab and click Subscribe
+    const membershipTab = page.getByRole('tab', { name: /Membership/i })
+    await expect(membershipTab).toBeVisible({ timeout: 20000 })
+    await membershipTab.click()
+
+    const subscribeButton = page.getByRole('button', { name: /Subscribe/i }).first()
+    await expect(subscribeButton).toBeVisible({ timeout: 20000 })
+    await expect(subscribeButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => page.waitForTimeout(1000))
+
+    // Intercept the create-checkout-session call and assert it returns a redirect URL
+    const checkoutResponsePromise = page.waitForResponse((res) => {
+      return (
+        res.url().includes('/api/stripe/create-checkout-session') &&
+        res.request().method() === 'POST'
+      )
+    })
+
+    await subscribeButton.click()
+
+    const checkoutResponse = await checkoutResponsePromise
+    const checkoutJson = await checkoutResponse.json()
+    if (!checkoutJson?.url) {
+      throw new Error('Subscribe did not return a redirect url')
+    }
+
+    // Extract lesson ID from booking page URL for webhook
+    const currentUrl = page.url()
+    const lessonIdMatch = currentUrl.match(/\/bookings\/(\d+)/)
+    if (!lessonIdMatch || !lessonIdMatch[1]) {
+      throw new Error(`Could not extract lesson ID from URL: ${currentUrl}`)
+    }
+    const lessonId = parseInt(lessonIdMatch[1], 10)
+
+    // Mock subscription created webhook to confirm booking
+    await mockSubscriptionCreatedWebhook(page.context().request, {
+      lessonId,
+      userEmail: email,
+    })
+
+    // Navigate to dashboard and verify booking
+    await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
+    await expect(page).toHaveURL(/\/dashboard/)
+
+    const scheduleLocator = page.locator('#schedule')
+    await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
+
+    await goToTomorrowInSchedule(page)
+
+    const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
+    await expect(cancelButton).toBeVisible({ timeout: 20000 })
 
     await clearTestMagicLinks(page.context().request, email).catch(() => {})
   })

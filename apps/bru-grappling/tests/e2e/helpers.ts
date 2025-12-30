@@ -321,7 +321,8 @@ export async function ensureAdminLoggedIn(page: Page) {
   // If we're on login page, try to login (assuming user exists)
   if (page.url().includes('/admin/login')) {
     await page.getByRole('textbox', { name: 'Email' }).fill(adminEmail)
-    await page.getByRole('textbox', { name: 'Password' }).fill(adminPassword)
+    // Use regex for exact match to avoid matching "New Password" or "Confirm Password"
+    await page.getByRole('textbox', { name: /^Password$/ }).fill(adminPassword)
     await page.getByRole('button', { name: 'Login' }).click()
   }
 
@@ -366,4 +367,251 @@ export async function mockPaymentIntentSucceededWebhook(
     const errorText = await webhookResponse.text().catch(() => 'Unknown error')
     throw new Error(`Failed to trigger webhook: ${webhookResponse.status()} - ${errorText}`)
   }
+}
+
+/**
+ * Helper function to mock a Stripe subscription created webhook.
+ * This confirms the booking for a subscription-only lesson.
+ */
+export async function mockSubscriptionCreatedWebhook(
+  request: APIRequestContext,
+  options: {
+    lessonId: number
+    userEmail: string
+  },
+): Promise<void> {
+  const { lessonId, userEmail } = options
+
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const webhookResponse = await request.post(
+    `${baseUrl}/api/test/mock-subscription-created-webhook`,
+    {
+      data: {
+        userEmail,
+        lessonId,
+      },
+    },
+  )
+
+  if (!webhookResponse.ok()) {
+    const errorText = await webhookResponse.text().catch(() => 'Unknown error')
+    throw new Error(
+      `Failed to trigger subscription webhook: ${webhookResponse.status()} - ${errorText}`,
+    )
+  }
+}
+
+/**
+ * Ensure there is at least one Plan available in the admin.
+ * Returns the plan name to select.
+ */
+export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
+  await page.goto('/admin/collections/plans', { waitUntil: 'domcontentloaded', timeout: 120000 })
+
+  const rows = page.getByRole('row')
+  const rowCount = await rows.count()
+  if (rowCount > 1) {
+    const firstDataRow = rows.nth(1)
+    const firstLink = firstDataRow.getByRole('link').first()
+    const name = (await firstLink.textContent().catch(() => ''))?.trim()
+    if (name) return name
+    return 'Plan'
+  }
+
+  const planName = `E2E Plan ${Date.now()}`
+
+  // "Create new Plan" is a link in Payload 3.64.0
+  const createLink = page.getByRole('link', { name: /Create new.*Plan/i })
+  if ((await createLink.count()) > 0) {
+    await createLink.first().click()
+  } else {
+    // Fallback: try getByLabel
+    await page
+      .getByLabel(/Create new.*Plan/i)
+      .first()
+      .click()
+  }
+
+  await page
+    .getByRole('textbox', { name: /Name \*/i })
+    .waitFor({ state: 'visible', timeout: 20000 })
+  await page.getByRole('textbox', { name: /Name \*/i }).fill(planName)
+
+  const priceInput = page.getByRole('spinbutton', { name: /Price/i })
+  if ((await priceInput.count()) > 0) {
+    await priceInput.fill('1500')
+  }
+
+  const productIdInput = page.getByRole('textbox', { name: /Stripe Product Id/i })
+  if ((await productIdInput.count()) > 0) {
+    await productIdInput.fill(`prod_${Date.now()}`)
+  }
+
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/plans',
+    expectedUrlPattern: /\/admin\/collections\/plans\/\d+/,
+    collectionName: 'plans',
+  })
+
+  return planName
+}
+
+/**
+ * Verify that a class option has the required payment method configured.
+ * Uses API to check the class option without navigating away from the current page.
+ */
+async function verifyClassOptionPaymentMethod(
+  page: any,
+  className: string,
+  requiredMethod: 'dropIn' | 'subscription',
+): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const request = page.context().request
+
+  // Find the class option by name via API
+  const cookies = await page.context().cookies()
+  const classOptionsResponse = await request.get(
+    `${baseUrl}/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
+    {
+      headers: {
+        Cookie: cookies
+          .map((c: { name: string; value: string }) => `${c.name}=${c.value}`)
+          .join('; '),
+      },
+    },
+  )
+
+  if (!classOptionsResponse.ok()) {
+    throw new Error(`Failed to fetch class option "${className}": ${classOptionsResponse.status()}`)
+  }
+
+  const classOptionsData = await classOptionsResponse.json()
+  const classOption = classOptionsData.docs?.[0]
+
+  if (!classOption) {
+    throw new Error(`Class option "${className}" not found`)
+  }
+
+  // Verify the payment method is configured
+  if (requiredMethod === 'dropIn') {
+    const allowedDropIn = classOption.paymentMethods?.allowedDropIn
+    if (!allowedDropIn || (typeof allowedDropIn === 'object' && allowedDropIn === null)) {
+      throw new Error(`Class option "${className}" does not have an Allowed Drop In configured`)
+    }
+  } else if (requiredMethod === 'subscription') {
+    const allowedPlans = classOption.paymentMethods?.allowedPlans
+    if (!allowedPlans || !Array.isArray(allowedPlans) || allowedPlans.length === 0) {
+      throw new Error(`Class option "${className}" does not have Allowed Plans configured`)
+    }
+  }
+}
+
+/**
+ * Ensure there is a lesson tomorrow whose class option is subscription-only.
+ * Returns tomorrow's date.
+ */
+export async function ensureLessonForTomorrowWithSubscription(page: any): Promise<Date> {
+  const className = `E2E Subscription Class ${Date.now()}`
+  const planName = await ensureAtLeastOnePlan(page)
+
+  // Create a subscription-only class option
+  await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
+  // "Create new Class Option" is a link in Payload 3.64.0
+  const createLink = page.getByRole('link', { name: /Create new.*Class Option/i })
+  if ((await createLink.count()) > 0) {
+    await createLink.first().click()
+  } else {
+    await page
+      .getByLabel(/Create new.*Class Option/i)
+      .first()
+      .click()
+  }
+
+  await page.getByRole('textbox', { name: 'Name *' }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByRole('textbox', { name: 'Name *' }).fill(className)
+  await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
+  await page
+    .getByRole('textbox', { name: 'Description *' })
+    .fill('A test class option for e2e (subscription)')
+
+  // Configure payment methods: Allowed Plans (pick first available)
+  const allowedPlansCombobox = page
+    .locator('text=Allowed Plans')
+    .locator('..')
+    .locator('[role="combobox"]')
+    .first()
+
+  await expect(allowedPlansCombobox).toBeVisible({ timeout: 20000 })
+  await allowedPlansCombobox.click()
+  const planOption = page.getByRole('option', { name: new RegExp(planName, 'i') })
+  if ((await planOption.count()) > 0) {
+    await planOption.first().click()
+  } else {
+    const firstPlan = page.getByRole('option').first()
+    await expect(firstPlan).toBeVisible({ timeout: 20000 })
+    await firstPlan.click()
+  }
+
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/class-options',
+    expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
+    collectionName: 'class-options',
+  })
+
+  // Create lesson for tomorrow
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
+
+  const dateInput = page.locator('#field-date').getByRole('textbox')
+  await dateInput.click()
+  await dateInput.fill(tomorrowDateStr)
+  await page.keyboard.press('Tab')
+
+  const startTimeInput = page.locator('#field-startTime').getByRole('textbox')
+  await startTimeInput.click()
+  const startTimeOption = page.getByRole('option', { name: '10:00 AM' })
+  if ((await startTimeOption.count()) > 0) {
+    await startTimeOption.click()
+  } else {
+    await startTimeInput.fill('10:00 AM')
+    await page.keyboard.press('Enter')
+  }
+
+  const endTimeInput = page.locator('#field-endTime').getByRole('textbox')
+  await endTimeInput.click()
+  const endTimeOption = page.getByRole('option', { name: '11:00 AM' })
+  if ((await endTimeOption.count()) > 0) {
+    await endTimeOption.click()
+  } else {
+    await endTimeInput.fill('11:00 AM')
+    await page.keyboard.press('Enter')
+  }
+
+  const classOptionCombobox = page
+    .locator('text=Class Option')
+    .locator('..')
+    .locator('[role="combobox"]')
+    .first()
+  await classOptionCombobox.click()
+  const classOption = page.getByRole('option', { name: className })
+  await expect(classOption).toBeVisible({ timeout: 10000 })
+  await classOption.click()
+
+  // Verify the selected class option has the required payment method
+  await verifyClassOptionPaymentMethod(page, className, 'subscription')
+
+  await saveObjectAndWaitForNavigation(page, {
+    apiPath: '/api/lessons',
+    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
+    collectionName: 'lessons',
+  })
+
+  return tomorrow
 }
