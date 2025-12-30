@@ -1,0 +1,40 @@
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Override all button state colors for boatyard-sauna */
+  /* Uncomment and customize these values as needed */
+  /*
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 84.2% 60.2%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+  */
+}
+
+[data-theme='dark'] {
+  /* Override all button state colors for dark mode */
+  /*
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 62.8% 30.6%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+  */
+}
+
