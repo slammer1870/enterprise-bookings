@@ -27,8 +27,8 @@ export const generateMeta = async (args: {
   const ogImage = getImageURL(doc?.meta?.image)
 
   const title = doc?.meta?.title
-    ? doc?.meta?.title + ' | Payload Website Template'
-    : 'Payload Website Template'
+    ? doc?.meta?.title + ' | ATND | Modern Bespoke Booking Software'
+    : 'ATND | Modern Bespoke Booking Software'
 
   return {
     description: doc?.meta?.description,
