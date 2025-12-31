@@ -3,6 +3,7 @@ import { z } from "zod";
 import { stripeProtectedProcedure, requireCollections } from "../trpc";
 import { findSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";
+import Stripe from "stripe";
 
 // Helper function to safely get stripeCustomerId
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,11 +35,16 @@ export const paymentsRouter = {
       // E2E/CI: don't call Stripe. We only need a redirect URL to keep the booking flow deterministic.
       // Playwright config sets ENABLE_TEST_WEBHOOKS=true; using it here avoids external dependency flakes.
       if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
-        return {
-          url:
-            input.successUrl ||
-            `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
-        };
+        // Keep return type consistent with the real Stripe call so builds don't break.
+        return ({
+          data: {
+            object: "checkout.session",
+            id: `cs_test_${Date.now()}`,
+            url:
+              input.successUrl ||
+              `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+          } as unknown as Stripe.Checkout.Session,
+        } as unknown) as Stripe.Response<Stripe.Checkout.Session>;
       }
 
       const customerId = getStripeCustomerId(ctx.user);
