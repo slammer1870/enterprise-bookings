@@ -429,13 +429,62 @@ export async function mockSubscriptionCreatedWebhook(
 export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
   await page.goto('/admin/collections/plans', { waitUntil: 'domcontentloaded', timeout: 120000 })
 
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const request = page.context().request
+  const cookieHeader = async () => {
+    const cookies = await page.context().cookies()
+    return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
+  }
+
+  const ensurePlanHasStripePriceId = async (planName: string) => {
+    const planRes = await request.get(
+      `${baseUrl}/api/plans?where[name][equals]=${encodeURIComponent(planName)}&limit=1`,
+      { headers: { Cookie: await cookieHeader() } },
+    )
+    if (!planRes.ok()) {
+      throw new Error(`Failed to fetch plan "${planName}": ${planRes.status()}`)
+    }
+    const planJson = await planRes.json()
+    const plan = planJson?.docs?.[0]
+    const planId = plan?.id
+    if (!planId) {
+      throw new Error(`Plan "${planName}" not found in API response`)
+    }
+
+    // If it's already set, keep it.
+    try {
+      const parsed = plan?.priceJSON ? JSON.parse(plan.priceJSON) : null
+      if (parsed?.id && typeof parsed.id === 'string') return
+    } catch {
+      // we'll overwrite
+    }
+
+    const fakeStripePriceId = `price_e2e_${Date.now()}`
+    const patchRes = await request.patch(`${baseUrl}/api/plans/${planId}`, {
+      headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+      data: {
+        // PlanDetail/PlanList parse `priceJSON` and use `.id` as the Stripe priceId.
+        priceJSON: JSON.stringify({ id: fakeStripePriceId, unit_amount: 1500_00, type: 'recurring' }),
+        // Avoid any Stripe sync hooks from running during tests.
+        skipSync: true,
+      },
+    })
+    if (!patchRes.ok()) {
+      const txt = await patchRes.text().catch(() => '')
+      throw new Error(`Failed to patch plan "${planName}" priceJSON: ${patchRes.status()} ${txt}`)
+    }
+  }
+
   const rows = page.getByRole('row')
   const rowCount = await rows.count()
   if (rowCount > 1) {
     const firstDataRow = rows.nth(1)
     const firstLink = firstDataRow.getByRole('link').first()
     const name = (await firstLink.textContent().catch(() => ''))?.trim()
-    if (name) return name
+    if (name) {
+      await ensurePlanHasStripePriceId(name)
+      return name
+    }
     return 'Plan'
   }
 
@@ -473,6 +522,8 @@ export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
     expectedUrlPattern: /\/admin\/collections\/plans\/\d+/,
     collectionName: 'plans',
   })
+
+  await ensurePlanHasStripePriceId(planName)
 
   return planName
 }
