@@ -37,12 +37,22 @@ export const paymentsRouter = {
       if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
         // Keep return type consistent with the real Stripe call so builds don't break.
         // NOTE: Stripe.Response<T> is effectively T augmented with `lastResponse`, so callers expect `session.url`.
+        const redirectUrl = (() => {
+          const raw =
+            input.successUrl ||
+            `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`;
+          try {
+            // Next/router.push expects an internal path; normalize absolute URLs to a pathname.
+            return raw.startsWith("http") ? new URL(raw).pathname : raw;
+          } catch {
+            return "/dashboard";
+          }
+        })();
+
         return ({
           object: "checkout.session",
           id: `cs_test_${Date.now()}`,
-          url:
-            input.successUrl ||
-            `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+          url: redirectUrl,
           lastResponse: {} as Stripe.Response<Stripe.Checkout.Session>["lastResponse"],
         } as unknown) as Stripe.Response<Stripe.Checkout.Session>;
       }

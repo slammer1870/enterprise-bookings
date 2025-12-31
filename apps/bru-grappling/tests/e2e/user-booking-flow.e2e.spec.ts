@@ -672,6 +672,11 @@ test.describe('User booking flow from schedule', () => {
     if (!/^\/bookings\/\d+/.test(callbackPath)) {
       throw new Error(`Expected callbackUrl to start with /bookings/{id}, got: ${callbackPath}`)
     }
+    const lessonIdFromCallback = (() => {
+      const match = callbackPath.match(/\/bookings\/(\d+)/)
+      if (!match?.[1]) throw new Error(`Could not extract lesson ID from callbackUrl: ${callbackPath}`)
+      return parseInt(match[1], 10)
+    })()
 
     // If there's a login tab, use Register; otherwise assume register mode is default
     const registerTab = page.getByRole('tab', { name: /Register/i })
@@ -832,6 +837,11 @@ test.describe('User booking flow from schedule', () => {
     if (!/^\/bookings\/\d+/.test(callbackPath)) {
       throw new Error(`Expected callbackUrl to start with /bookings/{id}, got: ${callbackPath}`)
     }
+    const lessonIdFromCallback = (() => {
+      const match = callbackPath.match(/\/bookings\/(\d+)/)
+      if (!match?.[1]) throw new Error(`Could not extract lesson ID from callbackUrl: ${callbackPath}`)
+      return parseInt(match[1], 10)
+    })()
 
     // If there's a login tab, use Register; otherwise assume register mode is default
     const registerTab = page.getByRole('tab', { name: /Register/i })
@@ -927,25 +937,12 @@ test.describe('User booking flow from schedule', () => {
 
     // In CI/test mode the app may immediately navigate away (router.push), which can abort the response
     // body stream and make `response.json()` flaky. Assert the observable behavior instead.
-    await Promise.all([
-      checkoutResponsePromise,
-      page.waitForURL((url) => url.pathname.startsWith('/dashboard'), {
-        timeout: process.env.CI ? 60000 : 30000,
-      }),
-      subscribeButton.click(),
-    ])
-
-    // Extract lesson ID from booking page URL for webhook
-    const currentUrl = page.url()
-    const lessonIdMatch = currentUrl.match(/\/bookings\/(\d+)/)
-    if (!lessonIdMatch || !lessonIdMatch[1]) {
-      throw new Error(`Could not extract lesson ID from URL: ${currentUrl}`)
-    }
-    const lessonId = parseInt(lessonIdMatch[1], 10)
+    await Promise.all([checkoutResponsePromise, subscribeButton.click()])
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: process.env.CI ? 60000 : 30000 })
 
     // Mock subscription created webhook to confirm booking
     await mockSubscriptionCreatedWebhook(page.context().request, {
-      lessonId,
+      lessonId: lessonIdFromCallback,
       userEmail: email,
     })
 
