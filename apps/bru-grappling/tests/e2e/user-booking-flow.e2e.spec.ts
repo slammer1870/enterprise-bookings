@@ -875,10 +875,11 @@ test.describe('User booking flow from schedule', () => {
       { timeout: 60000 },
     )
 
-    // On booking page, open Membership tab and click Subscribe
-    const membershipTab = page.getByRole('tab', { name: /Membership/i })
-    await expect(membershipTab).toBeVisible({ timeout: 20000 })
-    await membershipTab.click()
+    // On booking page, open Subscription tab and click Subscribe
+    // (UI label is "Subscription"; older tests referenced "Membership")
+    const subscriptionTab = page.getByRole('tab', { name: /Subscription/i })
+    await expect(subscriptionTab).toBeVisible({ timeout: 20000 })
+    await subscriptionTab.click()
 
     const subscribeButton = page.getByRole('button', { name: /Subscribe/i }).first()
     await expect(subscribeButton).toBeVisible({ timeout: 20000 })

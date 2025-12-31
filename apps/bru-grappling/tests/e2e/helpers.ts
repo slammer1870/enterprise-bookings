@@ -251,85 +251,80 @@ export async function ensureAdminLoggedIn(page: Page) {
   // Warm the server before the first admin navigation (slow on CI)
   await waitForServerReady(page.context().request)
 
-  // Initial admin navigation; avoid networkidle because Next dev server keeps sockets open
-  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
-  try {
-    await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
-  } catch {
-    // Retry once with a fresh navigation in case the first wait races a slow dev build on CI
-    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
-    await page.waitForURL(/\/admin\/(login|create-first-user|$)/, { timeout: 120000 })
-  }
+  // Use DOM-driven state detection (more robust than URL substring checks).
+  const openMenuButton = page.getByRole('button', { name: 'Open Menu' })
+  const loginButton = page.getByRole('button', { name: 'Login' })
+  const loginEmail = page.getByRole('textbox', { name: 'Email *' })
+  const loginPassword = page.getByRole('textbox', { name: /^Password\s*\*?$/ })
+  const createFirstUserHeading = page.getByRole('heading', { name: 'Welcome' })
+  const createFirstUserEmail = page.getByRole('textbox', { name: 'Email *' })
+  const createFirstUserNewPassword = page.getByRole('textbox', { name: 'New Password' })
+  const createFirstUserConfirmPassword = page.getByRole('textbox', { name: 'Confirm Password' })
+  const createFirstUserEmailVerified = page.getByRole('checkbox', { name: 'Email Verified *' })
+  const createFirstUserCreate = page.getByRole('button', { name: 'Create' })
+  const createFirstUserEmailUniqueError = page.getByRole('complementary', {
+    name: 'Value must be unique',
+  })
 
-  // If we're on create-first-user page, create the admin user
-  if (page.url().includes('/admin/create-first-user')) {
-    await page
-      .getByRole('textbox', { name: 'Email *' })
-      .waitFor({ state: 'visible', timeout: 20000 })
-    await page.getByRole('textbox', { name: 'Email *' }).fill(adminEmail)
-    await page.getByRole('textbox', { name: 'New Password' }).fill(adminPassword)
-    await page.getByRole('textbox', { name: 'Confirm Password' }).fill(adminPassword)
-
-    // Check Email Verified checkbox
-    await page.getByRole('checkbox', { name: 'Email Verified *' }).setChecked(true)
-
-    // Click Create button and wait for response
-    // If another worker already created the first user, this will fail
-    // In that case, we'll be redirected to login or see an error
-    const [response] = await Promise.all([
-      page
-        .waitForResponse((resp) => resp.url().includes('/api/users/first-register'), {
-          timeout: 100000,
-        })
-        .catch(() => null),
-      page.getByRole('button', { name: 'Create' }).click(),
-    ])
-
-    // If the response indicates an error (user already exists), navigate to login
-    if (response && !response.ok()) {
-      await page
-        .goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
-        .catch(async () => {
-          await page.goto('/admin/login', { waitUntil: 'load', timeout: 120000 })
-          await page.waitForURL(/\/admin\/(login|$)/, { timeout: 120000 })
-        })
-    } else {
-      // Wait for navigation - if we're still on create-first-user after timeout, navigate to login
-      try {
-        await page.waitForURL((url) => !url.pathname.includes('/create-first-user'), {
-          timeout: 6000,
-        })
-      } catch {
-        // Still on create-first-user page, likely an error occurred
-        await page
-          .goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 30000 })
-          .catch(() => {})
-      }
+  const isVisible = async (locator: ReturnType<Page['locator']>, timeout = 250) => {
+    try {
+      await locator.waitFor({ state: 'visible', timeout })
+      return true
+    } catch {
+      return false
     }
   }
 
-  // Re-check URL in case we navigated to login from the create-first-user block
-  // Keep timeout modest and retry with a fresh navigation if needed to avoid long stalls.
-  const adminLanding = /\/admin\/(login|$)/
-  try {
-    await page.waitForURL(adminLanding, { timeout: 6000, waitUntil: 'domcontentloaded' })
-  } catch {
-    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await page.waitForURL(adminLanding, { timeout: 30000 }).catch(() => {})
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // Avoid `networkidle` because Next dev server keeps sockets open.
+    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
+
+    // 1) Already on dashboard
+    if (await isVisible(openMenuButton, 2000)) break
+
+    // 2) Create-first-user flow
+    if ((await isVisible(createFirstUserHeading, 1000)) && (await isVisible(createFirstUserCreate, 1000))) {
+      await createFirstUserEmail.waitFor({ state: 'visible', timeout: 20000 })
+      await createFirstUserEmail.fill(adminEmail)
+      await createFirstUserNewPassword.fill(adminPassword)
+      await createFirstUserConfirmPassword.fill(adminPassword)
+      await createFirstUserEmailVerified.setChecked(true)
+
+      await createFirstUserCreate.click()
+
+      // After creating the first user, Payload may auto-log-in and redirect to dashboard,
+      // OR redirect to /admin/login. Wait for either UI state.
+      await Promise.race([
+        openMenuButton.waitFor({ state: 'visible', timeout: 20000 }),
+        loginButton.waitFor({ state: 'visible', timeout: 20000 }),
+        // In parallel runs, another worker may have already created the user.
+        // Payload stays on this page and shows a validation error instead of navigating.
+        createFirstUserEmailUniqueError.waitFor({ state: 'visible', timeout: 20000 }),
+      ]).catch(() => {})
+
+      if (await isVisible(openMenuButton, 1000)) break
+      if (await isVisible(createFirstUserEmailUniqueError, 500)) {
+        // Another worker won the race; go to login and sign in with the known credentials.
+        await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
+      }
+      // If not on dashboard yet, loop again (likely on /admin/login)
+      continue
+    }
+
+    // 3) Login flow
+    if (await isVisible(loginButton, 1500)) {
+      await loginEmail.waitFor({ state: 'visible', timeout: 10000 })
+      await loginEmail.fill(adminEmail)
+      await loginPassword.waitFor({ state: 'visible', timeout: 10000 })
+      await loginPassword.fill(adminPassword)
+      await loginButton.click()
+
+      await openMenuButton.waitFor({ state: 'visible', timeout: 20000 })
+      break
+    }
   }
 
-  // If we're on login page, try to login (assuming user exists)
-  if (page.url().includes('/admin/login')) {
-    await page.getByRole('textbox', { name: 'Email' }).fill(adminEmail)
-    // Use regex for exact match to avoid matching "New Password" or "Confirm Password"
-    await page.getByRole('textbox', { name: /^Password$/ }).fill(adminPassword)
-    await page.getByRole('button', { name: 'Login' }).click()
-  }
-
-  await page.waitForURL(/\/admin$/, { timeout: 10000 }).catch(async () => {
-    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 10000 })
-  })
-  await expect(page).toHaveURL(/\/admin$/)
+  await expect(openMenuButton).toBeVisible({ timeout: 20000 })
 }
 
 /**
