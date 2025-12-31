@@ -252,7 +252,9 @@ export async function ensureAdminLoggedIn(page: Page) {
   await waitForServerReady(page.context().request)
 
   // Use DOM-driven state detection (more robust than URL substring checks).
-  const openMenuButton = page.getByRole('button', { name: 'Open Menu' })
+  // Prefer a stable "logged-in" indicator. The sidebar "Log out" link is present in the Payload admin shell.
+  // "Open Menu" can be responsive-layout dependent and is not always reliable.
+  const loggedInIndicator = page.getByRole('link', { name: 'Log out' })
   const loginButton = page.getByRole('button', { name: 'Login' })
   const loginEmail = page.getByRole('textbox', { name: 'Email *' })
   const loginPassword = page.getByRole('textbox', { name: /^Password\s*\*?$/ })
@@ -262,9 +264,8 @@ export async function ensureAdminLoggedIn(page: Page) {
   const createFirstUserConfirmPassword = page.getByRole('textbox', { name: 'Confirm Password' })
   const createFirstUserEmailVerified = page.getByRole('checkbox', { name: 'Email Verified *' })
   const createFirstUserCreate = page.getByRole('button', { name: 'Create' })
-  const createFirstUserEmailUniqueError = page.getByRole('complementary', {
-    name: 'Value must be unique',
-  })
+  // Payload shows different error UIs depending on version/theme. Prefer network response for race handling.
+  const firstRegisterResponseUrlPart = '/api/users/first-register'
 
   const isVisible = async (locator: ReturnType<Page['locator']>, timeout = 250) => {
     try {
@@ -280,7 +281,7 @@ export async function ensureAdminLoggedIn(page: Page) {
     await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
 
     // 1) Already on dashboard
-    if (await isVisible(openMenuButton, 2000)) break
+    if (await isVisible(loggedInIndicator, 2000)) break
 
     // 2) Create-first-user flow
     if ((await isVisible(createFirstUserHeading, 1000)) && (await isVisible(createFirstUserCreate, 1000))) {
@@ -290,24 +291,38 @@ export async function ensureAdminLoggedIn(page: Page) {
       await createFirstUserConfirmPassword.fill(adminPassword)
       await createFirstUserEmailVerified.setChecked(true)
 
-      await createFirstUserCreate.click()
+      // Important: admin panel access is gated by `user.roles` containing "admin" (see `checkRole`).
+      // Payload's create-first-user defaults to non-admin; explicitly set the admin roles if possible.
+      // These fields are provided by plugins and may render as native <select> or custom combobox.
+      await page
+        .selectOption('#field-role', { label: 'admin' })
+        .catch(() => page.locator('#field-role').click().catch(() => {}))
+      await page
+        .selectOption('#field-roles', { label: 'admin' })
+        .catch(() => page.locator('#field-roles').click().catch(() => {}))
+
+      const [firstRegisterResp] = await Promise.all([
+        page
+          .waitForResponse((resp) => resp.url().includes(firstRegisterResponseUrlPart), { timeout: 20000 })
+          .catch(() => null),
+        createFirstUserCreate.click(),
+      ])
+
+      // If another worker created the first user, we typically get a 400 here (email not unique / invalid).
+      if (firstRegisterResp && !firstRegisterResp.ok()) {
+        await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
+        continue
+      }
 
       // After creating the first user, Payload may auto-log-in and redirect to dashboard,
       // OR redirect to /admin/login. Wait for either UI state.
       await Promise.race([
-        openMenuButton.waitFor({ state: 'visible', timeout: 20000 }),
+        loggedInIndicator.waitFor({ state: 'visible', timeout: 20000 }),
         loginButton.waitFor({ state: 'visible', timeout: 20000 }),
-        // In parallel runs, another worker may have already created the user.
-        // Payload stays on this page and shows a validation error instead of navigating.
-        createFirstUserEmailUniqueError.waitFor({ state: 'visible', timeout: 20000 }),
       ]).catch(() => {})
 
-      if (await isVisible(openMenuButton, 1000)) break
-      if (await isVisible(createFirstUserEmailUniqueError, 500)) {
-        // Another worker won the race; go to login and sign in with the known credentials.
-        await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
-      }
-      // If not on dashboard yet, loop again (likely on /admin/login)
+      if (await isVisible(loggedInIndicator, 1000)) break
+      // Otherwise, we'll fall through to login flow on next loop iteration.
       continue
     }
 
@@ -319,12 +334,12 @@ export async function ensureAdminLoggedIn(page: Page) {
       await loginPassword.fill(adminPassword)
       await loginButton.click()
 
-      await openMenuButton.waitFor({ state: 'visible', timeout: 20000 })
+      await loggedInIndicator.waitFor({ state: 'visible', timeout: 20000 })
       break
     }
   }
 
-  await expect(openMenuButton).toBeVisible({ timeout: 20000 })
+  await expect(loggedInIndicator).toBeVisible({ timeout: 20000 })
 }
 
 /**

@@ -171,7 +171,7 @@ export const subscriptionsRouter = {
         payload,
         "lessons",
         input.lessonId,
-        { depth: 2 }
+        { depth: 2, user }
       );
 
       if (!lesson) {
@@ -214,6 +214,7 @@ export const subscriptionsRouter = {
           },
           limit: 1,
           depth: 2,
+          user,
         }
       );
 

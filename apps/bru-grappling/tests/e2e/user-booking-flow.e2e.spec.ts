@@ -667,6 +667,7 @@ test.describe('User booking flow from schedule', () => {
       }
       return '/'
     })()
+    const callbackPathname = callbackPath.split('?')[0] ?? callbackPath
 
     if (!/^\/bookings\/\d+/.test(callbackPath)) {
       throw new Error(`Expected callbackUrl to start with /bookings/{id}, got: ${callbackPath}`)
@@ -826,6 +827,7 @@ test.describe('User booking flow from schedule', () => {
       }
       return '/'
     })()
+    const callbackPathname = callbackPath.split('?')[0] ?? callbackPath
 
     if (!/^\/bookings\/\d+/.test(callbackPath)) {
       throw new Error(`Expected callbackUrl to start with /bookings/{id}, got: ${callbackPath}`)
@@ -867,13 +869,37 @@ test.describe('User booking flow from schedule', () => {
     await page.waitForURL(
       (url) => {
         try {
-          return url.pathname.startsWith(callbackPath) || url.pathname.startsWith('/dashboard')
+          return url.pathname.startsWith(callbackPathname) || url.pathname.startsWith('/dashboard')
         } catch {
           return false
         }
       },
       { timeout: 60000 },
     )
+
+    // Ensure the magic-link actually established a session before we proceed.
+    await expect
+      .poll(
+        async () => {
+          const res = await page.context().request.get('/api/auth/get-session').catch(() => null)
+          if (!res || !res.ok()) return false
+          const data = await res.json().catch(() => null)
+          return Boolean(data?.user || data?.session)
+        },
+        { timeout: 30000 },
+      )
+      .toBeTruthy()
+
+    // If auth flow landed on /dashboard, explicitly navigate back to the booking callback.
+    // This keeps the test deterministic and avoids relying on app-specific post-login redirects.
+    try {
+      const current = new URL(page.url())
+      if (!current.pathname.startsWith(callbackPathname)) {
+        await page.goto(callbackPath, { waitUntil: 'load', timeout: 60000 })
+      }
+    } catch {
+      await page.goto(callbackPath, { waitUntil: 'load', timeout: 60000 })
+    }
 
     // On booking page, open Subscription tab and click Subscribe
     // (UI label is "Subscription"; older tests referenced "Membership")
