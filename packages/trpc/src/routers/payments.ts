@@ -36,14 +36,14 @@ export const paymentsRouter = {
       // Playwright config sets ENABLE_TEST_WEBHOOKS=true; using it here avoids external dependency flakes.
       if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
         // Keep return type consistent with the real Stripe call so builds don't break.
+        // NOTE: Stripe.Response<T> is effectively T augmented with `lastResponse`, so callers expect `session.url`.
         return ({
-          data: {
-            object: "checkout.session",
-            id: `cs_test_${Date.now()}`,
-            url:
-              input.successUrl ||
-              `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
-          } as unknown as Stripe.Checkout.Session,
+          object: "checkout.session",
+          id: `cs_test_${Date.now()}`,
+          url:
+            input.successUrl ||
+            `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+          lastResponse: {} as Stripe.Response<Stripe.Checkout.Session>["lastResponse"],
         } as unknown) as Stripe.Response<Stripe.Checkout.Session>;
       }
 

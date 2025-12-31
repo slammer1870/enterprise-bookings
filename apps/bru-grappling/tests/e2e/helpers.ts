@@ -562,16 +562,24 @@ export async function ensureLessonForTomorrowWithSubscription(page: any): Promis
   // "Create new Class Option" is a link in Payload 3.64.0
   const createLink = page.getByRole('link', { name: /Create new.*Class Option/i })
   if ((await createLink.count()) > 0) {
-    await createLink.first().click()
+    await Promise.all([
+      page.waitForURL(/\/admin\/collections\/class-options\/create/, {
+        timeout: process.env.CI ? 60000 : 30000,
+      }),
+      createLink.first().click(),
+    ])
   } else {
-    await page
-      .getByLabel(/Create new.*Class Option/i)
-      .first()
-      .click()
+    await Promise.all([
+      page.waitForURL(/\/admin\/collections\/class-options\/create/, {
+        timeout: process.env.CI ? 60000 : 30000,
+      }),
+      page.getByLabel(/Create new.*Class Option/i).first().click(),
+    ])
   }
 
-  await page.getByRole('textbox', { name: 'Name *' }).waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByRole('textbox', { name: 'Name *' }).fill(className)
+  const nameField = page.getByRole('textbox', { name: /^Name\s*\*?$/i })
+  await nameField.waitFor({ state: 'visible', timeout: process.env.CI ? 30000 : 10000 })
+  await nameField.fill(className)
   await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
   await page
     .getByRole('textbox', { name: 'Description *' })
