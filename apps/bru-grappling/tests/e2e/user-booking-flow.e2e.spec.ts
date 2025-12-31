@@ -881,7 +881,10 @@ test.describe('User booking flow from schedule', () => {
     await expect
       .poll(
         async () => {
-          const res = await page.context().request.get('/api/auth/get-session').catch(() => null)
+          const res = await page
+            .context()
+            .request.get('/api/auth/get-session')
+            .catch(() => null)
           if (!res || !res.ok()) return false
           const data = await res.json().catch(() => null)
           return Boolean(data?.user || data?.session)
@@ -903,7 +906,7 @@ test.describe('User booking flow from schedule', () => {
 
     // On booking page, open Subscription tab and click Subscribe
     // (UI label is "Subscription"; older tests referenced "Membership")
-    const subscriptionTab = page.getByRole('tab', { name: /Subscription/i })
+    const subscriptionTab = page.getByRole('tab', { name: /Membership/i })
     await expect(subscriptionTab).toBeVisible({ timeout: 20000 })
     await subscriptionTab.click()
 
