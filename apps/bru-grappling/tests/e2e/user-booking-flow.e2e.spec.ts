@@ -916,20 +916,27 @@ test.describe('User booking flow from schedule', () => {
       .toBeEnabled({ timeout: 10000 })
       .catch(() => page.waitForTimeout(1000))
 
-    // Intercept the create-checkout-session call and assert it returns a redirect URL
-    const checkoutResponsePromise = page.waitForResponse((res) => {
-      return (
-        res.url().includes('/api/stripe/create-checkout-session') &&
-        res.request().method() === 'POST'
-      )
-    })
+    // Subscribe uses tRPC (payments.createCustomerCheckoutSession), not /api/stripe/create-checkout-session.
+    // Set up the wait BEFORE clicking (Playwright best practice).
+    const checkoutResponsePromise = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/trpc/payments.createCustomerCheckoutSession') &&
+        res.request().method() === 'POST',
+      { timeout: process.env.CI ? 30000 : 10000 },
+    )
 
     await subscribeButton.click()
 
     const checkoutResponse = await checkoutResponsePromise
-    const checkoutJson = await checkoutResponse.json()
-    if (!checkoutJson?.url) {
-      throw new Error('Subscribe did not return a redirect url')
+    const checkoutJson = await checkoutResponse.json().catch(() => null)
+    const checkoutUrl =
+      checkoutJson?.result?.data?.json?.url ??
+      checkoutJson?.result?.data?.url ??
+      checkoutJson?.url ??
+      null
+
+    if (!checkoutUrl) {
+      throw new Error(`Subscribe did not return a redirect url. Response: ${JSON.stringify(checkoutJson)}`)
     }
 
     // Extract lesson ID from booking page URL for webhook
