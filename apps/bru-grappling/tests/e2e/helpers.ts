@@ -427,8 +427,6 @@ export async function mockSubscriptionCreatedWebhook(
  * Returns the plan name to select.
  */
 export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
-  await page.goto('/admin/collections/plans', { waitUntil: 'domcontentloaded', timeout: 120000 })
-
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const request = page.context().request
   const cookieHeader = async () => {
@@ -436,20 +434,9 @@ export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
     return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
   }
 
-  const ensurePlanHasStripePriceId = async (planName: string) => {
-    const planRes = await request.get(
-      `${baseUrl}/api/plans?where[name][equals]=${encodeURIComponent(planName)}&limit=1`,
-      { headers: { Cookie: await cookieHeader() } },
-    )
-    if (!planRes.ok()) {
-      throw new Error(`Failed to fetch plan "${planName}": ${planRes.status()}`)
-    }
-    const planJson = await planRes.json()
-    const plan = planJson?.docs?.[0]
+  const ensurePlanHasStripePriceId = async (plan: { id: number | string; name?: string; priceJSON?: string | null }) => {
     const planId = plan?.id
-    if (!planId) {
-      throw new Error(`Plan "${planName}" not found in API response`)
-    }
+    if (!planId) throw new Error(`Plan is missing id: ${JSON.stringify(plan)}`)
 
     // If it's already set, keep it.
     try {
@@ -463,7 +450,7 @@ export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
     const patchRes = await request.patch(`${baseUrl}/api/plans/${planId}`, {
       headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
       data: {
-        // PlanDetail/PlanList parse `priceJSON` and use `.id` as the Stripe priceId.
+        // memberships `PlanDetail` parses `priceJSON` and uses `.id` as the Stripe priceId.
         priceJSON: JSON.stringify({ id: fakeStripePriceId, unit_amount: 1500_00, type: 'recurring' }),
         // Avoid any Stripe sync hooks from running during tests.
         skipSync: true,
@@ -471,59 +458,43 @@ export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
     })
     if (!patchRes.ok()) {
       const txt = await patchRes.text().catch(() => '')
-      throw new Error(`Failed to patch plan "${planName}" priceJSON: ${patchRes.status()} ${txt}`)
+      throw new Error(`Failed to patch plan "${plan?.name ?? planId}" priceJSON: ${patchRes.status()} ${txt}`)
     }
   }
 
-  const rows = page.getByRole('row')
-  const rowCount = await rows.count()
-  if (rowCount > 1) {
-    const firstDataRow = rows.nth(1)
-    const firstLink = firstDataRow.getByRole('link').first()
-    const name = (await firstLink.textContent().catch(() => ''))?.trim()
-    if (name) {
-      await ensurePlanHasStripePriceId(name)
-      return name
-    }
-    return 'Plan'
-  }
-
-  const planName = `E2E Plan ${Date.now()}`
-
-  // "Create new Plan" is a link in Payload 3.64.0
-  const createLink = page.getByRole('link', { name: /Create new.*Plan/i })
-  if ((await createLink.count()) > 0) {
-    await createLink.first().click()
-  } else {
-    // Fallback: try getByLabel
-    await page
-      .getByLabel(/Create new.*Plan/i)
-      .first()
-      .click()
-  }
-
-  await page
-    .getByRole('textbox', { name: /Name \*/i })
-    .waitFor({ state: 'visible', timeout: 20000 })
-  await page.getByRole('textbox', { name: /Name \*/i }).fill(planName)
-
-  const priceInput = page.getByRole('spinbutton', { name: /Price/i })
-  if ((await priceInput.count()) > 0) {
-    await priceInput.fill('1500')
-  }
-
-  const productIdInput = page.getByRole('textbox', { name: /Stripe Product Id/i })
-  if ((await productIdInput.count()) > 0) {
-    await productIdInput.fill(`prod_${Date.now()}`)
-  }
-
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/plans',
-    expectedUrlPattern: /\/admin\/collections\/plans\/\d+/,
-    collectionName: 'plans',
+  // API-first: avoid flakiness reading admin table text; also ensures seeded plans get patched.
+  const existingRes = await request.get(`${baseUrl}/api/plans?limit=1&sort=-createdAt`, {
+    headers: { Cookie: await cookieHeader() },
   })
+  if (existingRes.ok()) {
+    const json = await existingRes.json().catch(() => null)
+    const existing = json?.docs?.[0]
+    if (existing?.id) {
+      await ensurePlanHasStripePriceId(existing)
+      return existing?.name ?? 'Plan'
+    }
+  }
 
-  await ensurePlanHasStripePriceId(planName)
+  // No plan exists yet (or API fetch failed). Create via API so we can set hidden fields deterministically.
+  const planName = `E2E Plan ${Date.now()}`
+  const createRes = await request.post(`${baseUrl}/api/plans`, {
+    headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+    data: {
+      name: planName,
+      status: 'active',
+      priceInformation: { price: 1500, interval: 'month', intervalCount: 1 },
+      skipSync: true,
+      priceJSON: JSON.stringify({ id: `price_e2e_${Date.now()}`, unit_amount: 1500_00, type: 'recurring' }),
+    },
+  })
+  if (!createRes.ok()) {
+    const txt = await createRes.text().catch(() => '')
+    throw new Error(`Failed to create plan via API: ${createRes.status()} ${txt}`)
+  }
+  const created = await createRes.json().catch(() => null)
+  if (!created?.doc?.id) {
+    throw new Error(`Unexpected create plan response: ${JSON.stringify(created)}`)
+  }
 
   return planName
 }
