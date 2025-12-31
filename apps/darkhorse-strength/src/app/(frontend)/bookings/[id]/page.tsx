@@ -18,6 +18,8 @@ import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { hasReachedSubscriptionLimit } from '@repo/shared-services'
 import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
 
+import { handlePlanPurchase, handleSubscriptionManagement } from '@/actions/payments'
+
 // Add these new types
 type BookingPageProps = {
   params: Promise<{ id: number }>
@@ -85,43 +87,6 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   const subscriptionQuery = await getSubscriptionData(payload, user.id)
   const subscription = subscriptionQuery.docs[0] as Subscription
-
-  const handlePlanPurchase = async (
-    planId?: string,
-    metadata?: { [key: string]: string | undefined },
-  ) => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-checkout-session`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ price: planId, quantity: 1, metadata }),
-        headers: { Authorization: `JWT ${token}` },
-      },
-    )
-
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    }
-  }
-
-  const handleSubscriptionManagement = async () => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
-      {
-        method: 'POST',
-        headers: { Authorization: `JWT ${token}` },
-      },
-    )
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    }
-  }
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">

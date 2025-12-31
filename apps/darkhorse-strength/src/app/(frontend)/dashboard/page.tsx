@@ -4,8 +4,6 @@ import ScheduleComponent from '@/components/schedule'
 
 import { getPayload } from 'payload'
 
-import { redirect } from 'next/navigation'
-
 import config from '@payload-config'
 
 import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
@@ -13,8 +11,10 @@ import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
 
 import { Plan } from '@repo/shared-types'
 
+import { handlePlanPurchase, handleSubscriptionManagement } from '@/actions/payments'
+
 export default async function Dashboard() {
-  const { user, token } = await getMeUser({ nullUserRedirect: '/login' })
+  const { user } = await getMeUser({ nullUserRedirect: '/login' })
 
   const payload = await getPayload({ config })
 
@@ -39,46 +39,6 @@ export default async function Dashboard() {
     },
     depth: 2,
   })
-
-  const handlePlanPurchase = async (planId?: string) => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-checkout-session`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ price: planId, quantity: 1 }),
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `JWT ${token}`,
-        },
-      },
-    )
-
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    }
-  }
-
-  const handleSubscriptionManagement = async () => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `JWT ${token}`,
-        },
-      },
-    )
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    }
-  }
 
   return (
     <div className="container mx-auto pt-24 px-4 min-h-screen">
