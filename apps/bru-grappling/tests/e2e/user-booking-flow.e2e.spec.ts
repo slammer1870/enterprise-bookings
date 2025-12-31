@@ -925,19 +925,15 @@ test.describe('User booking flow from schedule', () => {
       { timeout: process.env.CI ? 30000 : 10000 },
     )
 
-    await subscribeButton.click()
-
-    const checkoutResponse = await checkoutResponsePromise
-    const checkoutJson = await checkoutResponse.json().catch(() => null)
-    const checkoutUrl =
-      checkoutJson?.result?.data?.json?.url ??
-      checkoutJson?.result?.data?.url ??
-      checkoutJson?.url ??
-      null
-
-    if (!checkoutUrl) {
-      throw new Error(`Subscribe did not return a redirect url. Response: ${JSON.stringify(checkoutJson)}`)
-    }
+    // In CI/test mode the app may immediately navigate away (router.push), which can abort the response
+    // body stream and make `response.json()` flaky. Assert the observable behavior instead.
+    await Promise.all([
+      checkoutResponsePromise,
+      page.waitForURL((url) => url.pathname.startsWith('/dashboard'), {
+        timeout: process.env.CI ? 60000 : 30000,
+      }),
+      subscribeButton.click(),
+    ])
 
     // Extract lesson ID from booking page URL for webhook
     const currentUrl = page.url()
