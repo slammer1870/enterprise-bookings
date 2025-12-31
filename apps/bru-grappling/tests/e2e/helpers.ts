@@ -251,23 +251,35 @@ export async function ensureAdminLoggedIn(page: Page) {
   // Warm the server before the first admin navigation (slow on CI)
   await waitForServerReady(page.context().request)
 
-  // Use DOM-driven state detection (more robust than URL substring checks).
-  // Prefer a stable "logged-in" indicator. The sidebar "Log out" link is present in the Payload admin shell.
-  // "Open Menu" can be responsive-layout dependent and is not always reliable.
-  const loggedInIndicator = page.getByRole('link', { name: 'Log out' })
-  const loginButton = page.getByRole('button', { name: 'Login' })
-  const loginEmail = page.getByRole('textbox', { name: 'Email *' })
-  const loginPassword = page.getByRole('textbox', { name: /^Password\s*\*?$/ })
-  const createFirstUserHeading = page.getByRole('heading', { name: 'Welcome' })
-  const createFirstUserEmail = page.getByRole('textbox', { name: 'Email *' })
-  const createFirstUserNewPassword = page.getByRole('textbox', { name: 'New Password' })
-  const createFirstUserConfirmPassword = page.getByRole('textbox', { name: 'Confirm Password' })
-  const createFirstUserEmailVerified = page.getByRole('checkbox', { name: 'Email Verified *' })
-  const createFirstUserCreate = page.getByRole('button', { name: 'Create' })
+  // Prefer an API-level auth check over UI. The admin UI is responsive and can hide navigation elements.
+  const waitForPayloadUser = async (timeoutMs: number) => {
+    await expect
+      .poll(
+        async () => {
+          const res = await page.context().request.get('/api/users/me').catch(() => null)
+          if (!res || !res.ok()) return false
+          const data = await res.json().catch(() => null)
+          return Boolean(data?.user?.id || data?.id)
+        },
+        { timeout: timeoutMs },
+      )
+      .toBeTruthy()
+  }
+  const loginButton = page.getByRole('button', { name: /^Login$/i })
+  const loginEmail = page.getByRole('textbox', { name: /^Email\s*\*?$/i })
+  const loginPassword = page.getByRole('textbox', { name: /^Password\s*\*?$/i })
+
+  const createFirstUserHeading = page.getByRole('heading', { name: /^Welcome$/i })
+  const createFirstUserEmail = page.getByRole('textbox', { name: /^Email\s*\*?$/i })
+  const createFirstUserNewPassword = page.getByRole('textbox', { name: /^New Password$/i })
+  const createFirstUserConfirmPassword = page.getByRole('textbox', { name: /^Confirm Password$/i })
+  const createFirstUserEmailVerified = page.getByRole('checkbox', { name: /^Email Verified\s*\*?$/i })
+  const createFirstUserCreate = page.getByRole('button', { name: /^Create$/i })
+
   // Payload shows different error UIs depending on version/theme. Prefer network response for race handling.
   const firstRegisterResponseUrlPart = '/api/users/first-register'
 
-  const isVisible = async (locator: ReturnType<Page['locator']>, timeout = 250) => {
+  const isVisible = async (locator: ReturnType<Page['locator']>, timeout = 500) => {
     try {
       await locator.waitFor({ state: 'visible', timeout })
       return true
@@ -276,70 +288,69 @@ export async function ensureAdminLoggedIn(page: Page) {
     }
   }
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    // Avoid `networkidle` because Next dev server keeps sockets open.
-    await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
+  // Avoid `networkidle` because Next dev server keeps sockets open.
+  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
 
-    // 1) Already on dashboard
-    if (await isVisible(loggedInIndicator, 2000)) break
+  // If we already have a valid Payload session, we're done.
+  await waitForPayloadUser(2000).catch(() => {})
 
-    // 2) Create-first-user flow
-    if ((await isVisible(createFirstUserHeading, 1000)) && (await isVisible(createFirstUserCreate, 1000))) {
-      await createFirstUserEmail.waitFor({ state: 'visible', timeout: 20000 })
-      await createFirstUserEmail.fill(adminEmail)
-      await createFirstUserNewPassword.fill(adminPassword)
-      await createFirstUserConfirmPassword.fill(adminPassword)
-      await createFirstUserEmailVerified.setChecked(true)
+  // Wait for *one* of the known UI states to appear. This is important on first-load when Next compiles.
+  await Promise.race([
+    createFirstUserHeading.waitFor({ state: 'visible', timeout: 60000 }),
+    loginButton.waitFor({ state: 'visible', timeout: 60000 }),
+  ]).catch(() => {})
 
-      // Important: admin panel access is gated by `user.roles` containing "admin" (see `checkRole`).
-      // Payload's create-first-user defaults to non-admin; explicitly set the admin roles if possible.
-      // These fields are provided by plugins and may render as native <select> or custom combobox.
-      await page
-        .selectOption('#field-role', { label: 'admin' })
-        .catch(() => page.locator('#field-role').click().catch(() => {}))
-      await page
-        .selectOption('#field-roles', { label: 'admin' })
-        .catch(() => page.locator('#field-roles').click().catch(() => {}))
-
-      const [firstRegisterResp] = await Promise.all([
-        page
-          .waitForResponse((resp) => resp.url().includes(firstRegisterResponseUrlPart), { timeout: 20000 })
-          .catch(() => null),
-        createFirstUserCreate.click(),
-      ])
-
-      // If another worker created the first user, we typically get a 400 here (email not unique / invalid).
-      if (firstRegisterResp && !firstRegisterResp.ok()) {
-        await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
-        continue
-      }
-
-      // After creating the first user, Payload may auto-log-in and redirect to dashboard,
-      // OR redirect to /admin/login. Wait for either UI state.
-      await Promise.race([
-        loggedInIndicator.waitFor({ state: 'visible', timeout: 20000 }),
-        loginButton.waitFor({ state: 'visible', timeout: 20000 }),
-      ]).catch(() => {})
-
-      if (await isVisible(loggedInIndicator, 1000)) break
-      // Otherwise, we'll fall through to login flow on next loop iteration.
-      continue
-    }
-
-    // 3) Login flow
-    if (await isVisible(loginButton, 1500)) {
-      await loginEmail.waitFor({ state: 'visible', timeout: 10000 })
-      await loginEmail.fill(adminEmail)
-      await loginPassword.waitFor({ state: 'visible', timeout: 10000 })
-      await loginPassword.fill(adminPassword)
-      await loginButton.click()
-
-      await loggedInIndicator.waitFor({ state: 'visible', timeout: 20000 })
-      break
-    }
+  // 1) Already logged in
+  await waitForPayloadUser(1500).catch(() => {})
+  try {
+    await waitForPayloadUser(1)
+    return
+  } catch {
+    // continue to UI flows
   }
 
-  await expect(loggedInIndicator).toBeVisible({ timeout: 20000 })
+  // 2) Create-first-user flow (race-safe)
+  if ((await isVisible(createFirstUserHeading, 1000)) && (await isVisible(createFirstUserCreate, 1000))) {
+    await createFirstUserEmail.waitFor({ state: 'visible', timeout: 20000 })
+    await createFirstUserEmail.fill(adminEmail)
+    await createFirstUserNewPassword.fill(adminPassword)
+    await createFirstUserConfirmPassword.fill(adminPassword)
+    await createFirstUserEmailVerified.setChecked(true)
+
+    // Important: admin panel access is gated by `user.roles` containing "admin" (see `checkRole`).
+    // Best-effort: set role/roles to admin if the fields exist.
+    await page.selectOption('#field-role', { label: 'admin' }).catch(() => {})
+    await page.selectOption('#field-roles', { label: 'admin' }).catch(() => {})
+
+    const [firstRegisterResp] = await Promise.all([
+      page
+        .waitForResponse((resp) => resp.url().includes(firstRegisterResponseUrlPart), { timeout: 20000 })
+        .catch(() => null),
+      createFirstUserCreate.click(),
+    ])
+
+    // If another worker created the first user, we typically get a 400 here (email not unique / invalid).
+    // In that case, go to login and sign in with the known credentials.
+    if (firstRegisterResp && !firstRegisterResp.ok()) {
+      await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    }
+
+    await Promise.race([
+      loginButton.waitFor({ state: 'visible', timeout: 60000 }),
+    ]).catch(() => {})
+  }
+
+  // 3) Login flow
+  if (await isVisible(loginButton, 2000)) {
+    await loginEmail.waitFor({ state: 'visible', timeout: 20000 })
+    await loginEmail.fill(adminEmail)
+    await loginPassword.waitFor({ state: 'visible', timeout: 20000 })
+    await loginPassword.fill(adminPassword)
+    await loginButton.click()
+  }
+
+  // Final assertion: we must be authenticated (API-level)
+  await waitForPayloadUser(60000)
 }
 
 /**
