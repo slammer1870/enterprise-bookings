@@ -4,6 +4,7 @@ import RichText from '@/components/RichText'
 import { Media } from '@/components/Media'
 import { CMSLink } from '@/components/Link'
 import { cn } from '@/utilities/ui'
+import { Carousel } from './Carousel.client'
 
 type Props = {
   className?: string
@@ -14,7 +15,6 @@ export const CaseStudiesBlock: React.FC<Props> = ({
   heading,
   description,
   caseStudies,
-  layout = 'grid',
   backgroundColor = 'default',
   className,
   disableInnerContainer,
@@ -49,98 +49,191 @@ export const CaseStudiesBlock: React.FC<Props> = ({
         )}
 
         {caseStudies && caseStudies.length > 0 && (
-          <div
-            className={cn(
-              layout === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-8' : 'flex flex-col gap-8',
-            )}
-          >
-            {caseStudies.map((study, index) => (
-              <div
-                key={index}
-                className="flex flex-col gap-6 p-8 rounded-lg border border-border bg-card hover:shadow-xl transition-shadow"
-              >
-                <div className="flex items-center gap-4">
-                  {/* Company Logo */}
-                  {study.companyLogo && typeof study.companyLogo === 'object' && (
-                    <div className="w-24 h-12 mb-2 opacity-80">
-                      <Media
-                        resource={study.companyLogo}
-                        imgClassName="w-full h-full object-contain object-left"
-                      />
-                    </div>
-                  )}
-                  {/* Quote */}
-                  {study.quote && (
-                    <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
-                      "{study.quote}"
-                    </blockquote>
-                  )}{' '}
-                </div>
-
-                {/* Author */}
-                {study.author && (
-                  <div className="flex items-center gap-4 pt-4 border-t border-border">
-                    {study.author.avatar && typeof study.author.avatar === 'object' && (
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+          <>
+            {/* Mobile: list view */}
+            <div className="flex flex-col gap-8 md:hidden">
+              {caseStudies.map((study, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col gap-6 p-8 rounded-lg border border-border bg-card hover:shadow-xl transition-shadow"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Company Logo */}
+                    {study.companyLogo && typeof study.companyLogo === 'object' && (
+                      <div className="w-24 h-12 mb-2 opacity-80">
                         <Media
-                          resource={study.author.avatar}
-                          imgClassName="w-full h-full object-cover"
+                          resource={study.companyLogo}
+                          imgClassName="w-full h-full object-contain object-left"
                         />
                       </div>
                     )}
-                    <div>
-                      {study.author.name && (
-                        <div className="font-semibold">{study.author.name}</div>
-                      )}
-                      {study.author.title && (
-                        <div className="text-sm text-muted-foreground">{study.author.title}</div>
-                      )}
-                    </div>
+                    {/* Quote */}
+                    {study.quote && (
+                      <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
+                        "{study.quote}"
+                      </blockquote>
+                    )}{' '}
                   </div>
-                )}
 
-                {/* Results */}
-                {study.results && study.results.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                    {study.results.map((result, resultIndex) => (
-                      <div key={resultIndex} className="text-center">
-                        {result.metric && (
-                          <div className="text-2xl font-bold text-primary">{result.metric}</div>
+                  {/* Author */}
+                  {study.author && (
+                    <div className="flex items-center gap-4 pt-4 border-t border-border">
+                      {study.author.avatar && typeof study.author.avatar === 'object' && (
+                        <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                          <Media
+                            resource={study.author.avatar}
+                            imgClassName="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        {study.author.name && (
+                          <div className="font-semibold">{study.author.name}</div>
                         )}
-                        {result.description && (
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {result.description}
-                          </div>
+                        {study.author.title && (
+                          <div className="text-sm text-muted-foreground">{study.author.title}</div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                {/* Link */}
-                {study.link && (
-                  <div className="mt-auto pt-4">
-                    <CMSLink
-                      type={study.link.type || undefined}
-                      reference={
-                        study.link.reference
-                          ? {
-                              relationTo: 'pages',
-                              value: study.link.reference as any,
-                            }
-                          : undefined
-                      }
-                      url={study.link.url || undefined}
-                      label={study.link.label || 'Read full case study'}
-                      newTab={study.link.newTab || false}
-                      appearance="inline"
-                      className="text-primary hover:underline font-medium"
-                    />
+                  {/* Results */}
+                  {study.results && study.results.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                      {study.results.map((result, resultIndex) => (
+                        <div key={resultIndex} className="text-center">
+                          {result.metric && (
+                            <div className="text-lg font-bold text-primary">{result.metric}</div>
+                          )}
+                          {result.description && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {result.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Link */}
+                  {study.link && (
+                    <div className="mt-auto pt-4">
+                      <CMSLink
+                        type={study.link.type || undefined}
+                        reference={
+                          study.link.reference
+                            ? {
+                                relationTo: 'pages',
+                                value: study.link.reference as any,
+                              }
+                            : undefined
+                        }
+                        url={study.link.url || undefined}
+                        label={study.link.label || 'Read full case study'}
+                        newTab={study.link.newTab || false}
+                        appearance="inline"
+                        className="text-primary hover:underline font-medium"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* md+: carousel */}
+            <Carousel className="hidden md:block" viewportClassName="px-1 py-1">
+              {caseStudies.map((study, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    'flex flex-col gap-6 p-8 rounded-lg border border-border bg-card hover:shadow-xl transition-shadow',
+                    'snap-start shrink-0',
+                    'w-[85%] lg:w-[60%] xl:w-[48%]',
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Company Logo */}
+                    {study.companyLogo && typeof study.companyLogo === 'object' && (
+                      <div className="w-24 h-12 mb-2 opacity-80">
+                        <Media
+                          resource={study.companyLogo}
+                          imgClassName="w-full h-full object-contain object-left"
+                        />
+                      </div>
+                    )}
+                    {/* Quote */}
+                    {study.quote && (
+                      <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
+                        "{study.quote}"
+                      </blockquote>
+                    )}{' '}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+
+                  {/* Author */}
+                  {study.author && (
+                    <div className="flex items-center gap-4 pt-4 border-t border-border">
+                      {study.author.avatar && typeof study.author.avatar === 'object' && (
+                        <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                          <Media
+                            resource={study.author.avatar}
+                            imgClassName="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        {study.author.name && (
+                          <div className="font-semibold">{study.author.name}</div>
+                        )}
+                        {study.author.title && (
+                          <div className="text-sm text-muted-foreground">{study.author.title}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Results */}
+                  {study.results && study.results.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                      {study.results.map((result, resultIndex) => (
+                        <div key={resultIndex} className="text-center">
+                          {result.metric && (
+                            <div className="text-lg font-bold text-primary">{result.metric}</div>
+                          )}
+                          {result.description && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {result.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Link */}
+                  {study.link && (
+                    <div className="mt-auto pt-4">
+                      <CMSLink
+                        type={study.link.type || undefined}
+                        reference={
+                          study.link.reference
+                            ? {
+                                relationTo: 'pages',
+                                value: study.link.reference as any,
+                              }
+                            : undefined
+                        }
+                        url={study.link.url || undefined}
+                        label={study.link.label || 'Read full case study'}
+                        newTab={study.link.newTab || false}
+                        appearance="inline"
+                        className="text-primary hover:underline font-medium"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Carousel>
+          </>
         )}
       </div>
     </section>
