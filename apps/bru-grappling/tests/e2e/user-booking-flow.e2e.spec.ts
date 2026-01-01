@@ -591,9 +591,17 @@ test.describe('User booking flow from schedule', () => {
       })
     await cancelButton.click()
 
-    await page.waitForTimeout(10000)
+    // The cancel flow uses `useConfirm`, which renders an `AdminDialog` with a "Confirm" button.
+    // If auth is missing, the app will open the login modal instead — fail fast with a clear message.
+    const loginDialog = page.getByRole('dialog').filter({ hasText: /Log in to your account/i })
+    await expect(loginDialog).not.toBeVisible({ timeout: 20000 })
 
-    const confirmButton = page.getByRole('button', { name: /^Confirm$/i })
+    const confirmDialog = page
+      .getByRole('dialog')
+      .filter({ hasText: /Are you sure you want to cancel/i })
+    await expect(confirmDialog).toBeVisible({ timeout: 20000 })
+
+    const confirmButton = confirmDialog.getByRole('button', { name: /^Confirm$/i })
     await expect(confirmButton).toBeVisible({ timeout: 20000 })
 
     // Ensure button is actionable (critical for UI mode)
