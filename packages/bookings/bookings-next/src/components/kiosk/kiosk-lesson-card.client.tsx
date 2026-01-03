@@ -77,7 +77,10 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
 
   // In some contexts (notably CI/dev + virtual fields), `remainingCapacity` can be missing.
   // Fall back to computing it from classOption.places - confirmed bookings.
-  const places = typeof lesson.classOption?.places === 'number' ? lesson.classOption.places : 0
+  // Also handle the case where classOption might be just an ID (not populated).
+  const classOptionObj =
+    typeof lesson.classOption === 'object' && lesson.classOption !== null ? lesson.classOption : null
+  const places = typeof classOptionObj?.places === 'number' ? classOptionObj.places : 50 // Default to 50 if missing
   const confirmedBookings = Array.isArray(lesson.bookings?.docs)
     ? lesson.bookings.docs.filter((b) => b?.status === 'confirmed').length
     : 0
@@ -108,7 +111,7 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
                   })}
                 </CardDescription>
                 <CardTitle className="flex justify-between items-center">
-                  {lesson.classOption.name} {lesson.location && `- ${lesson.location}`}
+                  {classOptionObj?.name ?? 'Class'} {lesson.location && `- ${lesson.location}`}
                 </CardTitle>
               </div>
               <CollapsibleTrigger asChild>
@@ -172,7 +175,7 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
                         <CommandList>
                           <CommandEmpty>No users found.</CommandEmpty>
                           <CommandGroup>
-                            {lesson.classOption.type === 'child'
+                            {classOptionObj?.type === 'child'
                               ? users
                                   .filter((user) => user.parent !== null)
                                   .map((user) => (

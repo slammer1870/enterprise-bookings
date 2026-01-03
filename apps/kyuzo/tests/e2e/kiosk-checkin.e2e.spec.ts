@@ -113,12 +113,27 @@ async function checkInViaKiosk(
   const card = page.getByTestId(`kiosk-lesson-card-${opts.lessonId}`)
   await expect(card).toBeVisible({ timeout: 60000 })
 
-  // Ensure the collapsible content is open (don’t blindly toggle; it may already be open).
+  // Ensure the collapsible content is open (don't blindly toggle; it may already be open).
   const openTrigger = card.getByTestId('kiosk-open-checkin')
   const combobox = card.getByTestId('kiosk-user-combobox')
-  if (!(await combobox.isVisible().catch(() => false))) {
-    await openTrigger.click()
+  const fullMessage = card.getByText('This class is full')
+
+  // Click to open collapsible if needed, with retry for animation
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await combobox.isVisible().catch(() => false)) break
+    await openTrigger.click().catch(() => {})
+    // Wait for collapsible animation to complete
+    await page.waitForTimeout(500)
   }
+
+  // Check if the class is unexpectedly showing as full
+  if (await fullMessage.isVisible().catch(() => false)) {
+    throw new Error(
+      `Lesson ${opts.lessonId} shows "This class is full" unexpectedly. ` +
+        'Check that remainingCapacity is computed correctly.',
+    )
+  }
+
   await expect(combobox).toBeVisible({ timeout: 60000 })
   await combobox.click()
 

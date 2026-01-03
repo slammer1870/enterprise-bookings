@@ -301,6 +301,14 @@ export async function ensureAdminLoggedIn(page: Page) {
       await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
     }
 
+    // Wait for the login form to render before trying to fill it.
+    const formSelector = 'form, [data-testid="login-form"], .login-form'
+    await page
+      .locator(formSelector)
+      .first()
+      .waitFor({ state: 'attached', timeout: process.env.CI ? 30000 : 10000 })
+      .catch(() => {})
+
     // Payload login markup varies across versions/configs; prefer robust selectors.
     const emailFieldCandidates = page.locator(
       'input[name="email"], input#field-email, input[type="email"], input[autocomplete="email"]',
@@ -308,6 +316,12 @@ export async function ensureAdminLoggedIn(page: Page) {
     const passwordFieldCandidates = page.locator(
       'input[name="password"], input#field-password, input[type="password"], input[autocomplete="current-password"]',
     )
+
+    // Wait for at least one email field to appear (form is ready).
+    await emailFieldCandidates
+      .first()
+      .waitFor({ state: 'attached', timeout: process.env.CI ? 30000 : 10000 })
+      .catch(() => {})
 
     const emailField =
       (await emailFieldCandidates.count()) > 0 ? emailFieldCandidates.first() : emailInput.first()
