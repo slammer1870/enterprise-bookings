@@ -8,11 +8,8 @@ import {
   CardFooter,
   CardContent,
 } from '@repo/ui/components/ui/card'
-
 import { Button } from '@repo/ui/components/ui/button'
-
 import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
-
 import {
   Command,
   CommandInput,
@@ -21,15 +18,6 @@ import {
   CommandGroup,
   CommandItem,
 } from '@repo/ui/components/ui/command'
-
-import { Booking, Lesson, User } from '@repo/shared-types'
-
-import { Check, ChevronDown, ChevronLeft, ChevronsUpDown, Loader2 } from 'lucide-react'
-
-import { useState } from 'react'
-import { cn } from '@repo/ui/lib/utils'
-import { toast } from 'sonner'
-
 import {
   Dialog,
   DialogContent,
@@ -38,53 +26,62 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@repo/ui/components/ui/dialog'
-
 import { Separator } from '@repo/ui/components/ui/separator'
-
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@repo/ui/components/ui/collapsible'
+import { cn } from '@repo/ui/lib/utils'
 
-export const LessonCard = ({
-  lesson,
-  users,
-  createBooking,
-}: {
-  lesson: Lesson
-  users: User[]
-  createBooking: (lessonId: number, userId: number) => Promise<Booking>
-}) => {
+import type { Lesson, User } from '@repo/shared-types'
+
+import { Check, ChevronDown, ChevronLeft, ChevronsUpDown, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { useState } from 'react'
+
+import { useTRPC } from '@repo/trpc/client'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User[] }) {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-
   const [collapsed, setCollapsed] = useState(true)
-
   const [error, setError] = useState<string | null>(null)
+
+  const kioskCheckIn = useMutation(
+    trpc.bookings.kioskCreateOrConfirmBooking.mutationOptions({
+      onSuccess: async () => {
+        // Query-level revalidation: refetch kiosk lessons so bookings/capacity update.
+        await queryClient.invalidateQueries({ queryKey: trpc.lessons.getForKiosk.queryKey() })
+      },
+    }),
+  )
 
   const handleCheckIn = async () => {
     if (!value) return
     try {
-      setIsLoading(true)
-      await createBooking(lesson.id, Number(value))
+      await kioskCheckIn.mutateAsync({ lessonId: lesson.id, userId: Number(value) })
       setError(null)
-      setIsLoading(false)
       setOpen(false)
       setValue(null)
       toast.success(`Checked in ${users.find((user) => user.id.toString() === value)?.name}`)
-    } catch (error) {
+    } catch (err) {
       setError('Failed to check in. Please see the desk for assistance.')
-      console.error('Error in handleCheckIn', error)
-    } finally {
-      setIsLoading(false)
+      console.error('Error in handleCheckIn', err)
     }
   }
 
   return (
     <div>
-      <Card key={lesson.id.toString()} className="flex flex-col gap-2 p-4">
+      <Card
+        key={lesson.id.toString()}
+        className="flex flex-col gap-2 p-4"
+        data-testid={`kiosk-lesson-card-${lesson.id}`}
+      >
         <Collapsible>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -105,7 +102,11 @@ export const LessonCard = ({
                 </CardTitle>
               </div>
               <CollapsibleTrigger asChild>
-                <Button variant="outline" onClick={() => setCollapsed(!collapsed)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setCollapsed(!collapsed)}
+                  data-testid="kiosk-open-checkin"
+                >
                   {!collapsed ? (
                     <ChevronDown className="w-4 h-4" />
                   ) : (
@@ -122,7 +123,7 @@ export const LessonCard = ({
             <CardContent>
               <p className="font-medium mb-2">Bookings</p>
               <Separator />
-              <div className="flex flex-col gap-2 mt-2">
+              <div className="flex flex-col gap-2 mt-2" data-testid="kiosk-bookings-list">
                 {lesson.bookings.docs.length === 0 && <p>No bookings</p>}
                 {lesson.bookings.docs.map(
                   (booking) =>
@@ -147,6 +148,7 @@ export const LessonCard = ({
                         role="combobox"
                         aria-expanded={open}
                         className="w-[200px] justify-between"
+                        data-testid="kiosk-user-combobox"
                       >
                         {value
                           ? users.find((user) => user.id.toString() === value)?.name
@@ -180,9 +182,7 @@ export const LessonCard = ({
                                       <Check
                                         className={cn(
                                           'ml-auto',
-                                          value === user.id.toString()
-                                            ? 'opacity-100'
-                                            : 'opacity-0',
+                                          value === user.id.toString() ? 'opacity-100' : 'opacity-0',
                                         )}
                                       />
                                     </CommandItem>
@@ -206,9 +206,7 @@ export const LessonCard = ({
                                       <Check
                                         className={cn(
                                           'ml-auto',
-                                          value === user.id.toString()
-                                            ? 'opacity-100'
-                                            : 'opacity-0',
+                                          value === user.id.toString() ? 'opacity-100' : 'opacity-0',
                                         )}
                                       />
                                     </CommandItem>
@@ -218,8 +216,12 @@ export const LessonCard = ({
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  <Button onClick={handleCheckIn} disabled={isLoading || !value}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : 'Check In'}
+                  <Button
+                    onClick={handleCheckIn}
+                    disabled={kioskCheckIn.isPending || !value}
+                    data-testid="kiosk-submit-checkin"
+                  >
+                    {kioskCheckIn.isPending ? <Loader2 className="animate-spin" /> : 'Check In'}
                   </Button>
                 </div>
               ) : (
@@ -245,3 +247,5 @@ export const LessonCard = ({
     </div>
   )
 }
+
+

@@ -1,15 +1,11 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 
-import { getDayRange } from '@repo/shared-utils'
-
-import { Lesson, User } from '@repo/shared-types'
-
-import { LessonCard } from './_components/lesson-card'
-import { createBooking } from './actions'
-
 import { checkRole } from '@repo/shared-utils/src/check-role'
 import { headers } from 'next/headers'
+import { HydrateClient, prefetch, trpc } from '@/trpc/server'
+import { Suspense } from 'react'
+import { KioskClient } from '@repo/bookings-next'
 
 export default async function KioskPage() {
   const payload = await getPayload({ config })
@@ -39,35 +35,9 @@ export default async function KioskPage() {
     )
   }
 
-  const { endOfDay } = getDayRange(new Date())
-
-  const lessonQuery = await payload.find({
-    collection: 'lessons',
-    limit: 0,
-    where: {
-      and: [
-        {
-          startTime: {
-            less_than_equal: endOfDay,
-          },
-        },
-        {
-          endTime: {
-            greater_than_equal: new Date().toISOString(),
-          },
-        },
-      ],
-    },
-    sort: 'startTime',
-    depth: 2,
-  })
-
-  const lessons = lessonQuery.docs as Lesson[]
-
-  const users = await payload.find({
-    collection: 'users',
-    limit: 0,
-  })
+  // Page-level tRPC prefetch (RSC) + hydration; client invalidates the query after check-in.
+  prefetch(trpc.lessons.getForKiosk.queryOptions())
+  prefetch(trpc.users.listForKiosk.queryOptions())
 
   return (
     <div className="flex flex-col gap-4 min-h-screen container mx-auto p-4 pt-24">
@@ -83,17 +53,11 @@ export default async function KioskPage() {
           })}
         </span>
       </div>
-      <div className="flex flex-col gap-4 mx-auto w-full max-w-lg">
-        {lessons.map((lesson: Lesson) => (
-          <div key={lesson.id.toString()}>
-            <LessonCard
-              lesson={lesson}
-              users={users.docs as User[]}
-              createBooking={createBooking}
-            />
-          </div>
-        ))}
-      </div>
+      <HydrateClient>
+        <Suspense fallback={<div className="text-center text-sm text-muted-foreground">Loading…</div>}>
+          <KioskClient />
+        </Suspense>
+      </HydrateClient>
     </div>
   )
 }
