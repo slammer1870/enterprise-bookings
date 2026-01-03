@@ -301,17 +301,23 @@ export async function ensureAdminLoggedIn(page: Page) {
       await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
     }
 
+    // Payload login markup varies across versions/configs; prefer robust selectors.
+    const emailFieldCandidates = page.locator(
+      'input[name="email"], input#field-email, input[type="email"], input[autocomplete="email"]',
+    )
+    const passwordFieldCandidates = page.locator(
+      'input[name="password"], input#field-password, input[type="password"], input[autocomplete="current-password"]',
+    )
+
     const emailField =
-      (await page.locator('input[name="email"]').count()) > 0
-        ? page.locator('input[name="email"]').first()
-        : emailInput.first()
+      (await emailFieldCandidates.count()) > 0 ? emailFieldCandidates.first() : emailInput.first()
     const passwordField =
-      (await page.locator('input[name="password"]').count()) > 0
-        ? page.locator('input[name="password"]').first()
+      (await passwordFieldCandidates.count()) > 0
+        ? passwordFieldCandidates.first()
         : passwordInput.first()
 
-    await emailField.fill(adminEmail)
-    await passwordField.fill(adminPassword)
+    await fillStable(() => emailField, adminEmail)
+    await fillStable(() => passwordField, adminPassword)
 
     // Best practice: wait for the login network response instead of relying on UI timing.
     const loginResponsePromise = page

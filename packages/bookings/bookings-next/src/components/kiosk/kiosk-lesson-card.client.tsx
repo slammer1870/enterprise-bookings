@@ -75,6 +75,16 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
     }
   }
 
+  // In some contexts (notably CI/dev + virtual fields), `remainingCapacity` can be missing.
+  // Fall back to computing it from classOption.places - confirmed bookings.
+  const places = typeof lesson.classOption?.places === 'number' ? lesson.classOption.places : 0
+  const confirmedBookings = Array.isArray(lesson.bookings?.docs)
+    ? lesson.bookings.docs.filter((b) => b?.status === 'confirmed').length
+    : 0
+  const computedRemaining = Math.max(places - confirmedBookings, 0)
+  const remainingCapacity =
+    typeof (lesson as any).remainingCapacity === 'number' ? (lesson as any).remainingCapacity : computedRemaining
+
   return (
     <div>
       <Card
@@ -139,7 +149,7 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
               </div>
             </CardContent>
             <CardFooter>
-              {lesson.remainingCapacity > 0 ? (
+              {remainingCapacity > 0 ? (
                 <div className="flex justify-between gap-4">
                   <Popover open={open} onOpenChange={setOpen}>
                     <PopoverTrigger asChild>
