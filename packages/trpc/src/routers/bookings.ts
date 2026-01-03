@@ -6,6 +6,7 @@ import { protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe, createSafe, updateSafe } from "../utils/collections";
 
 import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
+import { checkRole } from "@repo/shared-utils";
 
 export const bookingsRouter = {
   checkIn: protectedProcedure
@@ -86,6 +87,68 @@ export const bookingsRouter = {
           },
         });
       }
+    }),
+  kioskCreateOrConfirmBooking: protectedProcedure
+    .use(requireCollections("bookings", "users"))
+    .input(z.object({ lessonId: z.number(), userId: z.number() }))
+    .mutation(async ({ ctx, input }): Promise<Booking> => {
+      // Kiosk is an admin-only flow: an admin checks a user into a lesson.
+      if (!checkRole(["admin"], ctx.user as any)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+      }
+
+      const selectedUser = await findByIdSafe<any>(
+        ctx.payload,
+        "users",
+        input.userId,
+        {
+          depth: 2,
+          overrideAccess: false,
+          user: ctx.user,
+        }
+      );
+
+      if (!selectedUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `User with id ${input.userId} not found`,
+        });
+      }
+
+      // Look up an existing booking using the admin context (read access).
+      const existingBooking = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: {
+          lesson: { equals: input.lessonId },
+          user: { equals: input.userId },
+        },
+        depth: 2,
+        limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      // Create/update using the selected user context so existing access controls run
+      // as if that user is making the booking (membership checks, child-parent logic, etc.).
+      if (existingBooking.docs.length > 0) {
+        const updated = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
+          status: "confirmed",
+        }, {
+          overrideAccess: false,
+          user: selectedUser,
+        });
+        return updated as Booking;
+      }
+
+      const created = await createSafe<Booking>(ctx.payload, "bookings", {
+        lesson: input.lessonId,
+        user: input.userId,
+        status: "confirmed",
+      }, {
+        overrideAccess: false,
+        user: selectedUser,
+      });
+
+      return created as Booking;
     }),
   createBooking: protectedProcedure
     .use(requireCollections("lessons", "bookings", "subscriptions", "users"))

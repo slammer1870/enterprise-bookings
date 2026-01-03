@@ -9,3 +9,6 @@ export { BookingSummary } from './components/bookings/booking-summary'
 
 // Children booking (bru-grappling standard methodology)
 export { ChildrensBooking } from './components/bookings/children/children-booking.client'
+
+// Kiosk (admin check-in)
+export { KioskClient } from './components/kiosk/kiosk.client'

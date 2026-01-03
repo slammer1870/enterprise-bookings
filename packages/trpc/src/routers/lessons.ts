@@ -2,10 +2,15 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
-import { protectedProcedure, publicProcedure, requireCollections } from "../trpc";
+import {
+  protectedProcedure,
+  publicProcedure,
+  requireCollections,
+} from "../trpc";
 import { findByIdSafe, findSafe } from "../utils/collections";
 
 import { ClassOption, Lesson } from "@repo/shared-types";
+import { checkRole, getDayRange } from "@repo/shared-utils";
 
 export const lessonsRouter = {
   getById: protectedProcedure
@@ -17,9 +22,9 @@ export const lessonsRouter = {
         "lessons",
         input.id,
         {
-        depth: 2,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 2,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -43,9 +48,9 @@ export const lessonsRouter = {
           "lessons",
           input.id,
           {
-          depth: 2,
-          overrideAccess: false,
-          user: ctx.user,
+            depth: 2,
+            overrideAccess: false,
+            user: ctx.user,
           }
         );
 
@@ -88,38 +93,73 @@ export const lessonsRouter = {
         const endOfDay = new Date(input.date);
         endOfDay.setHours(23, 59, 59, 999);
 
-      const queryOptions: {
-        where: any;
-        depth: number;
-        sort: string;
-        overrideAccess: boolean;
-        user?: any;
-      } = {
-        where: {
-          startTime: {
-            greater_than_equal: startOfDay.toISOString(),
-            less_than_equal: endOfDay.toISOString(),
+        const queryOptions: {
+          where: any;
+          depth: number;
+          sort: string;
+          overrideAccess: boolean;
+          user?: any;
+        } = {
+          where: {
+            startTime: {
+              greater_than_equal: startOfDay.toISOString(),
+              less_than_equal: endOfDay.toISOString(),
+            },
           },
-        },
-        depth: 1,
-        sort: "startTime",
-        overrideAccess: false,
-      };
+          depth: 1,
+          sort: "startTime",
+          overrideAccess: false,
+        };
 
-      if (user) {
-        queryOptions.user = user;
-      }
+        if (user) {
+          queryOptions.user = user;
+        }
 
-      const lessons = await findSafe(ctx.payload, "lessons", queryOptions);
+        const lessons = await findSafe(ctx.payload, "lessons", queryOptions);
 
         return lessons.docs.map((lesson: any) => lesson as Lesson);
       } catch (error) {
         console.error("Error in getByDate:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: error instanceof Error ? error.message : "Failed to fetch lessons",
+          message:
+            error instanceof Error ? error.message : "Failed to fetch lessons",
           cause: error,
         });
       }
+    }),
+  getForKiosk: protectedProcedure
+    .use(requireCollections("lessons"))
+    .query(async ({ ctx }) => {
+      if (!checkRole(["admin"], ctx.user as any)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+      }
+
+      const { endOfDay } = getDayRange(new Date());
+
+      const lessons = await findSafe(ctx.payload, "lessons", {
+        where: {
+          and: [
+            {
+              startTime: {
+                less_than_equal: endOfDay,
+              },
+            },
+            {
+              endTime: {
+                greater_than_equal: new Date().toISOString(),
+              },
+            },
+            { active: { equals: true } },
+          ],
+        },
+        sort: "startTime",
+        depth: 2,
+        limit: 0,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      return lessons.docs.map((lesson: any) => lesson as Lesson);
     }),
 } satisfies TRPCRouterRecord;

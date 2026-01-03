@@ -1,12 +1,30 @@
 import { protectedProcedure, requireCollections } from "../trpc";
 import { z } from "zod";
-import { generatePasswordSaltHash } from "@repo/shared-utils";
+import { checkRole, generatePasswordSaltHash } from "@repo/shared-utils";
 import crypto from "crypto";
 import { findSafe, createSafe } from "../utils/collections";
+import { TRPCError } from "@trpc/server";
 
 import { User } from "@repo/shared-types";
 
 export const usersRouter = {
+  listForKiosk: protectedProcedure
+    .use(requireCollections("users"))
+    .query(async ({ ctx }) => {
+      if (!checkRole(["admin"], ctx.user as any)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
+      }
+
+      const users = await findSafe(ctx.payload, "users", {
+        limit: 0,
+        depth: 1,
+        sort: "name",
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      return users.docs as User[];
+    }),
   getChildren: protectedProcedure
     .use(requireCollections("users"))
     .query(async ({ ctx }) => {
