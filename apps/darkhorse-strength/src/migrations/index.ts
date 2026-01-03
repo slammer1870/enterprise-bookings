@@ -7,6 +7,7 @@ import * as migration_20251125_191947 from './20251125_191947';
 import * as migration_20251205_183120 from './20251205_183120';
 import * as migration_20251206_110241 from './20251206_110241';
 import * as migration_20251209_164150 from './20251209_164150';
+import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from './20260103_000001_migrate_legacy_users_to_better_auth';
 
 export const migrations = [
   {
@@ -53,5 +54,10 @@ export const migrations = [
     up: migration_20251209_164150.up,
     down: migration_20251209_164150.down,
     name: '20251209_164150'
+  },
+  {
+    up: migration_20260103_000001_migrate_legacy_users_to_better_auth.up,
+    down: migration_20260103_000001_migrate_legacy_users_to_better_auth.down,
+    name: '20260103_000001_migrate_legacy_users_to_better_auth',
   },
 ];

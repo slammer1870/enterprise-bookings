@@ -1,6 +1,7 @@
 import { admin, openAPI } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
 import type { BetterAuthPlugin as BetterAuthPluginType } from 'better-auth/types'
+import { hashPassword, verifyPassword } from '@repo/auth-next/server'
 
 export const betterAuthPlugins = [
   admin({
@@ -25,6 +26,13 @@ export const betterAuthOptions = {
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    // Custom password handling to support legacy Payload CMS passwords (PBKDF2)
+    // alongside Better Auth's default scrypt hashing.
+    // See: https://www.better-auth.com/docs/authentication/email-password#configuration
+    password: {
+      hash: hashPassword,
+      verify: verifyPassword,
+    },
     async sendResetPassword({ user, url }: { user: any; url: string }) {
       console.log('Send reset password for user: ', user.id, 'at url', url)
     },

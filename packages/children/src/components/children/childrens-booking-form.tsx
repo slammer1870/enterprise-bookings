@@ -65,7 +65,9 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
             bookedChildren={
               Array.isArray(bookedChildren) ? bookedChildren.map((booking: any) => booking.user) : []
             }
-            bookChild={(data) => bookChild({ ...data, status: 'confirmed' })}
+            bookChild={(data: { lessonId: number; childId: number; status?: 'confirmed' | 'pending' }) => {
+              bookChild({ lessonId: data.lessonId, childId: data.childId, status: 'confirmed' as const })
+            }}
             isBooking={isBooking}
           />
         ) : (

@@ -3,6 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "paths": {
       "@repo/children/components/*": ["src/components/*"],
       "@/*": ["./*"]
