@@ -1,9 +1,16 @@
 import { getLesson } from '@repo/bookings-plugin/src/utils/lesson'
-import { Subscription } from '@repo/shared-types'
+
+type SubscriptionLike =
+  | {
+      plan?: {
+        quantity?: number | null
+      } | null
+    }
+  | null
 
 export const getLessonBookingLimit = async (
   lessonId: string,
-  subscription: Subscription | null,
+  subscription: SubscriptionLike,
 ) => {
   const lesson = await getLesson(lessonId)
 

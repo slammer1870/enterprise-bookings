@@ -64,7 +64,7 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "generate:component": "turbo gen react-component",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0",
     "ui": "pnpm dlx shadcn@latest"
   },
   "type": "module"

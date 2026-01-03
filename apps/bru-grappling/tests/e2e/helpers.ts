@@ -1,114 +1,22 @@
-import { expect, Page, APIRequestContext } from '@playwright/test'
-import { waitForServerReady } from '@repo/testing-config/src/playwright'
+import { APIRequestContext, expect, type Page } from '@playwright/test'
+import {
+  clearTestMagicLinks,
+  ensureAdminLoggedIn,
+  mockPaymentIntentSucceededWebhook,
+  mockSubscriptionCreatedWebhook,
+  pollForTestMagicLink,
+  saveObjectAndWaitForNavigation,
+  waitForServerReady,
+} from '@repo/testing-config/src/playwright'
 
-const MAGIC_LINK_ENDPOINT = '/api/test/magic-links'
-
-type MagicLinkResponse = {
-  email: string
-  token: string
-  url: string
-  createdAt: number
-}
-
-export { waitForServerReady }
+export { waitForServerReady, ensureAdminLoggedIn, saveObjectAndWaitForNavigation }
+export { clearTestMagicLinks, pollForTestMagicLink, mockPaymentIntentSucceededWebhook, mockSubscriptionCreatedWebhook }
 
 /**
  * Helper to save an object and wait for navigation, with fallback to extract ID from response.
  * Works for class-options, lessons, drop-ins, and other admin objects.
  */
-export async function saveObjectAndWaitForNavigation(
-  page: Page,
-  options: {
-    apiPath: string // e.g., '/api/class-options', '/api/lessons'
-    expectedUrlPattern: RegExp // e.g., /\/admin\/collections\/class-options\/\d+/
-    collectionName: string // e.g., 'class-options', 'lessons' - for error messages
-  },
-): Promise<void> {
-  const { apiPath, expectedUrlPattern, collectionName } = options
-  const saveButton = page.getByRole('button', { name: 'Save' })
-
-  // Ensure button is visible and actionable (critical for UI mode)
-  await saveButton.waitFor({ state: 'visible', timeout: 30000 })
-  await expect(saveButton)
-    .toBeEnabled({ timeout: 10000 })
-    .catch(() => {
-      // If button is disabled, wait a bit more - might be a loading state
-      return page.waitForTimeout(1000)
-    })
-
-  // Set up navigation and response promises BEFORE clicking (critical for UI mode)
-  const navigationTimeout = process.env.CI ? 120000 : 60000
-  const navigationPromise = page.waitForURL(expectedUrlPattern, {
-    timeout: navigationTimeout,
-  })
-
-  // Wait for the creation API response
-  const responsePromise = page
-    .waitForResponse(
-      (response: any) => {
-        const url = response.url()
-        const method = response.request().method()
-        const status = response.status()
-
-        // Strict matching: must be POST request to the API path with creation status
-        return (
-          method === 'POST' &&
-          url.includes(apiPath) &&
-          !url.includes(`${apiPath}/`) && // Exclude GET requests to specific objects
-          status === 201 // 201 Created is the standard for successful resource creation
-        )
-      },
-      { timeout: navigationTimeout },
-    )
-    .catch(() => null)
-
-  await saveButton.click()
-
-  // Wait for the response and extract the ID
-  let objectId: number | null = null
-  try {
-    const response = await responsePromise
-    if (response) {
-      const responseBody = await response.json()
-      // Extract ID from response: responseBody.doc.id or responseBody.id
-      objectId = responseBody?.doc?.id ?? responseBody?.id ?? null
-    }
-  } catch (error) {
-    // If we can't get the response, continue and try URL check
-    console.warn(`Failed to capture ${collectionName} creation response:`, error)
-  }
-
-  await page.waitForLoadState('load', { timeout: process.env.CI ? 30000 : 15000 }).catch(() => {})
-
-  // Try to verify we're on the edit page
-  try {
-    await expect(page).toHaveURL(expectedUrlPattern, {
-      timeout: process.env.CI ? 30000 : 10000,
-    })
-  } catch (error) {
-    // If URL check fails but we have the object ID, navigate directly
-    if (objectId !== null) {
-      console.log(
-        `Navigation failed, but ${collectionName} was created with ID ${objectId}. Navigating directly...`,
-      )
-      const editUrl = `/admin/collections/${collectionName}/${objectId}`
-      await page.goto(editUrl, {
-        waitUntil: 'domcontentloaded',
-        timeout: process.env.CI ? 120000 : 60000,
-      })
-      // Verify we're on the correct page
-      await expect(page).toHaveURL(editUrl, {
-        timeout: process.env.CI ? 30000 : 10000,
-      })
-    } else {
-      // If we don't have the ID, re-throw the original error
-      throw new Error(
-        `Failed to navigate to ${collectionName} edit page and could not extract ID from API response. ` +
-          `Current URL: ${page.url()}`,
-      )
-    }
-  }
-}
+// saveObjectAndWaitForNavigation now comes from @repo/testing-config
 
 /**
  * Click a button and wait for navigation to a URL pattern.
@@ -191,236 +99,19 @@ export async function clickAndWaitForNavigation(
 /**
  * Clear stored magic links for a specific email or all (test-only endpoint).
  */
-export async function clearTestMagicLinks(request: APIRequestContext, email?: string) {
-  const endpoint = email
-    ? `${MAGIC_LINK_ENDPOINT}?email=${encodeURIComponent(email)}`
-    : MAGIC_LINK_ENDPOINT
-
-  const res = await request.delete(endpoint).catch(() => null)
-  if (res && res.status() === 404) {
-    throw new Error(
-      'Test magic link endpoint is disabled. Ensure NODE_ENV=test or ENABLE_TEST_MAGIC_LINKS=true.',
-    )
-  }
-}
-
-/**
- * Poll the test magic-link endpoint for the most recent link for an email.
- */
-export async function pollForTestMagicLink(
-  request: APIRequestContext,
-  email: string,
-  attempts = 10,
-  delayMs = 1000,
-): Promise<MagicLinkResponse> {
-  const endpoint = `${MAGIC_LINK_ENDPOINT}?email=${encodeURIComponent(email)}`
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const res = await request.get(endpoint).catch(() => null)
-    if (res?.ok()) {
-      const body = (await res.json()) as MagicLinkResponse
-      if (body?.url) {
-        return body
-      }
-    } else if (res?.status() === 404) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string }
-      if (body?.error === 'Not found') {
-        throw new Error(
-          'Test magic link endpoint is disabled. Ensure NODE_ENV=test or ENABLE_TEST_MAGIC_LINKS=true.',
-        )
-      }
-      // If the link isn't found yet, keep polling
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, delayMs))
-  }
-
-  throw new Error(`Magic link not found for ${email} after ${attempts} attempts`)
-}
 
 /**
  * Helper function to ensure we're logged in as admin.
  * Creates first user if needed, or assumes we're already logged in.
  * Returns the unique admin email that was created or used.
  */
-export async function ensureAdminLoggedIn(page: Page) {
-  // Create a unique email for the admin
-  const adminEmail = `admin@example.com`
-  const adminPassword = 'password123'
-
-  // Warm the server before the first admin navigation (slow on CI)
-  await waitForServerReady(page.context().request)
-
-  // Prefer an API-level auth check over UI. The admin UI is responsive and can hide navigation elements.
-  const waitForPayloadUser = async (timeoutMs: number) => {
-    await expect
-      .poll(
-        async () => {
-          const res = await page.context().request.get('/api/users/me').catch(() => null)
-          if (!res || !res.ok()) return false
-          const data = await res.json().catch(() => null)
-          return Boolean(data?.user?.id || data?.id)
-        },
-        { timeout: timeoutMs },
-      )
-      .toBeTruthy()
-  }
-  const loginButton = page.getByRole('button', { name: /^Login$/i })
-  const loginEmail = page.getByRole('textbox', { name: /^Email\s*\*?$/i })
-  const loginPassword = page.getByRole('textbox', { name: /^Password\s*\*?$/i })
-
-  const createFirstUserHeading = page.getByRole('heading', { name: /^Welcome$/i })
-  const createFirstUserEmail = page.getByRole('textbox', { name: /^Email\s*\*?$/i })
-  const createFirstUserNewPassword = page.getByRole('textbox', { name: /^New Password$/i })
-  const createFirstUserConfirmPassword = page.getByRole('textbox', { name: /^Confirm Password$/i })
-  const createFirstUserEmailVerified = page.getByRole('checkbox', { name: /^Email Verified\s*\*?$/i })
-  const createFirstUserCreate = page.getByRole('button', { name: /^Create$/i })
-
-  // Payload shows different error UIs depending on version/theme. Prefer network response for race handling.
-  const firstRegisterResponseUrlPart = '/api/users/first-register'
-
-  const isVisible = async (locator: ReturnType<Page['locator']>, timeout = 500) => {
-    try {
-      await locator.waitFor({ state: 'visible', timeout })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  // Avoid `networkidle` because Next dev server keeps sockets open.
-  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
-
-  // If we already have a valid Payload session, we're done.
-  await waitForPayloadUser(2000).catch(() => {})
-
-  // Wait for *one* of the known UI states to appear. This is important on first-load when Next compiles.
-  await Promise.race([
-    createFirstUserHeading.waitFor({ state: 'visible', timeout: 60000 }),
-    loginButton.waitFor({ state: 'visible', timeout: 60000 }),
-  ]).catch(() => {})
-
-  // 1) Already logged in
-  await waitForPayloadUser(1500).catch(() => {})
-  try {
-    await waitForPayloadUser(1)
-    return
-  } catch {
-    // continue to UI flows
-  }
-
-  // 2) Create-first-user flow (race-safe)
-  if ((await isVisible(createFirstUserHeading, 1000)) && (await isVisible(createFirstUserCreate, 1000))) {
-    await createFirstUserEmail.waitFor({ state: 'visible', timeout: 20000 })
-    await createFirstUserEmail.fill(adminEmail)
-    await createFirstUserNewPassword.fill(adminPassword)
-    await createFirstUserConfirmPassword.fill(adminPassword)
-    await createFirstUserEmailVerified.setChecked(true)
-
-    // Important: admin panel access is gated by `user.roles` containing "admin" (see `checkRole`).
-    // Best-effort: set role/roles to admin if the fields exist.
-    await page.selectOption('#field-role', { label: 'admin' }).catch(() => {})
-    await page.selectOption('#field-roles', { label: 'admin' }).catch(() => {})
-
-    const [firstRegisterResp] = await Promise.all([
-      page
-        .waitForResponse((resp) => resp.url().includes(firstRegisterResponseUrlPart), { timeout: 20000 })
-        .catch(() => null),
-      createFirstUserCreate.click(),
-    ])
-
-    // If another worker created the first user, we typically get a 400 here (email not unique / invalid).
-    // In that case, go to login and sign in with the known credentials.
-    if (firstRegisterResp && !firstRegisterResp.ok()) {
-      await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    }
-
-    await Promise.race([
-      loginButton.waitFor({ state: 'visible', timeout: 60000 }),
-    ]).catch(() => {})
-  }
-
-  // 3) Login flow
-  if (await isVisible(loginButton, 2000)) {
-    await loginEmail.waitFor({ state: 'visible', timeout: 20000 })
-    await loginEmail.fill(adminEmail)
-    await loginPassword.waitFor({ state: 'visible', timeout: 20000 })
-    await loginPassword.fill(adminPassword)
-    await loginButton.click()
-  }
-
-  // Final assertion: we must be authenticated (API-level)
-  await waitForPayloadUser(60000)
-}
+// ensureAdminLoggedIn now comes from @repo/testing-config
 
 /**
  * Helper function to mock a Stripe payment intent succeeded webhook.
  * This triggers the webhook handler to confirm a booking for a lesson.
  */
-export async function mockPaymentIntentSucceededWebhook(
-  request: APIRequestContext,
-  options: {
-    lessonId: number
-    userEmail: string
-  },
-): Promise<void> {
-  const { lessonId, userEmail } = options
-
-  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
-  const webhookResponse = await request.post(`${baseUrl}/api/test/mock-payment-intent-webhook`, {
-    data: {
-      userEmail, // Endpoint will look up user and use their actual stripeCustomerId
-      event: {
-        data: {
-          object: {
-            id: `pi_test_${Date.now()}`,
-            customer: '', // Will be set by endpoint based on user's actual stripeCustomerId
-            metadata: {
-              lessonId: lessonId.toString(),
-            },
-          },
-        },
-      },
-    },
-  })
-
-  if (!webhookResponse.ok()) {
-    const errorText = await webhookResponse.text().catch(() => 'Unknown error')
-    throw new Error(`Failed to trigger webhook: ${webhookResponse.status()} - ${errorText}`)
-  }
-}
-
-/**
- * Helper function to mock a Stripe subscription created webhook.
- * This confirms the booking for a subscription-only lesson.
- */
-export async function mockSubscriptionCreatedWebhook(
-  request: APIRequestContext,
-  options: {
-    lessonId: number
-    userEmail: string
-  },
-): Promise<void> {
-  const { lessonId, userEmail } = options
-
-  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
-  const webhookResponse = await request.post(
-    `${baseUrl}/api/test/mock-subscription-created-webhook`,
-    {
-      data: {
-        userEmail,
-        lessonId,
-      },
-    },
-  )
-
-  if (!webhookResponse.ok()) {
-    const errorText = await webhookResponse.text().catch(() => 'Unknown error')
-    throw new Error(
-      `Failed to trigger subscription webhook: ${webhookResponse.status()} - ${errorText}`,
-    )
-  }
-}
+// mockPaymentIntentSucceededWebhook + mockSubscriptionCreatedWebhook now come from @repo/testing-config
 
 /**
  * Ensure there is at least one Plan available in the admin.

@@ -6,3 +6,6 @@ export { CheckInButton } from './components/lessons/checkin-button'
 
 // Booking components
 export { BookingSummary } from './components/bookings/booking-summary'
+
+// Children booking (bru-grappling standard methodology)
+export { ChildrensBooking } from './components/bookings/children/children-booking.client'

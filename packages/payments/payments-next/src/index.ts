@@ -1,5 +1,6 @@
 // payments-next package
 export { PaymentMethods } from "./components/payment-methods";
+export { MembershipPaymentMethods } from "./components/membership-payment-methods";
 export { PlanView } from "./components/plan-view";
 
 // Drop-in components

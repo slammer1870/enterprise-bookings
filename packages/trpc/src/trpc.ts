@@ -13,7 +13,7 @@ import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
 type BetterAuthInstance = {
   api: {
-    signInMagicLink: (args: {
+    signInMagicLink: (_args: {
       body: {
         email: string;
         callbackURL?: string;

@@ -1,4 +1,3 @@
-import type { TRPCQueryOptions } from "@trpc/tanstack-react-query";
 import { cache } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
@@ -48,16 +47,13 @@ export function createServerTRPC(
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function prefetch<T extends ReturnType<any>>(queryOptions: T) {
+  function prefetch<T>(queryOptions: T) {
     const queryClient = getQueryClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    if ((queryOptions as any)?.queryKey?.[1]?.type === "infinite") {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      void queryClient.prefetchInfiniteQuery(queryOptions as any);
+    const opts = queryOptions as { queryKey?: [unknown, { type?: string }] };
+    if (opts?.queryKey?.[1]?.type === "infinite") {
+      void queryClient.prefetchInfiniteQuery(queryOptions as Parameters<typeof queryClient.prefetchInfiniteQuery>[0]);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      void queryClient.prefetchQuery(queryOptions as any);
+      void queryClient.prefetchQuery(queryOptions as Parameters<typeof queryClient.prefetchQuery>[0]);
     }
   }
 

@@ -14,6 +14,7 @@ import sharp from 'sharp'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { migrations } from './migrations'
 
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
@@ -76,6 +77,12 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo',
     },
+    ...(process.env.NODE_ENV === 'test' || process.env.CI
+      ? {
+          migrations,
+          push: false,
+        }
+      : {}),
   }),
   email: resendAdapter({
     defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',

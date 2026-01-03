@@ -5,3 +5,4 @@ export * from "./stripe";
 export * from "./password";
 export * from "./utm";
 export * from "./discount";
+export * from "./booking-auth";

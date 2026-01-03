@@ -33,13 +33,21 @@ export const childrenCreateBookingMembershipAccess = async ({
 
   if (checkRole(["admin"], user)) return true;
 
-  if (!data?.lesson) {
-    payload.logger.error(`Lesson is required (lessonId: ${data?.lesson?.id})`);
+  // Payload access `data` shape can vary depending on caller (local API, REST, custom actions).
+  // Prefer the relationship field `lesson`, but fall back to common alternate keys.
+  const rawLesson: any =
+    (data as any)?.lesson ??
+    (data as any)?.lessonId ??
+    (data as any)?.lesson_id;
+
+  if (!rawLesson) {
+    payload.logger.error(
+      `Lesson is required (lessonId: ${String((data as any)?.lessonId)})`
+    );
     return false;
   }
 
-  const lessonId =
-    typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
+  const lessonId = typeof rawLesson === "object" ? rawLesson.id : rawLesson;
 
   try {
     const lesson = (await payload.findByID({
@@ -68,18 +76,22 @@ export const childrenCreateBookingMembershipAccess = async ({
       })) as User;
     }
 
-    if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
-      payload.logger.info(`User is on waitlist (userId: ${userId}, lessonId: ${lessonId})`);
+    if (lesson.bookingStatus === "waitlist" && data?.status === "waiting") {
+      payload.logger.info(
+        `User is on waitlist (userId: ${userId}, lessonId: ${lessonId})`
+      );
       return true;
     }
 
-    if (data.status === "pending") {
+    if (data?.status === "pending") {
       payload.logger.info(`Booking is pending (bookingId: ${data.id})`);
       return true;
     }
 
     if (!validateLessonStatus(lesson)) {
-      payload.logger.error(`Lesson status is not valid (lessonId: ${lesson.id})`);
+      payload.logger.error(
+        `Lesson status is not valid (lessonId: ${lesson.id})`
+      );
       return false;
     }
 
@@ -178,7 +190,9 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     if (!lesson || !user) {
-      req.payload.logger.error(`Lesson or user not found (lessonId: ${lessonId}, userId: ${userId})`);
+      req.payload.logger.error(
+        `Lesson or user not found (lessonId: ${lessonId}, userId: ${userId})`
+      );
       return false;
     }
 
@@ -196,13 +210,17 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     if (!validateLessonStatus(lesson)) {
-      req.payload.logger.error(`Lesson status is not valid (lessonId: ${lesson.id})`);
+      req.payload.logger.error(
+        `Lesson status is not valid (lessonId: ${lesson.id})`
+      );
       return false;
     }
 
     return await validateLessonPaymentMethods(lesson, user, payload);
   } catch (error) {
-    req.payload.logger.error(`Error in childrenUpdateBookingMembershipAccess: ${error instanceof Error ? error.message : String(error)}`);
+    req.payload.logger.error(
+      `Error in childrenUpdateBookingMembershipAccess: ${error instanceof Error ? error.message : String(error)}`
+    );
     return false;
   }
 };
