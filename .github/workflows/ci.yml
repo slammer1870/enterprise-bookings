@@ -229,9 +229,9 @@ jobs:
     strategy:
       matrix:
         app:
-          # - name: e2e-kyuzo
-          #   db: e2e_kyuzo
-          #   app_path: packages/e2e-kyuzo
+          - name: kyuzo
+            db: e2e_kyuzo
+            app_path: apps/kyuzo
           - name: boatyard-sauna
             db: e2e_boatyard_sauna
             app_path: apps/boatyard-sauna
