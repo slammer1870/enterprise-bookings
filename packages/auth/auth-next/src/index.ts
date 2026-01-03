@@ -13,5 +13,8 @@ export { AuthProvider, useAuth } from "./providers/auth";
 // Export utilities (client-safe only)
 export { getMeUser } from "./utils/get-me-user";
 
+// Export password utilities (server-side only - uses Node.js crypto)
+export { hashPassword, verifyPassword } from "./utils/password";
+
 
 

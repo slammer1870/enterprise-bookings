@@ -3,11 +3,11 @@ import * as migration_20250722_163214 from './20250722_163214';
 import * as migration_20250722_163320 from './20250722_163320';
 import * as migration_20250723_110130 from './20250723_110130';
 import * as migration_20250725_195653 from './20250725_195653';
-import * as migration_20251122_135419 from './20251122_135419';
 import * as migration_20251125_191947 from './20251125_191947';
-import * as migration_20251127_120003 from './20251127_120003';
-import * as migration_20251127_131245 from './20251127_131245';
-import * as migration_20251127_131926 from './20251127_131926';
+import * as migration_20251205_183120 from './20251205_183120';
+import * as migration_20251206_110241 from './20251206_110241';
+import * as migration_20251209_164150 from './20251209_164150';
+import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from './20260103_000001_migrate_legacy_users_to_better_auth';
 
 export const migrations = [
   {
@@ -36,28 +36,28 @@ export const migrations = [
     name: '20250725_195653',
   },
   {
-    up: migration_20251122_135419.up,
-    down: migration_20251122_135419.down,
-    name: '20251122_135419',
-  },
-  {
     up: migration_20251125_191947.up,
     down: migration_20251125_191947.down,
     name: '20251125_191947',
   },
   {
-    up: migration_20251127_120003.up,
-    down: migration_20251127_120003.down,
-    name: '20251127_120003',
+    up: migration_20251205_183120.up,
+    down: migration_20251205_183120.down,
+    name: '20251205_183120',
   },
   {
-    up: migration_20251127_131245.up,
-    down: migration_20251127_131245.down,
-    name: '20251127_131245',
+    up: migration_20251206_110241.up,
+    down: migration_20251206_110241.down,
+    name: '20251206_110241',
   },
   {
-    up: migration_20251127_131926.up,
-    down: migration_20251127_131926.down,
-    name: '20251127_131926'
+    up: migration_20251209_164150.up,
+    down: migration_20251209_164150.down,
+    name: '20251209_164150'
+  },
+  {
+    up: migration_20260103_000001_migrate_legacy_users_to_better_auth.up,
+    down: migration_20260103_000001_migrate_legacy_users_to_better_auth.down,
+    name: '20260103_000001_migrate_legacy_users_to_better_auth',
   },
 ];

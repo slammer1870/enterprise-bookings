@@ -10,6 +10,7 @@
     "@repo/shared-types": "workspace:*",
     "@repo/trpc": "workspace:*",
     "@repo/ui": "workspace:*",
+    "better-auth": "*",
     "react-hook-form": "*",
     "zod": "*"
   },
@@ -29,7 +30,8 @@
   },
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
   },
   "peerDependencies": {
     "next": "*",
