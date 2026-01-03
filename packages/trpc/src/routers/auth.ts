@@ -1,4 +1,4 @@
-import { protectedProcedure, publicProcedure } from "../trpc";
+import { publicProcedure } from "../trpc";
 import { z } from "zod";
 import { generatePasswordSaltHash } from "@repo/shared-utils";
 import crypto from "crypto";
@@ -6,9 +6,9 @@ import { findSafe, createSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";
 
 export const authRouter = {
-  getSession: protectedProcedure.query(async ({ ctx }) => {
-    const session = await ctx.payload.auth({ headers: ctx.headers });
-    return session;
+  getSession: publicProcedure.query(async ({ ctx }) => {
+    const session = await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false });
+    return session?.user ? session : null;
   }),
   registerPasswordless: publicProcedure
     .input(

@@ -11,6 +11,23 @@ import Stripe from "stripe";
 import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
+type BetterAuthInstance = {
+  api: {
+    signInMagicLink: (_args: {
+      body: {
+        email: string;
+        callbackURL?: string;
+        newUserCallbackURL?: string;
+        errorCallbackURL?: string;
+      };
+      headers: Headers;
+    }) => Promise<unknown>;
+  };
+};
+
+type PayloadWithBetterAuth = Payload & {
+  betterAuth?: BetterAuthInstance;
+};
 
 /**
  * 1. CONTEXT
@@ -31,11 +48,13 @@ export const createTRPCContext = async (opts: {
   stripe?: Stripe;
 }) => {
   const payload = opts.payload;
+  const betterAuth = (payload as PayloadWithBetterAuth).betterAuth;
 
   return {
     headers: opts.headers,
     payload,
     stripe: opts.stripe,
+    betterAuth,
   };
 };
 /**

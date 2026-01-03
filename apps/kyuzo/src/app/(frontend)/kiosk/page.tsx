@@ -8,14 +8,25 @@ import { Lesson, User } from '@repo/shared-types'
 import { LessonCard } from './_components/lesson-card'
 import { createBooking } from './actions'
 
-import { getMeUser } from '@repo/auth-next'
-
 import { checkRole } from '@repo/shared-utils/src/check-role'
+import { headers } from 'next/headers'
 
 export default async function KioskPage() {
-  const { user } = await getMeUser({ nullUserRedirect: '/login' })
+  const payload = await getPayload({ config })
+  const auth = await payload.auth({ headers: await headers(), canSetHeaders: false })
+  const user = auth.user
+  if (!user) {
+    return (
+      <div className="flex flex-col gap-4 min-h-screen container mx-auto p-4 pt-24">
+        <div className="flex flex-col gap-4">
+          <h1 className="text-2xl font-bold text-center mx-auto">Kyuzo Booking Kiosk</h1>
+          <p className="text-sm text-center mx-auto text-red-500">Please sign in to continue</p>
+        </div>
+      </div>
+    )
+  }
 
-  if (!checkRole(['admin'], user)) {
+  if (!checkRole(['admin'], user as any)) {
     return (
       <div className="flex flex-col gap-4 min-h-screen container mx-auto p-4 pt-24">
         <div className="flex flex-col gap-4">
@@ -27,10 +38,6 @@ export default async function KioskPage() {
       </div>
     )
   }
-
-  const payload = await getPayload({
-    config,
-  })
 
   const { endOfDay } = getDayRange(new Date())
 

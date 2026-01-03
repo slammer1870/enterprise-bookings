@@ -1,13 +1,8 @@
-import { admin, magicLink, openAPI } from 'better-auth/plugins'
+import { admin, openAPI } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
 import type { BetterAuthPlugin as BetterAuthPluginType } from 'better-auth/types'
 
 export const betterAuthPlugins = [
-  magicLink({
-    sendMagicLink: async ({ email, token, url }, _request) => {
-      console.log('Send magic link for user: ', email, token, url)
-    },
-  }),
   admin({
     adminUserIds: ['1'],
   }),
@@ -87,7 +82,7 @@ export const betterAuthPluginOptions = {
   admin: {
     loginMethods: ['emailPassword'],
   },
-  disableDefaultPayloadAuth: true,
+  disableDefaultPayloadAuth: false,
   hidePluginCollections: false,
   users: {
     slug: 'users',

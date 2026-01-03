@@ -1,6 +1,6 @@
 export interface ToggleDateProps {
   date: Date;
-  setDate: (date: Date) => void;
+  setDate: (_date: Date) => void;
 }
 
 export function ToggleDate(props: ToggleDateProps) {

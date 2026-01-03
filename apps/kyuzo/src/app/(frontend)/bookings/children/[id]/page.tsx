@@ -1,48 +1,36 @@
-import { getMeUser } from '@repo/auth-next'
-
-import { Lesson } from '@repo/shared-types'
-
+import { trpc, HydrateClient, prefetch } from '@/trpc/server'
+import { Suspense } from 'react'
+import { ChildrensBooking } from '@repo/bookings-next'
+import { getSession } from '@/lib/auth/context/get-context-props'
 import { redirect } from 'next/navigation'
+import { buildCompleteBookingUrl } from '@repo/shared-utils'
 
-import { getPayload } from 'payload'
+type BookingPageProps = {
+  params: Promise<{ id: number }>
+}
 
-import config from '@payload-config'
-
-import { ChildrensBooking } from '@/components/children'
-
-export default async function ChildrenBookingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ChildrensBookingPage({ params }: BookingPageProps) {
   const { id } = await params
 
-  const payload = await getPayload({ config })
-
-  // Auth check
-  await getMeUser({
-    nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
-  })
-
-  // Get lesson using payload client as this is in the lesson page
-  const lesson = (await payload.findByID({
-    collection: 'lessons',
-    id: id,
-    depth: 5,
-  })) as Lesson
-
-  if (!lesson) {
-    redirect('/dashboard')
+  const session = await getSession()
+  const user = session?.user
+  if (!user) {
+    redirect(buildCompleteBookingUrl({ mode: 'login', callbackUrl: `/bookings/children/${id}` }))
   }
 
-  // Redirect if lesson is not a child lesson
-  if (lesson.classOption.type != 'child') redirect('/dashboard')
+  prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))
 
-  // Redirect if lesson is booked or closed
-  if (['booked', 'closed'].includes(lesson.bookingStatus)) {
-    redirect('/dashboard')
-  }
-
-  // Redirect if lesson is full
-  if (lesson.remainingCapacity <= 0) {
-    redirect('/dashboard')
-  }
-
-  return <ChildrensBooking lesson={lesson} />
+  return (
+    <HydrateClient>
+      <Suspense
+        fallback={
+          <div className="text-gray-500 pt-24 text-2xl h-screen w-screen flex items-center justify-center">
+            <span className="text-2xl">Loading...</span>
+          </div>
+        }
+      >
+        <ChildrensBooking />
+      </Suspense>
+    </HydrateClient>
+  )
 }

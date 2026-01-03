@@ -10,6 +10,12 @@ import * as migration_20251122_135419 from './20251122_135419';
 import * as migration_20251125_191947 from './20251125_191947';
 import * as migration_20251127_120001 from './20251127_120001';
 import * as migration_20251127_134406 from './20251127_134406';
+import * as migration_20251205_183120 from './20251205_183120';
+import * as migration_20251206_110241 from './20251206_110241';
+import * as migration_20260101_000001 from './20260101_000001';
+import * as migration_20260101_000002_payload_auth_tables from './20260101_000002_payload_auth_tables';
+import * as migration_20260101_000003_locked_documents_rels_instructors from './20260101_000003_locked_documents_rels_instructors';
+import * as migration_20260102_000001_add_original_lock_out_time from './20260102_000001_add_original_lock_out_time';
 
 export const migrations = [
   {
@@ -53,14 +59,14 @@ export const migrations = [
     name: '20250725_200223',
   },
   {
-    up: migration_20251125_191947.up,
-    down: migration_20251125_191947.down,
-    name: '20251125_191947',
-  },
-  {
     up: migration_20251122_135419.up,
     down: migration_20251122_135419.down,
     name: '20251122_135419',
+  },
+  {
+    up: migration_20251125_191947.up,
+    down: migration_20251125_191947.down,
+    name: '20251125_191947',
   },
   {
     up: migration_20251127_120001.up,
@@ -71,5 +77,35 @@ export const migrations = [
     up: migration_20251127_134406.up,
     down: migration_20251127_134406.down,
     name: '20251127_134406',
+  },
+  {
+    up: migration_20251205_183120.up,
+    down: migration_20251205_183120.down,
+    name: '20251205_183120',
+  },
+  {
+    up: migration_20251206_110241.up,
+    down: migration_20251206_110241.down,
+    name: '20251206_110241'
+  },
+  {
+    up: migration_20260101_000001.up,
+    down: migration_20260101_000001.down,
+    name: '20260101_000001',
+  },
+  {
+    up: migration_20260101_000002_payload_auth_tables.up,
+    down: migration_20260101_000002_payload_auth_tables.down,
+    name: '20260101_000002_payload_auth_tables',
+  },
+  {
+    up: migration_20260101_000003_locked_documents_rels_instructors.up,
+    down: migration_20260101_000003_locked_documents_rels_instructors.down,
+    name: '20260101_000003_locked_documents_rels_instructors',
+  },
+  {
+    up: migration_20260102_000001_add_original_lock_out_time.up,
+    down: migration_20260102_000001_add_original_lock_out_time.down,
+    name: '20260102_000001_add_original_lock_out_time',
   },
 ];

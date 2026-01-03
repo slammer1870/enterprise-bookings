@@ -1,7 +1,7 @@
 import { trpc, HydrateClient, prefetch } from '@/trpc/server'
 import { Suspense } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import { ChildrensBooking } from '../_components/children'
+import { ChildrensBooking } from '@repo/bookings-next'
 
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { redirect } from 'next/navigation'

@@ -24,9 +24,9 @@ export function createPlaywrightConfig(opts: SharedPlaywrightOptions): Playwrigh
     testDir: opts.testDir,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    // Reduce workers in CI to avoid resource contention with slow Next.js dev server
-    workers: process.env.CI ? Math.min(2, Math.ceil(os.cpus().length * 0.25)) : undefined,
-    reporter: process.env.CI ? 'dot' : 'html',
+    // E2E tests share a single webServer + DB; run serially in CI to avoid flaky "first user" races.
+    workers: process.env.CI ? 1 : undefined,
+    //reporter: process.env.CI ? 'dot' : 'html',
     timeout: process.env.CI ? 180000 : 100000,
     expect: {
       timeout: process.env.CI ? 10000 : 5000,
@@ -53,8 +53,13 @@ export function createPlaywrightConfig(opts: SharedPlaywrightOptions): Playwrigh
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
-        NODE_ENV: 'test',
-        CI: process.env.CI || 'false',
+        // Inherit DATABASE_URI from parent process (set by globalSetup via testcontainers).
+        // This is critical for the webServer to use the same database as the tests.
+        ...(process.env.DATABASE_URI ? { DATABASE_URI: process.env.DATABASE_URI } : {}),
+        // Run Next.js in dev mode (required by many app-router behaviors and Payload admin).
+        // We still force Payload's "CI/test" behaviors via CI=true + explicit ENABLE_TEST_* flags.
+        NODE_ENV: 'development',
+        CI: 'true',
         NODE_OPTIONS: '--no-deprecation',
         ...(opts.extraWebServerEnv ?? {}),
       },

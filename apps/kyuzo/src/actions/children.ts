@@ -7,13 +7,12 @@ import { User } from '@repo/shared-types'
 
 import config from '@payload-config'
 
-import { generatePasswordSaltHash } from '@repo/auth-plugin'
+import { generatePasswordSaltHash } from '@repo/shared-utils'
+import { buildCompleteBookingUrl } from '@repo/shared-utils'
 import crypto from 'crypto'
 
 import { headers as getHeaders } from 'next/headers'
 import { redirect } from 'next/navigation'
-
-import { getMeUser } from '@repo/shared-services/src/user'
 
 export const getChildren = async () => {
   const payload = await getPayload({ config })
@@ -103,9 +102,13 @@ export const createChildrensBookings = async (prevState: { message?: string }, f
   }
 
   try {
-    const { user } = await getMeUser({ nullUserRedirect: '/login' })
-
     const payload = await getPayload({ config })
+    const headers = await getHeaders()
+    const auth = await payload.auth({ headers, canSetHeaders: false })
+    const user = auth.user
+    if (!user) {
+      return redirect(buildCompleteBookingUrl({ mode: 'login', callbackUrl: `/bookings/children/${lessonId}` }))
+    }
 
     // Get children data
     const childrenQuery = await payload.find({
@@ -114,6 +117,8 @@ export const createChildrensBookings = async (prevState: { message?: string }, f
         id: { in: childrenIds.map((id) => parseInt(id)) },
       },
       depth: 1,
+      overrideAccess: false,
+      user,
     })
 
     const children = childrenQuery.docs as User[]
@@ -137,6 +142,8 @@ export const createChildrensBookings = async (prevState: { message?: string }, f
           equals: user.id,
         },
       },
+      overrideAccess: false,
+      user,
     })
 
     if (hasBookings.docs.length > 0) {
@@ -149,6 +156,8 @@ export const createChildrensBookings = async (prevState: { message?: string }, f
         data: {
           status: 'cancelled',
         },
+        overrideAccess: false,
+        user,
       })
     }
 

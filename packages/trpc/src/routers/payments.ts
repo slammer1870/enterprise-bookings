@@ -6,9 +6,8 @@ import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
 
 // Helper function to safely get stripeCustomerId
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getStripeCustomerId = (user: any): string => {
-  const customerId = user?.stripeCustomerId;
+const getStripeCustomerId = (user: object): string => {
+  const customerId = (user as { stripeCustomerId?: string })?.stripeCustomerId;
   if (!customerId || typeof customerId !== "string") {
     throw new TRPCError({
       code: "BAD_REQUEST",

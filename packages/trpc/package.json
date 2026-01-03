@@ -7,8 +7,8 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "lint": "eslint . --ext .ts,.tsx",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0",
+    "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint . --fix",
     "build": "pnpm trpc:generate || true",
     "trpc:generate": "pnpm tsc --project tsconfig.json"
   },
@@ -28,8 +28,10 @@
     "zod": "*"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "*",
+    "eslint": "^9.39.1",
     "typescript": "5.9.3"
   },
   "peerDependencies": {

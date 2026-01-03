@@ -78,7 +78,7 @@ importers:
         version: 11.7.2(@tanstack/react-query@5.90.12(react@19.2.1))(@trpc/client@11.7.2(@trpc/server@11.7.2(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.7.2(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
       better-auth:
         specifier: 1.3.11
-        version: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -265,7 +265,7 @@ importers:
         version: 11.7.2(@tanstack/react-query@5.90.12(react@19.2.1))(@trpc/client@11.7.2(@trpc/server@11.7.2(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.7.2(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
       better-auth:
         specifier: 1.3.11
-        version: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -461,7 +461,7 @@ importers:
         version: link:../../packages/website
       better-auth:
         specifier: 1.3.11
-        version: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -581,6 +581,9 @@ importers:
 
   apps/kyuzo:
     dependencies:
+      '@daveyplate/better-auth-ui':
+        specifier: ^3.2.11
+        version: 3.2.13(8504dd3b9a326e00e5c45d367469f0a1)
       '@hookform/resolvers':
         specifier: '*'
         version: 5.2.2(react-hook-form@7.56.3(react@19.2.1))
@@ -620,18 +623,15 @@ importers:
       '@payloadcms/ui':
         specifier: 3.64.0
         version: 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
-      '@repo/auth-next':
-        specifier: workspace:*
-        version: link:../../packages/auth/auth-next
-      '@repo/auth-plugin':
-        specifier: workspace:*
-        version: link:../../packages/auth/auth-plugin
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
+      '@repo/children':
+        specifier: workspace:*
+        version: link:../../packages/children
       '@repo/memberships':
         specifier: workspace:*
         version: link:../../packages/memberships
@@ -653,18 +653,33 @@ importers:
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared-utils
+      '@repo/trpc':
+        specifier: workspace:*
+        version: link:../../packages/trpc
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@repo/website':
         specifier: workspace:*
         version: link:../../packages/website
+      '@tanstack/react-query':
+        specifier: '*'
+        version: 5.90.12(react@19.2.1)
+      '@trpc/client':
+        specifier: ^11.7.1
+        version: 11.7.2(@trpc/server@11.7.2(typescript@5.9.3))(typescript@5.9.3)
+      '@trpc/server':
+        specifier: ^11.7.1
+        version: 11.7.2(typescript@5.9.3)
+      '@trpc/tanstack-react-query':
+        specifier: ^11.7.1
+        version: 11.7.2(@tanstack/react-query@5.90.12(react@19.2.1))(@trpc/client@11.7.2(@trpc/server@11.7.2(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.7.2(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
       '@types/mailchimp__mailchimp_marketing':
         specifier: ^3.0.21
         version: 3.0.22
       better-auth:
         specifier: 1.3.11
-        version: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -710,6 +725,9 @@ importers:
       sonner:
         specifier: '*'
         version: 2.0.7(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      superjson:
+        specifier: 2.2.5
+        version: 2.2.5
       ts-essentials:
         specifier: ^10.1.1
         version: 10.1.1(typescript@5.9.3)
@@ -720,6 +738,12 @@ importers:
       '@eslint/eslintrc':
         specifier: ^3.2.0
         version: 3.3.3
+      '@playwright/test':
+        specifier: 1.56.1
+        version: 1.56.1
+      '@repo/testing-config':
+        specifier: workspace:*
+        version: link:../../packages/testing-config
       '@tailwindcss/postcss':
         specifier: ^4.1.17
         version: 4.1.17
@@ -735,12 +759,21 @@ importers:
       autoprefixer:
         specifier: ^10.4.22
         version: 10.4.22(postcss@8.5.6)
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
       eslint-config-next:
         specifier: 15.5.6
         version: 15.5.6(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      playwright:
+        specifier: 1.56.1
+        version: 1.56.1
+      playwright-core:
+        specifier: 1.56.1
+        version: 1.56.1
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -818,7 +851,7 @@ importers:
         version: 2.0.6
       better-auth:
         specifier: 1.3.11
-        version: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+        version: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
@@ -1148,6 +1181,12 @@ importers:
       '@repo/auth-next':
         specifier: workspace:*
         version: link:../../auth/auth-next
+      '@repo/children':
+        specifier: workspace:*
+        version: link:../../children
+      '@repo/payments-next':
+        specifier: workspace:*
+        version: link:../../payments/payments-next
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../../shared-types
@@ -1345,27 +1384,27 @@ importers:
       '@hookform/resolvers':
         specifier: '*'
         version: 5.2.2(react-hook-form@7.56.3(react@19.2.1))
-      '@repo/auth-next':
-        specifier: workspace:*
-        version: link:../auth/auth-next
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../bookings/bookings-plugin
-      '@repo/memberships':
-        specifier: workspace:*
-        version: link:../memberships
-      '@repo/shared-services':
-        specifier: workspace:*
-        version: link:../shared-services
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@repo/trpc':
+        specifier: workspace:*
+        version: link:../trpc
       '@repo/ui':
         specifier: workspace:*
         version: link:../ui
+      '@tanstack/react-query':
+        specifier: 5.90.12
+        version: 5.90.12(react@19.2.1)
       lucide-react:
         specifier: 0.554.0
         version: 0.554.0(react@19.2.1)
+      next:
+        specifier: 15.4.8
+        version: 15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4)
       react-hook-form:
         specifier: 7.56.3
         version: 7.56.3(react@19.2.1)
@@ -1394,172 +1433,6 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
-
-  packages/e2e-kyuzo:
-    dependencies:
-      '@hookform/resolvers':
-        specifier: '*'
-        version: 5.2.2(react-hook-form@7.56.3(react@19.2.1))
-      '@payloadcms/db-postgres':
-        specifier: 3.64.0
-        version: 3.64.0(kysely@0.28.8)(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))
-      '@payloadcms/email-resend':
-        specifier: 3.64.0
-        version: 3.64.0(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))
-      '@payloadcms/next':
-        specifier: 3.64.0
-        version: 3.64.0(@types/react@19.2.7)(graphql@16.12.0)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
-      '@payloadcms/payload-cloud':
-        specifier: 3.64.0
-        version: 3.64.0(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))
-      '@payloadcms/plugin-form-builder':
-        specifier: 3.64.0
-        version: 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
-      '@payloadcms/plugin-nested-docs':
-        specifier: 3.64.0
-        version: 3.64.0(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))
-      '@payloadcms/plugin-seo':
-        specifier: 3.64.0
-        version: 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
-      '@payloadcms/plugin-stripe':
-        specifier: 3.64.0
-        version: 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
-      '@payloadcms/richtext-lexical':
-        specifier: 3.64.0
-        version: 3.64.0(@faceless-ui/modal@3.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@faceless-ui/scroll-info@2.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@payloadcms/next@3.64.0(@types/react@19.2.7)(graphql@16.12.0)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3))(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(yjs@13.6.27)
-      '@payloadcms/ui':
-        specifier: 3.64.0
-        version: 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
-      '@repo/auth-next':
-        specifier: workspace:*
-        version: link:../auth/auth-next
-      '@repo/auth-plugin':
-        specifier: workspace:*
-        version: link:../auth/auth-plugin
-      '@repo/bookings-next':
-        specifier: workspace:*
-        version: link:../bookings/bookings-next
-      '@repo/bookings-plugin':
-        specifier: workspace:*
-        version: link:../bookings/bookings-plugin
-      '@repo/memberships':
-        specifier: workspace:*
-        version: link:../memberships
-      '@repo/payments-next':
-        specifier: workspace:*
-        version: link:../payments/payments-next
-      '@repo/payments-plugin':
-        specifier: workspace:*
-        version: link:../payments/payments-plugin
-      '@repo/roles':
-        specifier: workspace:*
-        version: link:../roles
-      '@repo/shared-services':
-        specifier: workspace:*
-        version: link:../shared-services
-      '@repo/shared-types':
-        specifier: workspace:*
-        version: link:../shared-types
-      '@repo/shared-utils':
-        specifier: workspace:*
-        version: link:../shared-utils
-      '@repo/testing-config':
-        specifier: workspace:*
-        version: link:../testing-config
-      '@repo/ui':
-        specifier: workspace:*
-        version: link:../ui
-      '@repo/website':
-        specifier: workspace:*
-        version: link:../website
-      cross-env:
-        specifier: ^10.1.0
-        version: 10.1.0
-      dotenv:
-        specifier: ^17.2.3
-        version: 17.2.3
-      graphql:
-        specifier: ^16.12.0
-        version: 16.12.0
-      http-status:
-        specifier: ^2.1.0
-        version: 2.1.0
-      kyuzo:
-        specifier: workspace:*
-        version: link:../../apps/kyuzo
-      lucide-react:
-        specifier: 0.554.0
-        version: 0.554.0(react@19.2.1)
-      monaco-editor:
-        specifier: ^0.52.2
-        version: 0.52.2
-      next:
-        specifier: 15.4.8
-        version: 15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4)
-      next-plausible:
-        specifier: '*'
-        version: 3.12.5(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      payload:
-        specifier: 3.64.0
-        version: 3.64.0(graphql@16.12.0)(typescript@5.9.3)
-      react:
-        specifier: 19.2.1
-        version: 19.2.1
-      react-hook-form:
-        specifier: 7.56.3
-        version: 7.56.3(react@19.2.1)
-      sharp:
-        specifier: 0.34.5
-        version: 0.34.5
-      sonner:
-        specifier: '*'
-        version: 2.0.7(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      ts-essentials:
-        specifier: ^10.1.1
-        version: 10.1.1(typescript@5.9.3)
-      zod:
-        specifier: '*'
-        version: 4.1.13
-    devDependencies:
-      '@playwright/test':
-        specifier: 1.56.1
-        version: 1.56.1
-      '@testing-library/react':
-        specifier: 16.3.0
-        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@types/node':
-        specifier: ^24.10.1
-        version: 24.10.1
-      '@types/react':
-        specifier: '*'
-        version: 19.2.7
-      '@types/react-dom':
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.7)
-      '@vitejs/plugin-react':
-        specifier: 5.1.1
-        version: 5.1.1(vite@7.2.6(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.77.4)(tsx@4.20.6)(yaml@2.8.2))
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.1(jiti@2.6.1)
-      eslint-config-next:
-        specifier: 15.5.6
-        version: 15.5.6(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
-      jsdom:
-        specifier: 27.2.0
-        version: 27.2.0
-      prettier:
-        specifier: ^3.6.2
-        version: 3.7.4
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vite-tsconfig-paths:
-        specifier: 5.1.4
-        version: 5.1.4(typescript@5.9.3)(vite@7.2.6(@types/node@24.10.1)(jiti@2.6.1)(lightningcss@1.30.2)(sass@1.77.4)(tsx@4.20.6)(yaml@2.8.2))
-      vitest:
-        specifier: 4.0.12
-        version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(jsdom@27.2.0)(lightningcss@1.30.2)(sass@1.77.4)(tsx@4.20.6)(yaml@2.8.2)
 
   packages/eslint-config:
     dependencies:
@@ -2073,12 +1946,18 @@ importers:
         specifier: '*'
         version: 4.1.13
     devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/react':
         specifier: '*'
         version: 19.2.7
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1(jiti@2.6.1)
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -11424,7 +11303,7 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.90.12
       '@tanstack/react-query': 5.90.12(react@19.2.1)
-      better-auth: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      better-auth: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
 
@@ -11456,7 +11335,7 @@ snapshots:
       '@triplit/client': 1.0.50(typescript@5.9.3)
       '@triplit/react': 1.0.51(react@19.2.1)(typescript@5.9.3)
       '@wojtekmaj/react-recaptcha-v3': 0.1.4(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      better-auth: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      better-auth: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       class-variance-authority: 0.7.1
       clsx: 2.1.1
       input-otp: 1.4.2(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -15162,7 +15041,7 @@ snapshots:
     dependencies:
       tweetnacl: 0.14.5
 
-  better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1):
+  better-auth@1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1):
     dependencies:
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.19
@@ -18172,7 +18051,7 @@ snapshots:
       '@clerk/nextjs': 6.36.0(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@payloadcms/ui': 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
       '@tanstack/react-form': 1.4.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      better-auth: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      better-auth: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       class-variance-authority: 0.7.1
       clsx: 2.1.1
       jose: 6.1.3
@@ -18205,7 +18084,7 @@ snapshots:
       '@clerk/nextjs': 6.36.0(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@payloadcms/ui': 3.64.0(@types/react@19.2.7)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
       '@tanstack/react-form': 1.4.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      better-auth: 1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      better-auth: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       class-variance-authority: 0.7.1
       clsx: 2.1.1
       jose: 6.1.3
