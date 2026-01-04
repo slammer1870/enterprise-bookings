@@ -180,11 +180,14 @@ const defaultHooks: HooksConfig = {
               return;
             }
 
-            if (
+            // Check if current booking is confirmed OR if any existing bookings are confirmed
+            const hasConfirmedBooking =
+              doc.status === "confirmed" ||
               lesson?.bookings?.docs?.some(
                 (booking: Booking) => booking.status === "confirmed"
-              )
-            ) {
+              );
+
+            if (hasConfirmedBooking) {
               await req.payload.update({
                 collection: "lessons",
                 id: lessonId,

@@ -67,13 +67,18 @@ export const paymentsPlugin =
             ],
           });
         } else {
-          paymentMethodsField.fields.push({
-            name: "allowedDropIn",
-            label: "Allowed Drop In",
-            type: "relationship",
-            relationTo: "drop-ins" as CollectionSlug,
-            hasMany: false,
-          });
+          const hasAllowedDropIn = paymentMethodsField.fields.some(
+            (field) => "name" in field && field.name === "allowedDropIn"
+          );
+          if (!hasAllowedDropIn) {
+            paymentMethodsField.fields.push({
+              name: "allowedDropIn",
+              label: "Allowed Drop In",
+              type: "relationship",
+              relationTo: "drop-ins" as CollectionSlug,
+              hasMany: false,
+            });
+          }
         }
 
         dropIns.fields.push({

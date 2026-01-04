@@ -1,6 +1,73 @@
 import { Payload, Where, CollectionSlug } from "payload";
 
 import { Lesson, Plan, Subscription, User } from "@repo/shared-types";
+import { getIntervalStartAndEndDate } from "@repo/shared-utils";
+
+function getSubscriptionPeriodStartAndEndDate(opts: {
+  subscriptionStartDate: Date | string;
+  lessonDate: Date;
+  intervalType: "day" | "week" | "month" | "quarter" | "year";
+  intervalCount: number;
+}): { startDate: Date; endDate: Date } {
+  const subscriptionStart =
+    typeof opts.subscriptionStartDate === "string"
+      ? new Date(opts.subscriptionStartDate)
+      : new Date(opts.subscriptionStartDate);
+
+  // Normalize subscription start to start-of-day to keep periods stable.
+  subscriptionStart.setHours(0, 0, 0, 0);
+
+  const lessonDate = new Date(opts.lessonDate);
+
+  // Fast paths for fixed-length intervals.
+  if (opts.intervalType === "day" || opts.intervalType === "week") {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const periodMs =
+      opts.intervalType === "day"
+        ? opts.intervalCount * msPerDay
+        : opts.intervalCount * 7 * msPerDay;
+
+    const diffMs = lessonDate.getTime() - subscriptionStart.getTime();
+    const periodIndex = diffMs >= 0 ? Math.floor(diffMs / periodMs) : 0;
+
+    const startDate = new Date(subscriptionStart.getTime() + periodIndex * periodMs);
+    const endDate = new Date(startDate.getTime() + periodMs - 1);
+    return { startDate, endDate };
+  }
+
+  // Month/quarter/year: align periods to subscriptionStartDate's day-of-month.
+  const monthsPerPeriod =
+    opts.intervalType === "month"
+      ? opts.intervalCount
+      : opts.intervalType === "quarter"
+        ? opts.intervalCount * 3
+        : opts.intervalCount * 12;
+
+  const monthsBetween =
+    (lessonDate.getFullYear() - subscriptionStart.getFullYear()) * 12 +
+    (lessonDate.getMonth() - subscriptionStart.getMonth());
+
+  let periodIndex = monthsBetween >= 0 ? Math.floor(monthsBetween / monthsPerPeriod) : 0;
+
+  const addMonths = (d: Date, months: number) => {
+    const nd = new Date(d);
+    nd.setMonth(nd.getMonth() + months);
+    return nd;
+  };
+
+  // Adjust to ensure lessonDate is within [start, end]
+  while (periodIndex > 0) {
+    const startCandidate = addMonths(subscriptionStart, periodIndex * monthsPerPeriod);
+    const nextCandidate = addMonths(startCandidate, monthsPerPeriod);
+    if (lessonDate >= startCandidate && lessonDate < nextCandidate) break;
+    if (lessonDate < startCandidate) periodIndex -= 1;
+    else periodIndex += 1;
+  }
+
+  const startDate = addMonths(subscriptionStart, periodIndex * monthsPerPeriod);
+  const endDate = new Date(addMonths(startDate, monthsPerPeriod).getTime() - 1);
+  return { startDate, endDate };
+}
 
 export const hasActiveSubscription = async (
   userId: number,
@@ -31,20 +98,21 @@ const query = (
   startDate: Date,
   endDate: Date
 ): Where => {
-  // Handle both user as ID and user as object
   const userId =
     typeof subscription.user === "object" && subscription.user !== null
       ? subscription.user.id
       : subscription.user;
 
+  const planId = plan?.id;
+
   return {
     user: { equals: userId },
     "lesson.classOption.paymentMethods.allowedPlans": {
-      contains: plan.id,
+      contains: planId,
     },
     "lesson.startTime": {
-      greater_than: startDate,
-      less_than: endDate,
+      greater_than_equal: startDate,
+      less_than_equal: endDate,
     },
     status: { equals: "confirmed" },
   };
@@ -55,9 +123,22 @@ export const hasReachedSubscriptionLimit = async (
   payload: Payload,
   lessonDate: Date
 ): Promise<boolean> => {
-  const plan = subscription.plan;
+  // Ensure plan is populated - if it's just an ID, fetch it
+  let plan = subscription.plan as unknown as Plan | number;
+  if (typeof plan === "number") {
+    try {
+      plan = (await payload.findByID({
+        collection: "plans" as CollectionSlug,
+        id: plan,
+      })) as Plan;
+    } catch {
+      payload.logger.info("Plan not found");
+      return false;
+    }
+  }
 
   if (
+    !plan ||
     !plan.sessionsInformation ||
     !plan.sessionsInformation.sessions ||
     !plan.sessionsInformation.interval ||
@@ -67,11 +148,20 @@ export const hasReachedSubscriptionLimit = async (
     return false;
   }
 
-  const { startDate, endDate } = getIntervalStartAndEndDate(
-    plan.sessionsInformation.interval,
-    plan.sessionsInformation.intervalCount || 1,
-    lessonDate
-  );
+  // Prefer subscription-anchored periods (more predictable than calendar week/month boundaries)
+  // but fall back to the legacy calendar-based behavior if subscription startDate is missing.
+  const { startDate, endDate } = subscription.startDate
+    ? getSubscriptionPeriodStartAndEndDate({
+        subscriptionStartDate: subscription.startDate as any,
+        lessonDate,
+        intervalType: plan.sessionsInformation.interval,
+        intervalCount: plan.sessionsInformation.intervalCount || 1,
+      })
+    : getIntervalStartAndEndDate(
+        plan.sessionsInformation.interval,
+        plan.sessionsInformation.intervalCount || 1,
+        lessonDate
+      );
 
   // TODO: add a check to see if the subscription is a drop in or free
   // if it is, then we need to check the drop in limit
@@ -81,17 +171,12 @@ export const hasReachedSubscriptionLimit = async (
     const bookings = await payload.find({
       collection: "bookings" as CollectionSlug,
       depth: 5,
-      where: query(subscription, plan, startDate, endDate),
+      where: query(subscription, plan as Plan, startDate, endDate),
     });
 
-    payload.logger.info({
-      message: "Bookings found for subscription",
-      bookings,
-      subscription,
-      plan,
-      startDate,
-      endDate,
-    });
+    payload.logger.info(
+      `Bookings found for subscription (subscriptionId: ${subscription.id}, planId: ${(plan as Plan).id}, count: ${bookings.docs.length}, limit: ${plan.sessionsInformation.sessions})`
+    );
 
     if (bookings.docs.length >= plan.sessionsInformation.sessions) {
       return true;
@@ -116,40 +201,22 @@ export const checkUserSubscription = async (
     return true;
   }
 
-  // Handle both array of IDs and array of plan objects
-  const planIds = allowedPlans
-    .map((plan: any) => {
-      return typeof plan === "object" && plan !== null ? plan.id : plan;
-    })
-    .filter((id: any) => id !== undefined && id !== null);
-
-  if (planIds.length === 0) {
-    return true;
-  }
-
   try {
-    // Use lesson startTime to check if subscription is valid at that time
-    const lessonStartTime = new Date(lesson.startTime);
-
     const userSubscription = await payload.find({
       collection: "subscriptions" as CollectionSlug,
       where: {
-        and: [
-          { user: { equals: user.id } },
-          { status: { equals: "active" } },
-          { startDate: { less_than_equal: lessonStartTime } },
-          { endDate: { greater_than_equal: lessonStartTime } },
-          {
-            plan: {
-              in: planIds,
-            },
-          },
-          {
-            or: [
-              { cancelAt: { greater_than: lessonStartTime } },
-              { cancelAt: { exists: false } },
-            ],
-          },
+        user: { equals: user.id },
+        status: { equals: "active" },
+        startDate: { less_than_equal: new Date() },
+        endDate: { greater_than_equal: new Date() },
+        plan: {
+          in: allowedPlans.map((plan: any) =>
+            typeof plan === "object" && plan !== null ? plan.id : plan
+          ),
+        },
+        or: [
+          { cancelAt: { greater_than: new Date() } },
+          { cancelAt: { exists: false } },
         ],
       },
       depth: 2,
@@ -157,10 +224,7 @@ export const checkUserSubscription = async (
     });
 
     if (userSubscription.docs.length === 0) {
-      payload.logger.error("User does not have an active subscription", {
-        lesson,
-        user,
-      });
+      payload.logger.error(`User does not have an active subscription (userId: ${user.id}, lessonId: ${lesson.id})`);
       return false;
     }
 
@@ -175,12 +239,7 @@ export const checkUserSubscription = async (
         new Date(subscription.cancelAt) <= new Date(lesson.startTime))
     ) {
       payload.logger.error(
-        "User has an active subscription that is cancelled by the date of this lesson",
-        {
-          lesson,
-          user,
-          subscription,
-        }
+        `User has an active subscription that is cancelled by the date of this lesson (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id})`
       );
       return false;
     }
@@ -191,11 +250,7 @@ export const checkUserSubscription = async (
       new Date(lesson.startTime)
     );
     if (reachedLimit) {
-      payload.logger.error("User has reached the subscription limit", {
-        lesson,
-        user,
-        subscription,
-      });
+      payload.logger.error(`User has reached the subscription limit (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id})`);
       return false;
     }
 
@@ -230,11 +285,7 @@ export const checkUserSubscription = async (
       const quantity = plan.quantity || 1;
 
       if (bookings.totalDocs >= quantity) {
-        payload.logger.error("User has reached the child subscription limit", {
-          lesson,
-          user,
-          subscription,
-        });
+        payload.logger.error(`User has reached the child subscription limit (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id}, limit: ${quantity})`);
         return false;
       }
     }
@@ -246,100 +297,3 @@ export const checkUserSubscription = async (
   }
 };
 
-function getFirstHourOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(1, 0, 0, 0);
-  return result;
-}
-
-function getLastHourOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(23, 59, 59, 999);
-  return result;
-}
-
-function getFirstDayOfWeek(date: Date): Date {
-  const result = new Date(date);
-  const day = result.getDay();
-  const daysToSubtract = day === 0 ? 6 : day - 1;
-
-  result.setDate(result.getDate() - daysToSubtract);
-  result.setHours(1, 0, 0, 0); // Changed from 0 to 1 for 1:00 AM
-
-  return result;
-}
-
-function getLastDayOfWeek(date: Date): Date {
-  const result = getFirstDayOfWeek(date);
-  result.setDate(result.getDate() + 6); // Add 6 days to get to Sunday
-  result.setHours(23, 59, 59, 999);
-  return result;
-}
-
-function getFirstDayOfMonth(date: Date): Date {
-  const result = new Date(date);
-  result.setDate(1);
-  result.setHours(1, 0, 0, 0);
-  return result;
-}
-
-function getLastDayOfMonth(date: Date): Date {
-  const result = new Date(date);
-  result.setMonth(result.getMonth() + 1, 0); // Setting day to 0 of next month gives us last day of current month
-  result.setHours(23, 59, 59, 999);
-  return result;
-}
-
-function getFirstDayOfYear(date: Date): Date {
-  const result = new Date(date);
-  result.setMonth(0, 1);
-  result.setHours(1, 0, 0, 0);
-  return result;
-}
-
-function getLastDayOfYear(date: Date): Date {
-  const result = new Date(date);
-  result.setMonth(11, 31); // December 31st
-  result.setHours(23, 59, 59, 999);
-  return result;
-}
-
-const getIntervalStartAndEndDate = (
-  intervalType: "day" | "week" | "month" | "quarter" | "year",
-  intervalCount: number,
-  lessonDate: Date
-): { startDate: Date; endDate: Date } => {
-  const currentDate = new Date(lessonDate);
-  let startDate: Date;
-  let endDate: Date;
-
-  switch (intervalType) {
-    case "day":
-      endDate = getLastHourOfDay(currentDate);
-      startDate = getFirstHourOfDay(new Date(currentDate));
-      startDate.setDate(startDate.getDate() - (intervalCount - 1));
-      break;
-    case "week":
-      endDate = getLastDayOfWeek(currentDate);
-      startDate = getFirstDayOfWeek(new Date(currentDate));
-      startDate.setDate(startDate.getDate() - 7 * (intervalCount - 1));
-      break;
-    case "month":
-      endDate = getLastDayOfMonth(currentDate);
-      startDate = getFirstDayOfMonth(new Date(currentDate));
-      startDate.setMonth(startDate.getMonth() - (intervalCount - 1));
-      break;
-    case "quarter":
-      endDate = getLastDayOfMonth(currentDate);
-      startDate = getFirstDayOfMonth(new Date(currentDate));
-      startDate.setMonth(startDate.getMonth() - 3 * (intervalCount - 1));
-      break;
-    case "year":
-      endDate = getLastDayOfYear(currentDate);
-      startDate = getFirstDayOfYear(new Date(currentDate));
-      startDate.setFullYear(startDate.getFullYear() - (intervalCount - 1));
-      break;
-  }
-
-  return { startDate, endDate };
-};

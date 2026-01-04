@@ -6,7 +6,15 @@
 
 import type { Payload } from "payload";
 
-import { beforeAll, afterAll, describe, expect, it, beforeEach, afterEach } from "vitest";
+import {
+  beforeAll,
+  afterAll,
+  describe,
+  expect,
+  it,
+  beforeEach,
+  afterEach,
+} from "vitest";
 
 import { buildConfig, getPayload } from "payload";
 
@@ -32,7 +40,7 @@ import { TZDate } from "@date-fns/tz";
 // Import the generation function directly
 
 const TEST_TIMEOUT = 30000; // 30 seconds
-const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
+const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
 let payload: Payload;
 let restClient: NextRESTClient;
@@ -74,7 +82,7 @@ describe("Scheduler tests", () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy();
+      await payload?.db?.destroy?.();
     }
   });
 

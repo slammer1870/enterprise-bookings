@@ -20,7 +20,7 @@ import { ClassOption, Lesson, User, Booking } from "@repo/shared-types";
 import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
 
 const TEST_TIMEOUT = 60000; // 60 seconds
-const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
+const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
 let payload: Payload;
 let restClient: NextRESTClient;

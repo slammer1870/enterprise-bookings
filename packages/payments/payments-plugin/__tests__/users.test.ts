@@ -33,7 +33,7 @@ vi.mock("@repo/shared-utils", () => ({
 }));
 
 const TEST_TIMEOUT = 30000;
-const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
+const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
 describe("Payments tests", () => {
   beforeAll(async () => {
@@ -51,7 +51,7 @@ describe("Payments tests", () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy();
+      await payload?.db?.destroy?.();
     }
   });
 
