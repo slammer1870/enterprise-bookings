@@ -118,9 +118,9 @@ jobs:
     strategy:
       matrix:
         package:
-          - auth
-          - bookings
-          - payments
+          - auth-plugin
+          - bookings-plugin
+          - payments-plugin
           - memberships
           - integration-testing
     env:
@@ -217,7 +217,14 @@ jobs:
           sudo usermod -aG docker $USER
 
       - name: Run tests for ${{ matrix.package }} package
-        run: pnpm --filter @repo/${{ matrix.package }} test
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter "@repo/${{ matrix.package }}" test | tee pnpm-test.log
+          if grep -q "No projects matched the filters" pnpm-test.log; then
+            echo "ERROR: No workspace matched filter @repo/${{ matrix.package }} (check package name / workspace config)."
+            exit 1
+          fi
         env:
           # Ensure TestContainers can access Docker
           DOCKER_HOST: unix:///var/run/docker.sock
