@@ -28,7 +28,7 @@ let restClient: NextRESTClient;
 let user: User;
 
 const TEST_TIMEOUT = 60000; // 60 seconds
-const HOOK_TIMEOUT = 100000; // 100 seconds for setup hooks
+const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
 describe("Booking tests", () => {
   beforeAll(async () => {

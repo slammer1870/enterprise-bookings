@@ -13,24 +13,28 @@ let payload: Payload;
 let restClient: NextRESTClient;
 
 // Mock Stripe API
-vi.mock("@repo/shared-utils", () => ({
-  checkRole: vi.fn(),
-  stripe: {
-    customers: {
-      list: vi.fn().mockResolvedValue({ data: [] }),
-      create: vi.fn().mockResolvedValue({ id: "cus_12345" }),
-      retrieve: vi.fn().mockResolvedValue({ id: "cus_12345" }),
+vi.mock("@repo/shared-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/shared-utils")>();
+  return {
+    ...actual,
+    checkRole: vi.fn(),
+    stripe: {
+      customers: {
+        list: vi.fn().mockResolvedValue({ data: [] }),
+        create: vi.fn().mockResolvedValue({ id: "cus_12345" }),
+        retrieve: vi.fn().mockResolvedValue({ id: "cus_12345" }),
+      },
+      paymentIntents: {
+        create: vi.fn().mockImplementation(({ amount, metadata }) => ({
+          client_secret: "pi_secret_123",
+          amount,
+          metadata,
+        })),
+      },
     },
-    paymentIntents: {
-      create: vi.fn().mockImplementation(({ amount, metadata }) => ({
-        client_secret: "pi_secret_123",
-        amount,
-        metadata,
-      })),
-    },
-  },
-  formatAmountForStripe: vi.fn().mockImplementation((amount) => amount * 100),
-}));
+    formatAmountForStripe: vi.fn().mockImplementation((amount) => amount * 100),
+  };
+});
 
 describe("Discount calculation tests", () => {
   beforeAll(async () => {
