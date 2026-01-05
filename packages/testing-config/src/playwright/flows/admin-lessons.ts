@@ -118,4 +118,55 @@ export async function saveLesson(page: Page): Promise<void> {
   })
 }
 
+/**
+ * Create a lesson via the REST API (avoids flaky admin date/time pickers).
+ * Returns the created lesson ID.
+ */
+export async function createLessonViaApi(
+  page: Page,
+  opts: {
+    classOptionId: number
+    date: Date
+    startHour: number
+    startMinute: number
+    endHour: number
+    endMinute: number
+  },
+): Promise<number> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const request: any = (page.context() as any).request
+
+  const cookieHeader = async () => {
+    const cookies: Array<{ name: string; value: string }> = await (page.context() as any).cookies()
+    return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
+  }
+
+  const start = new Date(opts.date)
+  start.setHours(opts.startHour, opts.startMinute, 0, 0)
+  const end = new Date(opts.date)
+  end.setHours(opts.endHour, opts.endMinute, 0, 0)
+
+  const res = await request.post(`${baseUrl}/api/lessons`, {
+    headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+    data: {
+      date: opts.date.toISOString(),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      classOption: opts.classOptionId,
+      lockOutTime: 0,
+      active: true,
+    },
+  })
+
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`Failed to create lesson via API: ${res.status()} ${txt}`)
+  }
+
+  const json: any = await res.json().catch(() => null)
+  const id = json?.doc?.id ?? json?.id
+  if (id == null) throw new Error(`Unexpected create lesson response: ${JSON.stringify(json)}`)
+  return Number(id)
+}
+
 

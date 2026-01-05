@@ -47,7 +47,7 @@ export default async function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ScheduleComponent />
         {!subscription.docs[0] ? (
-          <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">
+          <div className="max-w-screen-sm w-full mx-auto p-6">
             <h2 className="text-2xl font-medium text-center mb-4">Membership Options</h2>
             <PlanList
               plans={allowedPlans.docs as Plan[]}
@@ -56,7 +56,7 @@ export default async function Dashboard() {
             />
           </div>
         ) : (
-          <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">
+          <div className="max-w-screen-sm w-full mx-auto p-6">
             <h2 className="text-2xl font-medium text-center mb-4">Your Subscription</h2>
             <PlanDetail
               plan={subscription.docs[0].plan as Plan}

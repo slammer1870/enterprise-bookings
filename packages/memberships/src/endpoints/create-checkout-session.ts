@@ -39,6 +39,20 @@ export const createCheckoutSession: PayloadHandler = async (
   const successUrl = `${origin}/dashboard`;
   const cancelUrl = `${origin}/dashboard`;
 
+  // E2E/CI: don't call Stripe. We only need a redirect URL to keep the booking flow deterministic.
+  // Playwright configs set ENABLE_TEST_WEBHOOKS=true; using it here avoids external dependency flakes.
+  if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+    return new Response(
+      JSON.stringify({
+        client_secret: "",
+        url: "/dashboard",
+      }),
+      {
+        status: 200,
+      }
+    );
+  }
+
   try {
     const checkoutSession: Stripe.Checkout.Session =
       await stripe.checkout.sessions.create({

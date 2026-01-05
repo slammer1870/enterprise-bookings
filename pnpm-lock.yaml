@@ -292,7 +292,7 @@ importers:
         version: 3.12.5(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       next-sitemap:
         specifier: ^4.2.3
-        version: 4.2.3(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))
+        version: 4.2.3(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))
       payload:
         specifier: 3.64.0
         version: 3.64.0(graphql@16.12.0)(typescript@5.9.3)
@@ -479,7 +479,7 @@ importers:
         version: 3.12.5(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       next-sitemap:
         specifier: ^4.2.3
-        version: 4.2.3(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))
+        version: 4.2.3(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))
       payload:
         specifier: 3.64.0
         version: 3.64.0(graphql@16.12.0)(typescript@5.9.3)
@@ -505,9 +505,15 @@ importers:
         specifier: 17.7.0
         version: 17.7.0
     devDependencies:
+      '@playwright/test':
+        specifier: 1.56.1
+        version: 1.56.1
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@repo/testing-config':
+        specifier: workspace:*
+        version: link:../../packages/testing-config
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
@@ -523,12 +529,21 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.7)
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
       eslint-config-next:
         specifier: 15.5.6
         version: 15.5.6(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
+      playwright:
+        specifier: 1.56.1
+        version: 1.56.1
+      playwright-core:
+        specifier: 1.56.1
+        version: 1.56.1
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -703,7 +718,7 @@ importers:
         version: 3.12.5(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       next-sitemap:
         specifier: ^4.2.3
-        version: 4.2.3(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))
+        version: 4.2.3(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))
       payload:
         specifier: 3.64.0
         version: 3.64.0(graphql@16.12.0)(typescript@5.9.3)
@@ -17686,7 +17701,7 @@ snapshots:
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
 
-  next-sitemap@4.2.3(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4)):
+  next-sitemap@4.2.3(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4)):
     dependencies:
       '@corex/deepmerge': 4.0.43
       '@next/env': 13.5.11

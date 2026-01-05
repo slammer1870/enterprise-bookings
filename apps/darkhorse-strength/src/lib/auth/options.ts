@@ -95,7 +95,9 @@ export const betterAuthPluginOptions = {
   admin: {
     loginMethods: ['emailPassword'],
   },
-  disableDefaultPayloadAuth: true,
+  // Keep default Payload auth enabled so admin automation (Playwright helper)
+  // can use the standard POST /api/users/login flow (matches bru-grappling).
+  disableDefaultPayloadAuth: false,
   hidePluginCollections: false,
   users: {
     slug: 'users',
