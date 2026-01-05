@@ -18,6 +18,52 @@ import { AccessControls, HooksConfig } from "@repo/shared-types";
 import { lessonReadAccess } from "../access/lessons";
 import { setLockout } from "../hooks/set-lockout";
 
+const parseTimeString = (value: unknown): { hours: number; minutes: number } | null => {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  if (!s) return null;
+
+  // Accept:
+  // - "10:00"
+  // - "10:00 AM" / "10:00PM"
+  const m = s.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (!m) return null;
+
+  let hours = parseInt(m[1]!, 10);
+  const minutes = parseInt(m[2]!, 10);
+  const ampm = (m[3] ?? "").toUpperCase();
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  if (minutes < 0 || minutes > 59) return null;
+
+  // 24h format
+  if (!ampm) {
+    if (hours < 0 || hours > 23) return null;
+    return { hours, minutes };
+  }
+
+  // 12h format
+  if (hours < 1 || hours > 12) return null;
+  if (ampm === "AM") hours = hours === 12 ? 0 : hours;
+  if (ampm === "PM") hours = hours === 12 ? 12 : hours + 12;
+  return { hours, minutes };
+};
+
+const coerceToDateForTimeOnlyField = (value: unknown): Date | null => {
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+    const t = parseTimeString(value);
+    if (t) {
+      const d = new Date();
+      d.setHours(t.hours, t.minutes, 0, 0);
+      return d;
+    }
+  }
+  return null;
+};
+
 const defaultFields: Field[] = [
   {
     type: "row",
@@ -54,7 +100,8 @@ const defaultFields: Field[] = [
               const month = date.getMonth();
               const day = date.getDate(); // Extract date from sibling data
 
-              const time = new Date(value);
+              const time = coerceToDateForTimeOnlyField(value);
+              if (!time) return value;
 
               const hours = time.getHours();
               const minutes = time.getMinutes();
@@ -95,7 +142,8 @@ const defaultFields: Field[] = [
               const month = date.getMonth();
               const day = date.getDate(); // Extract date from sibling data
 
-              const time = new Date(value);
+              const time = coerceToDateForTimeOnlyField(value);
+              if (!time) return value;
 
               const hours = time.getHours();
               const minutes = time.getMinutes();

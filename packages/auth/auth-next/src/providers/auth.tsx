@@ -78,9 +78,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (res.ok) {
-        const { data, errors } = await res.json();
+        // Creating a Payload user does NOT necessarily create a session.
+        // Immediately log the user in so they land on /dashboard authenticated.
+        // This matches the expectations of our app flows and e2e tests.
+        await res.json().catch(() => null);
+
+        const loginRes = await fetch(`/api/users/login`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: args.email.toLowerCase(),
+            password: args.password,
+          }),
+        });
+
+        if (!loginRes.ok) {
+          const body: any = await loginRes.json().catch(() => null);
+          const msg =
+            body?.errors?.[0]?.message ||
+            body?.error ||
+            "User created but login failed.";
+          throw new Error(msg);
+        }
+
+        const { user: loggedInUser, errors } = await loginRes.json();
         if (errors) throw new Error(errors[0].message);
-        setUser(data?.loginUser?.user);
+        setUser(loggedInUser);
         setStatus("loggedIn");
       } else {
         const { errors } = await res.json();

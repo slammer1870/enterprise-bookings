@@ -2,6 +2,7 @@ import React from 'react'
 import './globals.css'
 
 import { AuthProvider } from '@repo/auth-next'
+import { TRPCReactProvider } from '@repo/trpc'
 
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
@@ -22,14 +23,16 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en">
       <PlausibleProvider domain="darkhorsestrength.ie">
         <AuthProvider>
-          <body>
-            <main>
-              <Navbar />
-              {children}
-              <Footer />
-            </main>
-            <Toaster />
-          </body>
+          <TRPCReactProvider>
+            <body>
+              <main>
+                <Navbar />
+                {children}
+                <Footer />
+              </main>
+              <Toaster />
+            </body>
+          </TRPCReactProvider>
         </AuthProvider>
       </PlausibleProvider>
     </html>

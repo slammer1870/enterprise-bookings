@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
 
     const payload = await getPayload({ config: await config })
 
+    // 1) User + stripeCustomerId
     let stripeCustomerId = `cus_test_${Date.now()}`
     if (userEmail) {
       const userQuery = await payload.find({
@@ -33,8 +34,8 @@ export async function POST(request: NextRequest) {
       })
       const user = userQuery.docs[0]
       if (user) {
-        stripeCustomerId = user.stripeCustomerId || stripeCustomerId
-        if (!user.stripeCustomerId) {
+        stripeCustomerId = (user as any).stripeCustomerId || stripeCustomerId
+        if (!(user as any).stripeCustomerId) {
           await payload.update({
             collection: 'users',
             id: user.id,
@@ -45,13 +46,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 2) Plan with stripeProductId (create fake id if missing)
     const planQuery = await payload.find({
       collection: 'plans',
       limit: 1,
       sort: '-createdAt',
       overrideAccess: true,
     })
-    const plan = planQuery.docs[0]
+    const plan: any = planQuery.docs[0]
     if (!plan) {
       return NextResponse.json({ error: 'No plans available for subscription test' }, { status: 400 })
     }
@@ -119,9 +121,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-
-
 
 
 

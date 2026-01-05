@@ -6,7 +6,7 @@ import config from '@payload-config'
 import { createServerTRPC, createServerTRPCContext } from '@repo/trpc/server'
 import { appRouter, createTRPCContext } from '@repo/trpc'
 
-import { stripe } from '../lib/stripe'
+import { stripe } from '@/lib/stripe'
 
 const createContext = cache(async () => {
   const heads = new Headers(await nextHeaders())
@@ -29,6 +29,15 @@ export const getQueryClient: ServerTRPC['getQueryClient'] = serverTRPC.getQueryC
 export const HydrateClient: ServerTRPC['HydrateClient'] = serverTRPC.HydrateClient
 export const prefetch: ServerTRPC['prefetch'] = serverTRPC.prefetch
 
+/**
+ * Creates a tRPC caller for use in server components and server actions.
+ *
+ * @example
+ * ```ts
+ * const caller = await createCaller()
+ * const result = await caller.bookings.validateAndAttemptCheckIn({ lessonId: 123 })
+ * ```
+ */
 export async function createCaller(): Promise<ReturnType<typeof appRouter.createCaller>> {
   const heads = await nextHeaders()
   const headers = new Headers(heads)
@@ -44,9 +53,5 @@ export async function createCaller(): Promise<ReturnType<typeof appRouter.create
 
   return appRouter.createCaller(ctx)
 }
-
-
-
-
 
 
