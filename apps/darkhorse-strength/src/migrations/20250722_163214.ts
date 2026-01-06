@@ -88,20 +88,20 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "scheduler_schedule_saturday_slots" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "scheduler_schedule_sunday_slots_skip_dates" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "scheduler_schedule_sunday_slots" DISABLE ROW LEVEL SECURITY;
-  DROP TABLE "scheduler_schedule_monday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_monday_slots" CASCADE;
-  DROP TABLE "scheduler_schedule_tuesday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_tuesday_slots" CASCADE;
-  DROP TABLE "scheduler_schedule_wednesday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_wednesday_slots" CASCADE;
-  DROP TABLE "scheduler_schedule_thursday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_thursday_slots" CASCADE;
-  DROP TABLE "scheduler_schedule_friday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_friday_slots" CASCADE;
-  DROP TABLE "scheduler_schedule_saturday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_saturday_slots" CASCADE;
-  DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
-  DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_monday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_monday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_tuesday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_tuesday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_wednesday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_wednesday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_thursday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_thursday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_friday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_friday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_saturday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_saturday_slots" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_schedule_sunday_slots" CASCADE;
   ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-22T16:32:14.063Z';
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" DROP DEFAULT;
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" SET NOT NULL;
@@ -210,23 +210,106 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_payload_jobs_id_idx" ON "payload_locked_documents_rels" USING btree ("payload_jobs_id");
-  ALTER TABLE "plans" DROP COLUMN "sessions";
-  ALTER TABLE "plans" DROP COLUMN "interval_count";
-  ALTER TABLE "plans" DROP COLUMN "interval";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_monday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_tuesday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_wednesday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_thursday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_friday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_saturday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "schedule_sunday_is_active";
-  ALTER TABLE "scheduler" DROP COLUMN "generate_options_clear_existing";
-  ALTER TABLE "scheduler" DROP COLUMN "generation_results_last_generated";
-  ALTER TABLE "scheduler" DROP COLUMN "generation_results_created";
-  ALTER TABLE "scheduler" DROP COLUMN "generation_results_skipped";
-  ALTER TABLE "scheduler" DROP COLUMN "generation_results_conflicts";
-  ALTER TABLE "scheduler" DROP COLUMN "generation_results_details";
-  DROP TYPE "public"."enum_plans_interval";`)
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'sessions') THEN
+    ALTER TABLE "plans" DROP COLUMN "sessions";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'interval_count') THEN
+    ALTER TABLE "plans" DROP COLUMN "interval_count";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'interval') THEN
+    ALTER TABLE "plans" DROP COLUMN "interval";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_monday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_monday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_tuesday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_tuesday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_wednesday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_wednesday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_thursday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_thursday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_friday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_friday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_saturday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_saturday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'schedule_sunday_is_active') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "schedule_sunday_is_active";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'generate_options_clear_existing') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "generate_options_clear_existing";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'generation_results_last_generated') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "generation_results_last_generated";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'generation_results_created') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "generation_results_created";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'generation_results_skipped') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "generation_results_skipped";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'generation_results_conflicts') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "generation_results_conflicts";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'generation_results_details') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "generation_results_details";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   DROP TYPE IF EXISTS "public"."enum_plans_interval";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;`)
 }
 
 export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs): Promise<void> {
@@ -380,13 +463,22 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   ALTER TABLE "payload_jobs" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "scheduler_week_days_time_slot" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "scheduler_week_days" DISABLE ROW LEVEL SECURITY;
-  DROP TABLE "payload_jobs_log" CASCADE;
-  DROP TABLE "payload_jobs" CASCADE;
-  DROP TABLE "scheduler_week_days_time_slot" CASCADE;
-  DROP TABLE "scheduler_week_days" CASCADE;
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_payload_jobs_fk";
-  
-  DROP INDEX "payload_locked_documents_rels_payload_jobs_id_idx";
+  DROP TABLE IF EXISTS "payload_jobs_log" CASCADE;
+  DROP TABLE IF EXISTS "payload_jobs" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_week_days_time_slot" CASCADE;
+  DROP TABLE IF EXISTS "scheduler_week_days" CASCADE;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payload_locked_documents_rels_payload_jobs_fk') THEN
+    ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_payload_jobs_fk";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'payload_locked_documents_rels_payload_jobs_id_idx') THEN
+    DROP INDEX "payload_locked_documents_rels_payload_jobs_id_idx";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
   ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-17T09:35:29.237Z';
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" SET DEFAULT '2025-07-17T09:35:29.238Z';
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" DROP NOT NULL;
@@ -699,17 +791,72 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   CREATE INDEX IF NOT EXISTS "scheduler_schedule_sunday_slots_parent_id_idx" ON "scheduler_schedule_sunday_slots" USING btree ("_parent_id");
   CREATE INDEX IF NOT EXISTS "scheduler_schedule_sunday_slots_class_option_idx" ON "scheduler_schedule_sunday_slots" USING btree ("class_option_id");
   CREATE INDEX IF NOT EXISTS "scheduler_schedule_sunday_slots_instructor_idx" ON "scheduler_schedule_sunday_slots" USING btree ("instructor_id");
-  ALTER TABLE "plans" DROP COLUMN "sessions_information_sessions";
-  ALTER TABLE "plans" DROP COLUMN "sessions_information_interval_count";
-  ALTER TABLE "plans" DROP COLUMN "sessions_information_interval";
-  ALTER TABLE "plans" DROP COLUMN "price_information_price";
-  ALTER TABLE "plans" DROP COLUMN "price_information_interval_count";
-  ALTER TABLE "plans" DROP COLUMN "price_information_interval";
-  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "payload_jobs_id";
-  ALTER TABLE "scheduler" DROP COLUMN "clear_existing";
-  DROP TYPE "public"."enum_plans_sessions_information_interval";
-  DROP TYPE "public"."enum_plans_price_information_interval";
-  DROP TYPE "public"."enum_payload_jobs_log_task_slug";
-  DROP TYPE "public"."enum_payload_jobs_log_state";
-  DROP TYPE "public"."enum_payload_jobs_task_slug";`)
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'sessions_information_sessions') THEN
+    ALTER TABLE "plans" DROP COLUMN "sessions_information_sessions";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'sessions_information_interval_count') THEN
+    ALTER TABLE "plans" DROP COLUMN "sessions_information_interval_count";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'sessions_information_interval') THEN
+    ALTER TABLE "plans" DROP COLUMN "sessions_information_interval";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'price_information_price') THEN
+    ALTER TABLE "plans" DROP COLUMN "price_information_price";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'price_information_interval_count') THEN
+    ALTER TABLE "plans" DROP COLUMN "price_information_interval_count";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'plans' AND column_name = 'price_information_interval') THEN
+    ALTER TABLE "plans" DROP COLUMN "price_information_interval";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'payload_locked_documents_rels' AND column_name = 'payload_jobs_id') THEN
+    ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "payload_jobs_id";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'scheduler' AND column_name = 'clear_existing') THEN
+    ALTER TABLE "scheduler" DROP COLUMN "clear_existing";
+   END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   DROP TYPE IF EXISTS "public"."enum_plans_sessions_information_interval";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   DROP TYPE IF EXISTS "public"."enum_plans_price_information_interval";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   DROP TYPE IF EXISTS "public"."enum_payload_jobs_log_task_slug";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   DROP TYPE IF EXISTS "public"."enum_payload_jobs_log_state";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
+   DROP TYPE IF EXISTS "public"."enum_payload_jobs_task_slug";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;`)
 }
