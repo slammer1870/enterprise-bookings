@@ -34,7 +34,7 @@ export const betterAuthPlugins = [
 export type BetterAuthPlugins = typeof betterAuthPlugins
 
 export const betterAuthOptions = {
-  appName: 'payload-better-auth',
+  appName: 'Brú Grappling',
   baseURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
   secret:
     process.env.BETTER_AUTH_SECRET ||
