@@ -48,7 +48,7 @@ export const CheckInButton = ({
   const { data: session } = useQuery(trpc.auth.getSession.queryOptions());
 
   const handleAuthRedirect = () => {
-    // Invalidate session query to ensure UI updates
+    // Invalidate session query to ensure UI updates properly
     queryClient.invalidateQueries({
       queryKey: trpc.auth.getSession.queryKey(),
     });
