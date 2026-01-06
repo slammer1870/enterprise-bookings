@@ -57,6 +57,30 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     `);
     
     if (tablesExist.rows?.[0]?.exists) {
+      // Ensure instructors table has all required columns before migrating data
+      await db.execute(sql`
+        DO $$ 
+        BEGIN
+          -- Add image_id column if table exists but column doesn't
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
+            AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'image_id') THEN
+            ALTER TABLE "instructors" ADD COLUMN "image_id" integer;
+          END IF;
+          
+          -- Add active column if table exists but column doesn't
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
+            AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'active') THEN
+            ALTER TABLE "instructors" ADD COLUMN "active" boolean DEFAULT true NOT NULL;
+          END IF;
+          
+          -- Add name column if table exists but column doesn't
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
+            AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'name') THEN
+            ALTER TABLE "instructors" ADD COLUMN "name" varchar;
+          END IF;
+        END $$;
+      `);
+      
       // Find lessons with instructor_id that don't exist in instructors table but do exist in users table
       // These are the ones we need to migrate
       // Check if users table has image_id column (it might have been dropped in a previous migration)
@@ -70,6 +94,17 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       `);
       
       const userHasImageId = hasImageIdColumn.rows?.[0]?.exists || false;
+      
+      // Check if instructors table has image_id column (needed for INSERT statements)
+      const hasInstructorImageId = await db.execute<{ exists: boolean }>(sql`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'instructors' 
+          AND column_name = 'image_id'
+        ) as exists
+      `);
+      const instructorHasImageId = hasInstructorImageId.rows?.[0]?.exists || false;
       
       // Build query based on whether image_id column exists
       const orphanedLessons = userHasImageId
@@ -130,19 +165,31 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
                 console.log(`Using existing instructor ${instructorId} for user ${row.user_id}`);
               } else {
                 // Create new instructor record from user
-                // Copy user's image to instructor's image_id if available
-                const newInstructor = await db.execute<{ id: number }>(sql`
-                  INSERT INTO instructors (user_id, name, image_id, active, created_at, updated_at)
-                  VALUES (
-                    ${row.user_id}, 
-                    ${row.user_name || `User ${row.user_id}`}, 
-                    ${row.user_image_id || null},
-                    true, 
-                    now(), 
-                    now()
-                  )
-                  RETURNING id
-                `);
+                // Copy user's image to instructor's image_id if available and column exists
+                const newInstructor = instructorHasImageId
+                  ? await db.execute<{ id: number }>(sql`
+                      INSERT INTO instructors (user_id, name, image_id, active, created_at, updated_at)
+                      VALUES (
+                        ${row.user_id}, 
+                        ${row.user_name || `User ${row.user_id}`}, 
+                        ${row.user_image_id || null},
+                        true, 
+                        now(), 
+                        now()
+                      )
+                      RETURNING id
+                    `)
+                  : await db.execute<{ id: number }>(sql`
+                      INSERT INTO instructors (user_id, name, active, created_at, updated_at)
+                      VALUES (
+                        ${row.user_id}, 
+                        ${row.user_name || `User ${row.user_id}`}, 
+                        true, 
+                        now(), 
+                        now()
+                      )
+                      RETURNING id
+                    `);
                 if (!newInstructor.rows[0]) {
                   throw new Error(`Failed to create instructor for user ${row.user_id}: INSERT did not return id`);
                 }
@@ -246,18 +293,31 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
                 console.log(`Using existing instructor ${instructorId} for user ${row.user_id} (from scheduler)`);
               } else {
                 // Create new instructor record from user
-                const newInstructor = await db.execute<{ id: number }>(sql`
-                  INSERT INTO instructors (user_id, name, image_id, active, created_at, updated_at)
-                  VALUES (
-                    ${row.user_id}, 
-                    ${row.user_name || `User ${row.user_id}`}, 
-                    ${row.user_image_id || null},
-                    true, 
-                    now(), 
-                    now()
-                  )
-                  RETURNING id
-                `);
+                // Copy user's image to instructor's image_id if available and column exists
+                const newInstructor = instructorHasImageId
+                  ? await db.execute<{ id: number }>(sql`
+                      INSERT INTO instructors (user_id, name, image_id, active, created_at, updated_at)
+                      VALUES (
+                        ${row.user_id}, 
+                        ${row.user_name || `User ${row.user_id}`}, 
+                        ${row.user_image_id || null},
+                        true, 
+                        now(), 
+                        now()
+                      )
+                      RETURNING id
+                    `)
+                  : await db.execute<{ id: number }>(sql`
+                      INSERT INTO instructors (user_id, name, active, created_at, updated_at)
+                      VALUES (
+                        ${row.user_id}, 
+                        ${row.user_name || `User ${row.user_id}`}, 
+                        true, 
+                        now(), 
+                        now()
+                      )
+                      RETURNING id
+                    `);
                 if (!newInstructor.rows[0]) {
                   throw new Error(`Failed to create instructor for user ${row.user_id}: INSERT did not return id`);
                 }
@@ -325,9 +385,16 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     CREATE INDEX IF NOT EXISTS "instructors_user_id_idx" ON "instructors" USING btree ("user_id");
     CREATE INDEX IF NOT EXISTS "instructors_image_id_idx" ON "instructors" USING btree ("image_id");
     
-    -- Add active column if table exists but column doesn't
+    -- Add columns if table exists but columns don't
     DO $$ 
     BEGIN
+      -- Add image_id column if table exists but column doesn't
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'image_id') THEN
+        ALTER TABLE "instructors" ADD COLUMN "image_id" integer;
+      END IF;
+      
+      -- Add active column if table exists but column doesn't
       IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
         AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'active') THEN
         ALTER TABLE "instructors" ADD COLUMN "active" boolean DEFAULT true NOT NULL;
