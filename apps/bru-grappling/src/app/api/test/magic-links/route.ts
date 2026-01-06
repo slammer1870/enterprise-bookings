@@ -4,7 +4,7 @@ import {
   clearTestMagicLinks,
   getLatestTestMagicLink,
   isTestMagicLinkStoreEnabled,
-} from '@/lib/auth/test-magic-link-store'
+} from '@repo/better-auth-config/server'
 
 export const dynamic = 'force-dynamic'
 

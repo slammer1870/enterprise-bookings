@@ -12,6 +12,7 @@
     "@react-email/components": "^1.0.1",
     "@repo/auth-plugin": "workspace:*",
     "@repo/auth-next": "workspace:*",
+    "@repo/better-auth-config": "workspace:*",
     "better-auth": "^1.4.5",
     "payload-auth": "^1.7.0",
     "@repo/bookings-plugin": "workspace:*",

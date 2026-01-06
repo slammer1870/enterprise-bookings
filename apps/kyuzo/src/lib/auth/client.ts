@@ -1,14 +1,10 @@
 'use client'
 
-import { adminClient } from 'better-auth/client/plugins'
-import { createAuthClient } from 'better-auth/react'
+import { createAppAuthClient } from '@repo/better-auth-config/client'
 
-export const authClient = createAuthClient({
-  baseURL:
-    process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
-    process.env.NEXT_PUBLIC_SERVER_URL ||
-    'http://localhost:3000',
-  plugins: [adminClient()],
+export const authClient = createAppAuthClient({
+  enableAdmin: true,
+  enableMagicLink: false,
 })
 
 export const { signIn, signUp, signOut, useSession } = authClient
