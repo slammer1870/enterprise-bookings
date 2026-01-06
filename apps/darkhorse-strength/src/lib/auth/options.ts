@@ -7,7 +7,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   disableDefaultPayloadAuth: false,
   hidePluginCollections: false,
   sessionCookieCache: {
-    enabled: true,
+    enabled: false,
     maxAge: 5 * 60,
   },
   roles: {
