@@ -1,5 +1,184 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
+/**
+ * Payload migrations here were generated as a single giant SQL string.
+ *
+ * In environments like Coolify (and when the database has been "pushed" in dev mode),
+ * a single failing statement inside that huge query is extremely hard to diagnose
+ * because logs truncate / wrap the SQL.
+ *
+ * Executing statement-by-statement gives us:
+ * - much more actionable error logs (we can see the exact failing statement)
+ * - resilience against drivers that don't like very large multi-statement queries
+ */
+function splitPostgresStatements(input: string): string[] {
+  const statements: string[] = []
+  let current = ''
+
+  let i = 0
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  let inLineComment = false
+  let inBlockComment = false
+
+  // Dollar-quoted strings like $$...$$ or $tag$...$tag$
+  let dollarTag: string | null = null
+
+  const push = () => {
+    const trimmed = current.trim()
+    if (trimmed) statements.push(trimmed)
+    current = ''
+  }
+
+  while (i < input.length) {
+    const ch = input[i]
+    const next = input[i + 1]
+
+    // End line comment
+    if (inLineComment) {
+      current += ch
+      if (ch === '\n') inLineComment = false
+      i += 1
+      continue
+    }
+
+    // End block comment
+    if (inBlockComment) {
+      current += ch
+      if (ch === '*' && next === '/') {
+        current += next
+        inBlockComment = false
+        i += 2
+      } else {
+        i += 1
+      }
+      continue
+    }
+
+    // Inside dollar-quoted string
+    if (dollarTag) {
+      current += ch
+      // Check for closing tag at this position
+      if (ch === '$' && input.startsWith(dollarTag, i)) {
+        // We've already appended the first '$' above, append the rest of the tag
+        current += dollarTag.slice(1)
+        i += dollarTag.length
+        dollarTag = null
+      } else {
+        i += 1
+      }
+      continue
+    }
+
+    // Inside single-quoted string
+    if (inSingleQuote) {
+      current += ch
+      if (ch === "'" && next === "'") {
+        // escaped single quote in SQL string literal
+        current += next
+        i += 2
+        continue
+      }
+      if (ch === "'") inSingleQuote = false
+      i += 1
+      continue
+    }
+
+    // Inside double-quoted identifier
+    if (inDoubleQuote) {
+      current += ch
+      if (ch === '"') inDoubleQuote = false
+      i += 1
+      continue
+    }
+
+    // Start comments
+    if (ch === '-' && next === '-') {
+      current += ch + next
+      inLineComment = true
+      i += 2
+      continue
+    }
+    if (ch === '/' && next === '*') {
+      current += ch + next
+      inBlockComment = true
+      i += 2
+      continue
+    }
+
+    // Start quoted regions
+    if (ch === "'") {
+      inSingleQuote = true
+      current += ch
+      i += 1
+      continue
+    }
+    if (ch === '"') {
+      inDoubleQuote = true
+      current += ch
+      i += 1
+      continue
+    }
+
+    // Start dollar-quoted string
+    if (ch === '$') {
+      // Find the tag end
+      let j = i + 1
+      while (j < input.length) {
+        const cj = input[j]
+        if (cj === '$') break
+        // Valid tag chars: letters, digits, underscore
+        // `noUncheckedIndexedAccess` can make `cj` appear as possibly-undefined to TS,
+        // even though the `j < input.length` check guarantees it's present at runtime.
+        if (!cj || !/[a-zA-Z0-9_]/.test(cj)) {
+          j = -1
+          break
+        }
+        j += 1
+      }
+      if (j !== -1 && j < input.length && input[j] === '$') {
+        dollarTag = input.slice(i, j + 1) // includes both '$'
+        current += dollarTag
+        i = j + 1
+        continue
+      }
+    }
+
+    // Statement boundary
+    if (ch === ';') {
+      current += ch
+      push()
+      i += 1
+      continue
+    }
+
+    current += ch
+    i += 1
+  }
+
+  push()
+  return statements
+}
+
+async function executePostgresStatements(
+  db: MigrateUpArgs['db'] | MigrateDownArgs['db'],
+  sqlText: string,
+): Promise<void> {
+  const statements = splitPostgresStatements(sqlText)
+  for (const statement of statements) {
+    try {
+      // `sql.raw` is provided by drizzle's `sql` tagged template.
+      await db.execute(sql.raw(statement))
+    } catch (error) {
+      // Ensure Coolify / CI logs show the real failing statement.
+      // Keep statement as-is (it already includes the trailing semicolon).
+      console.error('Migration failed running statement:', statement)
+      console.error('Underlying error:', error)
+      throw error
+    }
+  }
+}
+
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   // First, clean up any invalid instructor_id references before adding the constraint
   // This must be done as a separate query to ensure it executes before the constraint is added
@@ -34,7 +213,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   }
 
   // Create enum types only if they don't exist
-  await db.execute(sql`
+  await executePostgresStatements(
+    db,
+    `
    DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_pages_blocks_about_sections_image_position') THEN
       CREATE TYPE "public"."enum_pages_blocks_about_sections_image_position" AS ENUM('left', 'right');
@@ -1524,11 +1705,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "scheduler_week_days_time_slot_instructor_idx" ON "scheduler_week_days_time_slot" USING btree ("instructor_id");
   CREATE INDEX IF NOT EXISTS "scheduler_week_days_order_idx" ON "scheduler_week_days" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "scheduler_week_days_parent_id_idx" ON "scheduler_week_days" USING btree ("_parent_id");
-  CREATE INDEX IF NOT EXISTS "scheduler_default_class_option_idx" ON "scheduler" USING btree ("default_class_option_id");`)
+  CREATE INDEX IF NOT EXISTS "scheduler_default_class_option_idx" ON "scheduler" USING btree ("default_class_option_id");
+`,
+  )
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
-  await db.execute(sql`
+  await executePostgresStatements(
+    db,
+    `
    DROP TABLE "accounts" CASCADE;
   DROP TABLE "sessions" CASCADE;
   DROP TABLE "verifications" CASCADE;
@@ -1613,5 +1798,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_plans_type";
   DROP TYPE "public"."enum_payload_jobs_log_task_slug";
   DROP TYPE "public"."enum_payload_jobs_log_state";
-  DROP TYPE "public"."enum_payload_jobs_task_slug";`)
+  DROP TYPE "public"."enum_payload_jobs_task_slug";
+`,
+  )
 }
