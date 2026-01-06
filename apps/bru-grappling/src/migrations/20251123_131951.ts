@@ -36,84 +36,104 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   // Create enum types only if they don't exist
   await db.execute(sql`
    DO $$ BEGIN
-    CREATE TYPE "public"."enum_pages_blocks_about_sections_image_position" AS ENUM('left', 'right');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_pages_blocks_about_sections_image_position') THEN
+      CREATE TYPE "public"."enum_pages_blocks_about_sections_image_position" AS ENUM('left', 'right');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_posts_status') THEN
+      CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum__posts_v_version_status') THEN
+      CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_forms_confirmation_type') THEN
+      CREATE TYPE "public"."enum_forms_confirmation_type" AS ENUM('message', 'redirect');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_class_options_type" AS ENUM('adult', 'child', 'family');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_class_options_type') THEN
+      CREATE TYPE "public"."enum_class_options_type" AS ENUM('adult', 'child', 'family');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_bookings_status') THEN
+      CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_drop_ins_discount_tiers_type" AS ENUM('normal', 'trial', 'bulk');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_drop_ins_discount_tiers_type') THEN
+      CREATE TYPE "public"."enum_drop_ins_discount_tiers_type" AS ENUM('normal', 'trial', 'bulk');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('card');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_drop_ins_payment_methods') THEN
+      CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('card');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_currency') THEN
+      CREATE TYPE "public"."enum_transactions_currency" AS ENUM('EUR', 'USD');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_status') THEN
+      CREATE TYPE "public"."enum_transactions_status" AS ENUM('pending', 'completed', 'failed');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_transactions_payment_method') THEN
+      CREATE TYPE "public"."enum_transactions_payment_method" AS ENUM('cash', 'card');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_users_role" AS ENUM('user', 'admin');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_users_role') THEN
+      CREATE TYPE "public"."enum_users_role" AS ENUM('user', 'admin');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_subscriptions_status') THEN
+      CREATE TYPE "public"."enum_subscriptions_status" AS ENUM('incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_plans_sessions_information_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_sessions_information_interval') THEN
+      CREATE TYPE "public"."enum_plans_sessions_information_interval" AS ENUM('day', 'week', 'month', 'quarter', 'year');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_plans_price_information_interval" AS ENUM('day', 'week', 'month', 'year');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_price_information_interval') THEN
+      CREATE TYPE "public"."enum_plans_price_information_interval" AS ENUM('day', 'week', 'month', 'year');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_status') THEN
+      CREATE TYPE "public"."enum_plans_status" AS ENUM('active', 'inactive');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'child', 'family');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_plans_type') THEN
+      CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'child', 'family');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_payload_jobs_log_task_slug') THEN
+      CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_payload_jobs_log_state" AS ENUM('failed', 'succeeded');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_payload_jobs_log_state') THEN
+      CREATE TYPE "public"."enum_payload_jobs_log_state" AS ENUM('failed', 'succeeded');
+    END IF;
    END $$;
   DO $$ BEGIN
-    CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
-   EXCEPTION WHEN duplicate_object THEN null;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_payload_jobs_task_slug') THEN
+      CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+    END IF;
    END $$;
   CREATE TABLE IF NOT EXISTS "accounts" (
   	"id" serial PRIMARY KEY NOT NULL,
