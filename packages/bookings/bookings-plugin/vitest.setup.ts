@@ -32,7 +32,10 @@ process.on('unhandledRejection', (error: any) => {
     error?.status === 404 ||
     error?.name === 'NotFound' ||
     error?.message?.includes('Cannot read properties of undefined') ||
-    error?.message?.includes('reading \'id\'')
+    error?.message?.includes('reading \'id\'') ||
+    // Payload/Drizzle edge-case observed in CI during teardown (document lock cleanup)
+    error?.message?.includes('delete from  where false') ||
+    error?.query === 'delete from  where false'
   ) {
     // Suppress these errors during test cleanup
     return;

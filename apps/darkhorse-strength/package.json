@@ -67,11 +67,6 @@
     "node": ">=20"
   },
   "license": "MIT",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp"
-    ]
-  },
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
     "ci": "payload migrate:fresh --force-accept-warning && sleep 2 && pnpm build",
