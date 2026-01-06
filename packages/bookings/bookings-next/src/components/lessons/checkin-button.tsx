@@ -47,18 +47,29 @@ export const CheckInButton = ({
 
   const { data: session } = useQuery(trpc.auth.getSession.queryOptions());
 
-  const requireAuth = (action: () => void) => {
-    if (!session) {
-      if (bookingStatus === "trialable") {
-        toast.info("Please sign in to continue");
-        return router.push(
-          `/complete-booking?mode=register&callbackUrl=/bookings/${id}`
-        );
-      }
+  const handleAuthRedirect = () => {
+    // Invalidate session query to ensure UI updates
+    queryClient.invalidateQueries({
+      queryKey: trpc.auth.getSession.queryKey(),
+    });
+    
+    if (bookingStatus === "trialable") {
       toast.info("Please sign in to continue");
-      return router.push(
+      router.push(
+        `/complete-booking?mode=register&callbackUrl=/bookings/${id}`
+      );
+    } else {
+      toast.info("Please sign in to continue");
+      router.push(
         `/complete-booking?mode=login&callbackUrl=/bookings/${id}`
       );
+    }
+  };
+
+  const requireAuth = (action: () => void) => {
+    if (!session) {
+      handleAuthRedirect();
+      return;
     }
     action();
   };
@@ -70,6 +81,12 @@ export const CheckInButton = ({
 
       // If successful, user was checked in
     } catch (error: any) {
+      // Handle authentication errors - redirect to login
+      if (error.data?.code === "UNAUTHORIZED" || error.message?.includes("logged in")) {
+        handleAuthRedirect();
+        return;
+      }
+      
       // Handle specific redirect cases based on server response
       if (error.message === "REDIRECT_TO_CHILDREN_BOOKING") {
         const redirectUrl =
@@ -109,6 +126,15 @@ export const CheckInButton = ({
           queryKey: trpc.lessons.getByDate.queryKey(),
         });
       },
+      onError: (error: any) => {
+        // Handle authentication errors
+        if (error.data?.code === "UNAUTHORIZED" || error.message?.includes("logged in")) {
+          handleAuthRedirect();
+        } else {
+          toast.error("Failed to cancel booking. Please try again.");
+          console.error("Cancel booking error:", error);
+        }
+      },
     })
   );
 
@@ -120,6 +146,15 @@ export const CheckInButton = ({
           queryKey: trpc.lessons.getByDate.queryKey(),
         });
       },
+      onError: (error: any) => {
+        // Handle authentication errors
+        if (error.data?.code === "UNAUTHORIZED" || error.message?.includes("logged in")) {
+          handleAuthRedirect();
+        } else {
+          toast.error("Failed to join waitlist. Please try again.");
+          console.error("Join waitlist error:", error);
+        }
+      },
     })
   );
 
@@ -130,6 +165,15 @@ export const CheckInButton = ({
         queryClient.invalidateQueries({
           queryKey: trpc.lessons.getByDate.queryKey(),
         });
+      },
+      onError: (error: any) => {
+        // Handle authentication errors
+        if (error.data?.code === "UNAUTHORIZED" || error.message?.includes("logged in")) {
+          handleAuthRedirect();
+        } else {
+          toast.error("Failed to leave waitlist. Please try again.");
+          console.error("Leave waitlist error:", error);
+        }
       },
     })
   );
