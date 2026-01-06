@@ -166,7 +166,7 @@ importers:
     dependencies:
       '@daveyplate/better-auth-ui':
         specifier: ^3.2.11
-        version: 3.2.13(f53e2615b3a0e0c79ddbe9936c8ccaf6)
+        version: 3.2.13(8504dd3b9a326e00e5c45d367469f0a1)
       '@hookform/resolvers':
         specifier: '*'
         version: 5.2.2(react-hook-form@7.56.3(react@19.2.1))
@@ -393,6 +393,9 @@ importers:
 
   apps/darkhorse-strength:
     dependencies:
+      '@daveyplate/better-auth-ui':
+        specifier: ^3.2.11
+        version: 3.2.13(8504dd3b9a326e00e5c45d367469f0a1)
       '@payloadcms/db-postgres':
         specifier: 3.64.0
         version: 3.64.0(kysely@0.28.8)(payload@3.64.0(graphql@16.12.0)(typescript@5.9.3))
@@ -453,12 +456,21 @@ importers:
       '@repo/shared-utils':
         specifier: workspace:*
         version: link:../../packages/shared-utils
+      '@repo/trpc':
+        specifier: workspace:*
+        version: link:../../packages/trpc
       '@repo/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@repo/website':
         specifier: workspace:*
         version: link:../../packages/website
+      '@tanstack/react-query':
+        specifier: '*'
+        version: 5.90.12(react@19.2.1)
+      '@trpc/server':
+        specifier: ^11.7.1
+        version: 11.7.2(typescript@5.9.3)
       better-auth:
         specifier: 1.3.11
         version: 1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -598,7 +610,7 @@ importers:
     dependencies:
       '@daveyplate/better-auth-ui':
         specifier: ^3.2.11
-        version: 3.2.13(f53e2615b3a0e0c79ddbe9936c8ccaf6)
+        version: 3.2.13(8504dd3b9a326e00e5c45d367469f0a1)
       '@hookform/resolvers':
         specifier: '*'
         version: 5.2.2(react-hook-form@7.56.3(react@19.2.1))
@@ -11320,7 +11332,7 @@ snapshots:
 
   '@date-fns/tz@1.4.1': {}
 
-  '@daveyplate/better-auth-tanstack@1.3.6(@tanstack/query-core@5.90.12)(@tanstack/react-query@5.90.12(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@daveyplate/better-auth-tanstack@1.3.6(@tanstack/query-core@5.90.12)(@tanstack/react-query@5.90.12(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
     dependencies:
       '@tanstack/query-core': 5.90.12
       '@tanstack/react-query': 5.90.12(react@19.2.1)
@@ -11328,11 +11340,11 @@ snapshots:
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
 
-  '@daveyplate/better-auth-ui@3.2.13(f53e2615b3a0e0c79ddbe9936c8ccaf6)':
+  '@daveyplate/better-auth-ui@3.2.13(8504dd3b9a326e00e5c45d367469f0a1)':
     dependencies:
       '@better-fetch/fetch': 1.1.19
       '@captchafox/react': 1.10.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.12)(@tanstack/react-query@5.90.12(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.12)(@tanstack/react-query@5.90.12(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.5)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hcaptcha/react-hcaptcha': 1.16.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hookform/resolvers': 5.2.2(react-hook-form@7.56.3(react@19.2.1))
       '@instantdb/react': 0.22.78(react@19.2.1)

@@ -7,9 +7,8 @@ import Link from 'next/link'
 
 import { usePathname, useRouter } from 'next/navigation'
 
-import { useAuth } from '@repo/auth-next'
-
 import { Button } from '@repo/ui/components/ui/button'
+import { signOut, useSession } from '@/lib/auth/client'
 
 const Navbar: React.FC = () => {
   const router = useRouter()
@@ -19,7 +18,8 @@ const Navbar: React.FC = () => {
   const pathname = usePathname()
   const isBrowser: boolean = typeof window !== 'undefined'
 
-  const { user, logout } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
 
   const handleScroll = React.useCallback((): void => {
     if (window.scrollY >= 10 || pathname !== '/') {
@@ -167,7 +167,12 @@ const Navbar: React.FC = () => {
                 <li>
                   <Button
                     variant="outline"
-                    onClick={() => logout().then(() => router.push('/'))}
+                    onClick={() =>
+                      signOut().then(() => {
+                        router.push('/')
+                        router.refresh()
+                      })
+                    }
                     className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-16 md:w-auto border-none"
                   >
                     Logout

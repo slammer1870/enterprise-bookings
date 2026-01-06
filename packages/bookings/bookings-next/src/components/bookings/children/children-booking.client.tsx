@@ -18,7 +18,10 @@ import { ChildrenPaymentGateway } from "./payments/children-payment-gateway";
  */
 export function ChildrensBooking() {
   const params = useParams();
-  const id = params.id as string;
+  const idParam = params?.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+  if (!id) return null;
 
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(

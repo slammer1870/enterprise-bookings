@@ -57,6 +57,21 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
     })
   );
 
+  const { mutateAsync: createCustomerUpgradePortal } = useMutation(
+    trpc.payments.createCustomerUpgradePortal.mutationOptions({
+      onSuccess: (session: { url: string | null }) => {
+        if (session.url) {
+          router.push(session.url);
+        } else {
+          toast.error("Failed to create upgrade portal");
+        }
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to create upgrade portal");
+      },
+    })
+  );
+
   const handleCreateCheckoutSession = async (
     priceId: string,
     metadata?: { [key: string]: string | undefined }
@@ -104,6 +119,9 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
       onCreateCheckoutSession={handleCreateCheckoutSession}
       onCreateCustomerPortal={async () => {
         await createCustomerPortal();
+      }}
+      onCreateCustomerUpgradePortal={async (productId) => {
+        await createCustomerUpgradePortal({ productId });
       }}
     />
   );

@@ -8,7 +8,7 @@ import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
  * in the accounts table.
  *
  * Solution: Create credential accounts with the password stored as "salt:hash".
- * The custom password verification in @repo/auth-next handles both:
+ * The custom password verification (shared via `@repo/auth-next`) handles both:
  * - New scrypt hashes (Better Auth default)
  * - Legacy "salt:hash" format (PBKDF2 from Payload CMS)
  *

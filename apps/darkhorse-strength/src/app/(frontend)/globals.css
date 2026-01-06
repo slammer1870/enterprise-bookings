@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import '@daveyplate/better-auth-ui/css';
 
 :root {
     --background: 0 0% 100%;
