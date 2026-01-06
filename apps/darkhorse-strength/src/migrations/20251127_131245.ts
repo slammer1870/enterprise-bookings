@@ -209,6 +209,17 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX IF NOT EXISTS "users_sessions_parent_id_idx" ON "users_sessions" USING btree ("_parent_id");
   CREATE UNIQUE INDEX IF NOT EXISTS "payload_kv_key_idx" ON "payload_kv" USING btree ("key");
   DO $$ BEGIN
+    -- Clean up invalid instructor_id references in lessons
+    -- Set instructor_id to NULL where it doesn't exist in instructors table
+    UPDATE "lessons"
+    SET "instructor_id" = NULL
+    WHERE "instructor_id" IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM "instructors" WHERE "instructors"."id" = "lessons"."instructor_id"
+      );
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
+  DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lessons_instructor_id_instructors_id_fk') THEN
       ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_instructors_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
     END IF;
@@ -232,6 +243,17 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payload_locked_documents_rels_instructors_fk') THEN
       ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_instructors_fk" FOREIGN KEY ("instructors_id") REFERENCES "public"."instructors"("id") ON DELETE cascade ON UPDATE no action;
     END IF;
+  END $$;
+  DO $$ BEGIN
+    -- Clean up invalid instructor_id references in scheduler_week_days_time_slot
+    -- Set instructor_id to NULL where it doesn't exist in instructors table
+    UPDATE "scheduler_week_days_time_slot"
+    SET "instructor_id" = NULL
+    WHERE "instructor_id" IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM "instructors" WHERE "instructors"."id" = "scheduler_week_days_time_slot"."instructor_id"
+      );
+  EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_instructor_id_instructors_id_fk') THEN
