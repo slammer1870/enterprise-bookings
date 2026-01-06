@@ -93,9 +93,14 @@ const nextConfig = {
   },
 
   // Experimental features for better performance
-  experimental: {
-    optimizePackageImports: ['@repo/ui', '@repo/shared-types'],
-  },
+  // NOTE: `optimizePackageImports` has caused Next.js build crashes in this monorepo
+  // (uncaughtException reading `length`). Keep it opt-in.
+  experimental:
+    process.env.NEXT_OPTIMIZE_PACKAGE_IMPORTS === 'true'
+      ? {
+          optimizePackageImports: ['@repo/ui', '@repo/shared-types'],
+        }
+      : {},
 }
 
 export default withPayload(nextConfig)

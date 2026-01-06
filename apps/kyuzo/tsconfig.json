@@ -28,6 +28,9 @@
       ],
       "@payload-config": [
         "./src/payload.config.ts"
+      ],
+      "@repo/better-auth-config/*": [
+        "../../packages/auth/better-auth-config/src/*"
       ]
     },
     "target": "ES2022",
