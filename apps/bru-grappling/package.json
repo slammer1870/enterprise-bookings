@@ -91,7 +91,7 @@
     "ci": "payload migrate:fresh --force-accept-warning && sleep 2 && pnpm run build",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
-    "migrate": "cross-env NODE_OPTIONS=--no-deprecation payload migrate --force-accept-warning",
+    "migrate": "printf 'y\\n' | cross-env NODE_OPTIONS=--no-deprecation payload migrate --force-accept-warning",
     "check:db": "bash -c 'source .env 2>/dev/null || true; psql \"${DATABASE_URI:-postgres://postgres:brugrappling@localhost:5432/bru_grappling}\" -f check-db.sql'",
     "fix:instructors": "./fix-instructors.sh",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
