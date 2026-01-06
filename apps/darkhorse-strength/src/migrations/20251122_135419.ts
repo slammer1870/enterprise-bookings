@@ -1,19 +1,314 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from "@payloadcms/db-postgres";
-import type { CollectionSlug } from "payload";
 
 /**
  * Migration to create instructors collection and migrate data from lessons.instructor (user) to instructors
  *
  * This migration:
  * 1. Creates the instructors table (if Payload hasn't already)
- * 2. Creates instructor records for each unique user referenced as an instructor in lessons
- * 3. Copies user image to instructor image if available
- * 4. Updates lessons to reference instructors instead of users
- *
- * Note: This migration should be run after Payload auto-generates the schema migration for the instructors collection.
- * If the instructors table doesn't exist yet, this migration will create it.
+ * 2. Drops constraints to allow data migration
+ * 3. Finds lessons with instructor_id that reference users (not instructors)
+ * 4. Creates instructor records from user attributes using direct SQL
+ * 5. Updates lessons to reference instructors instead of users
+ * 6. Also handles scheduler_week_days_time_slot table
+ * 7. Cleans up invalid references
  */
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // CRITICAL: Drop the constraint and migrate data FIRST
+  // This must happen before any other operations to prevent Payload schema sync from failing
+  try {
+    // Drop the constraints if they exist (even if in invalid state)
+    await db.execute(sql`
+      DO $$ 
+      BEGIN
+        -- Drop lessons constraint
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lessons_instructor_id_instructors_id_fk') THEN
+          ALTER TABLE "lessons" DROP CONSTRAINT IF EXISTS "lessons_instructor_id_instructors_id_fk";
+        END IF;
+        
+        -- Drop scheduler constraint
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_instructor_id_instructors_id_fk') THEN
+          ALTER TABLE "scheduler_week_days_time_slot" DROP CONSTRAINT IF EXISTS "scheduler_week_days_time_slot_instructor_id_instructors_id_fk";
+        END IF;
+      EXCEPTION WHEN OTHERS THEN 
+        -- Try to drop them anyway, ignoring errors
+        BEGIN
+          ALTER TABLE "lessons" DROP CONSTRAINT IF EXISTS "lessons_instructor_id_instructors_id_fk";
+        EXCEPTION WHEN OTHERS THEN null;
+        END;
+        BEGIN
+          ALTER TABLE "scheduler_week_days_time_slot" DROP CONSTRAINT IF EXISTS "scheduler_week_days_time_slot_instructor_id_instructors_id_fk";
+        EXCEPTION WHEN OTHERS THEN null;
+        END;
+      END $$;
+    `);
+
+    // Check if tables exist
+    const tablesExist = await db.execute<{ exists: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'lessons'
+      ) AND EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'instructors'
+      ) AND EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'users'
+      ) as exists
+    `);
+    
+    if (tablesExist.rows?.[0]?.exists) {
+      // Find lessons with instructor_id that don't exist in instructors table but do exist in users table
+      // These are the ones we need to migrate
+      // Check if users table has image_id column (it might have been dropped in a previous migration)
+      const hasImageIdColumn = await db.execute<{ exists: boolean }>(sql`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'users' 
+          AND column_name = 'image_id'
+        ) as exists
+      `);
+      
+      const userHasImageId = hasImageIdColumn.rows?.[0]?.exists || false;
+      
+      // Build query based on whether image_id column exists
+      const orphanedLessons = userHasImageId
+        ? await db.execute<{
+            instructor_id: number;
+            user_id: number | null;
+            user_name: string | null;
+            user_image_id: number | null;
+          }>(sql`
+            SELECT DISTINCT 
+              l.instructor_id,
+              u.id as user_id,
+              u.name as user_name,
+              u.image_id as user_image_id
+            FROM lessons l
+            LEFT JOIN instructors i ON i.id = l.instructor_id
+            LEFT JOIN users u ON u.id = l.instructor_id
+            WHERE l.instructor_id IS NOT NULL
+              AND i.id IS NULL
+              AND u.id IS NOT NULL
+          `)
+        : await db.execute<{
+            instructor_id: number;
+            user_id: number | null;
+            user_name: string | null;
+            user_image_id: number | null;
+          }>(sql`
+            SELECT DISTINCT 
+              l.instructor_id,
+              u.id as user_id,
+              u.name as user_name,
+              NULL::integer as user_image_id
+            FROM lessons l
+            LEFT JOIN instructors i ON i.id = l.instructor_id
+            LEFT JOIN users u ON u.id = l.instructor_id
+            WHERE l.instructor_id IS NOT NULL
+              AND i.id IS NULL
+              AND u.id IS NOT NULL
+          `);
+
+      // Create instructor records for each orphaned user reference
+      if (orphanedLessons.rows && orphanedLessons.rows.length > 0) {
+        console.log(`Found ${orphanedLessons.rows.length} lessons with instructor_id referencing users that need migration`);
+        
+        for (const row of orphanedLessons.rows) {
+          if (row.user_id) {
+            try {
+              // Check if instructor already exists for this user
+              const existingInstructors = await db.execute<{ id: number }>(sql`
+                SELECT id FROM instructors WHERE user_id = ${row.user_id} LIMIT 1
+              `);
+
+              let instructorId: number;
+
+              if (existingInstructors.rows && existingInstructors.rows.length > 0 && existingInstructors.rows[0]) {
+                // Use existing instructor
+                instructorId = existingInstructors.rows[0].id;
+                console.log(`Using existing instructor ${instructorId} for user ${row.user_id}`);
+              } else {
+                // Create new instructor record from user
+                // Copy user's image to instructor's image_id if available
+                const newInstructor = await db.execute<{ id: number }>(sql`
+                  INSERT INTO instructors (user_id, name, image_id, active, created_at, updated_at)
+                  VALUES (
+                    ${row.user_id}, 
+                    ${row.user_name || `User ${row.user_id}`}, 
+                    ${row.user_image_id || null},
+                    true, 
+                    now(), 
+                    now()
+                  )
+                  RETURNING id
+                `);
+                if (!newInstructor.rows[0]) {
+                  throw new Error(`Failed to create instructor for user ${row.user_id}: INSERT did not return id`);
+                }
+                instructorId = newInstructor.rows[0].id;
+                console.log(`Created new instructor ${instructorId} for user ${row.user_id}${row.user_image_id ? ` (with image ${row.user_image_id})` : ''}`);
+              }
+
+              // Update all lessons with this orphaned instructor_id to point to the new instructor
+              const updateResult = await db.execute(sql`
+                UPDATE lessons 
+                SET instructor_id = ${instructorId}
+                WHERE instructor_id = ${row.instructor_id}
+                  AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+              `);
+              console.log(`Updated lessons with instructor_id ${row.instructor_id} to point to instructor ${instructorId}`);
+            } catch (error) {
+              console.error(`Error migrating instructor reference ${row.instructor_id} (user ${row.user_id}):`, error);
+              // If we can't create an instructor, set the reference to NULL
+              await db.execute(sql`
+                UPDATE lessons 
+                SET instructor_id = NULL
+                WHERE instructor_id = ${row.instructor_id}
+                  AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+              `);
+            }
+          }
+        }
+      }
+
+      // Clean up any remaining invalid references in lessons (not user IDs, just invalid)
+      const cleanupResult = await db.execute(sql`
+        UPDATE "lessons" 
+        SET "instructor_id" = NULL 
+        WHERE "instructor_id" IS NOT NULL 
+        AND NOT EXISTS (
+          SELECT 1 FROM "instructors" WHERE "instructors"."id" = "lessons"."instructor_id"
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "users" WHERE "users"."id" = "lessons"."instructor_id"
+        )
+      `);
+      const cleanupRows = cleanupResult.rowCount || 0;
+      if (cleanupRows > 0) {
+        console.log(`Cleaned up ${cleanupRows} invalid instructor_id references in lessons (not user IDs)`);
+      }
+
+      // Now fix scheduler_week_days_time_slot table
+      const schedulerOrphaned = userHasImageId
+        ? await db.execute<{
+            instructor_id: number;
+            user_id: number | null;
+            user_name: string | null;
+            user_image_id: number | null;
+          }>(sql`
+            SELECT DISTINCT 
+              s.instructor_id,
+              u.id as user_id,
+              u.name as user_name,
+              u.image_id as user_image_id
+            FROM scheduler_week_days_time_slot s
+            LEFT JOIN instructors i ON i.id = s.instructor_id
+            LEFT JOIN users u ON u.id = s.instructor_id
+            WHERE s.instructor_id IS NOT NULL
+              AND i.id IS NULL
+              AND u.id IS NOT NULL
+          `)
+        : await db.execute<{
+            instructor_id: number;
+            user_id: number | null;
+            user_name: string | null;
+            user_image_id: number | null;
+          }>(sql`
+            SELECT DISTINCT 
+              s.instructor_id,
+              u.id as user_id,
+              u.name as user_name,
+              NULL::integer as user_image_id
+            FROM scheduler_week_days_time_slot s
+            LEFT JOIN instructors i ON i.id = s.instructor_id
+            LEFT JOIN users u ON u.id = s.instructor_id
+            WHERE s.instructor_id IS NOT NULL
+              AND i.id IS NULL
+              AND u.id IS NOT NULL
+          `);
+
+      if (schedulerOrphaned.rows && schedulerOrphaned.rows.length > 0) {
+        console.log(`Found ${schedulerOrphaned.rows.length} scheduler time slots with instructor_id referencing users that need migration`);
+        
+        for (const row of schedulerOrphaned.rows) {
+          if (row.user_id) {
+            try {
+              // Check if instructor already exists for this user
+              const existingInstructors = await db.execute<{ id: number }>(sql`
+                SELECT id FROM instructors WHERE user_id = ${row.user_id} LIMIT 1
+              `);
+
+              let instructorId: number;
+
+              if (existingInstructors.rows && existingInstructors.rows.length > 0 && existingInstructors.rows[0]) {
+                instructorId = existingInstructors.rows[0].id;
+                console.log(`Using existing instructor ${instructorId} for user ${row.user_id} (from scheduler)`);
+              } else {
+                // Create new instructor record from user
+                const newInstructor = await db.execute<{ id: number }>(sql`
+                  INSERT INTO instructors (user_id, name, image_id, active, created_at, updated_at)
+                  VALUES (
+                    ${row.user_id}, 
+                    ${row.user_name || `User ${row.user_id}`}, 
+                    ${row.user_image_id || null},
+                    true, 
+                    now(), 
+                    now()
+                  )
+                  RETURNING id
+                `);
+                if (!newInstructor.rows[0]) {
+                  throw new Error(`Failed to create instructor for user ${row.user_id}: INSERT did not return id`);
+                }
+                instructorId = newInstructor.rows[0].id;
+                console.log(`Created new instructor ${instructorId} for user ${row.user_id} (from scheduler)${row.user_image_id ? ` (with image ${row.user_image_id})` : ''}`);
+              }
+
+              // Update scheduler time slots
+              const updateResult = await db.execute(sql`
+                UPDATE scheduler_week_days_time_slot 
+                SET instructor_id = ${instructorId}
+                WHERE instructor_id = ${row.instructor_id}
+                  AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+              `);
+              console.log(`Updated scheduler time slots: instructor_id ${row.instructor_id} -> ${instructorId} (${updateResult.rowCount || 0} rows)`);
+            } catch (error) {
+              console.error(`Error migrating scheduler instructor reference ${row.instructor_id} (user ${row.user_id}):`, error);
+              // If we can't create an instructor, set the reference to NULL
+              await db.execute(sql`
+                UPDATE scheduler_week_days_time_slot 
+                SET instructor_id = NULL
+                WHERE instructor_id = ${row.instructor_id}
+                  AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+              `);
+            }
+          }
+        }
+      }
+
+      // Clean up any remaining invalid references in scheduler_week_days_time_slot
+      const schedulerCleanupResult = await db.execute(sql`
+        UPDATE scheduler_week_days_time_slot 
+        SET instructor_id = NULL 
+        WHERE instructor_id IS NOT NULL 
+        AND NOT EXISTS (
+          SELECT 1 FROM instructors WHERE instructors.id = scheduler_week_days_time_slot.instructor_id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM users WHERE users.id = scheduler_week_days_time_slot.instructor_id
+        )
+      `);
+      const schedulerCleanupRows = schedulerCleanupResult.rowCount || 0;
+      if (schedulerCleanupRows > 0) {
+        console.log(`Cleaned up ${schedulerCleanupRows} invalid instructor_id references in scheduler_week_days_time_slot`);
+      }
+    }
+  } catch (error) {
+    console.warn('Warning during data migration (continuing):', error);
+    // Continue with migration even if data migration fails
+  }
+
   // Step 1: Ensure instructors table exists (Payload may have already created it)
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "instructors" (
@@ -24,10 +319,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       "active" boolean DEFAULT true NOT NULL,
       "name" varchar,
       "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-      "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-      CONSTRAINT "instructors_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action,
-      CONSTRAINT "instructors_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action,
-      CONSTRAINT "instructors_user_id_unique" UNIQUE("user_id")
+      "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
     );
     
     CREATE INDEX IF NOT EXISTS "instructors_user_id_idx" ON "instructors" USING btree ("user_id");
@@ -49,364 +341,74 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     END $$;
   `);
 
-  // Step 2: Temporarily drop the foreign key constraint if it exists and is causing issues
-  // This allows us to fix orphaned data before Payload tries to add/re-add the constraint
+  // Add constraints and indexes
   await db.execute(sql`
-    DO $$ 
-    BEGIN
-      -- Drop the constraint if it exists (it might be in an invalid state)
-      IF EXISTS (SELECT 1 FROM information_schema.table_constraints 
-                 WHERE constraint_name = 'lessons_instructor_id_instructors_id_fk' 
-                 AND table_name = 'lessons') THEN
-        ALTER TABLE "lessons" DROP CONSTRAINT "lessons_instructor_id_instructors_id_fk";
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_user_id_users_id_fk') THEN
+        ALTER TABLE "instructors" ADD CONSTRAINT "instructors_user_id_users_id_fk" 
+          FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
       END IF;
+    EXCEPTION WHEN OTHERS THEN null;
+    END $$;
+    
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_image_id_media_id_fk') THEN
+        ALTER TABLE "instructors" ADD CONSTRAINT "instructors_image_id_media_id_fk" 
+          FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN null;
+    END $$;
+    
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'instructors_user_id_unique') THEN
+        EXECUTE 'CREATE UNIQUE INDEX "instructors_user_id_unique" ON "instructors" USING btree ("user_id")';
+      END IF;
+    EXCEPTION WHEN OTHERS THEN null;
     END $$;
   `);
 
-  // Step 3: Fix any orphaned instructor_id references in lessons
-  // This handles the case where lessons have instructor_id values that don't exist in instructors table
-  // This can happen if Payload is trying to add the constraint but there are invalid references
-  const orphanedLessons = await db.execute<{
-    instructor_id: number;
-    user_id: number | null;
-    image_id: number | null;
-  }>(sql`
-    SELECT DISTINCT 
-      l.instructor_id,
-      u.id as user_id,
-      u.image_id
-    FROM lessons l
-    LEFT JOIN instructors i ON i.id = l.instructor_id
-    LEFT JOIN users u ON u.id = l.instructor_id
-    WHERE l.instructor_id IS NOT NULL
-      AND i.id IS NULL
+  // Ensure lessons constraint exists
+  await db.execute(sql`
+    DO $$ BEGIN
+      -- Drop the constraint if it exists (in case it's in an invalid state)
+      IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lessons_instructor_id_instructors_id_fk') THEN
+        ALTER TABLE "lessons" DROP CONSTRAINT "lessons_instructor_id_instructors_id_fk";
+      END IF;
+    EXCEPTION WHEN OTHERS THEN null;
+    END $$;
+    
+    -- Clean up any remaining invalid references (in case cleanup above didn't catch them)
+    DO $$ 
+    BEGIN
+      UPDATE "lessons" 
+      SET "instructor_id" = NULL 
+      WHERE "instructor_id" IS NOT NULL 
+      AND NOT EXISTS (
+        SELECT 1 FROM "instructors" WHERE "instructors"."id" = "lessons"."instructor_id"
+      );
+    EXCEPTION WHEN OTHERS THEN null;
+    END $$;
+    
+    DO $$ BEGIN
+      -- Now add the foreign key constraint
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lessons_instructor_id_instructors_id_fk') THEN
+        ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_instructors_id_fk" 
+          FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") 
+          ON DELETE set null ON UPDATE no action;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN null;
+    END $$;
+    
+    DO $$ BEGIN
+      -- Add scheduler instructor constraint if it doesn't exist
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_instructor_id_instructors_id_fk') THEN
+        ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_instructors_id_fk" 
+          FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") 
+          ON DELETE set null ON UPDATE no action;
+      END IF;
+    EXCEPTION WHEN OTHERS THEN null;
+    END $$;
   `);
-
-  // Create instructor records for orphaned references that are user IDs
-  if (orphanedLessons.rows && orphanedLessons.rows.length > 0) {
-    for (const row of orphanedLessons.rows) {
-      if (row.user_id) {
-        try {
-          // Check if instructor already exists for this user
-          const existingInstructors = await payload.find({
-            collection: "instructors" as CollectionSlug,
-            where: {
-              user: {
-                equals: row.user_id,
-              },
-            },
-            limit: 1,
-            req,
-          });
-
-          let instructorId: number;
-
-          if (existingInstructors.docs && existingInstructors.docs.length > 0 && existingInstructors.docs[0]) {
-            const existingDoc = existingInstructors.docs[0];
-            instructorId =
-              typeof existingDoc.id === "number"
-                ? existingDoc.id
-                : parseInt(existingDoc.id as string);
-          } else {
-            // Get user to get their name
-            const user = await payload.findByID({
-              collection: 'users',
-              id: row.user_id,
-              req,
-            });
-            
-            // Create new instructor record
-            const newInstructor = await payload.create({
-              collection: "instructors" as CollectionSlug,
-              data: {
-                user: row.user_id,
-                image: row.image_id || undefined,
-                active: true,
-                name: (user as any)?.name || `User ${row.user_id}`,
-              } as any,
-              req,
-            });
-            instructorId =
-              typeof newInstructor.id === "number"
-                ? newInstructor.id
-                : parseInt(newInstructor.id as string);
-          }
-
-          // Update lessons with this orphaned instructor_id to point to the new instructor
-          await db.execute(sql`
-            UPDATE lessons 
-            SET instructor_id = ${instructorId}
-            WHERE instructor_id = ${row.instructor_id}
-              AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
-          `);
-        } catch (error) {
-          console.error(`Error fixing orphaned instructor reference ${row.instructor_id}:`, error);
-          // If we can't create an instructor, set the reference to NULL
-          await db.execute(sql`
-            UPDATE lessons 
-            SET instructor_id = NULL
-            WHERE instructor_id = ${row.instructor_id}
-              AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
-          `);
-        }
-      } else {
-        // Not a user ID, set to NULL
-        await db.execute(sql`
-          UPDATE lessons 
-          SET instructor_id = NULL
-          WHERE instructor_id = ${row.instructor_id}
-            AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
-        `);
-      }
-    }
-  }
-
-  // Step 4: Check if lessons table still has the old instructor_id column pointing to users
-  // We need to check both if the column exists AND if it references users table
-  const columnInfo = await db.execute<{
-    exists: boolean;
-    constraint_name: string | null;
-    references_users: boolean;
-  }>(sql`
-    SELECT 
-      EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'lessons' 
-        AND column_name = 'instructor_id'
-        AND table_schema = 'public'
-      ) as exists,
-      tc.constraint_name,
-      CASE 
-        WHEN tc.constraint_name LIKE '%users_id_fk' THEN true
-        ELSE false
-      END as references_users
-    FROM information_schema.table_constraints tc
-    LEFT JOIN information_schema.key_column_usage kcu 
-      ON tc.constraint_name = kcu.constraint_name
-    WHERE tc.table_name = 'lessons' 
-      AND kcu.column_name = 'instructor_id'
-      AND tc.constraint_type = 'FOREIGN KEY'
-    LIMIT 1
-  `);
-
-  const columnExists = columnInfo.rows?.[0]?.exists;
-  const referencesUsers = columnInfo.rows?.[0]?.references_users || false;
-
-  // Step 5: Get all unique user IDs that are referenced as instructors in lessons
-  // This handles both cases: old schema (direct user reference) and new schema (instructor reference that might need user lookup)
-  let uniqueInstructorUsers: {
-    rows?: Array<{ user_id: number; image_id: number | null }>;
-  };
-
-  if (referencesUsers && columnExists) {
-    // Old schema: instructor_id directly references users
-    uniqueInstructorUsers = await db.execute<{
-      user_id: number;
-      image_id: number | null;
-    }>(sql`
-      SELECT DISTINCT l.instructor_id as user_id, u.image_id
-      FROM lessons l
-      INNER JOIN users u ON l.instructor_id = u.id
-      WHERE l.instructor_id IS NOT NULL
-    `);
-  } else if (columnExists) {
-    // New schema: instructor_id references instructors, but we need to check if any lessons have invalid references
-    // or if there are any users that should be instructors but aren't yet
-    // First, get all lessons with instructor_id that might need migration
-    const lessonsWithInstructors = await db.execute<{
-      instructor_id: number | null;
-    }>(sql`
-      SELECT instructor_id FROM lessons WHERE instructor_id IS NOT NULL
-    `);
-
-    // Check if all instructor_ids are valid instructor records
-    const invalidInstructors = await db.execute<{
-      user_id: number;
-      image_id: number | null;
-    }>(sql`
-      SELECT DISTINCT l.instructor_id as user_id, u.image_id
-      FROM lessons l
-      INNER JOIN users u ON l.instructor_id = u.id
-      LEFT JOIN instructors i ON i.id = l.instructor_id
-      WHERE l.instructor_id IS NOT NULL
-        AND i.id IS NULL
-        AND EXISTS (SELECT 1 FROM users WHERE id = l.instructor_id)
-    `);
-
-    uniqueInstructorUsers = invalidInstructors;
-  } else {
-    // Column doesn't exist yet, migration not needed
-    return;
-  }
-
-  // Step 6: Create instructor records using Payload API for proper validation and hooks
-  const instructorMap = new Map<number, number>();
-
-  for (const row of uniqueInstructorUsers.rows || []) {
-    const userId = row.user_id;
-    const imageId = row.image_id;
-
-    try {
-      // Check if instructor already exists for this user
-      const existingInstructors = await payload.find({
-        collection: "instructors" as CollectionSlug,
-        where: {
-          user: {
-            equals: userId,
-          },
-        },
-        limit: 1,
-        req,
-      });
-
-      let instructorId: number;
-
-      if (existingInstructors.docs && existingInstructors.docs.length > 0) {
-        const existingId = existingInstructors.docs[0]?.id;
-        instructorId =
-          existingId && typeof existingId === "number"
-            ? existingId
-            : parseInt(String(existingId));
-      } else {
-            // Get user to get their name
-            const user = await payload.findByID({
-              collection: 'users',
-              id: userId,
-              req,
-            });
-            
-            // Create new instructor record, copying image from user if available
-            // Set active to true by default for migrated instructors
-            // Set name from user's name
-            const newInstructor = await payload.create({
-              collection: "instructors" as CollectionSlug,
-              data: {
-                user: userId,
-                image: imageId || undefined,
-                active: true,
-                name: (user as any)?.name || `User ${userId}`,
-              } as any,
-              req,
-            });
-        instructorId =
-          typeof newInstructor.id === "number"
-            ? newInstructor.id
-            : parseInt(newInstructor.id as string);
-      }
-
-      instructorMap.set(userId, instructorId);
-    } catch (error) {
-      console.error(`Error creating instructor for user ${userId}:`, error);
-      // Continue with other users even if one fails
-    }
-  }
-
-  // Step 7: Only proceed with schema migration if we're migrating from users to instructors
-  if (referencesUsers && instructorMap.size > 0) {
-    // Add temporary column for new instructor_id
-    await db.execute(sql`
-      DO $$ 
-      BEGIN
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                       WHERE table_name = 'lessons' AND column_name = 'instructor_id_new') THEN
-          ALTER TABLE "lessons" ADD COLUMN "instructor_id_new" integer;
-        END IF;
-      END $$;
-    `);
-
-    // Step 8: Update lessons with new instructor_id values
-    for (const [userId, instructorId] of instructorMap.entries()) {
-      await db.execute(sql`
-        UPDATE lessons 
-        SET instructor_id_new = ${instructorId}
-        WHERE instructor_id = ${userId}
-      `);
-    }
-
-    // Step 9: Drop old foreign key constraint and column, rename new column
-    await db.execute(sql`
-      DO $$ 
-      BEGIN
-        -- Drop old foreign key constraint if it exists
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints 
-                   WHERE constraint_name = 'lessons_instructor_id_users_id_fk' 
-                   AND table_name = 'lessons') THEN
-          ALTER TABLE "lessons" DROP CONSTRAINT "lessons_instructor_id_users_id_fk";
-        END IF;
-        
-        -- Drop old index if it exists
-        IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'lessons_instructor_id_idx') THEN
-          DROP INDEX IF EXISTS "lessons_instructor_id_idx";
-        END IF;
-        
-        -- Drop old column
-        ALTER TABLE "lessons" DROP COLUMN IF EXISTS "instructor_id";
-        
-        -- Rename new column
-        ALTER TABLE "lessons" RENAME COLUMN "instructor_id_new" TO "instructor_id";
-        
-        -- Add new foreign key constraint (we dropped it earlier if it existed)
-        -- Only add if it doesn't exist (Payload might add it during schema sync)
-        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints 
-                       WHERE constraint_name = 'lessons_instructor_id_instructors_id_fk' 
-                       AND table_name = 'lessons') THEN
-          ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_instructors_id_fk" 
-            FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
-        END IF;
-        
-        -- Add new index (Payload may have already added this)
-        CREATE INDEX IF NOT EXISTS "lessons_instructor_id_idx" ON "lessons" USING btree ("instructor_id");
-      END $$;
-    `);
-  } else if (!referencesUsers && instructorMap.size > 0) {
-    // Schema is already migrated, but we have lessons with invalid instructor references
-    // Update those lessons to point to the newly created instructor records
-    for (const [userId, instructorId] of instructorMap.entries()) {
-      // Find lessons that have this user_id as instructor_id (which shouldn't happen in new schema)
-      // This handles edge cases where data might be inconsistent
-      await db.execute(sql`
-        UPDATE lessons 
-        SET instructor_id = ${instructorId}
-        WHERE instructor_id = ${userId}
-          AND NOT EXISTS (
-            SELECT 1 FROM instructors WHERE id = ${userId}
-          )
-      `);
-    }
-  }
-
-  // Step 10: Populate name field for all existing instructors that don't have a name
-  const instructorsWithoutName = await db.execute<{
-    id: number;
-    user_id: number;
-  }>(sql`
-    SELECT i.id, i.user_id
-    FROM instructors i
-    LEFT JOIN users u ON i.user_id = u.id
-    WHERE i.name IS NULL OR i.name = ''
-  `);
-
-  if (instructorsWithoutName.rows && instructorsWithoutName.rows.length > 0) {
-    for (const row of instructorsWithoutName.rows) {
-      try {
-        const user = await payload.findByID({
-          collection: 'users',
-          id: row.user_id,
-          req,
-        });
-        const userName = (user as any)?.name || `User ${row.user_id}`;
-        
-        // Update the instructor's name field
-        await db.execute(sql`
-          UPDATE instructors 
-          SET name = ${userName}
-          WHERE id = ${row.id}
-        `);
-      } catch (error) {
-        console.error(`Error populating name for instructor ${row.id}:`, error);
-      }
-    }
-  }
 }
 
 export async function down({
@@ -473,4 +475,3 @@ export async function down({
     DROP TABLE IF EXISTS "instructors" CASCADE;
   `);
 }
-
