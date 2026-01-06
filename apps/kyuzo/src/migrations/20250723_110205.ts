@@ -1,6 +1,21 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+  // This migration was generated after running Payload in dev mode (schema push).
+  // In environments where the schema was already pushed, these tables already exist and
+  // re-running the migration fails with:
+  //   relation "pages_blocks_kids_program_age_groups" already exists
+  //
+  // Make the migration idempotent by turning it into a no-op when the new tables exist.
+  const existing = await db.execute(
+    sql`SELECT to_regclass('public.pages_blocks_kids_program_age_groups') AS existing;`
+  )
+
+  const rows = (existing as any)?.rows ?? (existing as any)
+  if (rows?.[0]?.existing) {
+    return
+  }
+
   await db.execute(sql`
    CREATE TABLE "pages_blocks_kids_program_age_groups" (
   	"_order" integer NOT NULL,
