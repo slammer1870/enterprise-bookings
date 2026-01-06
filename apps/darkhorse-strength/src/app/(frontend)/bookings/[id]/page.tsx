@@ -31,7 +31,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
   const user = session?.user
 
   if (!user) {
-    redirect(`/login?callbackUrl=/bookings/${id}`)
+    redirect(`/auth/sign-in?callbackUrl=/bookings/${id}`)
   }
 
   const payload = await getPayload({ config })

@@ -67,6 +67,21 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
     })
   );
 
+  const { mutateAsync: createCustomerUpgradePortal } = useMutation(
+    trpc.payments.createCustomerUpgradePortal.mutationOptions({
+      onSuccess: (session: { url: string | null }) => {
+        if (session.url) {
+          router.push(session.url);
+        } else {
+          toast.error("Failed to create upgrade portal");
+        }
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to create upgrade portal");
+      },
+    })
+  );
+
   // Wrapper functions that use tRPC
   // planId here is actually the Stripe price ID from the plan's priceJSON
   const handleCreateCheckoutSession = async (
@@ -94,6 +109,10 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
 
   const handleCreateCustomerPortal = async () => {
     await createCustomerPortal();
+  };
+
+  const handleCreateCustomerUpgradePortal = async (productId: string) => {
+    await createCustomerUpgradePortal({ productId });
   };
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
@@ -149,6 +168,7 @@ export function PaymentMethods({ lesson }: PaymentMethodsProps) {
               subscriptionLimitReached={subscriptionLimitReached}
               onCreateCheckoutSession={handleCreateCheckoutSession}
               onCreateCustomerPortal={handleCreateCustomerPortal}
+              onCreateCustomerUpgradePortal={handleCreateCustomerUpgradePortal}
             />
           </TabsContent>
         )}

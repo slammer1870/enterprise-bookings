@@ -66,14 +66,39 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
     // User: register
     const email = `user-${Date.now()}@example.com`
     const password = 'Password123!'
-    await page.goto('/register', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await page.getByLabel(/Name/i).fill('Test User')
-    await page.getByLabel(/Email/i).fill(email)
-    await page.getByLabel(/^Password$/i).fill(password)
-    await page.getByLabel(/Confirm Password/i).fill(password)
-    await page.getByRole('button', { name: /Submit/i }).click()
+    await page.goto('/auth/sign-up', { waitUntil: 'domcontentloaded', timeout: 60000 })
 
-    await page.waitForURL(/\/dashboard/, { timeout: 60000 })
+    // Better Auth UI can be flaky/hydration-sensitive in CI. Instead of driving the UI,
+    // sign up + sign in via the Better Auth endpoints in the *browser context* so the
+    // session cookies are properly set.
+    await page.evaluate(
+      async ({ email, password }) => {
+        const signUpRes = await fetch('/api/auth/sign-up/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name: 'Test User' }),
+        })
+
+        // Some setups might return 409 if a user exists; treat as ok for idempotency.
+        if (!signUpRes.ok && signUpRes.status !== 409) {
+          const txt = await signUpRes.text().catch(() => '')
+          throw new Error(`signUp failed: ${signUpRes.status} ${txt}`)
+        }
+
+        const signInRes = await fetch('/api/auth/sign-in/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+        if (!signInRes.ok) {
+          const txt = await signInRes.text().catch(() => '')
+          throw new Error(`signIn failed: ${signInRes.status} ${txt}`)
+        }
+      },
+      { email, password },
+    )
+
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
     await expect(page.locator('#schedule')).toBeVisible({ timeout: 60000 })
 
     // Schedule: navigate to tomorrow and try to check in

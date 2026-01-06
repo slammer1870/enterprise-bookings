@@ -3,6 +3,8 @@
 import { Plan, Subscription } from "@repo/shared-types";
 import { PlanList } from "@repo/memberships/src/components/plans/plan-list";
 import { PlanDetail } from "@repo/memberships/src/components/plans/plan-detail";
+import { Button } from "@repo/ui/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 
 type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
@@ -14,6 +16,7 @@ type PlanViewProps = {
     metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
   onCreateCustomerPortal: () => Promise<void>;
+  onCreateCustomerUpgradePortal?: (productId: string) => Promise<void>;
 };
 
 /**
@@ -27,6 +30,7 @@ export function PlanView({
   subscriptionLimitReached,
   onCreateCheckoutSession,
   onCreateCustomerPortal,
+  onCreateCustomerUpgradePortal,
 }: PlanViewProps) {
   if (!allowedPlans) {
     return (
@@ -51,19 +55,46 @@ export function PlanView({
   );
 
   if (!hasMatchingPlan) {
+    // Prefer Stripe subscription-update portal when available (true "upgrade"),
+    // otherwise fall back to creating a new checkout session.
+    const upgradeablePlans = allowedPlans.filter(
+      (plan) => (plan as any).stripeProductId && plan.id !== subscription.plan.id
+    );
+
     return (
       <>
         <p className="text-sm text-red-500 mb-2">
           You do not have a plan that allows you to book into this lesson, please
           upgrade your plan to continue
         </p>
-        <PlanList
-          plans={allowedPlans.filter(
-            (plan) => plan.id !== subscription.plan.id
-          )}
-          actionLabel="Upgrade"
-          onAction={onCreateCheckoutSession}
-        />
+        {onCreateCustomerUpgradePortal && upgradeablePlans.length > 0 ? (
+          <div className="flex flex-col gap-4">
+            {upgradeablePlans.map((plan) => (
+              <Card key={plan.id}>
+                <CardHeader>
+                  <CardTitle className="font-light">{plan.name}</CardTitle>
+                </CardHeader>
+                <CardContent />
+                <CardFooter>
+                  <Button
+                    className="w-full"
+                    onClick={() =>
+                      onCreateCustomerUpgradePortal((plan as any).stripeProductId as string)
+                    }
+                  >
+                    Upgrade Subscription
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <PlanList
+            plans={allowedPlans.filter((plan) => plan.id !== subscription.plan.id)}
+            actionLabel="Upgrade"
+            onAction={onCreateCheckoutSession}
+          />
+        )}
       </>
     );
   }
