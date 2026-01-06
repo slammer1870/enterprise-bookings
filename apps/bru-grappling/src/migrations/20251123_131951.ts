@@ -988,6 +988,61 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"subscriptions_id" integer,
   	"plans_id" integer
   );
+
+  -- If the table already existed (from dev "push"), ensure expected columns exist
+  DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'accounts_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "accounts_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'sessions_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "sessions_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'verifications_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "verifications_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'media_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "media_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'pages_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "pages_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'posts_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "posts_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'forms_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "forms_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'form_submissions_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "form_submissions_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'instructors_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "instructors_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'lessons_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "lessons_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'class_options_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "class_options_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'bookings_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "bookings_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'drop_ins_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "drop_ins_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'transactions_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "transactions_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'users_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "users_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'subscriptions_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "subscriptions_id" integer;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'plans_id') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "plans_id" integer;
+    END IF;
+  END $$;
   
   CREATE TABLE IF NOT EXISTS "payload_preferences" (
   	"id" serial PRIMARY KEY NOT NULL,
