@@ -1,4 +1,5 @@
 import React from 'react'
+import '@repo/ui/globals.css'
 import './globals.css'
 
 import { Navbar } from '@/globals/navbar'
