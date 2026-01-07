@@ -29,7 +29,7 @@ export const HeroBlock: React.FC<HeroProps> = ({
         <h1 className="mb-2 text-2xl font-medium text-background md:text-4xl">{heading}</h1>
         <h3 className="text-xl text-primary md:text-2xl">{subheading}</h3>
       </div>
-      <div className="row-span-1 flex h-auto w-full flex-col justify-center bg-destructive text-destructive-foreground lg:flex-row">
+      <div className="row-span-1 flex h-auto w-full flex-col justify-center bg-destructive text-white lg:flex-row">
         <Link href={ctaLink}>
           <div className="bg-opacity-85 w-full cursor-pointer px-4 lg:py-16">
             <div className="container relative mx-auto h-full p-4">
