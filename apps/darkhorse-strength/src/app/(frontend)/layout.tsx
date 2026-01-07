@@ -1,4 +1,5 @@
 import '@repo/ui/globals.css'
+import '@daveyplate/better-auth-ui/css'
 import React from 'react'
 import './globals.css'
 
