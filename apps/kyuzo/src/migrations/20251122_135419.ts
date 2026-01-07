@@ -20,22 +20,47 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       "id" serial PRIMARY KEY NOT NULL,
       "user_id" integer NOT NULL,
       "description" text,
-      "image_id" integer,
+      "profile_image_id" integer,
       "active" boolean DEFAULT true NOT NULL,
       "name" varchar,
       "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
       "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
       CONSTRAINT "instructors_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action,
-      CONSTRAINT "instructors_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action,
+      CONSTRAINT "instructors_profile_image_id_media_id_fk" FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action,
       CONSTRAINT "instructors_user_id_unique" UNIQUE("user_id")
     );
     
     CREATE INDEX IF NOT EXISTS "instructors_user_id_idx" ON "instructors" USING btree ("user_id");
-    CREATE INDEX IF NOT EXISTS "instructors_image_id_idx" ON "instructors" USING btree ("image_id");
+    CREATE INDEX IF NOT EXISTS "instructors_profile_image_idx" ON "instructors" USING btree ("profile_image_id");
     
     -- Add active column if table exists but column doesn't
     DO $$ 
     BEGIN
+      -- Align legacy column naming: rename image_id -> profile_image_id if needed
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'image_id')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'profile_image_id') THEN
+        ALTER TABLE "instructors" RENAME COLUMN "image_id" TO "profile_image_id";
+      END IF;
+      
+      -- Add profile_image_id column if it doesn't exist (schema should match profileImage field)
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'profile_image_id') THEN
+        ALTER TABLE "instructors" ADD COLUMN "profile_image_id" integer;
+      END IF;
+      
+      -- Add FK for profile_image_id if missing
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'profile_image_id')
+        AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_profile_image_id_media_id_fk') THEN
+        ALTER TABLE "instructors" ADD CONSTRAINT "instructors_profile_image_id_media_id_fk"
+          FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+      END IF;
+      
+      -- Add index for profile_image_id if missing
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'profile_image_id') THEN
+        CREATE INDEX IF NOT EXISTS "instructors_profile_image_idx" ON "instructors" USING btree ("profile_image_id");
+      END IF;
+      
       IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'instructors')
         AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'instructors' AND column_name = 'active') THEN
         ALTER TABLE "instructors" ADD COLUMN "active" boolean DEFAULT true NOT NULL;
@@ -120,7 +145,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               collection: "instructors" as CollectionSlug,
               data: {
                 user: row.user_id,
-                image: row.image_id || undefined,
+                profileImage: row.image_id || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${row.user_id}`,
               } as any,
@@ -143,19 +168,43 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
           console.error(`Error fixing orphaned instructor reference ${row.instructor_id}:`, error);
           // If we can't create an instructor, set the reference to NULL
           await db.execute(sql`
-            UPDATE lessons 
-            SET instructor_id = NULL
-            WHERE instructor_id = ${row.instructor_id}
-              AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+            DO $$ BEGIN
+              IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'instructors') THEN
+                UPDATE lessons 
+                SET instructor_id = NULL
+                WHERE instructor_id = ${row.instructor_id}
+                  AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id});
+              ELSE
+                UPDATE lessons 
+                SET instructor_id = NULL
+                WHERE instructor_id = ${row.instructor_id};
+              END IF;
+            EXCEPTION WHEN undefined_table THEN
+              UPDATE lessons 
+              SET instructor_id = NULL
+              WHERE instructor_id = ${row.instructor_id};
+            END $$;
           `);
         }
       } else {
         // Not a user ID, set to NULL
         await db.execute(sql`
-          UPDATE lessons 
-          SET instructor_id = NULL
-          WHERE instructor_id = ${row.instructor_id}
-            AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+          DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'instructors') THEN
+              UPDATE lessons 
+              SET instructor_id = NULL
+              WHERE instructor_id = ${row.instructor_id}
+                AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id});
+            ELSE
+              UPDATE lessons 
+              SET instructor_id = NULL
+              WHERE instructor_id = ${row.instructor_id};
+            END IF;
+          EXCEPTION WHEN undefined_table THEN
+            UPDATE lessons 
+            SET instructor_id = NULL
+            WHERE instructor_id = ${row.instructor_id};
+          END $$;
         `);
       }
     }
@@ -282,7 +331,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               collection: "instructors" as CollectionSlug,
               data: {
                 user: userId,
-                image: imageId || undefined,
+                profileImage: imageId || undefined,
                 active: true,
                 name: (user as any)?.name || `User ${userId}`,
               } as any,
