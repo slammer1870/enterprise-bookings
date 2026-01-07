@@ -1,5 +1,4 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from "@payloadcms/db-postgres";
-import type { CollectionSlug } from "payload";
 
 /**
  * Migration to create instructors collection and migrate data from lessons.instructor (user) to instructors
@@ -95,11 +94,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     instructor_id: number;
     user_id: number | null;
     image_id: number | null;
+    user_name: string | null;
   }>(sql`
     SELECT DISTINCT 
       l.instructor_id,
       u.id as user_id,
-      u.image_id
+      u.image_id,
+      u.name as user_name
     FROM lessons l
     LEFT JOIN instructors i ON i.id = l.instructor_id
     LEFT JOIN users u ON u.id = l.instructor_id
@@ -108,103 +109,61 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   `);
 
   // Create instructor records for orphaned references that are user IDs
+  // NOTE: we avoid using `payload.*` APIs here because they can query join tables
+  // (e.g. users_sessions) that might not exist yet in partially-migrated databases.
   if (orphanedLessons.rows && orphanedLessons.rows.length > 0) {
     for (const row of orphanedLessons.rows) {
       if (row.user_id) {
         try {
-          // Check if instructor already exists for this user
-          const existingInstructors = await payload.find({
-            collection: "instructors" as CollectionSlug,
-            where: {
-              user: {
-                equals: row.user_id,
-              },
-            },
-            limit: 1,
-            req,
-          });
+          const fallbackName = row.user_name || `User ${row.user_id}`;
 
-          let instructorId: number;
-
-          if (existingInstructors.docs && existingInstructors.docs.length > 0 && existingInstructors.docs[0]) {
-            const existingDoc = existingInstructors.docs[0];
-            instructorId =
-              typeof existingDoc.id === "number"
-                ? existingDoc.id
-                : parseInt(existingDoc.id as string);
-          } else {
-            // Get user to get their name
-            const user = await payload.findByID({
-              collection: 'users',
-              id: row.user_id,
-              req,
-            });
-            
-            // Create new instructor record
-            const newInstructor = await payload.create({
-              collection: "instructors" as CollectionSlug,
-              data: {
-                user: row.user_id,
-                profileImage: row.image_id || undefined,
-                active: true,
-                name: (user as any)?.name || `User ${row.user_id}`,
-              } as any,
-              req,
-            });
-            instructorId =
-              typeof newInstructor.id === "number"
-                ? newInstructor.id
-                : parseInt(newInstructor.id as string);
-          }
-
-          // Update lessons with this orphaned instructor_id to point to the new instructor
+          // Upsert instructor row by user_id
           await db.execute(sql`
-            UPDATE lessons 
-            SET instructor_id = ${instructorId}
-            WHERE instructor_id = ${row.instructor_id}
-              AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+            INSERT INTO instructors ("user_id", "profile_image_id", "active", "name", "updated_at", "created_at")
+            VALUES (${row.user_id}, ${row.image_id}, true, ${fallbackName}, now(), now())
+            ON CONFLICT ("user_id") DO UPDATE SET
+              "profile_image_id" = COALESCE(instructors."profile_image_id", EXCLUDED."profile_image_id"),
+              "name" = COALESCE(instructors."name", EXCLUDED."name"),
+              "updated_at" = now()
           `);
+
+          // Fetch instructor id (for update)
+          const instructorRow = await db.execute<{ id: number }>(sql`
+            SELECT id FROM instructors WHERE user_id = ${row.user_id} ORDER BY created_at DESC LIMIT 1
+          `);
+          const instructorId = instructorRow.rows?.[0]?.id;
+
+          if (typeof instructorId === "number") {
+            // Update lessons with this orphaned instructor_id to point to the new instructor
+            await db.execute(sql`
+              UPDATE lessons
+              SET instructor_id = ${instructorId}
+              WHERE instructor_id = ${row.instructor_id}
+                AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id})
+            `);
+          } else {
+            // Couldn't resolve instructor id, null the reference
+            await db.execute(sql`
+              UPDATE lessons
+              SET instructor_id = NULL
+              WHERE instructor_id = ${row.instructor_id}
+            `);
+          }
         } catch (error) {
           console.error(`Error fixing orphaned instructor reference ${row.instructor_id}:`, error);
           // If we can't create an instructor, set the reference to NULL
           await db.execute(sql`
-            DO $$ BEGIN
-              IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'instructors') THEN
-                UPDATE lessons 
-                SET instructor_id = NULL
-                WHERE instructor_id = ${row.instructor_id}
-                  AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id});
-              ELSE
-                UPDATE lessons 
-                SET instructor_id = NULL
-                WHERE instructor_id = ${row.instructor_id};
-              END IF;
-            EXCEPTION WHEN undefined_table THEN
-              UPDATE lessons 
-              SET instructor_id = NULL
-              WHERE instructor_id = ${row.instructor_id};
-            END $$;
+            UPDATE lessons
+            SET instructor_id = NULL
+            WHERE instructor_id = ${row.instructor_id}
           `);
         }
       } else {
         // Not a user ID, set to NULL
         await db.execute(sql`
-          DO $$ BEGIN
-            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'instructors') THEN
-              UPDATE lessons 
-              SET instructor_id = NULL
-              WHERE instructor_id = ${row.instructor_id}
-                AND NOT EXISTS (SELECT 1 FROM instructors WHERE id = ${row.instructor_id});
-            ELSE
-              UPDATE lessons 
-              SET instructor_id = NULL
-              WHERE instructor_id = ${row.instructor_id};
-            END IF;
-          EXCEPTION WHEN undefined_table THEN
-            UPDATE lessons 
-            SET instructor_id = NULL
-            WHERE instructor_id = ${row.instructor_id};
-          END $$;
+          UPDATE lessons
+          SET instructor_id = NULL
+          WHERE instructor_id = ${row.instructor_id}
         `);
       }
     }
@@ -289,6 +248,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   }
 
   // Step 6: Create instructor records using Payload API for proper validation and hooks
+  // NOTE: We intentionally avoid Payload APIs here (see note above).
   const instructorMap = new Map<number, number>();
 
   for (const row of uniqueInstructorUsers.rows || []) {
@@ -296,54 +256,29 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     const imageId = row.image_id;
 
     try {
-      // Check if instructor already exists for this user
-      const existingInstructors = await payload.find({
-        collection: "instructors" as CollectionSlug,
-        where: {
-          user: {
-            equals: userId,
-          },
-        },
-        limit: 1,
-        req,
-      });
+      const userNameRes = await db.execute<{ name: string | null }>(sql`
+        SELECT name FROM users WHERE id = ${userId} LIMIT 1
+      `);
+      const userName = userNameRes.rows?.[0]?.name;
 
-      let instructorId: number;
+      const fallbackName = userName || `User ${userId}`;
 
-      if (existingInstructors.docs && existingInstructors.docs.length > 0) {
-        const existingId = existingInstructors.docs[0]?.id;
-        instructorId =
-          existingId && typeof existingId === "number"
-            ? existingId
-            : parseInt(String(existingId));
-      } else {
-            // Get user to get their name
-            const user = await payload.findByID({
-              collection: 'users',
-              id: userId,
-              req,
-            });
-            
-            // Create new instructor record, copying image from user if available
-            // Set active to true by default for migrated instructors
-            // Set name from user's name
-            const newInstructor = await payload.create({
-              collection: "instructors" as CollectionSlug,
-              data: {
-                user: userId,
-                profileImage: imageId || undefined,
-                active: true,
-                name: (user as any)?.name || `User ${userId}`,
-              } as any,
-              req,
-            });
-        instructorId =
-          typeof newInstructor.id === "number"
-            ? newInstructor.id
-            : parseInt(newInstructor.id as string);
+      await db.execute(sql`
+        INSERT INTO instructors ("user_id", "profile_image_id", "active", "name", "updated_at", "created_at")
+        VALUES (${userId}, ${imageId}, true, ${fallbackName}, now(), now())
+        ON CONFLICT ("user_id") DO UPDATE SET
+          "profile_image_id" = COALESCE(instructors."profile_image_id", EXCLUDED."profile_image_id"),
+          "name" = COALESCE(instructors."name", EXCLUDED."name"),
+          "updated_at" = now()
+      `);
+
+      const instructorRow = await db.execute<{ id: number }>(sql`
+        SELECT id FROM instructors WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1
+      `);
+      const instructorId = instructorRow.rows?.[0]?.id;
+      if (typeof instructorId === "number") {
+        instructorMap.set(userId, instructorId);
       }
-
-      instructorMap.set(userId, instructorId);
     } catch (error) {
       console.error(`Error creating instructor for user ${userId}:`, error);
       // Continue with other users even if one fails
@@ -425,37 +360,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   }
 
   // Step 10: Populate name field for all existing instructors that don't have a name
-  const instructorsWithoutName = await db.execute<{
-    id: number;
-    user_id: number;
-  }>(sql`
-    SELECT i.id, i.user_id
-    FROM instructors i
-    LEFT JOIN users u ON i.user_id = u.id
-    WHERE i.name IS NULL OR i.name = ''
+  // Avoid Payload APIs here as well; populate from users table directly.
+  await db.execute(sql`
+    UPDATE instructors i
+    SET name = COALESCE(NULLIF(i.name, ''), u.name, 'User ' || i.user_id::text)
+    FROM users u
+    WHERE i.user_id = u.id
+      AND (i.name IS NULL OR i.name = '')
   `);
-
-  if (instructorsWithoutName.rows && instructorsWithoutName.rows.length > 0) {
-    for (const row of instructorsWithoutName.rows) {
-      try {
-        const user = await payload.findByID({
-          collection: 'users',
-          id: row.user_id,
-          req,
-        });
-        const userName = (user as any)?.name || `User ${row.user_id}`;
-        
-        // Update the instructor's name field
-        await db.execute(sql`
-          UPDATE instructors 
-          SET name = ${userName}
-          WHERE id = ${row.id}
-        `);
-      } catch (error) {
-        console.error(`Error populating name for instructor ${row.id}:`, error);
-      }
-    }
-  }
 }
 
 export async function down({
