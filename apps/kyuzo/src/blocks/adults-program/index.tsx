@@ -1,4 +1,5 @@
 import React from 'react'
+import Image from 'next/image'
 import type { Media } from '@/payload-types'
 
 type Program = {
@@ -12,11 +13,7 @@ type AdultsProgramProps = {
   programs: Program[]
 }
 
-export const AdultsProgramBlock: React.FC<AdultsProgramProps> = ({
-  heading,
-  image,
-  programs,
-}) => {
+export const AdultsProgramBlock: React.FC<AdultsProgramProps> = ({ heading, image, programs }) => {
   return (
     <section className="text-gray-900" id="adults">
       <div className="py-20 lg:py-24 px-4 md:flex items-center justify-around lg:mx-40">
@@ -26,20 +23,26 @@ export const AdultsProgramBlock: React.FC<AdultsProgramProps> = ({
             {programs?.map((program, index) => (
               <div key={index}>
                 <h5 className="text-xl font-semibold mb-2">{program.title}</h5>
-                <p className={`leading-relaxed ${index < programs.length - 1 ? 'mb-2 lg:mb-8' : 'lg:mb-4'}`}>
+                <p
+                  className={`leading-relaxed ${index < programs.length - 1 ? 'mb-2 lg:mb-8' : 'lg:mb-4'}`}
+                >
                   {program.description}
                 </p>
               </div>
             ))}
           </div>
         </div>
-        
-        <img
-          src={image?.url || '/placeholder-adults.jpg'}
-          alt={image?.alt || 'adults program'}
-          className="my-8 object-cover aspect-square md:w-1/2"
-        />
-        
+
+        {image?.url && (
+          <Image
+            src={image.url}
+            alt={image.alt || 'adults program'}
+            width={image.width ? Number(image.width) : 600}
+            height={image.height ? Number(image.height) : 600}
+            className="my-8 object-cover aspect-square md:w-1/2"
+          />
+        )}
+
         <div className="leading-relaxed text-gray-700 md:hidden pr-12">
           {programs?.map((program, index) => (
             <div key={index}>
@@ -53,4 +56,4 @@ export const AdultsProgramBlock: React.FC<AdultsProgramProps> = ({
       </div>
     </section>
   )
-} 
+}

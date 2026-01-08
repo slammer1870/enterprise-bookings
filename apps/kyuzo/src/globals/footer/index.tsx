@@ -2,10 +2,10 @@ import { FooterGlobal } from './client'
 import { getCachedGlobal } from '@/utils/get-globals'
 import React from 'react'
 
-import type { Footer } from '@/payload-types'
+import type { Footer as FooterType } from '@/payload-types'
 
 export async function Footer() {
-  const footerData = (await getCachedGlobal('footer', 1)()) as Footer | null
+  const footerData = (await getCachedGlobal('footer', 1)()) as FooterType | null
 
   // If footer data isn't available (e.g., fresh DB in tests), render a minimal fallback
   if (!footerData) {

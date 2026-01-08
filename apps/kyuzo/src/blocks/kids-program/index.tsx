@@ -1,4 +1,5 @@
 import React from 'react'
+import Image from 'next/image'
 import type { Media } from '@/payload-types'
 
 type AgeGroup = {
@@ -26,19 +27,23 @@ export const KidsProgramBlock: React.FC<KidsProgramProps> = ({
           <h3 className="text-3xl mb-4 font-medium">{heading}</h3>
           <p className="mb-4 leading-relaxed text-gray-700">{description}</p>
         </div>
-        
-        <img
-          src={image?.url || '/placeholder-children.jpg'}
-          alt={image?.alt || 'children'}
-          className="my-8 object-cover aspect-square lg:w-1/2 xl:w-1/3 lg:pr-8 w-full"
-        />
-        
+
+        {image?.url && (
+          <Image
+            src={image.url}
+            alt={image.alt || 'children'}
+            width={image.width ? Number(image.width) : 600}
+            height={image.height ? Number(image.height) : 600}
+            className="my-8 object-cover aspect-square lg:w-1/2 xl:w-1/3 lg:pr-8 w-full"
+          />
+        )}
+
         <div className="lg:w-1/2">
           <div className="hidden lg:block xl:text-xl">
             <h3 className="text-3xl mb-4 font-medium">{heading}</h3>
             <p className="mb-4 leading-relaxed text-gray-700">{description}</p>
           </div>
-          
+
           <div className="md:grid gap-4 grid-cols-1 grid-rows-4 xl:grid-cols-2 xl:grid-rows-2 mx-auto w-full xl:col-span-1">
             {ageGroups?.map((ageGroup, index) => (
               <div
@@ -54,4 +59,4 @@ export const KidsProgramBlock: React.FC<KidsProgramProps> = ({
       </div>
     </section>
   )
-} 
+}
