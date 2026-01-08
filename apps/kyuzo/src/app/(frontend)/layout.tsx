@@ -1,6 +1,7 @@
 import React from 'react'
-import '@repo/ui/globals.css'
 import './globals.css'
+import '@repo/ui/globals.css'
+import '@daveyplate/better-auth-ui/css'
 
 import { Navbar } from '@/globals/navbar'
 import { Footer } from '@/globals/footer'

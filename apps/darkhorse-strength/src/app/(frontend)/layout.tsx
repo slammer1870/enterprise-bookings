@@ -1,7 +1,8 @@
+import React from 'react'
+
+import './globals.css'
 import '@repo/ui/globals.css'
 import '@daveyplate/better-auth-ui/css'
-import React from 'react'
-import './globals.css'
 
 import { TRPCReactProvider } from '@repo/trpc'
 import { Suspense } from 'react'
