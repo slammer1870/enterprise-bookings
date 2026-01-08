@@ -43,7 +43,7 @@ export function CompleteBookingTabs({
   const tabValue = modeToPath(mode)
 
   return (
-    <div className="w-full max-w-[520px]">
+    <div className="w-full max-w-[520px] mx-auto">
       <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="sign-in">Sign In</TabsTrigger>
@@ -61,5 +61,3 @@ export function CompleteBookingTabs({
     </div>
   )
 }
-
-
