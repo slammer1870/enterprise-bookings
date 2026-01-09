@@ -27,7 +27,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
         </Link>
         {user ? (
           <div className="flex gap-4 items-center justify-end cursor-pointer">
-            <Button asChild className="text-black">
+            <Button asChild variant="link">
               <Link href="/dashboard">Members</Link>
             </Button>
             <Button
@@ -41,7 +41,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
             </Button>
           </div>
         ) : (
-          <Button asChild className="text-black">
+          <Button asChild>
             <Link href="/dashboard">Members</Link>
           </Button>
         )}
