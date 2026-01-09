@@ -15,6 +15,20 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
   const { lessonId } = event.data.object.metadata;
 
+  // Get current_period_start and current_period_end from subscription or items
+  // In newer Stripe API versions, these may only be on subscription items
+  // Note: TypeScript types may not include these on SubscriptionItem, but they exist in webhook payloads
+  const firstItem = event.data.object.items.data[0] as
+    | (Stripe.SubscriptionItem & {
+        current_period_start?: number;
+        current_period_end?: number;
+      })
+    | undefined;
+  const currentPeriodStart =
+    event.data.object.current_period_start ?? firstItem?.current_period_start;
+  const currentPeriodEnd =
+    event.data.object.current_period_end ?? firstItem?.current_period_end;
+
   try {
     const user = await findUserByCustomer(payload, customer as string);
 
@@ -40,6 +54,15 @@ export const subscriptionCreated: StripeWebhookHandler<{
         plan: plan.docs[0]?.id as number,
         status: "active",
         stripeSubscriptionId: event.data.object.id as string,
+        startDate: currentPeriodStart
+          ? new Date(currentPeriodStart * 1000).toISOString()
+          : null,
+        endDate: currentPeriodEnd
+          ? new Date(currentPeriodEnd * 1000).toISOString()
+          : null,
+        cancelAt: event.data.object.cancel_at
+          ? new Date(event.data.object.cancel_at * 1000).toISOString()
+          : null,
         skipSync: true, // Prevent Stripe API call in beforeChange hook
       },
     });
