@@ -6,10 +6,6 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   enableMagicLink: true,
   disableDefaultPayloadAuth: false,
   hidePluginCollections: false,
-  sessionCookieCache: {
-    enabled: false,
-    maxAge: 5 * 60,
-  },
   roles: {
     adminRoles: ['admin'],
     defaultRole: 'user',
