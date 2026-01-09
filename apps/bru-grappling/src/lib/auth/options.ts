@@ -6,9 +6,6 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   enableMagicLink: true,
   magicLinkDisableSignUp: true,
   includeMagicLinkOptionConfig: true,
-  sessionCookieCache: {
-    enabled: false, // avoid cookie size limits
-  },
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
   roles: {

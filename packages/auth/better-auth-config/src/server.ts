@@ -284,7 +284,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
       cookieCache:
         config.sessionCookieCache ??
         ({
-          enabled: true,
+          enabled: false,
           maxAge: 5 * 60,
         } as any),
     },
