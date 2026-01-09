@@ -1,3 +1,4 @@
+import '@repo/ui/globals.css'
 import './globals.css'
 
 import { Roboto } from 'next/font/google'
