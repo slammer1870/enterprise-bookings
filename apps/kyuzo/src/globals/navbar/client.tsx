@@ -27,12 +27,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
         </Link>
         {user ? (
           <div className="flex gap-4 items-center justify-end cursor-pointer">
-            <Link
-              href="/dashboard"
-              className={`${pathname === '/' ? 'text-black lg:text-white' : 'text-black'}`}
-            >
-              Members
-            </Link>
+            <Button asChild className="text-black">
+              <Link href="/dashboard">Members</Link>
+            </Button>
             <Button
               onClick={() => {
                 signOut()
@@ -44,9 +41,9 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
             </Button>
           </div>
         ) : (
-          <Link href="/dashboard">
-            <Button>Members</Button>
-          </Link>
+          <Button asChild className="text-black">
+            <Link href="/dashboard">Members</Link>
+          </Button>
         )}
       </div>
     </div>
