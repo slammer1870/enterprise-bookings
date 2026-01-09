@@ -50,12 +50,12 @@ export function CompleteBookingTabs({
           <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sign-in" className="mt-6">
-          <AuthView path="sign-in" />
+        <TabsContent value="sign-in" className="mt-6 flex">
+          <AuthView path="sign-in" className="mx-auto" />
         </TabsContent>
 
-        <TabsContent value="sign-up" className="mt-6">
-          <AuthView path="sign-up" />
+        <TabsContent value="sign-up" className="mt-6 flex">
+          <AuthView path="sign-up" className="mx-auto" />
         </TabsContent>
       </Tabs>
     </div>
