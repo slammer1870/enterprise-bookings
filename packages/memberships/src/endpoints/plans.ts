@@ -28,7 +28,12 @@ export const plansProxy: PayloadHandler = async (req): Promise<Response> => {
       })
       .autoPagingToArray({ limit: 1000 });
 
-    console.log("products", products);
+    if (logs) {
+      req.payload.logger.info({
+        msg: "Stripe products fetched",
+        count: products.length,
+      });
+    }
 
     const plans = products.filter(
       (product) =>
