@@ -14,7 +14,7 @@
 
   /* Brand */
   /* Gold (from hsl(45 94% 52%)) */
-  --primary: oklch(0.831 0.168 86.098);
+  --primary: 45 94% 52%;
   --primary-foreground: oklch(0.137 0.036 258.526); /* Near-black text on gold */
 
   --secondary: oklch(0.968 0.007 247.895);
