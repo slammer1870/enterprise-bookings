@@ -35,10 +35,10 @@
 
   --radius: 0.5rem;
 
-  /* Check-in button colors - updated to brand yellow */
+  /* Check-in button colors - green */
   /* Keep booking-action tokens as HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
-  --checkin: 45 94% 52%; /* Gold */
-  --checkin-foreground: 222.2 84% 4.9%; /* Near-black */
+  --checkin: 142 76% 36%; /* Green */
+  --checkin-foreground: 0 0% 98%; /* White */
 
   /* Other button state colors */
   --trialable: 217 91% 60%;
@@ -86,8 +86,8 @@
   --ring: oklch(0.869 0.020 252.847);
 
   /* Check-in button colors for dark mode */
-  --checkin: 45 94% 52%;
-  --checkin-foreground: 222.2 84% 4.9%;
+  --checkin: 142 76% 36%; /* Green */
+  --checkin-foreground: 0 0% 98%; /* White */
 
   /* Other button state colors for dark mode */
   --trialable: 217 91% 60%;
