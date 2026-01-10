@@ -51,6 +51,12 @@
   --closed-foreground: hsl(0 0% 98%);
 }
 
+/* Override Tailwind theme tokens to use app-specific primary color */
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+}
+
 /* Support both `.dark` (shadcn/@repo/ui default) and `[data-theme='dark']` (some libs) */
 .dark,
 [data-theme='dark'] {
