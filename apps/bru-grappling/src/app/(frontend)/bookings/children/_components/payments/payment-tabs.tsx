@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { SelectChildren } from '../select-children'
 
 import { useTRPC } from '@repo/trpc/client'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 
 import { DropInView } from '@repo/payments/src/components/drop-ins'
 
@@ -33,6 +33,20 @@ export const PaymentTabs = ({
     trpc.bookings.getChildrensBookings.queryOptions({ id: lessonId }),
   )
 
+  // Extract child IDs from pending bookings to check if they've booked before
+  const pendingChildIds = bookedChildren
+    .filter((booking) => booking.status === 'pending')
+    .map((booking) => (typeof booking.user === 'object' ? booking.user.id : booking.user))
+
+  // Check if any of the pending children have booked before (to determine trial eligibility)
+  // Only query if there are pending children
+  const { data: hasBookedBefore = false } = useQuery(
+    trpc.bookings.hasChildBookedBefore.queryOptions(
+      { childIds: pendingChildIds },
+      { enabled: pendingChildIds.length > 0 },
+    ),
+  )
+
   const { mutate: bookChild, isPending: isBooking } = useMutation(
     trpc.bookings.createChildBooking.mutationOptions({
       onSuccess: () => {
@@ -44,6 +58,10 @@ export const PaymentTabs = ({
         })
         queryClient.invalidateQueries({
           queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
+        })
+        // Invalidate hasChildBookedBefore query since booking status may have changed
+        queryClient.invalidateQueries({
+          queryKey: trpc.bookings.hasChildBookedBefore.queryKey({ childIds: [] }),
         })
       },
     }),
@@ -116,7 +134,10 @@ export const PaymentTabs = ({
           )}
           {pendingBookings.length > 0 && (
             <DropInView
-              bookingStatus={bookingStatus}
+              bookingStatus={
+                // If child has booked before, don't allow trial pricing even if lesson status is 'trialable'
+                hasBookedBefore && bookingStatus === 'trialable' ? 'active' : bookingStatus
+              }
               dropIn={dropIn}
               quantity={pendingBookings.length}
               metadata={{

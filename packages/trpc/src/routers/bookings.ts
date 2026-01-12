@@ -504,4 +504,23 @@ export const bookingsRouter = {
 
       return bookings.docs.map((booking) => booking as Booking);
     }),
+  hasChildBookedBefore: protectedProcedure
+    .input(z.object({ childIds: z.array(z.number()) }))
+    .query(async ({ ctx, input }) => {
+      // Check if any of the children have any confirmed bookings
+      // This is used to determine if trial pricing should apply
+      const bookings = await ctx.payload.find({
+        collection: "bookings",
+        where: {
+          user: { in: input.childIds },
+          status: { equals: "confirmed" },
+        },
+        limit: 1,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      // If any child has a confirmed booking, they've booked before
+      return bookings.docs.length > 0;
+    }),
 } satisfies TRPCRouterRecord;
