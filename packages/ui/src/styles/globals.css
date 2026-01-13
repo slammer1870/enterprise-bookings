@@ -16,8 +16,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Primary color: must be defined in each app's globals.css */
+  /* This allows apps to customize their primary color without conflicts */
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -52,8 +52,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  /* Primary color: must be defined in each app's globals.css dark mode */
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -80,32 +79,33 @@
   --sidebar-ring: oklch(0.439 0 0);
 
   /* Booking action colors (defaults can be overridden per app) */
-  --checkin: 142 76% 36%;
-  --checkin-foreground: 0 0% 98%;
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 84.2% 60.2%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
+  /* These can be complete color values: hsl(...), oklch(...), or any valid CSS color */
+  --checkin: hsl(142 76% 36%);
+  --checkin-foreground: hsl(0 0% 98%);
+  --trialable: hsl(217 91% 60%);
+  --trialable-foreground: hsl(0 0% 98%);
+  --cancel: hsl(0 84.2% 60.2%);
+  --cancel-foreground: hsl(0 0% 98%);
+  --waitlist: hsl(38 92% 50%);
+  --waitlist-foreground: hsl(0 0% 98%);
+  --children-booked: hsl(271 91% 65%);
+  --children-booked-foreground: hsl(0 0% 98%);
+  --closed: hsl(0 0% 50%);
+  --closed-foreground: hsl(0 0% 98%);
 
   /* Booking action colors (dark mode defaults) */
-  --checkin: 142 76% 36%;
-  --checkin-foreground: 0 0% 98%;
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 62.8% 30.6%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
+  --checkin: hsl(142 76% 36%);
+  --checkin-foreground: hsl(0 0% 98%);
+  --trialable: hsl(217 91% 60%);
+  --trialable-foreground: hsl(0 0% 98%);
+  --cancel: hsl(0 62.8% 30.6%);
+  --cancel-foreground: hsl(0 0% 98%);
+  --waitlist: hsl(38 92% 50%);
+  --waitlist-foreground: hsl(0 0% 98%);
+  --children-booked: hsl(271 91% 65%);
+  --children-booked-foreground: hsl(0 0% 98%);
+  --closed: hsl(0 0% 50%);
+  --closed-foreground: hsl(0 0% 98%);
 }
 
 @theme inline {
@@ -194,63 +194,64 @@
   }
 
   /* Booking action utilities (explicit until Tailwind tokens cover packages) */
+  /* These now accept any valid CSS color format: hsl(...), oklch(...), etc. */
   .bg-checkin {
-    background-color: hsl(var(--checkin));
+    background-color: var(--checkin);
   }
   .hover\:bg-checkin\/90:hover {
-    background-color: hsl(var(--checkin) / 0.9);
+    background-color: color-mix(in srgb, var(--checkin) 90%, transparent);
   }
   .text-checkin-foreground {
-    color: hsl(var(--checkin-foreground));
+    color: var(--checkin-foreground);
   }
 
   .bg-trialable {
-    background-color: hsl(var(--trialable));
+    background-color: var(--trialable);
   }
   .hover\:bg-trialable\/90:hover {
-    background-color: hsl(var(--trialable) / 0.9);
+    background-color: color-mix(in srgb, var(--trialable) 90%, transparent);
   }
   .text-trialable-foreground {
-    color: hsl(var(--trialable-foreground));
+    color: var(--trialable-foreground);
   }
 
   .bg-cancel {
-    background-color: hsl(var(--cancel));
+    background-color: var(--cancel);
   }
   .hover\:bg-cancel\/90:hover {
-    background-color: hsl(var(--cancel) / 0.9);
+    background-color: color-mix(in srgb, var(--cancel) 90%, transparent);
   }
   .text-cancel-foreground {
-    color: hsl(var(--cancel-foreground));
+    color: var(--cancel-foreground);
   }
 
   .bg-waitlist {
-    background-color: hsl(var(--waitlist));
+    background-color: var(--waitlist);
   }
   .hover\:bg-waitlist\/90:hover {
-    background-color: hsl(var(--waitlist) / 0.9);
+    background-color: color-mix(in srgb, var(--waitlist) 90%, transparent);
   }
   .text-waitlist-foreground {
-    color: hsl(var(--waitlist-foreground));
+    color: var(--waitlist-foreground);
   }
 
   .bg-childrenBooked {
-    background-color: hsl(var(--children-booked));
+    background-color: var(--children-booked);
   }
   .hover\:bg-childrenBooked\/90:hover {
-    background-color: hsl(var(--children-booked) / 0.9);
+    background-color: color-mix(in srgb, var(--children-booked) 90%, transparent);
   }
   .text-childrenBooked-foreground {
-    color: hsl(var(--children-booked-foreground));
+    color: var(--children-booked-foreground);
   }
 
   .bg-closed {
-    background-color: hsl(var(--closed));
+    background-color: var(--closed);
   }
   .hover\:bg-closed\/90:hover {
-    background-color: hsl(var(--closed) / 0.9);
+    background-color: color-mix(in srgb, var(--closed) 90%, transparent);
   }
   .text-closed-foreground {
-    color: hsl(var(--closed-foreground));
+    color: var(--closed-foreground);
   }
 }

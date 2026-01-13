@@ -3,28 +3,28 @@
    * Tailwind v4 (used by @repo/ui) expects these CSS variables to be valid CSS colors.
    * Use `oklch(...)` (or `hsl(...)`) rather than raw HSL components so overrides apply correctly.
    */
-  --background: oklch(1.000 0.000 89.876);
+  --background: oklch(1 0 89.876);
   --foreground: oklch(0.137 0.036 258.526);
 
-  --card: oklch(1.000 0.000 89.876);
+  --card: oklch(1 0 89.876);
   --card-foreground: oklch(0.137 0.036 258.526);
 
-  --popover: oklch(1.000 0.000 89.876);
+  --popover: oklch(1 0 89.876);
   --popover-foreground: oklch(0.137 0.036 258.526);
 
   /* Brand */
   /* Gold (from hsl(45 94% 52%)) */
-  --primary: oklch(0.831 0.168 86.098);
+  --primary: oklch(0.84 0.1 71.2);
   --primary-foreground: oklch(0.137 0.036 258.526); /* Near-black text on gold */
 
   --secondary: oklch(0.968 0.007 247.895);
-  --secondary-foreground: oklch(0.208 0.040 265.727);
+  --secondary-foreground: oklch(0.208 0.04 265.727);
 
   --muted: oklch(0.968 0.007 247.895);
-  --muted-foreground: oklch(0.555 0.041 257.440);
+  --muted-foreground: oklch(0.555 0.041 257.44);
 
   --accent: oklch(0.968 0.007 247.895);
-  --accent-foreground: oklch(0.208 0.040 265.727);
+  --accent-foreground: oklch(0.208 0.04 265.727);
 
   --destructive: oklch(0.637 0.208 25.326);
   --destructive-foreground: oklch(0.984 0.003 247.858);
@@ -37,7 +37,7 @@
 
   /* Check-in button colors - green */
   /* Keep booking-action tokens as HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
-  --checkin: 142 76% 36%; /* Green */
+  --checkin:  oklch(0.84 0.1 71.2);
   --checkin-foreground: 0 0% 98%; /* White */
 
   /* Other button state colors */
@@ -76,21 +76,21 @@
   --primary: oklch(0.831 0.168 86.098);
   --primary-foreground: oklch(0.137 0.036 258.526);
 
-  --secondary: oklch(0.280 0.037 259.974);
+  --secondary: oklch(0.28 0.037 259.974);
   --secondary-foreground: oklch(0.984 0.003 247.858);
 
-  --muted: oklch(0.280 0.037 259.974);
+  --muted: oklch(0.28 0.037 259.974);
   --muted-foreground: oklch(0.711 0.035 256.788);
 
-  --accent: oklch(0.280 0.037 259.974);
+  --accent: oklch(0.28 0.037 259.974);
   --accent-foreground: oklch(0.984 0.003 247.858);
 
   --destructive: oklch(0.396 0.133 25.721);
   --destructive-foreground: oklch(0.984 0.003 247.858);
 
-  --border: oklch(0.280 0.037 259.974);
-  --input: oklch(0.280 0.037 259.974);
-  --ring: oklch(0.869 0.020 252.847);
+  --border: oklch(0.28 0.037 259.974);
+  --input: oklch(0.28 0.037 259.974);
+  --ring: oklch(0.869 0.02 252.847);
 
   /* Check-in button colors for dark mode */
   --checkin: 142 76% 36%; /* Green */
