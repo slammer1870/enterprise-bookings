@@ -662,22 +662,39 @@ export const bookingsRouter = {
       }
     }),
   hasChildBookedBefore: protectedProcedure
-    .input(z.object({ childIds: z.array(z.number()) }))
+    .input(z.object({ childIds: z.array(z.number()).optional() }))
     .query(async ({ ctx, input }) => {
-      // Check if any of the children have any confirmed bookings
-      // This is used to determine if trial pricing should apply
+      // Check if:
+      // 1. Any of the specific children have been booked before, OR
+      // 2. The parent has ever booked any of their children before
+      // Trial pricing should only apply if the child has never been booked AND parent has never booked any child
+      
+      const whereConditions: any[] = [
+        {
+          "user.parent": { equals: ctx.user.id },
+          status: { equals: "confirmed" },
+        },
+      ];
+
+      // If specific child IDs are provided, also check if those specific children have been booked
+      if (input.childIds && input.childIds.length > 0) {
+        whereConditions.push({
+          user: { in: input.childIds },
+          status: { equals: "confirmed" },
+        });
+      }
+
       const bookings = await ctx.payload.find({
         collection: "bookings",
         where: {
-          user: { in: input.childIds },
-          status: { equals: "confirmed" },
+          or: whereConditions,
         },
         limit: 1,
         overrideAccess: false,
         user: ctx.user,
       });
 
-      // If any child has a confirmed booking, they've booked before
+      // Return true if any booking matches (either specific child OR parent's any child)
       return bookings.docs.length > 0;
     }),
 } satisfies TRPCRouterRecord;
