@@ -38,12 +38,14 @@ export const PaymentTabs = ({
     .filter((booking) => booking.status === 'pending')
     .map((booking) => (typeof booking.user === 'object' ? booking.user.id : booking.user))
 
-  // Check if any of the pending children have booked before (to determine trial eligibility)
-  // Only query if there are pending children
+  // Check if:
+  // 1. Any of the pending children have been booked before (if there are pending bookings), OR
+  // 2. The parent has ever booked any of their children before
+  // Trial pricing only applies if the child has never been booked AND parent has never booked any child
+  // Always query to check parent, but include child IDs if there are pending bookings
   const { data: hasBookedBefore = false } = useQuery(
     trpc.bookings.hasChildBookedBefore.queryOptions(
-      { childIds: pendingChildIds },
-      { enabled: pendingChildIds.length > 0 },
+      { childIds: pendingChildIds.length > 0 ? pendingChildIds : undefined },
     ),
   )
 
@@ -60,8 +62,9 @@ export const PaymentTabs = ({
           queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
         })
         // Invalidate hasChildBookedBefore query since booking status may have changed
+        // Invalidate all variations of this query (with and without childIds)
         queryClient.invalidateQueries({
-          queryKey: trpc.bookings.hasChildBookedBefore.queryKey({ childIds: [] }),
+          queryKey: ['bookings', 'hasChildBookedBefore'],
         })
       },
     }),
