@@ -1,60 +1,57 @@
 :root {
   /* IMPORTANT:
    * Tailwind v4 (used by @repo/ui) expects these CSS variables to be valid CSS colors.
-   * Use `oklch(...)` (or `hsl(...)`) rather than raw HSL components so overrides apply correctly.
+   * Use `hsl(...)` rather than raw HSL components so overrides apply correctly.
    */
-  --background: oklch(1 0 89.876);
-  --foreground: oklch(0.137 0.036 258.526);
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 84% 4.9%);
 
-  --card: oklch(1 0 89.876);
-  --card-foreground: oklch(0.137 0.036 258.526);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222.2 84% 4.9%);
 
-  --popover: oklch(1 0 89.876);
-  --popover-foreground: oklch(0.137 0.036 258.526);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222.2 84% 4.9%);
 
   /* Brand */
-  /* Gold (from hsl(45 94% 52%)) */
-  --primary: oklch(0.84 0.1 71.2);
-  --primary-foreground: oklch(0.137 0.036 258.526); /* Near-black text on gold */
+  --primary: hsl(33 9884% 73% / 1); /* Gold */
+  --primary-foreground: hsl(0, 0%, 100%); /* Black text on gold */
 
-  --secondary: oklch(0.968 0.007 247.895);
-  --secondary-foreground: oklch(0.208 0.04 265.727);
+  --secondary: hsl(210 40% 96.1%);
+  --secondary-foreground: hsl(222.2 47.4% 11.2%);
 
-  --muted: oklch(0.968 0.007 247.895);
-  --muted-foreground: oklch(0.555 0.041 257.44);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
 
-  --accent: oklch(0.968 0.007 247.895);
-  --accent-foreground: oklch(0.208 0.04 265.727);
+  --accent: hsl(210 40% 96.1%);
+  --accent-foreground: hsl(222.2 47.4% 11.2%);
 
-  --destructive: oklch(0.637 0.208 25.326);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(210 40% 98%);
 
-  --border: oklch(0.929 0.013 255.532);
-  --input: oklch(0.929 0.013 255.532);
-  --ring: oklch(0.137 0.036 258.526);
+  --border: hsl(214.3 31.8% 91.4%);
+  --input: hsl(214.3 31.8% 91.4%);
+  --ring: hsl(222.2 84% 4.9%);
 
   --radius: 0.5rem;
 
-  /* Check-in button colors - green */
-  /* Keep booking-action tokens as HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
-  --checkin:  oklch(0.84 0.1 71.2);
-  --checkin-foreground: 0 0% 98%; /* White */
+  /* Check-in button colors - updated to brand yellow */
+  --checkin: hsl(33 9884% 73% / 1); /* Gold */ /* Gold */
+  --checkin-foreground: hsl(0, 0%, 100%); /* Black */
 
   /* Other button state colors */
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 84.2% 60.2%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
+  --trialable: hsl(217 91% 60%);
+  --trialable-foreground: hsl(0 0% 100%);
+  --cancel: hsl(0 84.2% 60.2%);
+  --cancel-foreground: hsl(0 0% 98%);
+  --waitlist: hsl(38 92% 50%);
+  --waitlist-foreground: hsl(0 0% 98%);
+  --children-booked: hsl(271 91% 65%);
+  --children-booked-foreground: hsl(0 0% 98%);
+  --closed: hsl(0 0% 50%);
+  --closed-foreground: hsl(0 0% 98%);
 }
 
 /* Override Tailwind theme tokens to use app-specific primary color */
-/* This @theme inline block overrides the one from @repo/ui */
 @theme inline {
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -63,48 +60,48 @@
 /* Support both `.dark` (shadcn/@repo/ui default) and `[data-theme='dark']` (some libs) */
 .dark,
 [data-theme='dark'] {
-  --background: oklch(0.137 0.036 258.526);
-  --foreground: oklch(0.984 0.003 247.858);
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
 
-  --card: oklch(0.137 0.036 258.526);
-  --card-foreground: oklch(0.984 0.003 247.858);
+  --card: hsl(222.2 84% 4.9%);
+  --card-foreground: hsl(210 40% 98%);
 
-  --popover: oklch(0.137 0.036 258.526);
-  --popover-foreground: oklch(0.984 0.003 247.858);
+  --popover: hsl(222.2 84% 4.9%);
+  --popover-foreground: hsl(210 40% 98%);
 
   /* Brand */
-  --primary: oklch(0.831 0.168 86.098);
-  --primary-foreground: oklch(0.137 0.036 258.526);
+  --primary: hsl(39 97% 74% / 1);
+  --primary-foreground: hsl(222.2 84% 4.9%);
 
-  --secondary: oklch(0.28 0.037 259.974);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: hsl(217.2 32.6% 17.5%);
+  --secondary-foreground: hsl(210 40% 98%);
 
-  --muted: oklch(0.28 0.037 259.974);
-  --muted-foreground: oklch(0.711 0.035 256.788);
+  --muted: hsl(217.2 32.6% 17.5%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
 
-  --accent: oklch(0.28 0.037 259.974);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  --accent: hsl(217.2 32.6% 17.5%);
+  --accent-foreground: hsl(210 40% 98%);
 
-  --destructive: oklch(0.396 0.133 25.721);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
 
-  --border: oklch(0.28 0.037 259.974);
-  --input: oklch(0.28 0.037 259.974);
-  --ring: oklch(0.869 0.02 252.847);
+  --border: hsl(217.2 32.6% 17.5%);
+  --input: hsl(217.2 32.6% 17.5%);
+  --ring: hsl(212.7 26.8% 83.9%);
 
   /* Check-in button colors for dark mode */
-  --checkin: 142 76% 36%; /* Green */
-  --checkin-foreground: 0 0% 98%; /* White */
+  --checkin: hsl(39 97% 74% / 1);
+  --checkin-foreground: hsl(222.2 84% 4.9%);
 
   /* Other button state colors for dark mode */
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 62.8% 30.6%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
+  --trialable: hsl(217 91% 60%);
+  --trialable-foreground: hsl(0 0% 98%);
+  --cancel: hsl(0 62.8% 30.6%);
+  --cancel-foreground: hsl(0 0% 98%);
+  --waitlist: hsl(38 92% 50%);
+  --waitlist-foreground: hsl(0 0% 98%);
+  --children-booked: hsl(271 91% 65%);
+  --children-booked-foreground: hsl(0 0% 98%);
+  --closed: hsl(0 0% 50%);
+  --closed-foreground: hsl(0 0% 98%);
 }
