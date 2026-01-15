@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { useAuth } from '@repo/auth'
+import { useSession, signOut } from '@/lib/auth/client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@repo/ui/components/ui/button'
@@ -13,7 +13,8 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
 
   const isBrowser = typeof window !== 'undefined'
 
@@ -192,7 +193,7 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                     onClick={handleOpen}
                     className="focus:outline-none"
                   >
-                    <Link href="/login">Members</Link>
+                    <Link href="/auth/sign-in">Members</Link>
                   </Button>
                 </li>
               )}
@@ -201,7 +202,11 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data }) => {
                   <Button
                     variant="default"
                     className="bg-[#FECE7E] text-gray-700 hover:bg-[#FECE7E]/90 focus:outline-none"
-                    onClick={() => logout().then(() => router.push('/'))}
+                    onClick={async () => {
+                      await signOut()
+                      router.push('/')
+                      router.refresh()
+                    }}
                     aria-label="Logout from your account"
                   >
                     Logout

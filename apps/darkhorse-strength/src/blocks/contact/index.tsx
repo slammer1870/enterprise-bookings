@@ -1,7 +1,7 @@
 'use client'
 
 import { FormBlock } from '@repo/website/src/blocks/form'
-import React, { useState } from 'react'
+import React from 'react'
 import type { Form } from '@payloadcms/plugin-form-builder/types'
 
 type ContactProps = {
@@ -36,17 +36,6 @@ export const ContactBlock: React.FC<ContactProps> = ({
   contactDescription = 'Do you have any questions? Fill in our contact form and we will get back to you as soon as possible!',
   form,
 }) => {
-  const [tos, setTos] = useState(false)
-
-  const handleTos = () => {
-    setTos(!tos)
-  }
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    console.log('Form submitted')
-  }
-
   return (
     <>
       <div className="container mx-auto flex flex-wrap px-4 py-12 sm:flex-nowrap">

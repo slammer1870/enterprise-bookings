@@ -2,13 +2,13 @@
 
 import React, { useEffect, useState } from 'react'
 
+import Image from 'next/image'
 import Link from 'next/link'
 
 import { usePathname, useRouter } from 'next/navigation'
 
-import { useAuth } from '@repo/auth'
-
 import { Button } from '@repo/ui/components/ui/button'
+import { signOut, useSession } from '@/lib/auth/client'
 
 const Navbar: React.FC = () => {
   const router = useRouter()
@@ -18,7 +18,8 @@ const Navbar: React.FC = () => {
   const pathname = usePathname()
   const isBrowser: boolean = typeof window !== 'undefined'
 
-  const { user, logout } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
 
   const handleScroll = React.useCallback((): void => {
     if (window.scrollY >= 10 || pathname !== '/') {
@@ -51,7 +52,7 @@ const Navbar: React.FC = () => {
     >
       <div className="container mx-auto flex items-center justify-between px-4 py-2 text-background md:text-foreground">
         <Link href="/">
-          <img src="/logoBW.svg" alt="Logo" className="h-16" />
+          <Image src="/logoBW.svg" alt="Logo" width={64} height={64} className="h-16" />
         </Link>
         <menu className="flex w-1/3 justify-end md:w-full lg:w-2/3 xl:w-1/2">
           <button className="z-40 md:hidden" onClick={handleOpen}>
@@ -166,7 +167,12 @@ const Navbar: React.FC = () => {
                 <li>
                   <Button
                     variant="outline"
-                    onClick={() => logout().then(() => router.push('/'))}
+                    onClick={() =>
+                      signOut().then(() => {
+                        router.push('/')
+                        router.refresh()
+                      })
+                    }
                     className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-16 md:w-auto border-none"
                   >
                     Logout

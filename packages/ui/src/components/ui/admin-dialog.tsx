@@ -14,7 +14,9 @@ export const AdminDialogContent = React.forwardRef<
       position: "fixed",
       left: "50%",
       top: "50%",
-      transform: "translate(-50%, -50%)",
+      transform: "translate(-50%, -50%) !important",
+      marginLeft: 0,
+      marginRight: 0,
       //zIndex: 9999, // Higher z-index to ensure it's above PayloadCMS elements
       ...style,
     }}

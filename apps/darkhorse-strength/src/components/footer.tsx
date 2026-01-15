@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { FC } from 'react'
 
@@ -6,7 +7,7 @@ const Footer: FC = () => {
     <footer className="body-font text-gray-600">
       <div className="container mx-auto flex flex-col items-center justify-between px-5 py-8 sm:flex-row">
         <a className="title-font flex items-center justify-center font-medium text-gray-900 md:justify-start">
-          <img src="/logo.svg" alt="logo" className="h-12" />
+          <Image src="/logo.svg" alt="logo" width={48} height={48} className="h-12" />
         </a>
         <p className="mt-4 text-sm text-gray-500 sm:ml-4 sm:mt-0 sm:border-l-2 sm:border-gray-200 sm:py-2 sm:pl-4">
           © {new Date().getFullYear()} Dark Horse Strength and Performance

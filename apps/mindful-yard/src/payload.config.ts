@@ -11,10 +11,11 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { bookingsPlugin } from '@repo/bookings'
-import { magicLinkPlugin } from '@repo/auth/server'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
-import { paymentsPlugin } from '@repo/payments'
+import { paymentsPlugin } from '@repo/payments-plugin'
 
 import { seoPlugin } from '@payloadcms/plugin-seo'
 
@@ -27,7 +28,7 @@ import {
   bookingUpdateDropinAccess,
 } from '@repo/shared-services/src/access/booking-dropin'
 import { checkRole } from '@repo/shared-utils'
-import { isAdminOrOwner } from '@repo/bookings/src/access/bookings'
+import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -74,11 +75,7 @@ export default buildConfig({
     rolesPlugin({
       enabled: true,
     }),
-    magicLinkPlugin({
-      enabled: true,
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL,
-      appName: 'The Mindful Yard',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     bookingsPlugin({
       enabled: true,
       bookingOverrides: {

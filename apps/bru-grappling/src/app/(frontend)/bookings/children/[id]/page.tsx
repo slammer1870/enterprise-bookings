@@ -1,9 +1,10 @@
 import { trpc, HydrateClient, prefetch } from '@/trpc/server'
 import { Suspense } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
-import { ChildrensBooking } from '../_components/children'
+import { ChildrensBooking } from '@repo/bookings-next'
 
-import { getMeUser } from '@repo/auth'
+import { getSession } from '@/lib/auth/context/get-context-props'
+import { redirect } from 'next/navigation'
 
 // Add these new types
 type BookingPageProps = {
@@ -14,9 +15,11 @@ export default async function ChildrensBookingPage({ params }: BookingPageProps)
   const { id } = await params
 
   // Auth check
-  const { user } = await getMeUser({
-    nullUserRedirect: `/register?callbackUrl=/bookings/children/${id}`,
-  })
+  const session = await getSession()
+  const user = session?.user
+  if (!user) {
+    redirect(`/complete-booking?mode=login&callbackUrl=/bookings/${id}`)
+  }
 
   prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))
 

@@ -1,3 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "packages/auth/*"
+  - "packages/bookings/*"
+  - "packages/payments/*"

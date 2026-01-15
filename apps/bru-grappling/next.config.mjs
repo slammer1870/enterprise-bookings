@@ -17,16 +17,21 @@ const nextConfig = {
     minimumCacheTTL: 60 * 60 * 24 * 365, // 1 year
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: [
-      ...(process.env.NEXT_PUBLIC_SERVER_URL ? [process.env.NEXT_PUBLIC_SERVER_URL] : ['https://brugrappling.ie']).map((item) => {
-        const url = new URL(item)
-
-        return {
-          hostname: url.hostname,
-          protocol: url.protocol.replace(':', ''),
+    remotePatterns: (() => {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie'
+      const urls = serverUrl.split(',').map((url) => url.trim()).filter(Boolean)
+      return urls.map((url) => {
+        try {
+          const parsedUrl = new URL(url)
+          return {
+            hostname: parsedUrl.hostname,
+            protocol: parsedUrl.protocol.replace(':', ''),
+          }
+        } catch {
+          return null
         }
-      }),
-    ],
+      }).filter(Boolean)
+    })(),
   },
 
   // Headers for security and performance
@@ -84,39 +89,18 @@ const nextConfig = {
           },
         ],
       },
-      {
-        source: '/pages-sitemap.xml',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/xml',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=86400',
-          },
-        ],
-      },
-      {
-        source: '/posts-sitemap.xml',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/xml',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=86400',
-          },
-        ],
-      },
     ]
   },
 
   // Experimental features for better performance
-  experimental: {
-    optimizePackageImports: ['@repo/ui', '@repo/shared-types'],
-  },
+  // NOTE: `optimizePackageImports` has caused Next.js build crashes in this monorepo
+  // (uncaughtException reading `length`). Keep it opt-in.
+  experimental:
+    process.env.NEXT_OPTIMIZE_PACKAGE_IMPORTS === 'true'
+      ? {
+          optimizePackageImports: ['@repo/ui', '@repo/shared-types'],
+        }
+      : {},
 }
 
 export default withPayload(nextConfig)

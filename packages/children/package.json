@@ -4,29 +4,30 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@repo/shared-services": "workspace:*",
-    "@repo/shared-types": "workspace:*",
-    "@repo/auth": "workspace:*",
-    "@repo/bookings": "workspace:*",
-    "@repo/ui": "workspace:*",
-    "@repo/memberships": "workspace:*",
     "@hookform/resolvers": "*",
+    "@repo/bookings-plugin": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@repo/trpc": "workspace:*",
+    "@tanstack/react-query": "5.90.12",
+    "lucide-react": "0.554.0",
     "react-hook-form": "*",
-    "zod": "*",
     "sonner": "*",
-    "lucide-react": "0.475.0"
+    "zod": "*"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/react": "*",
-    "@types/react-dom": "19.1.2",
+    "@types/react-dom": "19.2.3",
+    "next": "*",
     "react": "*",
     "react-dom": "*",
-    "typescript": "5.7.3"
+    "typescript": "5.9.3"
   },
-  "main": "./components/index.tsx",
-  "types": "./components/index.tsx",
+  "main": "./src/components/index.tsx",
+  "types": "./src/components/index.tsx",
   "peerDependencies": {
+    "next": "*",
     "react": "*",
     "react-dom": "*"
   }

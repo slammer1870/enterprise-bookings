@@ -67,7 +67,8 @@ import { productUpdated } from "../src/webhooks/product-updated";
 
 import { User, Plan } from "@repo/shared-types";
 
-const TEST_TIMEOUT = 30000; // 30 seconds
+const TEST_TIMEOUT = 30000; // 30 seconds per test
+const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
 let payload: Payload;
 let testUser: User;
@@ -190,7 +191,7 @@ describe("Subscription Webhooks", () => {
         interval: "month",
       },
     })) as Plan;
-  }, TEST_TIMEOUT);
+  }, HOOK_TIMEOUT);
 
   beforeEach(async () => {
     // Clean up subscriptions before each test

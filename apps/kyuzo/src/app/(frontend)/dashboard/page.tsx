@@ -1,5 +1,3 @@
-import { getMeUser } from '@repo/auth'
-
 import ScheduleComponent from '@/components/schedule'
 
 import { getPayload } from 'payload'
@@ -8,16 +6,25 @@ import { redirect } from 'next/navigation'
 
 import config from '@payload-config'
 
-import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
-import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
-
 import { Plan } from '@repo/shared-types'
 import { BookingSuccess } from '@/components/booking-success'
+import { getSession } from '@/lib/auth/context/get-context-props'
+import { headers } from 'next/headers'
+import { DashboardMemberships } from '@/components/dashboard/memberships.client'
 
 export default async function Dashboard() {
-  const { user, token } = await getMeUser({ nullUserRedirect: '/login' })
+  const session = await getSession()
+  if (!session?.user) {
+    redirect('/auth/sign-in')
+  }
 
   const payload = await getPayload({ config })
+
+  const auth = await payload.auth({ headers: await headers(), canSetHeaders: false })
+  const user = auth.user
+  if (!user) {
+    redirect('/auth/sign-in')
+  }
 
   const subscription = await payload.find({
     collection: 'subscriptions',
@@ -31,6 +38,8 @@ export default async function Dashboard() {
       ],
     },
     depth: 3,
+    overrideAccess: false,
+    user,
   })
 
   const allowedPlans = await payload.find({
@@ -39,47 +48,9 @@ export default async function Dashboard() {
       status: { equals: 'active' },
     },
     depth: 2,
+    overrideAccess: false,
+    user,
   })
-
-  const handlePlanPurchase = async (planId?: string) => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-checkout-session`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ price: planId, quantity: 1 }),
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `JWT ${token}`,
-        },
-      },
-    )
-
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    }
-  }
-
-  const handleSubscriptionManagement = async () => {
-    'use server'
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/stripe/create-customer-portal`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `JWT ${token}`,
-        },
-      },
-    )
-    const data = await response.json()
-
-    if (data.url) {
-      redirect(data.url)
-    }
-  }
 
   return (
     <div className="container mx-auto pt-24 px-4 min-h-screen">
@@ -90,19 +61,14 @@ export default async function Dashboard() {
         {!subscription.docs[0] ? (
           <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">
             <h2 className="text-2xl font-medium text-center mb-4">Membership Options</h2>
-            <PlanList
-              plans={allowedPlans.docs as Plan[]}
-              actionLabel="Subscribe"
-              onAction={handlePlanPurchase}
-            />
+            <DashboardMemberships allowedPlans={allowedPlans.docs as Plan[]} subscriptionPlan={null} />
           </div>
         ) : (
           <div className="max-w-screen-sm w-full mx-auto p-6" id="schedule">
             <h2 className="text-2xl font-medium text-center mb-4">Your Subscription</h2>
-            <PlanDetail
-              plan={subscription.docs[0].plan as Plan}
-              actionLabel="Manage Subscription"
-              onAction={handleSubscriptionManagement}
+            <DashboardMemberships
+              allowedPlans={allowedPlans.docs as Plan[]}
+              subscriptionPlan={subscription.docs[0].plan as Plan}
             />
           </div>
         )}

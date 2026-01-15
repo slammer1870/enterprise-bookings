@@ -11,6 +11,23 @@ import Stripe from "stripe";
 import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
+type BetterAuthInstance = {
+  api: {
+    signInMagicLink: (_args: {
+      body: {
+        email: string;
+        callbackURL?: string;
+        newUserCallbackURL?: string;
+        errorCallbackURL?: string;
+      };
+      headers: Headers;
+    }) => Promise<unknown>;
+  };
+};
+
+type PayloadWithBetterAuth = Payload & {
+  betterAuth?: BetterAuthInstance;
+};
 
 /**
  * 1. CONTEXT
@@ -31,11 +48,13 @@ export const createTRPCContext = async (opts: {
   stripe?: Stripe;
 }) => {
   const payload = opts.payload;
+  const betterAuth = (payload as PayloadWithBetterAuth).betterAuth;
 
   return {
     headers: opts.headers,
     payload,
     stripe: opts.stripe,
+    betterAuth,
   };
 };
 /**
@@ -44,7 +63,8 @@ export const createTRPCContext = async (opts: {
  * This is where the trpc api is initialized, connecting the context and
  * transformer
  */
-const t = initTRPC.context<typeof createTRPCContext>().create({
+type Context = Awaited<ReturnType<typeof createTRPCContext>>;
+const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter: ({ shape, error }) => ({
     ...shape,
@@ -143,3 +163,6 @@ export const stripeProtectedProcedure = protectedProcedure.use(async (opts) => {
     },
   });
 });
+
+// Re-export collection utilities for convenience
+export { requireCollections, hasCollection } from "./utils/collections";

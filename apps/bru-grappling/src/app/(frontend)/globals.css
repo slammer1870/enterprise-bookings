@@ -1,50 +1,112 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Import Better Auth UI CSS after Tailwind to ensure proper processing */
+@import '@daveyplate/better-auth-ui/css';
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 100% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --ring: 215 20.2% 65.1%;
-    --radius: 0.5rem;
-  }
+:root {
+  /* IMPORTANT:
+   * Tailwind v4 (used by @repo/ui) expects these CSS variables to be valid CSS colors.
+   * Use `hsl(...)` rather than raw HSL components so overrides apply correctly.
+   * Note: Booking action colors (--checkin, etc.) are kept as raw HSL tuples because
+   * @repo/ui consumes them as `hsl(var(--checkin))` in utility classes.
+   */
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 84% 4.9%);
 
-  .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 1.2%;
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --ring: 216 34% 17%;
-  }
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222.2 84% 4.9%);
+
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222.2 84% 4.9%);
+
+  --primary: hsl(222.2 47.4% 11.2%);
+  --primary-foreground: hsl(210 40% 98%);
+
+  --secondary: hsl(210 40% 96.1%);
+  --secondary-foreground: hsl(222.2 47.4% 11.2%);
+
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
+
+  --accent: hsl(210 40% 96.1%);
+  --accent-foreground: hsl(222.2 47.4% 11.2%);
+
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(210 40% 98%);
+
+  --border: hsl(214.3 31.8% 91.4%);
+  --input: hsl(214.3 31.8% 91.4%);
+  --ring: hsl(222.2 84% 4.9%);
+
+  --radius: 0.5rem;
+
+  /* Check-in button colors - updated to brand yellow */
+  /* Keep as raw HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
+  --checkin: hsl(106, 84%, 42%);
+  --checkin-foreground: hsl(0, 0%, 100%);/* White color */
+
+  /* Other button state colors */
+  --trialable: hsl(197, 84%, 42%);
+  --trialable-foreground: hsl(0, 0%, 100%);
+  --cancel: hsl(0, 84%, 42%);
+  --cancel-foreground: hsl(0, 0%, 100%);
+  --waitlist: hsl(50, 84%, 42%);
+  --waitlist-foreground: hsl(0, 0%, 9%);
+  --children-booked: hsl(271, 84%, 42%);
+  --children-booked-foreground: hsl(0, 0%, 9%);
+  --closed: hsl(0, 0%, 50%);
+  --closed-foreground: hsl(0, 0%, 9%);
 }
+
+/* Override Tailwind theme tokens to use app-specific primary color */
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+}
+
+/* Support both `.dark` (shadcn/@repo/ui default) and `[data-theme='dark']` (some libs) */
+.dark,
+[data-theme='dark'] {
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
+
+  --card: hsl(222.2 84% 4.9%);
+  --card-foreground: hsl(210 40% 98%);
+
+  --popover: hsl(222.2 84% 4.9%);
+  --popover-foreground: hsl(210 40% 98%);
+
+  --primary: hsl(210 40% 98%);
+  --primary-foreground: hsl(222.2 47.4% 11.2%);
+
+  --secondary: hsl(217.2 32.6% 17.5%);
+  --secondary-foreground: hsl(210 40% 98%);
+
+  --muted: hsl(217.2 32.6% 17.5%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+
+  --accent: hsl(217.2 32.6% 17.5%);
+  --accent-foreground: hsl(210 40% 98%);
+
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
+
+  --border: hsl(217.2 32.6% 17.5%);
+  --input: hsl(217.2 32.6% 17.5%);
+  --ring: hsl(212.7 26.8% 83.9%);
+
+  /* Check-in button colors for dark mode */
+  --checkin: 45 94% 52%;
+  --checkin-foreground: 210 40% 98%;
+
+  /* Other button state colors for dark mode */
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 62.8% 30.6%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+}
+

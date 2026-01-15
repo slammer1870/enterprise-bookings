@@ -1,6 +1,6 @@
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
-import { RegisterLoginTabs } from '@repo/auth'
+import { RegisterLoginTabs } from '@repo/auth-next'
 
 export default async function Login() {
   const user = await getMeUser({ validUserRedirect: '/' })

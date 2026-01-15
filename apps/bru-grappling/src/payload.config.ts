@@ -7,6 +7,8 @@ import { resendAdapter } from '@payloadcms/email-resend'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
 
+import { migrations } from './migrations'
+
 import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
@@ -16,9 +18,9 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
-import { magicLinkPlugin } from '@repo/auth/server'
-import { bookingsPlugin } from '@repo/bookings'
-import { paymentsPlugin } from '@repo/payments'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import {
   membershipsPlugin,
   productUpdated,
@@ -31,24 +33,25 @@ import { rolesPlugin } from '@repo/roles'
 import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
 
-import { Posts } from '@repo/website/src/collections/posts'
+import { Posts } from '@repo/website'
 
 import {
   childrenCreateBookingMembershipAccess,
   childrenUpdateBookingMembershipAccess,
+  isBookingAdminOrParentOrOwner,
 } from '@repo/shared-services'
 
-import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
+import { paymentIntentSucceeded } from '@repo/payments-plugin'
 
-import { paymentIntentSucceeded } from '@repo/payments/src/webhooks/payment-intent-suceeded'
-
-import { setLockout } from '@repo/bookings/src/hooks/set-lockout'
 import { checkRole } from '@repo/shared-utils'
 
 import { User } from '@repo/shared-types'
+import { betterAuthPluginOptions } from './lib/auth/options'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+const allowedOrigins = [process.env.NEXT_PUBLIC_SERVER_URL].filter(Boolean) as string[]
 
 export default buildConfig({
   admin: {
@@ -58,6 +61,8 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Pages, Posts],
+  cors: allowedOrigins,
+  csrf: allowedOrigins,
   editor: lexicalEditor(),
   email: resendAdapter({
     defaultFromAddress: 'hello@brugrappling.com',
@@ -68,16 +73,25 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
+  graphQL: {
+    disablePlaygroundInProduction: true,
+    disable: true, // Disable GraphQL to avoid schema validation errors
+  },
   db: postgresAdapter({
     pool: {
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
+    ...(process.env.NODE_ENV === 'test' || process.env.CI
+      ? {
+          migrations: migrations,
+          push: false, // Disable automatic schema pushing in test/CI - rely on migrations only
+        }
+      : {}),
   }),
   globals: [Navbar, Footer],
   sharp: sharp as unknown as SharpDependency,
   plugins: [
-    //payloadCloudPlugin(),
     formBuilderPlugin({
       formOverrides: {
         access: {
@@ -94,42 +108,15 @@ export default buildConfig({
         },
       },
     }),
-    magicLinkPlugin({
-      enabled: true,
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-      appName: 'Brú Grappling',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
+      roles: ['user', 'admin'],
+      defaultRole: 'user',
+      firstUserRole: 'admin',
     }),
     bookingsPlugin({
       enabled: true,
-      lessonOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'originalLockOutTime',
-            type: 'number',
-            admin: {
-              hidden: true,
-            },
-          },
-        ],
-        hooks: ({ defaultHooks }) => ({
-          ...defaultHooks,
-          beforeOperation: [
-            ...(defaultHooks.beforeOperation || []),
-            async ({ args, operation }) => {
-              if (operation === 'create') {
-                args.data.originalLockOutTime = args.data.lockOutTime
-              }
-
-              return args
-            },
-          ],
-        }),
-      },
       classOptionsOverrides: {
         fields: ({ defaultFields }) => [
           ...defaultFields,
@@ -174,10 +161,6 @@ export default buildConfig({
         ],
       },
       bookingOverrides: {
-        hooks: ({ defaultHooks }) => ({
-          ...defaultHooks,
-          afterChange: [...(defaultHooks.afterChange || []), setLockout],
-        }),
         access: ({ defaultAccess }) => ({
           ...defaultAccess,
           read: isBookingAdminOrParentOrOwner,
@@ -258,8 +241,8 @@ export default buildConfig({
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',
-      generateTitle: ({ doc }) => `Brú Grappling — ${doc.title}`,
-      generateDescription: ({ doc }) => doc.excerpt,
+      generateTitle: ({ doc }) => `${doc.title} | Brú Grappling`,
+      generateDescription: ({ doc }) => doc.excerpt || doc.meta?.description,
     }),
   ],
 })

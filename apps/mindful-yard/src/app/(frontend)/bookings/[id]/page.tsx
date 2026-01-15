@@ -1,6 +1,6 @@
-import { getMeUser } from '@repo/auth'
+import { getMeUser } from '@repo/auth-next'
 
-import { checkInAction } from '@repo/bookings/src/actions/bookings'
+import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 
 import { Lesson } from '@repo/shared-types'
 

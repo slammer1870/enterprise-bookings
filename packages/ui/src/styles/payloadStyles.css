@@ -1,0 +1,386 @@
+/* src/styles/payloadStyles.css */
+
+/* Define the Tailwind layers in the correct order */
+@layer theme, base, components, utilities;
+
+/* Import the Tailwind theme styles */
+@import "tailwindcss/theme.css" layer(theme);
+
+/* Skip the preflight reset to avoid conflicts with Payload's admin styles */
+/* @import 'tailwindcss/preflight.css' layer(base); */
+
+/* Import Tailwind utilities */
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@source "../../../../apps/**/*.{ts,tsx}";
+@source "../../../../components/**/*.{ts,tsx}";
+@source "../../../../packages/**/*.{ts,tsx}";
+@source "../**/*.{ts,tsx}";
+
+/* Support Payload’s dark mode toggle by adding a custom variant */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Booking action colors (defaults can be overridden per app) */
+  --checkin: 142 76% 36%;
+  --checkin-foreground: 0 0% 98%;
+  --trialable: 217 91% 60%;
+  --trialable-foreground: 0 0% 98%;
+  --cancel: 0 84.2% 60.2%;
+  --cancel-foreground: 0 0% 98%;
+  --waitlist: 38 92% 50%;
+  --waitlist-foreground: 0 0% 98%;
+  --children-booked: 271 91% 65%;
+  --children-booked-foreground: 0 0% 98%;
+  --closed: 0 0% 50%;
+  --closed-foreground: 0 0% 98%;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+
+  /* Booking action colors (dark mode defaults) */
+  /* These can be complete color values: hsl(...), oklch(...), or any valid CSS color */
+  --checkin: hsl(142 76% 36%);
+  --checkin-foreground: hsl(0 0% 98%);
+  --trialable: hsl(217 91% 60%);
+  --trialable-foreground: hsl(0 0% 98%);
+  --cancel: hsl(0 62.8% 30.6%);
+  --cancel-foreground: hsl(0 0% 98%);
+  --waitlist: hsl(38 92% 50%);
+  --waitlist-foreground: hsl(0 0% 98%);
+  --children-booked: hsl(271 91% 65%);
+  --children-booked-foreground: hsl(0 0% 98%);
+  --closed: hsl(0 0% 50%);
+  --closed-foreground: hsl(0 0% 98%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-checkin: var(--checkin);
+  --color-checkin-foreground: var(--checkin-foreground);
+  --color-trialable: var(--trialable);
+  --color-trialable-foreground: var(--trialable-foreground);
+  --color-cancel: var(--cancel);
+  --color-cancel-foreground: var(--cancel-foreground);
+  --color-waitlist: var(--waitlist);
+  --color-waitlist-foreground: var(--waitlist-foreground);
+  --color-childrenBooked: var(--children-booked);
+  --color-childrenBooked-foreground: var(--children-booked-foreground);
+  --color-closed: var(--closed);
+  --color-closed-foreground: var(--closed-foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Fix for Tailwind v4: Ensure responsive display utilities override base hidden/block */
+@layer utilities {
+  @media (min-width: 768px) {
+    .md\:block {
+      display: block !important;
+    }
+    .md\:hidden {
+      display: none !important;
+    }
+  }
+
+  /* Ensure gap utilities work */
+  .gap-2 {
+    gap: 0.5rem; /* 8px */
+  }
+  .gap-3 {
+    gap: 0.75rem; /* 12px */
+  }
+  .gap-4 {
+    gap: 1rem; /* 16px */
+  }
+  .gap-6 {
+    gap: 1.5rem; /* 24px */
+  }
+  .gap-8 {
+    gap: 2rem; /* 32px */
+  }
+
+  /* Booking action utilities (explicit until Tailwind tokens cover packages) */
+  /* These now accept any valid CSS color format: hsl(...), oklch(...), etc. */
+  .bg-checkin {
+    background-color: var(--checkin);
+  }
+  .hover\:bg-checkin\/90:hover {
+    background-color: color-mix(in srgb, var(--checkin) 90%, transparent);
+  }
+  .text-checkin-foreground {
+    color: var(--checkin-foreground);
+  }
+
+  .bg-trialable {
+    background-color: var(--trialable);
+  }
+  .hover\:bg-trialable\/90:hover {
+    background-color: color-mix(in srgb, var(--trialable) 90%, transparent);
+  }
+  .text-trialable-foreground {
+    color: var(--trialable-foreground);
+  }
+
+  .bg-cancel {
+    background-color: var(--cancel);
+  }
+  .hover\:bg-cancel\/90:hover {
+    background-color: color-mix(in srgb, var(--cancel) 90%, transparent);
+  }
+  .text-cancel-foreground {
+    color: var(--cancel-foreground);
+  }
+
+  .bg-waitlist {
+    background-color: var(--waitlist);
+  }
+  .hover\:bg-waitlist\/90:hover {
+    background-color: color-mix(in srgb, var(--waitlist) 90%, transparent);
+  }
+  .text-waitlist-foreground {
+    color: var(--waitlist-foreground);
+  }
+
+  .bg-childrenBooked {
+    background-color: var(--children-booked);
+  }
+  .hover\:bg-childrenBooked\/90:hover {
+    background-color: color-mix(in srgb, var(--children-booked) 90%, transparent);
+  }
+  .text-childrenBooked-foreground {
+    color: var(--children-booked-foreground);
+  }
+
+  .bg-closed {
+    background-color: var(--closed);
+  }
+  .hover\:bg-closed\/90:hover {
+    background-color: color-mix(in srgb, var(--closed) 90%, transparent);
+  }
+  .text-closed-foreground {
+    color: var(--closed-foreground);
+  }
+}
+
+/* Ensure confirmation dialogs are properly centered */
+[data-radix-dialog-content] {
+  position: fixed !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Calendar-specific overrides to prevent PayloadCMS admin style conflicts */
+[data-slot="calendar"] {
+  /* Reset any PayloadCMS table styles that might interfere */
+  table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  td,
+  th {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  /* Ensure calendar buttons aren't affected by PayloadCMS button styles */
+  button {
+    border: none !important;
+    background: inherit !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fix for react-day-picker specific classes */
+  .rdp-button {
+    border: none !important;
+    background: inherit !important;
+    color: var(--foreground) !important;
+    cursor: pointer !important;
+  }
+
+  .rdp-button:hover {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* Ensure calendar cells maintain proper sizing */
+  .rdp-day {
+    width: var(--cell-size, 2rem) !important;
+    height: var(--cell-size, 2rem) !important;
+  }
+
+  /* Fix spacing issues */
+  .rdp-week {
+    gap: 0 !important;
+  }
+
+  /* Ensure proper text alignment */
+  .rdp-day_button {
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Consistent text color, gray backgrounds for selected/hovered */
+  button {
+    color: var(--foreground) !important; /* Keep text color consistent */
+    font-size: 0.85rem !important; /* Smaller numbers */
+  }
+
+  /* Selected buttons - gray background */
+  button[data-selected-single="true"],
+  button[data-range-start="true"],
+  button[data-range-end="true"] {
+    background: oklch(0.85 0 0) !important; /* Gray background */
+    color: var(--foreground) !important; /* Keep text color the same */
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Hovered buttons - light gray background */
+  button:hover:not([data-selected-single="true"]):not(
+      [data-range-start="true"]
+    ):not([data-range-end="true"]) {
+    background: oklch(0.95 0 0) !important; /* Light gray background */
+    color: var(--foreground) !important; /* Keep text color the same */
+  }
+
+  /* Selected buttons on hover - keep gray background */
+  button[data-selected-single="true"]:hover,
+  button[data-range-start="true"]:hover,
+  button[data-range-end="true"]:hover {
+    background: oklch(0.85 0 0) !important; /* Keep gray background */
+    color: var(--foreground) !important; /* Keep text color the same */
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Range middle (between start and end) */
+  button[data-range-middle="true"] {
+    background: oklch(0.9 0 0) !important; /* Light gray */
+    color: var(--foreground) !important; /* Keep text color the same */
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}

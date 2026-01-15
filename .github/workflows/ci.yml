@@ -118,9 +118,9 @@ jobs:
     strategy:
       matrix:
         package:
-          - auth
-          - bookings
-          - payments
+          - auth-plugin
+          - bookings-plugin
+          - payments-plugin
           - memberships
           - integration-testing
     env:
@@ -217,7 +217,14 @@ jobs:
           sudo usermod -aG docker $USER
 
       - name: Run tests for ${{ matrix.package }} package
-        run: pnpm --filter @repo/${{ matrix.package }} test
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter "@repo/${{ matrix.package }}" test | tee pnpm-test.log
+          if grep -q "No projects matched the filters" pnpm-test.log; then
+            echo "ERROR: No workspace matched filter @repo/${{ matrix.package }} (check package name / workspace config)."
+            exit 1
+          fi
         env:
           # Ensure TestContainers can access Docker
           DOCKER_HOST: unix:///var/run/docker.sock
@@ -229,12 +236,27 @@ jobs:
     strategy:
       matrix:
         app:
-          - name: e2e-kyuzo
+          - name: kyuzo
             db: e2e_kyuzo
+            app_path: apps/kyuzo
+          - name: boatyard-sauna
+            db: e2e_boatyard_sauna
+            app_path: apps/boatyard-sauna
+          - name: bru-grappling
+            db: e2e_bru_grappling
+            app_path: apps/bru-grappling
+          - name: darkhorse-strength
+            db: e2e_darkhorse_strength
+            app_path: apps/darkhorse-strength
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
-      STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_1234567890' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY || 'pk_test_1234567890' }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || 'whsec_1234567890' }}
+      PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY: ${{ secrets.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY || 'true' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'resend_api_key_1234567890' }}
+      ENABLE_TEST_MAGIC_LINKS: "true"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       TURBO_REMOTE_ONLY: true
@@ -304,19 +326,31 @@ jobs:
           done
           echo "Postgres is up!"
 
+      - name: Run database migrations for ${{ matrix.app.name }}
+        env:
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
+          NODE_ENV: test
+          CI: true
+        run: |
+          pnpm run payload migrate:fresh --force-accept-warning
+          sleep 2  # Give migrations time to fully complete
+        working-directory: ${{ matrix.app.app_path }}
+
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
-        working-directory: packages/e2e-kyuzo
+        working-directory: ${{ matrix.app.app_path }}
 
       - name: Run E2E tests for ${{ matrix.app.name }}
         run: pnpm test:e2e:ci
+        working-directory: ${{ matrix.app.app_path }}
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-${{ matrix.app.name }}
-          path: packages/e2e-kyuzo/playwright-report/
+          path: ${{ matrix.app.app_path }}/playwright-report/
           retention-days: 30
 
       - name: Upload Test Results
@@ -324,5 +358,5 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: test-results-${{ matrix.app.name }}
-          path: packages/e2e-kyuzo/test-results/
+          path: ${{ matrix.app.app_path }}/test-results/
           retention-days: 30

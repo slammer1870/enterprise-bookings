@@ -44,3 +44,35 @@ export const generatePasswordSaltHash = async ({
 
   return { hash, salt };
 };
+
+/**
+ * Verify a password against a legacy Payload PBKDF2 hash.
+ * Used for migrating users from Payload's built-in auth to Better Auth.
+ *
+ * @param password - The plaintext password to verify
+ * @param salt - The hex-encoded salt from the users table
+ * @param hash - The hex-encoded hash from the users table
+ * @returns true if the password matches, false otherwise
+ */
+export const verifyLegacyPayloadPassword = async (
+  password: string,
+  salt: string,
+  hash: string
+): Promise<boolean> => {
+  if (!password || !salt || !hash) {
+    return false;
+  }
+
+  try {
+    const computedHashRaw = await pbkdf2Promisified(password, salt);
+    const computedHash = computedHashRaw.toString("hex");
+    
+    // Use timing-safe comparison to prevent timing attacks
+    return crypto.timingSafeEqual(
+      Buffer.from(computedHash, "hex"),
+      Buffer.from(hash, "hex")
+    );
+  } catch {
+    return false;
+  }
+};

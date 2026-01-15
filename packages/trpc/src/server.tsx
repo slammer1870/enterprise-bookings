@@ -1,4 +1,3 @@
-import type { TRPCQueryOptions } from "@trpc/tanstack-react-query";
 import { cache } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
@@ -6,38 +5,27 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "./root";
 import { appRouter } from "./root";
 import { createQueryClient } from "./query-client";
-import { Payload } from "payload";
-import Stripe from "stripe";
+import { createTRPCContext } from "./trpc";
 import { User } from "@repo/shared-types";
 
-interface CreateServerContextOptions {
-  payload: Payload;
-  headers: Headers;
-  stripe?: Stripe;
-}
+type CreateServerContextOptions = Parameters<typeof createTRPCContext>[0];
+type BaseTRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
 
 /**
  * Creates server-side tRPC context
  * Apps should call this with their payload instance
  */
-export const createServerTRPCContext = (opts: CreateServerContextOptions) => {
-  return {
-    headers: opts.headers,
-    payload: opts.payload,
-    stripe: opts.stripe,
-  };
+export const createServerTRPCContext = async (
+  opts: CreateServerContextOptions
+) => {
+  return createTRPCContext(opts);
 };
 
 /**
  * Factory function to create server-side tRPC utilities for a specific app
  */
 export function createServerTRPC(
-  createContext: () => Promise<{
-    headers: Headers;
-    payload: Payload;
-    stripe: Stripe | undefined;
-    user?: User;
-  }>
+  createContext: () => Promise<BaseTRPCContext & { user?: User }>
 ) {
   const getQueryClient = cache(createQueryClient);
 
@@ -59,16 +47,13 @@ export function createServerTRPC(
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function prefetch<T extends ReturnType<any>>(queryOptions: T) {
+  function prefetch<T>(queryOptions: T) {
     const queryClient = getQueryClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-    if ((queryOptions as any)?.queryKey?.[1]?.type === "infinite") {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      void queryClient.prefetchInfiniteQuery(queryOptions as any);
+    const opts = queryOptions as { queryKey?: [unknown, { type?: string }] };
+    if (opts?.queryKey?.[1]?.type === "infinite") {
+      void queryClient.prefetchInfiniteQuery(queryOptions as Parameters<typeof queryClient.prefetchInfiniteQuery>[0]);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-      void queryClient.prefetchQuery(queryOptions as any);
+      void queryClient.prefetchQuery(queryOptions as Parameters<typeof queryClient.prefetchQuery>[0]);
     }
   }
 

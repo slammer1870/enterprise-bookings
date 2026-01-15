@@ -1,0 +1,42 @@
+{
+  "name": "@repo/payments-plugin",
+  "version": "0.0.1",
+  "dependencies": {
+    "@payloadcms/plugin-stripe": "*",
+    "@payloadcms/ui": "*",
+    "@repo/roles": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@stripe/react-stripe-js": "^5.4.0",
+    "@stripe/stripe-js": "^8.5.2",
+    "payload": "*",
+    "sonner": "*",
+    "stripe": "*"
+  },
+  "devDependencies": {
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/payload-cloud": "*",
+    "@payloadcms/richtext-lexical": "*",
+    "@repo/analytics": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
+    "@repo/testing-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^24.10.1",
+    "@types/react": "*",
+    "@types/react-dom": "19.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "15.5.6",
+    "sharp": "0.34.5",
+    "typescript": "5.9.3",
+    "vitest": "4.0.12"
+  },
+  "peerDependencies": {
+    "next": "*"
+  },
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest --hook-timeout=300000"
+  },
+  "type": "module"
+}

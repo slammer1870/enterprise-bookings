@@ -1,39 +1,34 @@
-import { getMeUser } from '@repo/auth'
-
-import { checkInAction } from '@repo/bookings/src/actions/bookings'
-
-import { Lesson, Subscription } from '@repo/shared-types'
+import { Lesson } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
-import { BookingSummary } from '@repo/bookings/src/components/ui/booking-summary'
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
+import { BookingSummary } from '@repo/bookings-next'
 
 import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { hasReachedSubscriptionLimit } from '@repo/shared-services'
+import { getSession } from '@/lib/auth/context/get-context-props'
+import { MembershipPaymentMethods } from '@repo/payments-next'
+import { buildCompleteBookingUrl } from '@repo/shared-utils'
+import { createCaller } from '@/trpc/server'
 
-import { PlanView } from '@repo/memberships/src/components/plans/plan-view'
-
-import { BookingDetails } from '@repo/shared-types'
-
-// Add these new types
 type BookingPageProps = {
-  params: Promise<{ id: number }>
+  params: Promise<{ id: string }>
 }
 
 export default async function BookingPage({ params }: BookingPageProps) {
-  const { id } = await params
+  const { id: idParam } = await params
+  const id = parseInt(idParam, 10)
+  if (Number.isNaN(id)) {
+    redirect('/dashboard')
+  }
+
+  const session = await getSession()
+  const user = session?.user
+  if (!user) redirect(buildCompleteBookingUrl({ mode: 'login', callbackUrl: `/bookings/${id}` }))
 
   const payload = await getPayload({ config })
-
-  // Auth check
-  const { user } = await getMeUser({
-    nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
-  })
 
   const lessonQuery = await payload.find({
     collection: 'lessons',
@@ -41,6 +36,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
       id: { equals: id },
     },
     depth: 5,
+    overrideAccess: false,
+    user,
   })
 
   const lesson = lessonQuery.docs[0] as Lesson
@@ -49,79 +46,32 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
-  if (lesson.classOption.type != 'adult') redirect('/dashboard')
+  if (lesson.classOption.type !== 'adult') redirect('/dashboard')
 
   if (['booked', 'closed'].includes(lesson.bookingStatus)) {
     redirect('/dashboard')
   }
 
-  // Handle active/trialable status
-  if (['active', 'trialable'].includes(lesson.bookingStatus)) {
-    const checkIn = await checkInAction(lesson.id, user.id)
-    if (checkIn.success) {
-      redirect('/dashboard')
-    }
+  // Align with Bru methodology: attempt check-in if lesson status allows it.
+  const caller = await createCaller()
+  const checkInResult = await caller.bookings.validateAndAttemptCheckIn({ lessonId: id })
+
+  if (checkInResult.shouldRedirect) {
+    redirect('/dashboard')
+  }
+
+  if (checkInResult.error === 'REDIRECT_TO_CHILDREN_BOOKING' && checkInResult.redirectUrl) {
+    redirect(checkInResult.redirectUrl)
   }
 
   if (lesson.remainingCapacity <= 0) {
     redirect('/dashboard')
   }
 
-  // Extract booking details
-  const bookingDetails: BookingDetails = {
-    date: lesson.date,
-    startTime: lesson.startTime,
-    endTime: lesson.endTime,
-    bookingType: lesson.classOption.name,
-  }
-
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans?.filter(
-    (plan) => plan.status === 'active',
-  )
-
-  const subscriptionQuery = await payload.find({
-    collection: 'subscriptions',
-    where: {
-      and: [
-        {
-          user: { equals: user.id },
-          status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
-        },
-      ],
-    },
-    depth: 3,
-  })
-
-  const subscription = subscriptionQuery.docs[0] as unknown as Subscription | null
-
-  const subscriptionLimitReached = subscription
-    ? await hasReachedSubscriptionLimit(subscription, payload, new Date(lesson.date))
-    : false
-
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
       <BookingSummary lesson={lesson} />
-      <div className="">
-        <h4 className="font-medium">Payment Methods</h4>
-        <p className="font-light text-sm">Please select a payment method to continue:</p>
-      </div>
-      <Tabs defaultValue="membership">
-        <TabsList className="flex w-full justify-around gap-4">
-          {allowedPlans && allowedPlans.length > 0 && (
-            <TabsTrigger value="membership" className="w-full">
-              Membership
-            </TabsTrigger>
-          )}
-        </TabsList>
-        <TabsContent value="membership">
-          <PlanView
-            allowedPlans={allowedPlans}
-            subscription={subscription}
-            lessonDate={new Date(lesson.date)}
-            subscriptionLimitReached={subscriptionLimitReached}
-          />
-        </TabsContent>
-      </Tabs>
+      <MembershipPaymentMethods lesson={lesson} />
     </div>
   )
 }

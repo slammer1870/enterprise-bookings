@@ -114,22 +114,33 @@ export const membershipsPlugin =
           ],
         });
       } else {
-        paymentMethodsField.fields.push({
-          name: "allowedPlans",
-          type: "relationship",
-          relationTo: "plans" as CollectionSlug,
+        const hasAllowedPlans = paymentMethodsField.fields.some(
+          (field) => "name" in field && field.name === "allowedPlans"
+        );
+        if (!hasAllowedPlans) {
+          paymentMethodsField.fields.push({
+            name: "allowedPlans",
+            type: "relationship",
+            relationTo: "plans" as CollectionSlug,
+            hasMany: true,
+          });
+        }
+      }
+
+      const joinFieldName = `${slug}PaymentMethods`;
+      const hasJoinField = plansCollection.fields.some(
+        (field) => "name" in field && field.name === joinFieldName
+      );
+      if (!hasJoinField) {
+        plansCollection.fields.push({
+          name: joinFieldName,
+          label: `${collection.labels?.singular} Payment Methods`,
+          type: "join",
+          collection: slug as CollectionSlug,
+          on: "paymentMethods.allowedPlans",
           hasMany: true,
         });
       }
-
-      plansCollection.fields.push({
-        name: `${slug}PaymentMethods`,
-        label: `${collection.labels?.singular} Payment Methods`,
-        type: "join",
-        collection: slug as CollectionSlug,
-        on: "paymentMethods.allowedPlans",
-        hasMany: true,
-      });
 
       collections = collections.filter(
         (collection) => collection.slug !== "plans"

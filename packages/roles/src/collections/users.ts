@@ -12,7 +12,7 @@ export const modifyUsersCollection = (
 
   const roles = pluginOptions.roles || [];
   const firstUserRole = pluginOptions.firstUserRole || "admin";
-  const defaultRole = pluginOptions.defaultRole || "customer";
+  const defaultRole = pluginOptions.defaultRole || "user";
 
   if (!roles.includes(defaultRole)) {
     roles.push(defaultRole);

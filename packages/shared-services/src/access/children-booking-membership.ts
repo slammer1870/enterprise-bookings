@@ -1,5 +1,5 @@
 import { Booking, Lesson, User } from "@repo/shared-types";
-import { AccessArgs } from "payload";
+import { AccessArgs, CollectionSlug } from "payload";
 import { validateLessonStatus, validateLessonPaymentMethods } from "../lesson";
 import { checkRole } from "@repo/shared-utils";
 
@@ -21,7 +21,7 @@ export const childrenCreateBookingMembershipAccess = async ({
   let user: User;
 
   user = (await payload.findByID({
-    collection: "users",
+    collection: "users" as CollectionSlug,
     id: userId,
     depth: 2,
   })) as User;
@@ -33,17 +33,25 @@ export const childrenCreateBookingMembershipAccess = async ({
 
   if (checkRole(["admin"], user)) return true;
 
-  if (!data?.lesson) {
-    payload.logger.error(`Lesson is required (lessonId: ${data?.lesson?.id})`);
+  // Payload access `data` shape can vary depending on caller (local API, REST, custom actions).
+  // Prefer the relationship field `lesson`, but fall back to common alternate keys.
+  const rawLesson: any =
+    (data as any)?.lesson ??
+    (data as any)?.lessonId ??
+    (data as any)?.lesson_id;
+
+  if (!rawLesson) {
+    payload.logger.error(
+      `Lesson is required (lessonId: ${String((data as any)?.lessonId)})`
+    );
     return false;
   }
 
-  const lessonId =
-    typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
+  const lessonId = typeof rawLesson === "object" ? rawLesson.id : rawLesson;
 
   try {
     const lesson = (await payload.findByID({
-      collection: "lessons",
+      collection: "lessons" as CollectionSlug,
       id: lessonId,
       depth: 3,
     })) as unknown as Lesson;
@@ -63,23 +71,27 @@ export const childrenCreateBookingMembershipAccess = async ({
         typeof user.parent === "object" ? user.parent.id : user.parent;
 
       user = (await payload.findByID({
-        collection: "users",
+        collection: "users" as CollectionSlug,
         id: parentId,
       })) as User;
     }
 
-    if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
-      payload.logger.info(`User is on waitlist (userId: ${userId}, lessonId: ${lessonId})`);
+    if (lesson.bookingStatus === "waitlist" && data?.status === "waiting") {
+      payload.logger.info(
+        `User is on waitlist (userId: ${userId}, lessonId: ${lessonId})`
+      );
       return true;
     }
 
-    if (data.status === "pending") {
+    if (data?.status === "pending") {
       payload.logger.info(`Booking is pending (bookingId: ${data.id})`);
       return true;
     }
 
     if (!validateLessonStatus(lesson)) {
-      payload.logger.error(`Lesson status is not valid (lessonId: ${lesson.id})`);
+      payload.logger.error(
+        `Lesson status is not valid (lessonId: ${lesson.id})`
+      );
       return false;
     }
 
@@ -98,7 +110,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
   data,
 }: AccessArgs<Booking>): Promise<boolean> => {
   if (!req.user) {
-    req.payload.logger.error("User is not authenticated");
+    // Silently return false - this is expected for unauthenticated requests
     return false;
   }
 
@@ -116,8 +128,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
   if (!lessonId || !userId) {
     // If this is called during a read operation (no specific booking ID), allow it
     // The actual read access control is handled by the read access function
-
-    req.payload.logger.error(`Lesson ID or User ID is required (lessonId: ${lessonId}, userId: ${userId})`);
+    // Silently return false - this is expected during read operations
     return false;
   }
 
@@ -126,7 +137,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
   let user: User;
 
   user = (await payload.findByID({
-    collection: "users",
+    collection: "users" as CollectionSlug,
     id: userId,
   })) as User;
 
@@ -135,13 +146,13 @@ export const childrenUpdateBookingMembershipAccess = async ({
   try {
     if (id) {
       booking = (await payload.findByID({
-        collection: "bookings",
+        collection: "bookings" as CollectionSlug,
         id,
         depth: 3,
       })) as unknown as Booking;
     } else {
       const bookingQuery = await payload.find({
-        collection: "bookings",
+        collection: "bookings" as CollectionSlug,
         where: {
           lesson: { equals: lessonId },
           user: { equals: userId },
@@ -158,7 +169,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     const lesson = (await payload.findByID({
-      collection: "lessons",
+      collection: "lessons" as CollectionSlug,
       id: booking.lesson.id,
       depth: 3,
     })) as unknown as Lesson;
@@ -173,13 +184,15 @@ export const childrenUpdateBookingMembershipAccess = async ({
         typeof user.parent === "object" ? user.parent.id : user.parent;
 
       user = (await payload.findByID({
-        collection: "users",
+        collection: "users" as CollectionSlug,
         id: parentId,
       })) as User;
     }
 
     if (!lesson || !user) {
-      req.payload.logger.error(`Lesson or user not found (lessonId: ${lessonId}, userId: ${userId})`);
+      req.payload.logger.error(
+        `Lesson or user not found (lessonId: ${lessonId}, userId: ${userId})`
+      );
       return false;
     }
 
@@ -197,13 +210,17 @@ export const childrenUpdateBookingMembershipAccess = async ({
     }
 
     if (!validateLessonStatus(lesson)) {
-      req.payload.logger.error(`Lesson status is not valid (lessonId: ${lesson.id})`);
+      req.payload.logger.error(
+        `Lesson status is not valid (lessonId: ${lesson.id})`
+      );
       return false;
     }
 
     return await validateLessonPaymentMethods(lesson, user, payload);
   } catch (error) {
-    req.payload.logger.error(`Error in childrenUpdateBookingMembershipAccess: ${error instanceof Error ? error.message : String(error)}`);
+    req.payload.logger.error(
+      `Error in childrenUpdateBookingMembershipAccess: ${error instanceof Error ? error.message : String(error)}`
+    );
     return false;
   }
 };

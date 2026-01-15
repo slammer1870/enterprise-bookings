@@ -15,6 +15,14 @@ node_modules
 
 # Testing
 coverage
+.test-database-uri
+test-results/
+playwright-report/
+*.trace.zip
+**/test-results/**/*.png
+**/test-results/**/*.jpg
+**/test-results/**/*.jpeg
+**/screenshots/
 
 # Turbo
 .turbo
@@ -37,3 +45,4 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+node_modules

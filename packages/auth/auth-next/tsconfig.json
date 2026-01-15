@@ -1,0 +1,16 @@
+{
+  "extends": "@repo/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@repo/auth-next/*": ["./src/*"],
+      "@repo/shared-utils": ["../../shared-utils/src/index.ts"],
+      "@repo/shared-utils/*": ["../../shared-utils/src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}
+
+
+

@@ -1,7 +1,15 @@
 import React from 'react'
-import './globals.css'
 
-import { AuthProvider } from '@repo/auth'
+import '@repo/ui/globals.css'
+import './globals.css'
+import '@daveyplate/better-auth-ui/css'
+
+import { TRPCReactProvider } from '@repo/trpc'
+import { Suspense } from 'react'
+
+import { BetterAuthProvider } from '@/lib/auth/context'
+import { BetterAuthUIProvider } from '@/lib/auth/provider'
+import { getContextProps } from '@/lib/auth/context/get-context-props'
 
 import Navbar from '@/components/navbar'
 import Footer from '@/components/footer'
@@ -21,16 +29,23 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <PlausibleProvider domain="darkhorsestrength.ie">
-        <AuthProvider>
-          <body>
-            <main>
-              <Navbar />
-              {children}
-              <Footer />
-            </main>
-            <Toaster />
-          </body>
-        </AuthProvider>
+        <BetterAuthProvider {...getContextProps()}>
+          <TRPCReactProvider>
+            <body>
+              <BetterAuthUIProvider>
+                <Suspense fallback={null}>
+                  {/* reserved for any future trackers/hooks that rely on client navigation */}
+                </Suspense>
+                <main>
+                  <Navbar />
+                  {children}
+                  <Footer />
+                </main>
+                <Toaster />
+              </BetterAuthUIProvider>
+            </body>
+          </TRPCReactProvider>
+        </BetterAuthProvider>
       </PlausibleProvider>
     </html>
   )

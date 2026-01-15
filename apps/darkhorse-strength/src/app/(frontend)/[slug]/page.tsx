@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getPayload, RequiredDataFromCollectionSlug } from 'payload'
+import { getPayload } from 'payload'
 
 import config from '@/payload.config'
 

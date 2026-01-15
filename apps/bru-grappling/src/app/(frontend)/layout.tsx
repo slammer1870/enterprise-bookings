@@ -1,8 +1,8 @@
+import '@repo/ui/globals.css'
 import './globals.css'
 
 import { Roboto } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { AuthProvider } from '@repo/auth'
 import PlausibleProvider from 'next-plausible'
 import Script from 'next/script'
 import { Navbar } from '@/globals/navbar'
@@ -13,6 +13,10 @@ import { Suspense } from 'react'
 import { UTMTracker } from '@repo/analytics'
 import { GoogleTagManager } from '@next/third-parties/google'
 
+import { BetterAuthProvider } from '@/lib/auth/context'
+import { BetterAuthUIProvider } from '@/lib/auth/provider'
+
+import { getContextProps } from '@/lib/auth/context/get-context-props'
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -23,73 +27,25 @@ const roboto = Roboto({
 })
 
 export const metadata = {
-  metadataBase: new URL('https://brugrappling.ie'),
+  metadataBase: process.env.NEXT_PUBLIC_SERVER_URL
+    ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
+    : new URL('https://brugrappling.ie'),
   title: {
-    default: 'Brú Grappling - Brazilian Jiu Jitsu Dublin',
+    default: 'Brú Grappling',
     template: '%s | Brú Grappling',
   },
-  description:
-    'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin. Expert instruction, flexible schedules, and a welcoming community.',
-  keywords: [
-    'Brazilian Jiu Jitsu',
-    'BJJ',
-    'Grappling',
-    'Martial Arts',
-    'Dublin',
-    'Ireland',
-    'Self Defense',
-    'Fitness',
-    'Kids BJJ',
-    'Adult BJJ',
-  ],
-  authors: [{ name: 'Brú Grappling' }],
-  creator: 'Brú Grappling',
-  publisher: 'Brú Grappling',
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
+  description: 'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin.',
   openGraph: {
     type: 'website',
     locale: 'en_IE',
-    url: 'https://brugrappling.ie',
     siteName: 'Brú Grappling',
-    title: 'Brú Grappling - Brazilian Jiu Jitsu Dublin',
-    description:
-      'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin. Expert instruction, flexible schedules, and a welcoming community.',
-    images: [
-      {
-        url: '/logo.png',
-        width: 1200,
-        height: 630,
-        alt: 'Brú Grappling - Brazilian Jiu Jitsu Dublin',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Brú Grappling - Brazilian Jiu Jitsu Dublin',
-    description: 'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin',
-    images: ['/logo.png'],
-    creator: '@brugrappling',
   },
   robots: {
     index: true,
     follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  verification: {
-    google: process.env.GOOGLE_VERIFICATION_CODE,
-  },
-  alternates: {
-    canonical: 'https://brugrappling.ie',
   },
 }
 
@@ -100,15 +56,17 @@ export default async function RootLayout({
   children: React.ReactNode
   unauthenticated: React.ReactNode
 }) {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://brugrappling.ie'
+
   // Organization structured data
   const organizationData = {
     '@context': 'https://schema.org',
     '@type': 'SportsActivityLocation',
     name: 'Brú Grappling',
     description: 'Brazilian Jiu Jitsu and Grappling Academy in Dublin, Ireland',
-    url: 'https://brugrappling.ie',
-    logo: 'https://brugrappling.ie/logo.png',
-    image: 'https://brugrappling.ie/logo.png',
+    url: baseUrl,
+    logo: `${baseUrl}/logo.png`,
+    image: `${baseUrl}/logo.png`,
     address: {
       '@type': 'PostalAddress',
       addressLocality: 'Dublin',
@@ -164,21 +122,23 @@ export default async function RootLayout({
         <GoogleTagManager gtmId="GTM-MLLFFCXN" />
       </head>
       <PlausibleProvider domain="brugrappling.ie">
-        <AuthProvider>
+        <BetterAuthProvider {...getContextProps()}>
           <TRPCReactProvider>
-            <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-right-bottom lg:bg-center">
-              <Suspense fallback={null}>
-                <UTMTracker />
-              </Suspense>
-              <Navbar />
-              {children}
-              {unauthenticated}
-              <Footer />
-              <div id="modal-root" />
-              <Toaster />
+            <body className="relative min-h-screen bg-[url('/web.svg')] bg-cover bg-bottom-right lg:bg-center">
+              <BetterAuthUIProvider>
+                <Suspense fallback={null}>
+                  <UTMTracker />
+                </Suspense>
+                <Navbar />
+                {children}
+                {unauthenticated}
+                <Footer />
+                <div id="modal-root" />
+                <Toaster />
+              </BetterAuthUIProvider>
             </body>
           </TRPCReactProvider>
-        </AuthProvider>
+        </BetterAuthProvider>
       </PlausibleProvider>
     </html>
   )

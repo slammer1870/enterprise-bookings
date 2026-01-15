@@ -6,20 +6,20 @@
   "main": "src/index.ts",
   "peerDependencies": {
     "@payloadcms/plugin-form-builder": "*",
-    "@payloadcms/richtext-lexical": "*",
     "@payloadcms/plugin-seo": "*",
+    "@payloadcms/richtext-lexical": "*",
     "@repo/shared-utils": "workspace:*",
+    "next": "*",
     "payload": "*",
     "react": "*",
     "react-dom": "*",
-    "react-hook-form": "*",
-    "next": "*"
+    "react-hook-form": "*"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@types/react": "*",
-    "@types/react-dom": "19.1.2"
+    "@types/react-dom": "19.2.3"
   },
   "dependencies": {
     "@repo/analytics": "workspace:*",

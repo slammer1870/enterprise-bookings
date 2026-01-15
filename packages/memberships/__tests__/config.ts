@@ -8,8 +8,8 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { membershipsPlugin } from "../src";
-import { bookingsPlugin } from "@repo/bookings";
-import { paymentsPlugin } from "@repo/payments";
+import { bookingsPlugin } from "@repo/bookings-plugin";
+import { paymentsPlugin } from "@repo/payments-plugin";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);

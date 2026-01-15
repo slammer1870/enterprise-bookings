@@ -6,12 +6,13 @@ import { Navbar as NavbarType } from '@/payload-types'
 import { Logo } from '@/graphics/logo'
 import { Button } from '@repo/ui/components/ui/button'
 
-import { useAuth } from '@repo/auth'
+import { signOut, useSession } from '@/lib/auth/client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
 export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) => {
-  const { user, logout } = useAuth()
+  const { data: session } = useSession()
+  const user = session?.user
   const pathname = usePathname()
   const router = useRouter()
 
@@ -23,26 +24,23 @@ export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) =>
         </Link>
         {user ? (
           <div className="flex gap-4 items-center justify-end cursor-pointer">
-            <Link
-              href="/dashboard"
-              className={`${pathname === '/' ? 'text-black lg:text-white' : 'text-black'}`}
-            >
-              Members
-            </Link>
+            <Button asChild variant="link">
+              <Link href="/dashboard">Members</Link>
+            </Button>
             <Button
               onClick={() => {
-                logout().then(() => {
-                  router.push('/')
-                })
+                signOut()
+                  .then(() => router.push('/'))
+                  .finally(() => router.refresh())
               }}
             >
               Logout
             </Button>
           </div>
         ) : (
-          <Link href="/dashboard">
-            <Button>Members</Button>
-          </Link>
+          <Button asChild>
+            <Link href="/dashboard">Members</Link>
+          </Button>
         )}
       </div>
     </div>

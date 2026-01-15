@@ -7,8 +7,8 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "lint": "eslint . --ext .ts,.tsx",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0",
+    "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint . --fix",
     "build": "pnpm trpc:generate || true",
     "trpc:generate": "pnpm tsc --project tsconfig.json"
   },
@@ -16,20 +16,23 @@
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
-    "@tanstack/react-query": "^5.17.15",
-    "@trpc/client": "^11.4.3",
-    "@trpc/next": "^11.4.3",
-    "@trpc/react-query": "^11.4.3",
-    "@trpc/tanstack-react-query": "^11.4.3",
-    "@trpc/server": "^11.4.3",
+    "@tanstack/react-query": "*",
+    "payload-auth": "^1.7.0",
+    "@trpc/client": "^11.7.1",
+    "@trpc/next": "^11.7.1",
+    "@trpc/react-query": "^11.7.1",
+    "@trpc/server": "^11.7.1",
+    "@trpc/tanstack-react-query": "^11.7.1",
     "react": "*",
-    "superjson": "1.9.1",
+    "superjson": "2.2.5",
     "zod": "*"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "*",
-    "typescript": "5.7.3"
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "next": "*",

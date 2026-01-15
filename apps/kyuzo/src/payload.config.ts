@@ -1,6 +1,5 @@
 // storage-adapter-import-placeholder
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { stripePlugin } from '@payloadcms/plugin-stripe'
@@ -14,11 +13,13 @@ import sharp from 'sharp'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { migrations } from './migrations'
 
-import { bookingsPlugin } from '@repo/bookings'
-import { magicLinkPlugin } from '@repo/auth/server'
+import { bookingsPlugin } from '@repo/bookings-plugin'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from './lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
-import { paymentsPlugin } from '@repo/payments'
+import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
 
 import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
@@ -75,6 +76,12 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo',
     },
+    ...(process.env.NODE_ENV === 'test' || process.env.CI
+      ? {
+          migrations,
+          push: false,
+        }
+      : {}),
   }),
   email: resendAdapter({
     defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
@@ -106,14 +113,12 @@ export default buildConfig({
         },
       },
     }),
-    magicLinkPlugin({
-      enabled: true,
-      appName: 'Kyuzo',
-      serverURL: process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000',
-      authCollection: 'users',
-    }),
+    betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
+      roles: ['user', 'admin'],
+      defaultRole: 'user',
+      firstUserRole: 'admin',
     }),
     bookingsPlugin({
       enabled: true,
