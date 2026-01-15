@@ -15,6 +15,7 @@ import sharp from 'sharp'
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
+import { migrations } from './migrations'
 
 import { Posts } from '@repo/website/src/collections/posts'
 
@@ -74,6 +75,12 @@ export default buildConfig({
         process.env.DATABASE_URI ||
         'postgres://postgres:brugrappling@localhost:5432/darkhorse_strength',
     },
+    ...(process.env.NODE_ENV === 'test' || process.env.CI
+      ? {
+          migrations,
+          push: false, // Disable automatic schema pushing in test/CI - rely on migrations only
+        }
+      : {}),
   }),
   sharp: sharp as unknown as SharpDependency,
   plugins: [
