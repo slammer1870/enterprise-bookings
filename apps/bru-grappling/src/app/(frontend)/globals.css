@@ -47,7 +47,7 @@
   --trialable: hsl(197, 84%, 42%);
   --trialable-foreground: hsl(0, 0%, 100%);
   --cancel: hsl(0, 84%, 42%);
-  --cancel-foreground: hsl(0, 0%, 9%);
+  --cancel-foreground: hsl(0, 0%, 100%);
   --waitlist: hsl(50, 84%, 42%);
   --waitlist-foreground: hsl(0, 0%, 9%);
   --children-booked: hsl(271, 84%, 42%);
