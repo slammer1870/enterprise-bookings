@@ -82,6 +82,9 @@ export default buildConfig({
     betterAuthPlugin(betterAuthPluginOptions as any),
     rolesPlugin({
       enabled: true,
+      roles: ['user', 'admin'],
+      defaultRole: 'user',
+      firstUserRole: 'admin',
     }),
     bookingsPlugin({
       enabled: true,

@@ -18,7 +18,7 @@ export type RolesPluginConfig = {
 
   /**
    * Role to assign to users if no roles are set
-   * @default "customer"
+   * @default "user"
    */
   defaultRole?: string;
 

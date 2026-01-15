@@ -15,6 +15,7 @@ import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from '
 import * as migration_20260105_000001_add_admin_invitations from './20260105_000001_add_admin_invitations';
 import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
 import * as migration_20260115_130704 from './20260115_130704';
+import * as migration_20260115_135828 from './20260115_135828';
 
 export const migrations = [
   {
@@ -100,6 +101,11 @@ export const migrations = [
   {
     up: migration_20260115_130704.up,
     down: migration_20260115_130704.down,
-    name: '20260115_130704'
+    name: '20260115_130704',
+  },
+  {
+    up: migration_20260115_135828.up,
+    down: migration_20260115_135828.down,
+    name: '20260115_135828'
   },
 ];
