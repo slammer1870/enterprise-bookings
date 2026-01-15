@@ -256,7 +256,7 @@ export interface User {
   /**
    * The role of the user
    */
-  role: 'admin' | 'customer';
+  role: 'admin' | 'user';
   updatedAt: string;
   createdAt: string;
   /**
@@ -271,7 +271,7 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
-  roles?: ('customer' | 'admin')[] | null;
+  roles?: ('user' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
@@ -556,7 +556,7 @@ export interface Verification {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'customer';
+  role: 'admin' | 'user';
   token: string;
   url?: string | null;
   updatedAt: string;

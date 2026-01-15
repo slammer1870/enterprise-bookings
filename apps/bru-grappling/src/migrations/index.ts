@@ -9,6 +9,7 @@ import * as migration_20251206_170000_add_missing_locked_documents_columns from 
 import * as migration_20251208_153322 from './20251208_153322';
 import * as migration_20251214_230732 from './20251214_230732';
 import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from './20260103_000001_migrate_legacy_users_to_better_auth';
+import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
 
 export const migrations = [
   {
@@ -65,5 +66,10 @@ export const migrations = [
     up: migration_20260103_000001_migrate_legacy_users_to_better_auth.up,
     down: migration_20260103_000001_migrate_legacy_users_to_better_auth.down,
     name: '20260103_000001_migrate_legacy_users_to_better_auth',
+  },
+  {
+    up: migration_20260106_000001_rename_role_customer_to_user.up,
+    down: migration_20260106_000001_rename_role_customer_to_user.down,
+    name: '20260106_000001_rename_role_customer_to_user',
   },
 ];

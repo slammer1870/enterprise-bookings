@@ -279,6 +279,7 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
+  roles?: ('user' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
@@ -1910,6 +1911,7 @@ export interface UsersSelect<T extends boolean = true> {
   banned?: T;
   banReason?: T;
   banExpires?: T;
+  roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
   email?: T;
@@ -2124,6 +2126,10 @@ export interface Scheduler {
                  * Overrides the default lock out time
                  */
                 lockOutTime?: number | null;
+                /**
+                 * Whether the time slot is active and will be shown on the schedule
+                 */
+                active?: boolean | null;
                 id?: string | null;
               }[]
             | null;
@@ -2194,6 +2200,7 @@ export interface SchedulerSelect<T extends boolean = true> {
                     location?: T;
                     instructor?: T;
                     lockOutTime?: T;
+                    active?: T;
                     id?: T;
                   };
               id?: T;

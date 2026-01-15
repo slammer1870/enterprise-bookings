@@ -40,14 +40,14 @@ async function createPlan(page: any, opts: { name: string; type: 'adult' | 'chil
 
 async function createUser(
   page: any,
-  opts: { name: string; email: string; role?: 'customer' | 'admin'; parent?: number | null },
+  opts: { name: string; email: string; role?: 'user' | 'admin'; parent?: number | null },
 ): Promise<Created> {
   return await apiPost(page, '/api/users', {
     name: opts.name,
     email: opts.email,
     password: 'Password123!',
     emailVerified: true,
-    role: opts.role ?? 'customer',
+    role: opts.role ?? 'user',
     parent: typeof opts.parent === 'undefined' ? null : opts.parent,
   })
 }

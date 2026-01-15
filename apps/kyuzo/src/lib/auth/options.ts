@@ -9,9 +9,9 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
 
   roles: {
     adminRoles: ['admin'],
-    defaultRole: 'customer',
+    defaultRole: 'user',
     defaultAdminRole: 'admin',
-    roles: ['customer', 'admin'],
+    roles: ['user', 'admin'],
     allowedFields: ['name'],
   },
 })
