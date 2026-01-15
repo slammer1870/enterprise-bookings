@@ -22,7 +22,7 @@ export const lessonsRouter = {
         "lessons",
         input.id,
         {
-          depth: 2,
+          depth: 3,
           overrideAccess: false,
           user: ctx.user,
         }
@@ -106,7 +106,7 @@ export const lessonsRouter = {
               less_than_equal: endOfDay.toISOString(),
             },
           },
-          depth: 1,
+          depth: 2,
           sort: "startTime",
           overrideAccess: false,
         };
