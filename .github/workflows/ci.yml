@@ -245,6 +245,9 @@ jobs:
           - name: bru-grappling
             db: e2e_bru_grappling
             app_path: apps/bru-grappling
+          - name: darkhorse-strength
+            db: e2e_darkhorse_strength
+            app_path: apps/darkhorse-strength
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}

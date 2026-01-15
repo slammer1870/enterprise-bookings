@@ -239,7 +239,11 @@
     background-color: var(--children-booked);
   }
   .hover\:bg-childrenBooked\/90:hover {
-    background-color: color-mix(in srgb, var(--children-booked) 90%, transparent);
+    background-color: color-mix(
+      in srgb,
+      var(--children-booked) 90%,
+      transparent
+    );
   }
   .text-childrenBooked-foreground {
     color: var(--children-booked-foreground);
