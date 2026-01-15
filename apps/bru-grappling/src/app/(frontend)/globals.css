@@ -41,11 +41,11 @@
   /* Check-in button colors - updated to brand yellow */
   /* Keep as raw HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
   --checkin: hsl(106, 84%, 42%);
-  --checkin-foreground: hsl(0, 0%, 9%);/* White color */
+  --checkin-foreground: hsl(0, 0%, 100%);/* White color */
 
   /* Other button state colors */
   --trialable: hsl(197, 84%, 42%);
-  --trialable-foreground: hsl(0, 0%, 9%);
+  --trialable-foreground: hsl(0, 0%, 100%);
   --cancel: hsl(0, 84%, 42%);
   --cancel-foreground: hsl(0, 0%, 9%);
   --waitlist: hsl(50, 84%, 42%);
