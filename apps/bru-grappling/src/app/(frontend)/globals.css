@@ -40,20 +40,20 @@
 
   /* Check-in button colors - updated to brand yellow */
   /* Keep as raw HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
-  --checkin: 45 94% 52%; /* Yellow */
-  --checkin-foreground: 0 0% 98%; /* White color */
+  --checkin: hsl(106, 84%, 42%);
+  --checkin-foreground: hsl(0, 0%, 9%);/* White color */
 
   /* Other button state colors */
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 84.2% 60.2%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
+  --trialable: hsl(197, 84%, 42%);
+  --trialable-foreground: hsl(0, 0%, 9%);
+  --cancel: hsl(0, 84%, 42%);
+  --cancel-foreground: hsl(0, 0%, 9%);
+  --waitlist: hsl(50, 84%, 42%);
+  --waitlist-foreground: hsl(0, 0%, 9%);
+  --children-booked: hsl(271, 84%, 42%);
+  --children-booked-foreground: hsl(0, 0%, 9%);
+  --closed: hsl(0, 0%, 50%);
+  --closed-foreground: hsl(0, 0%, 9%);
 }
 
 /* Override Tailwind theme tokens to use app-specific primary color */
