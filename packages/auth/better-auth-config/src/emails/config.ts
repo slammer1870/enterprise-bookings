@@ -21,8 +21,8 @@ export function resolveBetterAuthEmailConfig(
 }
 
 export function formatFrom(fromName: string | undefined, fromAddress: string | undefined): string {
-  const address = fromAddress || 'hello@brugrappling.com'
-  const name = fromName || 'Brú Grappling'
+  const address = fromAddress || 'hello@example.com'
+  const name = fromName || 'Example App'
   return name ? `${name} <${address}>` : address
 }
 
