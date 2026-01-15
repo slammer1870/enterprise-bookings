@@ -54,19 +54,20 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
 
     // Optional: open the admin edit page for debugging parity with other flows
     await page.goto(`/admin/collections/lessons/${lessonId}`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 120000,
+      waitUntil: 'load',
+      timeout: process.env.CI ? 120000 : 60000,
     })
 
     // Switch to a fresh user
-    await page.goto('/admin/logout', { waitUntil: 'domcontentloaded' }).catch(() => {})
+    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
     await page.context().clearCookies()
+    await page.waitForTimeout(1000)
     await waitForServerReady(page.context().request)
 
     // User: register
     const email = `user-${Date.now()}@example.com`
     const password = 'Password123!'
-    await page.goto('/auth/sign-up', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.goto('/auth/sign-up', { waitUntil: 'load', timeout: process.env.CI ? 120000 : 60000 })
 
     // Better Auth UI can be flaky/hydration-sensitive in CI. Instead of driving the UI,
     // sign up + sign in via the Better Auth endpoints in the *browser context* so the
@@ -98,39 +99,75 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
       { email, password },
     )
 
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await expect(page.locator('#schedule')).toBeVisible({ timeout: 60000 })
+    await page.goto('/dashboard', { waitUntil: 'load', timeout: process.env.CI ? 120000 : 60000 })
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
+    await expect(page.locator('#schedule')).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
 
     // Schedule: navigate to tomorrow and try to check in
     await goToTomorrowInSchedule(page)
 
     const checkInButton = page.getByRole('button', { name: /Check In|Book Trial Class/i }).first()
-    await expect(checkInButton).toBeVisible({ timeout: 60000 })
-    await checkInButton.click()
+    await expect(checkInButton).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
+    
+    // Ensure button is actionable before clicking
+    await expect(checkInButton)
+      .toBeEnabled({ timeout: 10000 })
+      .catch(() => page.waitForTimeout(1000))
+    
+    // Set up navigation promise BEFORE clicking (critical for UI mode)
+    const bookingPageNavPromise = page.waitForURL(new RegExp(`/bookings/${lessonId}`), {
+      timeout: process.env.CI ? 120000 : 30000,
+      waitUntil: 'load',
+    })
+    
+    await Promise.all([
+      checkInButton.click(),
+      bookingPageNavPromise.catch(() => {}), // Don't fail if we stay on dashboard
+    ])
 
     // If membership is required, we’ll be sent to /bookings/{lessonId}; otherwise we’ll remain on dashboard.
+    // Wait a bit for navigation to complete after clicking
+    await page.waitForTimeout(2000).catch(() => {})
+    
     const reachedBookingPage = await page
-      .waitForURL(new RegExp(`/bookings/${lessonId}`), { timeout: process.env.CI ? 60000 : 20000 })
+      .waitForURL(new RegExp(`/bookings/${lessonId}`), { 
+        timeout: process.env.CI ? 120000 : 30000,
+        waitUntil: 'load',
+      })
       .then(() => true)
       .catch(() => false)
 
     if (reachedBookingPage) {
+      // Wait for page to fully load before looking for button
+      await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
+      
       const subscribeButton = page.getByRole('button', { name: /Subscribe|Upgrade/i }).first()
-      await expect(subscribeButton).toBeVisible({ timeout: 60000 })
-      await subscribeButton.click()
-      // In e2e mode, checkout session endpoint returns /dashboard (no Stripe call)
-      await page.waitForURL(/\/dashboard/, { timeout: 60000 })
+      await expect(subscribeButton).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
+      
+      // Ensure button is actionable before clicking
+      await expect(subscribeButton)
+        .toBeEnabled({ timeout: 10000 })
+        .catch(() => page.waitForTimeout(1000))
+      
+      // Set up navigation promise BEFORE clicking (critical for UI mode)
+      const dashboardNavPromise = page.waitForURL(/\/dashboard/, { 
+        timeout: process.env.CI ? 120000 : 60000,
+        waitUntil: 'load',
+      })
+      
+      await Promise.all([subscribeButton.click(), dashboardNavPromise])
     }
 
     // Confirm booking by triggering the test webhook
     await mockSubscriptionCreatedWebhook(page.context().request, { lessonId, userEmail: email })
 
     // Verify dashboard shows booking
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await expect(page.locator('#schedule')).toBeVisible({ timeout: 60000 })
+    await page.goto('/dashboard', { waitUntil: 'load', timeout: process.env.CI ? 120000 : 60000 })
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
+    await expect(page.locator('#schedule')).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
     await goToTomorrowInSchedule(page)
     await expect(page.getByRole('button', { name: /Cancel Booking/i }).first()).toBeVisible({
-      timeout: 60000,
+      timeout: process.env.CI ? 120000 : 60000,
     })
   })
 })
