@@ -6,15 +6,12 @@ import { Navbar as NavbarType } from '@/payload-types'
 import { Logo } from '@/graphics/logo'
 import { Button } from '@repo/ui/components/ui/button'
 
-import { useQuery } from '@tanstack/react-query'
-import { useTRPC } from '@repo/trpc/client'
-import { signOut } from '@/lib/auth/client'
+import { signOut, useSession } from '@/lib/auth/client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
 export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) => {
-  const trpc = useTRPC()
-  const { data: session } = useQuery(trpc.auth.getSession.queryOptions())
+  const { data: session } = useSession()
   const user = session?.user
   const pathname = usePathname()
   const router = useRouter()
