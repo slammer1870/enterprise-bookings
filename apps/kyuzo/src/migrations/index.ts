@@ -17,6 +17,7 @@ import * as migration_20260101_000002_payload_auth_tables from './20260101_00000
 import * as migration_20260101_000003_locked_documents_rels_instructors from './20260101_000003_locked_documents_rels_instructors';
 import * as migration_20260102_000001_add_original_lock_out_time from './20260102_000001_add_original_lock_out_time';
 import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from './20260103_000001_migrate_legacy_users_to_better_auth';
+import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
 
 export const migrations = [
   {
@@ -113,5 +114,10 @@ export const migrations = [
     up: migration_20260103_000001_migrate_legacy_users_to_better_auth.up,
     down: migration_20260103_000001_migrate_legacy_users_to_better_auth.down,
     name: '20260103_000001_migrate_legacy_users_to_better_auth',
+  },
+  {
+    up: migration_20260106_000001_rename_role_customer_to_user.up,
+    down: migration_20260106_000001_rename_role_customer_to_user.down,
+    name: '20260106_000001_rename_role_customer_to_user',
   },
 ];

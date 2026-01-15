@@ -37,12 +37,6 @@ import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'p
 import { default as default_93204d94190b460b2a4b3e03089a6c3a } from '@/fields/last-check-in'
 import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
-import { LogoutButton as LogoutButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
-import { RSCRedirect as RSCRedirect_5afe2312a68aef77a0242fe42f239ed0 } from 'payload-auth/better-auth/plugin/rsc'
-import { AdminLogin as AdminLogin_5afe2312a68aef77a0242fe42f239ed0 } from 'payload-auth/better-auth/plugin/rsc'
-import { AdminSignup as AdminSignup_5afe2312a68aef77a0242fe42f239ed0 } from 'payload-auth/better-auth/plugin/rsc'
-import { ForgotPassword as ForgotPassword_5afe2312a68aef77a0242fe42f239ed0 } from 'payload-auth/better-auth/plugin/rsc'
-import { ResetPassword as ResetPassword_5afe2312a68aef77a0242fe42f239ed0 } from 'payload-auth/better-auth/plugin/rsc'
 
 export const importMap = {
   "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
@@ -83,11 +77,5 @@ export const importMap = {
   "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "@/fields/last-check-in#default": default_93204d94190b460b2a4b3e03089a6c3a,
   "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
-  "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7,
-  "payload-auth/better-auth/plugin/client#LogoutButton": LogoutButton_5a568d0e24198ca3140489e0d330f424,
-  "payload-auth/better-auth/plugin/rsc#RSCRedirect": RSCRedirect_5afe2312a68aef77a0242fe42f239ed0,
-  "payload-auth/better-auth/plugin/rsc#AdminLogin": AdminLogin_5afe2312a68aef77a0242fe42f239ed0,
-  "payload-auth/better-auth/plugin/rsc#AdminSignup": AdminSignup_5afe2312a68aef77a0242fe42f239ed0,
-  "payload-auth/better-auth/plugin/rsc#ForgotPassword": ForgotPassword_5afe2312a68aef77a0242fe42f239ed0,
-  "payload-auth/better-auth/plugin/rsc#ResetPassword": ResetPassword_5afe2312a68aef77a0242fe42f239ed0
+  "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7
 }

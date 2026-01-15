@@ -279,7 +279,7 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
-  roles?: ('customer' | 'admin')[] | null;
+  roles?: ('user' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
