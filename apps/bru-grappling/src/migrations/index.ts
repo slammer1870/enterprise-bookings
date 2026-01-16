@@ -10,6 +10,7 @@ import * as migration_20251208_153322 from './20251208_153322';
 import * as migration_20251214_230732 from './20251214_230732';
 import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from './20260103_000001_migrate_legacy_users_to_better_auth';
 import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
+import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
 
 export const migrations = [
   {
@@ -71,5 +72,10 @@ export const migrations = [
     up: migration_20260106_000001_rename_role_customer_to_user.up,
     down: migration_20260106_000001_rename_role_customer_to_user.down,
     name: '20260106_000001_rename_role_customer_to_user',
+  },
+  {
+    up: migration_20260116_102317_replace_user_with_instructor_in_lessons.up,
+    down: migration_20260116_102317_replace_user_with_instructor_in_lessons.down,
+    name: '20260116_102317_replace_user_with_instructor_in_lessons',
   },
 ];
