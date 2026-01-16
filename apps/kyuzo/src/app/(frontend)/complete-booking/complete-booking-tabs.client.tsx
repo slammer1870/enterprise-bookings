@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 import { AuthView } from '@daveyplate/better-auth-ui'
@@ -51,11 +51,11 @@ export function CompleteBookingTabs({
         </TabsList>
 
         <TabsContent value="sign-in" className="mt-6 flex">
-          <AuthView path="sign-in" className="mx-auto" />
+          <AuthView path="sign-in" className="mx-auto" callbackURL={effectiveCallbackUrl} />
         </TabsContent>
 
         <TabsContent value="sign-up" className="mt-6 flex">
-          <AuthView path="sign-up" className="mx-auto" />
+          <AuthView path="sign-up" className="mx-auto" callbackURL={effectiveCallbackUrl} />
         </TabsContent>
       </Tabs>
     </div>
