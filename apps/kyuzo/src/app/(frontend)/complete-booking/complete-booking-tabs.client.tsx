@@ -32,18 +32,6 @@ export function CompleteBookingTabs({
 
   const effectiveCallbackUrl = callbackUrlFromUrl ?? callbackUrl
 
-  // Ensure callbackUrl is in the URL query string so AuthView can read it
-  // This is especially important for intercepting routes where the URL might not have the callbackUrl initially
-  useEffect(() => {
-    if (effectiveCallbackUrl && !callbackUrlFromUrl) {
-      const params = new URLSearchParams(searchParams?.toString() ?? '')
-      if (!params.has('callbackUrl')) {
-        params.set('callbackUrl', effectiveCallbackUrl)
-        router.replace(`/complete-booking?${params.toString()}`, { scroll: false })
-      }
-    }
-  }, [effectiveCallbackUrl, callbackUrlFromUrl, searchParams, router])
-
   const handleTabChange = (value: string) => {
     const nextMode: Mode = value === 'sign-up' ? 'register' : 'login'
     const params = new URLSearchParams(searchParams?.toString() ?? '')
