@@ -97,10 +97,6 @@ export async function clickAndWaitForNavigation(
 }
 
 /**
- * Clear stored magic links for a specific email or all (test-only endpoint).
- */
-
-/**
  * Helper function to ensure we're logged in as admin.
  * Creates first user if needed, or assumes we're already logged in.
  * Returns the unique admin email that was created or used.

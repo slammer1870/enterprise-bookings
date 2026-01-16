@@ -25,7 +25,7 @@ export const HeroBlock = (props: HeroBlockProps) => {
   const { tagline, image, video, cta } = props
 
   return (
-    <div className="max-w-screen-sm mx-auto p-6 flex flex-col gap-4 items-center justify-start">
+    <div className="max-w-screen-sm mx-auto p-8 md:p-12 flex flex-col gap-4 items-center justify-start">
       <div className="flex flex-col items-center justify-center mx-auto">
         <HeroLogo />
         <div>
