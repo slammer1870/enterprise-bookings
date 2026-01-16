@@ -16,6 +16,9 @@ export const CustomSelect: React.FC<
 
   const { label, name } = field;
 
+  // Get initial value from props if available (from existing document data)
+  const initialValue = (props as any).value || "";
+
   const [options, setOptions] = React.useState<
     {
       label: string;
@@ -23,10 +26,9 @@ export const CustomSelect: React.FC<
     }[]
   >([]);
 
-  // Use local state to track value
-  // Note: useField/useFormFields hooks require form context that may not be available
+  // Use local state to track value, initialized from props
   // SelectInput will handle form updates via the path prop
-  const [value, setValue] = React.useState<string>("");
+  const [value, setValue] = React.useState<string>(initialValue);
 
   React.useEffect(() => {
     const getStripeOptions = async () => {
@@ -78,6 +80,14 @@ export const CustomSelect: React.FC<
 
     void getStripeOptions();
   }, []);
+
+  // Sync local state when props.value changes (e.g., when editing existing document)
+  React.useEffect(() => {
+    if (initialValue && initialValue !== value) {
+      setValue(initialValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValue]);
 
   const href = `https://dashboard.stripe.com/${
     process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""

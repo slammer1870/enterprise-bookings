@@ -24,6 +24,8 @@ export const subscriptionsRouter = {
           },
           limit: 1,
           depth: 2,
+          overrideAccess: false,
+          user: user,
         }
       );
 
@@ -64,6 +66,8 @@ export const subscriptionsRouter = {
             },
             limit: 1,
             depth: 2,
+            overrideAccess: false,
+            user: user,
           }
         );
 
@@ -108,7 +112,9 @@ export const subscriptionsRouter = {
         !plan.sessionsInformation.interval ||
         plan.sessionsInformation.intervalCount == null
       ) {
-        payload.logger.info(`Plan does not have sessions information (planId: ${plan.id})`);
+        payload.logger.info(
+          `Plan does not have sessions information (planId: ${plan.id})`
+        );
         return false;
       }
 
@@ -123,24 +129,22 @@ export const subscriptionsRouter = {
       // if it is not, then we need to check the sessions limit
 
       try {
-        const bookings = await findSafe(
-          payload,
-          "bookings",
-          {
-            depth: 5,
-            where: {
-              user: { equals: user.id },
-              "lesson.classOption.paymentMethods.allowedPlans": {
-                contains: plan.id,
-              },
-              "lesson.startTime": {
-                greater_than: startDate,
-                less_than: endDate,
-              },
-              status: { equals: "confirmed" },
+        const bookings = await findSafe(payload, "bookings", {
+          depth: 5,
+          where: {
+            user: { equals: user.id },
+            "lesson.classOption.paymentMethods.allowedPlans": {
+              contains: plan.id,
             },
-          }
-        );
+            "lesson.startTime": {
+              greater_than: startDate,
+              less_than: endDate,
+            },
+            status: { equals: "confirmed" },
+          },
+          overrideAccess: false,
+          user: user,
+        });
 
         payload.logger.info(
           `Bookings found for subscription (planId: ${plan.id}, count: ${bookings.docs.length})`
@@ -171,7 +175,7 @@ export const subscriptionsRouter = {
         payload,
         "lessons",
         input.lessonId,
-        { depth: 2, user }
+        { depth: 2, overrideAccess: false, user }
       );
 
       if (!lesson) {
@@ -181,7 +185,8 @@ export const subscriptionsRouter = {
         };
       }
 
-      const classOption = typeof lesson.classOption === 'object' ? lesson.classOption : null;
+      const classOption =
+        typeof lesson.classOption === "object" ? lesson.classOption : null;
       const allowedPlans = classOption?.paymentMethods?.allowedPlans || [];
 
       if (allowedPlans.length === 0) {
@@ -214,6 +219,7 @@ export const subscriptionsRouter = {
           },
           limit: 1,
           depth: 2,
+          overrideAccess: false,
           user,
         }
       );
