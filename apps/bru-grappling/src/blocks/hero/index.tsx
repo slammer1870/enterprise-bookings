@@ -37,8 +37,8 @@ export const HeroBlock: React.FC<{
           objectFit: 'cover',
         }}
       />
-      <div className="absolute flex h-full w-full items-center justify-center bg-white bg-opacity-50">
-        <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-6 md:px-8 lg:-mt-20 lg:mb-0 lg:flex-row gap-4">
+      <div className="absolute flex h-full w-full items-center justify-center bg-white/50">
+        <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-4 lg:-mt-20 lg:mb-0 lg:flex-row gap-4">
           <div className="mx-auto w-2/3 lg:w-1/2 xl:w-auto">
             <OptimizedImage
               media={logo}
