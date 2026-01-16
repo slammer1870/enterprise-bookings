@@ -31,23 +31,52 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       return;
     }
 
-    // Step 1: Find lessons where instructor_id points to a user (not an instructor)
-    // First, ensure instructors exist for all users referenced in lessons
-    const usersNeedingInstructors = await db.execute<{
-      user_id: number;
-      user_name: string | null;
-    }>(sql`
-      SELECT DISTINCT
-        l.instructor_id as user_id,
-        u.name as user_name
-      FROM lessons l
-      INNER JOIN users u ON l.instructor_id = u.id
-      LEFT JOIN instructors i ON i.user_id = l.instructor_id
-      WHERE l.instructor_id IS NOT NULL
-        AND i.id IS NULL
+    // Step 1: Check if users table has image_id column
+    const hasImageIdColumn = await db.execute<{ exists: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' 
+        AND column_name = 'image_id'
+        AND table_schema = 'public'
+      ) as exists
     `);
+    const userHasImageId = hasImageIdColumn.rows?.[0]?.exists || false;
 
-    // Create instructors for users that don't have them yet
+    // Step 2: Find lessons where instructor_id points to a user (not an instructor)
+    // First, ensure instructors exist for all users referenced in lessons
+    const usersNeedingInstructors = userHasImageId
+      ? await db.execute<{
+          user_id: number;
+          user_name: string | null;
+          user_image_id: number | null;
+        }>(sql`
+          SELECT DISTINCT
+            l.instructor_id as user_id,
+            u.name as user_name,
+            u.image_id as user_image_id
+          FROM lessons l
+          INNER JOIN users u ON l.instructor_id = u.id
+          LEFT JOIN instructors i ON i.user_id = l.instructor_id
+          WHERE l.instructor_id IS NOT NULL
+            AND i.id IS NULL
+        `)
+      : await db.execute<{
+          user_id: number;
+          user_name: string | null;
+          user_image_id: number | null;
+        }>(sql`
+          SELECT DISTINCT
+            l.instructor_id as user_id,
+            u.name as user_name,
+            NULL::integer as user_image_id
+          FROM lessons l
+          INNER JOIN users u ON l.instructor_id = u.id
+          LEFT JOIN instructors i ON i.user_id = l.instructor_id
+          WHERE l.instructor_id IS NOT NULL
+            AND i.id IS NULL
+        `);
+
+    // Create instructors for users that don't have them yet, and update existing ones with images
     if (usersNeedingInstructors.rows && usersNeedingInstructors.rows.length > 0) {
       console.log(`Found ${usersNeedingInstructors.rows.length} users referenced in lessons that need instructor records`);
       
@@ -55,9 +84,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
         try {
           const userName = row.user_name || `User ${row.user_id}`;
           
-          // Check if instructor was created by another process
-          const existingInstructor = await db.execute<{ id: number }>(sql`
-            SELECT id FROM instructors WHERE user_id = ${row.user_id} LIMIT 1
+          // Check if instructor already exists
+          const existingInstructor = await db.execute<{ id: number; profile_image_id: number | null }>(sql`
+            SELECT id, profile_image_id FROM instructors WHERE user_id = ${row.user_id} LIMIT 1
           `);
           
           if (!existingInstructor.rows || existingInstructor.rows.length === 0) {
@@ -68,58 +97,75 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
                 user: row.user_id,
                 name: userName,
                 active: true,
+                profileImage: row.user_image_id || undefined,
               },
               req,
             });
-            console.log(`Created instructor ${newInstructor.id} for user ${row.user_id}`);
+            console.log(`Created instructor ${newInstructor.id} for user ${row.user_id}${row.user_image_id ? ` with image ${row.user_image_id}` : ''}`);
+          } else {
+            // Update existing instructor with image if it doesn't have one
+            const existing = existingInstructor.rows[0];
+            if (row.user_image_id && !existing.profile_image_id) {
+              await payload.update({
+                collection: "instructors",
+                id: existing.id,
+                data: {
+                  profileImage: row.user_image_id,
+                },
+                req,
+              });
+              console.log(`Updated instructor ${existing.id} for user ${row.user_id} with image ${row.user_image_id}`);
+            }
           }
         } catch (error) {
-          console.error(`Error creating instructor for user ${row.user_id}:`, error);
+          console.error(`Error creating/updating instructor for user ${row.user_id}:`, error);
         }
       }
     }
 
-    // Step 2: Find lessons where instructor_id points to a user (not an instructor)
-    // and find the corresponding instructor for that user
-    const lessonsToUpdate = await db.execute<{
-      lesson_id: number;
+    // Step 3: Update all lessons in bulk - group by user_id to instructor_id mapping
+    // This ensures all lessons for each user get updated to their corresponding instructor
+    const userToInstructorMap = await db.execute<{
       user_id: number;
       instructor_id: number;
     }>(sql`
       SELECT DISTINCT
-        l.id as lesson_id,
-        l.instructor_id as user_id,
+        u.id as user_id,
         i.id as instructor_id
-      FROM lessons l
-      INNER JOIN users u ON l.instructor_id = u.id
+      FROM users u
       INNER JOIN instructors i ON i.user_id = u.id
-      LEFT JOIN instructors i_check ON i_check.id = l.instructor_id
-      WHERE l.instructor_id IS NOT NULL
-        AND i_check.id IS NULL
+      WHERE EXISTS (
+        SELECT 1 FROM lessons l 
+        WHERE l.instructor_id = u.id
+          AND NOT EXISTS (SELECT 1 FROM instructors i_check WHERE i_check.id = l.instructor_id)
+      )
     `);
 
-    if (lessonsToUpdate.rows && lessonsToUpdate.rows.length > 0) {
-      console.log(`Found ${lessonsToUpdate.rows.length} lessons with user references that need to be updated to instructor references`);
+    if (userToInstructorMap.rows && userToInstructorMap.rows.length > 0) {
+      console.log(`Found ${userToInstructorMap.rows.length} user-to-instructor mappings to update`);
 
-      // Update each lesson
-      for (const row of lessonsToUpdate.rows) {
+      // Update all lessons for each user in bulk
+      for (const mapping of userToInstructorMap.rows) {
         try {
-          await db.execute(sql`
+          const updateResult = await db.execute(sql`
             UPDATE lessons 
-            SET instructor_id = ${row.instructor_id}
-            WHERE id = ${row.lesson_id}
-              AND instructor_id = ${row.user_id}
+            SET instructor_id = ${mapping.instructor_id}
+            WHERE instructor_id = ${mapping.user_id}
+              AND NOT EXISTS (SELECT 1 FROM instructors i_check WHERE i_check.id = lessons.instructor_id)
           `);
-          console.log(`Updated lesson ${row.lesson_id}: user ${row.user_id} -> instructor ${row.instructor_id}`);
+          const updatedCount = updateResult.rowCount || 0;
+          if (updatedCount > 0) {
+            console.log(`Updated ${updatedCount} lessons: user ${mapping.user_id} -> instructor ${mapping.instructor_id}`);
+          }
         } catch (error) {
-          console.error(`Error updating lesson ${row.lesson_id}:`, error);
+          console.error(`Error updating lessons for user ${mapping.user_id}:`, error);
         }
       }
     } else {
       console.log("No lessons found with user references that need updating");
     }
 
-    // Step 3: Clean up any remaining invalid references (lessons pointing to users that don't have instructors)
+    // Step 4: Clean up any remaining invalid references (lessons pointing to users that don't have instructors)
     const invalidLessons = await db.execute<{ lesson_id: number }>(sql`
       SELECT l.id as lesson_id
       FROM lessons l
