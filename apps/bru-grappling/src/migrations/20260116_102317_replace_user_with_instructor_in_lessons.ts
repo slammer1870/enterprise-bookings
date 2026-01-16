@@ -103,9 +103,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               req,
             });
             console.log(`Created instructor ${newInstructor.id} for user ${row.user_id}${row.user_image_id ? ` with image ${row.user_image_id}` : ''}`);
-          } else {
+          } else if (existingInstructor.rows && existingInstructor.rows.length > 0) {
             // Update existing instructor with image if it doesn't have one
-            const existing = existingInstructor.rows[0];
+            const existing = existingInstructor.rows[0]!;
             if (row.user_image_id && !existing.profile_image_id) {
               await payload.update({
                 collection: "instructors",
@@ -234,9 +234,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
                 req,
               });
               console.log(`Created instructor ${newInstructor.id} for user ${row.user_id} (from scheduler)${row.user_image_id ? ` with image ${row.user_image_id}` : ''}`);
-            } else {
+            } else if (existingInstructor.rows && existingInstructor.rows.length > 0) {
               // Update existing instructor with image if it doesn't have one
-              const existing = existingInstructor.rows[0];
+              const existing = existingInstructor.rows[0]!;
               if (row.user_image_id && !existing.profile_image_id) {
                 await payload.update({
                   collection: "instructors",
