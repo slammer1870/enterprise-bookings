@@ -26,6 +26,8 @@ jobs:
             db: dummy_web
           - name: docs
             db: dummy_docs
+          - name: atnd
+            db: atnd
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
