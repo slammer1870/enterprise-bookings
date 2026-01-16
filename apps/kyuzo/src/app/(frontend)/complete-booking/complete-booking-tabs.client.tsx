@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 import { AuthView } from '@daveyplate/better-auth-ui'
@@ -32,6 +32,18 @@ export function CompleteBookingTabs({
 
   const effectiveCallbackUrl = callbackUrlFromUrl ?? callbackUrl
 
+  // Ensure callbackUrl is in the URL query string so AuthView can read it
+  // This is especially important for intercepting routes where the URL might not have the callbackUrl initially
+  useEffect(() => {
+    if (effectiveCallbackUrl && !callbackUrlFromUrl) {
+      const params = new URLSearchParams(searchParams?.toString() ?? '')
+      if (!params.has('callbackUrl')) {
+        params.set('callbackUrl', effectiveCallbackUrl)
+        router.replace(`/complete-booking?${params.toString()}`, { scroll: false })
+      }
+    }
+  }, [effectiveCallbackUrl, callbackUrlFromUrl, searchParams, router])
+
   const handleTabChange = (value: string) => {
     const nextMode: Mode = value === 'sign-up' ? 'register' : 'login'
     const params = new URLSearchParams(searchParams?.toString() ?? '')
@@ -51,11 +63,11 @@ export function CompleteBookingTabs({
         </TabsList>
 
         <TabsContent value="sign-in" className="mt-6 flex">
-          <AuthView path="sign-in" className="mx-auto" />
+          <AuthView path="sign-in" className="mx-auto" callbackURL={effectiveCallbackUrl} />
         </TabsContent>
 
         <TabsContent value="sign-up" className="mt-6 flex">
-          <AuthView path="sign-up" className="mx-auto" />
+          <AuthView path="sign-up" className="mx-auto" callbackURL={effectiveCallbackUrl} />
         </TabsContent>
       </Tabs>
     </div>
