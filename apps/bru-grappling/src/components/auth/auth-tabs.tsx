@@ -28,11 +28,7 @@ function AuthTabsContent({ defaultView = 'sign-in' }: AuthTabsProps) {
         <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
       </TabsList>
       <TabsContent value="sign-in" className="mt-4">
-        <LoginForm
-          sendMagicLink={async (args: { email: string; callbackURL: string }) => {
-            await signIn.magicLink(args)
-          }}
-        />
+        <LoginForm />
       </TabsContent>
       <TabsContent value="sign-up" className="mt-4">
         <RegisterForm />
