@@ -87,26 +87,55 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     END $$;
   `);
 
-  // Step 3: Fix any orphaned instructor_id references in lessons
+  // Step 3: Check if users table has image_id column
+  const hasImageIdColumn = await db.execute<{ exists: boolean }>(sql`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name = 'users' 
+      AND column_name = 'image_id'
+      AND table_schema = 'public'
+    ) as exists
+  `);
+  const userHasImageId = hasImageIdColumn.rows?.[0]?.exists || false;
+
+  // Step 4: Fix any orphaned instructor_id references in lessons
   // This handles the case where lessons have instructor_id values that don't exist in instructors table
   // This can happen if Payload is trying to add the constraint but there are invalid references
-  const orphanedLessons = await db.execute<{
-    instructor_id: number;
-    user_id: number | null;
-    image_id: number | null;
-    user_name: string | null;
-  }>(sql`
-    SELECT DISTINCT 
-      l.instructor_id,
-      u.id as user_id,
-      u.image_id,
-      u.name as user_name
-    FROM lessons l
-    LEFT JOIN instructors i ON i.id = l.instructor_id
-    LEFT JOIN users u ON u.id = l.instructor_id
-    WHERE l.instructor_id IS NOT NULL
-      AND i.id IS NULL
-  `);
+  const orphanedLessons = userHasImageId
+    ? await db.execute<{
+        instructor_id: number;
+        user_id: number | null;
+        image_id: number | null;
+        user_name: string | null;
+      }>(sql`
+        SELECT DISTINCT 
+          l.instructor_id,
+          u.id as user_id,
+          u.image_id,
+          u.name as user_name
+        FROM lessons l
+        LEFT JOIN instructors i ON i.id = l.instructor_id
+        LEFT JOIN users u ON u.id = l.instructor_id
+        WHERE l.instructor_id IS NOT NULL
+          AND i.id IS NULL
+      `)
+    : await db.execute<{
+        instructor_id: number;
+        user_id: number | null;
+        image_id: number | null;
+        user_name: string | null;
+      }>(sql`
+        SELECT DISTINCT 
+          l.instructor_id,
+          u.id as user_id,
+          NULL::integer as image_id,
+          u.name as user_name
+        FROM lessons l
+        LEFT JOIN instructors i ON i.id = l.instructor_id
+        LEFT JOIN users u ON u.id = l.instructor_id
+        WHERE l.instructor_id IS NOT NULL
+          AND i.id IS NULL
+      `);
 
   // Create instructor records for orphaned references that are user IDs
   // NOTE: we avoid using `payload.*` APIs here because they can query join tables
@@ -208,15 +237,25 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
   if (referencesUsers && columnExists) {
     // Old schema: instructor_id directly references users
-    uniqueInstructorUsers = await db.execute<{
-      user_id: number;
-      image_id: number | null;
-    }>(sql`
-      SELECT DISTINCT l.instructor_id as user_id, u.image_id
-      FROM lessons l
-      INNER JOIN users u ON l.instructor_id = u.id
-      WHERE l.instructor_id IS NOT NULL
-    `);
+    uniqueInstructorUsers = userHasImageId
+      ? await db.execute<{
+          user_id: number;
+          image_id: number | null;
+        }>(sql`
+          SELECT DISTINCT l.instructor_id as user_id, u.image_id
+          FROM lessons l
+          INNER JOIN users u ON l.instructor_id = u.id
+          WHERE l.instructor_id IS NOT NULL
+        `)
+      : await db.execute<{
+          user_id: number;
+          image_id: number | null;
+        }>(sql`
+          SELECT DISTINCT l.instructor_id as user_id, NULL::integer as image_id
+          FROM lessons l
+          INNER JOIN users u ON l.instructor_id = u.id
+          WHERE l.instructor_id IS NOT NULL
+        `);
   } else if (columnExists) {
     // New schema: instructor_id references instructors, but we need to check if any lessons have invalid references
     // or if there are any users that should be instructors but aren't yet
@@ -228,18 +267,31 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     `);
 
     // Check if all instructor_ids are valid instructor records
-    const invalidInstructors = await db.execute<{
-      user_id: number;
-      image_id: number | null;
-    }>(sql`
-      SELECT DISTINCT l.instructor_id as user_id, u.image_id
-      FROM lessons l
-      INNER JOIN users u ON l.instructor_id = u.id
-      LEFT JOIN instructors i ON i.id = l.instructor_id
-      WHERE l.instructor_id IS NOT NULL
-        AND i.id IS NULL
-        AND EXISTS (SELECT 1 FROM users WHERE id = l.instructor_id)
-    `);
+    const invalidInstructors = userHasImageId
+      ? await db.execute<{
+          user_id: number;
+          image_id: number | null;
+        }>(sql`
+          SELECT DISTINCT l.instructor_id as user_id, u.image_id
+          FROM lessons l
+          INNER JOIN users u ON l.instructor_id = u.id
+          LEFT JOIN instructors i ON i.id = l.instructor_id
+          WHERE l.instructor_id IS NOT NULL
+            AND i.id IS NULL
+            AND EXISTS (SELECT 1 FROM users WHERE id = l.instructor_id)
+        `)
+      : await db.execute<{
+          user_id: number;
+          image_id: number | null;
+        }>(sql`
+          SELECT DISTINCT l.instructor_id as user_id, NULL::integer as image_id
+          FROM lessons l
+          INNER JOIN users u ON l.instructor_id = u.id
+          LEFT JOIN instructors i ON i.id = l.instructor_id
+          WHERE l.instructor_id IS NOT NULL
+            AND i.id IS NULL
+            AND EXISTS (SELECT 1 FROM users WHERE id = l.instructor_id)
+        `);
 
     uniqueInstructorUsers = invalidInstructors;
   } else {

@@ -32,6 +32,54 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     }
 
     // Step 1: Find lessons where instructor_id points to a user (not an instructor)
+    // First, ensure instructors exist for all users referenced in lessons
+    const usersNeedingInstructors = await db.execute<{
+      user_id: number;
+      user_name: string | null;
+    }>(sql`
+      SELECT DISTINCT
+        l.instructor_id as user_id,
+        u.name as user_name
+      FROM lessons l
+      INNER JOIN users u ON l.instructor_id = u.id
+      LEFT JOIN instructors i ON i.user_id = l.instructor_id
+      WHERE l.instructor_id IS NOT NULL
+        AND i.id IS NULL
+    `);
+
+    // Create instructors for users that don't have them yet
+    if (usersNeedingInstructors.rows && usersNeedingInstructors.rows.length > 0) {
+      console.log(`Found ${usersNeedingInstructors.rows.length} users referenced in lessons that need instructor records`);
+      
+      for (const row of usersNeedingInstructors.rows) {
+        try {
+          const userName = row.user_name || `User ${row.user_id}`;
+          
+          // Check if instructor was created by another process
+          const existingInstructor = await db.execute<{ id: number }>(sql`
+            SELECT id FROM instructors WHERE user_id = ${row.user_id} LIMIT 1
+          `);
+          
+          if (!existingInstructor.rows || existingInstructor.rows.length === 0) {
+            // Create instructor using Payload API to ensure proper validation
+            const newInstructor = await payload.create({
+              collection: "instructors",
+              data: {
+                user: row.user_id,
+                name: userName,
+                active: true,
+              },
+              req,
+            });
+            console.log(`Created instructor ${newInstructor.id} for user ${row.user_id}`);
+          }
+        } catch (error) {
+          console.error(`Error creating instructor for user ${row.user_id}:`, error);
+        }
+      }
+    }
+
+    // Step 2: Find lessons where instructor_id points to a user (not an instructor)
     // and find the corresponding instructor for that user
     const lessonsToUpdate = await db.execute<{
       lesson_id: number;
@@ -71,7 +119,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       console.log("No lessons found with user references that need updating");
     }
 
-    // Step 2: Clean up any remaining invalid references (lessons pointing to users that don't have instructors)
+    // Step 3: Clean up any remaining invalid references (lessons pointing to users that don't have instructors)
     const invalidLessons = await db.execute<{ lesson_id: number }>(sql`
       SELECT l.id as lesson_id
       FROM lessons l
