@@ -76,8 +76,9 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     search: Search;
-    'payload-folders': FolderInterface;
+    'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
+    'payload-folders': FolderInterface;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -97,8 +98,9 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
-    'payload-folders': PayloadFoldersSelect<false> | PayloadFoldersSelect<true>;
+    'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
+    'payload-folders': PayloadFoldersSelect<false> | PayloadFoldersSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -160,7 +162,7 @@ export interface Page {
       root: {
         type: string;
         children: {
-          type: string;
+          type: any;
           version: number;
           [k: string]: unknown;
         }[];
@@ -234,7 +236,7 @@ export interface Post {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -279,7 +281,7 @@ export interface Media {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -383,6 +385,7 @@ export interface FolderInterface {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  folderType?: 'media'[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -422,6 +425,13 @@ export interface User {
   hash?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
   password?: string | null;
 }
 /**
@@ -433,7 +443,7 @@ export interface CallToActionBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -484,7 +494,7 @@ export interface ContentBlock {
           root: {
             type: string;
             children: {
-              type: string;
+              type: any;
               version: number;
               [k: string]: unknown;
             }[];
@@ -541,7 +551,7 @@ export interface ArchiveBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -577,7 +587,7 @@ export interface FormBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -634,7 +644,7 @@ export interface Form {
               root: {
                 type: string;
                 children: {
-                  type: string;
+                  type: any;
                   version: number;
                   [k: string]: unknown;
                 }[];
@@ -717,7 +727,7 @@ export interface Form {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -749,7 +759,7 @@ export interface Form {
           root: {
             type: string;
             children: {
-              type: string;
+              type: any;
               version: number;
               [k: string]: unknown;
             }[];
@@ -776,7 +786,7 @@ export interface SaaSHeroBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -835,7 +845,7 @@ export interface FeaturesBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -888,7 +898,7 @@ export interface CaseStudiesBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -953,7 +963,7 @@ export interface SaaSCallToActionBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
@@ -1071,6 +1081,23 @@ export interface Search {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-kv".
+ */
+export interface PayloadKv {
+  id: number;
+  key: string;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1210,10 +1237,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'payload-folders';
         value: number | FolderInterface;
-      } | null)
-    | ({
-        relationTo: 'payload-jobs';
-        value: number | PayloadJob;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1682,6 +1705,13 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1877,14 +1907,11 @@ export interface SearchSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-folders_select".
+ * via the `definition` "payload-kv_select".
  */
-export interface PayloadFoldersSelect<T extends boolean = true> {
-  name?: T;
-  folder?: T;
-  documentsAndFolders?: T;
-  updatedAt?: T;
-  createdAt?: T;
+export interface PayloadKvSelect<T extends boolean = true> {
+  key?: T;
+  data?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1914,6 +1941,18 @@ export interface PayloadJobsSelect<T extends boolean = true> {
   queue?: T;
   waitUntil?: T;
   processing?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-folders_select".
+ */
+export interface PayloadFoldersSelect<T extends boolean = true> {
+  name?: T;
+  folder?: T;
+  documentsAndFolders?: T;
+  folderType?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2085,7 +2124,7 @@ export interface BannerBlock {
     root: {
       type: string;
       children: {
-        type: string;
+        type: any;
         version: number;
         [k: string]: unknown;
       }[];
