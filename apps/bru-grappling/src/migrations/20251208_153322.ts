@@ -382,8 +382,10 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   END $$;
   
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_image_id_media_id_fk') THEN
-      ALTER TABLE "users" ADD CONSTRAINT "users_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'image_id') THEN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_image_id_media_id_fk') THEN
+        ALTER TABLE "users" ADD CONSTRAINT "users_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+      END IF;
     END IF;
   END $$;
   
@@ -393,7 +395,13 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
     END IF;
   END $$;
   
-  CREATE INDEX IF NOT EXISTS "users_image_idx" ON "users" USING btree ("image_id");
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'image_id')
+      AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'users_image_idx') THEN
+      CREATE INDEX "users_image_idx" ON "users" USING btree ("image_id");
+    END IF;
+   EXCEPTION WHEN OTHERS THEN null;
+   END $$;
   
   DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'email_verified') THEN

@@ -602,14 +602,32 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-11-25T19:19:47.014Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-11-25T19:19:47.014Z';
-  ALTER TABLE "users" ADD COLUMN "image_id" integer;
+  DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'image_id') THEN
+      ALTER TABLE "users" ADD COLUMN "image_id" integer;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "payload_jobs_id" integer;
   ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "users" ADD CONSTRAINT "users_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'image_id') THEN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_image_id_media_id_fk') THEN
+        ALTER TABLE "users" ADD CONSTRAINT "users_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+      END IF;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_payload_jobs_fk" FOREIGN KEY ("payload_jobs_id") REFERENCES "public"."payload_jobs"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   CREATE INDEX "class_options_payment_methods_payment_methods_allowed_drop_in_idx" ON "class_options" USING btree ("payment_methods_allowed_drop_in_id");
-  CREATE INDEX "users_image_idx" ON "users" USING btree ("image_id");
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'image_id')
+      AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'users_image_idx') THEN
+      CREATE INDEX "users_image_idx" ON "users" USING btree ("image_id");
+    END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
   CREATE INDEX "payload_locked_documents_rels_payload_jobs_id_idx" ON "payload_locked_documents_rels" USING btree ("payload_jobs_id");
   ALTER TABLE "users" DROP COLUMN "email_verified";
   ALTER TABLE "users" DROP COLUMN "image";
