@@ -1,4 +1,8 @@
 import { withPayload } from '@payloadcms/next/withPayload'
+import { createRequire } from 'module'
+import path from 'node:path'
+
+const require = createRequire(import.meta.url)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -101,6 +105,36 @@ const nextConfig = {
           optimizePackageImports: ['@repo/ui', '@repo/shared-types'],
         }
       : {},
+
+  // Ensure workspace packages used by Payload admin importMap are transpiled
+  transpilePackages: ['@repo/ui', '@repo/bookings-plugin', '@repo/memberships', '@repo/payments-plugin'],
+
+  // Ensure pnpm symlinks are resolved to real paths so React context isn't duplicated
+  webpack: (webpackConfig) => {
+    webpackConfig.resolve.symlinks = true
+
+    // Force a single physical @payloadcms/ui instance across the whole bundle.
+    // Without this, pnpm can install multiple "@payloadcms/ui@same-version" copies
+    // due to differing optional peer sets, leading to React context mismatches
+    // (e.g. `useConfig()` returning undefined).
+    const payloadUiEntry = require.resolve('@payloadcms/ui')
+    const marker = `${path.sep}@payloadcms${path.sep}ui${path.sep}`
+    const markerIdx = payloadUiEntry.lastIndexOf(marker)
+    const payloadUiDir =
+      markerIdx === -1 ? path.dirname(payloadUiEntry) : payloadUiEntry.slice(0, markerIdx + marker.length)
+
+    webpackConfig.resolve.alias = {
+      ...(webpackConfig.resolve.alias || {}),
+      // Exact package import
+      '@payloadcms/ui$': require.resolve('@payloadcms/ui'),
+      // Exact shared subpath used by @payloadcms/next
+      '@payloadcms/ui/shared$': require.resolve('@payloadcms/ui/shared'),
+      // Any other subpath import (e.g. @payloadcms/ui/dist/..., @payloadcms/ui/forms/..., etc.)
+      '@payloadcms/ui/': payloadUiDir,
+    }
+
+    return webpackConfig
+  },
 }
 
 export default withPayload(nextConfig)

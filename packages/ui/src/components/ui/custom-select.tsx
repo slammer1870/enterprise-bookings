@@ -5,6 +5,7 @@ import type { TextFieldClientProps } from "payload";
 import {
   CopyToClipboard,
   SelectInput,
+  useField,
 } from "@payloadcms/ui";
 
 import * as React from "react";
@@ -15,6 +16,8 @@ export const CustomSelect: React.FC<
   const { path, field, apiUrl, dataLabel } = props;
 
   const { label, name } = field;
+
+  const { value, setValue } = useField<string>({ path });
 
   // Get initial value from props if available (from existing document data)
   const initialValue = (props as any).value || "";
@@ -28,7 +31,7 @@ export const CustomSelect: React.FC<
 
   // Use local state to track value, initialized from props
   // SelectInput will handle form updates via the path prop
-  const [value, setValue] = React.useState<string>(initialValue);
+  const didInitRef = React.useRef(false);
 
   React.useEffect(() => {
     const getStripeOptions = async () => {
@@ -81,17 +84,18 @@ export const CustomSelect: React.FC<
     void getStripeOptions();
   }, []);
 
-  // Sync local state when props.value changes (e.g., when editing existing document)
+  // Initialize field value from props on first mount (edit view hydration)
   React.useEffect(() => {
-    if (initialValue && initialValue !== value) {
-      setValue(initialValue);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValue]);
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    if (initialValue && typeof value === "undefined") setValue(initialValue);
+  }, [initialValue, setValue, value]);
+
+  const normalizedValue = typeof value === "string" ? value : "";
 
   const href = `https://dashboard.stripe.com/${
     process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-  }${dataLabel}/${value}`;
+  }${dataLabel}/${normalizedValue}`;
 
   return (
     <div className="mb-4">
@@ -110,7 +114,7 @@ export const CustomSelect: React.FC<
             process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
           }${dataLabel}/create`}
           rel="noopener noreferrer"
-          style={{ color: "var(--theme-text" }}
+          style={{ color: "var(--theme-text)" }}
           target="_blank"
         >
           create a new one
@@ -121,16 +125,14 @@ export const CustomSelect: React.FC<
         path={path}
         name={name}
         options={options}
-        value={value}
+        value={normalizedValue}
         onChange={(e: any) => {
-          // Update local state when SelectInput changes
-          // SelectInput will also update the form via the path prop
           const newValue = e?.value || "";
           setValue(newValue);
         }}
         className="mb-2"
       />
-      {Boolean(value) && (
+      {Boolean(normalizedValue) && (
         <div>
           <div>
             <span
@@ -140,7 +142,7 @@ export const CustomSelect: React.FC<
               }}
             >
               {`Manage "${
-                options.find((option) => option.value === value)?.label ||
+                options.find((option) => option.value === normalizedValue)?.label ||
                 "Unknown"
               }" in Stripe`}
             </span>
@@ -156,7 +158,7 @@ export const CustomSelect: React.FC<
             <a
               href={`https://dashboard.stripe.com/${
                 process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-              }${dataLabel}/${value}`}
+              }${dataLabel}/${normalizedValue}`}
               rel="noreferrer noopener"
               target="_blank"
             >

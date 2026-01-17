@@ -11,10 +11,10 @@
     "./src/helpers/credentials": "./src/helpers/credentials.ts"
   },
   "peerDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "1.56.1"
   },
   "dependencies": {
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "1.56.1",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/next": "*",
     "monaco-editor": "^0.52.2",
@@ -25,7 +25,7 @@
     "qs-esm": "^7.0.2"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2"
+    "@types/node": "^24.10.1"
   },
   "license": "MIT",
   "type": "module"

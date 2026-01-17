@@ -8,19 +8,15 @@
     "@payloadcms/next": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
-    "@payloadcms/ui": "*",
     "@react-email/components": "^1.0.1",
     "@testcontainers/postgresql": "^11.8.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "lucide-react": "0.554.0",
-    "next": "*",
     "pg": "^8.16.3",
     "postcss": "^8.5.6",
     "qs": "^6.14.0",
     "qs-esm": "^7.0.2",
-    "react": "*",
-    "react-dom": "*",
     "react-email": "^5.0.4",
     "react-hook-form": "*",
     "sharp": "0.34.5",
@@ -52,7 +48,11 @@
   },
   "main": "./src/index.ts",
   "peerDependencies": {
-    "payload": "*"
+    "@payloadcms/ui": "*",
+    "next": "*",
+    "payload": "*",
+    "react": "*",
+    "react-dom": "*"
   },
   "scripts": {
     "test": "vitest --hook-timeout=10000000"

@@ -9,7 +9,7 @@
     "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*",
     "@repo/trpc": "workspace:*",
-    "@tanstack/react-query": "5.90.12",
+    "@tanstack/react-query": "*",
     "lucide-react": "0.554.0",
     "react-hook-form": "*",
     "sonner": "*",
