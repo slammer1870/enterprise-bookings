@@ -9,6 +9,8 @@ import { useQuery } from '@tanstack/react-query'
 
 export function BookingSuccessToast() {
   const searchParams = useSearchParams()
+  if (!searchParams) return null
+
   const lessonIdRaw = searchParams.get('lesson')
   const success = searchParams.get('success')
 
