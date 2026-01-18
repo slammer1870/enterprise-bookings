@@ -6,26 +6,18 @@
     "./src/playwright/base": "./src/playwright/base.ts",
     "./src/playwright/helpers/server": "./src/playwright/helpers/server.ts",
     "./src/utils/db": "./src/utils/db.ts",
-    "./src/utils/payload-config": "./src/utils/payload-config.ts",
-    "./src/helpers/NextRESTClient": "./src/helpers/NextRESTClient.ts",
     "./src/helpers/credentials": "./src/helpers/credentials.ts"
   },
   "peerDependencies": {
-    "@playwright/test": "^1.49.0"
+    "@playwright/test": "1.56.1"
   },
   "dependencies": {
-    "@playwright/test": "^1.49.0",
-    "@payloadcms/db-postgres": "*",
-    "@payloadcms/next": "*",
-    "monaco-editor": "^0.52.2",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@testcontainers/postgresql": "^11.8.1",
-    "payload": "*",
-    "qs-esm": "^7.0.2"
+    "@testcontainers/postgresql": "^11.8.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2"
+    "@types/node": "^24.10.1"
   },
   "license": "MIT",
   "type": "module"

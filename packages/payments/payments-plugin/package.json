@@ -2,13 +2,10 @@
   "name": "@repo/payments-plugin",
   "version": "0.0.1",
   "dependencies": {
-    "@payloadcms/plugin-stripe": "*",
-    "@payloadcms/ui": "*",
     "@repo/roles": "workspace:*",
     "@repo/ui": "workspace:*",
     "@stripe/react-stripe-js": "^5.4.0",
     "@stripe/stripe-js": "^8.5.2",
-    "payload": "*",
     "sonner": "*",
     "stripe": "*"
   },
@@ -18,6 +15,7 @@
     "@payloadcms/richtext-lexical": "*",
     "@repo/analytics": "workspace:*",
     "@repo/eslint-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
@@ -32,7 +30,10 @@
     "vitest": "4.0.12"
   },
   "peerDependencies": {
-    "next": "*"
+    "@payloadcms/plugin-stripe": "*",
+    "@payloadcms/ui": "*",
+    "next": "*",
+    "payload": "*"
   },
   "main": "./src/index.ts",
   "scripts": {

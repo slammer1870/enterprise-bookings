@@ -1,8 +1,8 @@
 'use client'
 
 import type { Plan } from '@repo/shared-types'
-import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
+import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
 import { useSubscriptionActions } from '@repo/payments-next'
 
 export function DashboardMemberships({
@@ -12,9 +12,10 @@ export function DashboardMemberships({
   allowedPlans: Plan[]
   subscriptionPlan: Plan | null
 }) {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || (typeof window !== 'undefined' ? window.location.origin : '')
   const { createCheckoutSession, openCustomerPortal } = useSubscriptionActions({
     redirect: 'window',
-    baseUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
+    baseUrl,
     defaultSuccessPath: '/dashboard',
     defaultCancelPath: '/dashboard',
   })
@@ -38,11 +39,4 @@ export function DashboardMemberships({
 
   return <PlanDetail plan={subscriptionPlan} actionLabel="Manage Subscription" onAction={onPortal} />
 }
-
-
-
-
-
-
-
 

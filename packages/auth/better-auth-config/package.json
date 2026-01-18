@@ -10,12 +10,12 @@
   },
   "dependencies": {
     "@repo/auth-next": "workspace:*",
-    "better-auth": "1.3.11"
+    "better-auth": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^20.0.0",
+    "@types/node": "^24.10.1",
     "typescript": "5.9.3"
   }
 }

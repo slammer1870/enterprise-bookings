@@ -7,8 +7,8 @@ import { config, user } from "./config";
 import jwt from "jsonwebtoken";
 
 import { createDbString } from "@repo/testing-config/src/utils/db";
-import { setDbString } from "@repo/testing-config/src/utils/payload-config";
-import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
+import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
+import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient";
 
 describe("Verify Magic Link", async () => {
   let payload: Payload;

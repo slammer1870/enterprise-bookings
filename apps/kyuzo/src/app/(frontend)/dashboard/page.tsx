@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 import config from '@payload-config'
 
 import { Plan } from '@repo/shared-types'
-import { BookingSuccess } from '@/components/booking-success'
+import { BookingSuccessToast } from '@repo/bookings-next'
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { headers } from 'next/headers'
 import { DashboardMemberships } from '@/components/dashboard/memberships.client'
@@ -73,7 +73,7 @@ export default async function Dashboard() {
           </div>
         )}
       </div>
-      <BookingSuccess />
+      <BookingSuccessToast />
     </div>
   )
 }

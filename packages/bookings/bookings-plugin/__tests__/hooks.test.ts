@@ -12,12 +12,12 @@ import { buildConfig, getPayload } from "payload";
 
 import { config } from "./config";
 
-import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { ClassOption, Lesson, User, Booking } from "@repo/shared-types";
 
-import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
+import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient";
 
 const TEST_TIMEOUT = 60000; // 60 seconds
 const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)

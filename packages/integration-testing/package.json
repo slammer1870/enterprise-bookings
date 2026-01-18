@@ -14,6 +14,7 @@
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "payload": "*",
     "sharp": "0.34.5",

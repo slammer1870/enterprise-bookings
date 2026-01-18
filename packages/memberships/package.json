@@ -1,43 +1,46 @@
 {
   "name": "@repo/memberships",
   "version": "0.0.1",
-  "devDependencies": {
-    "@payloadcms/db-postgres": "*",
-    "@payloadcms/payload-cloud": "*",
-    "@payloadcms/plugin-stripe": "*",
-    "@payloadcms/richtext-lexical": "*",
-    "@payloadcms/ui": "*",
-    "@repo/bookings-plugin": "workspace:*",
-    "@repo/payments-plugin": "workspace:*",
-    "@repo/eslint-config": "workspace:*",
+  "main": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest --hook-timeout=1000000"
+  },
+  "dependencies": {
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "qs": "^6.14.0"
+  },
+  "devDependencies": {
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/payload-cloud": "*",
+    "@payloadcms/richtext-lexical": "*",
+    "@repo/bookings-plugin": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
+    "@repo/payments-plugin": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@repo/ui": "workspace:*",
     "@types/node": "^24.10.1",
     "@types/qs": "^6.14.0",
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
     "eslint": "^9.39.1",
     "eslint-config-next": "15.5.6",
-    "lucide-react": "0.554.0",
-    "qs": "^6.14.0",
     "sharp": "0.34.5",
-    "sonner": "*",
-    "stripe": "*",
     "typescript": "5.9.3",
     "vitest": "4.0.12"
   },
-  "main": "src/index.ts",
   "peerDependencies": {
+    "@payloadcms/plugin-stripe": "*",
+    "@payloadcms/ui": "*",
+    "lucide-react": "*",
     "next": "*",
-    "payload": "*"
-  },
-  "private": true,
-  "scripts": {
-    "test": "vitest --hook-timeout=1000000"
-  },
-  "type": "module"
+    "payload": "*",
+    "sonner": "*",
+    "stripe": "*"
+  }
 }

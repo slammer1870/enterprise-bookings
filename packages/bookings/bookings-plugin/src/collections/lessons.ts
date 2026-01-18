@@ -341,8 +341,14 @@ const defaultAdmin: CollectionAdminOptions = {
 const defaultHooks: HooksConfig = {
   beforeOperation: [
     async ({ args, operation }) => {
-      if (operation === "create") {
-        args.data.originalLockOutTime = args.data.lockOutTime;
+      if (operation === "create" && args?.data && typeof args.data === "object") {
+        // `args.data` is typed as `unknown` here (Payload generics), so safely narrow before writing.
+        const data = args.data as Record<string, unknown>;
+
+        // Only set the snapshot field if not explicitly provided.
+        if (typeof data.originalLockOutTime === "undefined") {
+          data.originalLockOutTime = data.lockOutTime;
+        }
       }
       return args;
     },
