@@ -1,9 +1,5 @@
 import { withPayload } from '@payloadcms/next/withPayload'
-import { createRequire } from 'module'
-import fs from 'node:fs'
-import path from 'node:path'
-
-const require = createRequire(import.meta.url)
+import { getPayloadUIAliases } from '../../scripts/payload-ui-aliases.mjs'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -114,65 +110,9 @@ const nextConfig = {
   webpack: (webpackConfig) => {
     webpackConfig.resolve.symlinks = true
 
-    // Force a single physical @payloadcms/ui instance across the whole bundle.
-    // Without this, pnpm can install multiple "@payloadcms/ui@same-version" copies
-    // due to differing optional peer sets, leading to React context mismatches
-    // (e.g. `useConfig()` returning undefined).
-    // In pnpm workspaces, `@payloadcms/ui` is often only resolvable via pnpm's injected NODE_PATH
-    // (node_modules/.pnpm/node_modules). Next's webpack resolver can end up bundling multiple peer-variants
-    // of @payloadcms/ui, causing missing context providers (e.g. list sort context -> `{ sort }` crash).
-    //
-    // Prefer pinning to pnpm's single virtual-store symlink if present.
-    const workspaceRoot = path.resolve(process.cwd(), '../..')
-    const pnpmVirtualStoreUiDir = path.join(workspaceRoot, 'node_modules/.pnpm/node_modules/@payloadcms/ui')
-
-    // Resolve to a real path so webpack doesn't treat symlink + realpath as two modules.
-    let payloadUiDir
-
-    // Prefer the exact UI instance that @payloadcms/next is linked to (it depends on @payloadcms/ui),
-    // to avoid pnpm peer-variant splits between payload-next and our app.
-    const payloadNextEntry = require.resolve('@payloadcms/next/withPayload')
-    const nextMarker = `${path.sep}@payloadcms${path.sep}next${path.sep}`
-    const nextMarkerIdx = payloadNextEntry.lastIndexOf(nextMarker)
-    const payloadNextDir =
-      nextMarkerIdx === -1
-        ? path.dirname(payloadNextEntry)
-        : payloadNextEntry.slice(0, nextMarkerIdx + nextMarker.length)
-    const payloadUiFromNextDir = path.join(path.dirname(payloadNextDir), 'ui')
-
-    if (fs.existsSync(payloadUiFromNextDir)) {
-      payloadUiDir = fs.realpathSync(payloadUiFromNextDir)
-    } else if (fs.existsSync(pnpmVirtualStoreUiDir)) {
-      payloadUiDir = fs.realpathSync(pnpmVirtualStoreUiDir)
-    } else {
-      payloadUiDir = fs.realpathSync(pnpmVirtualStoreUiDir)
-    }
-
-    if (!fs.existsSync(payloadUiDir)) {
-      // Fallback: derive the directory from Node resolution (works when @payloadcms/ui is directly resolvable)
-      const payloadUiEntry = require.resolve('@payloadcms/ui')
-      const marker = `${path.sep}@payloadcms${path.sep}ui${path.sep}`
-      const markerIdx = payloadUiEntry.lastIndexOf(marker)
-      payloadUiDir = markerIdx === -1 ? path.dirname(payloadUiEntry) : payloadUiEntry.slice(0, markerIdx + marker.length)
-    }
-
-    const payloadUiEntryFile = path.join(payloadUiDir, 'dist/exports/client/index.js')
-    const payloadUiSharedEntryFile = path.join(payloadUiDir, 'dist/exports/shared/index.js')
-    const payloadUiRscEntryFile = path.join(payloadUiDir, 'dist/exports/rsc/index.js')
-    const payloadUiDistDir = path.join(payloadUiDir, 'dist')
-
     webpackConfig.resolve.alias = {
       ...(webpackConfig.resolve.alias || {}),
-      // Pin both exact imports used by @payloadcms/next and other deps
-      '@payloadcms/ui/shared$': payloadUiSharedEntryFile,
-      // RSC export used by Payload importMap (admin importMap in App Router)
-      '@payloadcms/ui/rsc$': payloadUiRscEntryFile,
-      '@payloadcms/ui$': payloadUiEntryFile,
-      // Force subpath imports to resolve into the same physical package *and* map
-      // @payloadcms/ui/<subpath> -> <pkg>/dist/<subpath>
-      // while keeping @payloadcms/ui/dist/<...> -> <pkg>/dist/<...>
-      '@payloadcms/ui/dist/': `${payloadUiDistDir}${path.sep}`,
-      '@payloadcms/ui/': `${payloadUiDistDir}${path.sep}`,
+      ...getPayloadUIAliases({ from: import.meta.url, cwd: process.cwd() }),
     }
 
     return webpackConfig
