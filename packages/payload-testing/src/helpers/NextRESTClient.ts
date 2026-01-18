@@ -18,7 +18,7 @@ import {
 } from "@payloadcms/next/routes";
 import * as qs from "qs-esm";
 
-import { devUser } from "@repo/testing-config/src/helpers/credentials.js";
+import { devUser } from "./credentials";
 
 type ValidPath = `/${string}`;
 type RequestOptions = {
