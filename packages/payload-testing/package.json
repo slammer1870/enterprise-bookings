@@ -1,0 +1,17 @@
+{
+  "name": "@repo/payload-testing",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./src/helpers/NextRESTClient": "./src/helpers/NextRESTClient.ts",
+    "./src/utils/payload-config": "./src/utils/payload-config.ts"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/next": "*",
+    "payload": "*",
+    "qs-esm": "^7.0.2"
+  }
+}
+

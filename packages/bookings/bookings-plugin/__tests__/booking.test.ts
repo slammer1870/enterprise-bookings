@@ -11,7 +11,7 @@ import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { getPayload } from "payload";
 
-import { NextRESTClient } from "@repo/testing-config/src/helpers/NextRESTClient";
+import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient";
 
 import { buildConfig } from "payload";
 
@@ -19,7 +19,7 @@ import { config } from "./config";
 
 import { createDbString } from "@repo/testing-config/src/utils/db";
 
-import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 
 import { User } from "@repo/shared-types";
 
@@ -55,7 +55,7 @@ describe("Booking tests", () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy();
+      await payload.db?.destroy?.();
     }
   });
 

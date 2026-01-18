@@ -18,7 +18,7 @@ import {
 } from "@payloadcms/next/routes";
 import * as qs from "qs-esm";
 
-import { devUser } from "./credentials.js";
+import { devUser } from "@repo/testing-config/src/helpers/credentials.js";
 
 type ValidPath = `/${string}`;
 type RequestOptions = {
@@ -208,16 +208,16 @@ export class NextRESTClient {
     });
     const result = await response.json();
 
-    this.token = result.token;
+    this.token = (result as any).token;
 
-    if (!result.token) {
+    if (!(result as any).token) {
       // If the token is not in the response body, then we can extract it from the cookies
       const setCookie = response.headers.get("Set-Cookie");
       const tokenMatchResult = setCookie?.match(/payload-token=(?<token>.+?);/);
       this.token = tokenMatchResult?.groups?.token;
     }
 
-    return result;
+    return result as any;
   }
 
   async PATCH(
@@ -266,3 +266,4 @@ export class NextRESTClient {
     return this._PUT(request, { params: Promise.resolve({ slug }) });
   }
 }
+

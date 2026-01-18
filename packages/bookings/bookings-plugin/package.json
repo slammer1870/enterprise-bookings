@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

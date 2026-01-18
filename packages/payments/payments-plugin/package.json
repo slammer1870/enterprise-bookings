@@ -15,6 +15,7 @@
     "@payloadcms/richtext-lexical": "*",
     "@repo/analytics": "workspace:*",
     "@repo/eslint-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",

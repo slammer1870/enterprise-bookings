@@ -20,6 +20,7 @@
     "@payloadcms/richtext-lexical": "*",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/eslint-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
     "@repo/payments-plugin": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
