@@ -1,6 +1,7 @@
 "use client";
 
 import type { QueryClient } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -27,10 +28,10 @@ const getQueryClient = () => {
 };
 
 const context = createTRPCContext<AppRouter>();
-export const { TRPCProvider } = context;
+const TRPCProvider = context.TRPCProvider;
 export const useTRPC = context.useTRPC;
 
-export function TRPCReactProvider(props: { children: React.ReactNode }) {
+export function TRPCReactProvider(props: { children: ReactNode }) {
   const queryClient = getQueryClient();
 
   const [trpcClient] = useState(() =>
