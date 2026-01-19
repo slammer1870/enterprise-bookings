@@ -21,7 +21,7 @@ export const isAdminOrOwnerOrParent: Access = ({ req }) => {
         },
       },
       {
-        "user.parent": {
+        "user.parentUser": {
           equals: user.id,
         },
       },

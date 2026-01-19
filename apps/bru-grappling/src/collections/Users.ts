@@ -29,7 +29,9 @@ export const Users: CollectionConfig = {
       },
     },
     {
-      name: 'parent',
+      // NOTE: avoid naming collisions with db adapters / internal "parent" semantics
+      // (we've seen flaky auth-session writes in CI with a self-referencing relationship named "parent")
+      name: 'parentUser',
       type: 'relationship',
       relationTo: 'users',
       hasMany: false,
@@ -48,7 +50,7 @@ export const Users: CollectionConfig = {
       name: 'children',
       type: 'join',
       collection: 'users',
-      on: 'parent',
+      on: 'parentUser',
       admin: {
         condition: ({ children }) => {
           if (children && children.docs.length > 0) {

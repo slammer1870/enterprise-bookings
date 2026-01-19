@@ -1,4 +1,5 @@
 import { withPayload } from '@payloadcms/next/withPayload'
+import { getPayloadUIAliases } from '../../scripts/payload-ui-aliases.mjs'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -101,6 +102,21 @@ const nextConfig = {
           optimizePackageImports: ['@repo/ui', '@repo/shared-types'],
         }
       : {},
+
+  // Ensure workspace packages used by Payload admin importMap are transpiled
+  transpilePackages: ['@repo/ui', '@repo/bookings-plugin', '@repo/memberships', '@repo/payments-plugin'],
+
+  // Ensure pnpm symlinks are resolved to real paths so React context isn't duplicated
+  webpack: (webpackConfig) => {
+    webpackConfig.resolve.symlinks = true
+
+    webpackConfig.resolve.alias = {
+      ...(webpackConfig.resolve.alias || {}),
+      ...getPayloadUIAliases({ from: import.meta.url, cwd: process.cwd() }),
+    }
+
+    return webpackConfig
+  },
 }
 
 export default withPayload(nextConfig)

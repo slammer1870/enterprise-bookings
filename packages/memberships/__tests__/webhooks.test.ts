@@ -12,7 +12,7 @@ import { buildConfig, getPayload } from "payload";
 
 import { config } from "./config.js";
 
-import { setDbString } from "@repo/testing-config/src/utils/payload-config";
+import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 
 // Mock Stripe API

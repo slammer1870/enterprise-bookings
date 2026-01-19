@@ -7,7 +7,7 @@ export interface User {
   image?: {
     url: string;
   };
-  parent?: User;
+  parentUser?: User;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -19,6 +19,7 @@ import * as migration_20260102_000001_add_original_lock_out_time from './2026010
 import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from './20260103_000001_migrate_legacy_users_to_better_auth';
 import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
 import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
+import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
 
 export const migrations = [
   {
@@ -125,5 +126,10 @@ export const migrations = [
     up: migration_20260116_102317_replace_user_with_instructor_in_lessons.up,
     down: migration_20260116_102317_replace_user_with_instructor_in_lessons.down,
     name: '20260116_102317_replace_user_with_instructor_in_lessons',
+  },
+  {
+    up: migration_20260119_000001_rename_users_parent_to_parent_user.up,
+    down: migration_20260119_000001_rename_users_parent_to_parent_user.down,
+    name: '20260119_000001_rename_users_parent_to_parent_user',
   },
 ];

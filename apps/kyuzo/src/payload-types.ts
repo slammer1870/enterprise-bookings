@@ -235,7 +235,7 @@ export interface User {
   /**
    * Parent of the user
    */
-  parent?: (number | null) | User;
+  parentUser?: (number | null) | User;
   children?: {
     docs?: (number | User)[];
     hasNextPage?: boolean;
@@ -1669,7 +1669,7 @@ export interface TransactionsSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   lessons?: T;
-  parent?: T;
+  parentUser?: T;
   children?: T;
   name?: T;
   emailVerified?: T;

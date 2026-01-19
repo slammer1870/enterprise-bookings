@@ -3,8 +3,6 @@
   "version": "0.0.1",
   "dependencies": {
     "@hookform/resolvers": "*",
-    "@payloadcms/next": "*",
-    "@payloadcms/ui": "*",
     "@repo/analytics": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/shared-types": "workspace:*",
@@ -34,6 +32,8 @@
     "./server": "./src/server.ts"
   },
   "peerDependencies": {
+    "@payloadcms/next": "*",
+    "@payloadcms/ui": "*",
     "next": "*",
     "react": "*",
     "react-dom": "*",

@@ -265,7 +265,7 @@ export const checkUserSubscription = async (
       const childrenQuery = await payload.find({
         collection: "users",
         where: {
-          parent: { equals: user.id },
+          parentUser: { equals: user.id },
         },
         depth: 1,
       });

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { ensureAdminLoggedIn, waitForServerReady } from './helpers'
 
-type Created = { id: number }
+type Created = { id: number; name?: string }
 
 function unique(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
@@ -13,13 +13,32 @@ async function apiPost<T>(
   data: Record<string, any>,
 ): Promise<T> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const cookies = await page.context().cookies()
+  const cookieHeader = cookies.map((c: { name: string; value: string }) => `${c.name}=${c.value}`).join('; ')
   const res = await page.context().request.post(`${baseUrl}${path}`, {
+    headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
     data,
     timeout: 120000,
   })
   if (!res.ok()) {
     const txt = await res.text().catch(() => '')
     throw new Error(`POST ${path} failed: ${res.status()} ${txt}`)
+  }
+  const json: any = await res.json().catch(() => null)
+  return (json?.doc ?? json) as T
+}
+
+async function apiGet<T>(page: any, path: string): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const cookies = await page.context().cookies()
+  const cookieHeader = cookies.map((c: { name: string; value: string }) => `${c.name}=${c.value}`).join('; ')
+  const res = await page.context().request.get(`${baseUrl}${path}`, {
+    headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+    timeout: 120000,
+  })
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`GET ${path} failed: ${res.status()} ${txt}`)
   }
   const json: any = await res.json().catch(() => null)
   return (json?.doc ?? json) as T
@@ -40,16 +59,41 @@ async function createPlan(page: any, opts: { name: string; type: 'adult' | 'chil
 
 async function createUser(
   page: any,
-  opts: { name: string; email: string; role?: 'user' | 'admin'; parent?: number | null },
+  opts: { name: string; email: string; role?: 'user' | 'admin'; parentUser?: number | null },
 ): Promise<Created> {
-  return await apiPost(page, '/api/users', {
-    name: opts.name,
-    email: opts.email,
-    password: 'Password123!',
-    emailVerified: true,
-    role: opts.role ?? 'user',
-    parent: typeof opts.parent === 'undefined' ? null : opts.parent,
-  })
+  const attempts = process.env.CI ? 3 : 1
+  let lastErr: unknown = null
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const created = await apiPost<any>(page, '/api/users', {
+        name: opts.name,
+        email: opts.email,
+        password: 'Password123!',
+        emailVerified: true,
+        // Kyuzo has both a single `role` and a multi `roles` (rolesPlugin).
+        // Explicitly set both to avoid flaky default handling in some Payload/adapter combos.
+        role: opts.role ?? 'user',
+        roles: [opts.role ?? 'user'],
+        // Schema uses `parentUser` (legacy was `parent`). Sending the legacy key can be ignored safely.
+        parentUser: typeof opts.parentUser === 'undefined' ? null : opts.parentUser,
+      })
+
+      // Defensive: ensure the user is actually readable before using its id in FK relationships.
+      const id = created?.id ?? created?.doc?.id
+      if (typeof id !== 'number') {
+        throw new Error(`Unexpected create user response: ${JSON.stringify(created)}`)
+      }
+      await apiGet(page, `/api/users/${id}?depth=0`)
+      return { id, name: opts.name }
+    } catch (err) {
+      lastErr = err
+      // brief backoff and retry (handles flaky adapter errors on write)
+      await page.waitForTimeout(250)
+    }
+  }
+
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))
 }
 
 async function createSubscription(
@@ -59,7 +103,11 @@ async function createSubscription(
   const start = new Date()
   const end = new Date()
   end.setDate(end.getDate() + 30)
-  return await apiPost(page, '/api/subscriptions', {
+  // Ensure referenced user + plan exist before inserting subscription (avoids flaky FK failures in CI).
+  await apiGet(page, `/api/users/${opts.userId}?depth=0`)
+  await apiGet(page, `/api/plans/${opts.planId}?depth=0`)
+
+  const created = await apiPost<any>(page, '/api/subscriptions', {
     user: opts.userId,
     plan: opts.planId,
     status: 'active',
@@ -68,6 +116,12 @@ async function createSubscription(
     startDate: start.toISOString(),
     endDate: end.toISOString(),
   })
+  const id = created?.id ?? created?.doc?.id
+  if (typeof id !== 'number') {
+    throw new Error(`Unexpected create subscription response: ${JSON.stringify(created)}`)
+  }
+  await apiGet(page, `/api/subscriptions/${id}?depth=0`)
+  return { id }
 }
 
 async function createClassOption(
@@ -188,7 +242,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     const childWithSubParent = await createUser(page, {
       name: unique('Child With Sub Parent'),
       email: `${unique('child-with-sub-parent')}@example.com`,
-      parent: parentWithSub.id,
+      parentUser: parentWithSub.id,
     })
 
     const parentNoSub = await createUser(page, {
@@ -198,7 +252,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     const childNoSubParent = await createUser(page, {
       name: unique('Child No Sub Parent'),
       email: `${unique('child-no-sub-parent')}@example.com`,
-      parent: parentNoSub.id,
+      parentUser: parentNoSub.id,
     })
 
     // Subscriptions
@@ -233,7 +287,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     await test.step('adult with active subscription can check in to subscription-required lesson', async () => {
       await checkInViaKiosk(page, {
         lessonId: adultSubLesson.id,
-        userName: (adultWithSub as any).name,
+        userName: adultWithSub.name as string,
         expectSuccess: true,
       })
     })
@@ -242,7 +296,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     await test.step('adult without active subscription cannot check in to subscription-required lesson', async () => {
       await checkInViaKiosk(page, {
         lessonId: adultSubLesson.id,
-        userName: (adultNoSub as any).name,
+        userName: adultNoSub.name as string,
         expectSuccess: false,
       })
     })
@@ -251,7 +305,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     await test.step('adult without subscription can check in to lesson without subscription requirement', async () => {
       await checkInViaKiosk(page, {
         lessonId: adultFreeLesson.id,
-        userName: (adultNoSub as any).name,
+        userName: adultNoSub.name as string,
         expectSuccess: true,
       })
     })
@@ -260,7 +314,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     await test.step('child can check in when parent has active subscription for child lesson that requires it', async () => {
       await checkInViaKiosk(page, {
         lessonId: childSubLesson.id,
-        userName: (childWithSubParent as any).name,
+        userName: childWithSubParent.name as string,
         expectSuccess: true,
       })
     })
@@ -269,7 +323,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     await test.step('child cannot check in when parent has no active subscription for child lesson that requires it', async () => {
       await checkInViaKiosk(page, {
         lessonId: childSubLesson.id,
-        userName: (childNoSubParent as any).name,
+        userName: childNoSubParent.name as string,
         expectSuccess: false,
       })
     })

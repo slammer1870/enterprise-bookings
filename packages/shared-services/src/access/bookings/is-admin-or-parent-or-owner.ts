@@ -23,7 +23,7 @@ export const isBookingAdminOrParentOrOwner: Access = ({
         },
       },
       {
-        "user.parent": {
+        "user.parentUser": {
           equals: user?.id,
         },
       },

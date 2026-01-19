@@ -5,9 +5,12 @@ import type { TextFieldClientProps } from "payload";
 import {
   CopyToClipboard,
   SelectInput,
+  toast,
+  useField,
 } from "@payloadcms/ui";
 
 import * as React from "react";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 
 export const CustomSelect: React.FC<
   TextFieldClientProps & { apiUrl: string; dataLabel: string }
@@ -15,6 +18,10 @@ export const CustomSelect: React.FC<
   const { path, field, apiUrl, dataLabel } = props;
 
   const { label, name } = field;
+
+  const { value, setValue } = useField<string>({ path });
+
+  const [loading, setLoading] = React.useState(false);
 
   // Get initial value from props if available (from existing document data)
   const initialValue = (props as any).value || "";
@@ -28,11 +35,12 @@ export const CustomSelect: React.FC<
 
   // Use local state to track value, initialized from props
   // SelectInput will handle form updates via the path prop
-  const [value, setValue] = React.useState<string>(initialValue);
+  const didInitRef = React.useRef(false);
 
   React.useEffect(() => {
     const getStripeOptions = async () => {
       try {
+        setLoading(true);
         const optionsFetch = await fetch(apiUrl, {
           credentials: "include",
           headers: {
@@ -71,27 +79,41 @@ export const CustomSelect: React.FC<
               },
             ]
           );
-          setOptions(fetchedOptions);
+          if (fetchedOptions.length === 1) {
+            setOptions([{
+              label: `No ${dataLabel} found`,
+              value: "",
+            },]);
+          } else {
+            setOptions(fetchedOptions);
+          }
+          setLoading(false);
         }
       } catch (error) {
         console.error(error); // eslint-disable-line no-console
+        setOptions([{
+          label: `No ${dataLabel} found`,
+          value: "",
+        },]);
+        toast.error("Error fetching options: " + (error as Error).message);
+        setLoading(false);
       }
     };
 
     void getStripeOptions();
   }, []);
 
-  // Sync local state when props.value changes (e.g., when editing existing document)
+  // Initialize field value from props on first mount (edit view hydration)
   React.useEffect(() => {
-    if (initialValue && initialValue !== value) {
-      setValue(initialValue);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValue]);
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    if (initialValue && typeof value === "undefined") setValue(initialValue);
+  }, [initialValue, setValue, value]);
 
-  const href = `https://dashboard.stripe.com/${
-    process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-  }${dataLabel}/${value}`;
+  const normalizedValue = typeof value === "string" ? value : "";
+
+  const href = `https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+    }${dataLabel}/${normalizedValue}`;
 
   return (
     <div className="mb-4">
@@ -106,31 +128,32 @@ export const CustomSelect: React.FC<
       >
         {`Select the related Stripe data or `}
         <a
-          href={`https://dashboard.stripe.com/${
-            process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-          }${dataLabel}/create`}
+          href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+            }${dataLabel}/create`}
           rel="noopener noreferrer"
-          style={{ color: "var(--theme-text" }}
+          style={{ color: "var(--theme-text)" }}
           target="_blank"
         >
           create a new one
         </a>
         .
       </p>
-      <SelectInput
-        path={path}
-        name={name}
-        options={options}
-        value={value}
-        onChange={(e: any) => {
-          // Update local state when SelectInput changes
-          // SelectInput will also update the form via the path prop
-          const newValue = e?.value || "";
-          setValue(newValue);
-        }}
-        className="mb-2"
-      />
-      {Boolean(value) && (
+      {loading ? (
+        <Skeleton className="mb-2 h-10 w-full" />
+      ) : (
+        <SelectInput
+          path={path}
+          name={name}
+          options={options}
+          value={normalizedValue}
+          onChange={(e: any) => {
+            const newValue = e?.value || "";
+            setValue(newValue);
+          }}
+          className="mb-2"
+        />
+      )}
+      {Boolean(normalizedValue) && (
         <div>
           <div>
             <span
@@ -139,10 +162,9 @@ export const CustomSelect: React.FC<
                 color: "#9A9A9A",
               }}
             >
-              {`Manage "${
-                options.find((option) => option.value === value)?.label ||
+              {`Manage "${options.find((option) => option.value === normalizedValue)?.label ||
                 "Unknown"
-              }" in Stripe`}
+                }" in Stripe`}
             </span>
             <CopyToClipboard value={href} />
           </div>
@@ -154,9 +176,8 @@ export const CustomSelect: React.FC<
             }}
           >
             <a
-              href={`https://dashboard.stripe.com/${
-                process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-              }${dataLabel}/${value}`}
+              href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+                }${dataLabel}/${normalizedValue}`}
               rel="noreferrer noopener"
               target="_blank"
             >

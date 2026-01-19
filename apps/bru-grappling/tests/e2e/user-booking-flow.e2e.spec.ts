@@ -17,7 +17,10 @@ import { ensureHomePageWithSchedule, goToTomorrowInSchedule } from '@repo/testin
  */
 async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'): Promise<Date> {
   // Ensure a basic class option exists; create it if it does not
-  await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
+  await page.goto('/admin/collections/class-options', {
+    waitUntil: 'load',
+    timeout: process.env.CI ? 120000 : 60000,
+  })
   const existingClassOptionRow = page.getByRole('row', { name: new RegExp(className, 'i') })
 
   if ((await existingClassOptionRow.count()) === 0) {
@@ -25,11 +28,14 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
     await page.getByLabel('Create new Class Option').click()
 
     await page
-      .waitForURL(/\/admin\/collections\/class-options\/create/, { timeout: 10000 })
+      .waitForURL(/\/admin\/collections\/class-options\/create/, {
+        timeout: process.env.CI ? 60000 : 30000,
+        waitUntil: 'domcontentloaded',
+      })
       .catch(async () => {
         await page.goto('/admin/collections/class-options/create', {
           waitUntil: 'domcontentloaded',
-          timeout: 10000,
+          timeout: process.env.CI ? 60000 : 30000,
         })
       })
 

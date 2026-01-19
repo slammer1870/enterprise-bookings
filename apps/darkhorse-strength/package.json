@@ -14,7 +14,7 @@
     "@payloadcms/ui": "*",
     "@repo/auth-next": "workspace:*",
     "@repo/better-auth-config": "workspace:*",
-    "better-auth": "^1.4.5",
+    "better-auth": "*",
     "payload-auth": "^1.7.0",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/bookings-next": "workspace:*",

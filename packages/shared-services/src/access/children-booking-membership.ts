@@ -62,13 +62,13 @@ export const childrenCreateBookingMembershipAccess = async ({
     }
 
     if (lesson.classOption.type == "child") {
-      if (!user.parent) {
+      if (!user.parentUser) {
         payload.logger.error(`User has no parent (userId: ${userId})`);
         return false;
       }
 
       const parentId =
-        typeof user.parent === "object" ? user.parent.id : user.parent;
+        typeof user.parentUser === "object" ? user.parentUser.id : (user.parentUser as unknown as number);
 
       user = (await payload.findByID({
         collection: "users" as CollectionSlug,
@@ -175,13 +175,13 @@ export const childrenUpdateBookingMembershipAccess = async ({
     })) as unknown as Lesson;
 
     if (lesson.classOption.type == "child") {
-      if (!user?.parent) {
+      if (!user?.parentUser) {
         req.payload.logger.error(`User has no parent (userId: ${userId})`);
         return false;
       }
 
       const parentId =
-        typeof user.parent === "object" ? user.parent.id : user.parent;
+        typeof user.parentUser === "object" ? user.parentUser.id : (user.parentUser as unknown as number);
 
       user = (await payload.findByID({
         collection: "users" as CollectionSlug,

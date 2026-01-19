@@ -30,7 +30,7 @@ export const usersRouter = {
     .query(async ({ ctx }) => {
       const children = await findSafe(ctx.payload, "users", {
       where: {
-        parent: { equals: ctx.user?.id },
+        parentUser: { equals: ctx.user?.id },
       },
       limit: 100,
       depth: 1,
@@ -57,7 +57,7 @@ export const usersRouter = {
       const child = await createSafe(ctx.payload, "users", {
           name: input.name,
           email: input.email,
-          parent: ctx.user?.id,
+          parentUser: ctx.user?.id,
           hash,
           salt,
           password: randomPassword,

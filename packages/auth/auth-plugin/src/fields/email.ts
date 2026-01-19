@@ -18,7 +18,11 @@ export const email: Field = {
         return true;
       }
 
-      if (siblingData?.parent && siblingData?.parent === user?.id) {
+      // Support both schemas:
+      // - legacy: `parent`
+      // - current: `parentUser`
+      const parentId = (siblingData as any)?.parentUser ?? (siblingData as any)?.parent
+      if (parentId && parentId === user?.id) {
         return true;
       }
 
