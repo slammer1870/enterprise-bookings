@@ -245,23 +245,28 @@ export async function ensureLessonForTomorrowWithSubscription(page: any): Promis
   const planName = await ensureAtLeastOnePlan(page)
 
   // Create a subscription-only class option
-  await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
+  await page.goto('/admin/collections/class-options', {
+    waitUntil: 'load',
+    timeout: process.env.CI ? 120000 : 60000,
+  })
   // "Create new Class Option" is a link in Payload 3.64.0
   const createLink = page.getByRole('link', { name: /Create new.*Class Option/i })
   if ((await createLink.count()) > 0) {
-    await Promise.all([
-      page.waitForURL(/\/admin\/collections\/class-options\/create/, {
-        timeout: process.env.CI ? 60000 : 30000,
-      }),
-      createLink.first().click(),
-    ])
+    await clickAndWaitForNavigation(page, createLink.first(), /\/admin\/collections\/class-options\/create/, {
+      timeout: process.env.CI ? 120000 : 60000,
+      waitUntil: 'domcontentloaded',
+    })
   } else {
-    await Promise.all([
-      page.waitForURL(/\/admin\/collections\/class-options\/create/, {
-        timeout: process.env.CI ? 60000 : 30000,
-      }),
-      page.getByLabel(/Create new.*Class Option/i).first().click(),
-    ])
+    await clickAndWaitForNavigation(
+      page,
+      page.getByLabel(/Create new.*Class Option/i).first(),
+      /\/admin\/collections\/class-options\/create/,
+      {
+        timeout: process.env.CI ? 120000 : 60000,
+        waitUntil: 'domcontentloaded',
+        force: process.env.CI ? true : false,
+      },
+    )
   }
 
   const nameField = page.getByRole('textbox', { name: /^Name\s*\*?$/i })

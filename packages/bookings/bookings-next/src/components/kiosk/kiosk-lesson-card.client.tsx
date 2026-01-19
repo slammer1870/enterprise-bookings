@@ -177,7 +177,7 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
                           <CommandGroup>
                             {classOptionObj?.type === 'child'
                               ? users
-                                  .filter((user) => user.parent !== null)
+                                  .filter((user) => user.parentUser !== null)
                                   .map((user) => (
                                     <CommandItem
                                       key={user.id}
@@ -201,7 +201,7 @@ export function KioskLessonCard({ lesson, users }: { lesson: Lesson; users: User
                                     </CommandItem>
                                   ))
                               : users
-                                  .filter((user) => user.parent === null)
+                                  .filter((user) => user.parentUser === null)
                                   .map((user) => (
                                     <CommandItem
                                       key={user.id.toString()}

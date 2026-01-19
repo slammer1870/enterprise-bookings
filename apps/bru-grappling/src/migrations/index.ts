@@ -12,6 +12,7 @@ import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from '
 import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
 import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
 import * as migration_20260116_120000_fix_schema_mismatch_hero_and_footer from './20260116_120000_fix_schema_mismatch_hero_and_footer';
+import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
 
 export const migrations = [
   {
@@ -83,5 +84,10 @@ export const migrations = [
     up: migration_20260116_120000_fix_schema_mismatch_hero_and_footer.up,
     down: migration_20260116_120000_fix_schema_mismatch_hero_and_footer.down,
     name: '20260116_120000_fix_schema_mismatch_hero_and_footer',
+  },
+  {
+    up: migration_20260119_000001_rename_users_parent_to_parent_user.up,
+    down: migration_20260119_000001_rename_users_parent_to_parent_user.down,
+    name: '20260119_000001_rename_users_parent_to_parent_user',
   },
 ];

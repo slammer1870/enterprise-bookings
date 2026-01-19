@@ -170,7 +170,7 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  roles?: ('customer' | 'admin')[] | null;
+  roles?: ('user' | 'admin')[] | null;
   /**
    * Users chosen display name
    */

@@ -30,7 +30,7 @@ export const adminOrUserOrParentOrInstructor: Access = ({
         },
       },
       {
-        parent: {
+        parentUser: {
           equals: userForQuery,
         },
       },

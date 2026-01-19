@@ -404,7 +404,7 @@ export const bookingsRouter = {
         // First, get all children of the parent user
         const childrenQuery = await findSafe(ctx.payload, "users", {
           where: {
-            parent: { equals: ctx.user.id },
+            parentUser: { equals: ctx.user.id },
           },
           depth: 1,
           overrideAccess: false,
@@ -551,7 +551,7 @@ export const bookingsRouter = {
       const bookings = await findSafe(ctx.payload, "bookings", {
         where: {
           lesson: { equals: input.id },
-          "user.parent": { equals: ctx.user.id },
+          "user.parentUser": { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
         },
         depth: 2,

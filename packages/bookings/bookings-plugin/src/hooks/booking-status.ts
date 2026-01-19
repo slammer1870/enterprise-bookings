@@ -20,10 +20,10 @@ const getUserFromBooking = (booking: Booking): User => {
 };
 
 const getParentId = (user: User): number | null => {
-  if (!user.parent) return null;
-  return typeof user.parent === "object" && user.parent !== null
-    ? user.parent.id
-    : (user.parent as number);
+  if (!user.parentUser) return null;
+  return typeof user.parentUser === "object" && user.parentUser !== null
+    ? user.parentUser.id
+    : (user.parentUser as unknown as number);
 };
 
 const isLessonClosed = (
@@ -198,7 +198,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
           and: [
             classOption.type === "child"
               ? {
-                  "user.parent": {
+                  "user.parentUser": {
                     equals: userId,
                   },
                 }
