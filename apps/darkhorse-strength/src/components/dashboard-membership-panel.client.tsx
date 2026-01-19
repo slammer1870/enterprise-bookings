@@ -3,6 +3,8 @@
 import type { Plan, Subscription } from '@repo/shared-types'
 import { PlanView } from '@repo/payments-next'
 import { useSubscriptionActions } from '@repo/payments-next'
+import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
+import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
 
 export function DashboardMembershipPanel({
   plans,
@@ -31,17 +33,13 @@ export function DashboardMembershipPanel({
     })
   }
 
+  if (!subscription) {
+    return <PlanList plans={plans} actionLabel="Subscribe" onAction={handleCreateCheckoutSession} />
+  }
+
   return (
-    <PlanView
-      allowedPlans={plans}
-      subscription={subscription}
-      lessonDate={new Date()}
-      subscriptionLimitReached={false}
-      onCreateCheckoutSession={handleCreateCheckoutSession}
-      onCreateCustomerPortal={async () => {
-        await openCustomerPortal()
-      }}
-    />
+    <PlanDetail plan={subscription.plan} actionLabel="Manage Subscription" onAction={openCustomerPortal} />
+
   )
 }
 
