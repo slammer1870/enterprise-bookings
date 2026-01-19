@@ -108,7 +108,7 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
           </h1>
         )}
         {links && links.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-4 mt-4">
+          <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full">
             {links.map((linkItem, index) => {
               if (!linkItem?.link) return null
               const { link } = linkItem
@@ -125,8 +125,8 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
                   variant={appearance === 'outline' ? 'outline' : 'default'}
                   className={
                     appearance === 'outline'
-                      ? 'border-2 border-white text-white hover:bg-white hover:text-gray-900 bg-transparent'
-                      : 'bg-white text-gray-900 hover:bg-gray-100'
+                      ? 'border-2 border-white text-white hover:bg-white hover:text-gray-900 bg-transparent w-auto flex-1'
+                      : 'bg-white text-gray-900 hover:bg-gray-100 w-auto flex-1'
                   }
                 >
                   <Link href={href} {...newTabProps}>

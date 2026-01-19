@@ -13,6 +13,7 @@ import { LocationBlock } from '@repo/website/src/blocks/location'
 import { FaqsBlock } from '@repo/website/src/blocks/faqs'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
+import { TwoColumnLayoutBlock } from '@/blocks/TwoColumnLayout/Component'
 
 const blockComponents = {
   archive: ArchiveBlock,
@@ -26,6 +27,7 @@ const blockComponents = {
   schedule: ScheduleBlock,
   faqs: FaqsBlock,
   heroSchedule: HeroScheduleBlock,
+  twoColumnLayout: TwoColumnLayoutBlock,
 }
 
 export const RenderBlocks: React.FC<{

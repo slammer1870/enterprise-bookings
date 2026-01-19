@@ -388,6 +388,7 @@ export interface Page {
   layout: (
     | HeroScheduleBlock
     | HeroBlock
+    | TwoColumnLayoutBlock
     | AboutBlock
     | LocationBlock
     | ScheduleBlock
@@ -691,6 +692,126 @@ export interface HeroBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'hero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TwoColumnLayoutBlock".
+ */
+export interface TwoColumnLayoutBlock {
+  leftColumn: {
+    blockType: 'about' | 'schedule' | 'location' | 'faqs';
+    aboutTitle?: string | null;
+    image?: (number | null) | Media;
+    content?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+    locationTitle?: string | null;
+    description?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    /**
+     * Google Maps embed URL or iframe src
+     */
+    mapEmbedUrl?: string | null;
+    faqs?:
+      | {
+          question: string;
+          answer: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  rightColumn?:
+    | {
+        blockType: 'about' | 'schedule' | 'location' | 'faqs';
+        aboutTitle?: string | null;
+        image?: (number | null) | Media;
+        content?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        locationTitle?: string | null;
+        description?: string | null;
+        address?: string | null;
+        email?: string | null;
+        phone?: string | null;
+        /**
+         * Google Maps embed URL or iframe src
+         */
+        mapEmbedUrl?: string | null;
+        faqs?:
+          | {
+              question: string;
+              answer: string;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  fullWidth: {
+    blockType: 'about' | 'schedule' | 'location' | 'faqs';
+    aboutTitle?: string | null;
+    image?: (number | null) | Media;
+    content?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+    locationTitle?: string | null;
+    description?: string | null;
+    address?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    /**
+     * Google Maps embed URL or iframe src
+     */
+    mapEmbedUrl?: string | null;
+    faqs?:
+      | {
+          question: string;
+          answer: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'twoColumnLayout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1462,6 +1583,7 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
+        twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
@@ -1546,6 +1668,78 @@ export interface HeroBlockSelect<T extends boolean = true> {
               appearance?: T;
             };
         id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TwoColumnLayoutBlock_select".
+ */
+export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
+  leftColumn?:
+    | T
+    | {
+        blockType?: T;
+        aboutTitle?: T;
+        image?: T;
+        content?: T;
+        locationTitle?: T;
+        description?: T;
+        address?: T;
+        email?: T;
+        phone?: T;
+        mapEmbedUrl?: T;
+        faqs?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
+      };
+  rightColumn?:
+    | T
+    | {
+        blockType?: T;
+        aboutTitle?: T;
+        image?: T;
+        content?: T;
+        locationTitle?: T;
+        description?: T;
+        address?: T;
+        email?: T;
+        phone?: T;
+        mapEmbedUrl?: T;
+        faqs?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  fullWidth?:
+    | T
+    | {
+        blockType?: T;
+        aboutTitle?: T;
+        image?: T;
+        content?: T;
+        locationTitle?: T;
+        description?: T;
+        address?: T;
+        email?: T;
+        phone?: T;
+        mapEmbedUrl?: T;
+        faqs?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
       };
   id?: T;
   blockName?: T;

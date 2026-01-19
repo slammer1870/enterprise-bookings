@@ -11,6 +11,7 @@ import { hero } from '@/heros/config'
 import { Hero, About, Location, Faqs } from '@repo/website'
 import { Schedule } from '@/blocks/Schedule/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
+import { TwoColumnLayout } from '@/blocks/TwoColumnLayout/config'
 import { slugField } from 'payload'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -78,6 +79,7 @@ export const Pages: CollectionConfig<'pages'> = {
               blocks: [
                 HeroSchedule,
                 Hero,
+                TwoColumnLayout,
                 About,
                 Location,
                 Schedule,
