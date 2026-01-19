@@ -9,6 +9,11 @@ import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
 import { searchFields } from '@/search/fieldOverrides'
 import { beforeSyncWithSearch } from '@/search/beforeSync'
+import { betterAuthPlugin } from 'payload-auth/better-auth'
+import { betterAuthPluginOptions } from '@/lib/auth/options'
+import { rolesPlugin } from '@repo/roles'
+import { checkRole } from '@repo/shared-utils'
+import { User } from '@repo/shared-types'
 
 import { Page, Post } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -88,5 +93,12 @@ export const plugins: Plugin[] = [
         return [...defaultFields, ...searchFields]
       },
     },
+  }),
+  betterAuthPlugin(betterAuthPluginOptions as any),
+  rolesPlugin({
+    enabled: true,
+    roles: ['user', 'admin'],
+    defaultRole: 'user',
+    firstUserRole: 'admin',
   }),
 ]

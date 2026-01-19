@@ -16,6 +16,9 @@ const eslintConfig = [
       '@typescript-eslint/ban-ts-comment': 'warn',
       '@typescript-eslint/no-empty-object-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
+      // NOTE: this rule is currently crashing under our ESLint/Next combo during `next build`.
+      // Disable it to unblock builds; we can re-enable once the ecosystem stabilizes.
+      'react-hooks/exhaustive-deps': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {

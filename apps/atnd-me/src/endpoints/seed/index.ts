@@ -101,10 +101,14 @@ export const seed = async ({
   const [demoAuthor, image1Doc, image2Doc, image3Doc, imageHomeDoc] = await Promise.all([
     payload.create({
       collection: 'users',
+      // Explicitly set draft to avoid the `draft: true` overload in generated Payload types.
+      draft: false,
       data: {
         name: 'Demo Author',
         email: 'demo-author@example.com',
         password: 'password',
+        emailVerified: true,
+        role: 'admin',
       },
     }),
     payload.create({

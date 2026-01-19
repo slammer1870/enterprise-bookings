@@ -1,51 +1,28 @@
 {
+  "extends": "@repo/typescript-config/nextjs.json",
   "compilerOptions": {
-    "strict": true,
     "baseUrl": ".",
-    "esModuleInterop": true,
-    "target": "ES2022",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "incremental": true,
-    "jsx": "preserve",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "sourceMap": true,
-    "isolatedModules": true,
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@payload-config": [
-        "./src/payload.config.ts"
-      ],
-      "react": [
-        "./node_modules/@types/react"
-      ],
-      "@/*": [
-        "./src/*"
-      ],
+      "@/*": ["./src/*"],
+      "@payload-config": ["./src/payload.config.ts"],
+      "@repo/better-auth-config/*": ["../../packages/auth/better-auth-config/src/*"]
     }
   },
   "include": [
+    "next-env.d.ts",
+    "next.config.js",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
+    "tailwind.config.mjs",
     "redirects.js",
-    "next-env.d.ts",
-    "next.config.js",
-    "next-sitemap.config.cjs"
+    "next-sitemap.config.cjs",
+    "src/app/(payload)/admin/importMap.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ],
+  "exclude": ["node_modules"]
 }

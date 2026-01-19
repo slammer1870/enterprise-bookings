@@ -15,12 +15,8 @@ export const Users: CollectionConfig = {
     defaultColumns: ['name', 'email'],
     useAsTitle: 'name',
   },
-  auth: true,
-  fields: [
-    {
-      name: 'name',
-      type: 'text',
-    },
-  ],
+  // Auth fields (email/name/etc) are provided by the Better Auth plugin in this repo.
+  // Keep this collection lean to avoid duplicate field-name collisions.
+  fields: [],
   timestamps: true,
 }
