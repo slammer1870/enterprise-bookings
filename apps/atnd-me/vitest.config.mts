@@ -5,8 +5,22 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],
   test: {
-    environment: 'jsdom',
+    globals: true,
+    environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
+    globalSetup: ['./tests/int/global-setup.ts'],
     include: ['tests/int/**/*.int.spec.ts'],
+    hookTimeout: 300000, // 5 minutes for database setup
+    server: {
+      deps: {
+        inline: ['payload-auth'],
+      },
+    },
+  },
+  resolve: {
+    conditions: ['node', 'import', 'module', 'browser', 'default'],
+  },
+  ssr: {
+    noExternal: ['payload-auth'],
   },
 })

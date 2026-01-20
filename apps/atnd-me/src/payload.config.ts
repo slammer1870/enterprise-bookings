@@ -61,6 +61,11 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
+    ...(process.env.NODE_ENV === 'test' || process.env.CI
+      ? {
+          push: false, // Disable automatic schema pushing in test/CI after first push
+        }
+      : {}),
   }),
   collections: [Pages, Posts, Media, Categories, Users],
   cors: [getServerSideURL()].filter(Boolean),

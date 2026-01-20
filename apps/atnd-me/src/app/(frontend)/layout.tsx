@@ -17,8 +17,15 @@ import '@repo/ui/globals.css'
 
 import './globals.css'
 import { getServerSideURL } from '@/utilities/getURL'
+import { Toaster } from 'sonner'
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+  unauthenticated,
+}: {
+  children: React.ReactNode
+  unauthenticated: React.ReactNode
+}) {
   const { isEnabled } = await draftMode()
 
   return (
@@ -38,7 +45,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
           <Header />
           {children}
+          {unauthenticated}
           <Footer />
+          <div id="modal-root" />
+          <Toaster />
         </Providers>
       </body>
     </html>

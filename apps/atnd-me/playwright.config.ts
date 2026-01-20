@@ -35,7 +35,15 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
     url: 'http://localhost:3000',
+    timeout: process.env.CI ? 180000 : 60000,
+    env: {
+      DATABASE_URI: process.env.DATABASE_URI || '',
+      PAYLOAD_SECRET: process.env.PAYLOAD_SECRET || '',
+      NODE_ENV: 'development',
+      CI: 'true',
+      NODE_OPTIONS: '--no-deprecation',
+    },
   },
 })
