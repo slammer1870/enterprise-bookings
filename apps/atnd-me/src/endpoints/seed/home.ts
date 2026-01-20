@@ -10,30 +10,30 @@ type HomeArgs = {
 // Helper function to create a simple richText structure
 const createSimpleRichText = (text: string) => ({
   root: {
-    type: 'root',
+    type: 'root' as const,
     children: [
       {
-        type: 'paragraph',
+        type: 'paragraph' as const,
         children: [
           {
-            type: 'text',
+            type: 'text' as const,
             detail: 0,
             format: 0,
-            mode: 'normal',
+            mode: 'normal' as const,
             style: '',
             text: text,
             version: 1,
           },
         ],
-        direction: 'ltr',
-        format: '',
+        direction: 'ltr' as const,
+        format: '' as const,
         indent: 0,
         textFormat: 0,
         version: 1,
       },
     ],
-    direction: 'ltr',
-    format: '',
+    direction: 'ltr' as const,
+    format: '' as const,
     indent: 0,
     version: 1,
   },
@@ -48,13 +48,13 @@ export const home: (args: HomeArgs) => RequiredDataFromCollectionSlug<'pages'> =
     slug: 'home',
     _status: 'published',
     hero: {
-      type: 'lowImpact',
+      type: 'lowImpact' as const,
       richText: {
         root: {
-          type: 'root',
+          type: 'root' as const,
           children: [],
-          direction: 'ltr',
-          format: '',
+          direction: 'ltr' as const,
+          format: '' as const,
           indent: 0,
           version: 1,
         },

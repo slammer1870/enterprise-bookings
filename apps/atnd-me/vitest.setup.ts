@@ -4,14 +4,14 @@
 
 // Set NODE_ENV to test early to ensure push is disabled
 if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'test'
+  ;(process.env as any).NODE_ENV = 'test'
 }
 
 // Load .env files first so we can respect any existing DATABASE_URI
 import 'dotenv/config'
 
 // Ensure NODE_ENV is test (dotenv might override it)
-process.env.NODE_ENV = 'test'
+;(process.env as any).NODE_ENV = 'test'
 
 // Set PAYLOAD_SECRET early for test environment if not already set
 if (!process.env.PAYLOAD_SECRET) {

@@ -21,7 +21,7 @@ export async function globalSetup() {
     console.log('[Vitest Global Setup] DATABASE_URI not set, creating test database container...')
     try {
       const dbString = await createDbString()
-      process.env.DATABASE_URI = dbString
+      ;(process.env as any).DATABASE_URI = dbString
       console.log('[Vitest Global Setup] Test database container created successfully')
     } catch (error) {
       console.error('[Vitest Global Setup] Failed to create test container:', error)
@@ -41,7 +41,7 @@ export async function globalSetup() {
     try {
       // Temporarily enable push for schema creation
       const originalNodeEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'development' // Enable push
+      ;(process.env as any).NODE_ENV = 'development' // Enable push
       
       // Import config dynamically after setting env vars
       const { default: config } = await import('../../src/payload.config.js')
@@ -60,16 +60,18 @@ export async function globalSetup() {
       }
       
       // Restore NODE_ENV before destroying
-      process.env.NODE_ENV = originalNodeEnv || 'test'
+      ;(process.env as any).NODE_ENV = originalNodeEnv || 'test'
       
       // Destroy the instance - tests will create their own with push disabled
-      await payload.db.destroy()
+      if (payload.db?.destroy) {
+        await payload.db.destroy()
+      }
       console.log('[Vitest Global Setup] Schema pushed successfully')
     } catch (error) {
       console.error('[Vitest Global Setup] Failed to initialize Payload:', error)
       // Restore NODE_ENV on error
       if (process.env.NODE_ENV === 'development') {
-        process.env.NODE_ENV = 'test'
+        ;(process.env as any).NODE_ENV = 'test'
       }
       // Continue anyway - tests might handle it
     }

@@ -68,10 +68,11 @@ export async function seedBookings({
         overrideAccess: true,
       })
       
-      if (existingUsers.docs.length > 0) {
+      const existingUser = existingUsers.docs[0]
+      if (existingUser) {
         await payload.delete({
           collection: 'users',
-          id: existingUsers.docs[0].id,
+          id: existingUser.id,
           overrideAccess: true,
         })
       }
@@ -92,8 +93,10 @@ export async function seedBookings({
         email: 'admin@test.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
+        role: 'admin',
         roles: ['admin'],
       },
+      draft: false,
       overrideAccess: true,
     }),
     // Regular users
@@ -104,8 +107,10 @@ export async function seedBookings({
         email: 'user1@test.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
+        role: 'user',
         roles: ['user'],
       },
+      draft: false,
       overrideAccess: true,
     }),
     payload.create({
@@ -115,8 +120,10 @@ export async function seedBookings({
         email: 'user2@test.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
+        role: 'user',
         roles: ['user'],
       },
+      draft: false,
       overrideAccess: true,
     }),
     payload.create({
@@ -126,8 +133,10 @@ export async function seedBookings({
         email: 'user3@test.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
+        role: 'user',
         roles: ['user'],
       },
+      draft: false,
       overrideAccess: true,
     }),
   ])
@@ -150,10 +159,11 @@ export async function seedBookings({
         overrideAccess: true,
       })
       
-      if (existingUsers.docs.length > 0) {
+      const existingUser = existingUsers.docs[0]
+      if (existingUser) {
         await payload.delete({
           collection: 'users',
-          id: existingUsers.docs[0].id,
+          id: existingUser.id,
           overrideAccess: true,
         })
       }
@@ -170,8 +180,10 @@ export async function seedBookings({
         email: 'john@instructor.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
+        role: 'user',
         roles: ['user'],
       },
+      draft: false,
       overrideAccess: true,
     }),
     payload.create({
@@ -181,8 +193,10 @@ export async function seedBookings({
         email: 'jane@instructor.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
+        role: 'user',
         roles: ['user'],
       },
+      draft: false,
       overrideAccess: true,
     }),
   ])
@@ -448,11 +462,13 @@ export async function seedBookings({
 
   // Partially booked lesson (some bookings)
   for (let i = 0; i < 3; i++) {
+    const user = testUsers[i + 1]
+    if (!user) continue
     const booking = await payload.create({
       collection: 'bookings',
       draft: false,
       data: {
-        user: testUsers[i + 1].id,
+        user: user.id,
         lesson: partiallyBookedLesson.id,
         status: 'confirmed',
       },
@@ -463,11 +479,13 @@ export async function seedBookings({
 
   // Fully booked lesson (all 5 places taken)
   for (let i = 0; i < 5; i++) {
+    const user = testUsers[(i % 3) + 1]
+    if (!user) continue
     const booking = await payload.create({
       collection: 'bookings',
       draft: false,
       data: {
-        user: testUsers[(i % 3) + 1].id,
+        user: user.id,
         lesson: fullyBookedLesson.id,
         status: 'confirmed',
       },

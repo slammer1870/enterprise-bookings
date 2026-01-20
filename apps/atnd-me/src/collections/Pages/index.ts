@@ -104,9 +104,6 @@ export const Pages: CollectionConfig<'pages'> = {
                 ),
               ],
               required: true,
-              admin: {
-                initCollapsed: true,
-              },
             },
           ],
           label: 'Content',

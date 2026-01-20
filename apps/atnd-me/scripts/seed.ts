@@ -88,7 +88,7 @@ async function main() {
 
     console.log(`✓ Authenticated as admin: ${user.email}`)
 
-    const req = await createLocalReq({ user }, payload)
+    const req = await createLocalReq({ user: { ...user, collection: 'users' } }, payload)
 
     await seed({ payload, req })
 

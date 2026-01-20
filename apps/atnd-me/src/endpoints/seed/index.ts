@@ -60,20 +60,33 @@ export const seed = async ({
   payload.logger.info(`— Clearing collections and globals...`)
 
   // clear the database
-  await Promise.all(
-    globals.map((global) =>
-      payload.updateGlobal({
-        slug: global,
-        data: {
-          navItems: [],
-        },
-        depth: 0,
-        context: {
-          disableRevalidate: true,
-        },
-      }),
-    ),
-  )
+  // Update globals individually to avoid type errors (not all globals have navItems)
+  for (const global of globals) {
+    try {
+      if (global === 'header' || global === 'footer') {
+        await payload.updateGlobal({
+          slug: global,
+          data: { navItems: [] } as any,
+          depth: 0,
+          context: {
+            disableRevalidate: true,
+          },
+        })
+      } else {
+        await payload.updateGlobal({
+          slug: global,
+          data: {} as any,
+          depth: 0,
+          context: {
+            disableRevalidate: true,
+          },
+        })
+      }
+    } catch (error) {
+      // Ignore errors if global doesn't exist or doesn't have navItems
+      payload.logger.warn(`Could not clear global ${global}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 
   // Delete collections in order to respect foreign key constraints
   // Order: bookings -> lessons -> class-options -> instructors -> users -> others

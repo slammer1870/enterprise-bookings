@@ -87,9 +87,6 @@ export const Footer: GlobalConfig = {
           },
         },
       ],
-      admin: {
-        initCollapsed: true,
-      },
     },
   ],
   hooks: {
