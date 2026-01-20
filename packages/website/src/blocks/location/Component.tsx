@@ -26,8 +26,12 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
 }) => {
   const contentElement = (
     <>
-      {title && <h2 className="text-3xl font-bold mb-4">{title}</h2>}
-      {description && <p className="text-muted-foreground mb-6">{description}</p>}
+      {title && <h2 className="text-3xl font-bold mb-4 text-center">{title}</h2>}
+      {description && (
+        <p className="text-muted-foreground mb-6 text-center max-w-2xl mx-auto">
+          {description}
+        </p>
+      )}
 
       <div className="space-y-4">
         {/* Address Block with Map */}
@@ -91,20 +95,21 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
   )
 
   if (disableInnerContainer) {
-    return <div className="w-full">{contentElement}</div>
+    return (
+      <section className="w-full py-12">
+        <div className="max-w-6xl mx-auto px-4">
+          {contentElement}
+        </div>
+      </section>
+    )
   }
 
   return (
     <section className="container py-12">
-      <div className="max-w-6xl mx-auto">
-        {title && <h2 className="text-3xl font-bold mb-4 text-center">{title}</h2>}
-        {description && (
-          <p className="text-muted-foreground mb-8 text-center max-w-2xl mx-auto">
-            {description}
-          </p>
-        )}
+      <div className="max-w-6xl mx-auto px-4">
+        {contentElement}
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 gap-8 mt-8">
           {/* Contact Info Card */}
           <Card>
             <CardHeader>
