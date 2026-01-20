@@ -15,6 +15,7 @@ test.describe('Frontend', () => {
 
     const heading = page.locator('h1').first()
 
-    await expect(heading).toHaveText('Payload Website Template')
+    // Homepage heading has been customized in this project
+    await expect(heading).toHaveText('Example Title')
   })
 })
