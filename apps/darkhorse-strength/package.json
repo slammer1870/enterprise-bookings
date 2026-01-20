@@ -61,7 +61,10 @@
     "playwright-core": "1.56.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "vite-tsconfig-paths": "5.1.4",
+    "vitest": "4.0.12"
   },
   "engines": {
     "node": ">=20"
@@ -79,7 +82,8 @@
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "test:e2e": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec playwright test --reporter=dot",
-    "test:e2e:ci": "cross-env CI=1 PW_TEST_HTML_REPORT_OPEN=never NODE_OPTIONS=--no-deprecation pnpm exec playwright test --reporter=dot"
+    "test:e2e:ci": "cross-env CI=1 PW_TEST_HTML_REPORT_OPEN=never NODE_OPTIONS=--no-deprecation pnpm exec playwright test --reporter=dot",
+    "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
   },
   "type": "module"
 }
