@@ -43,7 +43,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
   const paddingClasses = {
     small: 'p-4',
     medium: 'p-8',
-    large: 'p-12',
+    large: 'p-8 lg:p-12',
   }[padding]
 
   // Styling (transparent by default if no color is set)
@@ -59,7 +59,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
         ...(textColor ? { color: textColor } : {}),
       }}
     >
-      <div className="container mx-auto">
+      <div className="mx-auto">
         <div className={`${paddingClasses} flex justify-between items-center`}>
           <Link href={logoLink} className="flex items-center h-8">
             {logoUrl ? (
