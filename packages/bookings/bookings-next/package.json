@@ -21,11 +21,22 @@
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
+    "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.1",
     "@types/node": "^24.10.1",
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.12",
     "typescript": "5.9.3"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch"
   },
   "peerDependencies": {
     "@repo/analytics": "workspace:*"
