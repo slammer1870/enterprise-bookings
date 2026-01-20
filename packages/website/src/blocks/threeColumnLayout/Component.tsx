@@ -27,9 +27,9 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
     // Small screens: single column (grid-cols-1)
     // Medium screens: 2 columns on first row, 1 centered on second row
     // Large screens: 3 columns (grid-cols-3)
-    
+
     let classes = ''
-    
+
     // For medium screens (md:)
     if (index < 2) {
       // First two blocks: each takes 1/2 width (2 columns side by side)
@@ -38,17 +38,17 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
       // Third block and beyond: span full width (2 columns) and center
       classes = 'md:col-span-2 md:flex md:justify-center'
     }
-    
+
     // For large screens (lg:)
     // All blocks take 1 column in 3-column grid
     classes += ' lg:col-span-1 lg:flex-none'
-    
+
     return classes
   }
 
   return (
-    <section className="container py-12">
-      <div className="max-w-7xl mx-auto">
+    <section className="container py-12 mx-auto">
+      <div className="mx-auto">
         {/* Small screens: single column stack */}
         {/* Medium screens: 2 columns on first row, 1 centered on second row */}
         {/* Large screens: 3 columns */}
@@ -66,7 +66,7 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
                 return (
                   <div key={blockKey} className={blockClasses}>
                     {index >= 2 ? (
-                      <div className="w-full max-w-md">
+                      <div className="w-full max-w-md mx-auto">
                         <Block {...block} disableInnerContainer />
                       </div>
                     ) : (

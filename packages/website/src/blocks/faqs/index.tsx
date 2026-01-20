@@ -6,6 +6,7 @@ import {
 } from '@repo/ui/components/ui/accordion'
 
 interface FaqsBlockProps {
+  title?: string
   faqs: {
     question: string
     answer: string
@@ -14,11 +15,11 @@ interface FaqsBlockProps {
 }
 
 export const FaqsBlock = (props: FaqsBlockProps) => {
-  const { faqs, disableInnerContainer } = props
+  const { title = 'FAQs', faqs, disableInnerContainer } = props
 
   const contentElement = (
     <>
-      <h2 className="text-3xl font-bold mb-6 text-center">Frequently Asked Questions</h2>
+      <h2 className="text-3xl font-bold mb-6 text-center">{title}</h2>
       <Accordion type="single" collapsible className="w-full">
         {faqs.map((faq) => (
           <AccordionItem key={faq.question} value={faq.question}>

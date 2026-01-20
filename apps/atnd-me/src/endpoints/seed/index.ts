@@ -225,6 +225,7 @@ export const seed = async ({
     payload.updateGlobal({
       slug: 'header',
       data: {
+        logoLink: '/',
         navItems: [
           {
             link: {
@@ -244,11 +245,16 @@ export const seed = async ({
             },
           },
         ],
+        styling: {
+          padding: 'medium',
+          sticky: false,
+        },
       },
     }),
     payload.updateGlobal({
       slug: 'footer',
       data: {
+        logoLink: '/',
         navItems: [
           {
             link: {
@@ -274,6 +280,9 @@ export const seed = async ({
             },
           },
         ],
+        styling: {
+          showThemeSelector: true,
+        },
       },
     }),
   ])

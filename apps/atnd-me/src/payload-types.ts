@@ -393,6 +393,10 @@ export interface Page {
     | LocationBlock
     | ScheduleBlock
     | {
+        /**
+         * Optional title displayed above the FAQs. Defaults to "FAQs".
+         */
+        title?: string | null;
         faqs?:
           | {
               question?: string | null;
@@ -706,6 +710,10 @@ export interface ThreeColumnLayoutBlock {
         | LocationBlock
         | ScheduleBlock
         | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
             faqs?:
               | {
                   question?: string | null;
@@ -1505,6 +1513,7 @@ export interface PagesSelect<T extends boolean = true> {
         faqs?:
           | T
           | {
+              title?: T;
               faqs?:
                 | T
                 | {
@@ -1603,6 +1612,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         faqs?:
           | T
           | {
+              title?: T;
               faqs?:
                 | T
                 | {
@@ -2195,6 +2205,14 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
  */
 export interface Header {
   id: number;
+  /**
+   * Custom logo for this site. If not set, default logo will be used.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * URL the logo should link to (defaults to "/")
+   */
+  logoLink?: string | null;
   navItems?:
     | {
         link: {
@@ -2212,9 +2230,32 @@ export interface Header {
           url?: string | null;
           label: string;
         };
+        /**
+         * If enabled, this nav item will render as a button instead of a text link.
+         */
+        renderAsButton?: boolean | null;
+        /**
+         * Choose which button style to use for this nav item.
+         */
+        buttonVariant?: ('default' | 'outline' | 'secondary' | 'ghost') | null;
         id?: string | null;
       }[]
     | null;
+  styling?: {
+    /**
+     * CSS color value (e.g., "#ffffff", "transparent", "var(--background)")
+     */
+    backgroundColor?: string | null;
+    /**
+     * CSS color value for text
+     */
+    textColor?: string | null;
+    /**
+     * Make header stick to top when scrolling
+     */
+    sticky?: boolean | null;
+    padding?: ('small' | 'medium' | 'large') | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2224,6 +2265,18 @@ export interface Header {
  */
 export interface Footer {
   id: number;
+  /**
+   * Custom logo for this site. If not set, default logo will be used.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * URL the logo should link to (defaults to "/")
+   */
+  logoLink?: string | null;
+  /**
+   * Copyright notice to display in footer
+   */
+  copyrightText?: string | null;
   navItems?:
     | {
         link: {
@@ -2244,6 +2297,20 @@ export interface Footer {
         id?: string | null;
       }[]
     | null;
+  styling?: {
+    /**
+     * CSS color value (e.g., "#000000", "var(--background)")
+     */
+    backgroundColor?: string | null;
+    /**
+     * CSS color value for text
+     */
+    textColor?: string | null;
+    /**
+     * Display theme selector in footer
+     */
+    showThemeSelector?: boolean | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -2252,6 +2319,44 @@ export interface Footer {
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
+  logo?: T;
+  logoLink?: T;
+  navItems?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        renderAsButton?: T;
+        buttonVariant?: T;
+        id?: T;
+      };
+  styling?:
+    | T
+    | {
+        backgroundColor?: T;
+        textColor?: T;
+        sticky?: T;
+        padding?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  logo?: T;
+  logoLink?: T;
+  copyrightText?: T;
   navItems?:
     | T
     | {
@@ -2266,28 +2371,12 @@ export interface HeaderSelect<T extends boolean = true> {
             };
         id?: T;
       };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer_select".
- */
-export interface FooterSelect<T extends boolean = true> {
-  navItems?:
+  styling?:
     | T
     | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        id?: T;
+        backgroundColor?: T;
+        textColor?: T;
+        showThemeSelector?: T;
       };
   updatedAt?: T;
   createdAt?: T;
