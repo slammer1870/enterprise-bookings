@@ -18,6 +18,7 @@ import * as migration_20260115_130704 from './20260115_130704';
 import * as migration_20260115_135828 from './20260115_135828';
 import * as migration_20260115_140000_fix_payload_migrations_constraint from './20260115_140000_fix_payload_migrations_constraint';
 import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
+import * as migration_20260120_200612 from './20260120_200612';
 
 export const migrations = [
   {
@@ -108,7 +109,7 @@ export const migrations = [
   {
     up: migration_20260115_135828.up,
     down: migration_20260115_135828.down,
-    name: '20260115_135828'
+    name: '20260115_135828',
   },
   {
     up: migration_20260115_140000_fix_payload_migrations_constraint.up,
@@ -119,5 +120,10 @@ export const migrations = [
     up: migration_20260116_102317_replace_user_with_instructor_in_lessons.up,
     down: migration_20260116_102317_replace_user_with_instructor_in_lessons.down,
     name: '20260116_102317_replace_user_with_instructor_in_lessons',
+  },
+  {
+    up: migration_20260120_200612.up,
+    down: migration_20260120_200612.down,
+    name: '20260120_200612'
   },
 ];

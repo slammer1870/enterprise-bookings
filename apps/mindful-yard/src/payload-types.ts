@@ -120,6 +120,7 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
+  fallbackLocale: null;
   globals: {
     scheduler: Scheduler;
   };
@@ -496,6 +497,10 @@ export interface Page {
         | ScheduleBlock
         | LocationBlock
         | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
             faqs?:
               | {
                   question?: string | null;
@@ -879,6 +884,7 @@ export interface PagesSelect<T extends boolean = true> {
         faqs?:
           | T
           | {
+              title?: T;
               faqs?:
                 | T
                 | {

@@ -135,6 +135,7 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
+  fallbackLocale: null;
   globals: {
     navbar: Navbar;
     footer: Footer;
@@ -808,6 +809,10 @@ export interface Page {
             blockType: 'form-block';
           }
         | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
             faqs?:
               | {
                   question?: string | null;
@@ -1572,6 +1577,7 @@ export interface PagesSelect<T extends boolean = true> {
         faqs?:
           | T
           | {
+              title?: T;
               faqs?:
                 | T
                 | {
