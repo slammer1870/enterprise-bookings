@@ -17,7 +17,9 @@ export const Providers: React.FC<{
       <TRPCReactProvider>
         <ThemeProvider>
           <HeaderThemeProvider>
-            <BetterAuthUIProvider>{children}</BetterAuthUIProvider>
+            <BetterAuthUIProvider>
+              {children}
+            </BetterAuthUIProvider>
           </HeaderThemeProvider>
         </ThemeProvider>
       </TRPCReactProvider>

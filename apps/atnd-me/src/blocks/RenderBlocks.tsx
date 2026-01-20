@@ -2,33 +2,12 @@ import React, { Fragment } from 'react'
 
 import type { Page } from '@/payload-types'
 
-import { ArchiveBlock } from '@/blocks/ArchiveBlock/Component'
-import { CallToActionBlock } from '@/blocks/CallToAction/Component'
-import { ContentBlock } from '@/blocks/Content/Component'
-import { FormBlock } from '@/blocks/Form/Component'
-import { MediaBlock } from '@/blocks/MediaBlock/Component'
-import { HeroBlock } from '@repo/website/src/blocks/hero'
-import { AboutBlock } from '@repo/website/src/blocks/about'
-import { LocationBlock } from '@repo/website/src/blocks/location'
-import { FaqsBlock } from '@repo/website/src/blocks/faqs'
-import { ScheduleBlock } from '@/blocks/Schedule/Component'
-import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
-import { TwoColumnLayoutBlock } from '@/blocks/TwoColumnLayout/Component'
+import { blockComponents } from './blockComponents'
+import { registerBlockComponents } from '@repo/website/src/blocks/threeColumnLayout'
 
-const blockComponents = {
-  archive: ArchiveBlock,
-  content: ContentBlock,
-  cta: CallToActionBlock,
-  formBlock: FormBlock,
-  mediaBlock: MediaBlock,
-  hero: HeroBlock,
-  about: AboutBlock,
-  location: LocationBlock,
-  schedule: ScheduleBlock,
-  faqs: FaqsBlock,
-  heroSchedule: HeroScheduleBlock,
-  twoColumnLayout: TwoColumnLayoutBlock,
-}
+// Register block components on the server side
+// This ensures the registry is available for ThreeColumnLayoutBlock when it renders
+registerBlockComponents(blockComponents)
 
 export const RenderBlocks: React.FC<{
   blocks: Page['layout'][0][]
@@ -49,7 +28,6 @@ export const RenderBlocks: React.FC<{
             if (Block) {
               return (
                 <div key={index}>
-                  {/* @ts-expect-error there may be some mismatch between the expected types here */}
                   <Block {...block} disableInnerContainer />
                 </div>
               )

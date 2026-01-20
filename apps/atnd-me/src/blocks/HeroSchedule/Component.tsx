@@ -113,7 +113,7 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
     }
 
     return (
-        <div className="flex flex-col lg:flex-row w-full">
+        <div className="flex flex-col md:flex-row w-full">
             {/* Hero Section - Full width on mobile, half width on desktop */}
             <div className="w-full md:w-1/2 lg:w-2/3 flex-shrink-0 h-[600px] md:h-[700px]">
                 <HeroBlock

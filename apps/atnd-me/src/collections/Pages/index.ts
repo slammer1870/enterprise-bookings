@@ -8,10 +8,9 @@ import { Content } from '../../blocks/Content/config'
 import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
 import { hero } from '@/heros/config'
-import { Hero, About, Location, Faqs } from '@repo/website'
+import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
 import { Schedule } from '@/blocks/Schedule/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
-import { TwoColumnLayout } from '@/blocks/TwoColumnLayout/config'
 import { slugField } from 'payload'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -24,6 +23,25 @@ import {
   OverviewField,
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
+
+// Define all available blocks for the pages collection
+const availableBlocks = [
+  HeroSchedule,
+  Hero,
+  About,
+  Location,
+  Schedule,
+  Faqs,
+  CallToAction,
+  Content,
+  MediaBlock,
+  Archive,
+  FormBlock,
+]
+
+// Create the three column layout block - automatically uses all blocks from the pages config
+// This makes it dynamic - any block added to availableBlocks will be available in the layout
+const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 
 export const Pages: CollectionConfig<'pages'> = {
   slug: 'pages',
@@ -79,16 +97,11 @@ export const Pages: CollectionConfig<'pages'> = {
               blocks: [
                 HeroSchedule,
                 Hero,
-                TwoColumnLayout,
-                About,
-                Location,
-                Schedule,
-                Faqs,
-                CallToAction,
-                Content,
-                MediaBlock,
-                Archive,
-                FormBlock,
+                ThreeColumnLayout,
+                // availableBlocks already includes HeroSchedule and Hero, so we filter them out
+                ...availableBlocks.filter(
+                  (block) => block.slug !== 'heroSchedule' && block.slug !== 'hero'
+                ),
               ],
               required: true,
               admin: {

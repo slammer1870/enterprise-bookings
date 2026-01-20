@@ -388,7 +388,7 @@ export interface Page {
   layout: (
     | HeroScheduleBlock
     | HeroBlock
-    | TwoColumnLayoutBlock
+    | ThreeColumnLayoutBlock
     | AboutBlock
     | LocationBlock
     | ScheduleBlock
@@ -695,123 +695,38 @@ export interface HeroBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TwoColumnLayoutBlock".
+ * via the `definition` "ThreeColumnLayoutBlock".
  */
-export interface TwoColumnLayoutBlock {
-  leftColumn: {
-    blockType: 'about' | 'schedule' | 'location' | 'faqs';
-    aboutTitle?: string | null;
-    image?: (number | null) | Media;
-    content?: {
-      root: {
-        type: string;
-        children: {
-          type: any;
-          version: number;
-          [k: string]: unknown;
-        }[];
-        direction: ('ltr' | 'rtl') | null;
-        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-        indent: number;
-        version: number;
-      };
-      [k: string]: unknown;
-    } | null;
-    locationTitle?: string | null;
-    description?: string | null;
-    address?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    /**
-     * Google Maps embed URL or iframe src
-     */
-    mapEmbedUrl?: string | null;
-    faqs?:
-      | {
-          question: string;
-          answer: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  rightColumn?:
-    | {
-        blockType: 'about' | 'schedule' | 'location' | 'faqs';
-        aboutTitle?: string | null;
-        image?: (number | null) | Media;
-        content?: {
-          root: {
-            type: string;
-            children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        } | null;
-        locationTitle?: string | null;
-        description?: string | null;
-        address?: string | null;
-        email?: string | null;
-        phone?: string | null;
-        /**
-         * Google Maps embed URL or iframe src
-         */
-        mapEmbedUrl?: string | null;
-        faqs?:
-          | {
-              question: string;
-              answer: string;
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-      }[]
+export interface ThreeColumnLayoutBlock {
+  blocks?:
+    | (
+        | HeroScheduleBlock
+        | HeroBlock
+        | AboutBlock
+        | LocationBlock
+        | ScheduleBlock
+        | {
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
+          }
+        | CallToActionBlock
+        | ContentBlock
+        | MediaBlock
+        | ArchiveBlock
+        | FormBlock
+      )[]
     | null;
-  fullWidth: {
-    blockType: 'about' | 'schedule' | 'location' | 'faqs';
-    aboutTitle?: string | null;
-    image?: (number | null) | Media;
-    content?: {
-      root: {
-        type: string;
-        children: {
-          type: any;
-          version: number;
-          [k: string]: unknown;
-        }[];
-        direction: ('ltr' | 'rtl') | null;
-        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-        indent: number;
-        version: number;
-      };
-      [k: string]: unknown;
-    } | null;
-    locationTitle?: string | null;
-    description?: string | null;
-    address?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    /**
-     * Google Maps embed URL or iframe src
-     */
-    mapEmbedUrl?: string | null;
-    faqs?:
-      | {
-          question: string;
-          answer: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
   id?: string | null;
   blockName?: string | null;
-  blockType: 'twoColumnLayout';
+  blockType: 'threeColumnLayout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1583,7 +1498,7 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
-        twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
+        threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
@@ -1674,72 +1589,35 @@ export interface HeroBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TwoColumnLayoutBlock_select".
+ * via the `definition` "ThreeColumnLayoutBlock_select".
  */
-export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
-  leftColumn?:
+export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
+  blocks?:
     | T
     | {
-        blockType?: T;
-        aboutTitle?: T;
-        image?: T;
-        content?: T;
-        locationTitle?: T;
-        description?: T;
-        address?: T;
-        email?: T;
-        phone?: T;
-        mapEmbedUrl?: T;
+        heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        hero?: T | HeroBlockSelect<T>;
+        about?: T | AboutBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        schedule?: T | ScheduleBlockSelect<T>;
         faqs?:
           | T
           | {
-              question?: T;
-              answer?: T;
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
               id?: T;
+              blockName?: T;
             };
-      };
-  rightColumn?:
-    | T
-    | {
-        blockType?: T;
-        aboutTitle?: T;
-        image?: T;
-        content?: T;
-        locationTitle?: T;
-        description?: T;
-        address?: T;
-        email?: T;
-        phone?: T;
-        mapEmbedUrl?: T;
-        faqs?:
-          | T
-          | {
-              question?: T;
-              answer?: T;
-              id?: T;
-            };
-        id?: T;
-      };
-  fullWidth?:
-    | T
-    | {
-        blockType?: T;
-        aboutTitle?: T;
-        image?: T;
-        content?: T;
-        locationTitle?: T;
-        description?: T;
-        address?: T;
-        email?: T;
-        phone?: T;
-        mapEmbedUrl?: T;
-        faqs?:
-          | T
-          | {
-              question?: T;
-              answer?: T;
-              id?: T;
-            };
+        cta?: T | CallToActionBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+        mediaBlock?: T | MediaBlockSelect<T>;
+        archive?: T | ArchiveBlockSelect<T>;
+        formBlock?: T | FormBlockSelect<T>;
       };
   id?: T;
   blockName?: T;
