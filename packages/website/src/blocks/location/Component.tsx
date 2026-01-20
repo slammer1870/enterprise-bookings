@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import { Button } from '@repo/ui/components/ui/button'
 import { MapPin, Mail, Phone } from 'lucide-react'
 
 interface LocationBlockProps {
@@ -28,7 +27,7 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
     <>
       {title && <h2 className="text-3xl font-bold mb-4 text-center">{title}</h2>}
       {description && (
-        <p className="text-muted-foreground mb-6 text-center max-w-2xl mx-auto">
+        <p className="text-muted-foreground mb-6 text-left max-w-2xl mx-auto">
           {description}
         </p>
       )}
@@ -97,7 +96,7 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
   if (disableInnerContainer) {
     return (
       <section className="w-full py-12">
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="max-w-6xl mx-auto px-8">
           {contentElement}
         </div>
       </section>
@@ -106,7 +105,7 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
 
   return (
     <section className="container py-12">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-8">
         {contentElement}
 
         <div className="grid md:grid-cols-2 gap-8 mt-8">

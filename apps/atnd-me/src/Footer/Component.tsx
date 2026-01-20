@@ -49,18 +49,18 @@ export async function Footer() {
               className="object-contain"
             />
           ) : (
-            <Logo />
+          <Logo />
           )}
         </Link>
 
         <div className="flex flex-col-reverse items-start md:flex-row gap-4 md:items-center">
           {showThemeSelector && <ThemeSelector />}
           {navItems.length > 0 && (
-            <nav className="flex flex-col md:flex-row gap-4">
-              {navItems.map(({ link }, i) => {
+          <nav className="flex flex-col md:flex-row gap-4">
+            {navItems.map(({ link }, i) => {
                 return <CMSLink className={textColor} key={i} {...link} />
-              })}
-            </nav>
+            })}
+          </nav>
           )}
         </div>
       </div>

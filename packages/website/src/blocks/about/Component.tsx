@@ -52,14 +52,14 @@ export const AboutBlock: React.FC<AboutBlockProps> = ({
   if (disableInnerContainer) {
     return (
       <section className="w-full py-12">
-        <div className="max-w-6xl mx-auto px-4">{contentElement}</div>
+        <div className="max-w-6xl mx-auto px-8">{contentElement}</div>
       </section>
     )
   }
 
   return (
     <section className="container py-12">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-8">
         {contentElement}
       </div>
     </section>

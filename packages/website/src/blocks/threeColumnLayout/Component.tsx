@@ -47,7 +47,7 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
   }
 
   return (
-    <section className="p-8 lg:p-12 mx-auto">
+    <section className="mx-auto">
       <div className="mx-auto">
         {/* Small screens: single column stack */}
         {/* Medium screens: 2 columns on first row, 1 centered on second row */}

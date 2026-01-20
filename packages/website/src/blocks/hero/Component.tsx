@@ -90,25 +90,25 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
           <div className="absolute inset-0 bg-black/30" />
         </div>
       )}
-      <div className="relative z-10 flex flex-col items-center justify-center gap-6 px-4 text-center">
+      <div className="absolute top-24 lg:top-0 bottom-0 left-0 right-0 z-10 flex flex-col items-center justify-center gap-4 lg:gap-6 px-8 text-center max-w-lg lg:max-w-xl mx-auto">
         {logoUrl && (
-          <div className="mb-4">
+          <div>
             <Image
               src={logoUrl}
               alt={typeof logo === 'object' ? logo.alt || '' : ''}
-              width={200}
-              height={200}
+              width={160}
+              height={160}
               className="rounded-full bg-white/10 backdrop-blur-sm p-4"
             />
           </div>
         )}
         {title && (
-          <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg">
+          <h1 className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg">
             {title}
           </h1>
         )}
         {links && links.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full">
+          <div className="flex flex-col sm:flex-row gap-4 w-full">
             {links.map((linkItem, index) => {
               if (!linkItem?.link) return null
               const { link } = linkItem
