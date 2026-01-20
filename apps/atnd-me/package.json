@@ -36,6 +36,7 @@
     "@payloadcms/ui": "workspace:*",
     "@repo/better-auth-config": "workspace:*",
     "@repo/bookings-next": "workspace:*",
+    "@repo/bookings-plugin": "workspace:*",
     "@repo/roles": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

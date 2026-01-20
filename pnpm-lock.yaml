@@ -272,6 +272,9 @@ importers:
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
+      '@repo/bookings-plugin':
+        specifier: workspace:*
+        version: link:../../packages/bookings/bookings-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -347,9 +350,6 @@ importers:
       tailwind-merge:
         specifier: ^2.3.0
         version: 2.6.0
-      tailwindcss-animate:
-        specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@4.1.18)
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0

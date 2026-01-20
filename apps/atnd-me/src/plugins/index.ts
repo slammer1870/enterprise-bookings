@@ -14,6 +14,7 @@ import { betterAuthPluginOptions } from '@/lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import { User } from '@repo/shared-types'
+import { bookingsPlugin } from '@repo/bookings-plugin'
 
 import { Page, Post } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -100,5 +101,8 @@ export const plugins: Plugin[] = [
     roles: ['user', 'admin'],
     defaultRole: 'user',
     firstUserRole: 'admin',
+  }),
+  bookingsPlugin({
+    enabled: true,
   }),
 ]

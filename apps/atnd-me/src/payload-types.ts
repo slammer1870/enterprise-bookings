@@ -80,6 +80,10 @@ export interface Config {
     'form-submissions': FormSubmission;
     search: Search;
     users: User;
+    instructors: Instructor;
+    lessons: Lesson;
+    'class-options': ClassOption;
+    bookings: Booking;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-folders': FolderInterface;
@@ -88,6 +92,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
     };
@@ -106,6 +113,10 @@ export interface Config {
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    instructors: InstructorsSelect<false> | InstructorsSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-folders': PayloadFoldersSelect<false> | PayloadFoldersSelect<true>;
@@ -120,10 +131,12 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
+    scheduler: Scheduler;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
   user: User & {
@@ -131,6 +144,7 @@ export interface Config {
   };
   jobs: {
     tasks: {
+      generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -1207,6 +1221,93 @@ export interface Search {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors".
+ */
+export interface Instructor {
+  id: number;
+  /**
+   * The user associated with this instructor
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * Instructor profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this instructor is active and can be assigned to lessons
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  originalLockOutTime?: number | null;
+  location?: string | null;
+  instructor?: (number | null) | Instructor;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -1274,7 +1375,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'schedulePublish';
+        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -1307,7 +1408,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1372,6 +1473,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'instructors';
+        value: number | Instructor;
+      } | null)
+    | ({
+        relationTo: 'lessons';
+        value: number | Lesson;
+      } | null)
+    | ({
+        relationTo: 'class-options';
+        value: number | ClassOption;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
       } | null)
     | ({
         relationTo: 'payload-folders';
@@ -2118,6 +2235,61 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors_select".
+ */
+export interface InstructorsSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  description?: T;
+  profileImage?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  originalLockOutTime?: T;
+  location?: T;
+  instructor?: T;
+  classOption?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options_select".
+ */
+export interface ClassOptionsSelect<T extends boolean = true> {
+  name?: T;
+  places?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  user?: T;
+  lesson?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -2315,6 +2487,68 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
+ * Create recurring lessons across your weekly schedule
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler".
+ */
+export interface Scheduler {
+  id: number;
+  /**
+   * When this schedule becomes active
+   */
+  startDate: string;
+  /**
+   * When this schedule stops generating lessons
+   */
+  endDate: string;
+  /**
+   * Minutes before start time when booking closes (can be overridden per slot)
+   */
+  lockOutTime: number;
+  /**
+   * Default class type to use when creating lessons (can be overridden per slot)
+   */
+  defaultClassOption: number | ClassOption;
+  /**
+   * The days of the week and their time slots
+   */
+  week?: {
+    days?:
+      | {
+          timeSlot?:
+            | {
+                startTime: string;
+                endTime: string;
+                /**
+                 * Overrides the default class option
+                 */
+                classOption?: (number | null) | ClassOption;
+                location?: string | null;
+                instructor?: (number | null) | Instructor;
+                /**
+                 * Overrides the default lock out time
+                 */
+                lockOutTime?: number | null;
+                /**
+                 * Whether the time slot is active and will be shown on the schedule
+                 */
+                active?: boolean | null;
+                id?: string | null;
+              }[]
+            | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
+   */
+  clearExisting?: boolean | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
@@ -2381,6 +2615,70 @@ export interface FooterSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler_select".
+ */
+export interface SchedulerSelect<T extends boolean = true> {
+  startDate?: T;
+  endDate?: T;
+  lockOutTime?: T;
+  defaultClassOption?: T;
+  week?:
+    | T
+    | {
+        days?:
+          | T
+          | {
+              timeSlot?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    active?: T;
+                    id?: T;
+                  };
+              id?: T;
+            };
+      };
+  clearExisting?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskGenerateLessonsFromSchedule".
+ */
+export interface TaskGenerateLessonsFromSchedule {
+  input: {
+    startDate: string;
+    endDate: string;
+    week: {
+      days: {
+        timeSlot: {
+          startTime: string;
+          endTime: string;
+          classOption?: (number | null) | ClassOption;
+          location?: string | null;
+          instructor?: (number | null) | Instructor;
+          lockOutTime?: number | null;
+        }[];
+      }[];
+    };
+    clearExisting: boolean;
+    defaultClassOption: number | ClassOption;
+    lockOutTime: number;
+  };
+  output: {
+    success?: boolean | null;
+    message?: string | null;
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
