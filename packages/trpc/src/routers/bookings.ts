@@ -183,6 +183,74 @@ export const bookingsRouter = {
 
       return booking;
     }),
+  createBookings: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        quantity: z.number().min(1),
+        status: z.enum(["confirmed", "pending"]).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }): Promise<Booking[]> => {
+      const { lessonId, quantity, status = "confirmed" } = input;
+
+      // Fetch lesson to validate and check remaining capacity
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        lessonId,
+        {
+          depth: 3,
+          overrideAccess: false,
+          user: ctx.user,
+        }
+      );
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${lessonId} not found`,
+        });
+      }
+
+      // Validate quantity against remaining capacity
+      const maxQuantity = Math.max(1, lesson.remainingCapacity || 1);
+      if (quantity > maxQuantity) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot book more than ${maxQuantity} slot${maxQuantity !== 1 ? 's' : ''}. Only ${maxQuantity} available.`,
+        });
+      }
+
+      if (quantity < 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Quantity must be at least 1",
+        });
+      }
+
+      // Create multiple bookings
+      const createdBookings: Booking[] = [];
+      for (let i = 0; i < quantity; i++) {
+        const booking = await createSafe<Booking>(
+          ctx.payload,
+          "bookings",
+          {
+            lesson: lessonId,
+            user: ctx.user.id,
+            status: status,
+          },
+          {
+            overrideAccess: false,
+            user: ctx.user,
+          }
+        );
+        createdBookings.push(booking as Booking);
+      }
+
+      return createdBookings;
+    }),
   createOrUpdateBooking: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
     .input(
@@ -231,9 +299,10 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }): Promise<Booking> => {
       const { id } = input;
 
+      // First, find the booking by ID to verify it exists and belongs to the user
       const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: id },
+          id: { equals: id },
           user: { equals: ctx.user.id },
         },
         depth: 2,
@@ -249,7 +318,7 @@ export const bookingsRouter = {
         });
       }
 
-      const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
+      const updatedBooking = await updateSafe(ctx.payload, "bookings", id, {
           status: "cancelled",
       }, {
         overrideAccess: false,
@@ -552,6 +621,23 @@ export const bookingsRouter = {
         where: {
           lesson: { equals: input.id },
           "user.parentUser": { equals: ctx.user.id },
+          status: { not_equals: "cancelled" },
+        },
+        depth: 2,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      return bookings.docs.map((booking: any) => booking as Booking);
+    }),
+  getUserBookingsForLesson: protectedProcedure
+    .use(requireCollections("bookings"))
+    .input(z.object({ lessonId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const bookings = await findSafe(ctx.payload, "bookings", {
+        where: {
+          lesson: { equals: input.lessonId },
+          user: { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
         },
         depth: 2,

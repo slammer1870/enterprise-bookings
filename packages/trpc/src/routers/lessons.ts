@@ -38,6 +38,47 @@ export const lessonsRouter = {
       return lesson;
     }),
 
+  getByIdForBooking: protectedProcedure
+    .use(requireCollections("lessons"))
+    .input(z.object({ id: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        input.id,
+        {
+          depth: 5,
+          overrideAccess: false,
+          user: ctx.user,
+        }
+      );
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${input.id} not found`,
+        });
+      }
+
+      // Validate lesson is bookable
+      if (['booked', 'closed'].includes(lesson.bookingStatus)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This lesson is no longer available for booking",
+        });
+      }
+
+      // Validate remaining capacity
+      if (lesson.remainingCapacity <= 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This lesson is fully booked",
+        });
+      }
+
+      return lesson;
+    }),
+
   getByIdForChildren: protectedProcedure
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
