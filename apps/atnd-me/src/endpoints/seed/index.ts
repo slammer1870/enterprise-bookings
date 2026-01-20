@@ -6,9 +6,13 @@ import { home } from './home'
 import { image1 } from './image-1'
 import { image2 } from './image-2'
 import { imageHero1 } from './image-hero-1'
+import { logo as logoData } from './logo'
 import { post1 } from './post-1'
 import { post2 } from './post-2'
 import { post3 } from './post-3'
+import { seedBookings } from './bookings'
+import { readFile } from 'fs/promises'
+import { join } from 'path'
 
 const collections: CollectionSlug[] = [
   'categories',
@@ -18,6 +22,10 @@ const collections: CollectionSlug[] = [
   'forms',
   'form-submissions',
   'search',
+  'bookings',
+  'lessons',
+  'class-options',
+  'instructors',
 ]
 
 const globals: GlobalSlug[] = ['header', 'footer']
@@ -35,7 +43,15 @@ export const seed = async ({
   payload: Payload
   req: PayloadRequest
 }): Promise<void> => {
+  const nodeEnv = process.env.NODE_ENV || 'development'
+  
+  // Additional safety check (should already be checked at route level)
+  if (nodeEnv === 'production') {
+    throw new Error('Seed function cannot be run in production environment')
+  }
+
   payload.logger.info('Seeding database...')
+  payload.logger.warn(`⚠️  Running seed in ${nodeEnv} environment`)
 
   // we need to clear the media directory before seeding
   // as well as the collections and globals
@@ -59,15 +75,37 @@ export const seed = async ({
     ),
   )
 
-  await Promise.all(
-    collections.map((collection) => payload.db.deleteMany({ collection, req, where: {} })),
-  )
+  // Delete collections in order to respect foreign key constraints
+  // Order: bookings -> lessons -> class-options -> instructors -> users -> others
+  const orderedCollections: CollectionSlug[] = [
+    'bookings',
+    'lessons',
+    'class-options',
+    'instructors',
+    // Then delete other collections
+    ...collections.filter(
+      (c) => !['bookings', 'lessons', 'class-options', 'instructors'].includes(c)
+    ),
+  ]
+
+  // Delete in order (not parallel) to respect foreign key constraints
+  for (const collection of orderedCollections) {
+    try {
+      await payload.db.deleteMany({ collection, req, where: {} })
+    } catch (error) {
+      // Log but continue - some collections might not exist or have constraints
+      payload.logger.warn(`Could not delete ${collection}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 
   await Promise.all(
     collections
       .filter((collection) => Boolean(payload.collections[collection].config.versions))
       .map((collection) => payload.db.deleteVersions({ collection, req, where: {} })),
   )
+
+  // Seed booking data (users, instructors, class options, lessons, bookings)
+  await seedBookings({ payload, req })
 
   payload.logger.info(`— Seeding demo author and user...`)
 
@@ -83,7 +121,7 @@ export const seed = async ({
 
   payload.logger.info(`— Seeding media...`)
 
-  const [image1Buffer, image2Buffer, image3Buffer, hero1Buffer] = await Promise.all([
+  const [image1Buffer, image2Buffer, image3Buffer, hero1Buffer, logoBuffer] = await Promise.all([
     fetchFileByURL(
       'https://raw.githubusercontent.com/payloadcms/payload/refs/heads/main/templates/website/src/endpoints/seed/image-post1.webp',
     ),
@@ -96,9 +134,11 @@ export const seed = async ({
     fetchFileByURL(
       'https://raw.githubusercontent.com/payloadcms/payload/refs/heads/main/templates/website/src/endpoints/seed/image-hero1.webp',
     ),
+    // Read logo from seed directory
+    readLogoFile(),
   ])
 
-  const [demoAuthor, image1Doc, image2Doc, image3Doc, imageHomeDoc] = await Promise.all([
+  const [demoAuthor, image1Doc, image2Doc, image3Doc, imageHomeDoc, logoDoc] = await Promise.all([
     payload.create({
       collection: 'users',
       // Explicitly set draft to avoid the `draft: true` overload in generated Payload types.
@@ -131,6 +171,13 @@ export const seed = async ({
       data: imageHero1,
       file: hero1Buffer,
     }),
+    logoBuffer
+      ? payload.create({
+          collection: 'media',
+          data: logoData,
+          file: logoBuffer,
+        })
+      : Promise.resolve(null),
     categories.map((category) =>
       payload.create({
         collection: 'categories',
@@ -177,6 +224,10 @@ export const seed = async ({
   await payload.update({
     id: post1Doc.id,
     collection: 'posts',
+    depth: 0,
+    context: {
+      disableRevalidate: true,
+    },
     data: {
       relatedPosts: [post2Doc.id, post3Doc.id],
     },
@@ -184,6 +235,10 @@ export const seed = async ({
   await payload.update({
     id: post2Doc.id,
     collection: 'posts',
+    depth: 0,
+    context: {
+      disableRevalidate: true,
+    },
     data: {
       relatedPosts: [post1Doc.id, post3Doc.id],
     },
@@ -191,6 +246,10 @@ export const seed = async ({
   await payload.update({
     id: post3Doc.id,
     collection: 'posts',
+    depth: 0,
+    context: {
+      disableRevalidate: true,
+    },
     data: {
       relatedPosts: [post1Doc.id, post2Doc.id],
     },
@@ -210,11 +269,17 @@ export const seed = async ({
     payload.create({
       collection: 'pages',
       depth: 0,
-      data: home({ heroImage: imageHomeDoc, metaImage: image2Doc }),
+      context: {
+        disableRevalidate: true,
+      },
+      data: home({ heroImage: imageHomeDoc, metaImage: image2Doc, logo: logoDoc }),
     }),
     payload.create({
       collection: 'pages',
       depth: 0,
+      context: {
+        disableRevalidate: true,
+      },
       data: contactPageData({ contactForm: contactForm }),
     }),
   ])
@@ -224,25 +289,21 @@ export const seed = async ({
   await Promise.all([
     payload.updateGlobal({
       slug: 'header',
+      context: {
+        disableRevalidate: true,
+      },
       data: {
+        logo: logoDoc?.id || undefined,
         logoLink: '/',
         navItems: [
           {
             link: {
               type: 'custom',
-              label: 'Posts',
-              url: '/posts',
+              label: 'Book Now',
+              url: '/bookings',
             },
-          },
-          {
-            link: {
-              type: 'reference',
-              label: 'Contact',
-              reference: {
-                relationTo: 'pages',
-                value: contactPage.id,
-              },
-            },
+            renderAsButton: true,
+            buttonVariant: 'default',
           },
         ],
         styling: {
@@ -251,9 +312,12 @@ export const seed = async ({
         },
       },
     }),
-    payload.updateGlobal({
-      slug: 'footer',
-      data: {
+        payload.updateGlobal({
+          slug: 'footer',
+          context: {
+            disableRevalidate: true,
+          },
+          data: {
         logoLink: '/',
         navItems: [
           {
@@ -307,5 +371,22 @@ async function fetchFileByURL(url: string): Promise<File> {
     data: Buffer.from(data),
     mimetype: `image/${url.split('.').pop()}`,
     size: data.byteLength,
+  }
+}
+
+async function readLogoFile(): Promise<File | null> {
+  try {
+    const logoPath = join(process.cwd(), 'src/endpoints/seed/logo.png')
+    const fileBuffer = await readFile(logoPath)
+    
+    return {
+      name: 'logo.png',
+      data: fileBuffer,
+      mimetype: 'image/png',
+      size: fileBuffer.length,
+    }
+  } catch (error) {
+    // Logo file doesn't exist, return null (logo will be optional)
+    return null
   }
 }
