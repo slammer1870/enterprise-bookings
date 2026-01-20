@@ -95,6 +95,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     ALTER TABLE "scheduler_week_days_time_slot" DROP CONSTRAINT IF EXISTS "scheduler_week_days_time_slot_instructor_id_users_id_fk";
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
+  
+  DO $$ BEGIN
+    -- Drop old constraint on image_id if it exists
+    ALTER TABLE "instructors" DROP CONSTRAINT IF EXISTS "instructors_image_id_media_id_fk";
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
   `)
   
   // Handle enum type recreation
@@ -234,6 +240,21 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "instructors_id" integer;
     END IF;
   END $$;
+  
+  -- Handle migration from image_id to profile_image_id in instructors table
+  DO $$ BEGIN
+    -- If image_id exists but profile_image_id doesn't, rename it
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instructors' AND column_name = 'image_id')
+      AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instructors' AND column_name = 'profile_image_id') THEN
+      ALTER TABLE "instructors" RENAME COLUMN "image_id" TO "profile_image_id";
+    END IF;
+    
+    -- If neither exists, add profile_image_id
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instructors' AND column_name = 'profile_image_id')
+      AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instructors' AND column_name = 'image_id') THEN
+      ALTER TABLE "instructors" ADD COLUMN "profile_image_id" integer;
+    END IF;
+  END $$;
   `)
   
   // Add constraints only if they don't exist
@@ -263,7 +284,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   END $$;
   
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_profile_image_id_media_id_fk') THEN
+    -- Only add constraint if the column exists
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instructors' AND column_name = 'profile_image_id')
+      AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_profile_image_id_media_id_fk') THEN
       ALTER TABLE "instructors" ADD CONSTRAINT "instructors_profile_image_id_media_id_fk" FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
     END IF;
   END $$;
@@ -339,7 +362,21 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     END IF;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
-  CREATE INDEX IF NOT EXISTS "instructors_profile_image_idx" ON "instructors" USING btree ("profile_image_id");
+  
+  -- Handle index migration from image_id to profile_image_id
+  DO $$ BEGIN
+    -- Drop old index if it exists
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'instructors_image_id_idx') THEN
+      DROP INDEX IF EXISTS "instructors_image_id_idx";
+    END IF;
+    
+    -- Create new index if column exists and index doesn't
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'instructors' AND column_name = 'profile_image_id')
+      AND NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'instructors_profile_image_idx') THEN
+      CREATE INDEX "instructors_profile_image_idx" ON "instructors" USING btree ("profile_image_id");
+    END IF;
+  EXCEPTION WHEN OTHERS THEN null;
+  END $$;
   CREATE INDEX IF NOT EXISTS "instructors_updated_at_idx" ON "instructors" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "instructors_created_at_idx" ON "instructors" USING btree ("created_at");
   DO $$ BEGIN
