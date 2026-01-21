@@ -129,6 +129,35 @@ export const lessonsRouter = {
           headers: ctx.headers,
         });
 
+        // Extract tenant slug from cookie header
+        const cookieHeader = ctx.headers.get("cookie") || "";
+        const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+        const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+
+        // Resolve tenant ID from slug if available
+        let tenantId: number | null = null;
+        if (tenantSlug) {
+          try {
+            const tenantResult = await ctx.payload.find({
+              collection: "tenants",
+              where: {
+                slug: {
+                  equals: tenantSlug,
+                },
+              },
+              limit: 1,
+              depth: 0,
+              overrideAccess: true, // Allow public lookup
+            });
+            if (tenantResult.docs[0]) {
+              tenantId = tenantResult.docs[0].id as number;
+            }
+          } catch (error) {
+            console.error("Error resolving tenant:", error);
+            // Continue without tenant context if lookup fails
+          }
+        }
+
         const startOfDay = new Date(input.date);
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(input.date);
@@ -140,6 +169,7 @@ export const lessonsRouter = {
           sort: string;
           overrideAccess: boolean;
           user?: any;
+          req?: any;
         } = {
           where: {
             startTime: {
@@ -156,7 +186,24 @@ export const lessonsRouter = {
           queryOptions.user = user;
         }
 
-        const lessons = await findSafe(ctx.payload, "lessons", queryOptions);
+        // Set tenant context on req for multi-tenant plugin filtering
+        if (tenantId) {
+          queryOptions.req = {
+            context: { tenant: tenantId },
+            user: user || null,
+          };
+        }
+
+        // Use payload.find directly to pass req with tenant context
+        const lessons = await ctx.payload.find({
+          collection: "lessons",
+          where: queryOptions.where,
+          depth: queryOptions.depth,
+          sort: queryOptions.sort,
+          overrideAccess: queryOptions.overrideAccess,
+          user: queryOptions.user,
+          ...(queryOptions.req && { req: queryOptions.req }),
+        });
 
         return lessons.docs.map((lesson: any) => lesson as Lesson);
       } catch (error) {

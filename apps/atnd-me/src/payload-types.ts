@@ -75,6 +75,10 @@ export interface Config {
     posts: Post;
     media: Media;
     categories: Category;
+    tenants: Tenant;
+    navbar: Navbar;
+    footer: Footer;
+    scheduler: Scheduler;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -108,6 +112,10 @@ export interface Config {
     posts: PostsSelect<false> | PostsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tenants: TenantsSelect<false> | TenantsSelect<true>;
+    navbar: NavbarSelect<false> | NavbarSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
+    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -131,12 +139,10 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
-    scheduler: Scheduler;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
-    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
   user: User & {
@@ -230,6 +236,10 @@ export interface Account {
 export interface User {
   id: number;
   /**
+   * The tenant this user originally registered with (based on domain / subdomain).
+   */
+  registrationTenant?: (number | null) | Tenant;
+  /**
    * Users chosen display name
    */
   name?: string | null;
@@ -244,7 +254,7 @@ export interface User {
   /**
    * The role of the user
    */
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'tenant-admin';
   updatedAt: string;
   createdAt: string;
   /**
@@ -259,7 +269,13 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
-  roles?: ('user' | 'admin')[] | null;
+  roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
+  tenants?:
+    | {
+        tenant: number | Tenant;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * The email of the user
    */
@@ -278,6 +294,139 @@ export interface User {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants".
+ */
+export interface Tenant {
+  id: number;
+  name: string;
+  slug: string;
+  domain?: string | null;
+  description?: string | null;
+  logo?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt?: string | null;
+  caption?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  folder?: (number | null) | FolderInterface;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    square?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    small?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    medium?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    large?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    xlarge?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    og?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-folders".
+ */
+export interface FolderInterface {
+  id: number;
+  name: string;
+  folder?: (number | null) | FolderInterface;
+  documentsAndFolders?: {
+    docs?: (
+      | {
+          relationTo?: 'payload-folders';
+          value: number | FolderInterface;
+        }
+      | {
+          relationTo?: 'media';
+          value: number | Media;
+        }
+    )[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  folderType?: 'media'[] | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Sessions are active sessions for users. They are used to authenticate users with a session token
@@ -343,7 +492,7 @@ export interface Verification {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'tenant-admin';
   token: string;
   url?: string | null;
   updatedAt: string;
@@ -355,6 +504,7 @@ export interface AdminInvitation {
  */
 export interface Page {
   id: number;
+  tenant?: (number | null) | Tenant;
   title: string;
   hero: {
     type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
@@ -498,125 +648,6 @@ export interface Post {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt?: string | null;
-  caption?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  folder?: (number | null) | FolderInterface;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-  sizes?: {
-    thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    square?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    small?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    medium?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    large?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    xlarge?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    og?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-  };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-folders".
- */
-export interface FolderInterface {
-  id: number;
-  name: string;
-  folder?: (number | null) | FolderInterface;
-  documentsAndFolders?: {
-    docs?: (
-      | {
-          relationTo?: 'payload-folders';
-          value: number | FolderInterface;
-        }
-      | {
-          relationTo?: 'media';
-          value: number | Media;
-        }
-    )[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  folderType?: 'media'[] | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories".
  */
 export interface Category {
@@ -644,7 +675,7 @@ export interface Category {
  * via the `definition` "HeroScheduleBlock".
  */
 export interface HeroScheduleBlock {
-  backgroundImage: number | Media;
+  backgroundImage?: (number | null) | Media;
   logo?: (number | null) | Media;
   title?: string | null;
   links?:
@@ -1146,6 +1177,230 @@ export interface Form {
   createdAt: string;
 }
 /**
+ * Navigation bar configuration for each tenant
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navbar".
+ */
+export interface Navbar {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Custom logo for this site. If not set, default logo will be used.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * URL the logo should link to (defaults to "/")
+   */
+  logoLink?: string | null;
+  navItems?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        /**
+         * If enabled, this nav item will render as a button instead of a text link.
+         */
+        renderAsButton?: boolean | null;
+        /**
+         * Choose which button style to use for this nav item.
+         */
+        buttonVariant?: ('default' | 'outline' | 'secondary' | 'ghost') | null;
+        id?: string | null;
+      }[]
+    | null;
+  styling?: {
+    /**
+     * CSS color value (e.g., "#ffffff", "transparent", "var(--background)")
+     */
+    backgroundColor?: string | null;
+    /**
+     * CSS color value for text
+     */
+    textColor?: string | null;
+    /**
+     * Make header stick to top when scrolling
+     */
+    sticky?: boolean | null;
+    padding?: ('small' | 'medium' | 'large') | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Footer configuration for each tenant
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Custom logo for this site. If not set, default logo will be used.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * URL the logo should link to (defaults to "/")
+   */
+  logoLink?: string | null;
+  /**
+   * Copyright notice to display in footer
+   */
+  copyrightText?: string | null;
+  navItems?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  styling?: {
+    /**
+     * CSS color value (e.g., "#000000", "var(--background)")
+     */
+    backgroundColor?: string | null;
+    /**
+     * CSS color value for text
+     */
+    textColor?: string | null;
+    /**
+     * Display theme selector in footer
+     */
+    showThemeSelector?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Create recurring lessons across your weekly schedule for each tenant
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler".
+ */
+export interface Scheduler {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * When this schedule becomes active
+   */
+  startDate: string;
+  /**
+   * When this schedule stops generating lessons
+   */
+  endDate: string;
+  /**
+   * Minutes before start time when booking closes (can be overridden per slot)
+   */
+  lockOutTime: number;
+  /**
+   * Default class type to use when creating lessons (can be overridden per slot)
+   */
+  defaultClassOption: number | ClassOption;
+  /**
+   * The days of the week and their time slots
+   */
+  week?: {
+    days?:
+      | {
+          timeSlot?:
+            | {
+                startTime: string;
+                endTime: string;
+                /**
+                 * Overrides the default class option
+                 */
+                classOption?: (number | null) | ClassOption;
+                location?: string | null;
+                instructor?: (number | null) | Instructor;
+                /**
+                 * Overrides the default lock out time
+                 */
+                lockOutTime?: number | null;
+                /**
+                 * Whether the time slot is active and will be shown on the schedule
+                 */
+                active?: boolean | null;
+                id?: string | null;
+              }[]
+            | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
+   */
+  clearExisting?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors".
+ */
+export interface Instructor {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * The user associated with this instructor
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * Instructor profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this instructor is active and can be assigned to lessons
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
@@ -1221,33 +1476,11 @@ export interface Search {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
- */
-export interface Instructor {
-  id: number;
-  /**
-   * The user associated with this instructor
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * Instructor profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this instructor is active and can be assigned to lessons
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons".
  */
 export interface Lesson {
   id: number;
+  tenant?: (number | null) | Tenant;
   date: string;
   startTime: string;
   endTime: string;
@@ -1281,25 +1514,11 @@ export interface Lesson {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "bookings".
  */
 export interface Booking {
   id: number;
+  tenant?: (number | null) | Tenant;
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
@@ -1455,6 +1674,22 @@ export interface PayloadLockedDocument {
         value: number | Category;
       } | null)
     | ({
+        relationTo: 'tenants';
+        value: number | Tenant;
+      } | null)
+    | ({
+        relationTo: 'navbar';
+        value: number | Navbar;
+      } | null)
+    | ({
+        relationTo: 'footer';
+        value: number | Footer;
+      } | null)
+    | ({
+        relationTo: 'scheduler';
+        value: number | Scheduler;
+      } | null)
+    | ({
         relationTo: 'redirects';
         value: number | Redirect;
       } | null)
@@ -1595,6 +1830,7 @@ export interface AdminInvitationsSelect<T extends boolean = true> {
  * via the `definition` "pages_select".
  */
 export interface PagesSelect<T extends boolean = true> {
+  tenant?: T;
   title?: T;
   hero?:
     | T
@@ -2013,6 +2249,122 @@ export interface CategoriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants_select".
+ */
+export interface TenantsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  domain?: T;
+  description?: T;
+  logo?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navbar_select".
+ */
+export interface NavbarSelect<T extends boolean = true> {
+  tenant?: T;
+  logo?: T;
+  logoLink?: T;
+  navItems?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        renderAsButton?: T;
+        buttonVariant?: T;
+        id?: T;
+      };
+  styling?:
+    | T
+    | {
+        backgroundColor?: T;
+        textColor?: T;
+        sticky?: T;
+        padding?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  tenant?: T;
+  logo?: T;
+  logoLink?: T;
+  copyrightText?: T;
+  navItems?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        id?: T;
+      };
+  styling?:
+    | T
+    | {
+        backgroundColor?: T;
+        textColor?: T;
+        showThemeSelector?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler_select".
+ */
+export interface SchedulerSelect<T extends boolean = true> {
+  tenant?: T;
+  startDate?: T;
+  endDate?: T;
+  lockOutTime?: T;
+  defaultClassOption?: T;
+  week?:
+    | T
+    | {
+        days?:
+          | T
+          | {
+              timeSlot?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    classOption?: T;
+                    location?: T;
+                    instructor?: T;
+                    lockOutTime?: T;
+                    active?: T;
+                    id?: T;
+                  };
+              id?: T;
+            };
+      };
+  clearExisting?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects_select".
  */
 export interface RedirectsSelect<T extends boolean = true> {
@@ -2208,6 +2560,7 @@ export interface SearchSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  registrationTenant?: T;
   name?: T;
   emailVerified?: T;
   image?: T;
@@ -2218,6 +2571,12 @@ export interface UsersSelect<T extends boolean = true> {
   banReason?: T;
   banExpires?: T;
   roles?: T;
+  tenants?:
+    | T
+    | {
+        tenant?: T;
+        id?: T;
+      };
   email?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;
@@ -2238,6 +2597,7 @@ export interface UsersSelect<T extends boolean = true> {
  * via the `definition` "instructors_select".
  */
 export interface InstructorsSelect<T extends boolean = true> {
+  tenant?: T;
   user?: T;
   name?: T;
   description?: T;
@@ -2251,6 +2611,7 @@ export interface InstructorsSelect<T extends boolean = true> {
  * via the `definition` "lessons_select".
  */
 export interface LessonsSelect<T extends boolean = true> {
+  tenant?: T;
   date?: T;
   startTime?: T;
   endTime?: T;
@@ -2271,6 +2632,7 @@ export interface LessonsSelect<T extends boolean = true> {
  * via the `definition` "class-options_select".
  */
 export interface ClassOptionsSelect<T extends boolean = true> {
+  tenant?: T;
   name?: T;
   places?: T;
   description?: T;
@@ -2282,6 +2644,7 @@ export interface ClassOptionsSelect<T extends boolean = true> {
  * via the `definition` "bookings_select".
  */
 export interface BookingsSelect<T extends boolean = true> {
+  tenant?: T;
   user?: T;
   lesson?: T;
   status?: T;
@@ -2433,123 +2796,6 @@ export interface Header {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer".
- */
-export interface Footer {
-  id: number;
-  /**
-   * Custom logo for this site. If not set, default logo will be used.
-   */
-  logo?: (number | null) | Media;
-  /**
-   * URL the logo should link to (defaults to "/")
-   */
-  logoLink?: string | null;
-  /**
-   * Copyright notice to display in footer
-   */
-  copyrightText?: string | null;
-  navItems?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  styling?: {
-    /**
-     * CSS color value (e.g., "#000000", "var(--background)")
-     */
-    backgroundColor?: string | null;
-    /**
-     * CSS color value for text
-     */
-    textColor?: string | null;
-    /**
-     * Display theme selector in footer
-     */
-    showThemeSelector?: boolean | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * Create recurring lessons across your weekly schedule
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler".
- */
-export interface Scheduler {
-  id: number;
-  /**
-   * When this schedule becomes active
-   */
-  startDate: string;
-  /**
-   * When this schedule stops generating lessons
-   */
-  endDate: string;
-  /**
-   * Minutes before start time when booking closes (can be overridden per slot)
-   */
-  lockOutTime: number;
-  /**
-   * Default class type to use when creating lessons (can be overridden per slot)
-   */
-  defaultClassOption: number | ClassOption;
-  /**
-   * The days of the week and their time slots
-   */
-  week?: {
-    days?:
-      | {
-          timeSlot?:
-            | {
-                startTime: string;
-                endTime: string;
-                /**
-                 * Overrides the default class option
-                 */
-                classOption?: (number | null) | ClassOption;
-                location?: string | null;
-                instructor?: (number | null) | Instructor;
-                /**
-                 * Overrides the default lock out time
-                 */
-                lockOutTime?: number | null;
-                /**
-                 * Whether the time slot is active and will be shown on the schedule
-                 */
-                active?: boolean | null;
-                id?: string | null;
-              }[]
-            | null;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
-   */
-  clearExisting?: boolean | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -2579,74 +2825,6 @@ export interface HeaderSelect<T extends boolean = true> {
         sticky?: T;
         padding?: T;
       };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer_select".
- */
-export interface FooterSelect<T extends boolean = true> {
-  logo?: T;
-  logoLink?: T;
-  copyrightText?: T;
-  navItems?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        id?: T;
-      };
-  styling?:
-    | T
-    | {
-        backgroundColor?: T;
-        textColor?: T;
-        showThemeSelector?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler_select".
- */
-export interface SchedulerSelect<T extends boolean = true> {
-  startDate?: T;
-  endDate?: T;
-  lockOutTime?: T;
-  defaultClassOption?: T;
-  week?:
-    | T
-    | {
-        days?:
-          | T
-          | {
-              timeSlot?:
-                | T
-                | {
-                    startTime?: T;
-                    endTime?: T;
-                    classOption?: T;
-                    location?: T;
-                    instructor?: T;
-                    lockOutTime?: T;
-                    active?: T;
-                    id?: T;
-                  };
-              id?: T;
-            };
-      };
-  clearExisting?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

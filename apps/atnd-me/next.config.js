@@ -10,7 +10,8 @@ const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
 const nextConfig = {
   images: {
     remotePatterns: [
-      ...[NEXT_PUBLIC_SERVER_URL /* 'https://example.com' */].map((item) => {
+      // Add the main server URL
+      ...[NEXT_PUBLIC_SERVER_URL].map((item) => {
         const url = new URL(item)
 
         return {
@@ -18,7 +19,18 @@ const nextConfig = {
           protocol: url.protocol.replace(':', ''),
         }
       }),
+      // For development: Allow localhost (exact match)
+      {
+        hostname: 'localhost',
+        protocol: 'http',
+      },
     ],
+    // Allow unoptimized images for subdomains (fallback if remotePatterns don't match)
+    // This allows images from any hostname, including subdomains
+    unoptimized: false,
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {

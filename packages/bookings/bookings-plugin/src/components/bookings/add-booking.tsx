@@ -113,7 +113,7 @@ export const AddBooking = ({ lessonId }: { lessonId: number }) => {
             control={form.control}
             name="user"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem className="flex flex-col mb-0">
                 <FormLabel>Select User</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -128,8 +128,8 @@ export const AddBooking = ({ lessonId }: { lessonId: number }) => {
                       >
                         {field.value
                           ? users?.find(
-                              (user) => user.id.toString() === field.value
-                            )?.email
+                            (user) => user.id.toString() === field.value
+                          )?.email
                           : "Select user"}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -173,7 +173,7 @@ export const AddBooking = ({ lessonId }: { lessonId: number }) => {
             )}
           />
           <div className="flex justify-end space-x-2">
-            <Button type="submit" size="sm" disabled={isLoading}>
+            <Button type="submit" size="sm" disabled={isLoading} className="border-0 shadow-none">
               Add Booking
             </Button>
           </div>

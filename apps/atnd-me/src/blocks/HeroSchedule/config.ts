@@ -13,7 +13,7 @@ export const HeroSchedule: Block = {
       name: 'backgroundImage',
       type: 'upload',
       relationTo: 'media',
-      required: true,
+      required: false, // optional so tenant onboarding can create a default page without a placeholder image
     },
     {
       name: 'logo',

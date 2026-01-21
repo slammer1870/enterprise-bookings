@@ -19,6 +19,7 @@ overrides:
   '@payloadcms/next': 3.70.0
   '@payloadcms/payload-cloud': 3.70.0
   '@payloadcms/plugin-form-builder': 3.70.0
+  '@payloadcms/plugin-multi-tenant': 3.70.0
   '@payloadcms/plugin-nested-docs': 3.70.0
   '@payloadcms/plugin-redirects': 3.70.0
   '@payloadcms/plugin-search': 3.70.0
@@ -236,6 +237,9 @@ importers:
       '@payloadcms/plugin-form-builder':
         specifier: 3.70.0
         version: 3.70.0(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.7.3)
+      '@payloadcms/plugin-multi-tenant':
+        specifier: 3.70.0
+        version: 3.70.0(@payloadcms/ui@3.70.0(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.7.3))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))
       '@payloadcms/plugin-nested-docs':
         specifier: 3.70.0
         version: 3.70.0(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))
@@ -4601,6 +4605,12 @@ packages:
       payload: 3.70.0
       react: 19.2.1
       react-dom: 19.2.1
+
+  '@payloadcms/plugin-multi-tenant@3.70.0':
+    resolution: {integrity: sha512-5DEYhQ1G6dek4ia83coPShXRvoGpltcK+pOH8MC+1BilaQbwBYPI0sZjsWK1vAyUr6euDYIXFvBka/yx/7Zd+g==}
+    peerDependencies:
+      '@payloadcms/ui': 3.70.0
+      payload: 3.70.0
 
   '@payloadcms/plugin-nested-docs@3.70.0':
     resolution: {integrity: sha512-FJt6AxHe87IqrKnZihnxX/M11fCikwl0olWdTiYkY1TBHAnjAiLMd8BUkKKJC6+wiMtAhZ0KgvOBh1h3DKC7ZQ==}
@@ -15197,6 +15207,11 @@ snapshots:
       - supports-color
       - typescript
 
+  '@payloadcms/plugin-multi-tenant@3.70.0(@payloadcms/ui@3.70.0(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.7.3))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))':
+    dependencies:
+      '@payloadcms/ui': 3.70.0(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.7.3)
+      payload: 3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10)
+
   '@payloadcms/plugin-nested-docs@3.70.0(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10))':
     dependencies:
       payload: 3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.7.3)(utf-8-validate@5.0.10)
@@ -19942,7 +19957,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks: 5.2.0(eslint@9.39.2(jiti@2.6.1))
@@ -20010,7 +20025,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -20057,7 +20072,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.6.1)
       ignore: 5.3.2
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.7.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9

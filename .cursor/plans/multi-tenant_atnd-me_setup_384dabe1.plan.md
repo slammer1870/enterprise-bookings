@@ -1121,6 +1121,172 @@ Create `apps/atnd-me/src/middleware.ts`:
 - Frontend components fetch data filtered by current tenant
 - Create utility function `getTenantFromRequest(req)` to extract tenant from headers/cookies
 
+#### 7.3.1 Update tRPC Router for Tenant Context
+
+**Schedule Component from `@repo/bookings-next`:**
+
+The `Schedule` component exported from `packages/bookings/bookings-next/src/components/schedule.tsx` does **not** need modification. It's a pure UI component that calls `trpc.lessons.getByDate.queryOptions()`.
+
+**tRPC Router Modifications Required:**
+
+The tRPC router (`packages/trpc/src/routers/lessons.ts`) needs to be updated to extract tenant context from headers and set it on `req.context.tenant` before querying lessons. This allows the multi-tenant plugin to automatically filter queries.
+
+**Implementation:**
+
+1. **Update tRPC Context Creation:**
+
+Modify `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts `and `apps/atnd-me/src/trpc/server.tsx` to extract tenant from headers and pass it to tRPC context:
+
+   ```typescript
+   // apps/atnd-me/src/app/api/trpc/[trpc]/route.ts
+   const handler = async (req: NextRequest) => {
+     const payload = await getPayload({ config })
+     
+     // Extract tenant ID from headers (set by middleware)
+     const tenantId = req.headers.get('x-tenant-id')
+     
+     const response = await fetchRequestHandler({
+       endpoint: '/api/trpc',
+       router: appRouter,
+       req,
+       createContext: async () => {
+         const ctx = await createTRPCContext({ 
+           headers: req.headers, 
+           payload, 
+           stripe 
+         })
+         
+         // Add tenant to context
+         return {
+           ...ctx,
+           tenantId: tenantId ? parseInt(tenantId, 10) : null,
+         }
+       },
+       // ...
+     })
+     
+     return response
+   }
+   ```
+
+2. **Update tRPC Context Type:**
+
+Modify `packages/trpc/src/trpc.ts` to include `tenantId` in context:
+
+   ```typescript
+   export const createTRPCContext = async (opts: {
+     headers: Headers;
+     payload: Payload;
+     stripe?: Stripe;
+     tenantId?: number | null; // Add tenant ID
+   }) => {
+     // ...
+     return {
+       headers: opts.headers,
+       payload,
+       stripe: opts.stripe,
+       betterAuth,
+       tenantId: opts.tenantId, // Include tenant ID
+     };
+   };
+   ```
+
+3. **Update Lessons Router to Use Tenant Context:**
+
+Modify `packages/trpc/src/routers/lessons.ts` to set tenant context before querying:
+
+   ```typescript
+   getByDate: publicProcedure
+     .use(requireCollections("lessons"))
+     .input(z.object({ date: z.string() }))
+     .query(async ({ ctx, input }) => {
+       try {
+         const { user } = await ctx.payload.auth({
+           headers: ctx.headers,
+         });
+   
+         // Set tenant context if available (from middleware)
+         // This allows multi-tenant plugin to automatically filter queries
+         if (ctx.tenantId) {
+           // Create a mock request object with tenant context
+           // The multi-tenant plugin reads from req.context.tenant
+           const mockReq = {
+             context: { tenant: ctx.tenantId },
+             user,
+           } as any;
+           
+           // Use findSafe with tenant context
+           const queryOptions = {
+             where: {
+               and: [
+                 {
+                   startTime: {
+                     greater_than_equal: startOfDay.toISOString(),
+                     less_than_equal: endOfDay.toISOString(),
+                   },
+                 },
+               ],
+             },
+             depth: 2,
+             sort: "startTime",
+             overrideAccess: false,
+             user,
+           };
+   
+           // Set tenant context on payload request
+           // Multi-tenant plugin will automatically filter by tenant
+           const lessons = await ctx.payload.find({
+             collection: 'lessons',
+             ...queryOptions,
+             req: mockReq, // Pass req with tenant context
+           });
+   
+           return lessons.docs.map((lesson: any) => lesson as Lesson);
+         } else {
+           // No tenant context - return empty array or handle error
+           // This should only happen on root domain (marketing page)
+           return [];
+         }
+       } catch (error) {
+         // ...
+       }
+     }),
+   ```
+
+**Alternative Approach (Recommended):**
+
+Instead of modifying the shared `packages/trpc` package, create a tenant-aware wrapper in the app:
+
+   ```typescript
+   // apps/atnd-me/src/trpc/routers/lessons.ts
+   // Override or extend the lessons router with tenant-aware queries
+   ```
+
+Or, modify the tRPC context creation in `apps/atnd-me` to inject tenant context into Payload requests automatically.
+
+**Key Points:**
+
+- The `Schedule` component from `bookings-next` package does **not** need modification
+- The tRPC router needs to extract tenant from headers and set `req.context.tenant` before querying
+- Multi-tenant plugin automatically filters queries when `req.context.tenant` is set
+- All tRPC procedures that query tenant-scoped collections need similar updates
+- Consider creating a tRPC middleware to automatically set tenant context for all procedures
+
+**Files to Modify:**
+
+- `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts` - Extract tenant from headers and pass to context
+- `apps/atnd-me/src/trpc/server.tsx` - Extract tenant from headers and pass to context
+- `packages/trpc/src/trpc.ts` - Add `tenantId` to context type (or handle in app-specific context)
+- `packages/trpc/src/routers/lessons.ts` - Set tenant context before querying lessons
+- Consider: `packages/trpc/src/routers/bookings.ts` - Similar updates for booking queries
+
+**Tests to Write:**
+
+- Test that `getByDate` returns only lessons for the current tenant
+- Test that root domain (no tenant) returns empty array or appropriate response
+- Test that cross-tenant queries are properly filtered
+- Test that Schedule component works correctly with tenant-filtered data
+
 #### 7.4 Update Components
 
 - `apps/atnd-me/src/app/(frontend)/**` routes need tenant context
@@ -1188,6 +1354,10 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 28. `apps/atnd-me/src/app/(frontend)/tenants/page.tsx` - Create tenants listing page
 29. `apps/atnd-me/src/app/(frontend)/[slug]/page.tsx` - Update queryPageBySlug to include tenant filtering
 30. `packages/bookings/bookings-plugin/src/globals/scheduler.tsx` - May need updates for collection mode
+31. `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts` - Extract tenant from headers and pass to tRPC context
+32. `apps/atnd-me/src/trpc/server.tsx` - Extract tenant from headers and pass to tRPC context
+33. `packages/trpc/src/routers/lessons.ts` - Set tenant context before querying lessons (Schedule component uses this)
+34. `packages/trpc/src/routers/bookings.ts` - Set tenant context before querying bookings (if exists)
 
 ## Test Files to Create
 
@@ -1344,6 +1514,11 @@ When adding payment functionality:
    - Add `paymentMethods` field to class-options
    - Configure allowed plans per class option
    - Add `allowedClassPasses` (checkbox or relationship) - Whether class passes can be used for this class option
+   - Add **Stripe connection status UI** in the payment methods admin UI for class options:
+     - If the current tenant is **not** connected to Stripe (no `stripeConnectAccountId` or onboarding incomplete), show a clear message like: *"To enable payments for this class, connect Stripe for this tenant."*
+     - Display a prominent **"Connect Stripe"** button that links to or triggers the Stripe Connect onboarding flow (e.g. calls `/api/stripe/connect/authorize` with the current tenant context).
+     - When the tenant **is** connected, hide the warning and button, and instead show a small, non-blocking status indicator (e.g. "Stripe connected") near the payment method controls.
+     - Implement this as a reusable UI component so similar Stripe connection prompts can be used on other payment-related admin screens (e.g. class passes, plans).
 
 5. **Add Class Passes Collection:**
 

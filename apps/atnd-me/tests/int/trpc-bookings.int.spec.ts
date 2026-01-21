@@ -13,11 +13,39 @@ describe('tRPC Bookings Integration Tests', () => {
   let user: User
   let lesson: Lesson
   let classOption: ClassOption
+  let testTenant: { id: number | string }
   let authSpy: ReturnType<typeof vi.spyOn>
+
+  // Helper to create tenant-scoped documents with tenant automatically added
+  const createWithTenant = async <T = any>(
+    collection: 'lessons' | 'class-options' | 'bookings' | 'instructors',
+    data: any,
+    options?: Omit<Parameters<typeof payload.create>[0], 'collection' | 'data'>
+  ): Promise<T> => {
+    const tenantScopedCollections: Array<'lessons' | 'class-options' | 'bookings' | 'instructors'> = ['lessons', 'class-options', 'bookings', 'instructors']
+    if (tenantScopedCollections.includes(collection)) {
+      data = { ...data, tenant: testTenant.id }
+    }
+    return payload.create({
+      collection,
+      data,
+      ...options,
+    } as Parameters<typeof payload.create>[0]) as Promise<T>
+  }
 
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
+
+    // Create a test tenant for multi-tenant scoping
+    testTenant = await payload.create({
+      collection: 'tenants',
+      data: {
+        name: 'Test Tenant',
+        slug: `test-tenant-${Date.now()}`,
+      },
+      overrideAccess: true,
+    })
 
     // Create test user with user role (needed for booking access)
     // Better Auth requires specific fields - use unique email to avoid conflicts
@@ -42,29 +70,31 @@ describe('tRPC Bookings Integration Tests', () => {
       } as any
     }) as any
 
-    // Create class option
+    // Create class option with tenant
     // Use overrideAccess to bypass access controls for test setup
     // Use unique name with timestamp to avoid conflicts
     const uniqueName = `Test Class Option ${Date.now()}`
-    classOption = (await payload.create({
-      collection: 'class-options',
-      data: {
+    classOption = (await createWithTenant<ClassOption>(
+      'class-options',
+      {
         name: uniqueName,
         places: 10,
         description: 'Test Description',
       },
-      overrideAccess: true, // Bypass access controls for test setup
-    })) as ClassOption
+      {
+        overrideAccess: true, // Bypass access controls for test setup
+      }
+    ))
 
-    // Create lesson
+    // Create lesson with tenant
     const startTime = new Date()
     startTime.setHours(10, 0, 0, 0) // 10 AM
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0) // 11 AM
 
-    lesson = (await payload.create({
-      collection: 'lessons',
-      data: {
+    lesson = (await createWithTenant<Lesson>(
+      'lessons',
+      {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -73,9 +103,11 @@ describe('tRPC Bookings Integration Tests', () => {
         active: true,
         lockOutTime: 0, // Required field with default value
       },
-      draft: false, // Explicitly set to non-draft
-      overrideAccess: true, // Bypass access controls for test setup
-    } as Parameters<typeof payload.create>[0])) as Lesson
+      {
+        draft: false, // Explicitly set to non-draft
+        overrideAccess: true, // Bypass access controls for test setup
+      }
+    ))
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -136,9 +168,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -147,9 +179,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -179,9 +213,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(12, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -190,8 +224,10 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -232,9 +268,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(13, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -243,9 +279,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true, // Bypass access controls for test setup
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true, // Bypass access controls for test setup
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -278,9 +316,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -289,8 +327,10 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -325,9 +365,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -336,8 +376,10 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -402,9 +444,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(19, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -413,9 +455,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -453,9 +497,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -464,9 +508,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       // Create some bookings for the user
       const booking1 = await payload.create({
@@ -518,9 +564,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(23, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -529,9 +575,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       // Create confirmed and cancelled bookings
       const confirmedBooking = await payload.create({
@@ -586,9 +634,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(11, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -597,9 +645,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       // Create a booking
       const booking = await payload.create({
@@ -614,7 +664,8 @@ describe('tRPC Bookings Integration Tests', () => {
 
       const caller = await createCaller()
 
-      const result = await caller.bookings.cancelBooking({ id: testLesson.id })
+      // Cancel by booking ID (API expects booking id, not lesson id)
+      const result = await caller.bookings.cancelBooking({ id: booking.id })
 
       expect(result).toBeDefined()
       expect(result.status).toBe('cancelled')
@@ -666,9 +717,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(13, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -677,9 +728,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       // Create a booking for the other user
       const otherUserBooking = await payload.create({
@@ -694,9 +747,9 @@ describe('tRPC Bookings Integration Tests', () => {
 
       const caller = await createCaller()
 
-      // Try to cancel the other user's booking (should fail)
+      // Try to cancel the other user's booking by its ID (should fail)
       await expect(
-        caller.bookings.cancelBooking({ id: testLesson.id })
+        caller.bookings.cancelBooking({ id: otherUserBooking.id })
       ).rejects.toThrow()
 
       // Cleanup
@@ -724,9 +777,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -735,9 +788,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -788,9 +843,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -799,9 +854,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -819,8 +876,8 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       expect(bookingsBefore.length).toBe(3)
 
-      // Cancel one booking (decrease quantity by 1)
-      await caller.bookings.cancelBooking({ id: testLesson.id })
+      // Cancel one booking (decrease quantity by 1) using a specific booking ID
+      await caller.bookings.cancelBooking({ id: bookings[0]!.id })
 
       // Verify decreased count
       const bookingsAfter = await caller.bookings.getUserBookingsForLesson({
@@ -847,9 +904,9 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(19, 0, 0, 0)
 
-      const testLesson = (await payload.create({
-        collection: 'lessons',
-        data: {
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -858,9 +915,11 @@ describe('tRPC Bookings Integration Tests', () => {
           active: true,
           lockOutTime: 0, // Required field with default value
         },
-        draft: false,
-        overrideAccess: true,
-      } as Parameters<typeof payload.create>[0])) as Lesson
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
 
       const caller = await createCaller()
 
@@ -873,13 +932,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Fill remaining capacity with other bookings (using overrideAccess)
       const remainingCapacity = classOption.places - 1
       for (let i = 0; i < remainingCapacity; i++) {
-        await payload.create({
-          collection: 'bookings',
-          data: {
-            lesson: testLesson.id,
-            user: user.id,
-            status: 'confirmed',
-          },
+        await createWithTenant('bookings', {
+          lesson: testLesson.id,
+          user: user.id,
+          status: 'confirmed',
+        }, {
           overrideAccess: true,
         })
       }

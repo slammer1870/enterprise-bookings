@@ -9,11 +9,16 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Users } from './collections/Users'
-import { Footer } from './Footer/config'
+import { Tenants } from './collections/Tenants'
+import { Navbar } from './collections/Navbar'
+import { Footer } from './collections/Footer'
+import { Scheduler } from './collections/Scheduler'
+import { Footer as FooterGlobal } from './Footer/config'
 import { Header } from './Header/config'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
+import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -67,9 +72,9 @@ export default buildConfig({
         }
       : {}),
   }),
-  collections: [Pages, Posts, Media, Categories, Users],
+  collections: [Pages, Posts, Media, Categories, Users, Tenants, Navbar, Footer, Scheduler],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer],
+  globals: [Header, FooterGlobal], // Note: Scheduler is now a collection, not a global
   plugins,
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),
   sharp: sharp as unknown as SharpDependency,
@@ -92,6 +97,13 @@ export default buildConfig({
         return authHeader === `Bearer ${secret}`
       },
     },
-    tasks: [],
+    tasks: [
+      // Override the generateLessonsFromSchedule task to include tenant context
+      // This ensures the job can find tenant-scoped lessons correctly
+      {
+        slug: 'generateLessonsFromSchedule',
+        handler: generateLessonsFromScheduleWithTenant,
+      },
+    ],
   },
 })

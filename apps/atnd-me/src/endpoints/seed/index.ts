@@ -26,9 +26,13 @@ const collections: CollectionSlug[] = [
   'lessons',
   'class-options',
   'instructors',
+  'navbar',
+  'footer',
+  'scheduler',
 ]
 
-const globals: GlobalSlug[] = ['header', 'footer']
+// Note: header and footer are now collections (navbar, footer), not globals
+const globals: GlobalSlug[] = []
 
 const categories = ['Technology', 'News', 'Finance', 'Design', 'Software', 'Engineering']
 
@@ -117,8 +121,12 @@ export const seed = async ({
       .map((collection) => payload.db.deleteVersions({ collection, req, where: {} })),
   )
 
-  // Seed booking data (users, instructors, class options, lessons, bookings)
-  await seedBookings({ payload, req })
+  // Seed booking data (tenants, users, instructors, class options, lessons, bookings)
+  const bookingData = await seedBookings({ payload, req })
+  const tenant1 = bookingData.tenants?.[0]
+  if (!tenant1) {
+    throw new Error('Seed bookings did not create any tenants; cannot seed tenant-scoped data')
+  }
 
   payload.logger.info(`— Seeding demo author and user...`)
 
@@ -276,36 +284,53 @@ export const seed = async ({
     data: contactFormData,
   })
 
-  payload.logger.info(`— Seeding pages...`)
+  payload.logger.info(`— Seeding pages (tenant-scoped)...`)
+
+  // Create pages scoped to tenant1
+  const tenant1Req = {
+    ...req,
+    context: { ...req.context, tenant: tenant1.id },
+  }
 
   const [_, contactPage] = await Promise.all([
     payload.create({
       collection: 'pages',
       depth: 0,
-      context: {
-        disableRevalidate: true,
-      },
-      data: home({ heroImage: imageHomeDoc, metaImage: image2Doc, logo: logoDoc }),
-    }),
-    payload.create({
-      collection: 'pages',
-      depth: 0,
-      context: {
-        disableRevalidate: true,
-      },
-      data: contactPageData({ contactForm: contactForm }),
-    }),
-  ])
-
-  payload.logger.info(`— Seeding globals...`)
-
-  await Promise.all([
-    payload.updateGlobal({
-      slug: 'header',
+      req: tenant1Req,
       context: {
         disableRevalidate: true,
       },
       data: {
+        ...home({ heroImage: imageHomeDoc, metaImage: image2Doc, logo: logoDoc }),
+        tenant: tenant1.id, // Explicitly set tenant
+      },
+    }),
+    payload.create({
+      collection: 'pages',
+      depth: 0,
+      req: tenant1Req,
+      context: {
+        disableRevalidate: true,
+      },
+      data: {
+        ...contactPageData({ contactForm: contactForm }),
+        tenant: tenant1.id, // Explicitly set tenant
+      },
+    }),
+  ])
+
+  payload.logger.info(`— Seeding navbar and footer (tenant-scoped)...`)
+
+  // Create navbar and footer for tenant1
+  await Promise.all([
+    payload.create({
+      collection: 'navbar',
+      req: tenant1Req,
+      context: {
+        disableRevalidate: true,
+      },
+      data: {
+        tenant: tenant1.id, // Explicitly set tenant
         logo: logoDoc?.id || undefined,
         logoLink: '/',
         navItems: [
@@ -325,12 +350,14 @@ export const seed = async ({
         },
       },
     }),
-        payload.updateGlobal({
-          slug: 'footer',
-          context: {
-            disableRevalidate: true,
-          },
-          data: {
+    payload.create({
+      collection: 'footer',
+      req: tenant1Req,
+      context: {
+        disableRevalidate: true,
+      },
+      data: {
+        tenant: tenant1.id, // Explicitly set tenant
         logoLink: '/',
         navItems: [
           {

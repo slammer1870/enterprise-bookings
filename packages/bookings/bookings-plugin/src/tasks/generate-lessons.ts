@@ -40,23 +40,43 @@ export const generateLessonsFromSchedule: TaskHandler<
     if (clearExisting) {
       payload.logger.info("Clearing existing lessons");
       try {
+        // Get tenant from context if available (for multi-tenant support)
+        const rawTenant = req.context?.tenant as unknown
+        const tenantId =
+          rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (rawTenant as any).id
+            : (rawTenant as string | number | undefined)
+
+        // Build where clause with tenant filter if available
+        const whereClause: any = {
+          and: [
+            {
+              startTime: {
+                greater_than_equal: start.toISOString(),
+              },
+            },
+            {
+              endTime: {
+                less_than_equal: end.toISOString(),
+              },
+            },
+          ],
+        }
+
+        // Add tenant filter if tenant context is available
+        if (tenantId) {
+          whereClause.and.push({
+            tenant: {
+              equals: tenantId,
+            },
+          })
+        }
+
         // First find lessons that have no bookings
         const lessonQuery = await payload.find({
           collection: "lessons",
-          where: {
-            and: [
-              {
-                startTime: {
-                  greater_than_equal: start.toISOString(),
-                },
-              },
-              {
-                endTime: {
-                  less_than_equal: end.toISOString(),
-                },
-              },
-            ],
-          },
+          where: whereClause,
           depth: 4,
           limit: 0,
         });
@@ -76,27 +96,39 @@ export const generateLessonsFromSchedule: TaskHandler<
           return acc;
         }, []);
 
+        // Build delete where clause with tenant filter if available
+        const deleteWhereClause: any = {
+          and: [
+            {
+              startTime: {
+                greater_than_equal: start.toISOString(),
+              },
+            },
+            {
+              endTime: {
+                less_than_equal: end.toISOString(),
+              },
+            },
+            {
+              id: {
+                not_in: lessonsToNotDelete,
+              },
+            },
+          ],
+        }
+
+        // Add tenant filter if tenant context is available
+        if (tenantId) {
+          deleteWhereClause.and.push({
+            tenant: {
+              equals: tenantId,
+            },
+          })
+        }
+
         await payload.delete({
           collection: "lessons",
-          where: {
-            and: [
-              {
-                startTime: {
-                  greater_than_equal: start.toISOString(),
-                },
-              },
-              {
-                endTime: {
-                  less_than_equal: end.toISOString(),
-                },
-              },
-              {
-                id: {
-                  not_in: lessonsToNotDelete,
-                },
-              },
-            ],
-          },
+          where: deleteWhereClause,
           context: {
             triggerAfterChange: false,
           },
@@ -105,6 +137,16 @@ export const generateLessonsFromSchedule: TaskHandler<
         console.error("Error clearing existing lessons:", error);
       }
     }
+
+    // Get tenant from context if available (for multi-tenant support)
+    // Extract once before the loop since it won't change during iteration
+    // `req.context.tenant` may be a primitive ID or an object with an `id` field
+    const rawTenant = req.context?.tenant as unknown
+    const tenantId =
+      rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (rawTenant as any).id
+        : (rawTenant as string | number | undefined)
 
     let currentDate = new Date(start);
     while (currentDate <= end) {
@@ -164,29 +206,41 @@ export const generateLessonsFromSchedule: TaskHandler<
           0,
           0,
           timeZone
-        );
+        )
+
+        // Build where clause for existing lesson check
+        const existingLessonWhere: any = {
+          and: [
+            {
+              startTime: {
+                greater_than_equal: lessonStartTime.toISOString(),
+              },
+            },
+            {
+              endTime: {
+                less_than_equal: lessonEndTime.toISOString(),
+              },
+            },
+            {
+              location: {
+                equals: timeSlot.location,
+              },
+            },
+          ],
+        }
+
+        // Add tenant filter if tenant context is available
+        if (tenantId) {
+          existingLessonWhere.and.push({
+            tenant: {
+              equals: tenantId,
+            },
+          })
+        }
 
         const existingLesson = await payload.find({
           collection: "lessons",
-          where: {
-            and: [
-              {
-                startTime: {
-                  greater_than_equal: lessonStartTime.toISOString(),
-                },
-              },
-              {
-                endTime: {
-                  less_than_equal: lessonEndTime.toISOString(),
-                },
-              },
-              {
-                location: {
-                  equals: timeSlot.location,
-                },
-              },
-            ],
-          },
+          where: existingLessonWhere,
         });
 
         if (existingLesson.docs.length > 0) {
@@ -217,6 +271,8 @@ export const generateLessonsFromSchedule: TaskHandler<
             instructor: Number(timeSlot.instructor) || null,
             lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
             active: timeSlot.active || true,
+            // Explicitly set tenant if available in context (for multi-tenant support)
+            ...(tenantId ? { tenant: tenantId } : {}),
           },
         });
         console.log("New lesson", newLesson);

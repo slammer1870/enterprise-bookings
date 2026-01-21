@@ -35,24 +35,39 @@ pnpm seed
 - Show a 3-second warning before proceeding
 - Require an admin user to exist
 
+## Test Tenants
+
+The seed creates 2 test tenants for multi-tenant testing:
+
+| Name | Slug | Description |
+|------|------|-------------|
+| Demo Tenant 1 | `demo-tenant-1` | Main tenant with full test data (lessons, bookings, pages, navbar, footer) |
+| Demo Tenant 2 | `demo-tenant-2` | Secondary tenant for testing tenant isolation |
+
 ## Test Users
 
-The seed creates 4 test users:
+The seed creates 5 test users:
 
 | Email | Password | Role | Purpose |
 |-------|----------|------|---------|
-| `admin@test.com` | `password` | admin | Admin access for testing admin features |
+| `admin@test.com` | `password` | admin | Admin access for testing admin features (can access all tenants) |
+| `tenant-admin@test.com` | `password` | tenant-admin | Tenant admin for Demo Tenant 1 (can only manage tenant1 data) |
 | `user1@test.com` | `password` | user | Primary test user with multiple bookings |
 | `user2@test.com` | `password` | user | Secondary test user |
 | `user3@test.com` | `password` | user | Tertiary test user for waitlist testing |
 
 ## Instructors
 
+**For Demo Tenant 1:**
 - **John Instructor** (`john@instructor.com`) - Active
 - **Jane Instructor** (`jane@instructor.com`) - Active
 
+**For Demo Tenant 2:**
+- **John Instructor** (`john@instructor.com`) - Active (same user, different tenant)
+
 ## Class Options
 
+**For Demo Tenant 1:**
 1. **Yoga Class** - 10 places
    - Description: "A relaxing yoga class for all levels"
 
@@ -62,11 +77,15 @@ The seed creates 4 test users:
 3. **Small Group Class** - 5 places
    - Description: "Intimate small group session"
 
+**For Demo Tenant 2:**
+1. **Tenant 2 Class** - 10 places
+   - Description: "Class option for tenant 2"
+
 ## Lessons
 
-The seed creates 6 lessons with various states:
+The seed creates 7 lessons with various states (6 for Demo Tenant 1, 1 for Demo Tenant 2):
 
-### 1. Past Lesson
+### 1. Past Lesson (Demo Tenant 1)
 - **Date**: 2 days ago
 - **Time**: 10:00 - 11:00
 - **Class**: Yoga Class
@@ -77,7 +96,7 @@ The seed creates 6 lessons with various states:
 
 **Test Scenario**: View booking history
 
-### 2. Active Lesson
+### 2. Active Lesson (Demo Tenant 1)
 - **Date**: Tomorrow
 - **Time**: 14:00 - 15:00
 - **Class**: Yoga Class
@@ -90,7 +109,7 @@ The seed creates 6 lessons with various states:
 
 **Test Scenario**: Book additional slots, view partially booked lesson
 
-### 3. Partially Booked Lesson
+### 3. Partially Booked Lesson (Demo Tenant 1)
 - **Date**: 2 days from now
 - **Time**: 16:00 - 17:00
 - **Class**: Fitness Class
@@ -101,7 +120,7 @@ The seed creates 6 lessons with various states:
 
 **Test Scenario**: Book remaining slots, test capacity limits
 
-### 4. Fully Booked Lesson
+### 4. Fully Booked Lesson (Demo Tenant 1)
 - **Date**: 3 days from now
 - **Time**: 10:00 - 11:00
 - **Class**: Small Group Class (5 places)
@@ -116,7 +135,7 @@ The seed creates 6 lessons with various states:
 - Test waitlist functionality
 - Test error handling when trying to book
 
-### 5. Upcoming Lesson
+### 5. Upcoming Lesson (Demo Tenant 1)
 - **Date**: 5 days from now
 - **Time**: 18:00 - 19:00
 - **Class**: Yoga Class
@@ -132,7 +151,18 @@ The seed creates 6 lessons with various states:
 - Test payment flow (pending booking)
 - View cancelled bookings
 
-### 6. Manage Bookings Lesson
+### 6. Manage Bookings Lesson (Demo Tenant 1)
+
+### 7. Tenant 2 Lesson (Demo Tenant 2)
+- **Date**: Tomorrow
+- **Time**: 10:00 - 11:00
+- **Class**: Tenant 2 Class
+- **Location**: Tenant 2 Studio
+- **Instructor**: John Instructor (tenant2 version)
+- **Status**: Active (available for booking)
+- **Bookings**: None
+
+**Test Scenario**: Test tenant isolation - verify this lesson is separate from tenant1 lessons
 - **Date**: 4 days from now
 - **Time**: 12:00 - 13:00
 - **Class**: Fitness Class
@@ -148,7 +178,7 @@ The seed creates 6 lessons with various states:
 
 ## Bookings
 
-The seed creates bookings in various states:
+The seed creates bookings in various states (all scoped to Demo Tenant 1):
 
 ### Confirmed Bookings
 - Multiple confirmed bookings across different lessons
@@ -194,9 +224,17 @@ The seed creates bookings in various states:
 2. **Payment Success**: Complete payment and confirm booking
 
 ### Admin Features
-1. **View All Bookings**: Access admin panel to view all bookings
+1. **View All Bookings**: Access admin panel to view all bookings (admin can see all tenants)
 2. **Manage Lessons**: Edit lesson details, capacity, etc.
 3. **Manage Class Options**: Edit class option details
+
+### Multi-Tenant Features
+1. **Tenant Isolation**: Verify that Demo Tenant 2's data is separate from Demo Tenant 1
+2. **Tenant-Admin Access**: Login as `tenant-admin@test.com` to test tenant-scoped admin access
+   - Should only see/manage Demo Tenant 1's data
+   - Should not see Demo Tenant 2's data
+3. **Cross-Tenant Booking**: Test that users can book lessons from different tenants (if enabled)
+4. **Tenant-Scoped Pages**: Verify pages, navbar, and footer are scoped to tenants
 
 ## Notes
 
@@ -204,6 +242,9 @@ The seed creates bookings in various states:
 - Dates are relative to when the seed is run (e.g., "tomorrow" means the day after seeding)
 - The seed clears existing booking data before creating new data
 - The seed can be run multiple times safely (it clears data first)
+- **Multi-Tenant**: All tenant-scoped collections (lessons, class-options, instructors, bookings, pages, navbar, footer) are scoped to tenants
+- **Tenant Context**: When testing, ensure you're accessing the correct tenant's data (via subdomain or tenant context)
+- **Tenant-Admin**: The tenant-admin user is assigned to Demo Tenant 1 and can only manage that tenant's data
 
 ## Troubleshooting
 

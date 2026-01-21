@@ -2,6 +2,12 @@ import type { CollectionConfig } from 'payload'
 
 import { authenticated } from '../../access/authenticated'
 import { authenticatedOrPublished } from '../../access/authenticatedOrPublished'
+import {
+  tenantScopedCreate,
+  tenantScopedUpdate,
+  tenantScopedDelete,
+  tenantScopedReadFiltered,
+} from '../../access/tenant-scoped'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
@@ -46,10 +52,10 @@ const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 export const Pages: CollectionConfig<'pages'> = {
   slug: 'pages',
   access: {
-    create: authenticated,
-    delete: authenticated,
-    read: authenticatedOrPublished,
-    update: authenticated,
+    read: tenantScopedReadFiltered,
+    create: tenantScopedCreate,
+    update: tenantScopedUpdate,
+    delete: tenantScopedDelete,
   },
   // This config controls what's populated by default when a page is referenced
   // https://payloadcms.com/docs/queries/select#defaultpopulate-collection-config-property

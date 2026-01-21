@@ -14,7 +14,7 @@ export function createAppAuthClient({
   baseURL,
   enableAdmin = true,
   enableMagicLink = false,
-}: CreateAppAuthClientArgs) {
+}: CreateAppAuthClientArgs): ReturnType<typeof createAuthClient> {
   const resolvedBaseURL =
     baseURL ||
     process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||

@@ -31,6 +31,8 @@ export type Lesson = {
     | "trialable"
     | "childrenBooked";
   originalLockOutTime?: number;
+  /** Present in multi-tenant apps; ID or populated { id }. */
+  tenant?: number | { id: number } | null;
 };
 
 export interface Booking {

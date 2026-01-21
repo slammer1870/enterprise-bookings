@@ -1,27 +1,27 @@
+import { execSync } from 'child_process'
 import { createDbString } from '@repo/testing-config/src/utils/db'
-import { getPayload } from 'payload'
 
 /**
  * Global setup for Vitest integration tests
- * Creates a test database container if DATABASE_URI is not already set,
- * then initializes Payload once to push the schema.
- * This ensures schema is created before any test files run.
+ * - If DATABASE_URI is not set: creates a test Postgres container, sets DATABASE_URI, then runs
+ *   `payload migrate:fresh` so the schema exists before tests.
+ * - If DATABASE_URI is set (e.g. CI workflow or FORCE_EXISTING_DB): assumes the DB is already
+ *   migrated (workflow runs migrate:fresh before test:int).
  */
 export async function globalSetup() {
   console.log('[Vitest Global Setup] Starting...')
 
-  // Ensure PAYLOAD_SECRET is set before any config loading
   if (!process.env.PAYLOAD_SECRET) {
     process.env.PAYLOAD_SECRET = 'test-secret-key-for-ci-builds-only'
   }
 
-  // If DATABASE_URI is not set and we're not forcing an existing DB,
-  // create a test container (for local development)
+  let weCreatedDb = false
   if (!process.env.DATABASE_URI && !process.env.FORCE_EXISTING_DB) {
     console.log('[Vitest Global Setup] DATABASE_URI not set, creating test database container...')
     try {
       const dbString = await createDbString()
       ;(process.env as any).DATABASE_URI = dbString
+      weCreatedDb = true
       console.log('[Vitest Global Setup] Test database container created successfully')
     } catch (error) {
       console.error('[Vitest Global Setup] Failed to create test container:', error)
@@ -34,49 +34,23 @@ export async function globalSetup() {
     )
   }
 
-  // In CI, migrations are run by the workflow before tests
-  // For local test containers, temporarily enable push to create schema once
-  if (!process.env.CI && process.env.DATABASE_URI) {
-    console.log('[Vitest Global Setup] Initializing Payload to push schema (first time only)...')
+  // If we created the container, we must run migrations (CI or not). When DATABASE_URI is
+  // pre-set by a workflow, the workflow runs migrate:fresh before test:int, so we skip here.
+  if (weCreatedDb && process.env.DATABASE_URI) {
+    console.log('[Vitest Global Setup] Running payload migrate:fresh on new test DB...')
     try {
-      // Temporarily enable push for schema creation
-      const originalNodeEnv = process.env.NODE_ENV
-      ;(process.env as any).NODE_ENV = 'development' // Enable push
-      
-      // Import config dynamically after setting env vars
-      const { default: config } = await import('../../src/payload.config.js')
-      const payloadConfig = await config
-      const payload = await getPayload({ config: payloadConfig })
-      
-      // Wait for schema push to complete (Payload pushes asynchronously)
-      await new Promise(resolve => setTimeout(resolve, 5000))
-      
-      // Verify schema was created
-      try {
-        await payload.db.drizzle.execute('SELECT 1 FROM users LIMIT 1')
-        console.log('[Vitest Global Setup] Schema verified - users table exists')
-      } catch (verifyError) {
-        console.warn('[Vitest Global Setup] Schema verification failed:', verifyError)
-      }
-      
-      // Restore NODE_ENV before destroying
-      ;(process.env as any).NODE_ENV = originalNodeEnv || 'test'
-      
-      // Destroy the instance - tests will create their own with push disabled
-      if (payload.db?.destroy) {
-        await payload.db.destroy()
-      }
-      console.log('[Vitest Global Setup] Schema pushed successfully')
+      execSync('pnpm exec payload migrate:fresh --force-accept-warning', {
+        cwd: process.cwd(),
+        env: { ...process.env, NODE_ENV: 'test' },
+        stdio: 'inherit',
+      })
+      console.log('[Vitest Global Setup] Migrations completed')
     } catch (error) {
-      console.error('[Vitest Global Setup] Failed to initialize Payload:', error)
-      // Restore NODE_ENV on error
-      if (process.env.NODE_ENV === 'development') {
-        ;(process.env as any).NODE_ENV = 'test'
-      }
-      // Continue anyway - tests might handle it
+      console.error('[Vitest Global Setup] migrate:fresh failed:', error)
+      throw error
     }
-  } else if (process.env.CI) {
-    console.log('[Vitest Global Setup] CI mode: migrations handled by workflow')
+  } else if (process.env.CI && !weCreatedDb) {
+    console.log('[Vitest Global Setup] CI with existing DATABASE_URI: migrations handled by workflow')
   }
 
   console.log('[Vitest Global Setup] Complete')
