@@ -9,7 +9,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
   roles: {
-    adminRoles: ['admin', 'tenant-admin'], // Both admin and tenant-admin can access admin panel
+    adminRoles: ['admin'], // Both admin and tenant-admin can access admin panel
     defaultRole: 'user',
     defaultAdminRole: 'admin',
     roles: ['user', 'admin', 'tenant-admin'],

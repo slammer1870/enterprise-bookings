@@ -1,4 +1,6 @@
 import type { CollectionConfig, Field } from 'payload'
+import { checkRole } from '@repo/shared-utils'
+import type { User as SharedUser } from '@repo/shared-types'
 import {
     tenantScopedCreate,
     tenantScopedUpdate,
@@ -127,6 +129,10 @@ export const Scheduler: CollectionConfig = {
         description: 'Create recurring lessons across your weekly schedule for each tenant',
     },
     access: {
+        admin: ({ req: { user } }) => {
+            if (!user) return false
+            return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+        },
         read: tenantScopedReadFiltered,
         create: tenantScopedCreate,
         update: tenantScopedUpdate,

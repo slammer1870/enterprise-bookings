@@ -254,7 +254,7 @@ export interface User {
   /**
    * The role of the user
    */
-  role: 'admin' | 'tenant-admin' | 'user';
+  role: 'admin' | 'user' | 'tenant-admin';
   updatedAt: string;
   createdAt: string;
   /**
@@ -492,7 +492,7 @@ export interface Verification {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'tenant-admin' | 'user';
+  role: 'admin' | 'user' | 'tenant-admin';
   token: string;
   url?: string | null;
   updatedAt: string;

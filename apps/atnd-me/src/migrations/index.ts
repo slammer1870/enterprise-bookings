@@ -3,6 +3,7 @@ import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260121_111436 from './20260121_111436';
 import * as migration_20260121_121713 from './20260121_121713';
 import * as migration_20260121_173503 from './20260121_173503';
+import * as migration_20260121_193838_fix_scheduler_constraint from './20260121_193838_fix_scheduler_constraint';
 import * as migration_20260121_200000 from './20260121_200000';
 
 export const migrations = [
@@ -30,6 +31,11 @@ export const migrations = [
     up: migration_20260121_173503.up,
     down: migration_20260121_173503.down,
     name: '20260121_173503'
+  },
+  {
+    up: migration_20260121_193838_fix_scheduler_constraint.up,
+    down: migration_20260121_193838_fix_scheduler_constraint.down,
+    name: '20260121_193838_fix_scheduler_constraint'
   },
   {
     up: migration_20260121_200000.up,

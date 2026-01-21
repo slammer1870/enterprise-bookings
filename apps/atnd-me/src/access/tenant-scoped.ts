@@ -8,7 +8,7 @@ import type { User as SharedUser } from '@repo/shared-types'
  * - Tenant-admin users: array of tenant IDs from their tenants field
  * - Regular users: empty array (no tenant management access)
  */
-function getUserTenantIds(user: SharedUser | null): number[] | null {
+export function getUserTenantIds(user: SharedUser | null): number[] | null {
   if (!user) return []
   
   // Admin can access all tenants
@@ -61,8 +61,12 @@ export const tenantScopedRead: Access = ({ req: { user } }) => {
  * - Admin: can create documents for any tenant
  * - Tenant-admin: can only create documents for their assigned tenants
  * - Regular users: cannot create configuration documents
+ * 
+ * Note: For isGlobal: true collections, the tenant may not be set in data when
+ * accessing the create page. The beforeValidate hook will set it from req.context.tenant.
+ * So we allow tenant-admin to create if they have any tenants assigned.
  */
-export const tenantScopedCreate: Access = ({ req: { user }, data }) => {
+export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => {
   if (!user) return false
   
   // Admin can create for any tenant
@@ -73,16 +77,37 @@ export const tenantScopedCreate: Access = ({ req: { user }, data }) => {
   // Tenant-admin can only create for their assigned tenants
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null) return true // Shouldn't happen for tenant-admin, but safe
+    if (tenantIds === null || tenantIds.length === 0) return false
     
+    // If data.tenant is set, validate it's in the user's tenants
     const dataTenant = data?.tenant
-    const dataTenantId = typeof dataTenant === 'object' && dataTenant !== null
-      ? dataTenant.id
-      : dataTenant
+    if (dataTenant) {
+      const dataTenantId = typeof dataTenant === 'object' && dataTenant !== null
+        ? dataTenant.id
+        : dataTenant
+      
+      if (dataTenantId) {
+        return tenantIds.includes(dataTenantId)
+      }
+    }
     
-    if (!dataTenantId) return false
+    // If data.tenant is not set, check if context.tenant is set and valid
+    // This handles the case when accessing the create page (before form submission)
+    const contextTenant = context?.tenant
+    if (contextTenant) {
+      const contextTenantId = typeof contextTenant === 'object' && contextTenant !== null && 'id' in contextTenant
+        ? contextTenant.id
+        : contextTenant
+      
+      if (contextTenantId && tenantIds.includes(contextTenantId)) {
+        return true
+      }
+    }
     
-    return tenantIds.includes(dataTenantId)
+    // If no tenant is set in data or context, allow create if user has tenants
+    // The beforeValidate hook will set the tenant from context when the form is submitted
+    // For isGlobal: true collections, the multi-tenant plugin should set context.tenant
+    return true
   }
   
   // Regular users cannot create configuration documents
