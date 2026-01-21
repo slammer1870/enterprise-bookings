@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, User } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
@@ -7,8 +7,8 @@ import { authenticated } from '../../access/authenticated'
 export const Users: CollectionConfig = {
   slug: 'users',
   access: {
-    admin: authenticated,
-    create: authenticated,
+    admin: ({ req: { user } }) => checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser),
+    create: () => true,
     delete: (args) => {
       // Admin can delete any user
       const { req: { user } } = args
