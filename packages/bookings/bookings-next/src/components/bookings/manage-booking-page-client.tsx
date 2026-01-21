@@ -85,6 +85,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // Track pending bookings created for payment flow
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([])
   const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
+  
+  // Track which booking is currently being cancelled (for per-booking loading state)
+  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null)
 
   // Check if lesson has payment methods configured
   const hasPaymentMethods = Boolean(
@@ -95,6 +98,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const { mutate: cancelBooking, isPending: isCancelling } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
       onSuccess: () => {
+        setCancellingBookingId(null) // Clear the cancelling state
         queryClient.invalidateQueries({
           queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
             lessonId: lesson.id,
@@ -105,6 +109,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         })
       },
       onError: (error: { message?: string }) => {
+        setCancellingBookingId(null) // Clear the cancelling state on error
         toast.error(error.message || 'Failed to cancel booking')
       },
     })
@@ -131,6 +136,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const handleCancelSingleBooking = async (bookingId: number) => {
     const result = await confirm()
     if (result) {
+      setCancellingBookingId(bookingId) // Set which booking is being cancelled
       cancelBooking({ id: bookingId })
     }
   }
@@ -399,9 +405,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                     variant="destructive"
                     size="sm"
                     onClick={() => handleCancelSingleBooking(booking.id)}
-                    disabled={isCancelling}
+                    disabled={cancellingBookingId !== null}
                   >
-                    {isCancelling ? (
+                    {cancellingBookingId === booking.id ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Cancelling...

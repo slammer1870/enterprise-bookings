@@ -7,7 +7,7 @@ import {
   publicProcedure,
   requireCollections,
 } from "../trpc";
-import { findByIdSafe, findSafe } from "../utils/collections";
+import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
 
 import { ClassOption, Lesson } from "@repo/shared-types";
 import { checkRole, getDayRange } from "@repo/shared-utils";
@@ -17,13 +17,47 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
+      // Extract tenant slug from cookie header (from subdomain)
+      const cookieHeader = ctx.headers.get("cookie") || "";
+      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+
+      // Resolve tenant ID from slug if available
+      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
+      let tenantId: number | null = null;
+      if (tenantSlug) {
+        try {
+          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
+          if (hasCollection(ctx.payload, "tenants")) {
+            const tenantResult = await ctx.payload.find({
+              collection: "tenants",
+              where: {
+                slug: {
+                  equals: tenantSlug,
+                },
+              },
+              limit: 1,
+              depth: 0,
+              overrideAccess: true,
+            });
+            if (tenantResult.docs[0]) {
+              tenantId = tenantResult.docs[0].id as number;
+            }
+          }
+          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
+        } catch (error) {
+          // If tenant lookup fails, continue without tenant filter for backward compatibility
+          console.error("Error resolving tenant (continuing without tenant filter):", error);
+        }
+      }
+
       const lesson = await findByIdSafe<Lesson>(
         ctx.payload,
         "lessons",
         input.id,
         {
           depth: 3,
-          overrideAccess: false,
+          overrideAccess: tenantId ? true : false,
           user: ctx.user,
         }
       );
@@ -35,6 +69,20 @@ export const lessonsRouter = {
         });
       }
 
+      // If we have tenant context, verify the lesson belongs to that tenant
+      if (tenantId) {
+        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
+          ? lesson.tenant.id
+          : lesson.tenant;
+        
+        if (lessonTenantId !== tenantId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Lesson with id ${input.id} not found`,
+          });
+        }
+      }
+
       return lesson;
     }),
 
@@ -42,13 +90,44 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
+      // Extract tenant slug from cookie header (from subdomain)
+      const cookieHeader = ctx.headers.get("cookie") || "";
+      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+
+      // Resolve tenant ID from slug if available
+      let tenantId: number | null = null;
+      if (tenantSlug) {
+        try {
+          const tenantResult = await ctx.payload.find({
+            collection: "tenants",
+            where: {
+              slug: {
+                equals: tenantSlug,
+              },
+            },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true, // Allow public lookup
+          });
+          if (tenantResult.docs[0]) {
+            tenantId = tenantResult.docs[0].id as number;
+          }
+        } catch (error) {
+          console.error("Error resolving tenant:", error);
+        }
+      }
+
+      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
+      // plugin filtering (which filters by user's tenants array). We'll verify the
+      // lesson belongs to the correct tenant manually if needed.
       const lesson = await findByIdSafe<Lesson>(
         ctx.payload,
         "lessons",
         input.id,
         {
           depth: 5,
-          overrideAccess: false,
+          overrideAccess: tenantId ? true : false,
           user: ctx.user,
         }
       );
@@ -58,6 +137,20 @@ export const lessonsRouter = {
           code: "NOT_FOUND",
           message: `Lesson with id ${input.id} not found`,
         });
+      }
+
+      // If we have tenant context, verify the lesson belongs to that tenant
+      if (tenantId) {
+        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
+          ? lesson.tenant.id
+          : lesson.tenant;
+        
+        if (lessonTenantId !== tenantId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Lesson with id ${input.id} not found`,
+          });
+        }
       }
 
       // Validate lesson is bookable
@@ -130,31 +223,45 @@ export const lessonsRouter = {
         });
 
         // Extract tenant slug from cookie header
+        // This comes from the subdomain (set by middleware) - NOT from the user's tenants array
         const cookieHeader = ctx.headers.get("cookie") || "";
         const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
         const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
 
         // Resolve tenant ID from slug if available
+        // If tenant slug is provided but tenant doesn't exist or collection doesn't exist
+        // (non-multi-tenant apps), continue without tenant filtering (backward compatible)
         let tenantId: number | null = null;
         if (tenantSlug) {
           try {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
-              where: {
-                slug: {
-                  equals: tenantSlug,
+            // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
+            if (!hasCollection(ctx.payload, "tenants")) {
+              // Non-multi-tenant app - ignore tenant slug and continue without filtering
+              tenantId = null;
+            } else {
+              const tenantResult = await ctx.payload.find({
+                collection: "tenants",
+                where: {
+                  slug: {
+                    equals: tenantSlug,
+                  },
                 },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true, // Allow public lookup
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
+                limit: 1,
+                depth: 0,
+                overrideAccess: true, // Allow public lookup
+              });
+              if (tenantResult.docs[0]) {
+                tenantId = tenantResult.docs[0].id as number;
+              }
+              // If tenant slug provided but tenant doesn't exist, continue without tenant filter
+              // This allows the query to work (may return lessons from other tenants, but that's
+              // acceptable for backward compatibility - multi-tenant apps should ensure tenant exists)
             }
           } catch (error) {
-            console.error("Error resolving tenant:", error);
-            // Continue without tenant context if lookup fails
+            // If tenant lookup fails (e.g., collection doesn't exist in non-multi-tenant apps),
+            // continue without tenant filtering for backward compatibility
+            console.error("Error resolving tenant (continuing without tenant filter):", error);
+            tenantId = null;
           }
         }
 
@@ -163,51 +270,88 @@ export const lessonsRouter = {
         const endOfDay = new Date(input.date);
         endOfDay.setHours(23, 59, 59, 999);
 
+        // Build where clause with date range and tenant filter
+        // CRITICAL: We MUST explicitly filter by tenant in the where clause.
+        // The access control (tenantScopedReadFiltered) also returns a tenant filter,
+        // but having the explicit filter ensures the query works correctly.
+        // Payload combines access control constraints with where clauses, and having
+        // both ensures the tenant filter is applied even if there are issues with
+        // how Payload combines them.
+        //
+        // This allows cross-tenant booking - users can see lessons for the tenant
+        // they're viewing (from subdomain), regardless of their tenant assignments.
+        const whereClause: any = tenantId
+          ? {
+              and: [
+                {
+                  startTime: {
+                    greater_than_equal: startOfDay.toISOString(),
+                    less_than_equal: endOfDay.toISOString(),
+                  },
+                },
+                {
+                  tenant: {
+                    equals: tenantId,
+                  },
+                },
+              ],
+            }
+          : {
+              startTime: {
+                greater_than_equal: startOfDay.toISOString(),
+                less_than_equal: endOfDay.toISOString(),
+              },
+            };
+
         const queryOptions: {
           where: any;
           depth: number;
           sort: string;
           overrideAccess: boolean;
-          user?: any;
           req?: any;
         } = {
-          where: {
-            startTime: {
-              greater_than_equal: startOfDay.toISOString(),
-              less_than_equal: endOfDay.toISOString(),
-            },
-          },
+          where: whereClause,
           depth: 2,
           sort: "startTime",
-          overrideAccess: false,
+          // CRITICAL: When we have an explicit tenant filter in the where clause AND
+          // req.context.tenant set, we can use overrideAccess: true to bypass the
+          // multi-tenant plugin's automatic filtering (which filters by user's tenants array).
+          // The explicit where clause already filters by the subdomain tenant, so we don't
+          // need the plugin's filtering. This allows cross-tenant booking.
+          overrideAccess: tenantId ? true : false,
         };
 
-        if (user) {
-          queryOptions.user = user;
-        }
-
         // Set tenant context on req for multi-tenant plugin filtering
-        if (tenantId) {
-          queryOptions.req = {
-            context: { tenant: tenantId },
-            user: user || null,
-          };
-        }
+        // Always create req object to ensure access control sees both user and tenant context
+        // The req object needs payload property for proper PayloadRequest structure
+        queryOptions.req = {
+          ...ctx.payload, // Include payload for proper PayloadRequest structure
+          context: tenantId ? { tenant: tenantId } : {},
+          user: user || null,
+          payload: ctx.payload, // Explicitly set payload property
+        } as any;
 
         // Use payload.find directly to pass req with tenant context
+        // When tenantId is set, we use overrideAccess: true to bypass the multi-tenant
+        // plugin's automatic filtering (which filters by user's tenants array) and rely
+        // on our explicit where clause filter (which filters by subdomain tenant).
         const lessons = await ctx.payload.find({
           collection: "lessons",
           where: queryOptions.where,
           depth: queryOptions.depth,
           sort: queryOptions.sort,
           overrideAccess: queryOptions.overrideAccess,
-          user: queryOptions.user,
-          ...(queryOptions.req && { req: queryOptions.req }),
+          req: queryOptions.req,
         });
 
         return lessons.docs.map((lesson: any) => lesson as Lesson);
       } catch (error) {
         console.error("Error in getByDate:", error);
+        // Log more details for debugging
+        if (error instanceof Error) {
+          console.error("Error stack:", error.stack);
+          console.error("Error name:", error.name);
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message:

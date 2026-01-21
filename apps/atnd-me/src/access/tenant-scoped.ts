@@ -160,11 +160,14 @@ export const tenantScopedDelete: Access = ({ req: { user } }) => {
  * - Tenant-admin: can only read documents from their assigned tenants
  * - Regular users: can read documents for the current tenant context (from subdomain)
  * 
- * Note: For lessons specifically, we also need to respect the date range and active status
- * from the default lessonReadAccess, but allow authenticated users to see lessons
- * for the tenant they're currently viewing.
+ * IMPORTANT: When req.context.tenant is set (from subdomain), it takes precedence over
+ * the user's tenants array. This allows cross-tenant booking - users can see lessons
+ * for the tenant they're viewing, regardless of their tenant assignments.
  */
-export const tenantScopedReadFiltered: Access = ({ req: { user } }) => {
+export const tenantScopedReadFiltered: Access = ({ req }) => {
+  const user = req.user
+  const contextTenant = req.context?.tenant
+  
   // Public read - allow access (multi-tenant plugin will filter by request context)
   if (!user) return true
   
@@ -186,8 +189,21 @@ export const tenantScopedReadFiltered: Access = ({ req: { user } }) => {
   }
   
   // Regular users: Allow read access for booking purposes
-  // The multi-tenant plugin will filter by request context (subdomain)
-  // This allows users to see lessons for the tenant they're currently viewing,
-  // even if they don't have that tenant in their tenants array
+  // If context.tenant is set (from subdomain), return true to allow access.
+  // The explicit tenant filter in the where clause will handle tenant filtering.
+  // 
+  // NOTE: We return true here instead of a tenant constraint because:
+  // 1. The tRPC router already has an explicit tenant filter in the where clause
+  // 2. Having both explicit filter AND access control constraint can cause conflicts
+  // 3. The explicit filter is more reliable and easier to debug
+  //
+  // This allows cross-tenant booking - users can see lessons for the tenant
+  // they're viewing (from subdomain), regardless of their tenant assignments.
+  if (contextTenant) {
+    // Return true to allow access - tenant filtering is handled by explicit where clause
+    return true
+  }
+  
+  // No tenant context - allow read (multi-tenant plugin will handle filtering if needed)
   return true
 }
