@@ -86,8 +86,8 @@ export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => 
         ? dataTenant.id
         : dataTenant
       
-      if (dataTenantId) {
-        return tenantIds.includes(dataTenantId)
+      if (dataTenantId && typeof dataTenantId === 'number' && tenantIds.includes(dataTenantId)) {
+        return true
       }
     }
     
@@ -99,7 +99,7 @@ export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => 
         ? contextTenant.id
         : contextTenant
       
-      if (contextTenantId && tenantIds.includes(contextTenantId)) {
+      if (contextTenantId && typeof contextTenantId === 'number' && tenantIds.includes(contextTenantId)) {
         return true
       }
     }
