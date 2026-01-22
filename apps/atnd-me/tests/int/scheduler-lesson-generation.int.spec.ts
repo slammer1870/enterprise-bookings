@@ -161,6 +161,33 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       expect(secondTenantLessonBefore).toBeDefined()
       expect(secondTenantLessonBefore.id).toBe(secondTenantLesson.id)
 
+      // Count lessons for second tenant before running scheduler
+      const secondTenantLessonsBefore = await payload.find({
+        collection: 'lessons',
+        where: {
+          and: [
+            {
+              tenant: {
+                equals: secondTenant.id,
+              },
+            },
+            {
+              startTime: {
+                greater_than_equal: tomorrow.toISOString(),
+              },
+            },
+            {
+              endTime: {
+                less_than_equal: endDate.toISOString(),
+              },
+            },
+          ],
+        },
+        limit: 100,
+        overrideAccess: true,
+      })
+      const initialLessonCount = secondTenantLessonsBefore.docs.length
+
       // Create scheduler for test tenant - let hook set tenant from context
       // Schedule: Monday 10-11 AM, Wednesday 2-3 PM
       const req = {
@@ -336,9 +363,12 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         overrideAccess: true,
       })
 
-      // Should only have the original lesson we created, not any new ones
-      expect(secondTenantLessons.docs.length).toBe(1)
-      expect(secondTenantLessons.docs[0]?.id).toBe(secondTenantLesson.id)
+      // Should have the same number of lessons as before (no new ones generated)
+      expect(secondTenantLessons.docs.length).toBe(initialLessonCount)
+      // Verify our specific lesson still exists
+      const ourLesson = secondTenantLessons.docs.find(l => l.id === secondTenantLesson.id)
+      expect(ourLesson).toBeDefined()
+      expect(ourLesson?.id).toBe(secondTenantLesson.id)
     },
     TEST_TIMEOUT,
   )

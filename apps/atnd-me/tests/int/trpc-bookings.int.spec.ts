@@ -706,8 +706,8 @@ describe('tRPC Bookings Integration Tests', () => {
           roles: ['user'],
           emailVerified: true,
         },
-        draft: false,
-        overrideAccess: true,
+      draft: false,
+      overrideAccess: true,
       } as Parameters<typeof payload.create>[0])) as User
 
       // Create a fresh lesson
