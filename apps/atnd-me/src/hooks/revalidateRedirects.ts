@@ -1,11 +1,11 @@
 import type { CollectionAfterChangeHook } from 'payload'
 
-import { revalidateTag } from 'next/cache'
+import { revalidateTag } from '../utilities/next-cache'
 
-export const revalidateRedirects: CollectionAfterChangeHook = ({ doc, req: { payload } }) => {
+export const revalidateRedirects: CollectionAfterChangeHook = async ({ doc, req: { payload } }) => {
   payload.logger.info(`Revalidating redirects`)
 
-  revalidateTag('redirects')
+  await revalidateTag('redirects')
 
   return doc
 }

@@ -1,15 +1,15 @@
 import type { CollectionAfterChangeHook } from 'payload'
 
-import { revalidateTag } from 'next/cache'
+import { revalidateTag } from '../../../utilities/next-cache'
 
-export const revalidateFooter: CollectionAfterChangeHook = ({ doc, req: { payload, context } }) => {
+export const revalidateFooter: CollectionAfterChangeHook = async ({ doc, req: { payload, context } }) => {
   if (!context.disableRevalidate) {
     try {
       payload.logger.info(`Revalidating footer for tenant ${doc.tenant}`)
 
-      revalidateTag('footer')
+      await revalidateTag('footer')
       // Also revalidate the global footer tag for backward compatibility during migration
-      revalidateTag('global_footer')
+      await revalidateTag('global_footer')
     } catch (error) {
       // Ignore revalidation errors when running outside Next.js context (e.g., seed scripts)
       if (error instanceof Error && error.message.includes('static generation store missing')) {

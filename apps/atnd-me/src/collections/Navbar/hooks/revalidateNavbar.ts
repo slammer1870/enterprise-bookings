@@ -1,15 +1,15 @@
 import type { CollectionAfterChangeHook } from 'payload'
 
-import { revalidateTag } from 'next/cache'
+import { revalidateTag } from '../../../utilities/next-cache'
 
-export const revalidateNavbar: CollectionAfterChangeHook = ({ doc, req: { payload, context } }) => {
+export const revalidateNavbar: CollectionAfterChangeHook = async ({ doc, req: { payload, context } }) => {
   if (!context.disableRevalidate) {
     try {
       payload.logger.info(`Revalidating navbar for tenant ${doc.tenant}`)
 
-      revalidateTag('navbar')
+      await revalidateTag('navbar')
       // Also revalidate the global header tag for backward compatibility during migration
-      revalidateTag('global_header')
+      await revalidateTag('global_header')
     } catch (error) {
       // Ignore revalidation errors when running outside Next.js context (e.g., seed scripts)
       if (error instanceof Error && error.message.includes('static generation store missing')) {
