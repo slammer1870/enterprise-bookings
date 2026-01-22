@@ -27,8 +27,7 @@ export const bookingsRouter = {
         try {
           // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
           if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
               where: {
                 slug: {
                   equals: tenantSlug,
@@ -216,8 +215,7 @@ export const bookingsRouter = {
         try {
           // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
           if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
               where: {
                 slug: {
                   equals: tenantSlug,
@@ -302,19 +300,21 @@ export const bookingsRouter = {
       let tenantId: number | null = null;
       if (tenantSlug) {
         try {
-          const tenantResult = await ctx.payload.find({
-            collection: "tenants",
-            where: {
-              slug: {
-                equals: tenantSlug,
+          // Backward compatibility with non-multi-tenant apps (no tenants collection)
+          if (hasCollection(ctx.payload, "tenants")) {
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
+              where: {
+                slug: {
+                  equals: tenantSlug,
+                },
               },
-            },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true, // Allow public lookup
-          });
-          if (tenantResult.docs[0]) {
-            tenantId = tenantResult.docs[0].id as number;
+              limit: 1,
+              depth: 0,
+              overrideAccess: true, // Allow public lookup
+            });
+            if (tenantResult.docs[0]) {
+              tenantId = tenantResult.docs[0].id as number;
+            }
           }
         } catch (error) {
           console.error("Error resolving tenant:", error);
@@ -454,8 +454,7 @@ export const bookingsRouter = {
         try {
           // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
           if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
               where: {
                 slug: {
                   equals: tenantSlug,
@@ -851,8 +850,7 @@ export const bookingsRouter = {
         try {
           // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
           if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
               where: {
                 slug: {
                   equals: tenantSlug,
@@ -973,8 +971,7 @@ export const bookingsRouter = {
         try {
           // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
           if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
               where: {
                 slug: {
                   equals: tenantSlug,
@@ -1098,5 +1095,226 @@ export const bookingsRouter = {
           redirectUrl: `/bookings/${lessonId}`,
         };
       }
+    }),
+  setMyBookingQuantityForLesson: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        desiredQuantity: z.number().min(0),
+      })
+    )
+    .mutation(async ({ ctx, input }): Promise<Booking[]> => {
+      const { lessonId, desiredQuantity } = input;
+
+      // Extract tenant slug from cookie header (from subdomain)
+      const cookieHeader = ctx.headers.get("cookie") || "";
+      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+
+      // Resolve tenant ID from slug if available
+      let tenantId: number | null = null;
+      if (tenantSlug) {
+        try {
+          if (hasCollection(ctx.payload, "tenants")) {
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
+              where: {
+                slug: {
+                  equals: tenantSlug,
+                },
+              },
+              limit: 1,
+              depth: 0,
+              overrideAccess: true,
+            });
+            if (tenantResult.docs[0]) {
+              tenantId = tenantResult.docs[0].id as number;
+            }
+          }
+        } catch (error) {
+          console.error("Error resolving tenant (continuing without tenant filter):", error);
+        }
+      }
+
+      // Fetch lesson with full depth for validation
+      const lesson = await findByIdSafe<Lesson>(
+        ctx.payload,
+        "lessons",
+        lessonId,
+        {
+          depth: 3,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        }
+      );
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${lessonId} not found`,
+        });
+      }
+
+      // If we have tenant context, verify the lesson belongs to that tenant
+      if (tenantId) {
+        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
+          ? lesson.tenant.id
+          : lesson.tenant;
+        
+        if (lessonTenantId !== tenantId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Lesson with id ${lessonId} not found`,
+          });
+        }
+      }
+
+      // Fetch current user's non-cancelled bookings for this lesson
+      const whereClause: any = {
+        lesson: { equals: lessonId },
+        user: { equals: ctx.user.id },
+        status: { not_equals: "cancelled" },
+      };
+
+      const currentBookings = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: whereClause,
+        depth: 1,
+        overrideAccess: tenantId ? true : false,
+        user: ctx.user,
+      });
+
+      // Filter by tenant if tenant context is available
+      let filteredBookings = currentBookings.docs;
+      if (tenantId) {
+        filteredBookings = currentBookings.docs.filter((booking: any) => {
+          if (booking.tenant) {
+            const bookingTenantId = typeof booking.tenant === 'object' && booking.tenant !== null
+              ? booking.tenant.id
+              : booking.tenant;
+            if (bookingTenantId === tenantId) {
+              return true;
+            }
+            return false;
+          }
+          
+          if (typeof booking.lesson === 'object' && booking.lesson && booking.lesson !== null) {
+            if (booking.lesson.tenant) {
+              const lessonTenantId = typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
+                ? booking.lesson.tenant.id
+                : booking.lesson.tenant;
+              if (lessonTenantId === tenantId) {
+                return true;
+              }
+              return false;
+            }
+          }
+          
+          return true; // Backward compatibility
+        });
+      }
+
+      // Compute current confirmed bookings count
+      const confirmedBookings = filteredBookings.filter(
+        (booking) => booking.status === "confirmed"
+      );
+      const currentConfirmed = confirmedBookings.length;
+
+      // No-op: desired equals current
+      if (desiredQuantity === currentConfirmed) {
+        return confirmedBookings as Booking[];
+      }
+
+      // Increasing quantity: create additional bookings
+      if (desiredQuantity > currentConfirmed) {
+        const additional = desiredQuantity - currentConfirmed;
+
+        // Validate capacity
+        const maxAdditional = lesson.remainingCapacity || 0;
+        if (additional > maxAdditional) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Cannot book more than ${maxAdditional} additional slot${maxAdditional !== 1 ? 's' : ''}. Only ${maxAdditional} available.`,
+          });
+        }
+
+        // Create additional bookings
+        const newBookings: Booking[] = [];
+        for (let i = 0; i < additional; i++) {
+          const booking = await createSafe<Booking>(
+            ctx.payload,
+            "bookings",
+            {
+              lesson: lessonId,
+              user: ctx.user.id,
+              status: "confirmed",
+            },
+            {
+              overrideAccess: false,
+              user: ctx.user,
+            }
+          );
+          newBookings.push(booking as Booking);
+        }
+
+        // Fetch the newly created bookings with same depth as existing ones for consistency
+        const newBookingIds = newBookings.map(b => b.id).filter((id): id is number => typeof id === 'number');
+        if (newBookingIds.length > 0) {
+          const fetchedNewBookings = await findSafe<Booking>(ctx.payload, "bookings", {
+            where: {
+              id: { in: newBookingIds },
+            },
+            depth: 1,
+            overrideAccess: tenantId ? true : false,
+            user: ctx.user,
+          });
+          
+          // Return all confirmed bookings (existing + newly fetched with consistent depth)
+          return [...confirmedBookings, ...fetchedNewBookings.docs] as Booking[];
+        }
+
+        // Return all confirmed bookings (existing + new)
+        return [...confirmedBookings, ...newBookings] as Booking[];
+      }
+
+      // Decreasing quantity: cancel some bookings (newest-first by createdAt)
+      if (desiredQuantity < currentConfirmed) {
+        const toCancel = currentConfirmed - desiredQuantity;
+
+        // Sort confirmed bookings by createdAt descending (newest first)
+        const sortedBookings = [...confirmedBookings].sort((a, b) => {
+          const aTime = new Date(a.createdAt || 0).getTime();
+          const bTime = new Date(b.createdAt || 0).getTime();
+          return bTime - aTime; // Descending order
+        });
+
+        // Cancel the newest bookings
+        for (let i = 0; i < toCancel && i < sortedBookings.length; i++) {
+          const bookingToCancel = sortedBookings[i];
+          if (!bookingToCancel) continue;
+          
+          const bookingId = bookingToCancel.id;
+          if (!bookingId) continue;
+          
+          await updateSafe(
+            ctx.payload,
+            "bookings",
+            bookingId as number,
+            {
+              status: "cancelled",
+            },
+            {
+              overrideAccess: tenantId ? true : false,
+              user: ctx.user,
+            }
+          );
+        }
+
+        // Return remaining confirmed bookings
+        const remainingBookings = sortedBookings.slice(toCancel);
+        return remainingBookings as Booking[];
+      }
+
+      // Should never reach here, but return empty array as fallback
+      return [];
     }),
 } satisfies TRPCRouterRecord;

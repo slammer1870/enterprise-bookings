@@ -960,4 +960,460 @@ describe('tRPC Bookings Integration Tests', () => {
       })
     }, TEST_TIMEOUT)
   })
+
+  describe('bookings.setMyBookingQuantityForLesson', () => {
+    it('should increase quantity from 1 to 3', async () => {
+      // Create a fresh lesson for this test
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(16, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(17, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
+
+      const caller = await createCaller()
+
+      // Create 1 initial confirmed booking
+      const initialBooking = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+      })
+
+      expect(initialBooking.length).toBe(1)
+
+      // Increase quantity to 3
+      const result = await caller.bookings.setMyBookingQuantityForLesson({
+        lessonId: testLesson.id,
+        desiredQuantity: 3,
+      })
+
+      expect(result).toBeDefined()
+      expect(result.length).toBe(3)
+      
+      // All bookings should be confirmed
+      result.forEach((booking) => {
+        // Handle both ID and populated object cases
+        const lessonId = typeof booking.lesson === 'object' && booking.lesson !== null
+          ? (booking.lesson as any).id
+          : booking.lesson
+        const userId = typeof booking.user === 'object' && booking.user !== null
+          ? (booking.user as any).id
+          : booking.user
+        
+        expect(lessonId).toBe(testLesson.id)
+        expect(userId).toBe(user.id)
+        expect(booking.status).toBe('confirmed')
+      })
+
+      // Verify we have exactly 3 confirmed bookings
+      const allBookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+
+      expect(allBookings.docs.length).toBe(3)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should decrease quantity from 3 to 1 (newest-first)', async () => {
+      // Create a fresh lesson for this test
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(17, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(18, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
+
+      const caller = await createCaller()
+
+      // Create 3 confirmed bookings with delays to ensure different createdAt timestamps
+      const booking1 = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+      })
+      await new Promise(resolve => setTimeout(resolve, 100)) // Small delay
+      
+      const booking2 = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+      })
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      const booking3 = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+      })
+
+      // Verify we have 3 bookings
+      const beforeDecrease = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+      expect(beforeDecrease.docs.length).toBe(3)
+
+      // Decrease quantity to 1
+      const result = await caller.bookings.setMyBookingQuantityForLesson({
+        lessonId: testLesson.id,
+        desiredQuantity: 1,
+      })
+
+      expect(result).toBeDefined()
+      expect(result.length).toBe(1)
+      expect(result[0]?.status).toBe('confirmed')
+
+      // Verify we have exactly 1 confirmed booking remaining
+      const afterDecrease = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+      expect(afterDecrease.docs.length).toBe(1)
+
+      // Verify 2 bookings were cancelled (newest-first policy)
+      const cancelledBookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'cancelled' },
+        },
+        overrideAccess: true,
+      })
+      expect(cancelledBookings.docs.length).toBe(2)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should do nothing when desired quantity equals current quantity (no-op)', async () => {
+      // Create a fresh lesson for this test
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(19, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(20, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
+
+      const caller = await createCaller()
+
+      // Create 2 confirmed bookings
+      await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 2,
+      })
+
+      // Get bookings before no-op
+      const beforeNoOp = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+      const beforeIds = beforeNoOp.docs.map(b => Number(b.id)).sort((a, b) => a - b)
+
+      // Set quantity to same value (2)
+      const result = await caller.bookings.setMyBookingQuantityForLesson({
+        lessonId: testLesson.id,
+        desiredQuantity: 2,
+      })
+
+      expect(result).toBeDefined()
+      expect(result.length).toBe(2)
+
+      // Verify no bookings were changed (same IDs)
+      const afterNoOp = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+      const afterIds = afterNoOp.docs.map(b => Number(b.id)).sort((a, b) => a - b)
+      
+      expect(afterIds).toEqual(beforeIds)
+      expect(afterNoOp.docs.length).toBe(2)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should prevent increasing quantity beyond remaining capacity', async () => {
+      // Create a fresh lesson with limited capacity
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(20, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(21, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
+
+      const caller = await createCaller()
+
+      // Create 2 confirmed bookings for the test user
+      await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 2,
+      })
+
+      // Create another user to fill remaining capacity
+      const otherUser = (await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Other Test User',
+          email: `other-test-${Date.now()}@test.com`,
+          password: 'test',
+          roles: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])) as User
+
+      // Fill remaining capacity with other user's bookings
+      const remainingCapacity = classOption.places - 2
+      for (let i = 0; i < remainingCapacity; i++) {
+        await createWithTenant('bookings', {
+          lesson: testLesson.id,
+          user: otherUser.id,
+          status: 'confirmed',
+        }, {
+          overrideAccess: true,
+        })
+      }
+
+      // Try to increase quantity beyond capacity (should fail)
+      // User has 2 bookings, lesson has 0 remaining capacity
+      // Trying to increase to classOption.places + 1 should fail
+      await expect(
+        caller.bookings.setMyBookingQuantityForLesson({
+          lessonId: testLesson.id,
+          desiredQuantity: 3, // Would require 1 more slot, but capacity is 0
+        })
+      ).rejects.toThrow()
+
+      // Verify test user's bookings count unchanged (still 2)
+      const bookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: user.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+      expect(bookings.docs.length).toBe(2)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'users',
+        where: { id: { equals: otherUser.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should prevent user from modifying another user\'s bookings', async () => {
+      // Create a fresh lesson for this test
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(21, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(22, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      ))
+
+      // Create another user
+      const otherUser = (await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Other User',
+          email: `other-user-${Date.now()}@test.com`,
+          password: 'test',
+          roles: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])) as User
+
+      // Create bookings for other user using overrideAccess
+      await createWithTenant('bookings', {
+        lesson: testLesson.id,
+        user: otherUser.id,
+        status: 'confirmed',
+      }, {
+        overrideAccess: true,
+      })
+
+      const caller = await createCaller()
+
+      // Try to modify other user's bookings (should fail or only affect current user's bookings)
+      // Since we're authenticated as `user`, we should only be able to modify our own bookings
+      // If other user has bookings, we should not be able to affect them
+      const result = await caller.bookings.setMyBookingQuantityForLesson({
+        lessonId: testLesson.id,
+        desiredQuantity: 1,
+      })
+
+      // Should only affect current user's bookings (which are 0)
+      expect(result).toBeDefined()
+      expect(result.length).toBe(0) // No bookings for current user
+
+      // Verify other user's booking is unchanged
+      const otherUserBookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          lesson: { equals: testLesson.id },
+          user: { equals: otherUser.id },
+          status: { equals: 'confirmed' },
+        },
+        overrideAccess: true,
+      })
+      expect(otherUserBookings.docs.length).toBe(1)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+      try {
+        await payload.delete({
+          collection: 'users',
+          where: { id: { equals: otherUser.id } },
+        })
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }, TEST_TIMEOUT)
+  })
 })

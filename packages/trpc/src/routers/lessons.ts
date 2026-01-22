@@ -9,7 +9,7 @@ import {
 } from "../trpc";
 import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
 
-import { ClassOption, Lesson } from "@repo/shared-types";
+import { ClassOption, Lesson, Booking } from "@repo/shared-types";
 import { checkRole, getDayRange } from "@repo/shared-utils";
 
 export const lessonsRouter = {
@@ -29,8 +29,7 @@ export const lessonsRouter = {
         try {
           // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
           if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await ctx.payload.find({
-              collection: "tenants",
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
               where: {
                 slug: {
                   equals: tenantSlug,
@@ -99,19 +98,21 @@ export const lessonsRouter = {
       let tenantId: number | null = null;
       if (tenantSlug) {
         try {
-          const tenantResult = await ctx.payload.find({
-            collection: "tenants",
-            where: {
-              slug: {
-                equals: tenantSlug,
+          // Backward compatibility with non-multi-tenant apps (no tenants collection)
+          if (hasCollection(ctx.payload, "tenants")) {
+            const tenantResult = await findSafe(ctx.payload, "tenants", {
+              where: {
+                slug: {
+                  equals: tenantSlug,
+                },
               },
-            },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true, // Allow public lookup
-          });
-          if (tenantResult.docs[0]) {
-            tenantId = tenantResult.docs[0].id as number;
+              limit: 1,
+              depth: 0,
+              overrideAccess: true, // Allow public lookup
+            });
+            if (tenantResult.docs[0]) {
+              tenantId = tenantResult.docs[0].id as number;
+            }
           }
         } catch (error) {
           console.error("Error resolving tenant:", error);
@@ -239,8 +240,7 @@ export const lessonsRouter = {
               // Non-multi-tenant app - ignore tenant slug and continue without filtering
               tenantId = null;
             } else {
-              const tenantResult = await ctx.payload.find({
-                collection: "tenants",
+              const tenantResult = await findSafe(ctx.payload, "tenants", {
                 where: {
                   slug: {
                     equals: tenantSlug,
@@ -344,7 +344,70 @@ export const lessonsRouter = {
           req: queryOptions.req,
         });
 
-        return lessons.docs.map((lesson: any) => lesson as Lesson);
+        // Batch-fetch booking counts for all lessons to avoid N+1 queries
+        // Only fetch if user is authenticated
+        let bookingCountsMap: Map<number, number> = new Map();
+        if (user) {
+          const lessonIds = lessons.docs.map((lesson: any) => lesson.id);
+          
+          if (lessonIds.length > 0) {
+            // Fetch all user's confirmed bookings for these lessons in one query
+            const bookingsWhere: any = {
+              and: [
+                {
+                  lesson: {
+                    in: lessonIds,
+                  },
+                },
+                {
+                  user: {
+                    equals: user.id,
+                  },
+                },
+                {
+                  status: {
+                    equals: "confirmed",
+                  },
+                },
+              ],
+            };
+
+            // Add tenant filter if we have tenant context
+            if (tenantId) {
+              bookingsWhere.and.push({
+                tenant: {
+                  equals: tenantId,
+                },
+              });
+            }
+
+            const userBookings = await findSafe<Booking>(ctx.payload, "bookings", {
+              where: bookingsWhere,
+              depth: 1,
+              overrideAccess: tenantId ? true : false,
+              user: user,
+            });
+
+            // Count bookings per lesson
+            userBookings.docs.forEach((booking: any) => {
+              const lessonId = typeof booking.lesson === 'object' && booking.lesson !== null
+                ? booking.lesson.id
+                : booking.lesson;
+              
+              if (lessonId) {
+                const currentCount = bookingCountsMap.get(lessonId) || 0;
+                bookingCountsMap.set(lessonId, currentCount + 1);
+              }
+            });
+          }
+        }
+
+        // Add myBookingCount to each lesson
+        return lessons.docs.map((lesson: any) => {
+          const lessonWithCount = lesson as Lesson;
+          lessonWithCount.myBookingCount = bookingCountsMap.get(lesson.id) || 0;
+          return lessonWithCount;
+        });
       } catch (error) {
         console.error("Error in getByDate:", error);
         // Log more details for debugging

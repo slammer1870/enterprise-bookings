@@ -97,16 +97,37 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   const { mutate: cancelBooking, isPending: isCancelling } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
-      onSuccess: () => {
+      onSuccess: async () => {
         setCancellingBookingId(null) // Clear the cancelling state
-        queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-            lessonId: lesson.id,
+        // Invalidate all booking-related queries to ensure UI updates
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
+              lessonId: lesson.id,
+            }),
           }),
-        })
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
-        })
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getByDate.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getById.queryKey({ id: lesson.id }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getByIdForBooking.queryKey({ id: lesson.id }),
+          }),
+        ]);
+        
+        // Explicitly refetch active queries to ensure immediate UI update
+        await Promise.all([
+          queryClient.refetchQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
+              lessonId: lesson.id,
+            }),
+          }),
+          queryClient.refetchQueries({
+            queryKey: trpc.lessons.getByDate.queryKey(),
+          }),
+        ]);
       },
       onError: (error: { message?: string }) => {
         setCancellingBookingId(null) // Clear the cancelling state on error
@@ -133,6 +154,45 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     })
   )
 
+  const { mutateAsync: setBookingQuantity, isPending: isSettingQuantity } = useMutation(
+    trpc.bookings.setMyBookingQuantityForLesson.mutationOptions({
+      onSuccess: async () => {
+        // Invalidate all booking-related queries to ensure UI updates
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
+              lessonId: lesson.id,
+            }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getByDate.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getById.queryKey({ id: lesson.id }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getByIdForBooking.queryKey({ id: lesson.id }),
+          }),
+        ]);
+        
+        // Explicitly refetch active queries to ensure immediate UI update
+        await Promise.all([
+          queryClient.refetchQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
+              lessonId: lesson.id,
+            }),
+          }),
+          queryClient.refetchQueries({
+            queryKey: trpc.lessons.getByDate.queryKey(),
+          }),
+        ]);
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || 'Failed to update bookings')
+      },
+    })
+  )
+
   const handleCancelSingleBooking = async (bookingId: number) => {
     const result = await confirm()
     if (result) {
@@ -152,71 +212,55 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       return
     }
 
-    // Increasing quantity -> create additional bookings
-    if (target > current) {
+    // Decreasing quantity requires confirmation
+    if (target < current) {
+      const result = await confirm()
+      if (!result) return
+    }
+
+    // Check if payment is required for increasing bookings
+    const isIncreasing = target > current
+    const requiresPayment = isIncreasing && hasPaymentMethods && PaymentMethodsComponent
+
+    if (requiresPayment) {
+      // For payment flow, use the old createBookings with pending status
       const additional = target - current
-
-      // Guard against exceeding remaining capacity
-      const maxAdditional = lesson.remainingCapacity
-      if (additional > maxAdditional) {
-        toast.error(
-          `Cannot book more than ${maxAdditional} additional slot${
-            maxAdditional !== 1 ? 's' : ''
-          }.`
-        )
-        return
+      try {
+        const newPendingBookings = await createBookings({
+          lessonId: lesson.id,
+          quantity: additional,
+          status: 'pending',
+        })
+        setPendingBookings(newPendingBookings)
+        setIsInPaymentFlow(true)
+        toast.info('Please complete payment to confirm your additional bookings.')
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to create pending bookings')
       }
-
-      // Check if payment is required for additional bookings
-      const requiresPayment = hasPaymentMethods && PaymentMethodsComponent
-
-      if (requiresPayment) {
-        // Create pending bookings and show payment UI
-        try {
-          const newPendingBookings = await createBookings({
-            lessonId: lesson.id,
-            quantity: additional,
-            status: 'pending',
-          })
-          setPendingBookings(newPendingBookings)
-          setIsInPaymentFlow(true)
-          toast.info('Please complete payment to confirm your additional bookings.')
-        } catch (error: any) {
-          toast.error(error.message || 'Failed to create pending bookings')
-        }
-        return
-      }
-
-      // No payment required - create confirmed bookings directly
-      await createBookings({
-        lessonId: lesson.id,
-        quantity: additional,
-        status: 'confirmed',
-      })
-
-      toast.success(
-        `Added ${additional} booking${additional !== 1 ? 's' : ''} for this lesson.`
-      )
       return
     }
 
-    // Decreasing quantity -> cancel some bookings
-    if (target < current) {
-      const toCancel = current - target
+    // Use the new setMyBookingQuantityForLesson mutation for all quantity changes
+    // This handles both increase and decrease cases safely
+    try {
+      await setBookingQuantity({
+        lessonId: lesson.id,
+        desiredQuantity: target,
+      })
 
-      const result = await confirm()
-      if (!result) return
-
-      // Cancel N bookings (one by one using generic cancel endpoint)
-      // cancelBooking cancels the first matching booking for this user/lesson
-      for (let i = 0; i < toCancel; i++) {
-        // eslint-disable-next-line no-await-in-loop
-        await cancelBooking({ id: lesson.id } as any)
+      const delta = Math.abs(target - current)
+      if (target > current) {
+        toast.success(
+          `Added ${delta} booking${delta !== 1 ? 's' : ''} for this lesson.`
+        )
+      } else {
+        toast.success(
+          `Cancelled ${delta} booking${delta !== 1 ? 's' : ''} for this lesson.`
+        )
       }
-
-      toast.success(
-        `Cancelled ${toCancel} booking${toCancel !== 1 ? 's' : ''} for this lesson.`
-      )
+    } catch (error: any) {
+      // Error handling is done in mutation options
+      console.error('Failed to update booking quantity:', error)
     }
   }
 
@@ -358,10 +402,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
           <Button
             className="w-full"
-            disabled={isCreating || isCancelling || desiredQuantity === initialQuantity}
+            disabled={isCreating || isCancelling || isSettingQuantity || desiredQuantity === initialQuantity}
             onClick={handleUpdateQuantity}
           >
-            {isCreating || isCancelling ? (
+            {isCreating || isCancelling || isSettingQuantity ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Updating Bookings...

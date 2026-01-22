@@ -18,6 +18,25 @@ const bookingPageConfig: BookingPageConfig = {
   onSuccessRedirect: '/',
   // MVP: Don't attempt check-in, always show booking page
   attemptCheckIn: false,
+  // Redirect to manage page if user has multiple bookings
+  postValidation: async (lesson, user) => {
+    if (!user) return null
+    
+    const caller = await createCaller()
+    try {
+      const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: lesson.id })
+      
+      // If user has 2+ bookings, redirect to manage page
+      if (userBookings.length >= 2) {
+        return `/bookings/${lesson.id}/manage`
+      }
+    } catch (error) {
+      // If fetching bookings fails, continue to booking page (don't block)
+      console.error('Error checking user bookings for redirect:', error)
+    }
+    
+    return null
+  },
 }
 
 export default async function BookingPage({ params }: BookingPageProps) {

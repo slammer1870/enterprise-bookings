@@ -29,10 +29,33 @@ export const CheckInButton = ({
   bookingStatus,
   type,
   id,
+  manageHref,
+  myBookingCount,
 }: {
   bookingStatus: Lesson["bookingStatus"];
   type: Lesson["classOption"]["type"];
   id: Booking["id"];
+  /**
+   * Optional function or string to generate the manage booking URL.
+   * If provided and user has multiple bookings, the button will route to this URL instead of `/bookings/[id]`.
+   * If not provided, default behavior is to always route to `/bookings/[id]` (backwards compatible).
+   * 
+   * @example
+   * ```tsx
+   * <CheckInButton 
+   *   manageHref={(lessonId) => `/bookings/${lessonId}/manage`}
+   *   // or
+   *   manageHref="/bookings/manage"
+   * />
+   * ```
+   */
+  manageHref?: string | ((lessonId: number) => string);
+  /**
+   * Optional: Number of confirmed bookings the current user has for this lesson.
+   * If provided, avoids N+1 query by using data from parent query (e.g., lessons.getByDate).
+   * If not provided, will fetch separately (backwards compatible but less efficient).
+   */
+  myBookingCount?: number;
 }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -55,13 +78,24 @@ export const CheckInButton = ({
   const { data: session } = useQuery(trpc.auth.getSession.queryOptions());
 
   // Check if user has multiple bookings for this lesson
-  // Only check when user is authenticated and lesson status allows booking
+  // Prefer myBookingCount from parent query to avoid N+1 queries
+  // Fall back to fetching if not provided (backwards compatible)
+  const shouldFetchBookings = 
+    myBookingCount === undefined && 
+    !!session && 
+    (bookingStatus === "booked" || bookingStatus === "active" || bookingStatus === "multipleBooked");
+  
   const { data: userBookings } = useQuery({
     ...trpc.bookings.getUserBookingsForLesson.queryOptions({ lessonId: id }),
-    enabled: !!session && (bookingStatus === "booked" || bookingStatus === "active"),
+    enabled: shouldFetchBookings,
   });
 
-  const hasMultipleBookings = (userBookings?.length || 0) > 1;
+  // Use myBookingCount if provided, otherwise use fetched bookings
+  const bookingCount = myBookingCount !== undefined 
+    ? myBookingCount 
+    : (userBookings?.length || 0);
+  
+  const hasMultipleBookings = bookingCount > 1;
 
   // Reset navigation state if user is still on the same page after navigation was attempted
   // This handles cases where the modal is closed and navigation doesn't complete
@@ -210,11 +244,33 @@ export const CheckInButton = ({
 
   const { mutate: cancelBooking, isPending: isCancellingBooking } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
-      onSuccess: () => {
+      onSuccess: async () => {
         toast.success("Booking cancelled");
-        queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
-        });
+        // Invalidate all relevant queries to update UI state
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getByDate.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: id }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getById.queryKey({ id }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.lessons.getByIdForBooking.queryKey({ id }),
+          }),
+        ]);
+        
+        // Explicitly refetch active queries to ensure immediate UI update
+        await Promise.all([
+          queryClient.refetchQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: id }),
+          }),
+          queryClient.refetchQueries({
+            queryKey: trpc.lessons.getByDate.queryKey(),
+          }),
+        ]);
       },
       onError: (error: any) => {
         // Handle authentication errors
@@ -277,6 +333,7 @@ export const CheckInButton = ({
       case "trialable":
         return `${baseClasses} bg-trialable hover:bg-trialable/90 text-trialable-foreground`;
       case "booked":
+      case "multipleBooked":
       case "waiting":
         return `${baseClasses} bg-cancel hover:bg-cancel/90 text-cancel-foreground`;
       case "waitlist":
@@ -319,12 +376,13 @@ export const CheckInButton = ({
       action: () =>
         requireAuth(() => {
           setIsNavigating(true);
-          if (hasMultipleBookings) {
-            // Redirect to booking management page
-            router.push(`/bookings/${id}/manage`);
+          if (hasMultipleBookings && manageHref) {
+            // Redirect to booking management page if manageHref is provided
+            const manageUrl = typeof manageHref === 'function' ? manageHref(id) : manageHref;
+            router.push(manageUrl);
             trackEvent("Modify Booking Initiated");
           } else {
-            // MVP: Always redirect to booking page instead of direct check-in
+            // Default: Always redirect to booking page
             router.push(`/bookings/${id}`);
             trackEvent("Booking Initiated");
           }
@@ -343,23 +401,72 @@ export const CheckInButton = ({
       disabled: isCancellingBooking || isNavigating,
       action: () =>
         requireAuth(() => {
-          if (hasMultipleBookings) {
+          if (hasMultipleBookings && manageHref) {
             setIsNavigating(true);
-            // Redirect to booking management page
-            router.push(`/bookings/${id}/manage`);
+            // Redirect to booking management page if manageHref is provided
+            const manageUrl = typeof manageHref === 'function' ? manageHref(id) : manageHref;
+            router.push(manageUrl);
             trackEvent("Modify Booking Initiated");
           } else {
             // When user has exactly one booking, cancel that specific booking
-            const singleBooking = userBookings?.[0]
-            if (singleBooking) {
-              confirm().then((result) => {
-                if (result) {
-                  cancelBooking({ id: singleBooking.id });
-                }
-              });
+            // Or if manageHref is not provided, default to cancel behavior
+            if (userBookings && userBookings.length > 0) {
+              // Use already-fetched bookings
+              const singleBooking = userBookings[0];
+              if (singleBooking && singleBooking.id) {
+                confirm().then((result) => {
+                  if (result) {
+                    cancelBooking({ id: singleBooking.id });
+                  }
+                });
+              } else {
+                toast.error('No booking found to cancel');
+              }
+            } else if (myBookingCount === 1) {
+              // If myBookingCount indicates 1 booking but we don't have the booking data,
+              // fetch it to get the ID for cancellation
+              queryClient.fetchQuery(trpc.bookings.getUserBookingsForLesson.queryOptions({ lessonId: id }))
+                .then((bookings) => {
+                  const singleBooking = bookings?.[0];
+                  if (singleBooking && singleBooking.id) {
+                    confirm().then((result) => {
+                      if (result) {
+                        cancelBooking({ id: singleBooking.id });
+                      }
+                    });
+                  } else {
+                    toast.error('No booking found to cancel');
+                  }
+                })
+                .catch(() => {
+                  toast.error('Failed to fetch booking details');
+                });
             } else {
               toast.error('No booking found to cancel');
             }
+          }
+        }),
+    },
+    multipleBooked: {
+      label: isNavigating
+        ? "Loading..."
+        : "Modify Booking",
+      variant: "default" as const,
+      className: getButtonClassName("multipleBooked"),
+      disabled: isNavigating,
+      action: () =>
+        requireAuth(() => {
+          if (manageHref) {
+            setIsNavigating(true);
+            // Redirect to booking management page if manageHref is provided
+            const manageUrl = typeof manageHref === 'function' ? manageHref(id) : manageHref;
+            router.push(manageUrl);
+            trackEvent("Modify Booking Initiated");
+          } else {
+            // Default: redirect to booking page if manageHref not provided
+            setIsNavigating(true);
+            router.push(`/bookings/${id}`);
+            trackEvent("Booking Initiated");
           }
         }),
     },

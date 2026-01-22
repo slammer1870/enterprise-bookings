@@ -34,6 +34,12 @@ export type Lesson = {
   originalLockOutTime?: number;
   /** Present in multi-tenant apps; ID or populated { id }. */
   tenant?: number | { id: number } | null;
+  /**
+   * Optional: Number of confirmed bookings the current user has for this lesson.
+   * Provided by lessons.getByDate to avoid N+1 queries in CheckInButton.
+   * If not provided, CheckInButton will fetch it separately (backwards compatible).
+   */
+  myBookingCount?: number;
 };
 
 export interface Booking {

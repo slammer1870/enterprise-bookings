@@ -10,7 +10,15 @@ import { ToggleDate } from "@repo/ui/components/toggle-date";
 import { LessonList } from "./lessons/lesson-list";
 import { Loader2 } from "lucide-react";
 
-export function Schedule() {
+export function Schedule({ 
+  manageHref,
+}: { 
+  /**
+   * Optional function or string to generate the manage booking URL.
+   * Passed through to CheckInButton components.
+   */
+  manageHref?: string | ((lessonId: number) => string);
+}) {
   const trpc = useTRPC();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -30,7 +38,7 @@ export function Schedule() {
           <span className="text-sm">Loading schedule...</span>
         </div>
       ) : (
-        <LessonList lessons={Array.isArray(lessons) ? lessons : []} />
+        <LessonList lessons={Array.isArray(lessons) ? lessons : []} manageHref={manageHref} />
       )}
     </>
   );

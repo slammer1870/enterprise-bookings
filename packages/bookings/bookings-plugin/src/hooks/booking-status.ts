@@ -162,8 +162,21 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       }
     }
 
-    // Check if user already has a confirmed booking - check before checking if lesson is closed
+    // Check if user already has confirmed bookings - check before checking if lesson is closed
     if (userId && hasUserConfirmedBooking(bookings, userId)) {
+      // Count user's confirmed bookings
+      const userConfirmedCount = bookings.filter(
+        (booking) =>
+          getUserFromBooking(booking).id === userId &&
+          booking.status === "confirmed"
+      ).length;
+      
+      // If user has 2+ confirmed bookings, return "multipleBooked"
+      if (userConfirmedCount >= 2) {
+        return "multipleBooked";
+      }
+      
+      // Otherwise return "booked" for single booking
       return "booked";
     }
 
