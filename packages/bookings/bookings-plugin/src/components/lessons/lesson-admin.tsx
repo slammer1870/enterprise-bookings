@@ -8,7 +8,7 @@ import { Button, Gutter } from "@payloadcms/ui";
 
 import { Toaster } from "sonner";
 
-import { BasePayload } from "payload";
+import type { BasePayload, CollectionSlug } from "payload";
 import { headers } from "next/headers";
 import { createLocalReq } from "payload";
 import { cookies } from "next/headers";
@@ -50,7 +50,7 @@ export const LessonAdmin: React.FC<{
     if (tenantSlug) {
       try {
         const tenantResult = await payload.find({
-          collection: 'tenants',
+          collection: "tenants" as CollectionSlug,
           where: { slug: { equals: tenantSlug } },
           limit: 1,
           depth: 0,
