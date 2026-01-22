@@ -10,7 +10,8 @@ import { logo as logoData } from './logo'
 import { post1 } from './post-1'
 import { post2 } from './post-2'
 import { post3 } from './post-3'
-import { seedBookings } from './bookings'
+import { seedBookings, seedSchedulers } from './bookings'
+import { croiLanSaunaPage } from './croi-lan-sauna-page'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 
@@ -93,15 +94,16 @@ export const seed = async ({
   }
 
   // Delete collections in order to respect foreign key constraints
-  // Order: bookings -> lessons -> class-options -> instructors -> users -> others
+  // Order: bookings -> lessons -> scheduler -> class-options -> instructors -> users -> others
   const orderedCollections: CollectionSlug[] = [
     'bookings',
     'lessons',
+    'scheduler', // Delete scheduler before class-options and instructors since it references them
     'class-options',
     'instructors',
     // Then delete other collections
     ...collections.filter(
-      (c) => !['bookings', 'lessons', 'class-options', 'instructors'].includes(c)
+      (c) => !['bookings', 'lessons', 'scheduler', 'class-options', 'instructors'].includes(c)
     ),
   ]
 
@@ -127,6 +129,15 @@ export const seed = async ({
   if (!tenant1) {
     throw new Error('Seed bookings did not create any tenants; cannot seed tenant-scoped data')
   }
+
+  // Seed schedulers for tenants
+  await seedSchedulers({
+    payload,
+    req,
+    tenants: bookingData.tenants,
+    classOptions: bookingData.classOptions,
+    instructors: bookingData.instructors,
+  })
 
   payload.logger.info(`— Seeding demo author and user...`)
 
@@ -169,7 +180,8 @@ export const seed = async ({
         email: 'demo-author@example.com',
         password: 'password',
         emailVerified: true,
-        role: 'admin',
+        role: ['admin'],
+        roles: ['admin'],
       },
     }),
     payload.create({
@@ -292,32 +304,66 @@ export const seed = async ({
     context: { ...req.context, tenant: tenant1.id },
   }
 
-  const [_, contactPage] = await Promise.all([
-    payload.create({
+  // Find or create home page for tenant1
+  const existingTenant1HomePage = await payload.find({
+    collection: 'pages',
+    where: {
+      slug: {
+        equals: 'home',
+      },
+      tenant: {
+        equals: tenant1.id,
+      },
+    },
+    limit: 1,
+    req: tenant1Req,
+    overrideAccess: true,
+  })
+
+  const homePageData = {
+    ...home({ heroImage: imageHomeDoc, metaImage: image2Doc, logo: logoDoc }),
+    tenant: tenant1.id,
+  }
+
+  if (existingTenant1HomePage.docs[0]) {
+    await payload.update({
+      collection: 'pages',
+      id: existingTenant1HomePage.docs[0].id,
+      depth: 0,
+      req: tenant1Req,
+      context: {
+        disableRevalidate: true,
+      },
+      data: homePageData,
+      overrideAccess: true,
+    })
+  } else {
+    await payload.create({
       collection: 'pages',
       depth: 0,
       req: tenant1Req,
       context: {
         disableRevalidate: true,
       },
-      data: {
-        ...home({ heroImage: imageHomeDoc, metaImage: image2Doc, logo: logoDoc }),
-        tenant: tenant1.id, // Explicitly set tenant
-      },
-    }),
-    payload.create({
-      collection: 'pages',
-      depth: 0,
-      req: tenant1Req,
-      context: {
-        disableRevalidate: true,
-      },
-      data: {
-        ...contactPageData({ contactForm: contactForm }),
-        tenant: tenant1.id, // Explicitly set tenant
-      },
-    }),
-  ])
+      data: homePageData,
+      overrideAccess: true,
+    })
+  }
+
+  // Create contact page
+  const contactPage = await payload.create({
+    collection: 'pages',
+    depth: 0,
+    req: tenant1Req,
+    context: {
+      disableRevalidate: true,
+    },
+    data: {
+      ...contactPageData({ contactForm: contactForm }),
+      tenant: tenant1.id, // Explicitly set tenant
+    },
+    overrideAccess: true,
+  })
 
   payload.logger.info(`— Seeding navbar and footer (tenant-scoped)...`)
 
@@ -391,6 +437,222 @@ export const seed = async ({
     }),
   ])
 
+  // Seed Croí Lán Sauna tenant pages and content
+  const croiLanSaunaTenant = bookingData.tenants.find((t) => t.slug === 'croi-lan-sauna')
+  if (croiLanSaunaTenant) {
+    payload.logger.info(`— Seeding Croí Lán Sauna tenant content...`)
+
+    // Download or get existing media for Croí Lán Sauna
+    const [croiLanSaunaLogo, croiLanSaunaHero, croiLanSaunaAbout] = await Promise.all([
+      getOrCreateMediaFromURL({
+        payload,
+        req,
+        url: 'https://croilan.com/assets/Just%20Flame%20Logo-vkNNsPzM.webp',
+        alt: 'Croí Lán Sauna Logo',
+        filename: 'croi-lan-sauna-logo.webp',
+      }),
+      getOrCreateMediaFromURL({
+        payload,
+        req,
+        url: 'https://croilan.com/assets/Real_Sauna-DWpsViRq.webp',
+        alt: 'Croí Lán Sauna - Real Sauna',
+        filename: 'croi-lan-sauna-hero.webp',
+      }),
+      getOrCreateMediaFromURL({
+        payload,
+        req,
+        url: 'https://croilan.com/assets/sauna-interior-CfP9kPDc.jpg',
+        alt: 'Croí Lán Sauna Interior',
+        filename: 'croi-lan-sauna-interior.jpg',
+      }),
+    ])
+
+    // Create tenant-scoped request
+    const croiLanSaunaReq = {
+      ...req,
+      context: { ...req.context, tenant: croiLanSaunaTenant.id },
+    }
+
+    // Find existing home page (created by createDefaultTenantData hook) or create new one
+    const existingHomePage = await payload.find({
+      collection: 'pages',
+      where: {
+        slug: {
+          equals: 'home',
+        },
+        tenant: {
+          equals: croiLanSaunaTenant.id,
+        },
+      },
+      limit: 1,
+      req: croiLanSaunaReq,
+      overrideAccess: true,
+    })
+
+    const pageData = {
+      ...croiLanSaunaPage({
+        heroImage: croiLanSaunaHero,
+        logo: croiLanSaunaLogo,
+        aboutImage: croiLanSaunaAbout,
+      }),
+      tenant: croiLanSaunaTenant.id,
+    }
+
+    if (existingHomePage.docs[0]) {
+      // Update existing home page
+      await payload.update({
+        collection: 'pages',
+        id: existingHomePage.docs[0].id,
+        depth: 0,
+        req: croiLanSaunaReq,
+        context: {
+          disableRevalidate: true,
+        },
+        data: pageData,
+        overrideAccess: true,
+      })
+      payload.logger.info(`  Updated existing home page for Croí Lán Sauna`)
+    } else {
+      // Create new home page if it doesn't exist
+      await payload.create({
+        collection: 'pages',
+        depth: 0,
+        req: croiLanSaunaReq,
+        context: {
+          disableRevalidate: true,
+        },
+        data: pageData,
+        overrideAccess: true,
+      })
+      payload.logger.info(`  Created new home page for Croí Lán Sauna`)
+    }
+
+    // Find or create navbar for Croí Lán Sauna
+    // Since navbar is tenant-scoped, try to find any navbar in the tenant context
+    let existingNavbar
+    try {
+      existingNavbar = await payload.find({
+        collection: 'navbar',
+        limit: 1,
+        req: croiLanSaunaReq,
+        overrideAccess: true,
+      })
+    } catch (error) {
+      // If query fails, assume no navbar exists
+      existingNavbar = { docs: [] }
+    }
+
+    const navbarData = {
+      tenant: croiLanSaunaTenant.id,
+      logo: croiLanSaunaLogo?.id || undefined,
+      logoLink: '/',
+      navItems: [
+        {
+          link: {
+            type: 'custom' as const,
+            label: 'Book Now',
+            url: '/bookings',
+          },
+          renderAsButton: true,
+          buttonVariant: 'default' as const,
+        },
+      ],
+      styling: {
+        padding: 'medium' as const,
+        sticky: false,
+      },
+    }
+
+    if (existingNavbar.docs[0]) {
+      await payload.update({
+        collection: 'navbar',
+        id: existingNavbar.docs[0].id,
+        req: croiLanSaunaReq,
+        context: {
+          disableRevalidate: true,
+        },
+        data: navbarData,
+        overrideAccess: true,
+      })
+    } else {
+      await payload.create({
+        collection: 'navbar',
+        req: croiLanSaunaReq,
+        context: {
+          disableRevalidate: true,
+        },
+        data: navbarData,
+        overrideAccess: true,
+      })
+    }
+
+    // Find or create footer for Croí Lán Sauna
+    // Since footer is tenant-scoped, try to find any footer in the tenant context
+    // If querying by tenant field fails, we'll just try to update/create
+    let existingFooter
+    try {
+      existingFooter = await payload.find({
+        collection: 'footer',
+        limit: 1,
+        req: croiLanSaunaReq,
+        overrideAccess: true,
+      })
+    } catch (error) {
+      // If query fails, assume no footer exists
+      existingFooter = { docs: [] }
+    }
+
+    const footerData = {
+      tenant: croiLanSaunaTenant.id,
+      logoLink: '/',
+      navItems: [
+        {
+          link: {
+            type: 'custom' as const,
+            label: 'Location',
+            url: '#location',
+          },
+        },
+        {
+          link: {
+            type: 'custom' as const,
+            label: 'Instagram',
+            newTab: true,
+            url: 'https://www.instagram.com/croilansauna/',
+          },
+        },
+      ],
+      styling: {
+        showThemeSelector: false,
+      },
+    }
+
+    if (existingFooter.docs && existingFooter.docs[0]) {
+      await payload.update({
+        collection: 'footer',
+        id: existingFooter.docs[0].id,
+        req: croiLanSaunaReq,
+        context: {
+          disableRevalidate: true,
+        },
+        data: footerData,
+        overrideAccess: true,
+      })
+    } else {
+      await payload.create({
+        collection: 'footer',
+        req: croiLanSaunaReq,
+        context: {
+          disableRevalidate: true,
+        },
+        data: footerData,
+        overrideAccess: true,
+      })
+    }
+
+    payload.logger.info(`  Croí Lán Sauna tenant content seeded successfully!`)
+  }
+
   payload.logger.info('Seeded database successfully!')
 }
 
@@ -429,4 +691,64 @@ async function readLogoFile(): Promise<File | null> {
     // Logo file doesn't exist, return null (logo will be optional)
     return null
   }
+}
+
+/**
+ * Gets or creates a media document from a URL
+ * Checks if media already exists (by source URL stored in alt text) before downloading
+ */
+async function getOrCreateMediaFromURL({
+  payload,
+  req,
+  url,
+  alt,
+  filename,
+}: {
+  payload: Payload
+  req: PayloadRequest
+  url: string
+  alt?: string
+  filename?: string
+}): Promise<any> {
+  // First, check if media with this source URL already exists
+  // We store the source URL in the alt text for reference
+  const existingMedia = await payload.find({
+    collection: 'media',
+    where: {
+      alt: {
+        contains: url,
+      },
+    },
+    limit: 1,
+    overrideAccess: true,
+  })
+
+  if (existingMedia.docs[0]) {
+    payload.logger.info(`  Media already exists for ${url}, reusing existing media`)
+    return existingMedia.docs[0]
+  }
+
+  // Media doesn't exist, download and create it
+  payload.logger.info(`  Downloading media from ${url}...`)
+  const file = await fetchFileByURL(url)
+
+  // Extract filename from URL if not provided
+  const finalFilename = filename || file.name
+
+  // Store the source URL in the alt text for future reference
+  const altText = alt ? `${alt} (Source: ${url})` : `Source: ${url}`
+
+  const mediaDoc = await payload.create({
+    collection: 'media',
+    data: {
+      alt: altText,
+    },
+    file: {
+      ...file,
+      name: finalFilename,
+    },
+    overrideAccess: true,
+  })
+
+  return mediaDoc
 }

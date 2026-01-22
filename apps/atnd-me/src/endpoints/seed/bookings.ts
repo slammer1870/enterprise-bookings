@@ -1,6 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
-import type { User, Lesson, ClassOption, Booking, Instructor } from '@repo/shared-types'
-import type { Tenant } from '@/payload-types'
+import type { User, Lesson, Booking } from '@repo/shared-types'
+import type { Tenant, Scheduler, ClassOption, Instructor } from '@/payload-types'
 
 /**
  * Seeds booking-related data for manual testing with multi-tenant support
@@ -101,6 +101,11 @@ export async function seedBookings({
     slug: 'demo-tenant-2',
     description: 'Second demo tenant for testing tenant isolation',
   }
+  const croiLanSaunaData = {
+    name: 'Croí Lán Sauna',
+    slug: 'croi-lan-sauna',
+    description: 'A sauna experience in the heart of Wicklow\'s countryside',
+  }
 
   // Find existing tenants by slug
   const existingTenant1 = await payload.find({
@@ -119,6 +124,17 @@ export async function seedBookings({
     where: {
       slug: {
         equals: tenant2Data.slug,
+      },
+    },
+    limit: 1,
+    overrideAccess: true,
+  })
+
+  const existingCroiLanSauna = await payload.find({
+    collection: 'tenants',
+    where: {
+      slug: {
+        equals: croiLanSaunaData.slug,
       },
     },
     limit: 1,
@@ -151,10 +167,23 @@ export async function seedBookings({
           data: tenant2Data,
           overrideAccess: true,
         }),
+    existingCroiLanSauna.docs[0]
+      ? payload.update({
+          collection: 'tenants',
+          id: existingCroiLanSauna.docs[0].id,
+          data: croiLanSaunaData,
+          overrideAccess: true,
+        })
+      : payload.create({
+          collection: 'tenants',
+          data: croiLanSaunaData,
+          overrideAccess: true,
+        }),
   ])
 
   const tenant1 = tenants[0] as Tenant
   const tenant2 = tenants[1] as Tenant
+  const croiLanSaunaTenant = tenants[2] as Tenant
 
   // Helper function to create tenant-scoped documents with tenant context
   const createWithTenant = async <T = any>(
@@ -183,10 +212,10 @@ export async function seedBookings({
   // Create or update test users
   payload.logger.info('  Creating test users...')
   const testUserData = [
-    { name: 'Admin User', email: 'admin@test.com', role: 'admin' as const, roles: ['admin'] as ('admin' | 'user' | 'tenant-admin')[] },
-    { name: 'Test User 1', email: 'user1@test.com', role: 'user' as const, roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
-    { name: 'Test User 2', email: 'user2@test.com', role: 'user' as const, roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
-    { name: 'Test User 3', email: 'user3@test.com', role: 'user' as const, roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
+    { name: 'Admin User', email: 'admin@test.com', roles: ['admin'] as ('admin' | 'user' | 'tenant-admin')[] },
+    { name: 'Test User 1', email: 'user1@test.com', roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
+    { name: 'Test User 2', email: 'user2@test.com', roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
+    { name: 'Test User 3', email: 'user3@test.com', roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
   ]
 
   const testUsers = await Promise.all(
@@ -208,7 +237,8 @@ export async function seedBookings({
         email: userData.email.toLowerCase(),
         password: 'password',
         emailVerified: true,
-        role: userData.role,
+        // `role` is an array in Payload types (Better Auth schema); keep it aligned with `roles`.
+        role: userData.roles,
         roles: userData.roles,
       }
 
@@ -250,7 +280,7 @@ export async function seedBookings({
         email: tenantAdminEmail,
         password: 'password',
         emailVerified: true,
-        role: 'tenant-admin' as const,
+        role: ['tenant-admin'] as ('admin' | 'user' | 'tenant-admin')[],
         roles: ['tenant-admin'] as ('admin' | 'user' | 'tenant-admin')[],
         // Assign tenant-admin to tenant1
         tenants: [{ tenant: tenant1.id }],
@@ -311,7 +341,7 @@ export async function seedBookings({
         email: 'john@instructor.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
-        role: 'user' as const,
+        role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
         roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
       },
       draft: false,
@@ -324,7 +354,7 @@ export async function seedBookings({
         email: 'jane@instructor.com'.toLowerCase(),
         password: 'password',
         emailVerified: true,
-        role: 'user' as const,
+        role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
         roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
       },
       draft: false,
@@ -389,7 +419,7 @@ export async function seedBookings({
         email: tenant2InstructorEmail,
         password: 'password',
         emailVerified: true,
-        role: 'user' as const,
+        role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
         roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
       }
 
@@ -673,6 +703,84 @@ export async function seedBookings({
   )
   lessons.push(tenant2Lesson as Lesson)
 
+  // Create Croí Lán Sauna tenant data
+  payload.logger.info('  Creating Croí Lán Sauna tenant data...')
+  
+  // Create instructor user for Croí Lán Sauna
+  const croiLanSaunaInstructorEmail = 'croi-lan-sauna@instructor.com'.toLowerCase()
+  const existingCroiLanSaunaInstructor = await payload.find({
+    collection: 'users',
+    where: {
+      email: {
+        equals: croiLanSaunaInstructorEmail,
+      },
+    },
+    limit: 1,
+    overrideAccess: true,
+  })
+
+  const croiLanSaunaInstructorUserData = {
+    name: 'Croí Lán Sauna Instructor',
+    email: croiLanSaunaInstructorEmail,
+    password: 'password',
+    emailVerified: true,
+    role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
+    roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
+  }
+
+  const croiLanSaunaInstructorUser = existingCroiLanSaunaInstructor.docs[0]
+    ? await payload.update({
+        collection: 'users',
+        id: existingCroiLanSaunaInstructor.docs[0].id,
+        data: croiLanSaunaInstructorUserData,
+        draft: false,
+        overrideAccess: true,
+      })
+    : await payload.create({
+        collection: 'users',
+        data: croiLanSaunaInstructorUserData,
+        draft: false,
+        overrideAccess: true,
+      })
+
+  const croiLanSaunaInstructorUserId = croiLanSaunaInstructorUser && typeof croiLanSaunaInstructorUser === 'object' && 'id' in croiLanSaunaInstructorUser 
+    ? croiLanSaunaInstructorUser.id 
+    : croiLanSaunaInstructorUser
+  if (!croiLanSaunaInstructorUserId) throw new Error('Croí Lán Sauna instructor user not found')
+
+  // Create instructor for Croí Lán Sauna
+  const croiLanSaunaInstructor = await createWithTenant(
+    'instructors',
+    {
+      user: croiLanSaunaInstructorUserId,
+      active: true,
+    },
+    croiLanSaunaTenant.id,
+    { overrideAccess: true }
+  )
+
+  // Create class option for Croí Lán Sauna
+  const croiLanSaunaClassOption = await createWithTenant(
+    'class-options',
+    {
+      name: '50 Minute Session',
+      places: 12,
+      description: 'A 50-minute sauna session for restoration and renewal',
+    },
+    croiLanSaunaTenant.id,
+    { draft: false, overrideAccess: true }
+  )
+
+  const croiLanSaunaClassOptionId = croiLanSaunaClassOption && typeof croiLanSaunaClassOption === 'object' && 'id' in croiLanSaunaClassOption 
+    ? croiLanSaunaClassOption.id 
+    : croiLanSaunaClassOption
+  const croiLanSaunaInstructorId = croiLanSaunaInstructor && typeof croiLanSaunaInstructor === 'object' && 'id' in croiLanSaunaInstructor 
+    ? croiLanSaunaInstructor.id 
+    : croiLanSaunaInstructor
+  
+  if (!croiLanSaunaClassOptionId) throw new Error('Croí Lán Sauna class option not found')
+  if (!croiLanSaunaInstructorId) throw new Error('Croí Lán Sauna instructor not found')
+
   // Create bookings - scoped to tenant1 (bookings inherit tenant from lesson)
   payload.logger.info('  Creating bookings for tenant1...')
   const bookings: Booking[] = []
@@ -843,14 +951,201 @@ export async function seedBookings({
   bookings.push(waitingBooking as Booking)
 
   payload.logger.info('  Booking data seeded successfully!')
-  payload.logger.info(`  Created: ${tenants.length} tenants, ${testUsers.length + 1} users (including tenant-admin), ${instructors.length + tenant2Instructors.length} instructors, ${classOptions.length + 1} class options, ${lessons.length} lessons, ${bookings.length} bookings`)
+  payload.logger.info(`  Created: ${tenants.length} tenants, ${testUsers.length + 1} users (including tenant-admin), ${instructors.length + tenant2Instructors.length + 1} instructors, ${classOptions.length + 2} class options, ${lessons.length} lessons, ${bookings.length} bookings`)
 
   return {
     tenants: tenants as Tenant[],
     users: [...testUsers, tenantAdminUser] as User[],
-    instructors: [...instructors, ...tenant2Instructors] as Instructor[],
-    classOptions: [...classOptions, tenant2ClassOption] as ClassOption[],
+    instructors: [...instructors, ...tenant2Instructors, croiLanSaunaInstructor] as Instructor[],
+    classOptions: [...classOptions, tenant2ClassOption, croiLanSaunaClassOption] as ClassOption[],
     lessons: lessons as Lesson[],
     bookings: bookings as Booking[],
   }
+}
+
+/**
+ * Seeds scheduler documents for tenants
+ * Creates a scheduler for each tenant with sample weekly schedule
+ */
+export async function seedSchedulers({
+  payload,
+  req,
+  tenants,
+  classOptions,
+  instructors,
+}: {
+  payload: Payload
+  req: PayloadRequest
+  tenants: Tenant[]
+  classOptions: ClassOption[]
+  instructors: Instructor[]
+}): Promise<void> {
+  payload.logger.info('— Seeding schedulers for tenants...')
+
+  const now = new Date()
+  const startDate = new Date(now)
+  startDate.setDate(startDate.getDate() - 7) // Start 7 days ago
+  const endDate = new Date(now)
+  endDate.setDate(endDate.getDate() + 90) // End 90 days from now
+
+  // Helper to extract ID from relationship
+  const getId = (item: any): number | string => {
+    if (!item) return ''
+    return typeof item === 'object' && 'id' in item ? item.id : item
+  }
+
+  // Helper to create tenant-scoped scheduler
+  const createSchedulerForTenant = async (
+    tenant: Tenant,
+    tenantClassOptions: ClassOption[],
+    tenantInstructors: Instructor[],
+  ) => {
+    const tenantReq = {
+      ...req,
+      context: { ...req.context, tenant: tenant.id },
+    }
+
+    // Get the first class option and instructor for this tenant
+    const defaultClassOption = tenantClassOptions[0]
+    const defaultClassOptionIdRaw = getId(defaultClassOption)
+    if (!defaultClassOptionIdRaw) {
+      payload.logger.warn(`  No class options found for tenant ${tenant.id}, skipping scheduler`)
+      return
+    }
+    // Ensure defaultClassOptionId is a number for the relationship field
+    const defaultClassOptionId = typeof defaultClassOptionIdRaw === 'string' 
+      ? Number(defaultClassOptionIdRaw) 
+      : defaultClassOptionIdRaw
+
+    const defaultInstructor = tenantInstructors[0]
+    const defaultInstructorId = getId(defaultInstructor)
+
+    // Check if this is Croí Lán Sauna tenant
+    const isCroiLanSauna = tenant.slug === 'croi-lan-sauna'
+
+    // Create a sample weekly schedule
+    const daysOfWeek = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ]
+
+    const weekDays = daysOfWeek.map((dayName, index) => {
+      const timeSlots: any[] = []
+
+      if (isCroiLanSauna) {
+        // Croí Lán Sauna schedule: Daily sessions at 17:00 and 18:00 (50-minute sessions)
+        timeSlots.push({
+          startTime: new Date(`2000-01-01T17:00:00`).toISOString(),
+          endTime: new Date(`2000-01-01T17:50:00`).toISOString(),
+          classOption: defaultClassOptionId,
+          location: 'The Bog Meadow, Enniskerry Village, Co. Wicklow',
+          instructor: defaultInstructorId || undefined,
+          active: true,
+        })
+
+        timeSlots.push({
+          startTime: new Date(`2000-01-01T18:00:00`).toISOString(),
+          endTime: new Date(`2000-01-01T18:50:00`).toISOString(),
+          classOption: defaultClassOptionId,
+          location: 'The Bog Meadow, Enniskerry Village, Co. Wicklow',
+          instructor: defaultInstructorId || undefined,
+          active: true,
+        })
+      } else {
+        // Default schedule: Monday, Wednesday, Friday with morning and afternoon slots
+        if (index === 0 || index === 2 || index === 4) {
+          // Morning slot: 9:00 AM - 10:00 AM
+          timeSlots.push({
+            startTime: new Date(`2000-01-01T09:00:00`).toISOString(),
+            endTime: new Date(`2000-01-01T10:00:00`).toISOString(),
+            classOption: defaultClassOptionId,
+            location: 'Studio A',
+            instructor: defaultInstructorId || undefined,
+            active: true,
+          })
+
+          // Afternoon slot: 2:00 PM - 3:00 PM
+          timeSlots.push({
+            startTime: new Date(`2000-01-01T14:00:00`).toISOString(),
+            endTime: new Date(`2000-01-01T15:00:00`).toISOString(),
+            classOption: defaultClassOptionId,
+            location: 'Studio A',
+            instructor: defaultInstructorId || undefined,
+            active: true,
+          })
+        }
+      }
+
+      return {
+        timeSlot: timeSlots,
+      }
+    })
+
+    const schedulerData: Omit<Scheduler, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Scheduler, 'id' | 'createdAt' | 'updatedAt'>> = {
+      tenant: tenant.id,
+      startDate: startDate.toISOString().split('T')[0] as string, // Date only format
+      endDate: endDate.toISOString().split('T')[0] as string, // Date only format
+      lockOutTime: 30, // 30 minutes before class
+      defaultClassOption: defaultClassOptionId,
+      week: {
+        days: weekDays,
+      },
+      clearExisting: false,
+    }
+
+    // Check if scheduler already exists for this tenant
+    const existingScheduler = await payload.find({
+      collection: 'scheduler',
+      where: {
+        tenant: {
+          equals: tenant.id,
+        },
+      },
+      limit: 1,
+      overrideAccess: true,
+    })
+
+    if (existingScheduler.docs[0]) {
+      payload.logger.info(`  Updating existing scheduler for tenant ${tenant.name || tenant.id}...`)
+      await payload.update({
+        collection: 'scheduler',
+        id: existingScheduler.docs[0].id,
+        data: schedulerData,
+        req: tenantReq,
+        overrideAccess: true,
+      })
+    } else {
+      payload.logger.info(`  Creating scheduler for tenant ${tenant.name || tenant.id}...`)
+      await payload.create({
+        collection: 'scheduler',
+        data: schedulerData,
+        req: tenantReq,
+        overrideAccess: true,
+        draft: false,
+      })
+    }
+  }
+
+  // Create schedulers for each tenant
+  for (const tenant of tenants) {
+    // Filter class options and instructors for this tenant
+    const tenantClassOptions = classOptions.filter((co) => {
+      const coTenantId = getId(co.tenant)
+      return coTenantId === tenant.id
+    })
+
+    const tenantInstructors = instructors.filter((inst) => {
+      const instTenantId = getId(inst.tenant)
+      return instTenantId === tenant.id
+    })
+
+    await createSchedulerForTenant(tenant, tenantClassOptions, tenantInstructors)
+  }
+
+  payload.logger.info('  Schedulers seeded successfully!')
 }
