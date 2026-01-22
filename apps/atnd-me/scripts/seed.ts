@@ -60,9 +60,8 @@ async function main() {
     const payloadConfig = await config
     const payload = await getPayload({ config: payloadConfig })
 
-    // Create a dummy admin user for the request context
-    // In a real scenario, you'd authenticate as an admin user
-    const adminUser = await payload.find({
+    // Find or create an admin user for the request context
+    let adminUser = await payload.find({
       collection: 'users',
       where: {
         roles: {
@@ -73,20 +72,32 @@ async function main() {
       overrideAccess: true, // Need to bypass access to find admin user
     })
 
-    const user = adminUser.docs[0] || null
+    let user = adminUser.docs[0] || null
 
+    // If no admin user exists, create one
     if (!user) {
-      console.error('❌ No admin user found. Please create an admin user first.')
-      process.exit(1)
+      console.log('No admin user found. Creating admin user...')
+      user = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Admin User',
+          email: 'admin@test.com',
+          password: 'password',
+          emailVerified: true,
+          role: ['admin'],
+          roles: ['admin'],
+        },
+        overrideAccess: true,
+      })
+      console.log(`✓ Created admin user: ${user.email}`)
+    } else {
+      // Verify user is actually an admin
+      if (!checkRole(['admin'], user as User)) {
+        console.error('❌ User found but does not have admin role.')
+        process.exit(1)
+      }
+      console.log(`✓ Authenticated as admin: ${user.email}`)
     }
-
-    // Verify user is actually an admin
-    if (!checkRole(['admin'], user as User)) {
-      console.error('❌ User found but does not have admin role.')
-      process.exit(1)
-    }
-
-    console.log(`✓ Authenticated as admin: ${user.email}`)
 
     const req = await createLocalReq({ user: { ...user, collection: 'users' } }, payload)
 

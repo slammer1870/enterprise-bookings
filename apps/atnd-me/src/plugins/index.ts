@@ -10,8 +10,6 @@ import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
 import { searchFields } from '@/search/fieldOverrides'
 import { beforeSyncWithSearch } from '@/search/beforeSync'
-import { betterAuthPlugin } from 'payload-auth/better-auth'
-import { betterAuthPluginOptions } from '@/lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
@@ -23,6 +21,8 @@ import {
   tenantScopedDelete,
   tenantScopedReadFiltered,
 } from '../access/tenant-scoped'
+import { payloadAuth } from './better-auth'
+import { fixBetterAuthTimestamps } from './fix-better-auth-accounts-timestamps'
 
 import { Page, Post } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -103,7 +103,9 @@ export const plugins: Plugin[] = [
       },
     },
   }),
-  betterAuthPlugin(betterAuthPluginOptions as any),
+  payloadAuth(),
+  // Must run after `payloadAuth()` so the Better Auth collections exist.
+  fixBetterAuthTimestamps(),
   rolesPlugin({
     enabled: true,
     roles: ['user', 'admin', 'tenant-admin'],

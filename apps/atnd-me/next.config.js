@@ -8,6 +8,7 @@ const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ['payload-auth'],
   images: {
     remotePatterns: [
       // Add the main server URL
@@ -45,4 +46,4 @@ const nextConfig = {
   redirects,
 }
 
-export default withPayload(nextConfig, { devBundleServerPackages: false })
+export default withPayload(nextConfig, { devBundleServerPackages: true })
