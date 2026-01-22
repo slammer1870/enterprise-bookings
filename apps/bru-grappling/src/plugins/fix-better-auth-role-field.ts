@@ -25,12 +25,12 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
   // Find and fix the role field
   const fixedFields = fields.map((field) => {
     if ('name' in field && field.name === 'role') {
-      // Ensure role is a simple select field, not hasMany
+      // Ensure role is a hasMany select field (creates junction table)
       // Use type assertion since we're modifying the field structure
       return {
         ...(field as any),
         type: 'select' as const,
-        hasMany: false, // Explicitly set to false to prevent junction table
+        hasMany: true, // Set to true to create junction table
       }
     }
     return field
