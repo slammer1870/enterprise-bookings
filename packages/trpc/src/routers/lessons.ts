@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import type { CollectionSlug } from "payload";
 
 import { TRPCRouterRecord } from "@trpc/server";
 import {
@@ -336,7 +337,7 @@ export const lessonsRouter = {
         // plugin's automatic filtering (which filters by user's tenants array) and rely
         // on our explicit where clause filter (which filters by subdomain tenant).
         const lessons = await ctx.payload.find({
-          collection: "lessons",
+          collection: "lessons" as CollectionSlug,
           where: queryOptions.where,
           depth: queryOptions.depth,
           sort: queryOptions.sort,
