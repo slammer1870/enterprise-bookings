@@ -83,22 +83,17 @@ export const Users: CollectionConfig = {
         description:
           'The tenant this user originally registered with (based on domain / subdomain).',
       },
+      // Note: Field-level access control can only return boolean values.
+      // The relationship dropdown is automatically filtered by the Tenants collection's read access control.
+      // The beforeValidate hook will automatically set this field for tenant-admin users.
       access: {
-        read: ({ req: { user } }) => {
-          // Admin can read all tenants
+        read: () => true, // Always allow reading the field value
+        update: ({ req: { user } }) => {
+          // Admin can always update
           if (user && checkRole(['admin'], user as unknown as SharedUser)) {
             return true
           }
-          // Tenant-admin can only read their assigned tenants
-          if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-            const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-            if (tenantIds === null || tenantIds.length === 0) return false
-            return {
-              id: {
-                in: tenantIds,
-              },
-            }
-          }
+          // Tenant-admin can update (validation happens in beforeValidate hook)
           return true
         },
       },
