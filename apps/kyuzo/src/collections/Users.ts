@@ -1,4 +1,4 @@
-import { checkRole } from '@repo/shared-utils/src/check-role'
+import { checkRole } from '@repo/shared-utils'
 import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'

@@ -8,7 +8,7 @@ import {
 
 import { getRemainingCapacity } from "../hooks/remaining-capacity";
 import { getBookingStatus } from "../hooks/booking-status";
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types/";
 
 import type { BookingsPluginConfig } from "../types";
