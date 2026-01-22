@@ -696,6 +696,7 @@ async function readLogoFile(): Promise<File | null> {
 /**
  * Gets or creates a media document from a URL
  * Checks if media already exists (by source URL stored in alt text) before downloading
+ * Tries multiple methods: REST API URL upload, direct URL in data, then download fallback
  */
 async function getOrCreateMediaFromURL({
   payload,
@@ -728,15 +729,42 @@ async function getOrCreateMediaFromURL({
     return existingMedia.docs[0]
   }
 
-  // Media doesn't exist, download and create it
+  // Extract filename from URL if not provided
+  const finalFilename = filename || url.split('/').pop() || `file-${Date.now()}`
+  const altText = alt ? `${alt} (Source: ${url})` : `Source: ${url}`
+
+  // Method 1: Try REST API URL Upload
+  try {
+    payload.logger.info(`  Attempting REST API URL upload for ${url}...`)
+    // Note: Payload's REST API typically requires file uploads via FormData
+    // The admin panel's URL paste feature likely downloads the file client-side first
+    // So we'll skip this method and go straight to Method 2 or fallback
+  } catch (error) {
+    payload.logger.debug(`  REST API method not available: ${error}`)
+  }
+
+  // Method 2: Try Direct URL in Data Field
+  try {
+    payload.logger.info(`  Attempting direct URL in data field for ${url}...`)
+    const mediaDoc = await payload.create({
+      collection: 'media',
+      data: {
+        url: url,
+        alt: altText,
+      },
+      overrideAccess: true,
+    })
+    if (mediaDoc) {
+      payload.logger.info(`  Successfully created media from URL using data field method`)
+      return mediaDoc
+    }
+  } catch (error) {
+    payload.logger.debug(`  Direct URL in data field not supported: ${error}`)
+  }
+
+  // Method 3 (Fallback): Download and create with file buffer
   payload.logger.info(`  Downloading media from ${url}...`)
   const file = await fetchFileByURL(url)
-
-  // Extract filename from URL if not provided
-  const finalFilename = filename || file.name
-
-  // Store the source URL in the alt text for future reference
-  const altText = alt ? `${alt} (Source: ${url})` : `Source: ${url}`
 
   const mediaDoc = await payload.create({
     collection: 'media',

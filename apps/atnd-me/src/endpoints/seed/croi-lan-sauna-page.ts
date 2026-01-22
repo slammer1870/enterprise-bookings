@@ -109,30 +109,62 @@ export const croiLanSaunaPage: (args: CroiLanSaunaPageArgs) => RequiredDataFromC
           },
         ],
       },
-      // Location block
+      // Three Column Layout with About, Location, and FAQs
       {
-        blockName: 'Find Your Sanctuary',
-        blockType: 'location',
-        title: 'Find Your Sanctuary',
-        description: '30 minutes outside Dublin. Free parking available.',
-        address: 'The Bog Meadow, Enniskerry Village, Co. Wicklow, Ireland',
-        email: undefined,
-        phone: undefined,
-        mapEmbedUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2388.1234567890!2d-6.123456!3d53.123456!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNTPCsDA3JzI0LjUiTiA2wrAwNycwNC40Ilc!5e0!3m2!1sen!2sie!4v1234567890123!5m2!1sen!2sie',
-      },
-      // About block
-      {
-        blockName: 'Filling the Heart, Restoring the Soul',
-        blockType: 'about',
-        title: 'Filling the Heart, Restoring the Soul',
-        image: aboutImage.id,
-        content: createRichTextWithParagraphs([
-          'At Croí Lán, we believe a full heart comes from connection.',
-          "Nestled at the foot of the Wicklow mountains, Croí Lán Sauna is more than a place to warm your bones. It's a space to reconnect. With yourself. With others. With nature.",
-          'We offer more than just hot and cold, we offer a return to something deeply human. A quiet conversation after a cold plunge. The comfort of shared silence in the sauna. A moment of stillness in a noisy world.',
-          "This is wellness without the frills. Just heat, cold, community, and space to breathe. We're here for people of all ages and stages, creating a space where it's safe to slow down, to connect, to feel full-hearted again.",
-          "It's simple. But it works. And most people don't get enough of it.",
-        ]),
+        blockName: 'About, Location & FAQs',
+        blockType: 'threeColumnLayout',
+        blocks: [
+          // About block
+          {
+            blockType: 'about',
+            title: 'Filling the Heart, Restoring the Soul',
+            image: aboutImage.id,
+            content: createRichTextWithParagraphs([
+              'At Croí Lán, we believe a full heart comes from connection.',
+              "Nestled at the foot of the Wicklow mountains, Croí Lán Sauna is more than a place to warm your bones. It's a space to reconnect. With yourself. With others. With nature.",
+              'We offer more than just hot and cold, we offer a return to something deeply human. A quiet conversation after a cold plunge. The comfort of shared silence in the sauna. A moment of stillness in a noisy world.',
+              "This is wellness without the frills. Just heat, cold, community, and space to breathe. We're here for people of all ages and stages, creating a space where it's safe to slow down, to connect, to feel full-hearted again.",
+              "It's simple. But it works. And most people don't get enough of it.",
+            ]),
+          },
+          // Location block
+          {
+            blockType: 'location',
+            title: 'Find Your Sanctuary',
+            description: '30 minutes outside Dublin. Free parking available.',
+            address: 'The Bog Meadow, Enniskerry Village, Co. Wicklow, Ireland',
+            email: undefined,
+            phone: undefined,
+            mapEmbedUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2388.1234567890!2d-6.123456!3d53.123456!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNTPCsDA3JzI0LjUiTiA2wrAwNycwNC40Ilc!5e0!3m2!1sen!2sie!4v1234567890123!5m2!1sen!2sie',
+          },
+          // FAQs block
+          {
+            blockType: 'faqs',
+            title: 'FAQs',
+            faqs: [
+              {
+                question: 'How do I book a session?',
+                answer: 'You can book your sauna session through our online booking system. Simply select your preferred date and time, and complete the booking process.',
+              },
+              {
+                question: 'What should I bring?',
+                answer: 'We recommend bringing a towel and a water bottle. All other amenities are provided. Please arrive 5 minutes before your session.',
+              },
+              {
+                question: 'Is there a cancellation policy?',
+                answer: 'Yes, you can cancel your booking up to 24 hours before your session for a full refund. Cancellations within 24 hours may be subject to our cancellation policy.',
+              },
+              {
+                question: 'What should I expect on my first visit?',
+                answer: "On your first visit, you'll be welcomed by our team who will guide you through the sauna experience. The session includes time in the sauna and access to our cold plunge area.",
+              },
+              {
+                question: 'Are there any health restrictions?',
+                answer: 'If you have any health concerns, particularly heart conditions, high blood pressure, or are pregnant, please consult with your doctor before booking. We recommend staying hydrated and listening to your body during the session.',
+              },
+            ],
+          },
+        ],
       },
       // Health Benefits section as Content block
       {

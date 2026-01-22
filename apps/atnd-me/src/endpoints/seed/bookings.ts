@@ -3,6 +3,82 @@ import type { User, Lesson, Booking } from '@repo/shared-types'
 import type { Tenant, Scheduler, ClassOption, Instructor } from '@/payload-types'
 
 /**
+ * Deletes default data created by createDefaultTenantData hook for a specific tenant
+ */
+async function deleteDefaultTenantData(
+  tenantId: number | string,
+  payload: Payload,
+  req: PayloadRequest
+) {
+  const tenantReq = {
+    ...req,
+    context: { ...req.context, tenant: tenantId },
+  }
+
+  payload.logger.info(`  Deleting default data for tenant ${tenantId}...`)
+
+  // Delete default class options
+  const defaultClassOptionPatterns = [
+    `Yoga Class ${tenantId}`,
+    `Fitness Class ${tenantId}`,
+    `Small Group Class ${tenantId}`,
+  ]
+
+  for (const pattern of defaultClassOptionPatterns) {
+    try {
+      const classOptions = await payload.find({
+        collection: 'class-options',
+        where: {
+          name: { equals: pattern },
+          tenant: { equals: tenantId },
+        },
+        limit: 100,
+        req: tenantReq,
+        overrideAccess: true,
+      })
+
+      for (const classOption of classOptions.docs) {
+        await payload.delete({
+          collection: 'class-options',
+          id: classOption.id,
+          req: tenantReq,
+          overrideAccess: true,
+        })
+        payload.logger.info(`    Deleted class option: ${pattern}`)
+      }
+    } catch (error) {
+      payload.logger.warn(`    Could not delete class option ${pattern}: ${error}`)
+    }
+  }
+
+  // Delete default lessons with location "Main Studio"
+  try {
+    const lessons = await payload.find({
+      collection: 'lessons',
+      where: {
+        location: { equals: 'Main Studio' },
+        tenant: { equals: tenantId },
+      },
+      limit: 100,
+      req: tenantReq,
+      overrideAccess: true,
+    })
+
+    for (const lesson of lessons.docs) {
+      await payload.delete({
+        collection: 'lessons',
+        id: lesson.id,
+        req: tenantReq,
+        overrideAccess: true,
+      })
+      payload.logger.info(`    Deleted lesson: ${lesson.id}`)
+    }
+  } catch (error) {
+    payload.logger.warn(`    Could not delete default lessons: ${error}`)
+  }
+}
+
+/**
  * Seeds booking-related data for manual testing with multi-tenant support
  * Creates:
  * - Test tenants (2 tenants for testing isolation)
@@ -706,6 +782,14 @@ export async function seedBookings({
   // Create Croí Lán Sauna tenant data
   payload.logger.info('  Creating Croí Lán Sauna tenant data...')
   
+  // Wait for createDefaultTenantData hook to complete (it runs asynchronously)
+  // The hook uses setTimeout, so we wait a bit to ensure it has run
+  payload.logger.info('  Waiting for default tenant data hook to complete...')
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  
+  // Delete default data created by createDefaultTenantData hook
+  await deleteDefaultTenantData(croiLanSaunaTenant.id, payload, req)
+  
   // Create instructor user for Croí Lán Sauna
   const croiLanSaunaInstructorEmail = 'croi-lan-sauna@instructor.com'.toLowerCase()
   const existingCroiLanSaunaInstructor = await payload.find({
@@ -1043,7 +1127,7 @@ export async function seedSchedulers({
           startTime: new Date(`2000-01-01T17:00:00`).toISOString(),
           endTime: new Date(`2000-01-01T17:50:00`).toISOString(),
           classOption: defaultClassOptionId,
-          location: 'The Bog Meadow, Enniskerry Village, Co. Wicklow',
+          location: 'Sauna 1',
           instructor: defaultInstructorId || undefined,
           active: true,
         })
@@ -1052,7 +1136,7 @@ export async function seedSchedulers({
           startTime: new Date(`2000-01-01T18:00:00`).toISOString(),
           endTime: new Date(`2000-01-01T18:50:00`).toISOString(),
           classOption: defaultClassOptionId,
-          location: 'The Bog Meadow, Enniskerry Village, Co. Wicklow',
+          location: 'Sauna 1',
           instructor: defaultInstructorId || undefined,
           active: true,
         })
