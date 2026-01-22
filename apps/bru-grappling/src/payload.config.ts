@@ -21,6 +21,7 @@ import { Pages } from './collections/Pages'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { paymentsPlugin } from '@repo/payments-plugin'
+import { fixBetterAuthRoleField } from './plugins/fix-better-auth-role-field'
 import {
   membershipsPlugin,
   productUpdated,
@@ -109,6 +110,8 @@ export default buildConfig({
       },
     }),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after betterAuthPlugin to fix role field schema
+    fixBetterAuthRoleField(),
     rolesPlugin({
       enabled: true,
       roles: ['user', 'admin'],
