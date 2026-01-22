@@ -76,6 +76,29 @@ describe('Navbar collection (converted from Header global)', () => {
   it(
     'allows creating navbar for a tenant',
     async () => {
+      // Delete any existing navbar for this tenant first (isGlobal: true means one per tenant)
+      try {
+        const existing = await payload.find({
+          collection: 'navbar',
+          where: {
+            tenant: {
+              equals: testTenant.id,
+            },
+          },
+          limit: 1,
+          overrideAccess: true,
+        })
+        if (existing.docs.length > 0) {
+          await payload.delete({
+            collection: 'navbar',
+            id: existing.docs[0]!.id,
+            overrideAccess: true,
+          })
+        }
+      } catch {
+        // Ignore if none exists
+      }
+
       const navbar = await payload.create({
         collection: 'navbar',
         data: {

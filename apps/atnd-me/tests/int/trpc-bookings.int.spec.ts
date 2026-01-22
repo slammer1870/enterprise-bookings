@@ -1381,9 +1381,17 @@ describe('tRPC Bookings Integration Tests', () => {
         desiredQuantity: 1,
       })
 
-      // Should only affect current user's bookings (which are 0)
+      // Should only affect current user's bookings (which are 0, so it should create 1)
       expect(result).toBeDefined()
-      expect(result.length).toBe(0) // No bookings for current user
+      expect(result.length).toBe(1) // Creates 1 booking for current user
+      
+      // Verify the result contains only the current user's bookings
+      result.forEach((booking) => {
+        const bookingUserId = typeof booking.user === 'object' && booking.user !== null
+          ? booking.user.id
+          : booking.user
+        expect(bookingUserId).toBe(user.id)
+      })
 
       // Verify other user's booking is unchanged
       const otherUserBookings = await payload.find({
