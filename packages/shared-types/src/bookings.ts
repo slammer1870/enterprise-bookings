@@ -29,7 +29,8 @@ export type Lesson = {
     | "closed"
     | "booked"
     | "trialable"
-    | "childrenBooked";
+    | "childrenBooked"
+    | "multipleBooked";
   originalLockOutTime?: number;
   /** Present in multi-tenant apps; ID or populated { id }. */
   tenant?: number | { id: number } | null;

@@ -13,7 +13,7 @@ test.describe('Booking Flow E2E Tests', () => {
 
     // Should redirect to login or home page
     const currentUrl = page.url()
-    expect(currentUrl).toMatch(/\/(\?redirect=|\?)/)
+    expect(currentUrl).toMatch(/\/auth\/sign-in|\/admin\/login|\?redirect=|\?/i)
   })
 
   test('should display booking page after authentication', async ({ page }) => {

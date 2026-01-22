@@ -5,6 +5,8 @@ import * as migration_20260121_121713 from './20260121_121713';
 import * as migration_20260121_173503 from './20260121_173503';
 import * as migration_20260121_193838_fix_scheduler_constraint from './20260121_193838_fix_scheduler_constraint';
 import * as migration_20260121_200000 from './20260121_200000';
+import * as migration_20260121_230713 from './20260121_230713';
+import * as migration_20260122_081324_tenant_scoped_page_slugs from './20260122_081324_tenant_scoped_page_slugs';
 
 export const migrations = [
   {
@@ -30,16 +32,26 @@ export const migrations = [
   {
     up: migration_20260121_173503.up,
     down: migration_20260121_173503.down,
-    name: '20260121_173503'
+    name: '20260121_173503',
   },
   {
     up: migration_20260121_193838_fix_scheduler_constraint.up,
     down: migration_20260121_193838_fix_scheduler_constraint.down,
-    name: '20260121_193838_fix_scheduler_constraint'
+    name: '20260121_193838_fix_scheduler_constraint',
   },
   {
     up: migration_20260121_200000.up,
     down: migration_20260121_200000.down,
-    name: '20260121_200000'
+    name: '20260121_200000',
+  },
+  {
+    up: migration_20260121_230713.up,
+    down: migration_20260121_230713.down,
+    name: '20260121_230713'
+  },
+  {
+    up: migration_20260122_081324_tenant_scoped_page_slugs.up,
+    down: migration_20260122_081324_tenant_scoped_page_slugs.down,
+    name: '20260122_081324_tenant_scoped_page_slugs'
   },
 ];

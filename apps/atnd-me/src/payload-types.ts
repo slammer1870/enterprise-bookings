@@ -67,9 +67,6 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    accounts: Account;
-    sessions: Session;
-    verifications: Verification;
     'admin-invitations': AdminInvitation;
     pages: Page;
     posts: Post;
@@ -83,6 +80,9 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     search: Search;
+    accounts: Account;
+    sessions: Session;
+    verifications: Verification;
     users: User;
     instructors: Instructor;
     lessons: Lesson;
@@ -96,6 +96,10 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    users: {
+      account: 'accounts';
+      session: 'sessions';
+    };
     lessons: {
       bookings: 'bookings';
     };
@@ -104,9 +108,6 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    accounts: AccountsSelect<false> | AccountsSelect<true>;
-    sessions: SessionsSelect<false> | SessionsSelect<true>;
-    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
@@ -120,6 +121,9 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
+    accounts: AccountsSelect<false> | AccountsSelect<true>;
+    sessions: SessionsSelect<false> | SessionsSelect<true>;
+    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     instructors: InstructorsSelect<false> | InstructorsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
@@ -179,121 +183,110 @@ export interface UserAuthOperations {
   };
 }
 /**
- * Accounts are used to store user accounts for authentication providers
- *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts".
+ * via the `definition` "admin-invitations".
  */
-export interface Account {
+export interface AdminInvitation {
   id: number;
-  /**
-   * The user that the account belongs to
-   */
-  user: number | User;
-  /**
-   * The id of the account as provided by the SSO or equal to userId for credential accounts
-   */
-  accountId: string;
-  /**
-   * The id of the provider as provided by the SSO
-   */
-  providerId: string;
-  /**
-   * The access token of the account. Returned by the provider
-   */
-  accessToken?: string | null;
-  /**
-   * The refresh token of the account. Returned by the provider
-   */
-  refreshToken?: string | null;
-  /**
-   * The date and time when the access token will expire
-   */
-  accessTokenExpiresAt?: string | null;
-  /**
-   * The date and time when the refresh token will expire
-   */
-  refreshTokenExpiresAt?: string | null;
-  /**
-   * The scope of the account. Returned by the provider
-   */
-  scope?: string | null;
-  /**
-   * The id token for the account. Returned by the provider
-   */
-  idToken?: string | null;
-  /**
-   * The hashed password of the account. Mainly used for email and password authentication
-   */
-  password?: string | null;
+  role: 'admin' | 'user' | 'tenant-admin';
+  token: string;
+  url?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
+ * via the `definition` "pages".
  */
-export interface User {
+export interface Page {
   id: number;
-  /**
-   * The tenant this user originally registered with (based on domain / subdomain).
-   */
-  registrationTenant?: (number | null) | Tenant;
-  /**
-   * Users chosen display name
-   */
-  name?: string | null;
-  /**
-   * Whether the email of the user has been verified
-   */
-  emailVerified: boolean;
-  /**
-   * The image of the user
-   */
-  image?: string | null;
-  /**
-   * The role of the user
-   */
-  role: 'admin' | 'user' | 'tenant-admin';
+  tenant?: (number | null) | Tenant;
+  title: string;
+  hero: {
+    type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
+    richText?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+    links?:
+      | {
+          link: {
+            type?: ('reference' | 'custom') | null;
+            newTab?: boolean | null;
+            reference?:
+              | ({
+                  relationTo: 'pages';
+                  value: number | Page;
+                } | null)
+              | ({
+                  relationTo: 'posts';
+                  value: number | Post;
+                } | null);
+            url?: string | null;
+            label: string;
+            /**
+             * Choose how the link should be rendered.
+             */
+            appearance?: ('default' | 'outline') | null;
+          };
+          id?: string | null;
+        }[]
+      | null;
+    media?: (number | null) | Media;
+  };
+  layout: (
+    | HeroScheduleBlock
+    | HeroBlock
+    | ThreeColumnLayoutBlock
+    | AboutBlock
+    | LocationBlock
+    | ScheduleBlock
+    | {
+        /**
+         * Optional title displayed above the FAQs. Defaults to "FAQs".
+         */
+        title?: string | null;
+        faqs?:
+          | {
+              question?: string | null;
+              answer?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'faqs';
+      }
+    | CallToActionBlock
+    | ContentBlock
+    | MediaBlock
+    | ArchiveBlock
+    | FormBlock
+  )[];
+  meta?: {
+    title?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+    description?: string | null;
+  };
+  publishedAt?: string | null;
+  slug: string;
   updatedAt: string;
   createdAt: string;
-  /**
-   * Whether the user is banned from the platform
-   */
-  banned?: boolean | null;
-  /**
-   * The reason for the ban
-   */
-  banReason?: string | null;
-  /**
-   * The date and time when the ban will expire
-   */
-  banExpires?: string | null;
-  roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
-  tenants?:
-    | {
-        tenant: number | Tenant;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The email of the user
-   */
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -429,174 +422,6 @@ export interface FolderInterface {
   createdAt: string;
 }
 /**
- * Sessions are active sessions for users. They are used to authenticate users with a session token
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions".
- */
-export interface Session {
-  id: number;
-  /**
-   * The user that the session belongs to
-   */
-  user: number | User;
-  /**
-   * The unique session token
-   */
-  token: string;
-  /**
-   * The date and time when the session will expire
-   */
-  expiresAt: string;
-  /**
-   * The IP address of the device
-   */
-  ipAddress?: string | null;
-  /**
-   * The user agent information of the device
-   */
-  userAgent?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  /**
-   * The admin who is impersonating this session
-   */
-  impersonatedBy?: (number | null) | User;
-}
-/**
- * Verifications are used to verify authentication requests
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications".
- */
-export interface Verification {
-  id: number;
-  /**
-   * The identifier of the verification request
-   */
-  identifier: string;
-  /**
-   * The value to be verified
-   */
-  value: string;
-  /**
-   * The date and time when the verification request will expire
-   */
-  expiresAt: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations".
- */
-export interface AdminInvitation {
-  id: number;
-  role: 'admin' | 'user' | 'tenant-admin';
-  token: string;
-  url?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages".
- */
-export interface Page {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  title: string;
-  hero: {
-    type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
-    richText?: {
-      root: {
-        type: string;
-        children: {
-          type: any;
-          version: number;
-          [k: string]: unknown;
-        }[];
-        direction: ('ltr' | 'rtl') | null;
-        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-        indent: number;
-        version: number;
-      };
-      [k: string]: unknown;
-    } | null;
-    links?:
-      | {
-          link: {
-            type?: ('reference' | 'custom') | null;
-            newTab?: boolean | null;
-            reference?:
-              | ({
-                  relationTo: 'pages';
-                  value: number | Page;
-                } | null)
-              | ({
-                  relationTo: 'posts';
-                  value: number | Post;
-                } | null);
-            url?: string | null;
-            label: string;
-            /**
-             * Choose how the link should be rendered.
-             */
-            appearance?: ('default' | 'outline') | null;
-          };
-          id?: string | null;
-        }[]
-      | null;
-    media?: (number | null) | Media;
-  };
-  layout: (
-    | HeroScheduleBlock
-    | HeroBlock
-    | ThreeColumnLayoutBlock
-    | AboutBlock
-    | LocationBlock
-    | ScheduleBlock
-    | {
-        /**
-         * Optional title displayed above the FAQs. Defaults to "FAQs".
-         */
-        title?: string | null;
-        faqs?:
-          | {
-              question?: string | null;
-              answer?: string | null;
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'faqs';
-      }
-    | CallToActionBlock
-    | ContentBlock
-    | MediaBlock
-    | ArchiveBlock
-    | FormBlock
-  )[];
-  meta?: {
-    title?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-    description?: string | null;
-  };
-  publishedAt?: string | null;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts".
  */
@@ -669,6 +494,168 @@ export interface Category {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  /**
+   * The tenant this user originally registered with (based on domain / subdomain).
+   */
+  registrationTenant?: (number | null) | Tenant;
+  /**
+   * Users chosen display name
+   */
+  name: string;
+  /**
+   * Whether the email of the user has been verified
+   */
+  emailVerified: boolean;
+  /**
+   * The image of the user
+   */
+  image?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The role/ roles of the user
+   */
+  role?: ('admin' | 'user' | 'tenant-admin')[] | null;
+  /**
+   * Whether the user is banned from the platform
+   */
+  banned?: boolean | null;
+  /**
+   * The reason for the ban
+   */
+  banReason?: string | null;
+  /**
+   * The date and time when the ban will expire
+   */
+  banExpires?: string | null;
+  account?: {
+    docs?: (number | Account)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  session?: {
+    docs?: (number | Session)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
+  tenants?:
+    | {
+        tenant: number | Tenant;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The email of the user
+   */
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+}
+/**
+ * Accounts are used to store user accounts for authentication providers
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts".
+ */
+export interface Account {
+  id: number;
+  /**
+   * The id of the account as provided by the SSO or equal to userId for credential accounts
+   */
+  accountId: string;
+  /**
+   * The id of the provider as provided by the SSO
+   */
+  providerId: string;
+  /**
+   * The user that the account belongs to
+   */
+  user: number | User;
+  /**
+   * The access token of the account. Returned by the provider
+   */
+  accessToken?: string | null;
+  /**
+   * The refresh token of the account. Returned by the provider
+   */
+  refreshToken?: string | null;
+  /**
+   * The id token for the account. Returned by the provider
+   */
+  idToken?: string | null;
+  /**
+   * The date and time when the access token will expire
+   */
+  accessTokenExpiresAt?: string | null;
+  /**
+   * The date and time when the refresh token will expire
+   */
+  refreshTokenExpiresAt?: string | null;
+  /**
+   * The scope of the account. Returned by the provider
+   */
+  scope?: string | null;
+  /**
+   * The hashed password of the account. Mainly used for email and password authentication
+   */
+  password?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
+ * Sessions are active sessions for users. They are used to authenticate users with a session token
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions".
+ */
+export interface Session {
+  id: number;
+  /**
+   * The date and time when the session will expire
+   */
+  expiresAt: string;
+  /**
+   * The unique session token
+   */
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The IP address of the device
+   */
+  ipAddress?: string | null;
+  /**
+   * The user agent information of the device
+   */
+  userAgent?: string | null;
+  /**
+   * The user that the session belongs to
+   */
+  user: number | User;
+  /**
+   * The admin who is impersonating this session
+   */
+  impersonatedBy?: (number | null) | User;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1475,6 +1462,29 @@ export interface Search {
   createdAt: string;
 }
 /**
+ * Verifications are used to verify authentication requests
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications".
+ */
+export interface Verification {
+  id: number;
+  /**
+   * The identifier of the verification request
+   */
+  identifier: string;
+  /**
+   * The value to be verified
+   */
+  value: string;
+  /**
+   * The date and time when the verification request will expire
+   */
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons".
  */
@@ -1642,18 +1652,6 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'accounts';
-        value: number | Account;
-      } | null)
-    | ({
-        relationTo: 'sessions';
-        value: number | Session;
-      } | null)
-    | ({
-        relationTo: 'verifications';
-        value: number | Verification;
-      } | null)
-    | ({
         relationTo: 'admin-invitations';
         value: number | AdminInvitation;
       } | null)
@@ -1704,6 +1702,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'search';
         value: number | Search;
+      } | null)
+    | ({
+        relationTo: 'accounts';
+        value: number | Account;
+      } | null)
+    | ({
+        relationTo: 'sessions';
+        value: number | Session;
+      } | null)
+    | ({
+        relationTo: 'verifications';
+        value: number | Verification;
       } | null)
     | ({
         relationTo: 'users';
@@ -1770,49 +1780,6 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts_select".
- */
-export interface AccountsSelect<T extends boolean = true> {
-  user?: T;
-  accountId?: T;
-  providerId?: T;
-  accessToken?: T;
-  refreshToken?: T;
-  accessTokenExpiresAt?: T;
-  refreshTokenExpiresAt?: T;
-  scope?: T;
-  idToken?: T;
-  password?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions_select".
- */
-export interface SessionsSelect<T extends boolean = true> {
-  user?: T;
-  token?: T;
-  expiresAt?: T;
-  ipAddress?: T;
-  userAgent?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  impersonatedBy?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications_select".
- */
-export interface VerificationsSelect<T extends boolean = true> {
-  identifier?: T;
-  value?: T;
-  expiresAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1891,7 +1858,6 @@ export interface PagesSelect<T extends boolean = true> {
         description?: T;
       };
   publishedAt?: T;
-  generateSlug?: T;
   slug?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -2557,6 +2523,49 @@ export interface SearchSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts_select".
+ */
+export interface AccountsSelect<T extends boolean = true> {
+  accountId?: T;
+  providerId?: T;
+  user?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  idToken?: T;
+  accessTokenExpiresAt?: T;
+  refreshTokenExpiresAt?: T;
+  scope?: T;
+  password?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions_select".
+ */
+export interface SessionsSelect<T extends boolean = true> {
+  expiresAt?: T;
+  token?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  ipAddress?: T;
+  userAgent?: T;
+  user?: T;
+  impersonatedBy?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications_select".
+ */
+export interface VerificationsSelect<T extends boolean = true> {
+  identifier?: T;
+  value?: T;
+  expiresAt?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -2564,12 +2573,14 @@ export interface UsersSelect<T extends boolean = true> {
   name?: T;
   emailVerified?: T;
   image?: T;
-  role?: T;
-  updatedAt?: T;
   createdAt?: T;
+  updatedAt?: T;
+  role?: T;
   banned?: T;
   banReason?: T;
   banExpires?: T;
+  account?: T;
+  session?: T;
   roles?: T;
   tenants?:
     | T
