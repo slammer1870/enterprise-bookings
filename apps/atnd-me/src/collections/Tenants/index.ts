@@ -2,7 +2,6 @@ import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { createDefaultTenantData } from './hooks/createDefaultData'
-import { getUserTenantIds } from '../../access/tenant-scoped'
 
 export const Tenants: CollectionConfig = {
   slug: 'tenants',
@@ -14,7 +13,8 @@ export const Tenants: CollectionConfig = {
   access: {
     admin: ({ req: { user } }) => {
       if (!user) return false
-      return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+      // Only full admins should be able to manage tenants in the admin UI.
+      return checkRole(['admin'], user as unknown as SharedUser)
     },
     read: (args) => {
       const { req: { user } } = args
@@ -24,16 +24,9 @@ export const Tenants: CollectionConfig = {
         return true
       }
       
-      // Tenant-admin can only read their assigned tenants
+      // Tenant-admins should not access/manage tenants directly (admin-only).
       if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-        if (tenantIds === null || tenantIds.length === 0) return false
-        
-        return {
-          id: {
-            in: tenantIds,
-          },
-        }
+        return false
       }
       
       // Public read for listing pages (non-authenticated users)
@@ -45,37 +38,9 @@ export const Tenants: CollectionConfig = {
       return checkRole(['admin'], user as unknown as SharedUser)
     },
     update: (args) => {
-      const { req: { user }, id } = args
+      const { req: { user } } = args
       if (!user) return false
-      
-      // Admin can update any tenant
-      if (checkRole(['admin'], user as unknown as SharedUser)) {
-        return true
-      }
-      
-      // Tenant-admin can only update their assigned tenants
-      if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-        if (tenantIds === null || tenantIds.length === 0) return false
-        
-        // If id is provided, check if it's in the user's tenants
-        if (id) {
-          const tenantId = typeof id === 'object' && id !== null && 'id' in id
-            ? id.id
-            : id
-          
-          return tenantIds.includes(tenantId as number)
-        }
-        
-        // Return query constraint to filter by tenant IDs
-        return {
-          id: {
-            in: tenantIds,
-          },
-        }
-      }
-      
-      return false
+      return checkRole(['admin'], user as unknown as SharedUser)
     },
     delete: (args) => {
       const { req: { user } } = args
@@ -91,15 +56,20 @@ export const Tenants: CollectionConfig = {
         // connection and would otherwise fail FK (tenant_id) when the tenant
         // row is not yet committed.
         if (operation === 'create') {
+          // Optional: allow skipping expensive default-data creation for specific runs.
+          if (process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA === 'true') return
+
           const tenant = doc
           const payload = req.payload
-          setImmediate(() => {
+          // Use setTimeout with a small delay to ensure the tenant transaction is committed
+          // before creating default data that references it via foreign keys
+          setTimeout(() => {
             createDefaultTenantData({ tenant, payload, req }).catch((e) => {
               payload.logger.error(
                 `Error in deferred createDefaultTenantData for tenant ${tenant.name}: ${e instanceof Error ? e.message : String(e)}`
               )
             })
-          })
+          }, 100)
         }
       },
     ],

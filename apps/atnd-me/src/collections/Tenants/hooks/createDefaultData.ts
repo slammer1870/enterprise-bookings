@@ -49,9 +49,11 @@ export async function createDefaultTenantData({
       payload.logger.warn('Could not find default media, skipping image setup')
     }
 
-    // 2. Create default class options (names include tenant slug to satisfy unique:true across tenants)
+    // 2. Create default class options
     payload.logger.info('  Creating default class options...')
-    const suffix = ` (${tenant.slug})`
+    // Class option names are `unique: true` globally (not tenant-scoped).
+    // Include the *tenant id* to avoid collisions if old tenant-scoped data isn't cascaded.
+    const suffix = ` ${tenant.id}`
     const classOptions = await Promise.all([
       payload.create({
         collection: 'class-options',
@@ -94,6 +96,7 @@ export async function createDefaultTenantData({
     // Create a simple home page without images to avoid validation errors
     // Images can be added later by the tenant admin
     const homePageData: any = {
+      // Pages.slug is now unique per tenant, so we can use simple slugs like "home"
       slug: 'home',
       title: `Welcome to ${tenant.name}`,
       _status: 'published',
