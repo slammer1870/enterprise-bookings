@@ -16,6 +16,7 @@ import * as migration_20260116_102317_replace_user_with_instructor_in_lessons fr
 import * as migration_20260116_120000_fix_schema_mismatch_hero_and_footer from './20260116_120000_fix_schema_mismatch_hero_and_footer';
 import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
 import * as migration_20260120_200715 from './20260120_200715';
+import * as migration_20260122_205531 from './20260122_205531';
 
 export const migrations = [
   {
@@ -106,6 +107,11 @@ export const migrations = [
   {
     up: migration_20260120_200715.up,
     down: migration_20260120_200715.down,
-    name: '20260120_200715'
+    name: '20260120_200715',
+  },
+  {
+    up: migration_20260122_205531.up,
+    down: migration_20260122_205531.down,
+    name: '20260122_205531'
   },
 ];
