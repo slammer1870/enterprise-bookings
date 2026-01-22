@@ -1,33 +1,32 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import {
-  setupE2ETestData,
-  cleanupTestData,
   createTestClassOption,
   createTestLesson,
   createTestBooking,
 } from './helpers/data-helpers'
 
 test.describe('Multi-Booking Management E2E Tests', () => {
-  let testData: Awaited<ReturnType<typeof setupE2ETestData>>
   let lesson: any
   let fullLesson: any
 
-  test.beforeAll(async () => {
-    testData = await setupE2ETestData()
+  test.beforeAll(async ({ testData }) => {
+    const workerIndex = testData.workerIndex
 
     // Create class option with sufficient capacity
     const classOption = await createTestClassOption(
       testData.tenants[0].id,
       'Multi-Booking Test Class',
-      10
+      10,
+      undefined,
+      workerIndex
     )
 
     // Create lesson with available capacity
     const startTime = new Date()
     startTime.setHours(10, 0, 0, 0)
-    startTime.setDate(startTime.getDate() + 1) // Tomorrow to avoid lock-out
+    startTime.setDate(startTime.getDate() + 1 + workerIndex) // Worker-scoped day to avoid collisions
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0)
 
@@ -44,12 +43,14 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     const fullClassOption = await createTestClassOption(
       testData.tenants[0].id,
       'Full Multi-Booking Test Class',
-      2
+      2,
+      undefined,
+      workerIndex
     )
 
     const fullStartTime = new Date()
     fullStartTime.setHours(14, 0, 0, 0)
-    fullStartTime.setDate(fullStartTime.getDate() + 1)
+    fullStartTime.setDate(fullStartTime.getDate() + 1 + workerIndex)
     const fullEndTime = new Date(fullStartTime)
     fullEndTime.setHours(15, 0, 0, 0)
 
@@ -62,23 +63,15 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       true
     )
 
-    // Book all slots for full lesson
+    // Pre-book ONE slot so user1 can take the last slot during the test.
+    // The guard we want to test is "can't increase beyond remaining capacity" on the manage page.
     await createTestBooking(testData.users.user2.id, fullLesson.id, 'confirmed')
-    await createTestBooking(testData.users.user3.id, fullLesson.id, 'confirmed')
-  })
-
-  test.afterAll(async () => {
-    if (testData) {
-      await cleanupTestData(
-        testData.tenants.map((t) => t.id),
-        Object.values(testData.users).map((u) => u.id)
-      )
-    }
   })
 
   test.describe('CTA -> Manage Routing', () => {
     test('should show "Modify Booking" button and route to manage page when user has 2+ bookings', async ({
       page,
+      testData,
     }) => {
       // Create 2 confirmed bookings for user1
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
@@ -135,7 +128,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
   })
 
   test.describe('Manage Route Guard', () => {
-    test('should redirect to booking page when user has 0 bookings', async ({ page }) => {
+    test('should redirect to booking page when user has 0 bookings', async ({ page, testData }) => {
       await loginAsRegularUser(page, 1, testData.users.user1.email)
       await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${lesson.id}/manage`)
 
@@ -148,7 +141,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       expect(page.url()).not.toContain('/manage')
     })
 
-    test('should redirect to booking page when user has 1 booking', async ({ page }) => {
+    test('should redirect to booking page when user has 1 booking', async ({ page, testData }) => {
       // Create 1 booking
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
 
@@ -166,7 +159,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
   })
 
   test.describe('Decrease Quantity Flow', () => {
-    test('should decrease booking quantity from 3 to 1', async ({ page }) => {
+    test('should decrease booking quantity from 3 to 1', async ({ page, testData }) => {
       // Create 3 confirmed bookings
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
@@ -235,7 +228,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
   })
 
   test.describe('Increase Quantity Flow', () => {
-    test('should increase booking quantity from 1 to 2 (no payment)', async ({ page }) => {
+    test('should increase booking quantity from 1 to 2 (no payment)', async ({ page, testData }) => {
       // Create 1 confirmed booking
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
 
@@ -295,8 +288,8 @@ test.describe('Multi-Booking Management E2E Tests', () => {
   })
 
   test.describe('Over-Capacity Guard', () => {
-    test('should prevent increasing quantity beyond remaining capacity', async ({ page }) => {
-      // Create 1 booking for user1 on the full lesson (which has 0 remaining capacity)
+    test('should prevent increasing quantity beyond remaining capacity', async ({ page, testData }) => {
+      // Create 1 booking for user1 on the full lesson (this fills the last remaining slot)
       await createTestBooking(testData.users.user1.id, fullLesson.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email)

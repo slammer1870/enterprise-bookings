@@ -375,6 +375,9 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
   workerIndex: number
 }> {
   const payload = await getPayloadInstance()
+  // IMPORTANT: Some environments validate `users.email` more strictly than RFC.
+  // Avoid punctuation like `-` in the local-part to keep emails universally valid.
+  const emailSuffix = workerIndex > 0 ? `w${workerIndex}` : ''
   const workerSuffix = workerIndex > 0 ? `-w${workerIndex}` : ''
 
   // Create test tenants with worker-scoped slugs
@@ -384,7 +387,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
 
   // Create super admin with worker-scoped email
   const superAdmin = await createTestUser(
-    `admin${workerSuffix}@test.com`,
+    `admin${emailSuffix}@test.com`,
     'password',
     'Super Admin',
     ['admin']
@@ -392,7 +395,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
 
   // Create tenant-admin users with worker-scoped emails
   const tenantAdmin1 = await createTestUser(
-    `tenant-admin-1${workerSuffix}@test.com`,
+    `tenantadmin1${emailSuffix}@test.com`,
     'password',
     'Tenant Admin 1',
     ['tenant-admin']
@@ -408,7 +411,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
   })
 
   const tenantAdmin2 = await createTestUser(
-    `tenant-admin-2${workerSuffix}@test.com`,
+    `tenantadmin2${emailSuffix}@test.com`,
     'password',
     'Tenant Admin 2',
     ['tenant-admin']
@@ -425,21 +428,21 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
 
   // Create regular users with worker-scoped emails
   const user1 = await createTestUser(
-    `user1${workerSuffix}@test.com`,
+    `user1${emailSuffix}@test.com`,
     'password',
     'User 1',
     ['user'],
     tenant1.id
   )
   const user2 = await createTestUser(
-    `user2${workerSuffix}@test.com`,
+    `user2${emailSuffix}@test.com`,
     'password',
     'User 2',
     ['user'],
     tenant2.id
   )
   const user3 = await createTestUser(
-    `user3${workerSuffix}@test.com`,
+    `user3${emailSuffix}@test.com`,
     'password',
     'User 3',
     ['user']
