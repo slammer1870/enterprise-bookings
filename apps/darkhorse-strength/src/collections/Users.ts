@@ -22,7 +22,33 @@ export const Users: CollectionConfig = {
      * Better Auth creates users via Payload. In this app the `role` field is required
      * (added by payload-auth/better-auth migrations) and can be omitted from the
      * sign-up payload. Ensure we always set a safe default.
+     * 
+     * Use beforeChange (runs before beforeValidate) to ensure name and role fields
+     * are set before validation occurs.
      */
+    beforeChange: [
+      ({ data, operation, req }) => {
+        if (operation === 'create' && data) {
+          // Ensure name field has a value (better-auth requires it but may not provide it during first user registration)
+          const nameValue = (data as any).name
+          if (!nameValue || (typeof nameValue === 'string' && nameValue.trim() === '') || nameValue === null || nameValue === undefined) {
+            // Use email as fallback if name is not provided
+            const email = (data as any).email || 'User'
+            ;(data as any).name = typeof email === 'string' ? email.split('@')[0] || 'User' : 'User'
+          }
+
+          // Keep in sync with `betterAuthPluginOptions.users.defaultRole`
+          if (!('role' in data) || (data as any).role == null) {
+            ;(data as any).role = 'user'
+          }
+          // rolesPlugin adds `roles` (hasMany). Keep a consistent default.
+          if (!('roles' in data) || (data as any).roles == null) {
+            ;(data as any).roles = ['user']
+          }
+        }
+        return data
+      },
+    ],
     beforeValidate: [
       ({ data, operation, req }) => {
         if (operation === 'create' && data) {
@@ -43,20 +69,10 @@ export const Users: CollectionConfig = {
             }
           }
 
-          // Ensure name field has a value (better-auth requires it but may not provide it during first user registration)
-          if (!('name' in data) || !(data as any).name || (data as any).name.trim() === '') {
-            // Use email as fallback if name is not provided
+          // Double-check name field in beforeValidate (defensive)
+          if (!('name' in data) || !(data as any).name || String((data as any).name || '').trim() === '') {
             const email = (data as any).email || 'User'
             ;(data as any).name = email.split('@')[0] || 'User'
-          }
-
-          // Keep in sync with `betterAuthPluginOptions.users.defaultRole`
-          if (!('role' in data) || (data as any).role == null) {
-            ;(data as any).role = 'user'
-          }
-          // rolesPlugin adds `roles` (hasMany). Keep a consistent default.
-          if (!('roles' in data) || (data as any).roles == null) {
-            ;(data as any).roles = ['user']
           }
         }
         return data
