@@ -67,8 +67,8 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    accounts: Account;
     sessions: Session;
+    accounts: Account;
     verifications: Verification;
     'admin-invitations': AdminInvitation;
     media: Media;
@@ -96,6 +96,8 @@ export interface Config {
     };
     users: {
       lessons: 'lessons';
+      account: 'accounts';
+      session: 'sessions';
       userSubscription: 'subscriptions';
     };
     plans: {
@@ -103,8 +105,8 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
+    accounts: AccountsSelect<false> | AccountsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -170,55 +172,39 @@ export interface UserAuthOperations {
   };
 }
 /**
- * Accounts are used to store user accounts for authentication providers
+ * Sessions are active sessions for users. They are used to authenticate users with a session token
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts".
+ * via the `definition` "sessions".
  */
-export interface Account {
+export interface Session {
   id: number;
   /**
-   * The user that the account belongs to
+   * The date and time when the session will expire
+   */
+  expiresAt: string;
+  /**
+   * The unique session token
+   */
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The IP address of the device
+   */
+  ipAddress?: string | null;
+  /**
+   * The user agent information of the device
+   */
+  userAgent?: string | null;
+  /**
+   * The user that the session belongs to
    */
   user: number | User;
   /**
-   * The id of the account as provided by the SSO or equal to userId for credential accounts
+   * The admin who is impersonating this session
    */
-  accountId: string;
-  /**
-   * The id of the provider as provided by the SSO
-   */
-  providerId: string;
-  /**
-   * The access token of the account. Returned by the provider
-   */
-  accessToken?: string | null;
-  /**
-   * The refresh token of the account. Returned by the provider
-   */
-  refreshToken?: string | null;
-  /**
-   * The date and time when the access token will expire
-   */
-  accessTokenExpiresAt?: string | null;
-  /**
-   * The date and time when the refresh token will expire
-   */
-  refreshTokenExpiresAt?: string | null;
-  /**
-   * The scope of the account. Returned by the provider
-   */
-  scope?: string | null;
-  /**
-   * The id token for the account. Returned by the provider
-   */
-  idToken?: string | null;
-  /**
-   * The hashed password of the account. Mainly used for email and password authentication
-   */
-  password?: string | null;
-  updatedAt: string;
-  createdAt: string;
+  impersonatedBy?: (number | null) | User;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -234,7 +220,7 @@ export interface User {
   /**
    * Users chosen display name
    */
-  name?: string | null;
+  name: string;
   /**
    * Whether the email of the user has been verified
    */
@@ -243,12 +229,12 @@ export interface User {
    * The image of the user
    */
   image?: string | null;
-  /**
-   * The role of the user
-   */
-  role: 'admin' | 'user';
-  updatedAt: string;
   createdAt: string;
+  updatedAt: string;
+  /**
+   * The role/ roles of the user
+   */
+  role?: ('admin' | 'user')[] | null;
   /**
    * Whether the user is banned from the platform
    */
@@ -261,6 +247,16 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
+  account?: {
+    docs?: (number | Account)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  session?: {
+    docs?: (number | Session)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   roles?: ('user' | 'admin')[] | null;
   stripeCustomerId?: string | null;
   userSubscription?: {
@@ -456,6 +452,57 @@ export interface Booking {
   createdAt: string;
 }
 /**
+ * Accounts are used to store user accounts for authentication providers
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts".
+ */
+export interface Account {
+  id: number;
+  /**
+   * The id of the account as provided by the SSO or equal to userId for credential accounts
+   */
+  accountId: string;
+  /**
+   * The id of the provider as provided by the SSO
+   */
+  providerId: string;
+  /**
+   * The user that the account belongs to
+   */
+  user: number | User;
+  /**
+   * The access token of the account. Returned by the provider
+   */
+  accessToken?: string | null;
+  /**
+   * The refresh token of the account. Returned by the provider
+   */
+  refreshToken?: string | null;
+  /**
+   * The id token for the account. Returned by the provider
+   */
+  idToken?: string | null;
+  /**
+   * The date and time when the access token will expire
+   */
+  accessTokenExpiresAt?: string | null;
+  /**
+   * The date and time when the refresh token will expire
+   */
+  refreshTokenExpiresAt?: string | null;
+  /**
+   * The scope of the account. Returned by the provider
+   */
+  scope?: string | null;
+  /**
+   * The hashed password of the account. Mainly used for email and password authentication
+   */
+  password?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "subscriptions".
  */
@@ -480,41 +527,6 @@ export interface Subscription {
   createdAt: string;
 }
 /**
- * Sessions are active sessions for users. They are used to authenticate users with a session token
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions".
- */
-export interface Session {
-  id: number;
-  /**
-   * The user that the session belongs to
-   */
-  user: number | User;
-  /**
-   * The unique session token
-   */
-  token: string;
-  /**
-   * The date and time when the session will expire
-   */
-  expiresAt: string;
-  /**
-   * The IP address of the device
-   */
-  ipAddress?: string | null;
-  /**
-   * The user agent information of the device
-   */
-  userAgent?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  /**
-   * The admin who is impersonating this session
-   */
-  impersonatedBy?: (number | null) | User;
-}
-/**
  * Verifications are used to verify authentication requests
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -534,8 +546,8 @@ export interface Verification {
    * The date and time when the verification request will expire
    */
   expiresAt: string;
-  updatedAt: string;
   createdAt: string;
+  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1085,12 +1097,12 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'accounts';
-        value: number | Account;
-      } | null)
-    | ({
         relationTo: 'sessions';
         value: number | Session;
+      } | null)
+    | ({
+        relationTo: 'accounts';
+        value: number | Account;
       } | null)
     | ({
         relationTo: 'verifications';
@@ -1196,35 +1208,35 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts_select".
- */
-export interface AccountsSelect<T extends boolean = true> {
-  user?: T;
-  accountId?: T;
-  providerId?: T;
-  accessToken?: T;
-  refreshToken?: T;
-  accessTokenExpiresAt?: T;
-  refreshTokenExpiresAt?: T;
-  scope?: T;
-  idToken?: T;
-  password?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "sessions_select".
  */
 export interface SessionsSelect<T extends boolean = true> {
-  user?: T;
-  token?: T;
   expiresAt?: T;
+  token?: T;
+  createdAt?: T;
+  updatedAt?: T;
   ipAddress?: T;
   userAgent?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  user?: T;
   impersonatedBy?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts_select".
+ */
+export interface AccountsSelect<T extends boolean = true> {
+  accountId?: T;
+  providerId?: T;
+  user?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  idToken?: T;
+  accessTokenExpiresAt?: T;
+  refreshTokenExpiresAt?: T;
+  scope?: T;
+  password?: T;
+  createdAt?: T;
+  updatedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1234,8 +1246,8 @@ export interface VerificationsSelect<T extends boolean = true> {
   identifier?: T;
   value?: T;
   expiresAt?: T;
-  updatedAt?: T;
   createdAt?: T;
+  updatedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1545,12 +1557,14 @@ export interface UsersSelect<T extends boolean = true> {
   name?: T;
   emailVerified?: T;
   image?: T;
-  role?: T;
-  updatedAt?: T;
   createdAt?: T;
+  updatedAt?: T;
+  role?: T;
   banned?: T;
   banReason?: T;
   banExpires?: T;
+  account?: T;
+  session?: T;
   roles?: T;
   stripeCustomerId?: T;
   userSubscription?: T;
