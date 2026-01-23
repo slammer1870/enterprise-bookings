@@ -23,6 +23,13 @@ import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+const disableSchemaPush =
+  process.env.NODE_ENV === 'test' ||
+  process.env.CI === 'true' ||
+  // Playwright webServer sets PW_E2E_PROFILE even when NODE_ENV=development.
+  // Disable schema pushing during E2E runs to avoid flaky/duplicate DDL (constraints already exist).
+  Boolean(process.env.PW_E2E_PROFILE)
+
 export default buildConfig({
   admin: {
     components: {
@@ -66,9 +73,9 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
-    ...(process.env.NODE_ENV === 'test' || process.env.CI
+    ...(disableSchemaPush
       ? {
-          push: false, // Disable automatic schema pushing in test/CI after first push
+          push: false, // Disable automatic schema pushing in test/CI/E2E after first push
         }
       : {}),
   }),

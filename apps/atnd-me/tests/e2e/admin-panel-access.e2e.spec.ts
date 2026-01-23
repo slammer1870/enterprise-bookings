@@ -86,12 +86,12 @@ test.describe('Admin Panel Access & Navigation', () => {
     test('should show all collections to super admin', async ({ page, testData }) => {
       await loginAsSuperAdmin(page, testData.users.superAdmin.email)
       
-      // Don't rely on nav visibility (can be collapsed); assert route access instead.
+      // Navigate to tenants collection page
       await page.goto('http://localhost:3000/admin/collections/tenants', {
         waitUntil: 'domcontentloaded',
       })
       
-      // Wait for navigation to complete (either to tenants collection or back to login if access denied)
+      // Wait for URL to match (handles any redirects that might happen after initial load)
       await page.waitForURL(
         (url) => url.pathname.includes('/admin/collections/tenants') || url.pathname.includes('/admin/login'),
         { timeout: 10000 }

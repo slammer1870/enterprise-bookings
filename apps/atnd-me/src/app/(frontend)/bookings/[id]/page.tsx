@@ -22,25 +22,16 @@ const bookingPageConfig: BookingPageConfig = {
   postValidation: async (lesson, user, caller) => {
     if (!user) return null
     
-    try {
-      const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: lesson.id })
-      
-      // If user has 2+ bookings, redirect to manage page
-      if (userBookings.length >= 2) {
-        return `/bookings/${lesson.id}/manage`
-      }
-    } catch (error) {
-      // If fetching bookings fails, log the error but continue to booking page (don't block)
-      // This could happen if tenant context is missing or there's a database issue
-      console.error('Error checking user bookings for redirect:', error)
-      // Re-throw in development to help debug
-      if (process.env.NODE_ENV === 'development') {
-        console.error('postValidation error details:', {
-          lessonId: lesson.id,
-          userId: user.id,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
+    // Fetch user bookings - if this fails, let the error propagate so we can debug it
+    // Previously, errors were caught and swallowed, preventing redirects from working
+    const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: lesson.id })
+    
+    // Use explicit check to ensure we have a valid array and count
+    const bookingCount = Array.isArray(userBookings) ? userBookings.length : 0
+    
+    // If user has 2+ bookings, redirect to manage page
+    if (bookingCount >= 2) {
+      return `/bookings/${lesson.id}/manage`
     }
     
     return null

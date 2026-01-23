@@ -892,6 +892,30 @@ export const bookingsRouter = {
         }
       }
 
+      // If tenant ID wasn't resolved from headers/cookie, try to get it from the lesson itself
+      // This ensures we can filter correctly even when tenant context isn't available in headers
+      if (!tenantId && hasCollection(ctx.payload, "lessons")) {
+        try {
+          const lesson = await findSafe(ctx.payload, "lessons", {
+            where: { id: { equals: input.lessonId } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          });
+          if (lesson.docs[0]?.tenant) {
+            const lessonTenant = lesson.docs[0].tenant;
+            tenantId = typeof lessonTenant === 'object' && lessonTenant !== null && 'id' in lessonTenant
+              ? lessonTenant.id as number
+              : typeof lessonTenant === 'number'
+              ? lessonTenant
+              : null;
+          }
+        } catch (error) {
+          // If lesson lookup fails, continue without tenant filter
+          console.error("Error resolving tenant from lesson (continuing without tenant filter):", error);
+        }
+      }
+
       // Build where clause - when we have tenant context, we'll filter by tenant after fetching
       // to ensure we get all bookings for the user, even if they don't have tenant in tenants array
       const whereClause: any = {
@@ -900,7 +924,7 @@ export const bookingsRouter = {
         status: { not_equals: "cancelled" },
       };
 
-      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
+      // When we have tenant context (from headers or lesson), use overrideAccess: true to bypass multi-tenant
       // plugin filtering (which filters by user's tenants array). We'll filter by tenant
       // manually after fetching to ensure bookings belong to the correct tenant.
       // 

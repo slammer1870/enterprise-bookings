@@ -32,7 +32,9 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
         const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: id })
 
         // If user has only one or no bookings, redirect to regular booking page
-        if (userBookings.length <= 1) {
+        // Use explicit check to ensure redirect happens even if array is undefined/null
+        const bookingCount = userBookings?.length ?? 0
+        if (bookingCount === 0) {
             redirect(`/bookings/${id}`)
         }
 

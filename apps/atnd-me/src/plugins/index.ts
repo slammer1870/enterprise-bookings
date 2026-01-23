@@ -24,6 +24,7 @@ import {
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from './fix-better-auth-accounts-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
+import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 
 import { Page, Post } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -92,6 +93,20 @@ export const plugins: Plugin[] = [
           }
           return field
         })
+      },
+      access: {
+        read: tenantScopedReadFiltered,
+        create: tenantScopedCreate,
+        update: tenantScopedUpdate,
+        delete: tenantScopedDelete,
+      },
+    },
+    formSubmissionOverrides: {
+      access: {
+        read: tenantScopedReadFiltered,
+        create: () => true, // Allow public form submissions
+        update: tenantScopedUpdate,
+        delete: tenantScopedDelete,
       },
     },
   }),
@@ -180,6 +195,8 @@ export const plugins: Plugin[] = [
       }),
     },
   }),
+  // Must run after formBuilderPlugin to add tenant scoping hook to form-submissions
+  tenantScopeFormSubmissions(),
   // Multi-tenant plugin must come AFTER bookingsPlugin so it can see the collections it creates
   multiTenantPlugin({
     tenantsSlug: 'tenants',
@@ -196,6 +213,8 @@ export const plugins: Plugin[] = [
       instructors: {},
       'class-options': {},
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
+      forms: {}, // Tenant-scoped for forms
+      'form-submissions': {}, // Tenant-scoped for form submissions
       // Globals converted to collections (one per tenant)
       // Using isGlobal: true enforces single document per tenant
       navbar: { isGlobal: true },

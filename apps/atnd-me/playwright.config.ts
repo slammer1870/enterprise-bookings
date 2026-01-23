@@ -20,20 +20,20 @@ export default defineConfig({
   // Local runs are intended to be a fast smoke suite.
   ...(isLocal
     ? {
-        testIgnore: [
-          '**/booking-flow.e2e.spec.ts',
-          '**/booking-functionality.e2e.spec.ts',
-          '**/cancel-booking.e2e.spec.ts',
-          '**/integration-edge-cases.e2e.spec.ts',
-          '**/super-admin-access.e2e.spec.ts',
-          '**/tenant-admin-access.e2e.spec.ts',
-          '**/tenant-isolation.e2e.spec.ts',
-          '**/tenant-onboarding.e2e.spec.ts',
-          '**/tenant-scoped-page-slugs.e2e.spec.ts',
-          '**/user-access-control.e2e.spec.ts',
-          '**/cross-tenant-booking.e2e.spec.ts',
-        ],
-      }
+      testIgnore: [
+        '**/booking-flow.e2e.spec.ts',
+        '**/booking-functionality.e2e.spec.ts',
+        '**/cancel-booking.e2e.spec.ts',
+        '**/integration-edge-cases.e2e.spec.ts',
+        '**/super-admin-access.e2e.spec.ts',
+        '**/tenant-admin-access.e2e.spec.ts',
+        '**/tenant-isolation.e2e.spec.ts',
+        '**/tenant-onboarding.e2e.spec.ts',
+        '**/tenant-scoped-page-slugs.e2e.spec.ts',
+        '**/user-access-control.e2e.spec.ts',
+        '**/cross-tenant-booking.e2e.spec.ts',
+      ],
+    }
     : {}),
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: isCI,
@@ -42,7 +42,7 @@ export default defineConfig({
   /* Enable parallel workers locally for faster test runs. Test data is worker-scoped. */
   workers: isCI ? 1 : 4,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: isCI ? 'html' : 'line',
+  reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */

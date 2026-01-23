@@ -45,6 +45,21 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
       const tenantSlug = testData.tenants[0]!.slug
       await navigateToTenant(page, tenantSlug)
 
+      // Wait for server-side redirect to /home (root page redirects when tenant exists)
+      const homeUrl = `http://${tenantSlug}.localhost:3000/home`
+      try {
+        await page.waitForURL(homeUrl, { timeout: 10000 })
+      } catch {
+        // If redirect didn't happen, check if tenant validation failed
+        const currentUrl = page.url()
+        const has404 = page.locator('text=/tenant not found|404/i').first()
+        const is404 = await has404.isVisible().catch(() => false)
+        if (is404) {
+          throw new Error(`Tenant "${tenantSlug}" not found. Current URL: ${currentUrl}`)
+        }
+        throw new Error(`Expected redirect to /home but stayed on: ${currentUrl}`)
+      }
+
       // Verify tenant context is set
       const tenantContext = await getTenantContext(page)
       expect(tenantContext).toBe(tenantSlug)
@@ -61,6 +76,21 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
     test('should display tenant-specific home page content', async ({ page, testData }) => {
       const tenantSlug = testData.tenants[0]!.slug
       await navigateToTenant(page, tenantSlug)
+
+      // Wait for server-side redirect to /home (root page redirects when tenant exists)
+      const homeUrl = `http://${tenantSlug}.localhost:3000/home`
+      try {
+        await page.waitForURL(homeUrl, { timeout: 10000 })
+      } catch {
+        // If redirect didn't happen, check if tenant validation failed
+        const currentUrl = page.url()
+        const has404 = page.locator('text=/tenant not found|404/i').first()
+        const is404 = await has404.isVisible().catch(() => false)
+        if (is404) {
+          throw new Error(`Tenant "${tenantSlug}" not found. Current URL: ${currentUrl}`)
+        }
+        throw new Error(`Expected redirect to /home but stayed on: ${currentUrl}`)
+      }
 
       // Verify tenant context
       const tenantContext = await getTenantContext(page)
