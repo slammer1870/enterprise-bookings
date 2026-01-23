@@ -245,7 +245,7 @@ describe('tRPC Bookings Integration Tests', () => {
       }
 
       await expect(caller.lessons.getByIdForBooking({ id: testLesson.id })).rejects.toThrow(
-        'no longer available for booking'
+        'This lesson is fully booked'
       )
 
       // Cleanup
