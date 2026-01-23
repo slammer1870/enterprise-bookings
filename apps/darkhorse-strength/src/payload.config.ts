@@ -22,6 +22,7 @@ import { Posts } from '@repo/website/src/collections/posts'
 import { rolesPlugin } from '@repo/roles'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
+import { fixBetterAuthTimestamps } from './plugins/fix-better-auth-timestamps'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
@@ -87,6 +88,8 @@ export default buildConfig({
   plugins: [
     payloadCloudPlugin(),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after betterAuthPlugin to fix timestamp validation issues
+    fixBetterAuthTimestamps(),
     rolesPlugin({
       enabled: true,
       roles: ['user', 'admin'],
