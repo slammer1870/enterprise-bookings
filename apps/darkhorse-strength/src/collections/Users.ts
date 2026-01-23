@@ -43,6 +43,13 @@ export const Users: CollectionConfig = {
             }
           }
 
+          // Ensure name field has a value (better-auth requires it but may not provide it during first user registration)
+          if (!('name' in data) || !(data as any).name || (data as any).name.trim() === '') {
+            // Use email as fallback if name is not provided
+            const email = (data as any).email || 'User'
+            ;(data as any).name = email.split('@')[0] || 'User'
+          }
+
           // Keep in sync with `betterAuthPluginOptions.users.defaultRole`
           if (!('role' in data) || (data as any).role == null) {
             ;(data as any).role = 'user'
