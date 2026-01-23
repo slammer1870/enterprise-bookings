@@ -35,8 +35,11 @@ export interface BookingPageConfig {
   /**
    * Optional: Custom validation after fetching lesson
    * Return a redirect path if validation fails, or null to continue
+   * @param lesson - The lesson that was fetched
+   * @param user - The authenticated user
+   * @param caller - The tRPC caller (already created with proper context)
    */
-  postValidation?: (lesson: Lesson, user: any) => Promise<string | null>
+  postValidation?: (lesson: Lesson, user: any, caller: any) => Promise<string | null>
   
   /**
    * Optional: Whether to attempt check-in before showing booking page
@@ -132,7 +135,7 @@ export async function createBookingPage(
 
     // Post-validation (if provided)
     if (config.postValidation) {
-      const postValidationRedirect = await config.postValidation(lesson, user)
+      const postValidationRedirect = await config.postValidation(lesson, user, caller)
       if (postValidationRedirect) {
         redirect(postValidationRedirect)
       }

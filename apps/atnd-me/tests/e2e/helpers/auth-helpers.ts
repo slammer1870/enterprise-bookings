@@ -65,6 +65,29 @@ export async function loginToAdminPanel(
   email: string,
   password: string
 ): Promise<void> {
+  // Prefer API login to avoid flaky admin UI hydration / navigation timing.
+  // Payload uses the auth-enabled Users collection at `/api/users/login`.
+  const apiLogin = await page.request.post(`${BASE_URL}/api/users/login`, {
+    data: { email, password },
+  })
+
+  if (apiLogin.ok()) {
+    // Cookies from `page.request` are stored in the browser context, so the admin UI should be authenticated.
+    await page.goto(`${BASE_URL}/admin`, { waitUntil: 'domcontentloaded' })
+    await page
+      .waitForURL((url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'), {
+        timeout: 20000,
+      })
+      .catch(() => null)
+
+    // If we still landed on login, fall through to UI-based login to get error context.
+    if (!page.url().includes('/admin/login')) {
+      await page.waitForTimeout(500)
+      return
+    }
+  }
+
+  // Fallback: UI login (keeps the test output useful if auth endpoint changes)
   await page.goto(`${BASE_URL}/admin/login`, { waitUntil: 'domcontentloaded' })
   await fillLoginFormAndSubmit(page, email, password)
 

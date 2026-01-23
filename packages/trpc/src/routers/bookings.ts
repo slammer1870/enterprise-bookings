@@ -841,7 +841,28 @@ export const bookingsRouter = {
       // Extract tenant slug from cookie header (from subdomain)
       const cookieHeader = ctx.headers.get("cookie") || "";
       const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      let tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+
+      // If the cookie isn't present yet (e.g. first request on a subdomain),
+      // fall back to deriving tenant slug from the Host header.
+      if (!tenantSlug) {
+        const hostHeader = ctx.headers.get("x-forwarded-host") || ctx.headers.get("host") || "";
+        const hostWithoutPort = hostHeader.split(":")[0] || "";
+        const parts = hostWithoutPort.split(".");
+        const isLocalhost = hostWithoutPort.includes("localhost");
+
+        if (isLocalhost) {
+          // subdomain.localhost
+          if (parts.length > 1 && parts[0] && parts[0] !== "localhost") {
+            tenantSlug = parts[0];
+          }
+        } else {
+          // subdomain.domain.tld
+          if (parts.length >= 3 && parts[0]) {
+            tenantSlug = parts[0];
+          }
+        }
+      }
 
       // Resolve tenant ID from slug if available
       // For backward compatibility with non-multi-tenant apps, check if tenants collection exists

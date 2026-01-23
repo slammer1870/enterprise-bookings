@@ -156,15 +156,36 @@ export const lessonsRouter = {
       }
 
       // Validate lesson is bookable
-      if (['booked', 'closed'].includes(lesson.bookingStatus)) {
+      // NOTE: `bookingStatus` is computed per-viewer:
+      // - "booked"/"multipleBooked"/"childrenBooked" means *this user* already has a booking.
+      // - "waitlist" means the class is full (for users who are not booked).
+      if (lesson.bookingStatus === "closed") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "This lesson is no longer available for booking",
         });
       }
 
+      if (
+        lesson.bookingStatus === "booked" ||
+        lesson.bookingStatus === "multipleBooked" ||
+        lesson.bookingStatus === "childrenBooked"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are already booked on this lesson",
+        });
+      }
+
+      if (lesson.bookingStatus === "waiting") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are already on the waitlist for this lesson",
+        });
+      }
+
       // Validate remaining capacity
-      if (lesson.remainingCapacity <= 0) {
+      if (lesson.remainingCapacity <= 0 || lesson.bookingStatus === "waitlist") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "This lesson is fully booked",

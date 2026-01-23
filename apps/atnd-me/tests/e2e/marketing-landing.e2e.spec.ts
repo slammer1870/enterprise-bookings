@@ -84,9 +84,6 @@ test.describe('Marketing Landing Page & Tenants Listing', () => {
     test('should display all tenants on listing page', async ({ page }) => {
       await navigateToRoot(page, '/tenants')
 
-      // Wait for page to load
-      await page.waitForLoadState('networkidle')
-
       // Verify tenants are displayed
       // Look for tenant names or cards
       const tenantText = page.locator('text=/test tenant/i').first()
@@ -100,8 +97,6 @@ test.describe('Marketing Landing Page & Tenants Listing', () => {
 
     test('should link to tenant subdomains', async ({ page, testData }) => {
       await navigateToRoot(page, '/tenants')
-
-      await page.waitForLoadState('networkidle')
 
       // Use worker-scoped tenant slug from testData
       const tenantSlug = testData.tenants[0]!.slug
@@ -164,8 +159,6 @@ test.describe('Marketing Landing Page & Tenants Listing', () => {
       // This test would require deleting all tenants first
       // For now, we'll just verify the page loads
       await navigateToRoot(page, '/tenants')
-
-      await page.waitForLoadState('networkidle')
 
       // Page should load without errors
       const url = new URL(page.url())

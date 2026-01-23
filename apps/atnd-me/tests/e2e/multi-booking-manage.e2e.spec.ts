@@ -9,14 +9,16 @@ import {
 
 test.describe('Multi-Booking Management E2E Tests', () => {
   let lesson: any
+  let guardLesson: any
   let fullLesson: any
 
   test.beforeAll(async ({ testData }) => {
     const workerIndex = testData.workerIndex
+    const tenant = testData.tenants[0]!
 
     // Create class option with sufficient capacity
     const classOption = await createTestClassOption(
-      testData.tenants[0].id,
+      tenant.id,
       'Multi-Booking Test Class',
       10,
       undefined,
@@ -31,7 +33,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     endTime.setHours(11, 0, 0, 0)
 
     lesson = await createTestLesson(
-      testData.tenants[0].id,
+      tenant.id,
       classOption.id,
       startTime,
       endTime,
@@ -39,9 +41,24 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       true
     )
 
+    // Create a separate lesson used only for route-guard tests so booking counts are isolated.
+    const guardStartTime = new Date(startTime)
+    guardStartTime.setHours(12, 0, 0, 0)
+    const guardEndTime = new Date(guardStartTime)
+    guardEndTime.setHours(13, 0, 0, 0)
+
+    guardLesson = await createTestLesson(
+      tenant.id,
+      classOption.id,
+      guardStartTime,
+      guardEndTime,
+      undefined,
+      true
+    )
+
     // Create a fully booked lesson for capacity testing
     const fullClassOption = await createTestClassOption(
-      testData.tenants[0].id,
+      tenant.id,
       'Full Multi-Booking Test Class',
       2,
       undefined,
@@ -55,7 +72,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     fullEndTime.setHours(15, 0, 0, 0)
 
     fullLesson = await createTestLesson(
-      testData.tenants[0].id,
+      tenant.id,
       fullClassOption.id,
       fullStartTime,
       fullEndTime,
@@ -73,13 +90,14 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       page,
       testData,
     }) => {
+      const tenant = testData.tenants[0]!
       // Create 2 confirmed bookings for user1
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
 
       // Login on the tenant subdomain first
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
-        tenantSlug: testData.tenants[0].slug,
+        tenantSlug: tenant.slug,
       })
       
       // Wait a moment for session to be established
@@ -87,28 +105,35 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       
       // Navigate to booking page - should automatically redirect to manage page
       // because user has 2+ bookings (handled by postValidation in booking page config)
-      await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${lesson.id}`)
+      // Use page.goto with waitUntil to properly handle server-side redirects
+      const bookingUrl = `http://${tenant.slug}.localhost:3000/bookings/${lesson.id}`
+      const manageUrl = `http://${tenant.slug}.localhost:3000/bookings/${lesson.id}/manage`
       
-      // Wait for page to load and check if we need to handle auth redirect
-      await page.waitForLoadState('domcontentloaded')
-      
-      // If we're redirected to login, that means session wasn't established - fail the test
-      const currentUrlAfterNav = page.url()
-      if (currentUrlAfterNav.includes('/complete-booking') || currentUrlAfterNav.includes('/auth/sign-in')) {
-        throw new Error(`User session not established on tenant subdomain. Redirected to: ${currentUrlAfterNav}`)
+      // Navigate and wait for either the booking page or the redirect to manage page
+      // NOTE: `networkidle` is flaky in Next dev due to websockets/HMR and can also produce ERR_ABORTED on redirects.
+      try {
+        await page.goto(bookingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      } catch (err) {
+        // Some Chromium versions surface server-side redirects as ERR_ABORTED; the URL often still updates correctly.
+        if (!String(err).includes('net::ERR_ABORTED')) throw err
       }
-
-      // Wait for navigation to complete (either redirect to manage or stay on booking page)
-      await page.waitForLoadState('domcontentloaded')
+      
+      // Give the server-side redirect a moment to land (avoid `networkidle` / fixed sleeps).
+      await page.waitForURL(manageUrl, { timeout: 10000 }).catch(() => null)
       
       // Check if we're on manage page (automatic redirect) or still on booking page
       const currentUrl = page.url()
       
+      // If we're redirected to login, that means session wasn't established - fail the test
+      if (currentUrl.includes('/complete-booking') || currentUrl.includes('/auth/sign-in')) {
+        throw new Error(`User session not established on tenant subdomain. Redirected to: ${currentUrl}`)
+      }
+      
       // If we're already on manage page, great! Otherwise wait for redirect
       if (!currentUrl.includes('/manage')) {
-        // Wait for automatic redirect to manage page
+        // Wait for automatic redirect to manage page (server-side redirect should happen immediately)
         await page.waitForURL(
-          (url) => url.pathname.includes('/bookings/') && url.pathname.includes('/manage'),
+          manageUrl,
           { timeout: 10000 }
         ).catch(() => {
           // If redirect didn't happen, check what page we're on
@@ -125,12 +150,15 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
   test.describe('Manage Route Guard', () => {
     test('should redirect to booking page when user has 0 bookings', async ({ page, testData }) => {
+      const tenant = testData.tenants[0]!
+      // Use a user that can authenticate on this tenant (registrationTenant = tenant1),
+      // and a lesson with no bookings for that user.
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
-        tenantSlug: testData.tenants[0].slug,
+        tenantSlug: tenant.slug,
       })
       
       // Navigate to manage page - should redirect to regular booking page
-      await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${lesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
 
       // Should redirect to /bookings/[id] (not /manage) OR stay on manage if redirect hasn't happened yet
       // Wait for either the redirect or verify we're not on manage
@@ -147,8 +175,15 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       ).catch(() => {
         // If timeout, check current URL
         const currentUrl = page.url()
+        const currentPathname = (() => {
+          try {
+            return new URL(currentUrl).pathname
+          } catch {
+            return currentUrl
+          }
+        })()
         // If we're still on /manage, that's a failure
-        if (currentUrl.includes('/manage')) {
+        if (currentPathname.includes('/manage')) {
           throw new Error(`Expected redirect from /manage but still on: ${currentUrl}`)
         }
       })
@@ -162,15 +197,16 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     })
 
     test('should redirect to booking page when user has 1 booking', async ({ page, testData }) => {
+      const tenant = testData.tenants[0]!
       // Create 1 booking
-      await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
+      await createTestBooking(testData.users.user1.id, guardLesson.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
-        tenantSlug: testData.tenants[0].slug,
+        tenantSlug: tenant.slug,
       })
       
       // Navigate to manage page - should redirect to regular booking page
-      await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${lesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
 
       // Should redirect to /bookings/[id] (not /manage) OR stay on manage if redirect hasn't happened yet
       await page.waitForURL(
@@ -186,8 +222,15 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       ).catch(() => {
         // If timeout, check current URL
         const currentUrl = page.url()
+        const currentPathname = (() => {
+          try {
+            return new URL(currentUrl).pathname
+          } catch {
+            return currentUrl
+          }
+        })()
         // If we're still on /manage, that's a failure
-        if (currentUrl.includes('/manage')) {
+        if (currentPathname.includes('/manage')) {
           throw new Error(`Expected redirect from /manage but still on: ${currentUrl}`)
         }
       })
@@ -203,15 +246,16 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
   test.describe('Decrease Quantity Flow', () => {
     test('should decrease booking quantity from 3 to 1', async ({ page, testData }) => {
+      const tenant = testData.tenants[0]!
       // Create 3 confirmed bookings
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
-        tenantSlug: testData.tenants[0].slug,
+        tenantSlug: tenant.slug,
       })
-      await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${lesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}/manage`)
 
       // Wait for manage page to load
       await page.waitForLoadState('networkidle')
@@ -274,13 +318,14 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
   test.describe('Increase Quantity Flow', () => {
     test('should increase booking quantity from 1 to 2 (no payment)', async ({ page, testData }) => {
+      const tenant = testData.tenants[0]!
       // Create 1 confirmed booking
       await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
-        tenantSlug: testData.tenants[0].slug,
+        tenantSlug: tenant.slug,
       })
-      await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${lesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}/manage`)
 
       // Wait for manage page to load
       await page.waitForLoadState('networkidle')
@@ -336,13 +381,14 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
   test.describe('Over-Capacity Guard', () => {
     test('should prevent increasing quantity beyond remaining capacity', async ({ page, testData }) => {
+      const tenant = testData.tenants[0]!
       // Create 1 booking for user1 on the full lesson (this fills the last remaining slot)
       await createTestBooking(testData.users.user1.id, fullLesson.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
-        tenantSlug: testData.tenants[0].slug,
+        tenantSlug: tenant.slug,
       })
-      await navigateToTenant(page, testData.tenants[0].slug, `/bookings/${fullLesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${fullLesson.id}/manage`)
 
       // Wait for manage page to load
       await page.waitForLoadState('networkidle')

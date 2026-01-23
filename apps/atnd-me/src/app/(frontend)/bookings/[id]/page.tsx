@@ -19,10 +19,9 @@ const bookingPageConfig: BookingPageConfig = {
   // MVP: Don't attempt check-in, always show booking page
   attemptCheckIn: false,
   // Redirect to manage page if user has multiple bookings
-  postValidation: async (lesson, user) => {
+  postValidation: async (lesson, user, caller) => {
     if (!user) return null
     
-    const caller = await createCaller()
     try {
       const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: lesson.id })
       
@@ -31,8 +30,17 @@ const bookingPageConfig: BookingPageConfig = {
         return `/bookings/${lesson.id}/manage`
       }
     } catch (error) {
-      // If fetching bookings fails, continue to booking page (don't block)
+      // If fetching bookings fails, log the error but continue to booking page (don't block)
+      // This could happen if tenant context is missing or there's a database issue
       console.error('Error checking user bookings for redirect:', error)
+      // Re-throw in development to help debug
+      if (process.env.NODE_ENV === 'development') {
+        console.error('postValidation error details:', {
+          lessonId: lesson.id,
+          userId: user.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
     
     return null

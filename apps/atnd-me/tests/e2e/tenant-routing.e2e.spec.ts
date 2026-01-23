@@ -66,14 +66,8 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
       const tenantContext = await getTenantContext(page)
       expect(tenantContext).toBe(tenantSlug)
 
-      // Verify home page content is displayed
-      // This will depend on your actual UI - adjust selectors as needed
-      const hasHomeContent = await page
-        .locator('body')
-        .isVisible()
-        .catch(() => false)
-
-      expect(hasHomeContent).toBe(true)
+      // Home content is tenant-configurable; just assert the app routed to the tenant home route.
+      expect(page.url()).toContain('/home')
     })
 
     test('should set tenant context in headers for API calls', async ({ page, testData }) => {
@@ -167,7 +161,12 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
       expect(tenantContext).toBe(tenantSlug)
 
       // Reload page
-      await page.reload({ waitUntil: 'networkidle' })
+      // `networkidle` is flaky in Next dev (websockets/HMR) and can yield ERR_ABORTED during reloads.
+      try {
+        await page.reload({ waitUntil: 'domcontentloaded' })
+      } catch (err) {
+        if (!String(err).includes('net::ERR_ABORTED')) throw err
+      }
 
       // Verify cookie persists
       const tenantContextAfterReload = await getTenantContext(page)

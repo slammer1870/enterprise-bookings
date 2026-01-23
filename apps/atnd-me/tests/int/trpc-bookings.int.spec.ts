@@ -209,6 +209,7 @@ describe('tRPC Bookings Integration Tests', () => {
     it('should throw error when lesson is fully booked', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1) // Tomorrow (avoid "closed" based on current time)
       startTime.setHours(11, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(12, 0, 0, 0)
@@ -232,12 +233,27 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       // Fill up the lesson using overrideAccess for test setup
+      const createdUserIds: Array<number | string> = []
       for (let i = 0; i < classOption.places; i++) {
+        const otherUser = await payload.create({
+          collection: 'users',
+          data: {
+            name: `Fully Booked User ${i}`,
+            email: `fully-booked-${Date.now()}-${i}@test.com`,
+            password: 'test',
+            roles: ['user'],
+            emailVerified: true,
+          },
+          draft: false,
+          overrideAccess: true,
+        })
+        createdUserIds.push(otherUser.id)
+
         await payload.create({
           collection: 'bookings',
           data: {
             lesson: testLesson.id,
-            user: user.id,
+            user: otherUser.id,
             status: 'confirmed',
           },
           overrideAccess: true,
@@ -252,6 +268,10 @@ describe('tRPC Bookings Integration Tests', () => {
       await payload.delete({
         collection: 'bookings',
         where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'users',
+        where: { id: { in: createdUserIds } },
       })
       await payload.delete({
         collection: 'lessons',
