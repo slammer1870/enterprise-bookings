@@ -110,7 +110,8 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
       
       // Check for error message or redirect
       const hasError = await page
-        .locator('text=/not found|error|404/i')
+        .locator('text=/tenant not found|page not found|not found|404/i')
+        .first()
         .isVisible()
         .catch(() => false)
 
@@ -126,7 +127,8 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
       // Should handle appropriately (404 or redirect)
       const url = new URL(page.url())
       const hasError = await page
-        .locator('text=/not found|error|404/i')
+        .locator('text=/tenant not found|page not found|not found|404/i')
+        .first()
         .isVisible()
         .catch(() => false)
 

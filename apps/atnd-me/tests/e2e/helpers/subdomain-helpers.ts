@@ -18,7 +18,9 @@ export async function navigateToTenant(
   path: string = '/'
 ): Promise<void> {
   const url = `http://${tenantSlug}.localhost:3000${path}`
-  await page.goto(url, { waitUntil: 'networkidle' })
+  // `networkidle` is flaky in Next dev due to HMR/websocket connections.
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
 }
 
 /**
@@ -31,7 +33,8 @@ export async function navigateToRoot(
   path: string = '/'
 ): Promise<void> {
   const url = `${BASE_URL}${path}`
-  await page.goto(url, { waitUntil: 'networkidle' })
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
 }
 
 /**

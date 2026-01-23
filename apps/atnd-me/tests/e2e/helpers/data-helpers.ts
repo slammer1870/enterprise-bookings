@@ -156,6 +156,8 @@ export async function createTestUser(
       email,
       password,
       roles,
+      // Sync role field for Better Auth compatibility (Better Auth uses 'role', rolesPlugin uses 'roles')
+      role: roles,
       emailVerified: true,
       ...(registrationTenantId && { registrationTenant: registrationTenantId }),
     },

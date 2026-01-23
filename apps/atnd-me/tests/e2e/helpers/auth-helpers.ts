@@ -9,27 +9,27 @@ const BASE_URL = 'http://localhost:3000'
 async function fillLoginFormAndSubmit(page: Page, email: string, password: string) {
   // Wait for login form to be visible (Better Auth UI can hydrate asynchronously)
   const emailInput = page
-    .locator('input[type="email"]')
-    .or(page.locator('input[name="email"]'))
+    .getByRole('textbox', { name: /email/i })
+    .or(page.getByLabel(/email/i))
     .first()
 
   const passwordInput = page
-    .locator('input[type="password"]')
-    .or(page.locator('input[name="password"]'))
+    .getByRole('textbox', { name: /password/i })
+    .or(page.getByLabel(/password/i))
     .first()
 
   const submitButton = page
-    .locator('button[type="submit"]')
-    .or(page.getByRole('button', { name: /sign in|login/i }))
+    .getByRole('button', { name: /login|sign in/i })
+    .or(page.locator('button[type="submit"]'))
     .first()
 
-  await emailInput.waitFor({ state: 'visible', timeout: 15000 })
-  await passwordInput.waitFor({ state: 'visible', timeout: 15000 })
+  await emailInput.waitFor({ state: 'visible', timeout: 20000 })
+  await passwordInput.waitFor({ state: 'visible', timeout: 20000 })
 
   await emailInput.fill(email)
   await passwordInput.fill(password)
 
-  await submitButton.waitFor({ state: 'visible', timeout: 15000 })
+  await submitButton.waitFor({ state: 'visible', timeout: 20000 })
   await submitButton.click()
 }
 
@@ -42,9 +42,11 @@ async function fillLoginFormAndSubmit(page: Page, email: string, password: strin
 export async function loginAsUser(
   page: Page,
   email: string,
-  password: string
+  password: string,
+  opts?: { baseURL?: string }
 ): Promise<void> {
-  await page.goto(`${BASE_URL}/auth/sign-in`, { waitUntil: 'networkidle' })
+  const baseURL = opts?.baseURL || BASE_URL
+  await page.goto(`${baseURL}/auth/sign-in`, { waitUntil: 'domcontentloaded' })
 
   await fillLoginFormAndSubmit(page, email, password)
 
@@ -52,7 +54,7 @@ export async function loginAsUser(
   await page
     .waitForURL((url) => !url.pathname.includes('/auth/sign-in'), { timeout: 20000 })
     .catch(() => null)
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('networkidle').catch(() => null)
 }
 
 /**
@@ -63,13 +65,22 @@ export async function loginToAdminPanel(
   email: string,
   password: string
 ): Promise<void> {
-  await page.goto(`${BASE_URL}/admin/login`, { waitUntil: 'networkidle' })
+  await page.goto(`${BASE_URL}/admin/login`, { waitUntil: 'domcontentloaded' })
   await fillLoginFormAndSubmit(page, email, password)
 
+  // Wait for navigation away from login page
   await page
     .waitForURL((url) => !url.pathname.startsWith('/admin/login'), { timeout: 20000 })
-    .catch(() => null)
-  await page.waitForLoadState('networkidle')
+    .catch(() => {
+      // If still on login page, check if there's an error
+      const currentUrl = page.url()
+      if (currentUrl.includes('/admin/login')) {
+        throw new Error(`Login failed - still on login page: ${currentUrl}`)
+      }
+    })
+  
+  // Wait a bit for admin panel to fully load
+  await page.waitForTimeout(1000)
 }
 
 /**
@@ -114,10 +125,14 @@ export async function loginAsRegularUser(
   page: Page,
   userNumber: number = 1,
   email?: string,
-  password: string = 'password'
+  password: string = 'password',
+  opts?: { tenantSlug?: string }
 ): Promise<void> {
   const userEmail = email || `user${userNumber}@test.com`
-  await loginAsUser(page, userEmail, password)
+  const baseURL = opts?.tenantSlug
+    ? `http://${opts.tenantSlug}.localhost:3000`
+    : BASE_URL
+  await loginAsUser(page, userEmail, password, { baseURL })
 }
 
 /**

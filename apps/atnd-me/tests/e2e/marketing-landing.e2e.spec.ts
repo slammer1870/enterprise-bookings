@@ -145,11 +145,9 @@ test.describe('Marketing Landing Page & Tenants Listing', () => {
     test('should display tenant information correctly', async ({ page }) => {
       await navigateToRoot(page, '/tenants')
 
-      await page.waitForLoadState('networkidle')
-
       // Verify tenant name is displayed (check for "Test Tenant" or any tenant name)
-      const tenantNameText = page.locator('text=/test tenant/i').first()
-      const hasTenantName = await tenantNameText.isVisible().catch(() => false)
+      const tenantHeading = page.getByRole('heading', { name: /test tenant/i }).first()
+      const hasTenantName = await tenantHeading.isVisible().catch(() => false)
       
       // Also check for tenant cards or any tenant-related content
       const tenantCard = page.locator('[data-testid="tenant-card"]').first()

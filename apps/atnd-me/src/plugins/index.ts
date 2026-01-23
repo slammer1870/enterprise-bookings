@@ -23,6 +23,7 @@ import {
 } from '../access/tenant-scoped'
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from './fix-better-auth-accounts-timestamps'
+import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
 
 import { Page, Post } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -112,6 +113,8 @@ export const plugins: Plugin[] = [
     defaultRole: 'user',
     firstUserRole: 'admin',
   }),
+  // Must run after both payloadAuth() and rolesPlugin() to sync role/roles fields
+  fixBetterAuthRoleField(),
   bookingsPlugin({
     enabled: true,
     lessonOverrides: {
