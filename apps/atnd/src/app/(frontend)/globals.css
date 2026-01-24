@@ -1,15 +1,7 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @layer base {
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-size: unset;
-    font-weight: unset;
-  }
 
   :root {
     /* IMPORTANT:
