@@ -5,7 +5,7 @@ import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from "../utils/collections";
 
-import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
+import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
 
 export const bookingsRouter = {
@@ -56,9 +56,9 @@ export const bookingsRouter = {
         "lessons",
         lessonId,
         {
-        depth: 3,
-        overrideAccess: tenantId ? true : false,
-        user: ctx.user,
+          depth: 3,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
         }
       );
 
@@ -74,7 +74,7 @@ export const bookingsRouter = {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant;
-        
+
         if (lessonTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -109,9 +109,9 @@ export const bookingsRouter = {
         if (existingBooking.docs.length === 0) {
           // Create new booking
           return await createSafe(ctx.payload, "bookings", {
-              lesson: lessonId,
-              user: ctx.user.id,
-              status: "confirmed",
+            lesson: lessonId,
+            user: ctx.user.id,
+            status: "confirmed",
           }, {
             overrideAccess: false,
             user: ctx.user,
@@ -119,7 +119,7 @@ export const bookingsRouter = {
         } else {
           // Update existing booking
           return await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-              status: "confirmed",
+            status: "confirmed",
           }, {
             overrideAccess: false,
             user: ctx.user,
@@ -241,9 +241,9 @@ export const bookingsRouter = {
         "lessons",
         input.id,
         {
-        depth: 3,
-        overrideAccess: tenantId ? true : false,
-        user: ctx.user,
+          depth: 3,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
         }
       );
 
@@ -259,7 +259,7 @@ export const bookingsRouter = {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant;
-        
+
         if (lessonTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -269,9 +269,9 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe<Booking>(ctx.payload, "bookings", {
-          lesson: input.id,
-          user: ctx.user.id,
-          status: "confirmed",
+        lesson: input.id,
+        user: ctx.user.id,
+        status: "confirmed",
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -348,7 +348,7 @@ export const bookingsRouter = {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant;
-        
+
         if (lessonTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -418,9 +418,9 @@ export const bookingsRouter = {
 
       if (booking.docs.length === 0) {
         return await createSafe(ctx.payload, "bookings", {
-            lesson: id,
-            user: ctx.user.id,
-            status,
+          lesson: id,
+          user: ctx.user.id,
+          status,
         }, {
           overrideAccess: false,
           user: ctx.user,
@@ -428,7 +428,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status,
+        status,
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -500,7 +500,7 @@ export const bookingsRouter = {
       if (tenantId && booking.docs[0]) {
         const bookingDoc = booking.docs[0] as any;
         let bookingTenantId: number | null = null;
-        
+
         // Check booking.tenant first
         if (bookingDoc.tenant) {
           bookingTenantId = typeof bookingDoc.tenant === 'object' && bookingDoc.tenant !== null
@@ -513,7 +513,7 @@ export const bookingsRouter = {
             ? bookingDoc.lesson.tenant.id
             : bookingDoc.lesson.tenant;
         }
-        
+
         if (bookingTenantId && bookingTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -523,7 +523,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", id, {
-          status: "cancelled",
+        status: "cancelled",
       }, {
         overrideAccess: tenantId ? true : false,
         user: ctx.user,
@@ -548,7 +548,7 @@ export const bookingsRouter = {
 
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-            status: "waiting",
+          status: "waiting",
         }, {
           overrideAccess: false,
           user: ctx.user,
@@ -558,9 +558,9 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-          lesson: input.id,
-          user: ctx.user.id,
-          status: "waiting",
+        lesson: input.id,
+        user: ctx.user.id,
+        status: "waiting",
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -592,7 +592,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status: "cancelled",
+        status: "cancelled",
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -609,9 +609,9 @@ export const bookingsRouter = {
         "lessons",
         input.id,
         {
-        depth: 3,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 3,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -723,9 +723,9 @@ export const bookingsRouter = {
         "users",
         input.childId,
         {
-        depth: 4,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 4,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -749,7 +749,7 @@ export const bookingsRouter = {
 
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-            status: status,
+          status: status,
         }, {
           overrideAccess: false,
           user: child,
@@ -759,9 +759,9 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-          lesson: input.lessonId,
-          user: child.id,
-          status: status,
+        lesson: input.lessonId,
+        user: child.id,
+        status: status,
       }, {
         overrideAccess: false,
         user: child,
@@ -795,9 +795,9 @@ export const bookingsRouter = {
         "users",
         input.childId,
         {
-        depth: 4,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 4,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -809,7 +809,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status: "cancelled",
+        status: "cancelled",
       }, {
         overrideAccess: false,
         user: child,
@@ -907,8 +907,8 @@ export const bookingsRouter = {
             tenantId = typeof lessonTenant === 'object' && lessonTenant !== null && 'id' in lessonTenant
               ? lessonTenant.id as number
               : typeof lessonTenant === 'number'
-              ? lessonTenant
-              : null;
+                ? lessonTenant
+                : null;
           }
         } catch (error) {
           // If lesson lookup fails, continue without tenant filter
@@ -936,7 +936,7 @@ export const bookingsRouter = {
         overrideAccess: tenantId ? true : false,
         user: ctx.user,
       });
-      
+
       // Filter by tenant if tenant context is available (for multi-tenant apps)
       // Bookings have a lesson relationship, and the lesson has the tenant field
       // With depth: 2, the lesson should be populated, so we can check lesson.tenant
@@ -954,7 +954,7 @@ export const bookingsRouter = {
             // If booking has a different tenant, exclude it
             return false;
           }
-          
+
           // Otherwise check via lesson.tenant (with depth: 2, lesson should be populated)
           if (typeof booking.lesson === 'object' && booking.lesson && booking.lesson !== null) {
             if (booking.lesson.tenant) {
@@ -968,7 +968,7 @@ export const bookingsRouter = {
               return false;
             }
           }
-          
+
           // If no tenant found on booking or lesson, include it (backward compatibility)
           // This handles cases where:
           // 1. Lesson isn't populated (shouldn't happen with depth: 2, but handle gracefully)
@@ -977,7 +977,7 @@ export const bookingsRouter = {
           // We include these to avoid breaking existing functionality
           return true;
         });
-        
+
         // Debug logging to help diagnose issues
         if (bookings.docs.length > 0 && filteredBookings.length === 0) {
           console.warn(`[getUserBookingsForLesson] Filtered out all ${bookings.docs.length} bookings for lesson ${input.lessonId}, user ${ctx.user.id}, tenant ${tenantId}`);
@@ -991,6 +991,263 @@ export const bookingsRouter = {
       }
 
       return filteredBookings.map((booking: any) => booking as Booking);
+    }),
+  /**
+   * Unified schedule mutation: set the current viewer's booking intent for a lesson.
+   *
+   * This is designed for the schedule button UX:
+   * - one endpoint for book/cancel/waitlist actions
+   * - returns a scheduleState snapshot so the UI can update predictably
+   */
+  setMyBookingForLesson: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        intent: z.enum(["confirm", "cancel", "joinWaitlist", "leaveWaitlist"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { lessonId, intent } = input;
+
+      const viewerIdRaw: any = (ctx.user as any)?.id;
+      const viewerId =
+        typeof viewerIdRaw === "string" ? parseInt(viewerIdRaw, 10) : viewerIdRaw;
+      if (!viewerId || Number.isNaN(viewerId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid user ID" });
+      }
+
+      // Resolve tenant context (cookie -> host -> lesson fallback)
+      const cookieHeader = ctx.headers.get("cookie") || "";
+      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+      let tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+
+      if (!tenantSlug) {
+        const hostHeader =
+          ctx.headers.get("x-forwarded-host") || ctx.headers.get("host") || "";
+        const hostWithoutPort = hostHeader.split(":")[0] || "";
+        const parts = hostWithoutPort.split(".");
+        const isLocalhost = hostWithoutPort.includes("localhost");
+
+        if (isLocalhost) {
+          if (parts.length > 1 && parts[0] && parts[0] !== "localhost") {
+            tenantSlug = parts[0];
+          }
+        } else {
+          if (parts.length >= 3 && parts[0]) {
+            tenantSlug = parts[0];
+          }
+        }
+      }
+
+      let tenantId: number | null = null;
+      if (tenantSlug && hasCollection(ctx.payload, "tenants")) {
+        try {
+          const tenantResult = await findSafe(ctx.payload, "tenants", {
+            where: { slug: { equals: tenantSlug } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          });
+          if (tenantResult.docs[0]) tenantId = tenantResult.docs[0].id as number;
+        } catch {
+          // ignore; backward compatibility
+        }
+      }
+
+      if (!tenantId && hasCollection(ctx.payload, "lessons")) {
+        try {
+          const lessonLookup = await findSafe(ctx.payload, "lessons", {
+            where: { id: { equals: lessonId } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          });
+          const lt = (lessonLookup.docs[0] as any)?.tenant;
+          if (lt) {
+            tenantId =
+              typeof lt === "object" && lt !== null && "id" in lt
+                ? (lt as any).id
+                : typeof lt === "number"
+                  ? lt
+                  : null;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 2,
+        overrideAccess: tenantId ? true : false,
+        user: ctx.user,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+      }
+
+      if (tenantId) {
+        const lessonTenantId =
+          typeof lesson.tenant === "object" && lesson.tenant !== null
+            ? lesson.tenant.id
+            : lesson.tenant;
+        if (lessonTenantId !== tenantId) {
+          throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+        }
+      }
+
+      const computeScheduleState = async (): Promise<LessonScheduleState> => {
+        const now = new Date();
+        const start = new Date(lesson.startTime);
+        const startMs = start.getTime();
+        const lockOutTime = typeof (lesson as any).lockOutTime === "number" ? (lesson as any).lockOutTime : 0;
+
+        const closed =
+          Number.isFinite(startMs) &&
+          (now.getTime() >= startMs ||
+            (lockOutTime > 0 && now.getTime() >= startMs - lockOutTime * 60_000));
+
+        const bookingsResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            and: [
+              { lesson: { equals: lessonId } },
+              { status: { in: ["confirmed", "waiting"] } },
+            ],
+          },
+          depth: 2,
+          limit: 0,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        });
+
+        const bookings = bookingsResult.docs as any[];
+        const totalConfirmedCount = bookings.filter((b) => b.status === "confirmed").length;
+        const places = typeof (lesson.classOption as any)?.places === "number" ? (lesson.classOption as any).places : null;
+        const isFull = typeof places === "number" ? totalConfirmedCount >= places : false;
+
+        const viewerConfirmedIds: number[] = [];
+        const viewerWaitingIds: number[] = [];
+        const isChildClass = (lesson.classOption as any)?.type === "child";
+
+        for (const b of bookings) {
+          const bookingUser = b.user;
+          const bookingUserId =
+            typeof bookingUser === "object" && bookingUser !== null ? bookingUser.id : bookingUser;
+          const bookingParentId =
+            typeof bookingUser === "object" && bookingUser !== null
+              ? typeof bookingUser.parentUser === "object" && bookingUser.parentUser !== null
+                ? bookingUser.parentUser.id
+                : bookingUser.parentUser
+              : null;
+
+          const matchesViewer = isChildClass ? bookingParentId === viewerId : bookingUserId === viewerId;
+          if (!matchesViewer) continue;
+
+          if (b.status === "confirmed") viewerConfirmedIds.push(Number(b.id));
+          if (b.status === "waiting") viewerWaitingIds.push(Number(b.id));
+        }
+
+        const availability: LessonScheduleState["availability"] = closed ? "closed" : isFull ? "full" : "open";
+
+        let action: LessonScheduleState["action"] = "book";
+        if (availability === "closed") action = "closed";
+        else if (isChildClass) action = "manageChildren";
+        else if (viewerConfirmedIds.length >= 2) action = "modify";
+        else if (viewerConfirmedIds.length === 1) action = "cancel";
+        else if (viewerWaitingIds.length > 0) action = "leaveWaitlist";
+        else if (availability === "full") action = "joinWaitlist";
+        else action = "book";
+
+        const labelByAction: Record<LessonScheduleState["action"], string> = {
+          book: "Book",
+          cancel: "Cancel Booking",
+          modify: "Modify Booking",
+          joinWaitlist: "Join Waitlist",
+          leaveWaitlist: "Leave Waitlist",
+          closed: "Closed",
+          loginToBook: "Book",
+          manageChildren: "Manage Children",
+        };
+
+        return {
+          availability,
+          viewer: {
+            confirmedIds: viewerConfirmedIds,
+            confirmedCount: viewerConfirmedIds.length,
+            waitingIds: viewerWaitingIds,
+            waitingCount: viewerWaitingIds.length,
+          },
+          action,
+          label: labelByAction[action],
+        };
+      };
+
+      // Child lessons are handled on the dedicated children booking page.
+      if ((lesson.classOption as any)?.type === "child") {
+        return {
+          scheduleState: await computeScheduleState(),
+          redirectUrl: `/bookings/children/${lessonId}`,
+        };
+      }
+
+      const currentState = await computeScheduleState();
+
+      // Execute intent
+      if (intent === "confirm") {
+        if (currentState.availability === "closed") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Lesson is closed" });
+        }
+        if (currentState.viewer.confirmedCount === 0) {
+          await createSafe(ctx.payload, "bookings", {
+            lesson: lessonId,
+            user: viewerId,
+            status: "confirmed",
+          }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } else if (intent === "cancel") {
+        if (currentState.viewer.confirmedCount >= 2) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Multiple bookings exist; manage bookings to cancel",
+          });
+        }
+        const bookingId = currentState.viewer.confirmedIds[0];
+        if (bookingId) {
+          await updateSafe(ctx.payload, "bookings", bookingId, { status: "cancelled" }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } else if (intent === "joinWaitlist") {
+        if (currentState.availability !== "full") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Lesson is not full" });
+        }
+        if (currentState.viewer.waitingCount === 0 && currentState.viewer.confirmedCount === 0) {
+          await createSafe(ctx.payload, "bookings", {
+            lesson: lessonId,
+            user: viewerId,
+            status: "waiting",
+          }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } else if (intent === "leaveWaitlist") {
+        for (const bookingId of currentState.viewer.waitingIds) {
+          await updateSafe(ctx.payload, "bookings", bookingId, { status: "cancelled" }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      }
+
+      return {
+        scheduleState: await computeScheduleState(),
+      };
     }),
   /**
    * Validates if a user can be checked in for a lesson and attempts check-in if possible.
@@ -1063,7 +1320,7 @@ export const bookingsRouter = {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant;
-        
+
         if (lessonTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -1080,6 +1337,8 @@ export const bookingsRouter = {
           reason: `Lesson status is ${lesson.bookingStatus}, check-in not available`,
         };
       }
+
+      console.log("User is authenticated:", ctx.user);
 
       // Attempt check-in by calling the existing checkIn procedure logic
       try {
@@ -1107,9 +1366,19 @@ export const bookingsRouter = {
 
         if (existingBooking.docs.length === 0) {
           // Create new booking
+          // Ensure user ID is a number for Payload validation
+          const userId = typeof ctx.user.id === 'string' ? parseInt(ctx.user.id, 10) : ctx.user.id;
+          
+          if (!userId || isNaN(userId as number)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid user ID",
+            });
+          }
+
           await createSafe(ctx.payload, "bookings", {
             lesson: lessonId,
-            user: ctx.user.id,
+            user: userId,
             status: "confirmed",
           }, {
             overrideAccess: false,
@@ -1132,6 +1401,7 @@ export const bookingsRouter = {
           reason: null,
         };
       } catch (error: any) {
+        console.error("Error validating and attempting check-in:", error);
         // If booking creation/update fails due to membership/payment issues
         return {
           shouldRedirect: false,
@@ -1205,7 +1475,7 @@ export const bookingsRouter = {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant;
-        
+
         if (lessonTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -1241,7 +1511,7 @@ export const bookingsRouter = {
             }
             return false;
           }
-          
+
           if (typeof booking.lesson === 'object' && booking.lesson && booking.lesson !== null) {
             if (booking.lesson.tenant) {
               const lessonTenantId = typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
@@ -1253,7 +1523,7 @@ export const bookingsRouter = {
               return false;
             }
           }
-          
+
           return true; // Backward compatibility
         });
       }
@@ -1312,7 +1582,7 @@ export const bookingsRouter = {
             overrideAccess: tenantId ? true : false,
             user: ctx.user,
           });
-          
+
           // Return all confirmed bookings (existing + newly fetched with consistent depth)
           return [...confirmedBookings, ...fetchedNewBookings.docs] as Booking[];
         }
@@ -1336,10 +1606,10 @@ export const bookingsRouter = {
         for (let i = 0; i < toCancel && i < sortedBookings.length; i++) {
           const bookingToCancel = sortedBookings[i];
           if (!bookingToCancel) continue;
-          
+
           const bookingId = bookingToCancel.id;
           if (!bookingId) continue;
-          
+
           await updateSafe(
             ctx.payload,
             "bookings",

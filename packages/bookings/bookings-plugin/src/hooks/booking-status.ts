@@ -132,22 +132,29 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       return "active";
     }
 
-    // Fetch all bookings for this lesson once
-    const bookingQuery = await req.payload.find({
+    // Compute capacity cheaply (avoid loading all bookings + deep relationships).
+    // We bypass access control here because this is an internal derived field.
+    const confirmedCountResult = await req.payload.find({
       collection: "bookings",
-      depth: 3,
+      depth: 0,
+      limit: 0,
+      overrideAccess: true,
       where: {
-        lesson: {
-          equals: data.id,
-        },
+        and: [
+          { lesson: { equals: data.id } },
+          { status: { equals: "confirmed" } },
+        ],
       },
       context: {
         triggerAfterChange: false,
       },
     });
 
-    const bookings = bookingQuery.docs as unknown as Booking[];
-    const confirmedCount = getConfirmedBookingsCount(bookings);
+    const confirmedCount =
+      typeof (confirmedCountResult as any)?.totalDocs === "number"
+        ? (confirmedCountResult as any).totalDocs
+        : (confirmedCountResult.docs as any[]).length;
+
     const isFull = confirmedCount >= classOption.places;
     const trialable = isTrialable(classOption);
 
@@ -157,32 +164,67 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
     // Check children bookings (only for child classes) - check this first
     if (classOption.type === "child" && userId) {
-      if (hasParentConfirmedBooking(bookings, userId)) {
+      const parentConfirmed = await req.payload.find({
+        collection: "bookings",
+        depth: 0,
+        limit: 1,
+        overrideAccess: true,
+        where: {
+          and: [
+            { lesson: { equals: data.id } },
+            { "user.parentUser": { equals: userId } },
+            { status: { equals: "confirmed" } },
+          ],
+        },
+        context: { triggerAfterChange: false },
+      });
+
+      if (parentConfirmed.docs.length > 0) {
         return "childrenBooked";
       }
     }
 
-    // Check if user already has confirmed bookings - check before checking if lesson is closed
-    if (userId && hasUserConfirmedBooking(bookings, userId)) {
-      // Count user's confirmed bookings
-      const userConfirmedCount = bookings.filter(
-        (booking) =>
-          getUserFromBooking(booking).id === userId &&
-          booking.status === "confirmed"
-      ).length;
-      
-      // If user has 2+ confirmed bookings, return "multipleBooked"
-      if (userConfirmedCount >= 2) {
-        return "multipleBooked";
-      }
-      
-      // Otherwise return "booked" for single booking
-      return "booked";
+    // Check if user already has confirmed bookings for this lesson
+    if (userId) {
+      const userConfirmed = await req.payload.find({
+        collection: "bookings",
+        depth: 0,
+        limit: 2,
+        overrideAccess: true,
+        where: {
+          and: [
+            { lesson: { equals: data.id } },
+            { user: { equals: userId } },
+            { status: { equals: "confirmed" } },
+          ],
+        },
+        context: { triggerAfterChange: false },
+      });
+
+      if (userConfirmed.docs.length >= 2) return "multipleBooked";
+      if (userConfirmed.docs.length === 1) return "booked";
     }
 
     // Check if user is on waiting list
-    if (userId && hasUserWaitingBooking(bookings, userId) && isFull) {
-      return "waiting";
+    if (userId && isFull) {
+      const userWaiting = await req.payload.find({
+        collection: "bookings",
+        depth: 0,
+        limit: 1,
+        overrideAccess: true,
+        where: {
+          and: [
+            { lesson: { equals: data.id } },
+            { user: { equals: userId } },
+            { status: { equals: "waiting" } },
+          ],
+        },
+        context: { triggerAfterChange: false },
+      });
+
+      if (userWaiting.docs.length > 0) {
+        return "waiting";
+      }
     }
 
     // Check if lesson is closed (lock-out time) - check after user booking status

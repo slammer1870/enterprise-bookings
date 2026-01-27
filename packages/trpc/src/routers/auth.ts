@@ -7,6 +7,12 @@ import { TRPCError } from "@trpc/server";
 
 export const authRouter = {
   getSession: publicProcedure.query(async ({ ctx }) => {
+    // Prefer Better Auth session when configured (magic-link login uses this).
+    if (ctx.betterAuth?.api?.getSession) {
+      const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+      return session?.user ? session : null;
+    }
+
     const session = await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false });
     return session?.user ? session : null;
   }),

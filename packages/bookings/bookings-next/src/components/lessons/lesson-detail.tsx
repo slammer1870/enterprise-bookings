@@ -73,11 +73,10 @@ export function LessonDetail({
       </div>
       <div className="w-full md:w-1/4">
         <CheckInButton
-          bookingStatus={lesson.bookingStatus}
+          lessonId={lesson.id}
           type={lesson.classOption.type}
-          id={lesson.id}
+          scheduleState={lesson.scheduleState}
           manageHref={manageHref}
-          myBookingCount={lesson.myBookingCount}
         />
       </div>
     </div>

@@ -13,6 +13,7 @@ import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
 type BetterAuthInstance = {
   api: {
+    getSession: (_args: { headers: Headers }) => Promise<{ user?: any } | null>;
     signInMagicLink: (_args: {
       body: {
         email: string;
@@ -100,6 +101,22 @@ export const createTRPCRouter = t.router;
  */
 export const publicProcedure = t.procedure;
 
+async function getRequestUser(ctx: Context) {
+  // Prefer Better Auth session (used by magic-link flow). Fall back to Payload auth
+  // for apps that haven't enabled Better Auth yet.
+  if (ctx.betterAuth?.api?.getSession) {
+    const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+    return session?.user ?? null;
+  }
+
+  const auth = await ctx.payload.auth({
+    headers: ctx.headers,
+    canSetHeaders: false,
+  });
+
+  return auth.user ?? null;
+}
+
 /**
  * Protected (authenticated) procedure
  *
@@ -111,12 +128,9 @@ export const publicProcedure = t.procedure;
 export const protectedProcedure = publicProcedure.use(async (opts) => {
   const { ctx } = opts;
 
-  const auth = await ctx.payload.auth({
-    headers: ctx.headers,
-    canSetHeaders: false,
-  });
+  const user = await getRequestUser(ctx);
 
-  if (!auth.user)
+  if (!user)
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to access this resource",
@@ -125,7 +139,7 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
   return opts.next({
     ctx: {
       ...ctx,
-      user: auth.user,
+      user,
     },
   });
 });

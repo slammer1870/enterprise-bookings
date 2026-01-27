@@ -50,26 +50,6 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               credentials: "include",
             });
           },
-          headers() {
-            const headers = new Headers();
-            headers.set("x-trpc-source", "nextjs-react");
-
-            // Extract JWT token from payload-token cookie for authentication
-            if (typeof document !== "undefined") {
-              const cookies = document.cookie.split(';');
-              const payloadCookie = cookies.find(cookie => 
-                cookie.trim().startsWith('payload-token=')
-              );
-              if (payloadCookie) {
-                const token = payloadCookie.split('=')[1];
-                if (token) {
-                  headers.set("Authorization", `JWT ${token}`);
-                }
-              }
-            }
-
-            return headers;
-          },
         }),
       ],
     })

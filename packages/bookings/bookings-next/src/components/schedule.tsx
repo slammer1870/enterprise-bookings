@@ -25,8 +25,18 @@ export function Schedule({
 
   const { data: lessons, isLoading } = useQuery({
     ...trpc.lessons.getByDate.queryOptions({
-      date: selectedDate.toISOString(),
+      // Date-only string so the requested day matches the UI label (toDateString).
+      // toISOString() is UTC and can shift the calendar day near midnight, breaking E2E "tomorrow".
+      date: selectedDate.toDateString(),
     }),
+    // Always refetch on mount to ensure fresh data after navigation (e.g., after booking)
+    // This ensures bookingStatus is recalculated with the latest booking data
+    refetchOnMount: 'always',
+    // Also refetch when window becomes visible (user returns to tab)
+    refetchOnWindowFocus: true,
+    // Use a short stale time (1 second) to balance freshness with performance
+    // This ensures data is refetched if it's older than 1 second
+    staleTime: 1000,
   });
 
   return (
