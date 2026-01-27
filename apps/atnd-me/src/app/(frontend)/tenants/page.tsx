@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { getPayload } from 'payload'
-import config from '@payload-config'
+
+import { getPayload } from '@/lib/payload'
 import type { Tenant } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
 
@@ -9,7 +9,7 @@ import { getServerSideURL } from '@/utilities/getURL'
  * Public access, no tenant context required
  */
 export default async function TenantsPage() {
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
   
   // Query all tenants (public read access)
   const tenantsResult = await payload.find({

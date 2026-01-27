@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getPayload } from 'payload'
-import config from '@payload-config'
 import { cookies } from 'next/headers'
+
+import { getPayload } from '@/lib/payload'
 
 /**
  * API route to resolve tenant slug to tenant ID
@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No tenant slug provided' }, { status: 400 })
     }
 
-    const payload = await getPayload({ config })
-    
+    const payload = await getPayload()
+
     const tenantResult = await payload.find({
       collection: 'tenants',
       where: {

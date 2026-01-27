@@ -1,5 +1,4 @@
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import { getPayload } from '@/lib/payload'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -26,7 +25,7 @@ export default async function RootPage() {
   
   // If tenant context exists, validate tenant exists before redirecting
   if (tenantSlug) {
-    const payload = await getPayload({ config })
+    const payload = await getPayload()
     
     // Validate that the tenant exists
     try {
@@ -60,7 +59,7 @@ export default async function RootPage() {
 
   // For root domain (no subdomain), try to load an editable landing page
   // Look for a page with slug "root" with no tenant (global marketing page)
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
   
   // Try to find a root page (slug "root" with no tenant)
   // Use overrideAccess to bypass tenant filtering for root domain pages

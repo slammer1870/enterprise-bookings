@@ -1,8 +1,7 @@
 import type { Metadata } from 'next/types'
 
 import { CollectionArchive } from '@/components/CollectionArchive'
-import configPromise from '@payload-config'
-import { getPayload } from 'payload'
+import { getPayload } from '@/lib/payload'
 import React from 'react'
 import { Search } from '@/search/Component'
 import PageClient from './page.client'
@@ -15,7 +14,7 @@ type Args = {
 }
 export default async function Page({ searchParams: searchParamsPromise }: Args) {
   const { q: query } = await searchParamsPromise
-  const payload = await getPayload({ config: configPromise })
+  const payload = await getPayload()
 
   const posts = await payload.find({
     collection: 'search',

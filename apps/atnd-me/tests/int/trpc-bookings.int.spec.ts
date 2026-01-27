@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
@@ -13,9 +13,7 @@ describe('tRPC Bookings Integration Tests', () => {
   let user: User
   let lesson: Lesson
   let classOption: ClassOption
-  let testTenant: { id: number | string }
-  let authSpy: ReturnType<typeof vi.spyOn>
-
+  let testTenant: { id: number | string; slug: string }
   // Helper to create tenant-scoped documents with tenant automatically added
   const createWithTenant = async <T = any>(
     collection: 'lessons' | 'class-options' | 'bookings' | 'instructors',
@@ -63,13 +61,6 @@ describe('tRPC Bookings Integration Tests', () => {
       overrideAccess: true, // Bypass access controls for test setup
     } as Parameters<typeof payload.create>[0])) as User
 
-    // Set up auth spy once for all tests
-    authSpy = vi.spyOn(payload, 'auth').mockImplementation(async () => {
-      return {
-        user: user as any,
-      } as any
-    }) as any
-
     // Create class option with tenant
     // Use overrideAccess to bypass access controls for test setup
     // Use unique name with timestamp to avoid conflicts
@@ -111,11 +102,6 @@ describe('tRPC Bookings Integration Tests', () => {
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
-    // Restore auth spy
-    if (authSpy) {
-      authSpy.mockRestore()
-    }
-
     if (payload) {
       // Cleanup test data
       try {
@@ -148,15 +134,69 @@ describe('tRPC Bookings Integration Tests', () => {
 
   const createCaller = async () => {
     const headers = new Headers()
-    
+    headers.set('cookie', `tenant-slug=${testTenant.slug}`)
     const ctx = await createTRPCContext({
       headers,
       payload,
+      user,
     })
-
-    // Create caller - the auth spy set up in beforeAll will be used
     return appRouter.createCaller(ctx)
   }
+
+  /** Caller with no user override – uses real auth (Better Auth / Payload). No session in tests → unauthenticated. */
+  const createUnauthenticatedCaller = async () => {
+    const headers = new Headers()
+    headers.set('cookie', `tenant-slug=${testTenant.slug}`)
+    const ctx = await createTRPCContext({ headers, payload })
+    return appRouter.createCaller(ctx)
+  }
+
+  describe('Auth: unauthenticated access is rejected', () => {
+    it('lessons.getByIdForBooking throws when not logged in', async () => {
+      const caller = await createUnauthenticatedCaller()
+      await expect(caller.lessons.getByIdForBooking({ id: lesson.id })).rejects.toThrow(
+        'You must be logged in to access this resource'
+      )
+    })
+
+    it('lessons.getById throws when not logged in', async () => {
+      const caller = await createUnauthenticatedCaller()
+      await expect(caller.lessons.getById({ id: lesson.id })).rejects.toThrow(
+        'You must be logged in to access this resource'
+      )
+    })
+
+    it('bookings.createBookings throws when not logged in', async () => {
+      const caller = await createUnauthenticatedCaller()
+      await expect(
+        caller.bookings.createBookings({ lessonId: lesson.id, quantity: 1 })
+      ).rejects.toThrow('You must be logged in to access this resource')
+    })
+
+    it('bookings.getUserBookingsForLesson throws when not logged in', async () => {
+      const caller = await createUnauthenticatedCaller()
+      await expect(
+        caller.bookings.getUserBookingsForLesson({ lessonId: lesson.id })
+      ).rejects.toThrow('You must be logged in to access this resource')
+    })
+
+    it('bookings.cancelBooking throws when not logged in', async () => {
+      const caller = await createUnauthenticatedCaller()
+      await expect(caller.bookings.cancelBooking({ id: 99999 })).rejects.toThrow(
+        'You must be logged in to access this resource'
+      )
+    })
+
+    it('bookings.setMyBookingQuantityForLesson throws when not logged in', async () => {
+      const caller = await createUnauthenticatedCaller()
+      await expect(
+        caller.bookings.setMyBookingQuantityForLesson({
+          lessonId: lesson.id,
+          desiredQuantity: 1,
+        })
+      ).rejects.toThrow('You must be logged in to access this resource')
+    })
+  })
 
   describe('lessons.getByIdForBooking', () => {
     it('should fetch a lesson successfully', async () => {

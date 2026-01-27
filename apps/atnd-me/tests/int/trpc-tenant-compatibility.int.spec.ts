@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
@@ -128,6 +128,32 @@ describe('tRPC Tenant Compatibility Tests', () => {
     }
   })
 
+  describe('Auth: unauthenticated access is rejected', () => {
+    it('lessons.getById throws when no user in context', async () => {
+      const headers = new Headers()
+      headers.set('cookie', `tenant-slug=${testTenant.slug}`)
+      const ctx = await createTRPCContext({ headers, payload })
+      const caller = appRouter.createCaller(ctx)
+      await expect(caller.lessons.getById({ id: testLesson.id })).rejects.toThrow(
+        'You must be logged in to access this resource'
+      )
+    })
+
+    it('bookings.createBookings throws when no user in context', async () => {
+      const headers = new Headers()
+      headers.set('cookie', `tenant-slug=${testTenant.slug}`)
+      const ctx = await createTRPCContext({ headers, payload })
+      const caller = appRouter.createCaller(ctx)
+      await expect(
+        caller.bookings.createBookings({
+          lessonId: testLesson.id,
+          quantity: 1,
+          status: 'confirmed',
+        })
+      ).rejects.toThrow('You must be logged in to access this resource')
+    })
+  })
+
   describe('Multi-tenant app scenarios (with tenants collection)', () => {
     it(
       'lessons.getByDate: returns lessons for subdomain tenant even when user does not have tenant in tenants array',
@@ -138,36 +164,28 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user (who doesn't have this tenant)
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const today = new Date()
+        today.setHours(12, 0, 0, 0)
 
-        try {
-          const today = new Date()
-          today.setHours(12, 0, 0, 0)
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({
+          date: today.toISOString(),
+        })
 
-          const caller = appRouter.createCaller(ctx)
-          const lessons = await caller.lessons.getByDate({
-            date: today.toISOString(),
-          })
+        // Should see lessons for the subdomain tenant
+        const lessonIds = lessons.map((l) => l.id)
+        expect(lessonIds).toContain(testLesson.id)
+        expect(lessons.length).toBeGreaterThan(0)
 
-          // Should see lessons for the subdomain tenant
-          const lessonIds = lessons.map((l) => l.id)
-          expect(lessonIds).toContain(testLesson.id)
-          expect(lessons.length).toBeGreaterThan(0)
-
-          // All lessons should be from the subdomain tenant
-          for (const lesson of lessons) {
-            const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-              ? lesson.tenant.id
-              : lesson.tenant
-            expect(lessonTenantId).toBe(testTenant.id)
-          }
-        } finally {
-          authSpy.mockRestore()
+        // All lessons should be from the subdomain tenant
+        for (const lesson of lessons) {
+          const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
+            ? lesson.tenant.id
+            : lesson.tenant
+          expect(lessonTenantId).toBe(testTenant.id)
         }
       },
       TEST_TIMEOUT,
@@ -182,28 +200,20 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const caller = appRouter.createCaller(ctx)
+        const lesson = await caller.lessons.getById({ id: testLesson.id })
 
-        try {
-          const caller = appRouter.createCaller(ctx)
-          const lesson = await caller.lessons.getById({ id: testLesson.id })
+        expect(lesson).toBeDefined()
+        expect(lesson.id).toBe(testLesson.id)
 
-          expect(lesson).toBeDefined()
-          expect(lesson.id).toBe(testLesson.id)
-
-          // Verify lesson belongs to the subdomain tenant
-          const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-            ? lesson.tenant.id
-            : lesson.tenant
-          expect(lessonTenantId).toBe(testTenant.id)
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Verify lesson belongs to the subdomain tenant
+        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
+          ? lesson.tenant.id
+          : lesson.tenant
+        expect(lessonTenantId).toBe(testTenant.id)
       },
       TEST_TIMEOUT,
     )
@@ -254,28 +264,20 @@ describe('tRPC Tenant Compatibility Tests', () => {
           const ctx = await createTRPCContext({
             headers: mockHeaders,
             payload,
+            user: regularUser,
           })
 
-          // Mock the auth to return regular user
-          const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-            user: regularUser as any,
-          } as any)
+          const caller = appRouter.createCaller(ctx)
+          const lesson = await caller.lessons.getByIdForBooking({ id: availableLesson.id })
 
-          try {
-            const caller = appRouter.createCaller(ctx)
-            const lesson = await caller.lessons.getByIdForBooking({ id: availableLesson.id })
+          expect(lesson).toBeDefined()
+          expect(lesson.id).toBe(availableLesson.id)
 
-            expect(lesson).toBeDefined()
-            expect(lesson.id).toBe(availableLesson.id)
-
-            // Verify lesson belongs to the subdomain tenant
-            const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-              ? lesson.tenant.id
-              : lesson.tenant
-            expect(lessonTenantId).toBe(testTenant.id)
-          } finally {
-            authSpy.mockRestore()
-          }
+          // Verify lesson belongs to the subdomain tenant
+          const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
+            ? lesson.tenant.id
+            : lesson.tenant
+          expect(lessonTenantId).toBe(testTenant.id)
         } finally {
           // Cleanup
           try {
@@ -304,40 +306,32 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const caller = appRouter.createCaller(ctx)
+        const bookings = await caller.bookings.getUserBookingsForLesson({
+          lessonId: testLesson.id,
+        })
 
-        try {
-          const caller = appRouter.createCaller(ctx)
-          const bookings = await caller.bookings.getUserBookingsForLesson({
-            lessonId: testLesson.id,
-          })
+        // Should see bookings for the subdomain tenant
+        const bookingIds = bookings.map((b) => b.id)
+        expect(bookingIds).toContain(testBooking.id)
+        expect(bookings.length).toBeGreaterThan(0)
 
-          // Should see bookings for the subdomain tenant
-          const bookingIds = bookings.map((b) => b.id)
-          expect(bookingIds).toContain(testBooking.id)
-          expect(bookings.length).toBeGreaterThan(0)
-
-          // All bookings should be for the subdomain tenant
-          for (const booking of bookings) {
-            // Check booking.tenant or booking.lesson.tenant
-            const bookingTenantId = booking.tenant
-              ? (typeof booking.tenant === 'object' && booking.tenant !== null
-                  ? booking.tenant.id
-                  : booking.tenant)
-              : (typeof booking.lesson === 'object' && booking.lesson?.tenant
-                  ? (typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
-                      ? booking.lesson.tenant.id
-                      : booking.lesson.tenant)
-                  : null)
-            expect(bookingTenantId).toBe(testTenant.id)
-          }
-        } finally {
-          authSpy.mockRestore()
+        // All bookings should be for the subdomain tenant
+        for (const booking of bookings) {
+          // Check booking.tenant or booking.lesson.tenant
+          const bookingTenantId = booking.tenant
+            ? (typeof booking.tenant === 'object' && booking.tenant !== null
+                ? booking.tenant.id
+                : booking.tenant)
+            : (typeof booking.lesson === 'object' && booking.lesson?.tenant
+                ? (typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
+                    ? booking.lesson.tenant.id
+                    : booking.lesson.tenant)
+                : null)
+          expect(bookingTenantId).toBe(testTenant.id)
         }
       },
       TEST_TIMEOUT,
@@ -352,41 +346,33 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const caller = appRouter.createCaller(ctx)
+        const bookings = await caller.bookings.createBookings({
+          lessonId: testLesson.id,
+          quantity: 1,
+          status: 'confirmed',
+        })
 
-        try {
-          const caller = appRouter.createCaller(ctx)
-          const bookings = await caller.bookings.createBookings({
-            lessonId: testLesson.id,
-            quantity: 1,
-            status: 'confirmed',
-          })
+        expect(bookings).toBeDefined()
+        expect(bookings.length).toBe(1)
 
-          expect(bookings).toBeDefined()
-          expect(bookings.length).toBe(1)
+        // Verify booking belongs to the subdomain tenant
+        const booking = bookings[0]
+        const bookingTenantId = booking.tenant
+          ? (typeof booking.tenant === 'object' && booking.tenant !== null
+              ? booking.tenant.id
+              : booking.tenant)
+          : null
+        expect(bookingTenantId).toBe(testTenant.id)
 
-          // Verify booking belongs to the subdomain tenant
-          const booking = bookings[0]
-          const bookingTenantId = booking.tenant
-            ? (typeof booking.tenant === 'object' && booking.tenant !== null
-                ? booking.tenant.id
-                : booking.tenant)
-            : null
-          expect(bookingTenantId).toBe(testTenant.id)
-
-          // Cleanup
-          await payload.delete({
-            collection: 'bookings',
-            where: { id: { equals: booking.id } },
-          })
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Cleanup
+        await payload.delete({
+          collection: 'bookings',
+          where: { id: { equals: booking.id } },
+        })
       },
       TEST_TIMEOUT,
     )
@@ -412,33 +398,26 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const caller = appRouter.createCaller(ctx)
+        const cancelledBooking = await caller.bookings.cancelBooking({
+          id: bookingToCancel.id,
+        })
 
+        expect(cancelledBooking).toBeDefined()
+        expect(cancelledBooking.id).toBe(bookingToCancel.id)
+        expect(cancelledBooking.status).toBe('cancelled')
+
+        // Cleanup
         try {
-          const caller = appRouter.createCaller(ctx)
-          const cancelledBooking = await caller.bookings.cancelBooking({
-            id: bookingToCancel.id,
+          await payload.delete({
+            collection: 'bookings',
+            where: { id: { equals: bookingToCancel.id } },
           })
-
-          expect(cancelledBooking).toBeDefined()
-          expect(cancelledBooking.id).toBe(bookingToCancel.id)
-          expect(cancelledBooking.status).toBe('cancelled')
-        } finally {
-          authSpy.mockRestore()
-          // Cleanup
-          try {
-            await payload.delete({
-              collection: 'bookings',
-              where: { id: { equals: bookingToCancel.id } },
-            })
-          } catch {
-            // ignore cleanup errors
-          }
+        } catch {
+          // ignore cleanup errors
         }
       },
       TEST_TIMEOUT,
@@ -455,30 +434,22 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const today = new Date()
+        today.setHours(12, 0, 0, 0)
 
-        try {
-          const today = new Date()
-          today.setHours(12, 0, 0, 0)
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({
+          date: today.toISOString(),
+        })
 
-          const caller = appRouter.createCaller(ctx)
-          const lessons = await caller.lessons.getByDate({
-            date: today.toISOString(),
-          })
-
-          // Should work without errors (backward compatibility)
-          // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
-          // This tests that the code gracefully handles the absence of tenant context
-          expect(Array.isArray(lessons)).toBe(true)
-          // The important thing is it doesn't throw an error
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Should work without errors (backward compatibility)
+        // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
+        // This tests that the code gracefully handles the absence of tenant context
+        expect(Array.isArray(lessons)).toBe(true)
+        // The important thing is it doesn't throw an error
       },
       TEST_TIMEOUT,
     )
@@ -492,25 +463,17 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const caller = appRouter.createCaller(ctx)
+        const lesson = await caller.lessons.getById({ id: testLesson.id })
 
-        try {
-          const caller = appRouter.createCaller(ctx)
-          const lesson = await caller.lessons.getById({ id: testLesson.id })
-
-          // Should work without errors (backward compatibility)
-          // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
-          // This tests that the code gracefully handles the absence of tenant context
-          expect(lesson).toBeDefined()
-          expect(lesson.id).toBe(testLesson.id)
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Should work without errors (backward compatibility)
+        // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
+        // This tests that the code gracefully handles the absence of tenant context
+        expect(lesson).toBeDefined()
+        expect(lesson.id).toBe(testLesson.id)
       },
       TEST_TIMEOUT,
     )
@@ -524,27 +487,19 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const caller = appRouter.createCaller(ctx)
+        const bookings = await caller.bookings.getUserBookingsForLesson({
+          lessonId: testLesson.id,
+        })
 
-        try {
-          const caller = appRouter.createCaller(ctx)
-          const bookings = await caller.bookings.getUserBookingsForLesson({
-            lessonId: testLesson.id,
-          })
-
-          // Should work without errors (backward compatibility)
-          // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
-          // This tests that the code gracefully handles the absence of tenant context
-          expect(Array.isArray(bookings)).toBe(true)
-          // The important thing is it doesn't throw an error
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Should work without errors (backward compatibility)
+        // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
+        // This tests that the code gracefully handles the absence of tenant context
+        expect(Array.isArray(bookings)).toBe(true)
+        // The important thing is it doesn't throw an error
       },
       TEST_TIMEOUT,
     )
@@ -578,35 +533,27 @@ describe('tRPC Tenant Compatibility Tests', () => {
           const ctx = await createTRPCContext({
             headers: mockHeaders,
             payload,
+            user: regularUser,
           })
 
-          // Mock the auth to return regular user
-          const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-            user: regularUser as any,
-          } as any)
+          const caller = appRouter.createCaller(ctx)
+          const bookings = await caller.bookings.createBookings({
+            lessonId: availableLesson.id,
+            quantity: 1,
+            status: 'confirmed',
+          })
 
-          try {
-            const caller = appRouter.createCaller(ctx)
-            const bookings = await caller.bookings.createBookings({
-              lessonId: availableLesson.id,
-              quantity: 1,
-              status: 'confirmed',
-            })
+          // Should work without errors (backward compatibility)
+          // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
+          // This tests that the code gracefully handles the absence of tenant context
+          expect(Array.isArray(bookings)).toBe(true)
+          expect(bookings.length).toBe(1)
 
-            // Should work without errors (backward compatibility)
-            // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
-            // This tests that the code gracefully handles the absence of tenant context
-            expect(Array.isArray(bookings)).toBe(true)
-            expect(bookings.length).toBe(1)
-
-            // Cleanup
-            await payload.delete({
-              collection: 'bookings',
-              where: { id: { equals: bookings[0].id } },
-            })
-          } finally {
-            authSpy.mockRestore()
-          }
+          // Cleanup
+          await payload.delete({
+            collection: 'bookings',
+            where: { id: { equals: bookings[0].id } },
+          })
         } finally {
           // Cleanup
           try {
@@ -633,38 +580,30 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const today = new Date()
+        today.setHours(12, 0, 0, 0)
 
-        try {
-          const today = new Date()
-          today.setHours(12, 0, 0, 0)
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({
+          date: today.toISOString(),
+        })
 
-          const caller = appRouter.createCaller(ctx)
-          const lessons = await caller.lessons.getByDate({
-            date: today.toISOString(),
-          })
-
-          // Should return empty array when tenant doesn't exist
-          // Note: The default tenant onboarding hook may create lessons, but they won't match
-          // the non-existent tenant slug, so we should get an empty array
-          expect(Array.isArray(lessons)).toBe(true)
-          // Filter out any lessons that might have been created by default hooks
-          const lessonsForNonExistentTenant = lessons.filter((l) => {
-            const lessonTenantId = typeof l.tenant === 'object' && l.tenant !== null
-              ? l.tenant.id
-              : l.tenant
-            // Since the tenant doesn't exist, no lessons should match
-            return false
-          })
-          expect(lessonsForNonExistentTenant.length).toBe(0)
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Should return empty array when tenant doesn't exist
+        // Note: The default tenant onboarding hook may create lessons, but they won't match
+        // the non-existent tenant slug, so we should get an empty array
+        expect(Array.isArray(lessons)).toBe(true)
+        // Filter out any lessons that might have been created by default hooks
+        const lessonsForNonExistentTenant = lessons.filter((l) => {
+          const lessonTenantId = typeof l.tenant === 'object' && l.tenant !== null
+            ? l.tenant.id
+            : l.tenant
+          // Since the tenant doesn't exist, no lessons should match
+          return false
+        })
+        expect(lessonsForNonExistentTenant.length).toBe(0)
       },
       TEST_TIMEOUT,
     )
@@ -678,27 +617,19 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          user: regularUser,
         })
 
-        // Mock the auth to return regular user
-        const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
-          user: regularUser as any,
-        } as any)
+        const today = new Date()
+        today.setHours(12, 0, 0, 0)
 
-        try {
-          const today = new Date()
-          today.setHours(12, 0, 0, 0)
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({
+          date: today.toISOString(),
+        })
 
-          const caller = appRouter.createCaller(ctx)
-          const lessons = await caller.lessons.getByDate({
-            date: today.toISOString(),
-          })
-
-          // Should work without errors (backward compatibility)
-          expect(Array.isArray(lessons)).toBe(true)
-        } finally {
-          authSpy.mockRestore()
-        }
+        // Should work without errors (backward compatibility)
+        expect(Array.isArray(lessons)).toBe(true)
       },
       TEST_TIMEOUT,
     )

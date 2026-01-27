@@ -13,10 +13,10 @@
 // Load environment variables from .env file
 import 'dotenv/config'
 
-import { getPayload } from 'payload'
-import config from '../src/payload.config'
-import { seed } from '../src/endpoints/seed'
 import { createLocalReq } from 'payload'
+
+import { getPayload } from '../src/lib/payload'
+import { seed } from '../src/endpoints/seed'
 import { checkRole } from '@repo/shared-utils'
 import type { User } from '@repo/shared-types'
 
@@ -57,8 +57,7 @@ async function main() {
   console.log('Starting seed process...')
 
   try {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
+    const payload = await getPayload()
 
     // Find or create an admin user for the request context
     let adminUser = await payload.find({

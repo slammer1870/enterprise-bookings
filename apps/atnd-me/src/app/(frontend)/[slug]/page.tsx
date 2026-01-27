@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 import { PayloadRedirects } from '@/components/PayloadRedirects'
-import configPromise from '@payload-config'
-import { getPayload, type RequiredDataFromCollectionSlug } from 'payload'
+import { getPayload } from '@/lib/payload'
+import type { RequiredDataFromCollectionSlug } from 'payload'
 import { draftMode } from 'next/headers'
 import React, { cache } from 'react'
 import { homeStatic } from '@/endpoints/seed/home-static'
@@ -15,7 +15,7 @@ import { LivePreviewListener } from '@/components/LivePreviewListener'
 
 export async function generateStaticParams() {
   try {
-    const payload = await getPayload({ config: configPromise })
+    const payload = await getPayload()
     const pages = await payload.find({
       collection: 'pages',
       draft: false,
@@ -73,7 +73,7 @@ export default async function Page({ params: paramsPromise }: Args) {
   
   // If we have a tenant slug, validate the tenant exists before proceeding
   if (tenantSlug) {
-    const payload = await getPayload({ config: configPromise })
+    const payload = await getPayload()
     try {
       const tenantResult = await payload.find({
         collection: 'tenants',
@@ -149,7 +149,7 @@ const queryPageBySlug = cache(async ({ slug }: { slug: string }) => {
   const cookieStore = await cookies()
   const tenantSlug = cookieStore.get('tenant-slug')?.value
 
-  const payload = await getPayload({ config: configPromise })
+  const payload = await getPayload()
 
   // Resolve tenant slug to tenant ID if subdomain is present
   let tenantId: string | number | null = null

@@ -1,18 +1,17 @@
 import { cache } from 'react'
 import { headers as nextHeaders } from 'next/headers'
-import { getPayload } from 'payload'
-import config from '@payload-config'
 
 import { createServerTRPC, createServerTRPCContext } from '@repo/trpc/server'
 import { appRouter, createTRPCContext } from '@repo/trpc'
 
+import { getPayload } from '@/lib/payload'
 import { stripe } from '../lib/stripe'
 
 const createContext = cache(async () => {
   const heads = new Headers(await nextHeaders())
   heads.set('x-trpc-source', 'rsc')
 
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
 
   return createServerTRPCContext({
     headers: heads,
@@ -44,7 +43,7 @@ export async function createCaller(): Promise<ReturnType<typeof appRouter.create
   const headers = new Headers(heads)
   headers.set('x-trpc-source', 'rsc')
 
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
 
   const ctx = await createTRPCContext({
     headers,

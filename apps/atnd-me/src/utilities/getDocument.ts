@@ -1,13 +1,12 @@
 import type { Config } from 'src/payload-types'
 
-import configPromise from '@payload-config'
-import { getPayload } from 'payload'
+import { getPayload } from '@/lib/payload'
 import { unstable_cache } from './next-cache'
 
 type Collection = keyof Config['collections']
 
 async function getDocument(collection: Collection, slug: string, depth = 0) {
-  const payload = await getPayload({ config: configPromise })
+  const payload = await getPayload()
 
   const page = await payload.find({
     collection,

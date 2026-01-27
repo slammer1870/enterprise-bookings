@@ -1,7 +1,8 @@
-import { createLocalReq, getPayload } from 'payload'
+import { createLocalReq } from 'payload'
 import { seed } from '@/endpoints/seed'
-import config from '@payload-config'
 import { headers } from 'next/headers'
+
+import { getPayload } from '@/lib/payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User } from '@repo/shared-types'
 
@@ -51,7 +52,7 @@ export async function POST(): Promise<Response> {
     }
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
   const requestHeaders = await headers()
 
   // Authenticate by passing request headers

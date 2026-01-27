@@ -47,15 +47,26 @@ export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
   stripe?: Stripe;
+  /**
+   * Optional user injection for server-side callers (e.g. integration tests).
+   * API route handlers should NOT pass this.
+   */
+  user?: any;
 }) => {
   const payload = opts.payload;
   const betterAuth = (payload as PayloadWithBetterAuth).betterAuth;
+  const isTestEnv =
+    process.env.NODE_ENV === "test" ||
+    process.env.VITEST === "true" ||
+    !!process.env.VITEST_WORKER_ID;
 
   return {
     headers: opts.headers,
     payload,
     stripe: opts.stripe,
     betterAuth,
+    // Only allow user injection in test runs to avoid accidental auth bypass in production.
+    user: isTestEnv ? (opts.user ?? null) : null,
   };
 };
 /**
@@ -102,6 +113,14 @@ export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 
 async function getRequestUser(ctx: Context) {
+  const isTestEnv =
+    process.env.NODE_ENV === "test" ||
+    process.env.VITEST === "true" ||
+    !!process.env.VITEST_WORKER_ID;
+
+  // Allow trusted server-side callers (e.g. tests) to inject a user directly.
+  if (isTestEnv && ctx.user) return ctx.user;
+
   // Prefer Better Auth session (used by magic-link flow). Fall back to Payload auth
   // for apps that haven't enabled Better Auth yet.
   if (ctx.betterAuth?.api?.getSession) {
