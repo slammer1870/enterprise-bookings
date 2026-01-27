@@ -22,7 +22,7 @@ import {
   tenantScopedReadFiltered,
 } from '../access/tenant-scoped'
 import { payloadAuth } from './better-auth'
-import { fixBetterAuthTimestamps } from './fix-better-auth-accounts-timestamps'
+import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 
