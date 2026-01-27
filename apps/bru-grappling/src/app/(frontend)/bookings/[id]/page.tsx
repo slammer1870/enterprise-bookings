@@ -8,9 +8,8 @@ import { createCaller } from '@/trpc/server'
 
 import { BookingSummary } from '@repo/bookings-next'
 
-import { getPayload } from 'payload'
+import { getPayload } from '@/lib/payload'
 
-import config from '@payload-config'
 
 import { PaymentMethods } from '@repo/payments-next'
 
@@ -36,7 +35,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect(`/complete-booking?mode=login&callbackUrl=/bookings/${id}`)
   }
 
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
 
   const lessonQuery = await payload.find({
     collection: 'lessons',
