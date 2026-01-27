@@ -282,6 +282,9 @@ importers:
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
+      '@repo/bookings-payments':
+        specifier: workspace:*
+        version: link:../../packages/bookings-payments
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
@@ -306,6 +309,12 @@ importers:
       '@repo/website':
         specifier: workspace:*
         version: link:../../packages/website
+      '@stripe/react-stripe-js':
+        specifier: ^5.4.0
+        version: 5.4.1(@stripe/stripe-js@8.6.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@stripe/stripe-js':
+        specifier: ^8.5.2
+        version: 8.6.1
       '@tanstack/react-query':
         specifier: '*'
         version: 5.90.18(react@19.2.1)
@@ -366,6 +375,9 @@ importers:
       sonner:
         specifier: '*'
         version: 2.0.7(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      stripe:
+        specifier: 17.7.0
+        version: 17.7.0
       tailwind-merge:
         specifier: ^2.3.0
         version: 2.6.0
@@ -614,21 +626,21 @@ importers:
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
+      '@repo/bookings-payments':
+        specifier: workspace:*
+        version: link:../../packages/bookings-payments
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
       '@repo/children':
         specifier: workspace:*
         version: link:../../packages/children
-      '@repo/memberships':
+      '@repo/membership-next':
         specifier: workspace:*
-        version: link:../../packages/memberships
+        version: link:../../packages/membership-next
       '@repo/payments-next':
         specifier: workspace:*
         version: link:../../packages/payments/payments-next
-      '@repo/payments-plugin':
-        specifier: workspace:*
-        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -837,18 +849,18 @@ importers:
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
+      '@repo/bookings-payments':
+        specifier: workspace:*
+        version: link:../../packages/bookings-payments
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
-      '@repo/memberships':
+      '@repo/membership-next':
         specifier: workspace:*
-        version: link:../../packages/memberships
+        version: link:../../packages/membership-next
       '@repo/payments-next':
         specifier: workspace:*
         version: link:../../packages/payments/payments-next
-      '@repo/payments-plugin':
-        specifier: workspace:*
-        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -1073,21 +1085,21 @@ importers:
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
+      '@repo/bookings-payments':
+        specifier: workspace:*
+        version: link:../../packages/bookings-payments
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
       '@repo/children':
         specifier: workspace:*
         version: link:../../packages/children
-      '@repo/memberships':
+      '@repo/membership-next':
         specifier: workspace:*
-        version: link:../../packages/memberships
+        version: link:../../packages/membership-next
       '@repo/payments-next':
         specifier: workspace:*
         version: link:../../packages/payments/payments-next
-      '@repo/payments-plugin':
-        specifier: workspace:*
-        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -1278,15 +1290,15 @@ importers:
       '@repo/bookings-next':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-next
+      '@repo/bookings-payments':
+        specifier: workspace:*
+        version: link:../../packages/bookings-payments
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../../packages/bookings/bookings-plugin
       '@repo/payments-next':
         specifier: workspace:*
         version: link:../../packages/payments/payments-next
-      '@repo/payments-plugin':
-        specifier: workspace:*
-        version: link:../../packages/payments/payments-plugin
       '@repo/roles':
         specifier: workspace:*
         version: link:../../packages/roles
@@ -1669,6 +1681,79 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/bookings-payments:
+    dependencies:
+      '@payloadcms/plugin-stripe':
+        specifier: 3.70.0
+        version: 3.70.0(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
+      '@payloadcms/ui':
+        specifier: 3.70.0
+        version: 3.70.0(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)
+      '@repo/shared-services':
+        specifier: workspace:*
+        version: link:../shared-services
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../ui
+      next:
+        specifier: 15.4.8
+        version: 15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4)
+      react:
+        specifier: 19.2.1
+        version: 19.2.1
+      react-dom:
+        specifier: 19.2.1
+        version: 19.2.1(react@19.2.1)
+      stripe:
+        specifier: 17.7.0
+        version: 17.7.0
+    devDependencies:
+      '@payloadcms/db-postgres':
+        specifier: 3.70.0
+        version: 3.70.0(kysely@0.28.9)(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))
+      '@payloadcms/richtext-lexical':
+        specifier: 3.70.0
+        version: 3.70.0(@faceless-ui/modal@3.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@faceless-ui/scroll-info@2.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@payloadcms/next@3.70.0(@types/react@19.2.8)(graphql@16.12.0)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3))(@types/react@19.2.8)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(yjs@13.6.29)
+      '@repo/bookings-plugin':
+        specifier: workspace:*
+        version: link:../bookings/bookings-plugin
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/payload-testing':
+        specifier: workspace:*
+        version: link:../payload-testing
+      '@repo/testing-config':
+        specifier: workspace:*
+        version: link:../testing-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/react':
+        specifier: 19.2.8
+        version: 19.2.8
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.8)
+      payload:
+        specifier: 3.70.0
+        version: 3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.0.12
+        version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.9)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.2)(sass@1.77.4)(terser@5.46.0)(tsx@4.20.6)(yaml@2.8.2)
+
   packages/bookings/bookings-next:
     dependencies:
       '@repo/analytics':
@@ -1954,6 +2039,28 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/class-pass/class-pass-plugin:
+    dependencies:
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../../shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../../shared-utils
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../../typescript-config
+      payload:
+        specifier: 3.70.0
+        version: 3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/eslint-config:
     dependencies:
       vitest:
@@ -1996,12 +2103,12 @@ importers:
       '@payloadcms/richtext-lexical':
         specifier: 3.70.0
         version: 3.70.0(@faceless-ui/modal@3.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@faceless-ui/scroll-info@2.0.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(@payloadcms/next@3.70.0(graphql@16.12.0)(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3))(monaco-editor@0.52.2)(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(payload@3.70.0(bufferutil@4.1.0)(graphql@16.12.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(yjs@13.6.29)
+      '@repo/bookings-payments':
+        specifier: workspace:*
+        version: link:../bookings-payments
       '@repo/bookings-plugin':
         specifier: workspace:*
         version: link:../bookings/bookings-plugin
-      '@repo/memberships':
-        specifier: workspace:*
-        version: link:../memberships
       '@repo/payload-testing':
         specifier: workspace:*
         version: link:../payload-testing
@@ -2038,6 +2145,55 @@ importers:
       vitest:
         specifier: 4.0.12
         version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.9)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.2)(sass@1.77.4)(terser@5.46.0)(tsx@4.20.6)(yaml@2.8.2)
+
+  packages/membership-next:
+    dependencies:
+      '@repo/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      '@repo/trpc':
+        specifier: workspace:*
+        version: link:../trpc
+      '@repo/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@tanstack/react-query':
+        specifier: '*'
+        version: 5.90.18(react@19.2.1)
+      lucide-react:
+        specifier: 0.554.0
+        version: 0.554.0(react@19.2.1)
+      next:
+        specifier: 15.4.8
+        version: 15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4)
+      react:
+        specifier: 19.2.1
+        version: 19.2.1
+      react-dom:
+        specifier: 19.2.1
+        version: 19.2.1(react@19.2.1)
+      sonner:
+        specifier: '*'
+        version: 2.0.7(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.10.9
+      '@types/react':
+        specifier: 19.2.8
+        version: 19.2.8
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.8)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
   packages/memberships:
     dependencies:
@@ -2153,9 +2309,9 @@ importers:
       '@repo/analytics':
         specifier: workspace:*
         version: link:../../analytics
-      '@repo/memberships':
+      '@repo/membership-next':
         specifier: workspace:*
-        version: link:../../memberships
+        version: link:../../membership-next
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../../shared-types
@@ -12001,7 +12157,7 @@ snapshots:
 
   '@date-fns/tz@1.4.1': {}
 
-  '@daveyplate/better-auth-tanstack@1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
+  '@daveyplate/better-auth-tanstack@1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)':
     dependencies:
       '@tanstack/query-core': 5.90.18
       '@tanstack/react-query': 5.90.18(react@19.2.1)
@@ -12014,7 +12170,7 @@ snapshots:
       '@better-auth/passkey': 1.4.14(@better-auth/core@1.4.14(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.0.19)(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(better-call@1.0.19)(nanostores@1.1.0)
       '@better-fetch/fetch': 1.1.21
       '@captchafox/react': 1.10.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hcaptcha/react-hcaptcha': 1.17.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hookform/resolvers': 5.2.2(react-hook-form@7.56.3(react@19.2.1))
       '@instantdb/react': 0.22.105(react@19.2.1)
@@ -12064,7 +12220,7 @@ snapshots:
       '@better-auth/passkey': 1.4.14(@better-auth/core@1.4.14(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.0.19)(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(better-call@1.0.19)(nanostores@1.1.0)
       '@better-fetch/fetch': 1.1.21
       '@captchafox/react': 1.10.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hcaptcha/react-hcaptcha': 1.17.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hookform/resolvers': 5.2.2(react-hook-form@7.56.3(react@19.2.1))
       '@instantdb/react': 0.22.105(react@19.2.1)
@@ -12113,7 +12269,7 @@ snapshots:
       '@better-auth/passkey': 1.4.14(@better-auth/core@1.4.14(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.0.19)(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(better-call@1.0.19)(nanostores@1.1.0)
       '@better-fetch/fetch': 1.1.21
       '@captchafox/react': 1.10.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
-      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@daveyplate/better-auth-tanstack': 1.3.6(@tanstack/query-core@5.90.18)(@tanstack/react-query@5.90.18(react@19.2.1))(better-auth@1.3.11(next@15.4.8(@babel/core@7.28.6)(@playwright/test@1.56.1)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(sass@1.77.4))(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hcaptcha/react-hcaptcha': 1.17.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       '@hookform/resolvers': 5.2.2(react-hook-form@7.56.3(react@19.2.1))
       '@instantdb/react': 0.22.105(react@19.2.1)

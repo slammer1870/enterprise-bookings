@@ -10,7 +10,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@repo/ui/components/ui/tabs";
-import { PlanView } from "./plan-view";
+import { PlanView } from "@repo/membership-next";
 import { DropInView } from "./drop-ins";
 import { toast } from "sonner";
 

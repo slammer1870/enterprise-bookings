@@ -24,13 +24,13 @@ import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { paymentsPlugin } from '@repo/payments-plugin'
-import { membershipsPlugin } from '@repo/memberships'
-
-import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
-import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
-import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
-import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
+import {
+  bookingsPaymentsPlugin,
+  subscriptionCreated,
+  subscriptionUpdated,
+  subscriptionCanceled,
+  productUpdated,
+} from '@repo/bookings-payments'
 
 import { Lesson, User } from '@repo/shared-types'
 
@@ -114,42 +114,44 @@ export default buildConfig({
         }),
       },
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: false,
-      acceptedPaymentMethods: ['card'],
-    }),
-    membershipsPlugin({
-      enabled: true,
-      paymentMethodSlugs: ['class-options'],
-      subscriptionOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'lastCheckIn',
-            type: 'date',
-            required: false,
-            validate: () => {
-              return true
-            },
-            admin: {
-              date: {
-                pickerAppearance: 'dayOnly',
+    bookingsPaymentsPlugin({
+      payments: {
+        enabled: true,
+        enableDropIns: false,
+        acceptedPaymentMethods: ['card'],
+      },
+      membership: {
+        enabled: true,
+        paymentMethodSlugs: ['class-options'],
+        subscriptionOverrides: {
+          fields: ({ defaultFields }) => [
+            ...defaultFields,
+            {
+              name: 'lastCheckIn',
+              type: 'date',
+              required: false,
+              validate: () => {
+                return true
               },
-              description:
-                'Last confirmed booking date. Automatically updated when bookings are confirmed.',
-              position: 'sidebar',
-              components: {
-                Cell: '@/fields/last-check-in',
+              admin: {
+                date: {
+                  pickerAppearance: 'dayOnly',
+                },
+                description:
+                  'Last confirmed booking date. Automatically updated when bookings are confirmed.',
+                position: 'sidebar',
+                components: {
+                  Cell: '@/fields/last-check-in',
+                },
+                readOnly: true,
               },
-              readOnly: true,
+              hooks: {
+                // Fallback hook to ensure lastCheckIn is always up-to-date when reading
+                afterRead: [getLastCheckIn],
+              },
             },
-            hooks: {
-              // Fallback hook to ensure lastCheckIn is always up-to-date when reading
-              afterRead: [getLastCheckIn],
-            },
-          },
-        ],
+          ],
+        },
       },
     }),
     stripePlugin({

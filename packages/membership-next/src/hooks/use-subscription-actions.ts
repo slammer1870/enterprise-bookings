@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 export type SubscriptionActionsRedirect = 'window' | 'router'
 
-type CheckoutArgs = {
+export type CheckoutArgs = {
   priceId: string
   quantity?: number
   mode?: 'subscription' | 'payment'
@@ -15,20 +15,10 @@ type CheckoutArgs = {
   cancelUrl?: string
 }
 
-type Options = {
+export type UseSubscriptionActionsOptions = {
   redirect?: SubscriptionActionsRedirect
-  /**
-   * Used when building success/cancel URLs if they aren't provided per call.
-   * Defaults to NEXT_PUBLIC_SERVER_URL or window.location.origin.
-   */
   baseUrl?: string
-  /**
-   * Defaults to `${baseUrl}/dashboard`
-   */
   defaultSuccessPath?: string
-  /**
-   * Defaults to `${baseUrl}/dashboard`
-   */
   defaultCancelPath?: string
 }
 
@@ -47,7 +37,7 @@ function cleanMetadata(metadata?: Record<string, string | undefined>) {
   )
 }
 
-export function useSubscriptionActions(options: Options = {}) {
+export function useSubscriptionActions(options: UseSubscriptionActionsOptions = {}) {
   const trpc = useTRPC()
 
   const redirect = options.redirect ?? 'window'
@@ -116,4 +106,3 @@ export function useSubscriptionActions(options: Options = {}) {
     openCustomerPortal,
   }
 }
-

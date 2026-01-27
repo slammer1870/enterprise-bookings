@@ -5,7 +5,7 @@ import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { PlanView } from "./plan-view";
+import { PlanView } from "@repo/membership-next";
 
 type MembershipPaymentMethodsProps = {
   lesson: Lesson;

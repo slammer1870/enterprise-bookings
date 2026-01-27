@@ -1,0 +1,41 @@
+{
+  "name": "@repo/bookings-payments",
+  "version": "0.0.1",
+  "main": "./src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run --hook-timeout=180000"
+  },
+  "dependencies": {
+    "@repo/shared-services": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
+    "@repo/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@payloadcms/db-postgres": "*",
+    "@payloadcms/richtext-lexical": "3.70.0",
+    "@repo/bookings-plugin": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/payload-testing": "workspace:*",
+    "@repo/testing-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "payload": "*",
+    "typescript": "5.9.3",
+    "sharp": "0.34.5",
+    "vitest": "4.0.12"
+  },
+  "peerDependencies": {
+    "@payloadcms/plugin-stripe": "*",
+    "@payloadcms/ui": "*",
+    "next": "*",
+    "payload": "*",
+    "react": "*",
+    "react-dom": "*",
+    "stripe": "*"
+  },
+  "types": "./src/index.ts"
+}

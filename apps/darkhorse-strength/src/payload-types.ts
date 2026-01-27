@@ -79,6 +79,7 @@ export interface Config {
     'class-options': ClassOption;
     bookings: Booking;
     transactions: Transaction;
+    'booking-transactions': BookingTransaction;
     users: User;
     subscriptions: Subscription;
     plans: Plan;
@@ -117,6 +118,7 @@ export interface Config {
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    'booking-transactions': BookingTransactionsSelect<false> | BookingTransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
@@ -145,6 +147,7 @@ export interface Config {
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
+      syncStripeSubscriptions: TaskSyncStripeSubscriptions;
       inline: {
         input: unknown;
         output: unknown;
@@ -964,6 +967,33 @@ export interface Transaction {
   createdAt: string;
 }
 /**
+ * Records how each booking was paid. Used to decrement class pass only when paymentMethod is class_pass.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-transactions".
+ */
+export interface BookingTransaction {
+  id: number;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-submissions".
  */
@@ -1049,7 +1079,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule';
+        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions';
         taskID: string;
         input?:
           | {
@@ -1082,7 +1112,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule') | null;
+  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1143,6 +1173,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'transactions';
         value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'booking-transactions';
+        value: number | BookingTransaction;
       } | null)
     | ({
         relationTo: 'users';
@@ -1545,6 +1579,18 @@ export interface TransactionsSelect<T extends boolean = true> {
   status?: T;
   paymentMethod?: T;
   createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-transactions_select".
+ */
+export interface BookingTransactionsSelect<T extends boolean = true> {
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1979,6 +2025,14 @@ export interface TaskGenerateLessonsFromSchedule {
     success?: boolean | null;
     message?: string | null;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSyncStripeSubscriptions".
+ */
+export interface TaskSyncStripeSubscriptions {
+  input?: unknown;
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -1,8 +1,8 @@
 "use client";
 
 import { Plan, Subscription } from "@repo/shared-types";
-import { PlanList } from "@repo/memberships/src/components/plans/plan-list";
-import { PlanDetail } from "@repo/memberships/src/components/plans/plan-detail";
+import { PlanList } from "./plans/plan-list";
+import { PlanDetail } from "./plans/plan-detail";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 
@@ -55,8 +55,6 @@ export function PlanView({
   );
 
   if (!hasMatchingPlan) {
-    // Prefer Stripe subscription-update portal when available (true "upgrade"),
-    // otherwise fall back to creating a new checkout session.
     const upgradeablePlans = allowedPlans.filter(
       (plan) => (plan as any).stripeProductId && plan.id !== subscription.plan.id
     );
@@ -126,4 +124,3 @@ export function PlanView({
     </>
   );
 }
-

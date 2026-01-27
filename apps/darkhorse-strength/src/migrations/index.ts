@@ -20,6 +20,7 @@ import * as migration_20260115_140000_fix_payload_migrations_constraint from './
 import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260123_071019 from './20260123_071019';
+import * as migration_20260127_190008 from './20260127_190008';
 
 export const migrations = [
   {
@@ -130,6 +131,11 @@ export const migrations = [
   {
     up: migration_20260123_071019.up,
     down: migration_20260123_071019.down,
-    name: '20260123_071019'
+    name: '20260123_071019',
+  },
+  {
+    up: migration_20260127_190008.up,
+    down: migration_20260127_190008.down,
+    name: '20260127_190008'
   },
 ];

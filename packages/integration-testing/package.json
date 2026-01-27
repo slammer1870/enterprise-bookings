@@ -7,7 +7,7 @@
     "@payloadcms/richtext-lexical": "*",
     "monaco-editor": "^0.52.2",
     "@repo/bookings-plugin": "workspace:*",
-    "@repo/memberships": "workspace:*",
+    "@repo/bookings-payments": "workspace:*",
     "@repo/payments-plugin": "workspace:*",
     "@repo/roles": "workspace:*",
     "@repo/shared-services": "workspace:*",
