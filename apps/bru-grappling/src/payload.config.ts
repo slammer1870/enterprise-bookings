@@ -22,6 +22,7 @@ import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import { fixBetterAuthRoleField } from './plugins/fix-better-auth-role-field'
+import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import {
   membershipsPlugin,
   productUpdated,
@@ -110,6 +111,8 @@ export default buildConfig({
       },
     }),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after `betterAuthPlugin()` so the Better Auth collections exist.
+    fixBetterAuthTimestamps(),
     // Must run after betterAuthPlugin to fix role field schema
     fixBetterAuthRoleField(),
     rolesPlugin({
