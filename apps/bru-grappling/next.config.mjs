@@ -104,7 +104,7 @@ const nextConfig = {
       : {},
 
   // Ensure workspace packages used by Payload admin importMap are transpiled
-  transpilePackages: ['@repo/ui', '@repo/bookings-plugin', '@repo/memberships', '@repo/payments-plugin'],
+  transpilePackages: ['@repo/ui', '@repo/bookings-plugin', '@repo/bookings-payments', '@repo/membership-next'],
 
   // Ensure pnpm symlinks are resolved to real paths so React context isn't duplicated
   webpack: (webpackConfig) => {

@@ -2,7 +2,8 @@ import { getSession } from '@/lib/auth/context/get-context-props'
 
 import ScheduleComponent from '@/components/schedule'
 
-import { getPayload } from 'payload'
+
+import { getPayload } from '@/lib/payload'
 
 import { redirect } from 'next/navigation'
 
@@ -16,27 +17,20 @@ export const dynamic = 'force-dynamic'
 export default async function Dashboard() {
   const session = await getSession()
   const user = session?.user
+
+
   if (!user) {
     redirect('/auth/sign-in')
   }
-  const payload = await getPayload({ config })
 
-  // Extract user ID - handle both object and number cases
-  const userId = typeof user === 'object' && user?.id 
-    ? user.id 
-    : typeof user === 'number' 
-    ? user 
-    : null;
-  
-  // Validate userId is a valid number
-  if (!userId || typeof userId !== 'number' || isNaN(userId)) {
-    redirect('/auth/sign-in')
-  }
+
+  const payload = await getPayload()
+
 
   const subscription = await payload.find({
     collection: 'subscriptions',
     where: {
-      user: { equals: userId },
+      user: { equals: user?.id },
       status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
       endDate: { greater_than: new Date() },
     },

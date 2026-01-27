@@ -6,11 +6,15 @@
   "types": "./src/server.ts",
   "exports": {
     "./server": "./src/server.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./fix-better-auth-timestamps": "./src/fix-better-auth-timestamps.ts"
   },
   "dependencies": {
     "@repo/auth-next": "workspace:*",
     "better-auth": "*"
+  },
+  "peerDependencies": {
+    "payload": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

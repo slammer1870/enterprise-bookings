@@ -4,7 +4,7 @@ import { getPayloadUIAliases } from '../../scripts/payload-ui-aliases.mjs'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Your Next.js config here
-  transpilePackages: ['@repo/ui', '@repo/bookings-plugin', '@repo/memberships', '@repo/payments-plugin'],
+  transpilePackages: ['@repo/ui', '@repo/bookings-plugin', '@repo/bookings-payments'],
   webpack: (webpackConfig) => {
     webpackConfig.resolve.symlinks = true
 

@@ -28,6 +28,8 @@ jobs:
             db: dummy_docs
           - name: atnd
             db: atnd
+          - name: atnd-me
+            db: atnd_me
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
@@ -250,6 +252,9 @@ jobs:
           - name: darkhorse-strength
             db: e2e_darkhorse_strength
             app_path: apps/darkhorse-strength
+          - name: atnd-me
+            db: e2e_atnd_me
+            app_path: apps/atnd-me
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
@@ -341,6 +346,16 @@ jobs:
 
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps
+        working-directory: ${{ matrix.app.app_path }}
+
+      - name: Run Integration tests for ${{ matrix.app.name }}
+        env:
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
+          NODE_ENV: test
+          CI: true
+          FORCE_EXISTING_DB: true
+        run: pnpm test:int
         working-directory: ${{ matrix.app.app_path }}
 
       - name: Run E2E tests for ${{ matrix.app.name }}

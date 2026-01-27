@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { subscriptionCreated } from '@repo/memberships'
+import { subscriptionCreated } from '@repo/bookings-payments'
 import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'

@@ -13,6 +13,12 @@ export * from "./access/admin-or-published";
 // Export blocks
 export { FormBlock } from "./blocks/form/config";
 export { Faqs } from "./blocks/faqs/config";
+export { Hero } from "./blocks/hero/config";
+export { About } from "./blocks/about/config";
+export { Location } from "./blocks/location/config";
+export { linkGroup } from "./blocks/linkGroup";
+export { ThreeColumnLayoutBlock } from "./blocks/threeColumnLayout";
+export { createThreeColumnLayout } from "./blocks/threeColumnLayout";
 
 // Export hooks
 export { revalidatePage, revalidateDelete } from "./hooks/revalidate-page"; 

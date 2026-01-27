@@ -1,0 +1,28 @@
+{
+  "extends": "@repo/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@payload-config": ["./src/payload.config.ts"],
+      "@repo/better-auth-config/*": ["../../packages/auth/better-auth-config/src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "next.config.js",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "tailwind.config.mjs",
+    "redirects.js",
+    "next-sitemap.config.cjs",
+    "src/app/(payload)/admin/importMap.ts"
+  ],
+  "exclude": ["node_modules"]
+}

@@ -18,7 +18,7 @@ export const ManageLesson = ({ lessonId }: { lessonId: number }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-10 w-6 p-0 bg-transparent ml-auto">
+        <Button variant="ghost" className="h-10 w-6 p-0 bg-transparent ml-auto border-0">
           <span className="sr-only">Open menu</span>
           <MoreHorizontal className="h-6 w-6" />
         </Button>

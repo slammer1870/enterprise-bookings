@@ -3,5 +3,6 @@ packages:
   - "packages/*"
   - "packages/auth/*"
   - "packages/bookings/*"
+  - "packages/bookings-payments"
   - "packages/payments/*"
 

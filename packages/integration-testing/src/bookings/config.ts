@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "@repo/bookings-plugin";
-import { membershipsPlugin } from "@repo/memberships";
+import { bookingsPaymentsPlugin } from "@repo/bookings-payments";
 import { paymentsPlugin } from "@repo/payments-plugin";
 import { rolesPlugin } from "@repo/roles";
 import { checkRole } from "../../../shared-utils/src/check-role";
@@ -98,9 +98,11 @@ export const config: Config = {
       acceptedPaymentMethods: ["cash", "card"],
       paymentMethodSlugs: ["class-options"],
     }),
-    membershipsPlugin({
-      enabled: true,
-      paymentMethodSlugs: ["class-options"],
+    bookingsPaymentsPlugin({
+      membership: {
+        enabled: true,
+        paymentMethodSlugs: ["class-options"],
+      },
     }),
   ],
 };

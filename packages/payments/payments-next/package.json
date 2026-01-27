@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@repo/analytics": "workspace:*",
+    "@repo/membership-next": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/trpc": "workspace:*",
@@ -25,9 +26,6 @@
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
     "typescript": "5.9.3"
-  },
-  "peerDependencies": {
-    "@repo/memberships": "workspace:*"
   }
 }
 

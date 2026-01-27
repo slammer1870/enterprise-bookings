@@ -7,4 +7,4 @@ export const authClient = createAppAuthClient({
   enableAdmin: true,
 })
 
-export const { signIn, signUp, signOut, useSession, magicLink } = authClient
+export const { signIn, signUp, signOut, useSession } = authClient

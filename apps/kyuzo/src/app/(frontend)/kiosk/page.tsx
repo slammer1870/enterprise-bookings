@@ -1,7 +1,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 
-import { checkRole } from '@repo/shared-utils/src/check-role'
+import { checkRole } from '@repo/shared-utils'
 import { headers } from 'next/headers'
 import { HydrateClient, prefetch, trpc } from '@/trpc/server'
 import { Suspense } from 'react'

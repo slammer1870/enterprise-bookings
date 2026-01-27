@@ -183,6 +183,31 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
       ([process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000"].filter(
         Boolean
       ) as string[]),
+    // Ensure auth cookies are available to the whole app, not just the auth route.
+    // Without this, cookies can be scoped too narrowly (e.g. /api/auth) and `getSession()`
+    // will appear to work only on auth endpoints.
+    advanced: {
+      defaultCookieAttributes: {
+        path: "/",
+      },
+      cookies: {
+        session_token: {
+          attributes: {
+            path: "/",
+          },
+        },
+        session_data: {
+          attributes: {
+            path: "/",
+          },
+        },
+        dont_remember: {
+          attributes: {
+            path: "/",
+          },
+        },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

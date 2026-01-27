@@ -83,7 +83,8 @@
       "cache": false
     },
     "ci": {
-      "dependsOn": ["^ci"]
+      "dependsOn": ["^ci"],
+      "env": ["DATABASE_URI", "PAYLOAD_SECRET"]
     }
   }
 }

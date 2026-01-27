@@ -1,0 +1,26 @@
+{
+  "name": "@repo/membership-next",
+  "version": "0.0.1",
+  "main": "./src/index.ts",
+  "type": "module",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@repo/shared-types": "workspace:*",
+    "@repo/trpc": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@tanstack/react-query": "*",
+    "lucide-react": "0.554.0",
+    "next": "*",
+    "react": "*",
+    "react-dom": "*",
+    "sonner": "*"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^24.10.1",
+    "@types/react": "*",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3"
+  }
+}

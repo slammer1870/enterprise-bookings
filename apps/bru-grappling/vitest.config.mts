@@ -8,7 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
+    globalSetup: ['./tests/int/global-setup.ts'],
     include: ['tests/int/**/*.int.spec.ts'],
+    hookTimeout: 300000, // 5 minutes for database setup
     server: {
       deps: {
         inline: ['payload-auth'],

@@ -1,10 +1,7 @@
 'use client'
 
 import type { Plan, Subscription } from '@repo/shared-types'
-import { PlanView } from '@repo/payments-next'
-import { useSubscriptionActions } from '@repo/payments-next'
-import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
-import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
+import { PlanList, PlanDetail, useSubscriptionActions } from '@repo/membership-next'
 
 export function DashboardMembershipPanel({
   plans,

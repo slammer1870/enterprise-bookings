@@ -16,7 +16,7 @@ export const DeleteLesson = ({ lessonId }: { lessonId: number }) => {
     <>
       <div>
         <button
-          className="bg-transparent text-red-500 p-2 cursor-pointer hover:bg-red-500 hover:text-white w-full text-left rounded-md"
+          className="bg-transparent text-red-500 p-2 cursor-pointer hover:bg-red-500 hover:text-white w-full text-left rounded-md outline-none border-0"
           onClick={async () => {
             const ok = await confirm();
             if (ok) {

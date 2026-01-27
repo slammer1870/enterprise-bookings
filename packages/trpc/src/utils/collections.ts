@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import type { CollectionSlug } from "payload";
+import type { CollectionSlug, JsonObject, PaginatedDocs, Payload, TypeWithID } from "payload";
 
 /**
  * Helper function to check if a collection exists in the Payload instance
@@ -60,7 +60,7 @@ export function requireCollections(...collectionSlugs: string[]) {
  * Helper function to safely access a collection, throwing an error if it doesn't exist
  */
 export async function findByIdSafe<T>(
-  payload: any,
+  payload: Payload,
   collectionSlug: string,
   id: number | string,
   options: {
@@ -97,8 +97,8 @@ export async function findByIdSafe<T>(
  * Helper function to safely find documents in a collection
  * @template T - The expected type of the documents returned
  */
-export async function findSafe<T = any>(
-  payload: any,
+export async function findSafe<T = JsonObject & TypeWithID>(
+  payload: Payload,
   collectionSlug: string,
   options: {
     where?: any;
@@ -108,18 +108,7 @@ export async function findSafe<T = any>(
     user?: any;
     sort?: string;
   } = {}
-): Promise<{
-  docs: T[];
-  totalDocs: number;
-  limit: number;
-  totalPages: number;
-  page?: number;
-  pagingCounter: number;
-  hasPrevPage: boolean;
-  hasNextPage: boolean;
-  prevPage?: number | null;
-  nextPage?: number | null;
-}> {
+): Promise<PaginatedDocs<T>> {
   if (!hasCollection(payload, collectionSlug)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -135,18 +124,7 @@ export async function findSafe<T = any>(
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
     ...(options.sort && { sort: options.sort }),
-  })) as Promise<{
-    docs: T[];
-    totalDocs: number;
-    limit: number;
-    totalPages: number;
-    page?: number;
-    pagingCounter: number;
-    hasPrevPage: boolean;
-    hasNextPage: boolean;
-    prevPage?: number | null;
-    nextPage?: number | null;
-  }>;
+  })) as PaginatedDocs<T>;
 }
 
 /**
@@ -154,7 +132,7 @@ export async function findSafe<T = any>(
  * @template T - The expected type of the created document
  */
 export async function createSafe<T = any>(
-  payload: any,
+  payload: Payload,
   collectionSlug: string,
   data: any,
   options: {
@@ -199,6 +177,19 @@ export async function createSafe<T = any>(
         cause: error,
       });
     }
+    
+    // Log validation errors with more context for debugging
+    if (error?.name === "ValidationError" || errorMessage.includes("invalid")) {
+      console.error(
+        `Payload validation error creating ${collectionSlug}:`,
+        errorMessage,
+        "\nData:",
+        JSON.stringify(data, null, 2),
+        "\nError details:",
+        error
+      );
+    }
+    
     throw error;
   }
 }
@@ -208,7 +199,7 @@ export async function createSafe<T = any>(
  * @template T - The expected type of the updated document
  */
 export async function updateSafe<T = any>(
-  payload: any,
+  payload: Payload,
   collectionSlug: string,
   id: number | string,
   data: any,

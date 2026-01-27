@@ -20,14 +20,16 @@ import { Pages } from './collections/Pages'
 
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { paymentsPlugin } from '@repo/payments-plugin'
 import {
-  membershipsPlugin,
+  bookingsPaymentsPlugin,
+  paymentIntentSucceeded,
   productUpdated,
   subscriptionCanceled,
   subscriptionCreated,
   subscriptionUpdated,
-} from '@repo/memberships'
+} from '@repo/bookings-payments'
+import { fixBetterAuthRoleField } from './plugins/fix-better-auth-role-field'
+import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { rolesPlugin } from '@repo/roles'
 
 import { Navbar } from './globals/navbar/config'
@@ -40,8 +42,6 @@ import {
   childrenUpdateBookingMembershipAccess,
   isBookingAdminOrParentOrOwner,
 } from '@repo/shared-services'
-
-import { paymentIntentSucceeded } from '@repo/payments-plugin'
 
 import { checkRole } from '@repo/shared-utils'
 
@@ -109,6 +109,10 @@ export default buildConfig({
       },
     }),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after `betterAuthPlugin()` so the Better Auth collections exist.
+    fixBetterAuthTimestamps(),
+    // Must run after betterAuthPlugin to fix role field schema
+    fixBetterAuthRoleField(),
     rolesPlugin({
       enabled: true,
       roles: ['user', 'admin'],
@@ -169,60 +173,62 @@ export default buildConfig({
         }),
       },
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: true,
-      acceptedPaymentMethods: ['card'],
-      paymentMethodSlugs: ['class-options'],
-    }),
-    membershipsPlugin({
-      enabled: true,
-      paymentMethodSlugs: [],
-      plansOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'type',
-            type: 'select',
-            label: 'Membership Type',
-            options: [
-              { label: 'Adult', value: 'adult' },
-              { label: 'Child', value: 'child' },
-              { label: 'Family', value: 'family' },
-            ],
-            defaultValue: 'adult',
-            required: false,
-            admin: {
-              description: 'Is this a membership for adults or children?',
-              position: 'sidebar',
-            },
-          },
-          {
-            name: 'quantity',
-            type: 'number',
-            required: false,
-            defaultValue: 1,
-            min: 1,
-            max: 10,
-            admin: {
-              description: 'The number of children who are subscribing to the plan',
-              condition: (data) => {
-                return Boolean(data?.type === 'child') // Only show if `type` is selected
+    bookingsPaymentsPlugin({
+      payments: {
+        enabled: true,
+        enableDropIns: true,
+        acceptedPaymentMethods: ['card'],
+        paymentMethodSlugs: ['class-options'],
+      },
+      membership: {
+        enabled: true,
+        paymentMethodSlugs: [],
+        plansOverrides: {
+          fields: ({ defaultFields }) => [
+            ...defaultFields,
+            {
+              name: 'type',
+              type: 'select',
+              label: 'Membership Type',
+              options: [
+                { label: 'Adult', value: 'adult' },
+                { label: 'Child', value: 'child' },
+                { label: 'Family', value: 'family' },
+              ],
+              defaultValue: 'adult',
+              required: false,
+              admin: {
+                description: 'Is this a membership for adults or children?',
+                position: 'sidebar',
               },
-              position: 'sidebar',
             },
-          },
-          {
-            name: `classOptionsAllowedPlans`,
-            label: `Class Options Allowed Plans`,
-            type: 'join',
-            collection: 'class-options',
-            on: 'paymentMethods.allowedPlans',
-            admin: {
-              description: 'The classes that are available for this plan',
+            {
+              name: 'quantity',
+              type: 'number',
+              required: false,
+              defaultValue: 1,
+              min: 1,
+              max: 10,
+              admin: {
+                description: 'The number of children who are subscribing to the plan',
+                condition: (data) => {
+                  return Boolean(data?.type === 'child') // Only show if `type` is selected
+                },
+                position: 'sidebar',
+              },
             },
-          },
-        ],
+            {
+              name: `classOptionsAllowedPlans`,
+              label: `Class Options Allowed Plans`,
+              type: 'join',
+              collection: 'class-options',
+              on: 'paymentMethods.allowedPlans',
+              admin: {
+                description: 'The classes that are available for this plan',
+              },
+            },
+          ],
+        },
       },
     }),
     stripePlugin({

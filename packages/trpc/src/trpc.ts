@@ -13,6 +13,7 @@ import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
 type BetterAuthInstance = {
   api: {
+    getSession: (_args: { headers: Headers }) => Promise<{ user?: any } | null>;
     signInMagicLink: (_args: {
       body: {
         email: string;
@@ -46,15 +47,26 @@ export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
   stripe?: Stripe;
+  /**
+   * Optional user injection for server-side callers (e.g. integration tests).
+   * API route handlers should NOT pass this.
+   */
+  user?: any;
 }) => {
   const payload = opts.payload;
   const betterAuth = (payload as PayloadWithBetterAuth).betterAuth;
+  const isTestEnv =
+    process.env.NODE_ENV === "test" ||
+    process.env.VITEST === "true" ||
+    !!process.env.VITEST_WORKER_ID;
 
   return {
     headers: opts.headers,
     payload,
     stripe: opts.stripe,
     betterAuth,
+    // Only allow user injection in test runs to avoid accidental auth bypass in production.
+    user: isTestEnv ? (opts.user ?? null) : null,
   };
 };
 /**
@@ -100,6 +112,30 @@ export const createTRPCRouter = t.router;
  */
 export const publicProcedure = t.procedure;
 
+async function getRequestUser(ctx: Context) {
+  const isTestEnv =
+    process.env.NODE_ENV === "test" ||
+    process.env.VITEST === "true" ||
+    !!process.env.VITEST_WORKER_ID;
+
+  // Allow trusted server-side callers (e.g. tests) to inject a user directly.
+  if (isTestEnv && ctx.user) return ctx.user;
+
+  // Prefer Better Auth session (used by magic-link flow). Fall back to Payload auth
+  // for apps that haven't enabled Better Auth yet.
+  if (ctx.betterAuth?.api?.getSession) {
+    const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+    return session?.user ?? null;
+  }
+
+  const auth = await ctx.payload.auth({
+    headers: ctx.headers,
+    canSetHeaders: false,
+  });
+
+  return auth.user ?? null;
+}
+
 /**
  * Protected (authenticated) procedure
  *
@@ -111,12 +147,9 @@ export const publicProcedure = t.procedure;
 export const protectedProcedure = publicProcedure.use(async (opts) => {
   const { ctx } = opts;
 
-  const auth = await ctx.payload.auth({
-    headers: ctx.headers,
-    canSetHeaders: false,
-  });
+  const user = await getRequestUser(ctx);
 
-  if (!auth.user)
+  if (!user)
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to access this resource",
@@ -125,7 +158,7 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
   return opts.next({
     ctx: {
       ...ctx,
-      user: auth.user,
+      user,
     },
   });
 });

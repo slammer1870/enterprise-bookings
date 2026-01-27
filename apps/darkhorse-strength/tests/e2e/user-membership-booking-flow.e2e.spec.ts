@@ -74,27 +74,59 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
     // session cookies are properly set.
     await page.evaluate(
       async ({ email, password }) => {
-        const signUpRes = await fetch('/api/auth/sign-up/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name: 'Test User' }),
-        })
-
-        // Some setups might return 409 if a user exists; treat as ok for idempotency.
-        if (!signUpRes.ok && signUpRes.status !== 409) {
-          const txt = await signUpRes.text().catch(() => '')
-          throw new Error(`signUp failed: ${signUpRes.status} ${txt}`)
+        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+        const postJson = async (url: string, body: any) => {
+          return await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
         }
 
-        const signInRes = await fetch('/api/auth/sign-in/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        })
-        if (!signInRes.ok) {
-          const txt = await signInRes.text().catch(() => '')
-          throw new Error(`signIn failed: ${signInRes.status} ${txt}`)
+        const shouldRetryStatus = (status: number) =>
+          status === 500 || status === 502 || status === 503 || status === 504 || status === 429
+
+        const withRetry = async <T>(fn: () => Promise<T>, retries = 3) => {
+          let lastErr: any = null
+          for (let attempt = 0; attempt < retries; attempt++) {
+            try {
+              return await fn()
+            } catch (err) {
+              lastErr = err
+              // small backoff to ride out transient dev/CI flakiness
+              await sleep(500 * (attempt + 1))
+            }
+          }
+          throw lastErr
         }
+
+        await withRetry(async () => {
+          const signUpRes = await postJson('/api/auth/sign-up/email', {
+            email,
+            password,
+            name: 'Test User',
+          })
+
+          // Some setups might return 409 if a user exists; treat as ok for idempotency.
+          if (!signUpRes.ok && signUpRes.status !== 409) {
+            const txt = await signUpRes.text().catch(() => '')
+            if (shouldRetryStatus(signUpRes.status)) {
+              throw new Error(`signUp transient failure: ${signUpRes.status} ${txt}`)
+            }
+            throw new Error(`signUp failed: ${signUpRes.status} ${txt}`)
+          }
+        })
+
+        await withRetry(async () => {
+          const signInRes = await postJson('/api/auth/sign-in/email', { email, password })
+          if (!signInRes.ok) {
+            const txt = await signInRes.text().catch(() => '')
+            if (shouldRetryStatus(signInRes.status)) {
+              throw new Error(`signIn transient failure: ${signInRes.status} ${txt}`)
+            }
+            throw new Error(`signIn failed: ${signInRes.status} ${txt}`)
+          }
+        })
       },
       { email, password },
     )
@@ -106,7 +138,8 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
     // Schedule: navigate to tomorrow and try to check in
     await goToTomorrowInSchedule(page)
 
-    const checkInButton = page.getByRole('button', { name: /Check In|Book Trial Class/i }).first()
+    // Plan-required lessons show "Book" or "Book Trial Class"; direct check-in shows "Check In"
+    const checkInButton = page.getByRole('button', { name: /Check In|Book Trial Class|^Book$/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
     
     // Ensure button is actionable before clicking

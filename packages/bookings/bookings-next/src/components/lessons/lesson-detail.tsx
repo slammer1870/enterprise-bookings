@@ -8,7 +8,17 @@ import { Lesson } from '@repo/shared-types'
 
 import { CheckInButton } from './checkin-button'
 
-export function LessonDetail({ lesson }: { lesson: Lesson }) {
+export function LessonDetail({ 
+  lesson,
+  manageHref,
+}: { 
+  lesson: Lesson;
+  /**
+   * Optional function or string to generate the manage booking URL.
+   * Passed through to CheckInButton component.
+   */
+  manageHref?: string | ((lessonId: number) => string);
+}) {
   return (
     <div
       className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
@@ -63,9 +73,10 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
       </div>
       <div className="w-full md:w-1/4">
         <CheckInButton
-          bookingStatus={lesson.bookingStatus}
+          lessonId={lesson.id}
           type={lesson.classOption.type}
-          id={lesson.id}
+          scheduleState={lesson.scheduleState}
+          manageHref={manageHref}
         />
       </div>
     </div>

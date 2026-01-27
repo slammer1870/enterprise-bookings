@@ -9,29 +9,24 @@ import config from '@payload-config'
 import { Plan } from '@repo/shared-types'
 import { BookingSuccessToast } from '@repo/bookings-next'
 import { getSession } from '@/lib/auth/context/get-context-props'
-import { headers } from 'next/headers'
 import { DashboardMemberships } from '@/components/dashboard/memberships.client'
 
 export default async function Dashboard() {
   const session = await getSession()
-  if (!session?.user) {
+  const user = session?.user
+  if (!user) {
     redirect('/auth/sign-in')
   }
 
   const payload = await getPayload({ config })
 
-  const auth = await payload.auth({ headers: await headers(), canSetHeaders: false })
-  const user = auth.user
-  if (!user) {
-    redirect('/auth/sign-in')
-  }
 
   const subscription = await payload.find({
     collection: 'subscriptions',
     where: {
       and: [
         {
-          user: { equals: user.id },
+          user: { equals: user?.id },
           status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] },
           endDate: { greater_than: new Date() },
         },

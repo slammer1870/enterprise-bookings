@@ -38,6 +38,17 @@ export const rolesPlugin =
       if (existingOnInit) {
         await existingOnInit(payload);
       }
+      
+      // Skip database operations during build time to avoid schema mismatch errors
+      // Next.js build process may initialize Payload but database schema might not be ready
+      const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                         (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URI);
+      
+      if (isBuildTime) {
+        payload.logger.info('Skipping rolesPlugin onInit during build time');
+        return;
+      }
+      
       try {
         // Check if there are any users
         const users = await payload.find({
@@ -72,7 +83,14 @@ export const rolesPlugin =
           }
         }
       } catch (error) {
-        payload.logger.error(error);
+        // During build, database errors are expected - log but don't fail
+        // The error is likely due to schema mismatch (e.g., users_role table doesn't exist)
+        if (isBuildTime || process.env.NODE_ENV === 'production') {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          payload.logger.warn(`rolesPlugin onInit skipped due to build-time database error: ${errorMessage}`);
+        } else {
+          payload.logger.error(error);
+        }
       }
     };
 

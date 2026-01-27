@@ -26,6 +26,9 @@ export const bookingCreateAccess = async ({
       collection: "lessons",
       id: lessonId,
       depth: 3,
+      context: {
+        triggerAfterChange: false, // Don't trigger hooks that might affect bookingStatus calculation
+      },
     })) as unknown as Lesson;
 
     if (!lesson) return false;

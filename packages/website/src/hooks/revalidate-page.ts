@@ -3,11 +3,11 @@ import type {
   CollectionAfterDeleteHook,
 } from "payload";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "../utils/next-cache";
 
 import type { Page } from "@repo/shared-types";
 
-export const revalidatePage: CollectionAfterChangeHook<Page> = ({
+export const revalidatePage: CollectionAfterChangeHook<Page> = async ({
   doc,
   previousDoc: _previousDoc,
   req: { payload, context: _context },
@@ -18,15 +18,15 @@ export const revalidatePage: CollectionAfterChangeHook<Page> = ({
     payload.logger.info(`Revalidating page at path: ${path}`);
 
     // Use process.nextTick to defer revalidation until after the current execution context
-    process.nextTick(() => {
-      revalidatePath(path);
+    process.nextTick(async () => {
+      await revalidatePath(path);
 
       // If the slug changed, also revalidate the old slug path
       if (_previousDoc && _previousDoc.slug !== doc.slug) {
-        revalidatePath(`/${_previousDoc.slug}`);
+        await revalidatePath(`/${_previousDoc.slug}`);
       }
 
-      revalidateTag("pages-sitemap");
+      await revalidateTag("pages-sitemap");
     });
 
     _context.disableRevalidate = true;
@@ -35,7 +35,7 @@ export const revalidatePage: CollectionAfterChangeHook<Page> = ({
   return doc;
 };
 
-export const revalidateDelete: CollectionAfterDeleteHook<Page> = ({
+export const revalidateDelete: CollectionAfterDeleteHook<Page> = async ({
   doc,
   req: { context: _context },
 }) => {
@@ -43,9 +43,9 @@ export const revalidateDelete: CollectionAfterDeleteHook<Page> = ({
     const path = doc?.slug === "home" ? "/" : `/${doc?.slug}`;
     
     // Use process.nextTick to defer revalidation until after the current execution context
-    process.nextTick(() => {
-      revalidatePath(path);
-      revalidateTag("pages-sitemap");
+    process.nextTick(async () => {
+      await revalidatePath(path);
+      await revalidateTag("pages-sitemap");
     });
 
     _context.disableRevalidate = true;

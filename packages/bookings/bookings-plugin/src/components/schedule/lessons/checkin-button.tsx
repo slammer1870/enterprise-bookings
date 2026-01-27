@@ -135,6 +135,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     booked: "default",
     waiting: "default",
     childrenBooked: "outline",
+    multipleBooked: "outline",
   };
 
   return (

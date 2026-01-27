@@ -18,14 +18,16 @@ import { migrations } from './migrations'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
+import { fixBetterAuthRoleField } from './plugins/fix-better-auth-role-field'
+import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { rolesPlugin } from '@repo/roles'
-import { paymentsPlugin } from '@repo/payments-plugin'
-import { membershipsPlugin } from '@repo/memberships'
-
-import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
-import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
-import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
-import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
+import {
+  bookingsPaymentsPlugin,
+  subscriptionCreated,
+  subscriptionUpdated,
+  subscriptionCanceled,
+  productUpdated,
+} from '@repo/bookings-payments'
 
 import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
@@ -114,6 +116,10 @@ export default buildConfig({
       },
     }),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after betterAuthPlugin to fix timestamp validation issues
+    fixBetterAuthTimestamps(),
+    // Must run after betterAuthPlugin to fix role field schema for rolesPlugin
+    fixBetterAuthRoleField(),
     rolesPlugin({
       enabled: true,
       roles: ['user', 'admin'],
@@ -174,48 +180,50 @@ export default buildConfig({
         }),
       },
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: false,
-      acceptedPaymentMethods: ['card'],
-    }),
-    membershipsPlugin({
-      enabled: true,
-      paymentMethodSlugs: [],
-      plansOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'type',
-            type: 'select',
-            label: 'Membership Type',
-            options: [
-              { label: 'Adult', value: 'adult' },
-              { label: 'Child', value: 'child' },
-            ],
-            defaultValue: 'adult',
-            required: false,
-            admin: {
-              description: 'Is this a membership for adults or children?',
-              position: 'sidebar',
-            },
-          },
-          {
-            name: 'quantity',
-            type: 'number',
-            required: false,
-            defaultValue: 1,
-            min: 1,
-            max: 10,
-            admin: {
-              description: 'The number of children who are subscribing to the plan',
-              condition: (data) => {
-                return Boolean(data?.type === 'child') // Only show if `type` is selected
+    bookingsPaymentsPlugin({
+      payments: {
+        enabled: true,
+        enableDropIns: false,
+        acceptedPaymentMethods: ['card'],
+      },
+      membership: {
+        enabled: true,
+        paymentMethodSlugs: [],
+        plansOverrides: {
+          fields: ({ defaultFields }) => [
+            ...defaultFields,
+            {
+              name: 'type',
+              type: 'select',
+              label: 'Membership Type',
+              options: [
+                { label: 'Adult', value: 'adult' },
+                { label: 'Child', value: 'child' },
+              ],
+              defaultValue: 'adult',
+              required: false,
+              admin: {
+                description: 'Is this a membership for adults or children?',
+                position: 'sidebar',
               },
-              position: 'sidebar',
             },
-          },
-        ],
+            {
+              name: 'quantity',
+              type: 'number',
+              required: false,
+              defaultValue: 1,
+              min: 1,
+              max: 10,
+              admin: {
+                description: 'The number of children who are subscribing to the plan',
+                condition: (data) => {
+                  return Boolean(data?.type === 'child') // Only show if `type` is selected
+                },
+                position: 'sidebar',
+              },
+            },
+          ],
+        },
       },
     }),
     stripePlugin({
@@ -233,7 +241,7 @@ export default buildConfig({
     seoPlugin({
       collections: ['pages', 'posts'],
       uploadsCollection: 'media',
-      generateTitle: ({ doc }) => `Kyuzo Jiu Jitsu — ${doc.title}`,
+      generateTitle: ({ doc }) => `Kyuzo Jiu Jitsu � ${doc.title}`,
       generateDescription: ({ doc }) => doc.excerpt,
     }),
     masqueradePlugin({

@@ -11,11 +11,27 @@ export const childrenCreateBookingMembershipAccess = async ({
 
   const { payload } = req;
 
-  const userId = typeof req.user === "object" ? req.user.id : req.user;
+  const userId = typeof req.user === "object" ? (req.user as any).id : req.user;
 
   if (!userId) {
     payload.logger.error(`User ID is required (userId: ${userId})`);
     return false;
+  }
+
+  // Validate that data.user (if provided) matches the authenticated user
+  // This ensures Payload's validation passes
+  if (data?.user) {
+    const dataUserId =
+      typeof data.user === "object" ? (data.user as any).id : (data.user as any);
+
+    // Payload relationships / auth user IDs can be string or number depending on context
+    // (e.g. NextAuth session often stringifies ids, while Payload expects numeric ids).
+    if (String(dataUserId) !== String(userId)) {
+      payload.logger.error(
+        `User ID mismatch: data.user (${dataUserId}) does not match authenticated user (${userId})`
+      );
+      return false;
+    }
   }
 
   let user: User;

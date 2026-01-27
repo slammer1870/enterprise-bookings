@@ -34,8 +34,9 @@ import { LessonAdmin as LessonAdmin_a8ce920709833e15274cf94b2365830c } from '@re
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
-import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/memberships/src/components/sync/sync-stripe'
+import { SyncStripe as SyncStripe_f6c58e711ce17e3aff7d4d3456223132 } from '@repo/bookings-payments'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
+import { CollectionCards as CollectionCards_ab83ff7e88da8d3530831f296ec4756a } from '@payloadcms/ui/rsc'
 
 export const importMap = {
   "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
@@ -74,6 +75,7 @@ export const importMap = {
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
   "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
-  "@repo/memberships/src/components/sync/sync-stripe#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
-  "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7
+  "@repo/bookings-payments#SyncStripe": SyncStripe_f6c58e711ce17e3aff7d4d3456223132,
+  "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7,
+  "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a
 }

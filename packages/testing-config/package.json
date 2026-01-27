@@ -6,7 +6,12 @@
     "./src/playwright/base": "./src/playwright/base.ts",
     "./src/playwright/helpers/server": "./src/playwright/helpers/server.ts",
     "./src/utils/db": "./src/utils/db.ts",
-    "./src/helpers/credentials": "./src/helpers/credentials.ts"
+    "./src/helpers/credentials": "./src/helpers/credentials.ts",
+    "./src/vitest/base": "./src/vitest/base.ts",
+    "./src/vitest/react": "./src/vitest/react.ts",
+    "./src/vitest/node": "./src/vitest/node.ts",
+    "./src/vitest/node-with-react": "./src/vitest/node-with-react.ts",
+    "./src/vitest/setup-file-polyfill": "./src/vitest/setup-file-polyfill.ts"
   },
   "peerDependencies": {
     "@playwright/test": "1.56.1"
@@ -14,7 +19,10 @@
   "dependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@testcontainers/postgresql": "^11.8.1"
+    "@testcontainers/postgresql": "^11.8.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.12"
   },
   "devDependencies": {
     "@types/node": "^24.10.1"

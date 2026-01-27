@@ -187,7 +187,7 @@ async function ensureAtLeastOneDropIn(page: any): Promise<string> {
       await cardOption.first().click()
     } else {
       // Close the list if it opened without options
-      await page.keyboard.press('Escape').catch(() => {})
+      await page.keyboard.press('Escape').catch(() => { })
     }
   }
 
@@ -363,6 +363,71 @@ async function verifyClassOptionPaymentMethod(
   }
 }
 
+/**
+ * Verify that a class option has NO payment methods configured.
+ * This ensures the lesson can be checked in directly without payment flow.
+ * Uses API to check the class option without navigating away from the current page.
+ */
+async function verifyClassOptionHasNoPaymentMethods(
+  page: any,
+  className: string,
+): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const request = page.context().request
+
+  // Find the class option by name via API
+  const cookies = await page.context().cookies()
+  const classOptionsResponse = await request.get(
+    `${baseUrl}/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
+    {
+      headers: {
+        Cookie: cookies
+          .map((c: { name: string; value: string }) => `${c.name}=${c.value}`)
+          .join('; '),
+      },
+    },
+  )
+
+  if (!classOptionsResponse.ok()) {
+    throw new Error(`Failed to fetch class option "${className}": ${classOptionsResponse.status()}`)
+  }
+
+  const classOptionsData = await classOptionsResponse.json()
+  const classOption = classOptionsData.docs?.[0]
+
+  if (!classOption) {
+    throw new Error(`Class option "${className}" not found`)
+  }
+
+  // Verify NO payment methods are configured
+  const paymentMethods = classOption.paymentMethods
+
+  // Check if allowedDropIn is configured
+  // allowedDropIn can be: number (ID), DropIn object, null (explicitly no drop-in), or undefined (not set)
+  // If it's a number or object, it means a drop-in is configured
+  const hasDropIn = paymentMethods?.allowedDropIn != null &&
+    paymentMethods.allowedDropIn !== null &&
+    (typeof paymentMethods.allowedDropIn === 'number' || typeof paymentMethods.allowedDropIn === 'object')
+
+  // Check if allowedPlans is configured
+  // allowedPlans can be: array of numbers/Plans, null (explicitly no plans), or undefined (not set)
+  // If it's an array with items, it means plans are configured
+  const hasPlans = paymentMethods?.allowedPlans != null &&
+    paymentMethods.allowedPlans !== null &&
+    Array.isArray(paymentMethods.allowedPlans) &&
+    paymentMethods.allowedPlans.length > 0
+
+  if (hasDropIn || hasPlans) {
+    const methods = []
+    if (hasDropIn) methods.push('Drop In')
+    if (hasPlans) methods.push('Subscription/Plans')
+    throw new Error(
+      `Class option "${className}" has payment methods configured (${methods.join(', ')}) but should have none. ` +
+      `This test requires a lesson that can be checked in directly without payment.`
+    )
+  }
+}
+
 
 test.describe('User booking flow from schedule', () => {
   // CI dev server recompiles are slow; allow more time
@@ -374,8 +439,12 @@ test.describe('User booking flow from schedule', () => {
     await ensureHomePageWithSchedule(page)
     const tomorrow = await ensureLessonForTomorrow(page)
 
+    // Verify the class option has NO payment methods configured
+    // This ensures the lesson can be checked in directly without payment flow
+    await verifyClassOptionHasNoPaymentMethods(page, 'E2E Test Class')
+
     // Log out admin
-    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
+    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
     // Clear cookies to ensure we're logged out
     await page.context().clearCookies()
     await page.waitForTimeout(1000)
@@ -389,8 +458,34 @@ test.describe('User booking flow from schedule', () => {
 
     await goToTomorrowInSchedule(page)
 
-    // Click "Check In" for tomorrow's lesson
-    const checkInButtonAfterCancel = page.getByRole('button', { name: /Check In/i }).first()
+    // Find the specific lesson by class name to ensure we click the correct one
+    // The lesson we created has class name "E2E Test Class" and time 10:00 AM - 11:00 AM
+    // This ensures we're clicking on the lesson we created, not another lesson on the schedule
+
+    // Find the lesson card by locating the class name, then finding its parent container
+    // The structure is: container > div (details) > div.text-xl.font-medium (class name)
+    const classNameElement = page
+      .locator('#schedule')
+      .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
+      .first()
+
+    await expect(classNameElement).toBeVisible({ timeout: 60000 })
+
+    // Verify the time matches (10:00 AM - 11:00 AM) to ensure it's the correct lesson
+    const timeElement = classNameElement
+      .locator('..') // Go to parent (details div)
+      .locator('div.text-sm.font-light', { hasText: /10:00.*AM.*11:00.*AM/i })
+      .first()
+    await expect(timeElement).toBeVisible({ timeout: 10000 })
+
+    // Navigate to the lesson card container (parent of the details div)
+    const lessonCard = classNameElement.locator('../..').first()
+
+    // Within this specific lesson card, find the "Book" or "Check In" button
+    // Button text is "Book" for active lessons without payment methods
+    const checkInButtonAfterCancel = lessonCard
+      .getByRole('button', { name: /^(Book|Check In)$/i })
+      .first()
     await expect(checkInButtonAfterCancel).toBeVisible({ timeout: 60000 })
 
     // Set up navigation promise BEFORE clicking (critical for UI mode)
@@ -502,9 +597,15 @@ test.describe('User booking flow from schedule', () => {
     // Wait for callback path or dashboard (booking page may redirect post-login).
     // If we don't get either fairly quickly, fail fast with a clear message rather than
     // attempting extra navigation after the test timeout (which causes "page closed" errors in CI).
+    const normalizedCallbackPath =
+      callbackPath && callbackPath.startsWith('/') ? callbackPath : `/${callbackPath || ''}`
+    const hasSpecificCallback = normalizedCallbackPath !== '/'
+
     const redirected = await page
       .waitForURL(
-        (url) => /\/dashboard/.test(url.pathname) || url.pathname.startsWith(callbackPath),
+        (url) =>
+          url.pathname === '/dashboard' ||
+          (hasSpecificCallback && url.pathname.startsWith(normalizedCallbackPath)),
         { timeout: 60000 },
       )
       .then(() => true)
@@ -516,18 +617,85 @@ test.describe('User booking flow from schedule', () => {
       )
     }
 
+    // The auth callback often lands on the booking page; the rest of this test expects dashboard.
+    const afterMagicLinkPathname = (() => {
+      try {
+        return new URL(page.url()).pathname
+      } catch {
+        return ''
+      }
+    })()
+
+    if (afterMagicLinkPathname !== '/dashboard') {
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    }
+
     // Verify the booking shows as cancelable on the schedule for tomorrow
-    // The schedule should be on the dashboard - wait for it to appear
-    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
+    // The schedule is on the dashboard - navigate there if we're not already
+    const currentUrl = page.url()
+
+
+    // Wait for dashboard to fully load and verify we're authenticated
+    // If not authenticated, dashboard will redirect to /auth/sign-in
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => { })
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+
+    // Verify session is established by checking for user name on dashboard
+    // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
+    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+
+    // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
+    // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+
+    // Verify we're still authenticated after reload
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+
+    // Wait for schedule to render
     const scheduleLocator = page.locator('#schedule')
     const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
 
     await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
     await expect(scheduleHeading).toBeVisible({ timeout: 60000 })
 
+    // Wait for the schedule query to complete with authenticated session
+    // Wait for any loading indicators to disappear, indicating the query completed
+    const loadingSpinner = scheduleLocator.getByText('Loading schedule...')
+    await expect(loadingSpinner).not.toBeVisible({ timeout: 30000 }).catch(() => {
+      // Loading spinner might not exist if query is fast, that's okay
+    })
+
+    // Additional wait to ensure bookingStatus is calculated with user context
+    await page.waitForTimeout(1000)
+
     await goToTomorrowInSchedule(page)
 
-    const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
+    // Find the specific lesson by class name to ensure we're checking the correct one
+    // The lesson we created has class name "E2E Test Class" and time 10:00 AM - 11:00 AM
+
+    // Find the lesson card by locating the class name, then finding its parent container
+    const classNameElementForCancel = page
+      .locator('#schedule')
+      .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
+      .first()
+
+    await expect(classNameElementForCancel).toBeVisible({ timeout: 60000 })
+
+    // Verify the time matches (10:00 AM - 11:00 AM) to ensure it's the correct lesson
+    const timeElementForCancel = classNameElementForCancel
+      .locator('..') // Go to parent (details div)
+      .locator('div.text-sm.font-light', { hasText: /10:00.*AM.*11:00.*AM/i })
+      .first()
+    await expect(timeElementForCancel).toBeVisible({ timeout: 10000 })
+
+    // Navigate to the lesson card container (parent of the details div)
+    const lessonCardForCancel = classNameElementForCancel.locator('../..').first()
+
+    // Within this specific lesson card, find the "Cancel Booking" button
+    const cancelButton = lessonCardForCancel
+      .getByRole('button', { name: /Cancel Booking/i })
+      .first()
     await expect(cancelButton).toBeVisible({ timeout: 20000 })
     // Ensure button is actionable (critical for UI mode)
     await expect(cancelButton)
@@ -553,10 +721,22 @@ test.describe('User booking flow from schedule', () => {
       await confirmButton.click()
     }
 
-    const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
-    await expect(checkInButton).toBeVisible({ timeout: 20000 })
+    // Wait for UI to reflect cancellation on the same lesson card.
+    // With the new schedule viewmodel, the button should flip back to Book quickly.
+    const successToast = page
+      .locator('text=/booking cancelled|cancelled/i')
+      .first()
+    await successToast.isVisible({ timeout: 10000 }).catch(() => { })
 
-    await clearTestMagicLinks(page.context().request, email).catch(() => {})
+    const cancelButtonAfter = lessonCardForCancel.getByRole('button', { name: /Cancel Booking/i }).first()
+    await expect(cancelButtonAfter).not.toBeVisible({ timeout: 20000 }).catch(() => { })
+
+    const bookButtonAfter = lessonCardForCancel
+      .getByRole('button', { name: /^(Book|Check In)$/i })
+      .first()
+    await expect(bookButtonAfter).toBeVisible({ timeout: 20000 })
+
+    await clearTestMagicLinks(page.context().request, email).catch(() => { })
   })
 
   test('drop-in lesson: after check-in + register/login redirects to /bookings/{id} and shows Drop-in payment element', async ({
@@ -568,7 +748,7 @@ test.describe('User booking flow from schedule', () => {
     await ensureLessonForTomorrowWithDropIn(page)
 
     // Log out admin
-    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
+    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
     await page.context().clearCookies()
     await page.waitForTimeout(1000)
     await waitForServerReady(page.context().request)
@@ -580,8 +760,8 @@ test.describe('User booking flow from schedule', () => {
 
     await goToTomorrowInSchedule(page)
 
-    // Click "Check In" for tomorrow's lesson
-    const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
+    // Click "Book" for tomorrow's lesson (button text is "Book" for active lessons)
+    const checkInButton = page.getByRole('button', { name: /^(Book|Check In)$/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: 60000 })
     // Ensure button is actionable (critical for UI mode)
     await expect(checkInButton)
@@ -687,10 +867,10 @@ test.describe('User booking flow from schedule', () => {
     await expect(paymentElement).toBeAttached({ timeout: process.env.CI ? 60000 : 30000 })
 
     // Extract lesson ID from the booking page URL
-    const currentUrl = page.url()
-    const lessonIdMatch = currentUrl.match(/\/bookings\/(\d+)/)
+    const bookingPageUrl = page.url()
+    const lessonIdMatch = bookingPageUrl.match(/\/bookings\/(\d+)/)
     if (!lessonIdMatch || !lessonIdMatch[1]) {
-      throw new Error(`Could not extract lesson ID from URL: ${currentUrl}`)
+      throw new Error(`Could not extract lesson ID from URL: ${bookingPageUrl}`)
     }
     const lessonId = parseInt(lessonIdMatch[1], 10)
 
@@ -700,18 +880,71 @@ test.describe('User booking flow from schedule', () => {
       userEmail: email,
     })
 
-    // Navigate to dashboard
-    await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
-    await expect(page).toHaveURL(/\/dashboard/)
+    // Wait a moment for webhook to process
+    await page.waitForTimeout(1000)
+
+    // Navigate to dashboard and handle potential redirects
+    const navigationPromise = page.waitForURL(
+      (url) => url.pathname === '/dashboard' || url.pathname.includes('/auth/sign-in'),
+      { timeout: 60000 }
+    )
+
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await navigationPromise
+
+    // Check if we were redirected to sign-in
+    const currentUrl = page.url()
+    if (currentUrl.includes('/auth/sign-in')) {
+      // Session was lost - verify by checking if we can see login form
+      const loginForm = page.getByRole('textbox', { name: /email/i })
+      const hasLoginForm = await loginForm.isVisible({ timeout: 5000 }).catch(() => false)
+
+      if (hasLoginForm) {
+        throw new Error(
+          `Session was lost after webhook mock. Redirected to sign-in instead of dashboard. ` +
+          `This suggests the session cookie was not preserved or was invalidated. ` +
+          `Current URL: ${currentUrl}`
+        )
+      }
+    }
+
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+
+    // Wait for dashboard to fully load
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => { })
+
+    // Verify session is established by checking for user name on dashboard
+    // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
+    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+
+    // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
+    // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+
+    // Verify we're still authenticated after reload
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
 
     // Wait for the schedule to load
     const scheduleLocator = page.locator('#schedule')
+    const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
     await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
+    await expect(scheduleHeading).toBeVisible({ timeout: 60000 })
+
+    // Wait for the schedule query to complete with authenticated session
+    // Wait for any loading indicators to disappear, indicating the query completed
+    const loadingSpinner = scheduleLocator.getByText('Loading schedule...')
+    await expect(loadingSpinner).not.toBeVisible({ timeout: 30000 }).catch(() => {
+      // Loading spinner might not exist if query is fast, that's okay
+    })
+
+    // Additional wait to ensure bookingStatus is calculated with user context
+    await page.waitForTimeout(1000)
 
     // Navigate to tomorrow in the schedule
     await goToTomorrowInSchedule(page)
 
-    // Verify the lesson is booked - should show "Cancel Booking" button instead of "Check In"
+    // Verify the lesson is booked - should show "Cancel Booking" button instead of "Book"
     const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
     await expect(cancelButton).toBeVisible({ timeout: 20000 })
 
@@ -723,7 +956,7 @@ test.describe('User booking flow from schedule', () => {
     const className = await classNameElement.textContent()
     expect(className).toMatch(/drop.?in/i)
 
-    await clearTestMagicLinks(page.context().request, email).catch(() => {})
+    await clearTestMagicLinks(page.context().request, email).catch(() => { })
   })
 
   test('subscription lesson: after check-in + register/login, subscribe returns redirect URL and subscription webhook confirms booking', async ({
@@ -735,7 +968,7 @@ test.describe('User booking flow from schedule', () => {
     await ensureLessonForTomorrowWithSubscription(page)
 
     // Log out admin
-    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
+    await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
     await page.context().clearCookies()
     await page.waitForTimeout(1000)
     await waitForServerReady(page.context().request)
@@ -747,8 +980,8 @@ test.describe('User booking flow from schedule', () => {
 
     await goToTomorrowInSchedule(page)
 
-    // Click "Check In" for tomorrow's lesson
-    const checkInButton = page.getByRole('button', { name: /Check In/i }).first()
+    // Click "Book" for tomorrow's lesson (button text is "Book" for active lessons)
+    const checkInButton = page.getByRole('button', { name: /^(Book|Check In)$/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: 60000 })
     await expect(checkInButton)
       .toBeEnabled({ timeout: 10000 })
@@ -836,22 +1069,6 @@ test.describe('User booking flow from schedule', () => {
       { timeout: 60000 },
     )
 
-    // Ensure the magic-link actually established a session before we proceed.
-    await expect
-      .poll(
-        async () => {
-          const res = await page
-            .context()
-            .request.get('/api/auth/get-session')
-            .catch(() => null)
-          if (!res || !res.ok()) return false
-          const data = await res.json().catch(() => null)
-          return Boolean(data?.user || data?.session)
-        },
-        { timeout: 30000 },
-      )
-      .toBeTruthy()
-
     // If auth flow landed on /dashboard, explicitly navigate back to the booking callback.
     // This keeps the test deterministic and avoids relying on app-specific post-login redirects.
     try {
@@ -889,24 +1106,93 @@ test.describe('User booking flow from schedule', () => {
     await Promise.all([checkoutResponsePromise, subscribeButton.click()])
     await expect(page).toHaveURL(/\/dashboard/, { timeout: process.env.CI ? 60000 : 30000 })
 
+    // Wait for page to fully load
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => { })
+
+    // Verify we're on dashboard before webhook
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+
     // Mock subscription created webhook to confirm booking
     await mockSubscriptionCreatedWebhook(page.context().request, {
       lessonId: lessonIdFromCallback,
       userEmail: email,
     })
 
-    // Navigate to dashboard and verify booking
-    await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
-    await expect(page).toHaveURL(/\/dashboard/)
+    // Wait a moment for webhook to process and any side effects to complete
+    await page.waitForTimeout(2000)
+
+    // Verify we're still on dashboard after webhook (session should be preserved)
+    // Check current URL without navigating (we should already be on dashboard)
+    const currentUrl = page.url()
+
+    // If we were redirected to sign-in, the session was lost
+    if (currentUrl.includes('/auth/sign-in')) {
+      throw new Error(
+        `Session was lost after webhook mock. Redirected to sign-in instead of dashboard. ` +
+        `This suggests the session cookie was not preserved or was invalidated. ` +
+        `Current URL: ${currentUrl}. ` +
+        `This might be a timing issue - the webhook may have triggered a redirect.`
+      )
+    }
+
+    // If we're not on dashboard, navigate there (shouldn't happen, but handle it)
+    if (!currentUrl.includes('/dashboard')) {
+      const navigationPromise = page.waitForURL(
+        (url) => url.pathname === '/dashboard' || url.pathname.includes('/auth/sign-in'),
+        { timeout: 60000 }
+      )
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
+      await navigationPromise
+
+      // Check if navigation redirected to sign-in
+      if (page.url().includes('/auth/sign-in')) {
+        throw new Error(
+          `Session was lost. Could not navigate to dashboard - redirected to sign-in. ` +
+          `Current URL: ${page.url()}`
+        )
+      }
+
+      await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+    } else {
+      // We're already on dashboard - just verify
+      await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+    }
+
+    // Wait for dashboard to fully load
+    await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => { })
+
+    // Verify session is established by checking for user name on dashboard
+    // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
+    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+
+    // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
+    // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
+
+    // Verify we're still authenticated after reload
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
 
     const scheduleLocator = page.locator('#schedule')
+    const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
     await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
+    await expect(scheduleHeading).toBeVisible({ timeout: 60000 })
+
+    // Wait for the schedule query to complete with authenticated session
+    // Wait for any loading indicators to disappear, indicating the query completed
+    const loadingSpinner = scheduleLocator.getByText('Loading schedule...')
+    await expect(loadingSpinner).not.toBeVisible({ timeout: 30000 }).catch(() => {
+      // Loading spinner might not exist if query is fast, that's okay
+    })
+
+    // Additional wait to ensure bookingStatus is calculated with user context
+    await page.waitForTimeout(1000)
 
     await goToTomorrowInSchedule(page)
 
     const cancelButton = page.getByRole('button', { name: /Cancel Booking/i }).first()
     await expect(cancelButton).toBeVisible({ timeout: 20000 })
 
-    await clearTestMagicLinks(page.context().request, email).catch(() => {})
+    await clearTestMagicLinks(page.context().request, email).catch(() => { })
   })
 })

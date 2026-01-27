@@ -235,7 +235,7 @@ export const subscriptionsRouter = {
 
       // Check if subscription limit is reached
       const limitReached = await hasReachedSubscriptionLimit(
-        subscription,
+        subscription as Subscription,
         payload,
         new Date(lesson.startTime)
       );

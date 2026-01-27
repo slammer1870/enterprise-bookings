@@ -18,8 +18,8 @@ import {
   AccessControls,
 } from "@repo/shared-types";
 
-import { checkRole } from "@repo/shared-utils/src/check-role";
-import { isAdminOrOwner } from "@repo/shared-services/src/access/is-admin-or-owner";
+import { checkRole } from "@repo/shared-utils";
+import { isAdminOrOwner } from "@repo/shared-services";
 
 import { render } from "@react-email/components";
 import { WaitlistNotificationEmail } from "../emails/waitlist-notification";

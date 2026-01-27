@@ -8,7 +8,7 @@ import type {
 
 import { BookingsPluginConfig } from "../types";
 
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 
 import type { User, AccessControls, HooksConfig } from "@repo/shared-types/";
 
