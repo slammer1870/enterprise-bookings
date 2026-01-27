@@ -13,14 +13,14 @@ import type { CollectionConfig, Config, Plugin } from 'payload'
 export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Config => {
   const config = { ...incomingConfig }
 
-  const collections = config.collections || []
-  const usersCollection = collections.find((c) => c.slug === 'users')
+  const collections = Array.isArray(config.collections) ? config.collections : []
+  const usersCollection = collections.find((c) => c && 'slug' in c && c.slug === 'users')
 
   if (!usersCollection) {
     return config
   }
 
-  const fields = usersCollection.fields || []
+  const fields = Array.isArray(usersCollection.fields) ? usersCollection.fields : []
 
   // Find and fix the role field
   const fixedFields = fields.map((field) => {

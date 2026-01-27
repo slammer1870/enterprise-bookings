@@ -97,7 +97,7 @@ export async function findByIdSafe<T>(
  * Helper function to safely find documents in a collection
  * @template T - The expected type of the documents returned
  */
-export async function findSafe<_T = any>(
+export async function findSafe<T = JsonObject & TypeWithID>(
   payload: Payload,
   collectionSlug: string,
   options: {
@@ -108,7 +108,7 @@ export async function findSafe<_T = any>(
     user?: any;
     sort?: string;
   } = {}
-): Promise<PaginatedDocs<JsonObject & TypeWithID>> {
+): Promise<PaginatedDocs<T>> {
   if (!hasCollection(payload, collectionSlug)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -124,7 +124,7 @@ export async function findSafe<_T = any>(
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
     ...(options.sort && { sort: options.sort }),
-  }))
+  })) as PaginatedDocs<T>;
 }
 
 /**
