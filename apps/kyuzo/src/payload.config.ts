@@ -18,6 +18,8 @@ import { migrations } from './migrations'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
+import { fixBetterAuthRoleField } from './plugins/fix-better-auth-role-field'
+import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { rolesPlugin } from '@repo/roles'
 import { paymentsPlugin } from '@repo/payments-plugin'
 import { membershipsPlugin } from '@repo/memberships'
@@ -114,6 +116,10 @@ export default buildConfig({
       },
     }),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after betterAuthPlugin to fix timestamp validation issues
+    fixBetterAuthTimestamps(),
+    // Must run after betterAuthPlugin to fix role field schema for rolesPlugin
+    fixBetterAuthRoleField(),
     rolesPlugin({
       enabled: true,
       roles: ['user', 'admin'],
