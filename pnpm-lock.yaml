@@ -2065,6 +2065,9 @@ importers:
 
   packages/eslint-config:
     dependencies:
+      eslint-config-prettier:
+        specifier: ^10.1.8
+        version: 10.1.8(eslint@9.39.2(jiti@2.6.1))
       vitest:
         specifier: 4.0.12
         version: 4.0.12(@types/debug@4.1.12)(@types/node@24.10.9)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.2)(sass@1.77.4)(terser@5.46.0)(tsx@4.20.6)(yaml@2.8.2)
@@ -2081,9 +2084,6 @@ importers:
       '@vercel/style-guide':
         specifier: ^6.0.0
         version: 6.0.0(@next/eslint-plugin-next@15.5.9)(eslint@9.39.2(jiti@2.6.1))(prettier@3.8.0)(typescript@5.9.3)(vitest@4.0.12(@types/debug@4.1.12)(@types/node@24.10.9)(jiti@2.6.1)(jsdom@27.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.2)(sass@1.77.4)(terser@5.46.0)(tsx@4.20.6)(yaml@2.8.2))
-      eslint-config-prettier:
-        specifier: ^10.1.8
-        version: 10.1.8(eslint@9.39.2(jiti@2.6.1))
       eslint-config-turbo:
         specifier: ^2.6.1
         version: 2.7.5(eslint@9.39.2(jiti@2.6.1))(turbo@2.7.5)
