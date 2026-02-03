@@ -1,6 +1,6 @@
 import { Schedule } from '@repo/bookings-next'
 
-import { getPayload } from 'payload'
+import { getPayload, type CollectionSlug } from 'payload'
 
 import config from '@payload-config'
 
@@ -34,7 +34,7 @@ export default async function Dashboard() {
   })
 
   const allowedPlans = await payload.find({
-    collection: 'plans',
+    collection: 'memberships' as CollectionSlug,
     where: {
       status: { equals: 'active' },
     },

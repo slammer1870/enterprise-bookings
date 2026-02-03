@@ -1,6 +1,6 @@
 import ScheduleComponent from '@/components/schedule'
 
-import { getPayload } from 'payload'
+import { getPayload, type CollectionSlug } from 'payload'
 
 import { redirect } from 'next/navigation'
 
@@ -38,7 +38,7 @@ export default async function Dashboard() {
   })
 
   const allowedPlans = await payload.find({
-    collection: 'plans',
+    collection: 'memberships' as CollectionSlug,
     where: {
       status: { equals: 'active' },
     },

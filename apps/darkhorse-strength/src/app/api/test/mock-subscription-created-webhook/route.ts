@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPayload } from 'payload'
+import { getPayload, type CollectionSlug } from 'payload'
 import config from '@/payload.config'
 import { subscriptionCreated } from '@repo/bookings-payments'
 import type Stripe from 'stripe'
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // 2) Plan with stripeProductId (create fake id if missing)
     const planQuery = await payload.find({
-      collection: 'plans',
+      collection: 'memberships' as CollectionSlug,
       limit: 1,
       sort: '-createdAt',
       overrideAccess: true,
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const stripeProductId = plan.stripeProductId || `prod_test_${Date.now()}`
     if (!plan.stripeProductId) {
       await payload.update({
-        collection: 'plans',
+        collection: 'memberships' as CollectionSlug,
         id: plan.id,
         data: { stripeProductId },
         overrideAccess: true,

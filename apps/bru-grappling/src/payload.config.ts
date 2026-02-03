@@ -141,7 +141,7 @@ export default buildConfig({
               {
                 name: 'allowedPlans',
                 type: 'relationship',
-                relationTo: 'plans',
+                relationTo: 'memberships',
                 hasMany: true,
                 filterOptions: ({ data }) => {
                   // returns a Where query dynamically by the type of relationship

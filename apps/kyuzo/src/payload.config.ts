@@ -7,7 +7,7 @@ import { resendAdapter } from '@payloadcms/email-resend'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig, SharpDependency } from 'payload'
+import { buildConfig, type CollectionSlug, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -148,7 +148,7 @@ export default buildConfig({
               {
                 name: 'allowedPlans',
                 type: 'relationship',
-                relationTo: 'plans',
+                relationTo: 'memberships' as CollectionSlug,
                 hasMany: true,
                 filterOptions: ({ data }) => {
                   // returns a Where query dynamically by the type of relationship
