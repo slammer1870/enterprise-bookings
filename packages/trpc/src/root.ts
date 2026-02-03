@@ -1,19 +1,32 @@
 import { lessonsRouter } from "./routers/lessons";
-import { paymentsRouter } from "./routers/payments";
+import { createPaymentsRouter } from "./routers/payments";
 import { subscriptionsRouter } from "./routers/subscriptions";
 import { usersRouter } from "./routers/users";
 import { bookingsRouter } from "./routers/bookings";
 import { authRouter } from "./routers/auth";
 
-import { createTRPCRouter } from "./trpc";
+import { createTRPCRouter, type GetSubscriptionBookingFeeCents } from "./trpc";
 
-export const appRouter = createTRPCRouter({
-  lessons: lessonsRouter,
-  bookings: bookingsRouter,
-  subscriptions: subscriptionsRouter,
-  payments: paymentsRouter,
-  users: usersRouter,
-  auth: authRouter,
-});
+export type AppRouterOptions = {
+  payments?: {
+    getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
+  };
+};
+
+export function createAppRouter(options?: AppRouterOptions) {
+  const paymentsRouter = createPaymentsRouter(options?.payments);
+
+  return createTRPCRouter({
+    lessons: lessonsRouter,
+    bookings: bookingsRouter,
+    subscriptions: subscriptionsRouter,
+    payments: paymentsRouter,
+    users: usersRouter,
+    auth: authRouter,
+  });
+}
+
+/** Default router (no payment options). Used by apps that do not need subscription booking fee. */
+export const appRouter = createAppRouter();
 
 export type AppRouter = typeof appRouter;

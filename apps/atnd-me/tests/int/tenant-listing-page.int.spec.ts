@@ -88,8 +88,8 @@ describe('Tenant Listing Page Access', () => {
       expect(tenantsResult.docs.length).toBeGreaterThanOrEqual(validTenants.length)
 
       // Verify our test tenants are included (if they still exist)
-      const testTenantSlugs = validTenants.map(t => (t as Tenant).slug)
-      const foundSlugs = tenantsResult.docs.map((t: Tenant) => t.slug)
+      const testTenantSlugs = validTenants.map(t => (t as any).slug)
+      const foundSlugs = tenantsResult.docs.map((t: any) => t.slug)
       
       for (const slug of testTenantSlugs) {
         expect(foundSlugs).toContain(slug)
@@ -154,7 +154,7 @@ describe('Tenant Listing Page Access', () => {
         overrideAccess: true,
       })
 
-      const names = tenantsResult.docs.map((t: Tenant) => t.name)
+      const names = tenantsResult.docs.map((t: any) => t.name)
       const sortedNames = [...names].sort()
 
       expect(names).toEqual(sortedNames)

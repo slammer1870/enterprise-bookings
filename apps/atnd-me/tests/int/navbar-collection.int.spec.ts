@@ -119,7 +119,7 @@ describe('Navbar collection (converted from Header global)', () => {
       })
 
       expect(navbar).toBeDefined()
-      const tenantId = typeof navbar.tenant === 'object' ? navbar.tenant.id : navbar.tenant
+      const tenantId = typeof navbar.tenant === 'object' ? navbar.tenant?.id : navbar.tenant
       expect(tenantId).toBe(testTenant.id)
       expect(navbar.logoLink).toBe('/')
       expect(navbar.navItems).toHaveLength(1)
@@ -189,7 +189,7 @@ describe('Navbar collection (converted from Header global)', () => {
       })
 
       expect(navbar).toBeDefined()
-      const tenantId = typeof navbar.tenant === 'object' ? navbar.tenant.id : navbar.tenant
+      const tenantId = typeof navbar.tenant === 'object' ? navbar.tenant?.id : navbar.tenant
       expect(tenantId).toBe(testTenant.id)
     },
     TEST_TIMEOUT,
@@ -266,7 +266,7 @@ describe('Navbar collection (converted from Header global)', () => {
       })
 
       expect(found).toBeDefined()
-      const tenantId = typeof found.tenant === 'object' ? found.tenant.id : found.tenant
+      const tenantId = typeof found.tenant === 'object' ? found.tenant?.id : found.tenant
       expect(tenantId).toBe(testTenant.id)
     },
     TEST_TIMEOUT,
@@ -365,8 +365,8 @@ describe('Navbar collection (converted from Header global)', () => {
       // Query should only return navbar for the tenant in context
       // For now, we'll test that both exist and have correct tenants
       // Tenant field may be populated as object or just ID
-      const navbar1TenantId = typeof navbar1.tenant === 'object' ? navbar1.tenant.id : navbar1.tenant
-      const navbar2TenantId = typeof navbar2.tenant === 'object' ? navbar2.tenant.id : navbar2.tenant
+      const navbar1TenantId = typeof navbar1.tenant === 'object' ? navbar1.tenant?.id : navbar1.tenant
+      const navbar2TenantId = typeof navbar2.tenant === 'object' ? navbar2.tenant?.id : navbar2.tenant
       expect(navbar1TenantId).toBe(testTenant.id)
       expect(navbar2TenantId).toBe(secondTenant.id)
 

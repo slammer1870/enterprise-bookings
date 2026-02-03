@@ -60,7 +60,7 @@ describe('Tenant Onboarding Hook', () => {
       if (classOptions.docs.length > 0) {
         expect(classOptions.docs.length).toBeGreaterThanOrEqual(3)
         
-        const classOptionNames = classOptions.docs.map((co: ClassOption) => co.name)
+        const classOptionNames = classOptions.docs.map((co: any) => co.name)
         expect(classOptionNames.some((n) => n?.includes('Yoga Class'))).toBe(true)
         expect(classOptionNames.some((n) => n?.includes('Fitness Class'))).toBe(true)
         expect(classOptionNames.some((n) => n?.includes('Small Group Class'))).toBe(true)
@@ -92,7 +92,7 @@ describe('Tenant Onboarding Hook', () => {
 
       // Home page may not be created if images are missing, but other data should be
       if (pages.docs.length > 0) {
-        const homePage = pages.docs[0] as Page
+        const homePage = pages.docs[0] as any
         expect(homePage.slug).toBe('home')
         expect(homePage.title).toContain('Onboarding Test Tenant')
       } else {
@@ -137,7 +137,7 @@ describe('Tenant Onboarding Hook', () => {
 
         if (navbars.docs.length > 0) {
           expect(navbars.docs.length).toBe(1)
-          const navbar = navbars.docs[0]
+          const navbar = navbars.docs[0]!
           expect(navbar.navItems).toBeDefined()
           expect(Array.isArray(navbar.navItems)).toBe(true)
         }
@@ -244,8 +244,8 @@ describe('Tenant Onboarding Hook', () => {
       // If hooks failed, that's okay - they handle errors gracefully
       if (tenant1ClassOptions.docs.length > 0 && tenant2ClassOptions.docs.length > 0) {
         // Verify class options are different (different tenant IDs)
-        const tenant1ClassOptionIds = tenant1ClassOptions.docs.map((co: ClassOption) => co.id)
-        const tenant2ClassOptionIds = tenant2ClassOptions.docs.map((co: ClassOption) => co.id)
+        const tenant1ClassOptionIds = tenant1ClassOptions.docs.map((co: any) => co.id)
+        const tenant2ClassOptionIds = tenant2ClassOptions.docs.map((co: any) => co.id)
         
         // No overlap between tenant class options
         const overlap = tenant1ClassOptionIds.filter(id => tenant2ClassOptionIds.includes(id))

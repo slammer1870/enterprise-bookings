@@ -3,6 +3,20 @@ import { Payload, Where, CollectionSlug } from "payload";
 import { Lesson, Plan, Subscription, User } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 
+/** Resolve plan collection slug (memberships in atnd-me, plans in other apps). */
+function getPlanCollectionSlug(payload: Payload): CollectionSlug {
+  return payload.collections && "memberships" in payload.collections
+    ? ("memberships" as CollectionSlug)
+    : ("plans" as CollectionSlug);
+}
+
+/** Returns true if plan allows multiple bookings per lesson. Plans without sessions info allow unlimited. */
+function planAllowsMultipleBookingsPerLesson(plan: Plan): boolean {
+  const si = plan?.sessionsInformation;
+  if (!si || si.sessions == null || si.sessions <= 0) return true;
+  return (si as { allowMultipleBookingsPerLesson?: boolean }).allowMultipleBookingsPerLesson === true;
+}
+
 function getSubscriptionPeriodStartAndEndDate(opts: {
   subscriptionStartDate: Date | string;
   lessonDate: Date;
@@ -128,7 +142,7 @@ export const hasReachedSubscriptionLimit = async (
   if (typeof plan === "number") {
     try {
       plan = (await payload.findByID({
-        collection: "plans" as CollectionSlug,
+        collection: getPlanCollectionSlug(payload),
         id: plan,
       })) as Plan;
     } catch {
@@ -187,6 +201,75 @@ export const hasReachedSubscriptionLimit = async (
   }
 
   return false;
+};
+
+/**
+ * Returns the maximum additional booking quantity the user can create for this lesson
+ * when booking via subscription. Returns null if user has no subscription for this lesson
+ * (caller may allow any quantity if they are paying).
+ * When plan has sessionsInformation and allowMultipleBookingsPerLesson is false, max is 1 per lesson.
+ */
+export const getMaxSubscriptionQuantityPerLesson = async (
+  userId: number,
+  lesson: Lesson,
+  payload: Payload
+): Promise<number | null> => {
+  const allowedPlans = lesson.classOption?.paymentMethods?.allowedPlans;
+  if (!allowedPlans || allowedPlans.length === 0) return null;
+
+  try {
+    const subs = await payload.find({
+      collection: "subscriptions" as CollectionSlug,
+      where: {
+        user: { equals: userId },
+        status: { equals: "active" },
+        startDate: { less_than_equal: new Date() },
+        endDate: { greater_than_equal: new Date() },
+        plan: {
+          in: allowedPlans.map((p: any) => (typeof p === "object" && p != null ? p.id : p)),
+        },
+        or: [
+          { cancelAt: { greater_than: new Date() } },
+          { cancelAt: { exists: false } },
+        ],
+      },
+      depth: 2,
+      limit: 1,
+      overrideAccess: true,
+    });
+
+    if (subs.docs.length === 0) return null;
+
+    let plan = (subs.docs[0] as Subscription).plan as Plan | number;
+    if (typeof plan === "number") {
+      plan = (await payload.findByID({
+        collection: getPlanCollectionSlug(payload),
+        id: plan,
+        depth: 0,
+      })) as Plan;
+    }
+    if (!plan) return null;
+
+    const maxPerLesson = planAllowsMultipleBookingsPerLesson(plan) ? Infinity : 1;
+
+    const existing = await payload.find({
+      collection: "bookings" as CollectionSlug,
+      where: {
+        lesson: { equals: lesson.id },
+        user: { equals: userId },
+        status: { equals: "confirmed" },
+      },
+      limit: 0,
+      overrideAccess: true,
+    });
+
+    const existingCount = existing.totalDocs ?? 0;
+    const maxAdditional = Math.max(0, maxPerLesson - existingCount);
+    return maxAdditional;
+  } catch (error) {
+    payload.logger?.error?.(`getMaxSubscriptionQuantityPerLesson: ${error}`);
+    return null;
+  }
 };
 
 // Helper function to check user subscription

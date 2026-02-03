@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation.js";
 
 /**
  * Dynamic import of @payloadcms/ui so it (and react-image-crop's .css) is never

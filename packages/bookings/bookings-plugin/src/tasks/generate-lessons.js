@@ -1,6 +1,18 @@
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
 
+/** Normalize relationship value to ID (handles populated { id } or raw number). */
+function toId(value) {
+  if (value == null) return null;
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "object" && value !== null && "id" in value) {
+    const id = value.id;
+    return typeof id === "number" ? id : null;
+  }
+  const n = Number(value);
+  return Number.isNaN(n) ? null : n;
+}
+
 /**
  * Runtime JS entrypoint for Node/Next environments that cannot import `.ts` files
  * from workspace packages via deep imports (e.g. `@repo/bookings-plugin/src/...`).
@@ -239,20 +251,40 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
           timeZone
         );
 
+        const defaultClassOptionId = toId(defaultClassOption);
+        const classOptionId = toId(timeSlot.classOption) ?? defaultClassOptionId;
+        if (classOptionId == null) {
+          payload?.logger?.warn?.(
+            `Skipping lesson: no valid classOption for slot ${timeSlot.startTime}`
+          );
+          continue;
+        }
+        const classOptionIdNum =
+          typeof classOptionId === "number" && !Number.isNaN(classOptionId)
+            ? classOptionId
+            : Number(classOptionId);
+        if (Number.isNaN(classOptionIdNum)) {
+          payload?.logger?.warn?.(
+            `Skipping lesson: classOption id is not a valid number for slot ${timeSlot.startTime}`
+          );
+          continue;
+        }
+
         const newLesson = await payload.create({
           collection: "lessons",
           data: {
             date: lessonDate.toISOString(),
             startTime: lessonStartTime.toISOString(),
             endTime: lessonEndTime.toISOString(),
-            classOption:
-              Number(timeSlot.classOption) || Number(defaultClassOption),
+            classOption: classOptionIdNum,
             location: timeSlot.location || null,
-            instructor: Number(timeSlot.instructor) || null,
+            instructor: toId(timeSlot.instructor) ?? undefined,
             lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
-            active: timeSlot.active || true,
+            active: timeSlot.active !== false,
             ...(tenantId ? { tenant: tenantId } : {}),
           },
+          req,
+          overrideAccess: true,
         });
 
         // eslint-disable-next-line no-console

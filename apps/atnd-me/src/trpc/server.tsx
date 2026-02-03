@@ -2,8 +2,9 @@ import { cache } from 'react'
 import { headers as nextHeaders } from 'next/headers'
 
 import { createServerTRPC, createServerTRPCContext } from '@repo/trpc/server'
-import { appRouter, createTRPCContext } from '@repo/trpc'
+import { createTRPCContext } from '@repo/trpc'
 
+import { appRouter } from '@/trpc/router'
 import { getPayload } from '@/lib/payload'
 import { stripe } from '../lib/stripe'
 
@@ -21,7 +22,7 @@ const createContext = cache(async () => {
 })
 
 type ServerTRPC = ReturnType<typeof createServerTRPC>
-const serverTRPC: ServerTRPC = createServerTRPC(createContext)
+const serverTRPC: ServerTRPC = createServerTRPC(createContext, appRouter)
 
 export const trpc: ServerTRPC['trpc'] = serverTRPC.trpc
 export const getQueryClient: ServerTRPC['getQueryClient'] = serverTRPC.getQueryClient

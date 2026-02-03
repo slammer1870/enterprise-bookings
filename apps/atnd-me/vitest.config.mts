@@ -11,6 +11,7 @@ export default defineConfig({
     globalSetup: ['./tests/int/global-setup.ts'],
     include: ['tests/int/**/*.int.spec.ts'],
     hookTimeout: 300000, // 5 minutes for database setup
+    pool: 'vmThreads', // so deps.transformCss can handle .css from deps like react-image-crop
     server: {
       deps: {
         inline: ['payload-auth'],

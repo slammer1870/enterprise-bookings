@@ -15,6 +15,7 @@ export function Schedule({
 }: { 
   /**
    * Optional function or string to generate the manage booking URL.
+   * Defaults to `/bookings/[id]/manage` if not provided.
    * Passed through to CheckInButton components.
    */
   manageHref?: string | ((lessonId: number) => string);

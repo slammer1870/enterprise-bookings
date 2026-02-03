@@ -51,9 +51,9 @@ export const dropInsCollection = (
       },
       {
         name: "adjustable",
-        label: "Adjustable",
+        label: "Allow multiple bookings per lesson",
         type: "checkbox",
-        defaultValue: false,
+        defaultValue: true,
         required: true,
       },
       {

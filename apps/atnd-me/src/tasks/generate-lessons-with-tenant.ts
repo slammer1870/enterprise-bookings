@@ -1,5 +1,5 @@
 import type { TaskHandler } from 'payload'
-import { generateLessonsFromSchedule } from '@repo/bookings-plugin/src/tasks/generate-lessons'
+import { generateLessonsFromSchedule } from '@repo/bookings-plugin'
 
 /**
  * Wrapper for generateLessonsFromSchedule that ensures tenant context is set

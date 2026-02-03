@@ -15,7 +15,7 @@ export const Navbar: CollectionConfig = {
     admin: {
         useAsTitle: 'tenant',
         defaultColumns: ['tenant', 'logoLink', 'updatedAt'],
-        group: 'Configuration',
+        group: 'Website',
         description: 'Navigation bar configuration for each tenant',
     },
     access: {

@@ -37,12 +37,13 @@ pnpm seed
 
 ## Test Tenants
 
-The seed creates 2 test tenants for multi-tenant testing:
+The seed creates 3 test tenants (dummy business names) for multi-tenant and payment-method testing:
 
 | Name | Slug | Description |
 |------|------|-------------|
-| Demo Tenant 1 | `demo-tenant-1` | Main tenant with full test data (lessons, bookings, pages, navbar, footer) |
-| Demo Tenant 2 | `demo-tenant-2` | Secondary tenant for testing tenant isolation |
+| Flow Yoga & Fitness | `flow-yoga-fitness` | Main studio with Stripe Connect; full payment variety (Stripe, class pass, drop-in) |
+| Pilates & Stretch Co. | `pilates-stretch-co` | No Stripe; class pass and pay-at-door only (isolation testing) |
+| Croí Lán Sauna | `croi-lan-sauna` | Sauna studio with Stripe Connect; 50 min / 30 min sessions |
 
 ## Test Users
 
@@ -51,134 +52,125 @@ The seed creates 5 test users:
 | Email | Password | Role | Purpose |
 |-------|----------|------|---------|
 | `admin@test.com` | `password` | admin | Admin access for testing admin features (can access all tenants) |
-| `tenant-admin@test.com` | `password` | tenant-admin | Tenant admin for Demo Tenant 1 (can only manage tenant1 data) |
+| `tenant-admin@test.com` | `password` | tenant-admin | Tenant admin for Flow Yoga & Fitness (can only manage that tenant's data) |
 | `user1@test.com` | `password` | user | Primary test user with multiple bookings |
 | `user2@test.com` | `password` | user | Secondary test user |
 | `user3@test.com` | `password` | user | Tertiary test user for waitlist testing |
 
 ## Instructors
 
-**For Demo Tenant 1:**
-- **John Instructor** (`john@instructor.com`) - Active
-- **Jane Instructor** (`jane@instructor.com`) - Active
+**For Flow Yoga & Fitness:**
+- **John Instructor** (`john@instructor.com`) – Active
+- **Jane Instructor** (`jane@instructor.com`) – Active
 
-**For Demo Tenant 2:**
-- **John Instructor** (`john@instructor.com`) - Active (same user, different tenant)
+**For Pilates & Stretch Co.:**
+- **Maya Chen** (`tenant2@instructor.com`) – Active
+
+**For Croí Lán Sauna:**
+- **Croí Lán Sauna Instructor** (`croi-lan-sauna@instructor.com`) – Active
 
 ## Class Options
 
-**For Demo Tenant 1:**
-1. **Yoga Class** - 10 places
-   - Description: "A relaxing yoga class for all levels"
+Names explicitly state payment methods for manual testers.
 
-2. **Fitness Class** - 15 places
-   - Description: "High-intensity fitness training"
+**Flow Yoga & Fitness (Stripe Connect):**
+1. **Yoga — Stripe + Class Pass** – 10 places. Pay by card or use Fitness Only / All Access pass.
+2. **Fitness — Stripe only** – 15 places. Card payment only; no class passes.
+3. **Small Group — Class Pass only** – 5 places. Fitness Only or All Access pass only; no drop-in payment.
+4. **Drop-in — No payments (pay at door)** – 8 places. Pay at the door; no Stripe, no class pass.
 
-3. **Small Group Class** - 5 places
-   - Description: "Intimate small group session"
+**Pilates & Stretch Co. (no Stripe):**
+1. **Pilates — Class Pass only** – 10 places. All Access pass only.
+2. **Stretch — No payments (pay at door)** – 8 places. Pay at the door only.
 
-**For Demo Tenant 2:**
-1. **Tenant 2 Class** - 10 places
-   - Description: "Class option for tenant 2"
+**Croí Lán Sauna (Stripe Connect):**
+1. **50 min session — Stripe + Class Pass** – 12 places. Card or Sauna Only / All Access pass.
+2. **30 min session — Class Pass only** – 8 places. Sauna Only or All Access pass only.
 
 ## Lessons
 
-The seed creates 7 lessons with various states (6 for Demo Tenant 1, 1 for Demo Tenant 2):
+The seed creates 7 lessons (6 for Flow Yoga & Fitness, 1 for Pilates & Stretch Co.):
 
-### 1. Past Lesson (Demo Tenant 1)
+### 1. Past Lesson (Flow Yoga & Fitness)
 - **Date**: 2 days ago
 - **Time**: 10:00 - 11:00
-- **Class**: Yoga Class
+- **Class**: Yoga — Stripe + Class Pass
 - **Location**: Studio A
 - **Instructor**: John Instructor
 - **Status**: Completed (past date)
-- **Bookings**: 1 confirmed booking (user1)
+- **Bookings**: 1 confirmed (user1)
 
 **Test Scenario**: View booking history
 
-### 2. Active Lesson (Demo Tenant 1)
+### 2. Active Lesson (Flow Yoga & Fitness)
 - **Date**: Tomorrow
 - **Time**: 14:00 - 15:00
-- **Class**: Yoga Class
+- **Class**: Yoga — Stripe + Class Pass
 - **Location**: Studio A
 - **Instructor**: John Instructor
 - **Status**: Active (available for booking)
-- **Bookings**: 
-  - 1 booking (user1)
-  - 2 bookings (user2)
+- **Bookings**: 1 (user1), 2 (user2)
 
-**Test Scenario**: Book additional slots, view partially booked lesson
+**Test Scenario**: Book additional slots, test Stripe + class pass flow
 
-### 3. Partially Booked Lesson (Demo Tenant 1)
+### 3. Partially Booked Lesson (Flow Yoga & Fitness)
 - **Date**: 2 days from now
 - **Time**: 16:00 - 17:00
-- **Class**: Fitness Class
+- **Class**: Fitness — Stripe only
 - **Location**: Studio B
 - **Instructor**: Jane Instructor
 - **Status**: Active (3/15 places booked)
-- **Bookings**: 3 confirmed bookings (user1, user2, user3)
+- **Bookings**: 3 confirmed (user1, user2, user3)
 
-**Test Scenario**: Book remaining slots, test capacity limits
+**Test Scenario**: Book remaining slots, test Stripe-only payment
 
-### 4. Fully Booked Lesson (Demo Tenant 1)
+### 4. Fully Booked Lesson (Flow Yoga & Fitness)
 - **Date**: 3 days from now
 - **Time**: 10:00 - 11:00
-- **Class**: Small Group Class (5 places)
+- **Class**: Small Group — Class Pass only (5 places)
 - **Location**: Studio C
 - **Instructor**: John Instructor
-- **Status**: Fully booked (5/5 places)
-- **Bookings**: 5 confirmed bookings
-- **Waitlist**: 1 waiting booking (user3)
+- **Status**: Fully booked (5/5)
+- **Bookings**: 5 confirmed; 1 waiting (user3)
 
-**Test Scenario**: 
-- Test fully booked state
-- Test waitlist functionality
-- Test error handling when trying to book
+**Test Scenario**: Fully booked state, waitlist, class-pass-only flow
 
-### 5. Upcoming Lesson (Demo Tenant 1)
+### 5. Upcoming Lesson (Flow Yoga & Fitness)
 - **Date**: 5 days from now
 - **Time**: 18:00 - 19:00
-- **Class**: Yoga Class
+- **Class**: Yoga — Stripe + Class Pass
 - **Location**: Studio A
 - **Instructor**: Jane Instructor
-- **Status**: Active (available for booking)
-- **Bookings**: 
-  - 1 pending booking (user1) - for payment flow testing
-  - 1 cancelled booking (user2) - for cancellation testing
+- **Status**: Active
+- **Bookings**: 1 pending (user1), 1 cancelled (user2)
 
-**Test Scenario**: 
-- Book new lesson
-- Test payment flow (pending booking)
-- View cancelled bookings
+**Test Scenario**: Payment flow, cancellation handling
 
-### 6. Manage Bookings Lesson (Demo Tenant 1)
-
-### 7. Tenant 2 Lesson (Demo Tenant 2)
-- **Date**: Tomorrow
-- **Time**: 10:00 - 11:00
-- **Class**: Tenant 2 Class
-- **Location**: Tenant 2 Studio
-- **Instructor**: John Instructor (tenant2 version)
-- **Status**: Active (available for booking)
-- **Bookings**: None
-
-**Test Scenario**: Test tenant isolation - verify this lesson is separate from tenant1 lessons
+### 6. Manage Bookings Lesson (Flow Yoga & Fitness)
 - **Date**: 4 days from now
 - **Time**: 12:00 - 13:00
-- **Class**: Fitness Class
+- **Class**: Fitness — Stripe only
 - **Location**: Studio B
 - **Instructor**: John Instructor
 - **Status**: Active
-- **Bookings**: 3 confirmed bookings (all user1)
+- **Bookings**: 3 confirmed (all user1)
 
-**Test Scenario**: 
-- Access manage bookings page: `/bookings/[id]/manage`
-- Test increasing/decreasing quantity
-- Test cancelling individual bookings
+**Test Scenario**: `/bookings/[id]/manage` — increase/decrease quantity, cancel individual bookings
+
+### 7. Pilates & Stretch Co. Lesson (isolation testing)
+- **Date**: Tomorrow
+- **Time**: 10:00 - 11:00
+- **Class**: Pilates — Class Pass only
+- **Location**: Main Studio
+- **Instructor**: Maya Chen
+- **Status**: Active
+- **Bookings**: None
+
+**Test Scenario**: Tenant isolation; class pass only (no Stripe)
 
 ## Bookings
 
-The seed creates bookings in various states (all scoped to Demo Tenant 1):
+The seed creates bookings in various states (all scoped to Flow Yoga & Fitness):
 
 ### Confirmed Bookings
 - Multiple confirmed bookings across different lessons
@@ -229,22 +221,23 @@ The seed creates bookings in various states (all scoped to Demo Tenant 1):
 3. **Manage Class Options**: Edit class option details
 
 ### Multi-Tenant Features
-1. **Tenant Isolation**: Verify that Demo Tenant 2's data is separate from Demo Tenant 1
-2. **Tenant-Admin Access**: Login as `tenant-admin@test.com` to test tenant-scoped admin access
-   - Should only see/manage Demo Tenant 1's data
-   - Should not see Demo Tenant 2's data
-3. **Cross-Tenant Booking**: Test that users can book lessons from different tenants (if enabled)
-4. **Tenant-Scoped Pages**: Verify pages, navbar, and footer are scoped to tenants
+1. **Tenant Isolation**: Verify Pilates & Stretch Co. data is separate from Flow Yoga & Fitness
+2. **Tenant-Admin Access**: Login as `tenant-admin@test.com` (Flow Yoga & Fitness)
+   - Should only see/manage Flow Yoga & Fitness data
+   - Should not see Pilates & Stretch Co. or Croí Lán Sauna
+3. **Cross-Tenant Booking**: Test booking from different tenants (if enabled)
+4. **Tenant-Scoped Pages**: Verify pages, navbar, and footer are scoped per tenant
 
 ## Notes
 
 - All test users have the password: `password`
-- Dates are relative to when the seed is run (e.g., "tomorrow" means the day after seeding)
+- Dates are relative to when the seed is run (e.g. "tomorrow" = day after seeding)
 - The seed clears existing booking data before creating new data
 - The seed can be run multiple times safely (it clears data first)
-- **Multi-Tenant**: All tenant-scoped collections (lessons, class-options, instructors, bookings, pages, navbar, footer) are scoped to tenants
-- **Tenant Context**: When testing, ensure you're accessing the correct tenant's data (via subdomain or tenant context)
-- **Tenant-Admin**: The tenant-admin user is assigned to Demo Tenant 1 and can only manage that tenant's data
+- **Multi-Tenant**: Lessons, class-options, instructors, bookings, pages, navbar, footer are scoped to tenants
+- **Tenant Context**: Use the correct tenant (subdomain or context) when testing
+- **Tenant-Admin**: Assigned to Flow Yoga & Fitness only
+- **Class option names**: Include payment methods (Stripe, Class Pass, pay at door) so manual testers know what they're testing
 
 ## Troubleshooting
 

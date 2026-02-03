@@ -38,10 +38,11 @@ export async function globalSetup() {
   // pre-set by a workflow, the workflow runs migrate:fresh before test:int, so we skip here.
   if (weCreatedDb && process.env.DATABASE_URI) {
     console.log('[Vitest Global Setup] Running payload migrate:fresh on new test DB...')
+    const nodeOpts = [process.env.NODE_OPTIONS ?? '', '--no-deprecation'].filter(Boolean).join(' ')
     try {
       execSync('pnpm exec payload migrate:fresh --force-accept-warning', {
         cwd: process.cwd(),
-        env: { ...process.env, NODE_ENV: 'test' },
+        env: { ...process.env, NODE_ENV: 'test', NODE_OPTIONS: nodeOpts },
         stdio: 'inherit',
       })
       console.log('[Vitest Global Setup] Migrations completed')

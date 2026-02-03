@@ -18,7 +18,16 @@ describe("syncStripeSubscriptions job", () => {
       const plugin = bookingsPaymentsPlugin({
         membership: { enabled: true },
       });
-      const incoming: Partial<Config> = { collections: [] };
+      const incoming: Partial<Config> = {
+        collections: [
+          {
+            slug: "users",
+            admin: { useAsTitle: "email" },
+            auth: true,
+            fields: [],
+          },
+        ],
+      };
       const result = plugin(incoming as Config) as Config;
       const task = result.jobs?.tasks?.find(
         (t): t is { slug: string; handler: unknown } =>
@@ -33,7 +42,16 @@ describe("syncStripeSubscriptions job", () => {
         classPass: { enabled: true },
         membership: { enabled: false },
       });
-      const incoming: Partial<Config> = { collections: [] };
+      const incoming: Partial<Config> = {
+        collections: [
+          {
+            slug: "users",
+            admin: { useAsTitle: "email" },
+            auth: true,
+            fields: [],
+          },
+        ],
+      };
       const result = plugin(incoming as Config) as Config;
       const task = result.jobs?.tasks?.find(
         (t): t is { slug: string } =>

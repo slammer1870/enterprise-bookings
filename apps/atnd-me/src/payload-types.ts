@@ -82,11 +82,17 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    users: User;
     instructors: Instructor;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
+    'drop-ins': DropIn;
+    'class-pass-types': ClassPassType;
+    'class-passes': ClassPass;
+    transactions: Transaction;
+    users: User;
+    subscriptions: Subscription;
+    memberships: Membership;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -96,12 +102,19 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    lessons: {
+      bookings: 'bookings';
+    };
+    'drop-ins': {
+      'class-optionsPaymentMethods': 'class-options';
+    };
     users: {
       account: 'accounts';
       session: 'sessions';
+      userSubscription: 'subscriptions';
     };
-    lessons: {
-      bookings: 'bookings';
+    memberships: {
+      'class-optionsPaymentMethods': 'class-options';
     };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
@@ -123,11 +136,17 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     instructors: InstructorsSelect<false> | InstructorsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
+    'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
+    'class-passes': ClassPassesSelect<false> | ClassPassesSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
+    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -143,10 +162,12 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
+    'platform-fees': PlatformFee;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    'platform-fees': PlatformFeesSelect<false> | PlatformFeesSelect<true>;
   };
   locale: null;
   user: User & {
@@ -155,6 +176,7 @@ export interface Config {
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
+      syncStripeSubscriptions: TaskSyncStripeSubscriptions;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -299,6 +321,43 @@ export interface Tenant {
   domain?: string | null;
   description?: string | null;
   logo?: (number | null) | Media;
+  /**
+   * Stripe Connect account ID (set by OAuth callback).
+   */
+  stripeConnectAccountId?: string | null;
+  /**
+   * Connect onboarding status (updated via webhooks).
+   */
+  stripeConnectOnboardingStatus?: ('not_connected' | 'pending' | 'active' | 'restricted' | 'deauthorized') | null;
+  /**
+   * Last OAuth or webhook error (admin-only).
+   */
+  stripeConnectLastError?: string | null;
+  /**
+   * When Connect was linked.
+   */
+  stripeConnectConnectedAt?: string | null;
+  /**
+   * Configure class pass packages and defaults for this tenant.
+   */
+  classPassSettings?: {
+    enabled?: boolean | null;
+    /**
+     * Default validity when no package specifies it.
+     */
+    defaultExpirationDays?: number | null;
+    pricing?:
+      | {
+          quantity: number;
+          price: number;
+          /**
+           * e.g. "5-Pack", "10-Pack"
+           */
+          name: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -546,6 +605,11 @@ export interface User {
     totalDocs?: number;
   };
   roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   tenants?:
     | {
         tenant: number | Tenant;
@@ -656,6 +720,210 @@ export interface Session {
    * The admin who is impersonating this session
    */
   impersonatedBy?: (number | null) | User;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  plan: number | Membership;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "memberships".
+ */
+export interface Membership {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
+   */
+  sessionsInformation?: {
+    sessions?: number | null;
+    intervalCount?: number | null;
+    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+    /**
+     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
+     */
+    allowMultipleBookingsPerLesson?: boolean | null;
+  };
+  stripeProductId?: string | null;
+  /**
+   * Price information for the plan
+   */
+  priceInformation?: {
+    /**
+     * Price of the plan
+     */
+    price?: number | null;
+    /**
+     * Number of intervals per period
+     */
+    intervalCount?: number | null;
+    /**
+     * How often the price is charged
+     */
+    interval?: ('day' | 'week' | 'month' | 'year') | null;
+  };
+  priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  /**
+   * Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.
+   */
+  paymentMethods?: {
+    /**
+     * One-off payment option for this class (e.g. pay at door, single-session fee). Select a drop-in to allow customers to pay per booking without a class pass or membership.
+     */
+    allowedDropIn?: (number | null) | DropIn;
+    /**
+     * Select which class pass types can be used to book this class option (e.g. Fitness Only, Sauna Only).
+     */
+    allowedClassPasses?: (number | ClassPassType)[] | null;
+    /**
+     * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
+     */
+    allowedPlans?: (number | Membership)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins".
+ */
+export interface DropIn {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  price: number;
+  /**
+   * When enabled, users can book more than one spot for the same lesson when paying drop-in.
+   */
+  adjustable: boolean;
+  discountTiers?:
+    | {
+        minQuantity: number;
+        discountPercent: number;
+        type: 'normal' | 'trial' | 'bulk';
+        id?: string | null;
+      }[]
+    | null;
+  paymentMethods: ('cash' | 'card')[];
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Defines pass types (e.g. Fitness Only, Sauna Only). Class options can restrict which types are accepted.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-pass-types".
+ */
+export interface ClassPassType {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * e.g. Fitness Only, Sauna Only, All Access
+   */
+  name: string;
+  /**
+   * Unique identifier, e.g. fitness-only, sauna-only
+   */
+  slug: string;
+  /**
+   * Optional description of what this pass type covers
+   */
+  description?: string | null;
+  /**
+   * Number of passes/credits in this type (e.g. 10 for a 10-pack). Purchased passes get this many credits.
+   */
+  quantity: number;
+  /**
+   * When enabled, users can use multiple credits from this pass type on the same lesson (e.g. book 3 spots using 3 credits). When disabled, only one spot per lesson per user.
+   */
+  allowMultipleBookingsPerLesson: boolean;
+  /**
+   * Link to a Stripe product with a one-time default price for purchase/checkout.
+   */
+  stripeProductId?: string | null;
+  /**
+   * Price information for the pass type. Synced from Stripe when a product is linked.
+   */
+  priceInformation?: {
+    /**
+     * One-time price in euros (from Stripe default price)
+     */
+    price?: number | null;
+  };
+  priceJSON?: string | null;
+  /**
+   * Whether this pass type is available for purchase
+   */
+  status: 'active' | 'inactive';
+  /**
+   * Skip syncing price/status from Stripe on save
+   */
+  skipSync?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1350,22 +1618,6 @@ export interface Scheduler {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "instructors".
  */
 export interface Instructor {
@@ -1516,6 +1768,99 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  /**
+   * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
+   */
+  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription') | null;
+  /**
+   * Set when paymentMethodUsed is class_pass; used to decrement the correct pass.
+   */
+  classPassIdUsed?: number | null;
+  /**
+   * Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.
+   */
+  subscriptionIdUsed?: number | null;
+  /**
+   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
+   */
+  transactions?: (number | Transaction)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Subscription id when paymentMethod is subscription (booking created by subscription).
+   */
+  subscriptionId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Class passes / credits for drop-in classes
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes".
+ */
+export interface ClassPass {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Owner of the class pass
+   */
+  user: number | User;
+  /**
+   * The type of pass (e.g. Fitness Only, Sauna Only)
+   */
+  type: number | ClassPassType;
+  /**
+   * Number of passes/credits remaining (original is on the pass type)
+   */
+  quantity: number;
+  /**
+   * Date when passes expire
+   */
+  expirationDate: string;
+  /**
+   * When the pass was purchased
+   */
+  purchasedAt: string;
+  /**
+   * Price paid for the pass in cents. Auto-filled from the pass type's price when creating.
+   */
+  price: number;
+  /**
+   * External transaction id (e.g. Stripe payment intent id).
+   */
+  transactionId?: string | null;
+  status: 'active' | 'expired' | 'used' | 'cancelled';
+  /**
+   * Admin notes
+   */
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1606,7 +1951,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'schedulePublish';
+        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -1639,7 +1984,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1714,10 +2059,6 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
         relationTo: 'instructors';
         value: number | Instructor;
       } | null)
@@ -1732,6 +2073,34 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'bookings';
         value: number | Booking;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
+      } | null)
+    | ({
+        relationTo: 'class-pass-types';
+        value: number | ClassPassType;
+      } | null)
+    | ({
+        relationTo: 'class-passes';
+        value: number | ClassPass;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null)
+    | ({
+        relationTo: 'subscriptions';
+        value: number | Subscription;
+      } | null)
+    | ({
+        relationTo: 'memberships';
+        value: number | Membership;
       } | null)
     | ({
         relationTo: 'form-submissions';
@@ -2225,6 +2594,24 @@ export interface TenantsSelect<T extends boolean = true> {
   domain?: T;
   description?: T;
   logo?: T;
+  stripeConnectAccountId?: T;
+  stripeConnectOnboardingStatus?: T;
+  stripeConnectLastError?: T;
+  stripeConnectConnectedAt?: T;
+  classPassSettings?:
+    | T
+    | {
+        enabled?: T;
+        defaultExpirationDays?: T;
+        pricing?:
+          | T
+          | {
+              quantity?: T;
+              price?: T;
+              name?: T;
+              id?: T;
+            };
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2553,45 +2940,6 @@ export interface VerificationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  registrationTenant?: T;
-  name?: T;
-  emailVerified?: T;
-  image?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  role?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
-  account?: T;
-  session?: T;
-  roles?: T;
-  tenants?:
-    | T
-    | {
-        tenant?: T;
-        id?: T;
-      };
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "instructors_select".
  */
 export interface InstructorsSelect<T extends boolean = true> {
@@ -2634,6 +2982,13 @@ export interface ClassOptionsSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIn?: T;
+        allowedClassPasses?: T;
+        allowedPlans?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2646,6 +3001,182 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  paymentMethodUsed?: T;
+  classPassIdUsed?: T;
+  subscriptionIdUsed?: T;
+  transactions?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  description?: T;
+  isActive?: T;
+  price?: T;
+  adjustable?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        type?: T;
+        id?: T;
+      };
+  paymentMethods?: T;
+  'class-optionsPaymentMethods'?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-pass-types_select".
+ */
+export interface ClassPassTypesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  slug?: T;
+  description?: T;
+  quantity?: T;
+  allowMultipleBookingsPerLesson?: T;
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+      };
+  priceJSON?: T;
+  status?: T;
+  skipSync?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes_select".
+ */
+export interface ClassPassesSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  type?: T;
+  quantity?: T;
+  expirationDate?: T;
+  purchasedAt?: T;
+  price?: T;
+  transactionId?: T;
+  status?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  tenant?: T;
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
+  subscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  registrationTenant?: T;
+  name?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  roles?: T;
+  userSubscription?: T;
+  tenants?:
+    | T
+    | {
+        tenant?: T;
+        id?: T;
+      };
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  plan?: T;
+  status?: T;
+  startDate?: T;
+  endDate?: T;
+  cancelAt?: T;
+  stripeSubscriptionId?: T;
+  skipSync?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "memberships_select".
+ */
+export interface MembershipsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessionsInformation?:
+    | T
+    | {
+        sessions?: T;
+        intervalCount?: T;
+        interval?: T;
+        allowMultipleBookingsPerLesson?: T;
+      };
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
+  priceJSON?: T;
+  status?: T;
+  skipSync?: T;
+  'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2810,6 +3341,65 @@ export interface Header {
   createdAt?: string | null;
 }
 /**
+ * Default booking fee percentages by product type and optional per-tenant overrides.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-fees".
+ */
+export interface PlatformFee {
+  id: number;
+  defaults: {
+    /**
+     * Default fee for drop-in bookings.
+     */
+    dropInPercent: number;
+    /**
+     * Default fee for class pass bookings.
+     */
+    classPassPercent: number;
+    /**
+     * Default fee for subscription payments.
+     */
+    subscriptionPercent: number;
+  };
+  /**
+   * Override fee percent for specific tenants.
+   */
+  overrides?:
+    | {
+        tenant: number | Tenant;
+        /**
+         * Leave empty to use default.
+         */
+        dropInPercent?: number | null;
+        /**
+         * Leave empty to use default.
+         */
+        classPassPercent?: number | null;
+        /**
+         * Leave empty to use default.
+         */
+        subscriptionPercent?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Clamp fee amount to min/max cents; leave empty for no clamp.
+   */
+  bounds?: {
+    /**
+     * Minimum fee in cents (never applied if it would make fee negative).
+     */
+    minCents?: number | null;
+    /**
+     * Maximum fee in cents.
+     */
+    maxCents?: number | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
@@ -2846,6 +3436,37 @@ export interface HeaderSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-fees_select".
+ */
+export interface PlatformFeesSelect<T extends boolean = true> {
+  defaults?:
+    | T
+    | {
+        dropInPercent?: T;
+        classPassPercent?: T;
+        subscriptionPercent?: T;
+      };
+  overrides?:
+    | T
+    | {
+        tenant?: T;
+        dropInPercent?: T;
+        classPassPercent?: T;
+        subscriptionPercent?: T;
+        id?: T;
+      };
+  bounds?:
+    | T
+    | {
+        minCents?: T;
+        maxCents?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskGenerateLessonsFromSchedule".
  */
 export interface TaskGenerateLessonsFromSchedule {
@@ -2872,6 +3493,14 @@ export interface TaskGenerateLessonsFromSchedule {
     success?: boolean | null;
     message?: string | null;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSyncStripeSubscriptions".
+ */
+export interface TaskSyncStripeSubscriptions {
+  input?: unknown;
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

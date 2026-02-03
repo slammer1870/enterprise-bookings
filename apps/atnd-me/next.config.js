@@ -1,4 +1,5 @@
 import { withPayload } from '@payloadcms/next/withPayload'
+import { getPayloadUIAliases } from '../../scripts/payload-ui-aliases.mjs'
 
 import redirects from './redirects.js'
 
@@ -11,7 +12,7 @@ const nextConfig = {
   // Required so Next can compile workspace TS sources used at runtime.
   // Without this, Node will try to resolve deep imports like
   // `@repo/bookings-plugin/src/...` directly from `node_modules`, which fails in ESM.
-  transpilePackages: ['payload-auth', '@repo/bookings-plugin'],
+  transpilePackages: ['payload-auth', '@repo/bookings-plugin', '@repo/bookings-payments'],
   images: {
     remotePatterns: [
       // Add the main server URL
@@ -41,6 +42,11 @@ const nextConfig = {
       '.cjs': ['.cts', '.cjs'],
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
       '.mjs': ['.mts', '.mjs'],
+    }
+
+    webpackConfig.resolve.alias = {
+      ...(webpackConfig.resolve.alias || {}),
+      ...getPayloadUIAliases({ from: import.meta.url, cwd: process.cwd() }),
     }
 
     return webpackConfig

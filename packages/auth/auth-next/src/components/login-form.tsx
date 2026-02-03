@@ -74,10 +74,17 @@ function LoginFormContent() {
       try {
         const normalizedEmail = data.email.toLowerCase();
 
-        // Request magic-link via tRPC so better-auth handles delivery server-side
+        // Request magic-link via tRPC so better-auth handles delivery server-side.
+        // Use absolute callback URL so post-login redirect stays on current origin
+        // (e.g. tenant subdomain). Server baseURL is often bare localhost; resolving
+        // here avoids redirecting to the wrong host.
+        const callbackURL =
+          typeof window !== 'undefined' && !/^https?:\/\//i.test(callbackUrl)
+            ? new URL(callbackUrl, window.location.origin).href
+            : callbackUrl;
         await signInMagicLink({
           email: normalizedEmail,
-          callbackURL: callbackUrl,
+          callbackURL,
         });
 
         trackEvent("Login Completed");
@@ -89,7 +96,7 @@ function LoginFormContent() {
         });
       }
     },
-    [signInMagicLink, router, trackEvent]
+    [signInMagicLink, router, trackEvent, callbackUrl]
   );
 
   return (

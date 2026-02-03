@@ -1,0 +1,75 @@
+[WebServer] 
+[WebServer] > atnd-me@1.0.0 payload /Users/sammcnally/Projects/enterprise-bookings/apps/atnd-me
+[WebServer] > cross-env NODE_OPTIONS=--no-deprecation payload migrate\:fresh --force-accept-warning
+[WebServer] 
+[WebServer] [23:00:12] [33mWARN[39m: [36mNo email adapter provided. Email will be written to console. More info at https://payloadcms.com/docs/email/overview.[39m
+[WebServer] [23:00:12] [32mINFO[39m: [36mDropping database.[39m
+[WebServer] [23:00:12] [32mINFO[39m: [36mReading migration files from /Users/sammcnally/Projects/enterprise-bookings/apps/atnd-me/src/migrations[39m
+[WebServer] [23:00:12] [32mINFO[39m: [36mMigrating: 20260120_171611[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260120_171611 (267ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260120_200612[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260120_200612 (7ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260121_111436[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260121_111436 (31ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260121_121713[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260121_121713 (12ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260121_173503[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260121_173503 (5ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260121_193838_fix_scheduler_constraint[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260121_193838_fix_scheduler_constraint (7ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260121_200000[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260121_200000 (8ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260121_230713[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260121_230713 (8ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260122_081324_tenant_scoped_page_slugs[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260122_081324_tenant_scoped_page_slugs (8ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_booking_transactions_table[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_booking_transactions_table (9ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_bookings_payment_method_used[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_bookings_payment_method_used (3ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_class_options_allowed_class_passes[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_class_options_allowed_class_passes (4ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_class_options_payment_methods[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_class_options_payment_methods (2ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_class_passes_table[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_class_passes_table (10ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_lock_rels_booking_collections[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_lock_rels_booking_collections (3ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_platform_fees_global[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_platform_fees_global (7ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_tenant_stripe_connect_fields[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_tenant_stripe_connect_fields (3ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260127_tenants_class_pass_settings[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260127_tenants_class_pass_settings (9ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260128_class_pass_types_allow_multiple[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260128_class_pass_types_allow_multiple (4ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260129_095208[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260129_095208 (36ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260129_booking_transactions_subscription[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260129_booking_transactions_subscription (5ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260129_bookings_rels[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260129_bookings_rels (8ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260129_bookings_subscription_id_used[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260129_bookings_subscription_id_used (2ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260129_class_pass_types_price_in_euros[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260129_class_pass_types_price_in_euros (3ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrating: 20260129_memberships_allow_multiple_per_lesson[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mMigrated:  20260129_memberships_allow_multiple_per_lesson (3ms)[39m
+[WebServer] [23:00:13] [32mINFO[39m: [36mDone.[39m
+[WebServer] 
+[WebServer] > atnd-me@1.0.0 start:e2e /Users/sammcnally/Projects/enterprise-bookings/apps/atnd-me
+[WebServer] > cross-env NODE_OPTIONS="--no-deprecation --import ./scripts/register-payload-auth-loader.mjs" ENABLE_TEST_MAGIC_LINKS=true ENABLE_TEST_WEBHOOKS=true STRIPE_CONNECT_CLIENT_ID=test_client_id STRIPE_CONNECT_WEBHOOK_SECRET=test_webhook_secret next start
+[WebServer] 
+[WebServer]    ▲ Next.js 15.4.8
+[WebServer]    - Local:        http://localhost:3000
+[WebServer]    - Network:      http://172.20.10.4:3000
+[WebServer] 
+[WebServer]  ✓ Starting...
+[WebServer]  ⚠ The "experimental.esmExternals" option has been modified. experimental.esmExternals is not recommended to be modified as it may disrupt module resolution. It should be removed from your next.config.js.
+[WebServer]  ✓ Ready in 909ms
+[WebServer] [23:00:18] [33mWARN[39m: [36mNo email adapter provided. Email will be written to console. More info at https://payloadcms.com/docs/email/overview.[39m
+Error: Directory import '/Users/sammcnally/Projects/enterprise-bookings/node_modules/.pnpm/payload-auth@1.8.4_2dc10446b757db2bafb415e7a080f010/node_modules/payload-auth/dist/better-auth/adapter' is not supported resolving ES modules imported from /Users/sammcnally/Projects/enterprise-bookings/node_modules/.pnpm/payload-auth@1.8.4_2dc10446b757db2bafb415e7a080f010/node_modules/payload-auth/dist/better-auth/index.js
+Error: No tests found.
+Make sure that arguments are regular expressions matching test files.
+You may need to escape symbols like "$" or "*" and quote the arguments.
+

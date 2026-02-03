@@ -186,24 +186,78 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     // Ensure auth cookies are available to the whole app, not just the auth route.
     // Without this, cookies can be scoped too narrowly (e.g. /api/auth) and `getSession()`
     // will appear to work only on auth endpoints.
+    //
+    // IMPORTANT: For multi-tenant apps with subdomain routing, we need cookies to work
+    // across subdomains. In development (localhost), omitting domain allows cookies to
+    // work across subdomains. In production, you should set domain to '.yourdomain.com'.
     advanced: {
       defaultCookieAttributes: {
         path: "/",
+        // Note: domain is intentionally omitted for localhost to allow subdomain sharing
+        // In production, set domain: '.yourdomain.com' via environment variable
       },
       cookies: {
         session_token: {
           attributes: {
             path: "/",
+            // For multi-tenant subdomain support:
+            // - localhost: omit domain (allows cross-subdomain sharing in most browsers)
+            // - production: set domain via config (e.g., '.atnd-me.com')
+            ...(config.baseURL && !config.baseURL.includes('localhost')
+              ? (() => {
+                  try {
+                    const url = new URL(config.baseURL)
+                    const parts = url.hostname.split('.')
+                    if (parts.length >= 2) {
+                      const rootDomain = parts.slice(-2).join('.')
+                      return { domain: `.${rootDomain}` }
+                    }
+                  } catch (e) {
+                    // Invalid URL, skip domain setting
+                  }
+                  return {}
+                })()
+              : {}),
           },
         },
         session_data: {
           attributes: {
             path: "/",
+            ...(config.baseURL && !config.baseURL.includes('localhost')
+              ? (() => {
+                  try {
+                    const url = new URL(config.baseURL)
+                    const parts = url.hostname.split('.')
+                    if (parts.length >= 2) {
+                      const rootDomain = parts.slice(-2).join('.')
+                      return { domain: `.${rootDomain}` }
+                    }
+                  } catch (e) {
+                    return {}
+                  }
+                  return {}
+                })()
+              : {}),
           },
         },
         dont_remember: {
           attributes: {
             path: "/",
+            ...(config.baseURL && !config.baseURL.includes('localhost')
+              ? (() => {
+                  try {
+                    const url = new URL(config.baseURL)
+                    const parts = url.hostname.split('.')
+                    if (parts.length >= 2) {
+                      const rootDomain = parts.slice(-2).join('.')
+                      return { domain: `.${rootDomain}` }
+                    }
+                  } catch (e) {
+                    return {}
+                  }
+                  return {}
+                })()
+              : {}),
           },
         },
       },

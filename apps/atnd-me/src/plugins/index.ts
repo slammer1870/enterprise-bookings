@@ -14,6 +14,7 @@ import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
+import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import {
   tenantScopedCreate,
@@ -21,6 +22,17 @@ import {
   tenantScopedDelete,
   tenantScopedReadFiltered,
 } from '../access/tenant-scoped'
+import {
+  bookingCreateAccessWithPaymentValidation,
+  bookingUpdateAccessWithPaymentValidation,
+} from '../access/bookingAccess'
+import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
+import {
+  bookingsPaymentsPlugin,
+  createDecrementClassPassHook,
+  getClassPassIdFromBookingTransaction,
+  createBookingTransactionOnCreate,
+} from '@repo/bookings-payments'
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
@@ -75,6 +87,7 @@ export const plugins: Plugin[] = [
       payment: false,
     },
     formOverrides: {
+      admin: { group: 'Website' },
       fields: ({ defaultFields }) => {
         return defaultFields.map((field) => {
           if ('name' in field && field.name === 'confirmationMessage') {
@@ -102,6 +115,7 @@ export const plugins: Plugin[] = [
       },
     },
     formSubmissionOverrides: {
+      admin: { group: 'Website' },
       access: {
         read: tenantScopedReadFiltered,
         create: () => true, // Allow public form submissions
@@ -149,6 +163,32 @@ export const plugins: Plugin[] = [
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,
       }),
+      fields: ({ defaultFields }) => [
+        ...defaultFields,
+        {
+          name: 'paymentMethods',
+          type: 'group',
+          label: 'Payment Methods',
+          admin: {
+            description:
+              'Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.',
+            components: {
+              Field: '@/components/admin/RequireStripeConnectField',
+            },
+          },
+          fields: [
+            // allowedDropIn, allowedClassPasses, allowedPlans injected by @repo/bookings-payments
+          ],
+        },
+      ],
+      hooks: ({ defaultHooks }) => {
+        const d = defaultHooks as Record<string, unknown>
+        return {
+          ...defaultHooks,
+          beforeChange: [...(Array.isArray(d?.beforeChange) ? d.beforeChange : []), requireStripeConnectForPayments],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin HooksConfig omits beforeChange
+        } as any
+      },
     },
     instructorOverrides: {
       access: ({ defaultAccess }) => ({
@@ -160,6 +200,43 @@ export const plugins: Plugin[] = [
       }),
     },
     bookingOverrides: {
+      fields: ({ defaultFields }) => [
+        ...defaultFields,
+        {
+          name: 'paymentMethodUsed',
+          type: 'select',
+          label: 'Payment method (set at create)',
+          options: [
+            { label: 'Stripe', value: 'stripe' },
+            { label: 'Class pass', value: 'class_pass' },
+            { label: 'Subscription', value: 'subscription' },
+          ],
+          required: false,
+          admin: { description: 'Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.' },
+        },
+        {
+          name: 'classPassIdUsed',
+          type: 'number',
+          label: 'Class pass id (set at create)',
+          required: false,
+          admin: {
+            description: 'Set when paymentMethodUsed is class_pass; used to decrement the correct pass.',
+            condition: (_: unknown, sibling: { paymentMethodUsed?: string }) =>
+              sibling?.paymentMethodUsed === 'class_pass',
+          },
+        },
+        {
+          name: 'subscriptionIdUsed',
+          type: 'number',
+          label: 'Subscription id (set at create)',
+          required: false,
+          admin: {
+            description: 'Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.',
+            condition: (_: unknown, sibling: { paymentMethodUsed?: string }) =>
+              sibling?.paymentMethodUsed === 'subscription',
+          },
+        },
+      ],
       hooks: ({ defaultHooks }) => ({
         ...defaultHooks,
         beforeValidate: [
@@ -174,7 +251,6 @@ export const plugins: Plugin[] = [
                 depth: 0,
               })
               if (lesson?.tenant) {
-                // Normalize tenant to ID (number) - lesson.tenant can be object or number
                 const tenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
                   ? lesson.tenant.id
                   : lesson.tenant
@@ -186,13 +262,82 @@ export const plugins: Plugin[] = [
             return data
           },
         ],
+        afterChange: [
+          ...(defaultHooks.afterChange || []),
+          createBookingTransactionOnCreate(),
+          createDecrementClassPassHook({
+            getClassPassIdToDecrement: getClassPassIdFromBookingTransaction(),
+          }),
+        ],
       }),
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        // Bookings access is already handled by bookingCreateAccess/bookingUpdateAccess
-        // which checks lesson availability, so we keep the default access
         read: tenantScopedReadFiltered, // Filter by tenant for tenant-admins
+        create: bookingCreateAccessWithPaymentValidation, // Step 3: payment validation (Connect required when payments enabled)
+        update: bookingUpdateAccessWithPaymentValidation,
       }),
+    },
+  }),
+  // Payments features from @repo/bookings-payments; tenant-scoped access for multi-tenant
+  bookingsPaymentsPlugin({
+    classPass: {
+      enabled: true,
+      classOptionsSlug: 'class-options',
+      bookingTransactionsOverrides: {
+        access: {
+          read: tenantScopedReadFiltered,
+          create: tenantScopedCreate,
+          update: tenantScopedUpdate,
+          delete: tenantScopedDelete,
+        },
+      },
+      classPassesOverrides: {
+        access: {
+          read: tenantScopedReadFiltered,
+          create: tenantScopedCreate,
+          update: tenantScopedUpdate,
+          delete: tenantScopedDelete,
+        },
+      },
+      classPassTypesOverrides: {
+        access: {
+          read: tenantScopedReadFiltered,
+          create: tenantScopedCreate,
+          update: tenantScopedUpdate,
+          delete: tenantScopedDelete,
+        },
+      },
+    },
+    // Drop-ins: single-use payment options per class option
+    dropIns: {
+      enabled: true,
+      paymentMethodSlugs: ['class-options'],
+      acceptedPaymentMethods: ['cash', 'card'],
+      dropInsOverrides: {
+        access: {
+          read: tenantScopedReadFiltered,
+          create: tenantScopedCreate,
+          update: tenantScopedUpdate,
+          delete: tenantScopedDelete,
+        },
+      },
+    },
+    // Membership (subscriptions): recurring plans that grant access
+    membership: {
+      enabled: true,
+      paymentMethodSlugs: ['class-options'],
+      getSubscriptionBookingFeeCents: async ({
+        payload,
+        tenantId,
+        classPriceAmountCents,
+      }) => {
+        return calculateBookingFeeAmount({
+          payload,
+          tenantId,
+          productType: 'subscription',
+          classPriceAmount: classPriceAmountCents,
+        })
+      },
     },
   }),
   // Must run after formBuilderPlugin to add tenant scoping hook to form-submissions
@@ -206,6 +351,7 @@ export const plugins: Plugin[] = [
       if (!user) return false
       return checkRole(['admin'], user as unknown as SharedUser)
     },
+    // Type assertion: multi-tenant plugin's types omit collections from @repo/bookings-payments
     collections: {
       // Standard collections
       pages: {},
@@ -213,6 +359,13 @@ export const plugins: Plugin[] = [
       instructors: {},
       'class-options': {},
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
+      // From @repo/bookings-payments
+      'class-pass-types': {}, // Pass types (e.g. Fitness Only, Sauna Only); tenant-scoped
+      'class-passes': {}, // Class passes; tenant-scoped
+      'transactions': {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
+      'drop-ins': {}, // Drop-in payment options; tenant-scoped
+      memberships: {}, // Membership plans; tenant-scoped
+      subscriptions: {}, // User subscriptions; tenant-scoped
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions
       // Globals converted to collections (one per tenant)
@@ -225,7 +378,7 @@ export const plugins: Plugin[] = [
       // We use:
       // - registrationTenant (custom, singular): where user originally registered
       // - tenants (plugin-managed, plural): tenants user has access to
-    },
+    } as Parameters<typeof multiTenantPlugin>[0]['collections'],
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,

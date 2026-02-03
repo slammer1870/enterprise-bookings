@@ -41,7 +41,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
     }
 
     const plan = await payload.find({
-      collection: asCollection("plans"),
+      collection: asCollection("memberships"),
       where: { stripeProductId: { equals: planId as string } },
       limit: 1,
     });
@@ -50,7 +50,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
       throw new Error("Plan not found");
     }
 
-    await payload.create({
+    const subscription = await payload.create({
       collection: asCollection("subscriptions"),
       data: {
         user: user.id as number,
@@ -78,18 +78,19 @@ export const subscriptionCreated: StripeWebhookHandler<{
         return;
       }
 
-      // Verify lesson exists
+      let lesson: { id: number; tenant?: number | { id: number } } | null = null;
       try {
-        await payload.findByID({
+        lesson = (await payload.findByID({
           collection: "lessons",
           id: lessonIdNum,
-        });
+          depth: 1,
+        })) as { id: number; tenant?: number | { id: number } } | null;
       } catch (error) {
         payload.logger.error(`Lesson not found: ${lessonIdNum}`);
         return;
       }
 
-      const booking = await payload.find({
+      const bookingQuery = await payload.find({
         collection: "bookings",
         where: {
           user: { equals: user.id as number },
@@ -98,8 +99,10 @@ export const subscriptionCreated: StripeWebhookHandler<{
         limit: 1,
       });
 
-      if (booking.totalDocs === 0) {
-        await payload.create({
+      let bookingId: number;
+
+      if (bookingQuery.totalDocs === 0) {
+        const created = await payload.create({
           collection: "bookings",
           data: {
             lesson: lessonIdNum,
@@ -108,12 +111,41 @@ export const subscriptionCreated: StripeWebhookHandler<{
           },
           overrideAccess: true, // Bypass access control for webhook
         });
+        bookingId = created.id as number;
       } else {
+        const existing = bookingQuery.docs[0];
+        bookingId = existing?.id as number;
         await payload.update({
           collection: "bookings",
-          id: booking.docs[0]?.id as number,
+          id: bookingId,
           data: { status: "confirmed" },
           overrideAccess: true, // Bypass access control for webhook
+        });
+      }
+
+      const tenantId =
+        lesson?.tenant != null
+          ? typeof lesson.tenant === "object" && "id" in lesson.tenant
+            ? lesson.tenant.id
+            : (lesson.tenant as number)
+          : undefined;
+
+      const hasTransactions = await payload.find({
+        collection: asCollection("transactions"),
+        where: { booking: { equals: bookingId } },
+        limit: 1,
+      });
+
+      if (hasTransactions.totalDocs === 0) {
+        await payload.create({
+          collection: asCollection("transactions"),
+          data: {
+            booking: bookingId,
+            paymentMethod: "subscription",
+            subscriptionId: subscription.id as number,
+            ...(tenantId != null ? { tenant: tenantId } : {}),
+          },
+          overrideAccess: true,
         });
       }
     }

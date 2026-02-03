@@ -1,9 +1,17 @@
 import { z } from "zod";
 
-import { stripeProtectedProcedure, requireCollections } from "../trpc";
+import {
+  stripeProtectedProcedure,
+  requireCollections,
+  type GetSubscriptionBookingFeeCents,
+} from "../trpc";
 import { findSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
+
+export type CreatePaymentsRouterDeps = {
+  getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
+};
 
 // Helper function to safely get stripeCustomerId
 const getStripeCustomerId = (user: object): string => {
@@ -18,8 +26,16 @@ const getStripeCustomerId = (user: object): string => {
   return customerId;
 };
 
-export const paymentsRouter = {
-  createCustomerCheckoutSession: stripeProtectedProcedure
+export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
+  const getFee = deps?.getSubscriptionBookingFeeCents;
+
+  return {
+    /**
+     * Create Stripe Checkout session (subscription or one-time).
+     * When getSubscriptionBookingFeeCents was passed to createPaymentsRouter and mode is "subscription",
+     * pass metadata.tenantId so a "Booking fee" line item is added to Checkout.
+     */
+    createCustomerCheckoutSession: stripeProtectedProcedure
     .input(
       z.object({
         priceId: z.string(),
@@ -39,12 +55,12 @@ export const paymentsRouter = {
         const redirectUrl = (() => {
           const raw =
             input.successUrl ||
-            `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`;
+            `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
           try {
             // Next/router.push expects an internal path; normalize absolute URLs to a pathname.
             return raw.startsWith("http") ? new URL(raw).pathname : raw;
           } catch {
-            return "/dashboard";
+            return "/";
           }
         })();
 
@@ -58,20 +74,62 @@ export const paymentsRouter = {
 
       const customerId = getStripeCustomerId(ctx.user);
 
+      const lineItems: Stripe.Checkout.SessionCreateParams["line_items"] = [
+        { price: input.priceId, quantity: input.quantity || 1 },
+      ];
+
+      const meta = input.metadata ?? {};
+      const tenantIdRaw = meta.tenantId;
+      if (
+        input.mode === "subscription" &&
+        getFee &&
+        ctx.payload &&
+        typeof tenantIdRaw === "string"
+      ) {
+        const tenantId = parseInt(tenantIdRaw, 10);
+        if (Number.isFinite(tenantId)) {
+          try {
+            const priceObj = await ctx.stripe.prices.retrieve(input.priceId, {
+              expand: [],
+            });
+            const unitAmount = priceObj.unit_amount ?? 0;
+            const quantity = input.quantity || 1;
+            const classPriceAmountCents = unitAmount * quantity;
+            const feeCents = await getFee({
+              payload: ctx.payload,
+              tenantId,
+              classPriceAmountCents,
+              metadata: meta,
+            });
+            if (typeof feeCents === "number" && feeCents > 0) {
+              const currency = (priceObj.currency ?? "eur").toLowerCase();
+              lineItems.push({
+                quantity: 1,
+                price_data: {
+                  currency,
+                  product_data: {
+                    name: "Booking fee",
+                    description: "Platform booking fee",
+                  },
+                  unit_amount: feeCents,
+                },
+              });
+            }
+          } catch (e) {
+            console.warn("Subscription booking fee lookup failed", e);
+          }
+        }
+      }
+
       const session = await ctx.stripe.checkout.sessions.create({
-        line_items: [
-          {
-            price: input.priceId,
-            quantity: input.quantity || 1,
-          },
-        ],
-        metadata: input.metadata,
+        line_items: lineItems,
+        metadata: meta,
         mode: input.mode,
         customer: customerId,
         success_url:
-          input.successUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+          input.successUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
         cancel_url:
-          input.cancelUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+          input.cancelUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
       });
 
       return session;
@@ -81,7 +139,7 @@ export const paymentsRouter = {
 
     const session = await ctx.stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+      return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
     });
 
     return session;
@@ -153,7 +211,7 @@ export const paymentsRouter = {
       const session = await ctx.stripe.billingPortal.sessions.create({
         customer: customerId,
         configuration: configId,
-        return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+        return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
         flow_data: {
           type: "subscription_update",
           subscription_update: {
@@ -215,4 +273,5 @@ export const paymentsRouter = {
         amount: amount,
       };
     }),
-};
+  };
+}

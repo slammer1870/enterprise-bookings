@@ -67,6 +67,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
 
     testLesson = (await payload.create({
       collection: 'lessons',
+      draft: false,
       data: {
         date: today.toISOString(),
         startTime: today.toISOString(),
@@ -256,6 +257,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
 
       const secondLesson = (await payload.create({
         collection: 'lessons',
+        draft: false,
         data: {
           date: today.toISOString(),
           startTime: today.toISOString(),

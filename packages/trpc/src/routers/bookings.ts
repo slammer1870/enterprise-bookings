@@ -7,6 +7,7 @@ import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from ".
 
 import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
+import { getMaxSubscriptionQuantityPerLesson } from "@repo/shared-services";
 
 export const bookingsRouter = {
   checkIn: protectedProcedure
@@ -107,10 +108,10 @@ export const bookingsRouter = {
         });
 
         if (existingBooking.docs.length === 0) {
-          // Create new booking
+          // Create new booking (coerce IDs to number for Payload relationship fields)
           return await createSafe(ctx.payload, "bookings", {
-            lesson: lessonId,
-            user: ctx.user.id,
+            lesson: Number(lessonId),
+            user: Number(ctx.user.id),
             status: "confirmed",
           }, {
             overrideAccess: false,
@@ -189,8 +190,8 @@ export const bookingsRouter = {
       }
 
       const created = await createSafe<Booking>(ctx.payload, "bookings", {
-        lesson: input.lessonId,
-        user: input.userId,
+        lesson: Number(input.lessonId),
+        user: Number(input.userId),
         status: "confirmed",
       }, {
         overrideAccess: false,
@@ -269,8 +270,8 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe<Booking>(ctx.payload, "bookings", {
-        lesson: input.id,
-        user: ctx.user.id,
+        lesson: Number(input.id),
+        user: Number(ctx.user.id),
         status: "confirmed",
       }, {
         overrideAccess: false,
@@ -373,6 +374,24 @@ export const bookingsRouter = {
         });
       }
 
+      // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerLesson
+      if (status === "confirmed") {
+        const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
+          Number(ctx.user.id),
+          lesson,
+          ctx.payload
+        );
+        if (maxSubQty != null && quantity > maxSubQty) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              maxSubQty === 0
+                ? "You already have a booking for this lesson. Your membership allows one slot per lesson."
+                : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per lesson for this plan.`,
+          });
+        }
+      }
+
       // Create multiple bookings
       const createdBookings: Booking[] = [];
       for (let i = 0; i < quantity; i++) {
@@ -380,8 +399,8 @@ export const bookingsRouter = {
           ctx.payload,
           "bookings",
           {
-            lesson: lessonId,
-            user: ctx.user.id,
+            lesson: Number(lessonId),
+            user: Number(ctx.user.id),
             status: status,
           },
           {
@@ -418,8 +437,8 @@ export const bookingsRouter = {
 
       if (booking.docs.length === 0) {
         return await createSafe(ctx.payload, "bookings", {
-          lesson: id,
-          user: ctx.user.id,
+          lesson: Number(id),
+          user: Number(ctx.user.id),
           status,
         }, {
           overrideAccess: false,
@@ -558,8 +577,8 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-        lesson: input.id,
-        user: ctx.user.id,
+        lesson: Number(input.id),
+        user: Number(ctx.user.id),
         status: "waiting",
       }, {
         overrideAccess: false,
@@ -759,8 +778,8 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-        lesson: input.lessonId,
-        user: child.id,
+        lesson: Number(input.lessonId),
+        user: Number(child.id),
         status: status,
       }, {
         overrideAccess: false,
@@ -1200,8 +1219,8 @@ export const bookingsRouter = {
         }
         if (currentState.viewer.confirmedCount === 0) {
           await createSafe(ctx.payload, "bookings", {
-            lesson: lessonId,
-            user: viewerId,
+            lesson: Number(lessonId),
+            user: Number(viewerId),
             status: "confirmed",
           }, {
             overrideAccess: false,
@@ -1228,8 +1247,8 @@ export const bookingsRouter = {
         }
         if (currentState.viewer.waitingCount === 0 && currentState.viewer.confirmedCount === 0) {
           await createSafe(ctx.payload, "bookings", {
-            lesson: lessonId,
-            user: viewerId,
+            lesson: Number(lessonId),
+            user: Number(viewerId),
             status: "waiting",
           }, {
             overrideAccess: false,
@@ -1377,8 +1396,8 @@ export const bookingsRouter = {
           }
 
           await createSafe(ctx.payload, "bookings", {
-            lesson: lessonId,
-            user: userId,
+            lesson: Number(lessonId),
+            user: Number(userId),
             status: "confirmed",
           }, {
             overrideAccess: false,
@@ -1552,6 +1571,25 @@ export const bookingsRouter = {
           });
         }
 
+        // Enforce subscription allowMultipleBookingsPerLesson when adding confirmed bookings
+        const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
+          Number(ctx.user.id),
+          lesson,
+          ctx.payload
+        );
+        if (maxSubQty != null) {
+          const maxAdditionalFromSub = Math.max(0, maxSubQty - currentConfirmed);
+          if (additional > maxAdditionalFromSub) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                maxAdditionalFromSub === 0
+                  ? "You already have the maximum bookings for this lesson. Your membership allows one slot per lesson."
+                  : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per lesson. You can add ${maxAdditionalFromSub} more.`,
+            });
+          }
+        }
+
         // Create additional bookings
         const newBookings: Booking[] = [];
         for (let i = 0; i < additional; i++) {
@@ -1559,8 +1597,8 @@ export const bookingsRouter = {
             ctx.payload,
             "bookings",
             {
-              lesson: lessonId,
-              user: ctx.user.id,
+              lesson: Number(lessonId),
+              user: Number(ctx.user.id),
               status: "confirmed",
             },
             {

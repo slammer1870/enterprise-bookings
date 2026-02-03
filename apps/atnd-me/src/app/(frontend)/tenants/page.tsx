@@ -7,7 +7,10 @@ import { getServerSideURL } from '@/utilities/getURL'
 /**
  * Tenants listing page - shows all available tenants
  * Public access, no tenant context required
+ * Rendered at request time so build does not require a migrated DB.
  */
+export const dynamic = 'force-dynamic'
+
 export default async function TenantsPage() {
   const payload = await getPayload()
   

@@ -453,31 +453,29 @@ const defaultHooks: HooksConfig = {
 };
 
 export const generateLessonCollection = (config: BookingsPluginConfig) => {
+  const overrides = config?.lessonOverrides;
   const lessonConfig: CollectionConfig = {
-    ...(config?.lessonOverrides || {}),
+    ...(overrides || {}),
     slug: "lessons",
     labels: {
-      ...(config?.lessonOverrides?.labels || defaultLabels),
+      ...(overrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.lessonOverrides?.access &&
-      typeof config?.lessonOverrides?.access === "function"
-        ? config.lessonOverrides.access({ defaultAccess })
+      ...(overrides?.access && typeof overrides?.access === "function"
+        ? overrides.access({ defaultAccess })
         : defaultAccess),
     },
     admin: {
-      ...(config?.lessonOverrides?.admin || defaultAdmin),
+      ...(overrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.lessonOverrides?.hooks &&
-      typeof config?.lessonOverrides?.hooks === "function"
-        ? config.lessonOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks && typeof overrides?.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields:
-      config?.lessonOverrides?.fields &&
-      typeof config?.lessonOverrides?.fields === "function"
-        ? config.lessonOverrides.fields({ defaultFields })
+      overrides?.fields && typeof overrides?.fields === "function"
+        ? overrides.fields({ defaultFields })
         : defaultFields,
   };
 

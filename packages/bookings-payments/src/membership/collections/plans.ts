@@ -10,8 +10,8 @@ import { beforeProductChange } from "../hooks/before-product-change";
 import type { MembershipBranchConfig } from "../types";
 
 const defaultLabels: Labels = {
-  singular: "Plan",
-  plural: "Plans",
+  singular: "Membership",
+  plural: "Memberships",
 };
 
 const defaultAdmin: CollectionAdminOptions = {
@@ -40,7 +40,10 @@ const defaultFields: Field[] = [
     label: "Sessions Information",
     type: "group",
     required: false,
-    admin: { description: "Sessions included in this plan (if applicable)" },
+    admin: {
+      description:
+        "Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.",
+    },
     fields: [
       {
         type: "row",
@@ -61,6 +64,19 @@ const defaultFields: Field[] = [
             required: false,
           },
         ],
+      },
+      {
+        name: "allowMultipleBookingsPerLesson",
+        label: "Allow multiple bookings per lesson",
+        type: "checkbox",
+        defaultValue: false,
+        required: true,
+        admin: {
+          description:
+            "When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.",
+          condition: (_, siblingData) =>
+            siblingData?.sessions != null && siblingData.sessions > 0,
+        },
       },
     ],
   },
@@ -146,29 +162,29 @@ const defaultHooks: HooksConfig = {
 export function generatePlansCollection(
   config: MembershipBranchConfig
 ): CollectionConfig {
+  const overrides = config?.plansOverrides;
   return {
-    ...(config?.plansOverrides ?? {}),
-    slug: "plans",
+    ...(overrides ?? {}),
+    slug: "memberships",
     defaultSort: "priceInformation.price",
-    labels: { ...(config?.plansOverrides?.labels ?? defaultLabels) },
+    labels: { ...(overrides?.labels ?? defaultLabels) },
     access: {
       ...(defaultAccess as NonNullable<CollectionConfig["access"]>),
-      ...(config?.plansOverrides?.access ?? {}),
+      ...(overrides?.access ?? {}),
     },
     admin: {
       ...defaultAdmin,
-      ...(config?.plansOverrides?.admin ?? {}),
+      ...(overrides?.admin ?? {}),
     },
     hooks: {
-      ...(config?.plansOverrides?.hooks &&
-      typeof config.plansOverrides.hooks === "function"
-        ? config.plansOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks &&
+      typeof overrides.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields:
-      config?.plansOverrides?.fields &&
-      typeof config.plansOverrides.fields === "function"
-        ? config.plansOverrides.fields({ defaultFields })
+      overrides?.fields && typeof overrides.fields === "function"
+        ? overrides.fields({ defaultFields })
         : defaultFields,
   };
 }

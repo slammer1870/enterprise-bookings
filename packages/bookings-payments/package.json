@@ -8,6 +8,7 @@
     "test": "vitest run --hook-timeout=180000"
   },
   "dependencies": {
+    "next": "15.4.8",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

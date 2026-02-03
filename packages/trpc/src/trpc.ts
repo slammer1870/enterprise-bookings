@@ -43,6 +43,14 @@ type PayloadWithBetterAuth = Payload & {
  * @see https://trpc.io/docs/server/context
  */
 
+/** Optional: return subscription booking fee in cents to add as a line item in Stripe Checkout. */
+export type GetSubscriptionBookingFeeCents = (params: {
+  payload: Payload;
+  tenantId: number;
+  classPriceAmountCents: number;
+  metadata?: Record<string, string>;
+}) => Promise<number>;
+
 export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;

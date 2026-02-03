@@ -21,7 +21,7 @@ const defaultFields: Field[] = [
   {
     name: "plan",
     type: "relationship",
-    relationTo: "plans" as CollectionSlug,
+    relationTo: "memberships" as CollectionSlug,
     required: true,
   },
   {
@@ -120,28 +120,28 @@ const defaultHooks: HooksConfig = {
 export function generateSubscriptionCollection(
   config: MembershipBranchConfig
 ): CollectionConfig {
+  const overrides = config?.subscriptionOverrides;
   return {
-    ...(config?.subscriptionOverrides ?? {}),
+    ...(overrides ?? {}),
     slug: "subscriptions",
-    labels: { ...(config?.subscriptionOverrides?.labels ?? defaultLabels) },
+    labels: { ...(overrides?.labels ?? defaultLabels) },
     access: {
       ...(defaultAccess as NonNullable<CollectionConfig["access"]>),
-      ...(config?.subscriptionOverrides?.access ?? {}),
+      ...(overrides?.access ?? {}),
     },
     admin: {
       ...defaultAdmin,
-      ...(config?.subscriptionOverrides?.admin ?? {}),
+      ...(overrides?.admin ?? {}),
     },
     hooks: {
-      ...(config?.subscriptionOverrides?.hooks &&
-      typeof config.subscriptionOverrides?.hooks === "function"
-        ? config.subscriptionOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks &&
+      typeof overrides.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields:
-      config?.subscriptionOverrides?.fields &&
-      typeof config.subscriptionOverrides.fields === "function"
-        ? config.subscriptionOverrides.fields({ defaultFields })
+      overrides?.fields && typeof overrides.fields === "function"
+        ? overrides.fields({ defaultFields })
         : defaultFields,
   };
 }

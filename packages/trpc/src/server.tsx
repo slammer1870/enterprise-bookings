@@ -22,16 +22,18 @@ export const createServerTRPCContext = async (
 };
 
 /**
- * Factory function to create server-side tRPC utilities for a specific app
+ * Factory function to create server-side tRPC utilities for a specific app.
+ * Pass an optional router when the app uses createAppRouter(options) (e.g. subscription booking fee).
  */
 export function createServerTRPC(
-  createContext: () => Promise<BaseTRPCContext & { user?: User }>
+  createContext: () => Promise<BaseTRPCContext & { user?: User }>,
+  router: AppRouter = appRouter
 ) {
   const getQueryClient = cache(createQueryClient);
 
   const trpc: ReturnType<typeof createTRPCOptionsProxy<AppRouter>> =
     createTRPCOptionsProxy<AppRouter>({
-      router: appRouter,
+      router,
       ctx: createContext,
       queryClient: getQueryClient,
     });

@@ -69,8 +69,8 @@ export const verifyLegacyPayloadPassword = async (
     
     // Use timing-safe comparison to prevent timing attacks
     return crypto.timingSafeEqual(
-      Buffer.from(computedHash, "hex"),
-      Buffer.from(hash, "hex")
+      new Uint8Array(Buffer.from(computedHash, "hex")),
+      new Uint8Array(Buffer.from(hash, "hex"))
     );
   } catch {
     return false;

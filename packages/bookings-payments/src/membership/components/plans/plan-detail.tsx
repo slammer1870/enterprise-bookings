@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation.js";
 
 import { Plan } from "@repo/shared-types";
 

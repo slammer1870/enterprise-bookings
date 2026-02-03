@@ -246,78 +246,103 @@ describe('tRPC Bookings Integration Tests', () => {
       await expect(caller.lessons.getByIdForBooking({ id: 99999 })).rejects.toThrow()
     }, TEST_TIMEOUT)
 
-    it('should throw error when lesson is fully booked', async () => {
-      // Create a fresh lesson for this test
-      const startTime = new Date()
-      startTime.setDate(startTime.getDate() + 1) // Tomorrow (avoid "closed" based on current time)
-      startTime.setHours(11, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(12, 0, 0, 0)
+    it(
+      'should throw error when lesson is fully booked',
+      async () => {
+        // Use a small class option (3 places) to avoid creating many users/bookings and reduce timeout risk
+        const smallClassOption = (await createWithTenant<ClassOption>(
+          'class-options',
+          {
+            name: `Fully Booked Class ${Date.now()}`,
+            places: 3,
+            description: 'Small capacity for fully-booked test',
+          },
+          { overrideAccess: true }
+        ))
 
-      const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
-        {
-          date: startTime.toISOString(),
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          classOption: classOption.id,
-          location: 'Test Location',
-          active: true,
-          lockOutTime: 0, // Required field with default value
-        },
-        {
-          draft: false,
+        const startTime = new Date()
+        startTime.setDate(startTime.getDate() + 1) // Tomorrow (avoid "closed" based on current time)
+        startTime.setHours(11, 0, 0, 0)
+        const endTime = new Date(startTime)
+        endTime.setHours(12, 0, 0, 0)
+
+        const testLesson = (await createWithTenant<Lesson>(
+          'lessons',
+          {
+            date: startTime.toISOString(),
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            classOption: smallClassOption.id,
+            location: 'Test Location',
+            active: true,
+            lockOutTime: 0, // Required field with default value
+          },
+          {
+            draft: false,
+            overrideAccess: true,
+          }
+        ))
+
+        const caller = await createCaller()
+
+        // Fill up the lesson using overrideAccess for test setup
+        const createdUserIds: Array<number | string> = []
+        const places = smallClassOption.places ?? 3
+        for (let i = 0; i < places; i++) {
+          const otherUser = await payload.create({
+            collection: 'users',
+            data: {
+              name: `Fully Booked User ${i}`,
+              email: `fully-booked-${Date.now()}-${i}@test.com`,
+              password: 'test',
+              roles: ['user'],
+              emailVerified: true,
+            },
+            draft: false,
+            overrideAccess: true,
+          })
+          createdUserIds.push(otherUser.id)
+
+          await payload.create({
+            collection: 'bookings',
+            data: {
+              lesson: testLesson.id,
+              user: otherUser.id,
+              tenant: testTenant.id,
+              status: 'confirmed',
+            },
+            overrideAccess: true,
+          })
         }
-      ))
 
-      const caller = await createCaller()
+        await expect(caller.lessons.getByIdForBooking({ id: testLesson.id })).rejects.toThrow(
+          'This lesson is fully booked'
+        )
 
-      // Fill up the lesson using overrideAccess for test setup
-      const createdUserIds: Array<number | string> = []
-      for (let i = 0; i < classOption.places; i++) {
-        const otherUser = await payload.create({
-          collection: 'users',
-          data: {
-            name: `Fully Booked User ${i}`,
-            email: `fully-booked-${Date.now()}-${i}@test.com`,
-            password: 'test',
-            roles: ['user'],
-            emailVerified: true,
-          },
-          draft: false,
-          overrideAccess: true,
-        })
-        createdUserIds.push(otherUser.id)
-
-        await payload.create({
+        // Cleanup
+        await payload.delete({
           collection: 'bookings',
-          data: {
-            lesson: testLesson.id,
-            user: otherUser.id,
-            status: 'confirmed',
-          },
+          where: { lesson: { equals: testLesson.id } },
           overrideAccess: true,
         })
-      }
-
-      await expect(caller.lessons.getByIdForBooking({ id: testLesson.id })).rejects.toThrow(
-        'This lesson is fully booked'
-      )
-
-      // Cleanup
-      await payload.delete({
-        collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
-      })
-      await payload.delete({
-        collection: 'users',
-        where: { id: { in: createdUserIds } },
-      })
-      await payload.delete({
-        collection: 'lessons',
-        where: { id: { equals: testLesson.id } },
-      })
-    }, TEST_TIMEOUT)
+        await payload.delete({
+          collection: 'users',
+          where: { id: { in: createdUserIds } },
+          overrideAccess: true,
+        })
+        await payload.delete({
+          collection: 'lessons',
+          where: { id: { equals: testLesson.id } },
+          overrideAccess: true,
+        })
+        await payload.delete({
+          collection: 'class-options',
+          where: { id: { equals: smallClassOption.id } },
+          overrideAccess: true,
+        })
+      },
+      90_000,
+    )
   })
 
   describe('bookings.createBookings', () => {

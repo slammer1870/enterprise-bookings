@@ -1,77 +1,66 @@
-import { defineConfig, devices } from '@playwright/test'
-
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
 import 'dotenv/config'
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
-const e2eProfile = process.env.PW_E2E_PROFILE || (process.env.CI ? 'ci' : 'local')
-const isCI = e2eProfile === 'ci'
-const isLocal = e2eProfile === 'local'
+import { defineConfig, devices } from '@playwright/test'
+
+// Ensure all Playwright workers inherit this env flag.
+// Payload's drizzle adapter will attempt schema push in-process unless this is set,
+// which can collide with the already-migrated test DB (e.g. enum type already exists).
+process.env.PW_E2E_PROFILE ??= 'true'
+
+// Use production build for e2e tests (faster, more stable, cacheable by Turbo)
+const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  // Default per-test timeout (ms). Local dev server can be slower on first compile.
-  timeout: isCI ? 30000 : 60000,
-  // Local runs are intended to be a fast smoke suite.
-  ...(isLocal
-    ? {
-      testIgnore: [
-        '**/booking-flow.e2e.spec.ts',
-        '**/booking-functionality.e2e.spec.ts',
-        '**/cancel-booking.e2e.spec.ts',
-        '**/integration-edge-cases.e2e.spec.ts',
-        '**/super-admin-access.e2e.spec.ts',
-        '**/tenant-admin-access.e2e.spec.ts',
-        '**/tenant-isolation.e2e.spec.ts',
-        '**/tenant-onboarding.e2e.spec.ts',
-        '**/tenant-scoped-page-slugs.e2e.spec.ts',
-        '**/user-access-control.e2e.spec.ts',
-        '**/cross-tenant-booking.e2e.spec.ts',
-      ],
-    }
-    : {}),
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: isCI,
-  /* Retry on CI only */
-  retries: isCI ? 2 : 0,
-  /* Enable parallel workers locally for faster test runs. Test data is worker-scoped. */
-  workers: isCI ? 1 : 4,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  // Production build can handle more workers, but cap at 2 for multi-tenant apps
+  // (each worker creates 3 tenants × multiple Payload instances = high DB load)
+  workers: useProductionBuild ? 2 : 1,
+  timeout: 60_000,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list'], ['html']],
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    // baseURL: 'http://localhost:3000',
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: isCI ? 'on-first-retry' : 'off',
+    baseURL: 'http://localhost:3000',
+    actionTimeout: 30000,
+    navigationTimeout: 60000,
+    trace: 'on-first-retry',
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], channel: 'chromium' },
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: isCI
-      ? 'pnpm exec payload migrate:fresh --force-accept-warning && pnpm dev:e2e'
-      : 'pnpm dev:e2e',
-    reuseExistingServer: !isCI,
-    url: 'http://localhost:3000',
-    timeout: isCI ? 120000 : 60000,
-    env: {
-      DATABASE_URI: process.env.DATABASE_URI || '',
-      PAYLOAD_SECRET: process.env.PAYLOAD_SECRET || '',
-      NODE_ENV: 'development',
-      ...(isCI ? { CI: 'true' } : {}),
-      PW_E2E_PROFILE: e2eProfile,
-      NODE_OPTIONS:
-        '--no-deprecation --experimental-loader ./scripts/payload-auth-loader.mjs',
-    },
-  },
+  webServer: useProductionBuild
+    ? {
+        // Production mode: `next start` (requires build first)
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e',
+        url: 'http://localhost:3000/admin',
+        timeout: 120000,
+        reuseExistingServer: !process.env.CI,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          NODE_ENV: 'production',
+          NODE_OPTIONS: '--no-deprecation',
+          PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+        },
+      }
+    : {
+        // Dev mode fallback: `next dev` (no build required, slower)
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev',
+        url: 'http://localhost:3000/admin',
+        timeout: 180000,
+        reuseExistingServer: !process.env.CI,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          NODE_ENV: 'development',
+          CI: 'true',
+          NODE_OPTIONS: '--no-deprecation',
+          ENABLE_TEST_MAGIC_LINKS: 'true',
+          ENABLE_TEST_WEBHOOKS: 'true',
+          PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+        },
+      },
 })

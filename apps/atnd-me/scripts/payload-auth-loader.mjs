@@ -1,3 +1,8 @@
+import { fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs';
+
 /**
  * Node ESM loader to make `payload-auth`'s published ESM output work in Node.
  *
@@ -15,41 +20,58 @@
  *   --experimental-loader ./scripts/payload-auth-loader.mjs
  */
 export async function resolve(specifier, context, nextResolve) {
-  // First try default resolver.
+  const parentURL = context?.parentURL ?? "";
+  // Be tolerant of pnpm store paths like `.../.pnpm/payload-auth@.../` where the
+  // segment isn't followed by `/payload-auth/` exactly.
+  const isFromPayloadAuth = parentURL.includes("/payload-auth");
+  const isRelativeOrAbsolute =
+    specifier.startsWith("./") ||
+    specifier.startsWith("../") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("file:");
+  const isBareSubpath = !isRelativeOrAbsolute && specifier.includes("/");
+  const [base, suffix = ""] = specifier.split(/(?=[?#])/);
+  const hasExtension = /\.[a-zA-Z0-9]+$/.test(base);
+
+  // 1) For payload-auth relative/directory specifiers: resolve to a real file URL and
+  //    short-circuit. Node's default resolver turns "./adapter" into a directory URL and
+  //    then throws "Directory import is not supported" before our hook can fix it, so we
+  //    must resolve relative to parent ourselves and return that URL.
+  if (isFromPayloadAuth && isRelativeOrAbsolute && !hasExtension) {
+    try {
+      const parentPath = fileURLToPath(parentURL);
+      const parentDir = path.dirname(parentPath);
+      const candidates = [
+        path.join(parentDir, base, "index.js"),
+        path.join(parentDir, base, "index.mjs"),
+        path.join(parentDir, base + ".js"),
+        path.join(parentDir, base + ".mjs"),
+      ];
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          // We are intentionally bypassing Node's default resolver for this specifier.
+          // `shortCircuit: true` is required on newer Node versions.
+          return { url: pathToFileURL(candidate).href, shortCircuit: true };
+        }
+      }
+    } catch {
+      // fall through to default
+    }
+  }
+
+  // 2) Default resolution, and fallback for other cases (e.g. Next.js subpath).
   try {
     return await nextResolve(specifier, context);
   } catch (err) {
-    const parentURL = context?.parentURL ?? "";
-    const isFromPayloadAuth = parentURL.includes("/payload-auth/");
-
-    // Only try to fix relative/absolute specifiers (for payload-auth)
-    // or well-known package subpath imports like `next/headers`.
-    const isRelativeOrAbsolute =
-      specifier.startsWith("./") ||
-      specifier.startsWith("../") ||
-      specifier.startsWith("/") ||
-      specifier.startsWith("file:");
-
-    const isBareSubpath = !isRelativeOrAbsolute && specifier.includes("/");
-
-    // Keep query/hash intact.
-    const [base, suffix = ""] = specifier.split(/(?=[?#])/);
-
-    // If it already has an extension, don't try to change it.
-    const hasExtension = /\.[a-zA-Z0-9]+$/.test(base);
     if (hasExtension) throw err;
-
-    // 1) Fix payload-auth's relative + directory specifiers.
+    // Fix payload-auth extensionless (when directory candidates above didn't match).
     if (isFromPayloadAuth && isRelativeOrAbsolute) {
       const candidates = [
         `${base}.js${suffix}`,
         `${base}.mjs${suffix}`,
-        `${base}.cjs${suffix}`,
         `${base}/index.js${suffix}`,
         `${base}/index.mjs${suffix}`,
-        `${base}/index.cjs${suffix}`,
       ];
-
       for (const candidate of candidates) {
         try {
           return await nextResolve(candidate, context);
@@ -58,17 +80,12 @@ export async function resolve(specifier, context, nextResolve) {
         }
       }
     }
-
-    // 2) Fix Next.js subpath imports when Node requires an extension (e.g. `next/headers`).
-    // Only attempt for bare *subpaths* (leave bare package roots alone).
     if (isBareSubpath) {
       const candidates = [
         `${base}.js${suffix}`,
         `${base}.mjs${suffix}`,
-        `${base}.cjs${suffix}`,
         `${base}/index.js${suffix}`,
         `${base}/index.mjs${suffix}`,
-        `${base}/index.cjs${suffix}`,
       ];
       for (const candidate of candidates) {
         try {
@@ -78,7 +95,6 @@ export async function resolve(specifier, context, nextResolve) {
         }
       }
     }
-
     throw err;
   }
 }

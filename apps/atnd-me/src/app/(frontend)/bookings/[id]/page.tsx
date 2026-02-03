@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
-import { createBookingPage, type BookingPageConfig } from '@repo/bookings-next'
+import { createBookingPage, BookingPageClientSmart, type BookingPageConfig } from '@repo/bookings-next'
+import { PaymentMethods } from '@repo/payments-next'
 
 // Route params are always strings in Next.js App Router
 type BookingPageProps = {
@@ -16,6 +17,10 @@ const bookingPageConfig: BookingPageConfig = {
   authRedirectPath: (id) => `/complete-booking?mode=login&callbackUrl=/bookings/${id}`,
   errorRedirectPath: '/',
   onSuccessRedirect: '/',
+  // Show checkout (Drop-in / Membership tabs) when payment methods are attached
+  BookingPageClient: (props) => (
+    <BookingPageClientSmart {...props} PaymentMethodsComponent={PaymentMethods} />
+  ),
   // MVP: Don't attempt check-in, always show booking page
   attemptCheckIn: false,
   // Redirect to manage page if user has multiple bookings

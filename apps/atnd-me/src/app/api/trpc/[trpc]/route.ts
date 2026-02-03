@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
-import { appRouter, createTRPCContext } from '@repo/trpc'
+import { createTRPCContext } from '@repo/trpc'
 
+import { appRouter } from '@/trpc/router'
 import { getPayload } from '@/lib/payload'
 import { stripe } from '@/lib/stripe'
 
@@ -33,7 +34,12 @@ const handler = async (req: NextRequest) => {
     endpoint: '/api/trpc',
     router: appRouter,
     req,
-    createContext: async () => await createTRPCContext({ headers: req.headers, payload, stripe }),
+    createContext: async () =>
+      await createTRPCContext({
+        headers: req.headers,
+        payload,
+        stripe,
+      }),
     onError({ error, path }) {
       console.error(`>>> tRPC Error on '${path}'`, error)
     },

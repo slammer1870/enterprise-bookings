@@ -91,14 +91,14 @@ export async function syncStripeSubscriptions(payload: Payload) {
       if (!price) continue;
 
       const planQuery = await payload.find({
-        collection: asCollection("plans"),
+        collection: asCollection("memberships"),
         where: { priceJSON: { equals: JSON.stringify(price) } },
       });
 
       let plan: Plan;
       if (planQuery.docs.length === 0) {
         const newPlan = await payload.create({
-          collection: asCollection("plans"),
+          collection: asCollection("memberships"),
           data: {
             name: stripeProduct.name,
             status: "active",

@@ -240,32 +240,30 @@ const defaultHooks: HooksConfig = {
 };
 
 export const generateBookingCollection = (config: BookingsPluginConfig) => {
+  const overrides = config?.bookingOverrides;
   const bookingConfig: CollectionConfig = {
-    ...(config?.bookingOverrides || {}),
+    ...(overrides || {}),
     slug: "bookings",
     defaultSort: "updatedAt",
     labels: {
-      ...(config?.bookingOverrides?.labels || defaultLabels),
+      ...(overrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.bookingOverrides?.access &&
-      typeof config?.bookingOverrides?.access === "function"
-        ? config.bookingOverrides.access({ defaultAccess })
+      ...(overrides?.access && typeof overrides?.access === "function"
+        ? overrides.access({ defaultAccess })
         : defaultAccess),
     },
     admin: {
-      ...(config?.bookingOverrides?.admin || defaultAdmin),
+      ...(overrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.bookingOverrides?.hooks &&
-      typeof config?.bookingOverrides?.hooks === "function"
-        ? config.bookingOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks && typeof overrides?.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields:
-      config?.bookingOverrides?.fields &&
-      typeof config?.bookingOverrides?.fields === "function"
-        ? config.bookingOverrides.fields({ defaultFields })
+      overrides?.fields && typeof overrides?.fields === "function"
+        ? overrides.fields({ defaultFields })
         : defaultFields,
   };
 

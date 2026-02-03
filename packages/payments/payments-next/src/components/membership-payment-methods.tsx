@@ -83,11 +83,21 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
           )
         )
       : {};
+    const tenantId =
+      lesson.tenant != null
+        ? typeof lesson.tenant === "object" && "id" in lesson.tenant
+          ? lesson.tenant.id
+          : lesson.tenant
+        : undefined;
+    const metaWithTenant = {
+      ...cleanMetadata,
+      ...(tenantId != null && { tenantId: String(tenantId) }),
+    };
 
     await createCheckoutSession({
       priceId,
       quantity: 1,
-      metadata: cleanMetadata,
+      metadata: metaWithTenant,
       mode: "subscription",
       successUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
       cancelUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/bookings/${lesson.id}`,

@@ -7,8 +7,8 @@ import * as crypto from "crypto";
 import { stringify } from "qs-esm";
 import type { Where } from "payload";
 
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { cookies } from "next/headers.js";
+import { redirect } from "next/navigation.js";
 
 import type { User } from "@repo/shared-types";
 

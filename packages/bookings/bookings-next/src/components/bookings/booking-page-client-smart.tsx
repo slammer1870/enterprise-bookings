@@ -36,9 +36,14 @@ interface BookingPageClientSmartProps {
   onSuccessRedirect?: string
   /**
    * Component to render when payment methods are detected.
-   * Should handle payment method selection (membership, drop-in, etc.)
+   * Receives lesson, and optionally quantity, pendingBookings, onPaymentSuccess for multi-booking/manage flow.
    */
-  PaymentMethodsComponent?: React.ComponentType<{ lesson: Lesson }>
+  PaymentMethodsComponent?: React.ComponentType<{
+    lesson: Lesson
+    quantity?: number
+    pendingBookings?: import('@repo/shared-types').Booking[]
+    onPaymentSuccess?: () => void
+  }>
 }
 
 export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
@@ -50,13 +55,13 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 
   const maxQuantity = Math.max(1, lesson.remainingCapacity || 1)
 
-  // Check if lesson has payment methods configured
+  // Check if lesson has payment methods configured (drop-in or plans)
   const hasPaymentMethods = Boolean(
     lesson.classOption.paymentMethods?.allowedDropIn ||
-    lesson.classOption.paymentMethods?.allowedPlans?.length
+    (lesson.classOption.paymentMethods?.allowedPlans?.length ?? 0) > 0
   )
 
-  // If payment methods exist, show payment gateway
+  // If payment methods exist, show payment gateway (filtered by quantity when pendingBookings/quantity > 1)
   if (hasPaymentMethods) {
     if (PaymentMethodsComponent) {
       return (

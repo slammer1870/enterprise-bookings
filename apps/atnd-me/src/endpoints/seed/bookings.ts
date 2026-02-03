@@ -17,7 +17,33 @@ async function deleteDefaultTenantData(
 
   payload.logger.info(`  Deleting default data for tenant ${tenantId}...`)
 
-  // Delete default class options
+  // Delete default lessons first (they reference class options; FK constraint)
+  try {
+    const lessons = await payload.find({
+      collection: 'lessons',
+      where: {
+        location: { equals: 'Main Studio' },
+        tenant: { equals: tenantId },
+      },
+      limit: 100,
+      req: tenantReq,
+      overrideAccess: true,
+    })
+
+    for (const lesson of lessons.docs) {
+      await payload.delete({
+        collection: 'lessons',
+        id: lesson.id,
+        req: tenantReq,
+        overrideAccess: true,
+      })
+      payload.logger.info(`    Deleted lesson: ${lesson.id}`)
+    }
+  } catch (error) {
+    payload.logger.warn(`    Could not delete default lessons: ${error}`)
+  }
+
+  // Delete default class options (created by createDefaultTenantData hook)
   const defaultClassOptionPatterns = [
     `Yoga Class ${tenantId}`,
     `Fitness Class ${tenantId}`,
@@ -50,32 +76,6 @@ async function deleteDefaultTenantData(
       payload.logger.warn(`    Could not delete class option ${pattern}: ${error}`)
     }
   }
-
-  // Delete default lessons with location "Main Studio"
-  try {
-    const lessons = await payload.find({
-      collection: 'lessons',
-      where: {
-        location: { equals: 'Main Studio' },
-        tenant: { equals: tenantId },
-      },
-      limit: 100,
-      req: tenantReq,
-      overrideAccess: true,
-    })
-
-    for (const lesson of lessons.docs) {
-      await payload.delete({
-        collection: 'lessons',
-        id: lesson.id,
-        req: tenantReq,
-        overrideAccess: true,
-      })
-      payload.logger.info(`    Deleted lesson: ${lesson.id}`)
-    }
-  } catch (error) {
-    payload.logger.warn(`    Could not delete default lessons: ${error}`)
-  }
 }
 
 /**
@@ -105,8 +105,13 @@ export async function seedBookings({
   payload.logger.info('— Seeding booking data with multi-tenant support...')
 
   // Clear existing booking data in order to respect foreign key constraints
-  // Order: bookings -> lessons -> class-options -> instructors -> tenants
+  // Order: transactions -> bookings -> lessons -> class-options -> instructors
   payload.logger.info('  Clearing existing booking data...')
+  try {
+    await payload.db.deleteMany({ collection: 'transactions', req, where: {} })
+  } catch (e) {
+    payload.logger.warn(`  Could not delete transactions: ${e instanceof Error ? e.message : 'Unknown error'}`)
+  }
   try {
     await payload.db.deleteMany({ collection: 'bookings', req, where: {} })
   } catch (e) {
@@ -124,7 +129,16 @@ export async function seedBookings({
   } catch (e) {
     payload.logger.warn(`  Could not delete class-options: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
-  
+  try {
+    await payload.db.deleteMany({ collection: 'class-passes', req, where: {} })
+  } catch (e) {
+    payload.logger.warn(`  Could not delete class-passes: ${e instanceof Error ? e.message : 'Unknown error'}`)
+  }
+  try {
+    await payload.db.deleteMany({ collection: 'class-pass-types', req, where: {} })
+  } catch (e) {
+    payload.logger.warn(`  Could not delete class-pass-types: ${e instanceof Error ? e.message : 'Unknown error'}`)
+  }
   try {
     await payload.db.deleteMany({ collection: 'instructors', req, where: {} })
   } catch (e) {
@@ -168,14 +182,14 @@ export async function seedBookings({
   // Create or update test tenants (use upsert pattern to handle existing tenants)
   payload.logger.info('  Creating test tenants...')
   const tenant1Data = {
-    name: 'Demo Tenant 1',
-    slug: 'demo-tenant-1',
-    description: 'First demo tenant for testing multi-tenant functionality',
+    name: 'Flow Yoga & Fitness',
+    slug: 'flow-yoga-fitness',
+    description: 'Yoga and fitness studio with Stripe Connect; use for payment and class-pass testing.',
   }
   const tenant2Data = {
-    name: 'Demo Tenant 2',
-    slug: 'demo-tenant-2',
-    description: 'Second demo tenant for testing tenant isolation',
+    name: 'Pilates & Stretch Co.',
+    slug: 'pilates-stretch-co',
+    description: 'Pilates studio without Stripe; class passes and pay-at-door only for isolation testing.',
   }
   const croiLanSaunaData = {
     name: 'Croí Lán Sauna',
@@ -183,24 +197,19 @@ export async function seedBookings({
     description: 'A sauna experience in the heart of Wicklow\'s countryside',
   }
 
-  // Find existing tenants by slug
+  // Find existing tenants by slug (support legacy demo slugs for upsert)
   const existingTenant1 = await payload.find({
     collection: 'tenants',
     where: {
-      slug: {
-        equals: tenant1Data.slug,
-      },
+      slug: { in: [tenant1Data.slug, 'demo-tenant-1'] },
     },
     limit: 1,
     overrideAccess: true,
   })
-
   const existingTenant2 = await payload.find({
     collection: 'tenants',
     where: {
-      slug: {
-        equals: tenant2Data.slug,
-      },
+      slug: { in: [tenant2Data.slug, 'demo-tenant-2'] },
     },
     limit: 1,
     overrideAccess: true,
@@ -260,6 +269,39 @@ export async function seedBookings({
   const tenant1 = tenants[0] as Tenant
   const tenant2 = tenants[1] as Tenant
   const croiLanSaunaTenant = tenants[2] as Tenant
+
+  // Enable Stripe Connect for Flow Yoga & Fitness and Croí Lán Sauna (Pilates & Stretch has no Stripe)
+  payload.logger.info('  Enabling Stripe Connect (seed) for Flow Yoga & Fitness and Croí Lán Sauna...')
+  await Promise.all([
+    payload.update({
+      collection: 'tenants',
+      id: tenant1.id,
+      data: {
+        stripeConnectAccountId: 'acct_seed_demo_1',
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectConnectedAt: new Date().toISOString(),
+      },
+      overrideAccess: true,
+    }),
+    payload.update({
+      collection: 'tenants',
+      id: croiLanSaunaTenant.id,
+      data: {
+        stripeConnectAccountId: 'acct_seed_croi_lan',
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectConnectedAt: new Date().toISOString(),
+      },
+      overrideAccess: true,
+    }),
+  ])
+
+  // Wait for createDefaultTenantData hook (runs on tenant create), then remove generic default
+  // class options/lessons so we only have our payment-variety options for manual testing.
+  payload.logger.info('  Waiting for default tenant data hook, then clearing generic defaults...')
+  await new Promise((resolve) => setTimeout(resolve, 2000))
+  await deleteDefaultTenantData(tenant1.id, payload, req)
+  await deleteDefaultTenantData(tenant2.id, payload, req)
+  await deleteDefaultTenantData(croiLanSaunaTenant.id, payload, req)
 
   // Helper function to create tenant-scoped documents with tenant context
   const createWithTenant = async <T = any>(
@@ -438,8 +480,7 @@ export async function seedBookings({
     }),
   ])
 
-  // Create instructors (they require a user relationship) - scoped to tenant1
-  payload.logger.info('  Creating instructors for tenant1...')
+  payload.logger.info('  Creating instructors for Flow Yoga & Fitness...')
   const instructor1User = instructorUsers[0]
   const instructor1UserId = instructor1User && typeof instructor1User === 'object' && 'id' in instructor1User 
     ? instructor1User.id 
@@ -473,9 +514,8 @@ export async function seedBookings({
     ),
   ])
 
-  // Create instructors for tenant2 as well (for testing isolation)
-  // Note: We need a separate instructor user since instructors have a unique constraint on user
-  payload.logger.info('  Creating instructor user for tenant2...')
+  // Create instructors for Pilates & Stretch Co. (tenant2) — for isolation testing
+  payload.logger.info('  Creating instructor user for Pilates & Stretch Co....')
   const tenant2InstructorEmail = 'tenant2@instructor.com'.toLowerCase()
   
   // Check if tenant2 instructor user already exists
@@ -491,7 +531,7 @@ export async function seedBookings({
   })
 
       const tenant2InstructorData = {
-        name: 'Tenant2 Instructor',
+        name: 'Maya Chen',
         email: tenant2InstructorEmail,
         password: 'password',
         emailVerified: true,
@@ -514,7 +554,7 @@ export async function seedBookings({
         overrideAccess: true,
       })
 
-  payload.logger.info('  Creating instructors for tenant2...')
+  payload.logger.info('  Creating instructors for Pilates & Stretch Co....')
   const tenant2InstructorUserId = tenant2InstructorUser && typeof tenant2InstructorUser === 'object' && 'id' in tenant2InstructorUser 
     ? tenant2InstructorUser.id 
     : tenant2InstructorUser
@@ -532,15 +572,34 @@ export async function seedBookings({
     ),
   ])
 
-  // Create class options - scoped to tenant1
-  payload.logger.info('  Creating class options for tenant1...')
+  // Create class-pass-types for Flow Yoga & Fitness (tenant1)
+  payload.logger.info('  Creating class-pass-types for Flow Yoga & Fitness...')
+  const t1FitnessType = await createWithTenant(
+    'class-pass-types',
+    { name: 'Fitness Only', slug: `t1-fitness-only-${tenant1.id}`, description: 'Valid for fitness classes only', quantity: 10 },
+    tenant1.id,
+    { overrideAccess: true }
+  )
+  const t1AllAccessType = await createWithTenant(
+    'class-pass-types',
+    { name: 'All Access', slug: `t1-all-access-${tenant1.id}`, description: 'Valid for all class types', quantity: 10 },
+    tenant1.id,
+    { overrideAccess: true }
+  )
+  const t1FitnessId = t1FitnessType && typeof t1FitnessType === 'object' && 'id' in t1FitnessType ? (t1FitnessType as { id: number }).id : t1FitnessType
+  const t1AllAccessId = t1AllAccessType && typeof t1AllAccessType === 'object' && 'id' in t1AllAccessType ? (t1AllAccessType as { id: number }).id : t1AllAccessType
+  if (!t1FitnessId || !t1AllAccessId) throw new Error('Flow Yoga & Fitness class-pass-types not created')
+
+  // Create class options for Flow Yoga & Fitness — names state payment methods for manual testers
+  payload.logger.info('  Creating class options for Flow Yoga & Fitness...')
   const classOptions = await Promise.all([
     createWithTenant(
       'class-options',
       {
-        name: 'Yoga Class',
+        name: 'Yoga — Stripe + Class Pass',
         places: 10,
-        description: 'A relaxing yoga class for all levels',
+        description: 'Yoga, all levels. Pay by card (Stripe) or use Fitness Only / All Access pass.',
+        paymentMethods: { allowedClassPasses: [t1FitnessId, t1AllAccessId] },
       },
       tenant1.id,
       { draft: false, overrideAccess: true }
@@ -548,9 +607,10 @@ export async function seedBookings({
     createWithTenant(
       'class-options',
       {
-        name: 'Fitness Class',
+        name: 'Fitness — Stripe only',
         places: 15,
-        description: 'High-intensity fitness training',
+        description: 'High-intensity fitness. Card payment only; no class passes.',
+        paymentMethods: { allowedClassPasses: [] },
       },
       tenant1.id,
       { draft: false, overrideAccess: true }
@@ -558,9 +618,21 @@ export async function seedBookings({
     createWithTenant(
       'class-options',
       {
-        name: 'Small Group Class',
+        name: 'Small Group — Class Pass only',
         places: 5,
-        description: 'Intimate small group session',
+        description: 'Small group session. Fitness Only or All Access pass only; no drop-in payment.',
+        paymentMethods: { allowedClassPasses: [t1FitnessId, t1AllAccessId] },
+      },
+      tenant1.id,
+      { draft: false, overrideAccess: true }
+    ),
+    createWithTenant(
+      'class-options',
+      {
+        name: 'Drop-in — No payments (pay at door)',
+        places: 8,
+        description: 'Pay at the door. No Stripe, no class pass.',
+        paymentMethods: { allowedClassPasses: [] },
       },
       tenant1.id,
       { draft: false, overrideAccess: true }
@@ -732,18 +804,45 @@ export async function seedBookings({
   )
   lessons.push(manageBookingsLesson as Lesson)
 
-  // Create a lesson for tenant2 to test tenant isolation
-  payload.logger.info('  Creating lesson for tenant2 (to test isolation)...')
-  const tenant2ClassOption = await createWithTenant(
-    'class-options',
-    {
-      name: 'Tenant 2 Class',
-      places: 10,
-      description: 'Class option for tenant 2',
-    },
+  payload.logger.info('  Creating class-pass-types for Pilates & Stretch Co....')
+  const t2AllAccessType = await createWithTenant(
+    'class-pass-types',
+    { name: 'All Access', slug: `t2-all-access-${tenant2.id}`, description: 'Valid for all class types', quantity: 10 },
     tenant2.id,
-    { draft: false, overrideAccess: true }
+    { overrideAccess: true }
   )
+  const t2AllAccessId = t2AllAccessType && typeof t2AllAccessType === 'object' && 'id' in t2AllAccessType ? (t2AllAccessType as { id: number }).id : t2AllAccessType
+  if (!t2AllAccessId) throw new Error('Tenant2 class-pass-type not created')
+
+  // Create class options for Pilates & Stretch Co. (tenant2) — no Stripe Connect, so no payment methods
+  payload.logger.info('  Creating class options for Pilates & Stretch Co....')
+  const tenant2ClassOptions = await Promise.all([
+    createWithTenant(
+      'class-options',
+      {
+        name: 'Pilates — No Stripe (pay at door)',
+        places: 10,
+        description: 'Pilates class. No Stripe Connect; pay at door or add Connect later for class passes.',
+        paymentMethods: { allowedClassPasses: [] },
+      },
+      tenant2.id,
+      { draft: false, overrideAccess: true }
+    ),
+    createWithTenant(
+      'class-options',
+      {
+        name: 'Stretch — No payments (pay at door)',
+        places: 8,
+        description: 'Stretch class. Pay at the door only; no Stripe, no class pass.',
+        paymentMethods: { allowedClassPasses: [] },
+      },
+      tenant2.id,
+      { draft: false, overrideAccess: true }
+    ),
+  ])
+  const tenant2ClassOption = tenant2ClassOptions[0]
+
+  payload.logger.info('  Creating lesson for Pilates & Stretch Co. (isolation testing)...')
 
   const tenant2LessonDate = new Date(now)
   tenant2LessonDate.setDate(tenant2LessonDate.getDate() + 1)
@@ -769,7 +868,7 @@ export async function seedBookings({
       startTime: tenant2LessonDate.toISOString(),
       endTime: tenant2LessonEnd.toISOString(),
       classOption: tenant2ClassOptionId,
-      location: 'Tenant 2 Studio',
+      location: 'Main Studio',
       instructor: tenant2Instructor0Id,
       active: true,
       lockOutTime: 30,
@@ -779,16 +878,8 @@ export async function seedBookings({
   )
   lessons.push(tenant2Lesson as Lesson)
 
-  // Create Croí Lán Sauna tenant data
+  // Create Croí Lán Sauna tenant data (default data already cleared above)
   payload.logger.info('  Creating Croí Lán Sauna tenant data...')
-  
-  // Wait for createDefaultTenantData hook to complete (it runs asynchronously)
-  // The hook uses setTimeout, so we wait a bit to ensure it has run
-  payload.logger.info('  Waiting for default tenant data hook to complete...')
-  await new Promise(resolve => setTimeout(resolve, 2000))
-  
-  // Delete default data created by createDefaultTenantData hook
-  await deleteDefaultTenantData(croiLanSaunaTenant.id, payload, req)
   
   // Create instructor user for Croí Lán Sauna
   const croiLanSaunaInstructorEmail = 'croi-lan-sauna@instructor.com'.toLowerCase()
@@ -843,17 +934,51 @@ export async function seedBookings({
     { overrideAccess: true }
   )
 
-  // Create class option for Croí Lán Sauna
-  const croiLanSaunaClassOption = await createWithTenant(
-    'class-options',
-    {
-      name: '50 Minute Session',
-      places: 12,
-      description: 'A 50-minute sauna session for restoration and renewal',
-    },
+  // Create class-pass-types for Croí Lán Sauna (Sauna Only, All Access)
+  payload.logger.info('  Creating class-pass-types for Croí Lán Sauna...')
+  const croiSaunaType = await createWithTenant(
+    'class-pass-types',
+    { name: 'Sauna Only', slug: `croi-sauna-only-${croiLanSaunaTenant.id}`, description: 'Valid for sauna sessions only', quantity: 10 },
     croiLanSaunaTenant.id,
-    { draft: false, overrideAccess: true }
+    { overrideAccess: true }
   )
+  const croiAllAccessType = await createWithTenant(
+    'class-pass-types',
+    { name: 'All Access', slug: `croi-all-access-${croiLanSaunaTenant.id}`, description: 'Valid for all sessions', quantity: 10 },
+    croiLanSaunaTenant.id,
+    { overrideAccess: true }
+  )
+  const croiSaunaId = croiSaunaType && typeof croiSaunaType === 'object' && 'id' in croiSaunaType ? (croiSaunaType as { id: number }).id : croiSaunaType
+  const croiAllAccessId = croiAllAccessType && typeof croiAllAccessType === 'object' && 'id' in croiAllAccessType ? (croiAllAccessType as { id: number }).id : croiAllAccessType
+  if (!croiSaunaId || !croiAllAccessId) throw new Error('Croí Lán class-pass-types not created')
+
+  // Create class options for Croí Lán Sauna — names state payment methods for manual testers
+  payload.logger.info('  Creating class options for Croí Lán Sauna...')
+  const croiLanSaunaClassOptions = await Promise.all([
+    createWithTenant(
+      'class-options',
+      {
+        name: '50 min session — Stripe + Class Pass',
+        places: 12,
+        description: '50-minute sauna. Pay by card (Stripe) or use Sauna Only / All Access pass.',
+        paymentMethods: { allowedClassPasses: [croiSaunaId, croiAllAccessId] },
+      },
+      croiLanSaunaTenant.id,
+      { draft: false, overrideAccess: true }
+    ),
+    createWithTenant(
+      'class-options',
+      {
+        name: '30 min session — Class Pass only',
+        places: 8,
+        description: '30-minute sauna. Sauna Only or All Access pass only; no drop-in payment.',
+        paymentMethods: { allowedClassPasses: [croiSaunaId, croiAllAccessId] },
+      },
+      croiLanSaunaTenant.id,
+      { draft: false, overrideAccess: true }
+    ),
+  ])
+  const croiLanSaunaClassOption = croiLanSaunaClassOptions[0]
 
   const croiLanSaunaClassOptionId = croiLanSaunaClassOption && typeof croiLanSaunaClassOption === 'object' && 'id' in croiLanSaunaClassOption 
     ? croiLanSaunaClassOption.id 
@@ -865,8 +990,7 @@ export async function seedBookings({
   if (!croiLanSaunaClassOptionId) throw new Error('Croí Lán Sauna class option not found')
   if (!croiLanSaunaInstructorId) throw new Error('Croí Lán Sauna instructor not found')
 
-  // Create bookings - scoped to tenant1 (bookings inherit tenant from lesson)
-  payload.logger.info('  Creating bookings for tenant1...')
+  payload.logger.info('  Creating bookings for Flow Yoga & Fitness...')
   const bookings: Booking[] = []
 
   // Past lesson booking (completed)
@@ -1035,13 +1159,13 @@ export async function seedBookings({
   bookings.push(waitingBooking as Booking)
 
   payload.logger.info('  Booking data seeded successfully!')
-  payload.logger.info(`  Created: ${tenants.length} tenants, ${testUsers.length + 1} users (including tenant-admin), ${instructors.length + tenant2Instructors.length + 1} instructors, ${classOptions.length + 2} class options, ${lessons.length} lessons, ${bookings.length} bookings`)
+  payload.logger.info(`  Created: ${tenants.length} tenants, ${testUsers.length + 1} users (including tenant-admin), ${instructors.length + tenant2Instructors.length + 1} instructors, ${classOptions.length + tenant2ClassOptions.length + croiLanSaunaClassOptions.length} class options (payment-method variety per tenant), ${lessons.length} lessons, ${bookings.length} bookings`)
 
   return {
     tenants: tenants as Tenant[],
     users: [...testUsers, tenantAdminUser] as User[],
     instructors: [...instructors, ...tenant2Instructors, croiLanSaunaInstructor] as Instructor[],
-    classOptions: [...classOptions, tenant2ClassOption, croiLanSaunaClassOption] as ClassOption[],
+    classOptions: [...classOptions, ...tenant2ClassOptions, ...croiLanSaunaClassOptions] as ClassOption[],
     lessons: lessons as Lesson[],
     bookings: bookings as Booking[],
   }

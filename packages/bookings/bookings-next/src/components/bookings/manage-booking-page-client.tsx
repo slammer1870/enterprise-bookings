@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Lesson, Booking } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -72,19 +72,27 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     trpc.bookings.getUserBookingsForLesson.queryOptions({ lessonId: lesson.id })
   )
 
-  const confirmedBookings = useMemo(
-    () => (bookings || []).filter((b) => b.status === 'confirmed'),
+  const activeBookings = useMemo(
+    () => (bookings || []).filter((b) => String(b.status).toLowerCase() !== 'cancelled'),
     [bookings]
   )
 
-  const initialQuantity = confirmedBookings.length || 0
+  const initialQuantity = activeBookings.length || 0
 
-  // Desired total quantity of bookings for this lesson
+  // Desired total quantity of bookings for this lesson.
+  // IMPORTANT: `activeBookings` starts as `[]` until the query resolves.
   const [desiredQuantity, setDesiredQuantity] = useState<number>(initialQuantity)
 
   // Track pending bookings created for payment flow
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([])
   const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
+
+  // Keep the UI in sync with the server-backed booking count.
+  // This prevents the quantity control from getting stuck at 0 before the query resolves.
+  useEffect(() => {
+    if (isInPaymentFlow) return
+    setDesiredQuantity(initialQuantity)
+  }, [initialQuantity, isInPaymentFlow])
   
   // Track which booking is currently being cancelled (for per-booking loading state)
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null)
@@ -204,7 +212,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const handleUpdateQuantity = async () => {
     if (!bookings) return
 
-    const current = confirmedBookings.length
+    const current = activeBookings.length
     const target = desiredQuantity
 
     if (target === current) {
@@ -332,7 +340,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               onClick={() => {
                 setIsInPaymentFlow(false)
                 setPendingBookings([])
-                setDesiredQuantity(confirmedBookings.length)
+                setDesiredQuantity(activeBookings.length)
               }}
               className="w-full"
             >
@@ -344,7 +352,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  const maxTotalQuantity = confirmedBookings.length + lesson.remainingCapacity
+  const maxTotalQuantity = activeBookings.length + lesson.remainingCapacity
   const minQuantity = 0 // allow cancelling all via quantity control
 
   return (
@@ -357,8 +365,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         <CardHeader>
           <CardTitle>Update Booking Quantity</CardTitle>
           <CardDescription>
-            You currently have {confirmedBookings.length} confirmed booking
-            {confirmedBookings.length !== 1 ? 's' : ''} for this lesson. Adjust the
+            You currently have {activeBookings.length} booking
+            {activeBookings.length !== 1 ? 's' : ''} for this lesson. Adjust the
             total number of bookings you want to hold.
           </CardDescription>
         </CardHeader>
@@ -378,10 +386,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                 variant="outline"
                 disabled={desiredQuantity <= minQuantity || isCreating || isCancelling}
                 onClick={() => setDesiredQuantity((q) => Math.max(minQuantity, q - 1))}
+                aria-label="Decrease quantity"
               >
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="min-w-[2rem] text-center text-lg font-semibold">
+              <span
+                data-testid="booking-quantity"
+                className="min-w-[2rem] text-center text-lg font-semibold"
+              >
                 {desiredQuantity}
               </span>
               <Button
@@ -394,6 +406,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                 onClick={() =>
                   setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))
                 }
+                aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
               </Button>

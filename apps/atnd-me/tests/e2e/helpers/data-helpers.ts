@@ -12,6 +12,9 @@ let payloadInstance: Payload | null = null
 
 /**
  * Get or create Payload instance for test data creation
+ * 
+ * Note: Schema push is already disabled via PW_E2E_PROFILE env var
+ * set by Playwright's webServer command (see payload.config.ts)
  */
 async function getPayloadInstance(): Promise<Payload> {
   if (!payloadInstance) {

@@ -124,6 +124,7 @@ jobs:
         package:
           - auth-plugin
           - bookings-plugin
+          - bookings-payments
           - payments-plugin
           - memberships
           - integration-testing
@@ -358,9 +359,10 @@ jobs:
         run: pnpm test:int
         working-directory: ${{ matrix.app.app_path }}
 
-      - name: Run E2E tests for ${{ matrix.app.name }}
-        run: pnpm test:e2e:ci
-        working-directory: ${{ matrix.app.app_path }}
+      - name: Run E2E tests for ${{ matrix.app.name }} (against production build)
+        run: turbo run test:e2e:ci --filter=${{ matrix.app.name }}
+        env:
+          E2E_USE_PROD: "true"
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4

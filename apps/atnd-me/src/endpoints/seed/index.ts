@@ -94,16 +94,20 @@ export const seed = async ({
   }
 
   // Delete collections in order to respect foreign key constraints
-  // Order: bookings -> lessons -> scheduler -> class-options -> instructors -> users -> others
+  // Order: transactions -> bookings -> lessons -> scheduler -> class-options -> class-passes -> class-pass-types -> instructors -> users -> others
   const orderedCollections: CollectionSlug[] = [
+    'transactions',
     'bookings',
     'lessons',
     'scheduler', // Delete scheduler before class-options and instructors since it references them
     'class-options',
+    'class-passes',
+    'class-pass-types',
     'instructors',
     // Then delete other collections
     ...collections.filter(
-      (c) => !['bookings', 'lessons', 'scheduler', 'class-options', 'instructors'].includes(c)
+      (c) =>
+        !['transactions', 'bookings', 'lessons', 'scheduler', 'class-options', 'class-passes', 'class-pass-types', 'instructors'].includes(c),
     ),
   ]
 
@@ -290,19 +294,21 @@ export const seed = async ({
 
   payload.logger.info(`— Seeding contact form...`)
 
-  const contactForm = await payload.create({
-    collection: 'forms',
-    depth: 0,
-    data: contactFormData,
-  })
-
-  payload.logger.info(`— Seeding pages (tenant-scoped)...`)
-
-  // Create pages scoped to tenant1
+  // Create pages scoped to tenant1 (used for forms and pages)
   const tenant1Req = {
     ...req,
     context: { ...req.context, tenant: tenant1.id },
   }
+
+  const contactForm = await payload.create({
+    collection: 'forms',
+    depth: 0,
+    req: tenant1Req,
+    data: { ...contactFormData, tenant: tenant1.id },
+    overrideAccess: true,
+  })
+
+  payload.logger.info(`— Seeding pages (tenant-scoped)...`)
 
   // Find or create home page for tenant1
   const existingTenant1HomePage = await payload.find({
@@ -367,75 +373,84 @@ export const seed = async ({
 
   payload.logger.info(`— Seeding navbar and footer (tenant-scoped)...`)
 
-  // Create navbar and footer for tenant1
-  await Promise.all([
-    payload.create({
+  // Try to create navbar and footer for tenant1 (Drizzle + multi-tenant can fail on create/find; catch and continue so seed completes)
+  const tenant1Id = Number(tenant1.id)
+  const tenant1ReqWithRevalidate = {
+    ...tenant1Req,
+    context: { ...tenant1Req.context, tenant: tenant1Id, disableRevalidate: true },
+  }
+  const navbarData = {
+    tenant: tenant1Id,
+    logo: logoDoc?.id || undefined,
+    logoLink: '/',
+    navItems: [
+      {
+        link: {
+          type: 'custom' as const,
+          label: 'Book Now',
+          url: '/bookings',
+        },
+        renderAsButton: true,
+        buttonVariant: 'default' as const,
+      },
+    ],
+    styling: {
+      padding: 'medium' as const,
+      sticky: false,
+    },
+  }
+  const footerData = {
+    tenant: tenant1Id,
+    logoLink: '/',
+    navItems: [
+      { link: { type: 'custom' as const, label: 'Admin', url: '/admin' } },
+      {
+        link: {
+          type: 'custom' as const,
+          label: 'Source Code',
+          newTab: true,
+          url: 'https://github.com/payloadcms/payload/tree/main/templates/website',
+        },
+      },
+      {
+        link: {
+          type: 'custom' as const,
+          label: 'Payload',
+          newTab: true,
+          url: 'https://payloadcms.com/',
+        },
+      },
+    ],
+    styling: { showThemeSelector: true },
+  }
+  try {
+    await payload.create({
       collection: 'navbar',
-      req: tenant1Req,
-      context: {
-        disableRevalidate: true,
-      },
-      data: {
-        tenant: tenant1.id, // Explicitly set tenant
-        logo: logoDoc?.id || undefined,
-        logoLink: '/',
-        navItems: [
-          {
-            link: {
-              type: 'custom',
-              label: 'Book Now',
-              url: '/bookings',
-            },
-            renderAsButton: true,
-            buttonVariant: 'default',
-          },
-        ],
-        styling: {
-          padding: 'medium',
-          sticky: false,
-        },
-      },
-    }),
-    payload.create({
+      req: tenant1ReqWithRevalidate,
+      depth: 0,
+      overrideAccess: true,
+      data: navbarData,
+    })
+    payload.logger.info('  Created navbar for tenant1')
+  } catch (err) {
+    payload.logger.warn(
+      `  Could not create navbar for tenant1 (create in admin if needed): ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+  try {
+    await payload.create({
       collection: 'footer',
-      req: tenant1Req,
-      context: {
-        disableRevalidate: true,
-      },
-      data: {
-        tenant: tenant1.id, // Explicitly set tenant
-        logoLink: '/',
-        navItems: [
-          {
-            link: {
-              type: 'custom',
-              label: 'Admin',
-              url: '/admin',
-            },
-          },
-          {
-            link: {
-              type: 'custom',
-              label: 'Source Code',
-              newTab: true,
-              url: 'https://github.com/payloadcms/payload/tree/main/templates/website',
-            },
-          },
-          {
-            link: {
-              type: 'custom',
-              label: 'Payload',
-              newTab: true,
-              url: 'https://payloadcms.com/',
-            },
-          },
-        ],
-        styling: {
-          showThemeSelector: true,
-        },
-      },
-    }),
-  ])
+      req: tenant1ReqWithRevalidate,
+      depth: 0,
+      overrideAccess: true,
+      data: footerData,
+    })
+    payload.logger.info('  Created footer for tenant1')
+  } catch (err) {
+    payload.logger.warn(
+      `  Could not create footer for tenant1 (create in admin if needed): ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
 
   // Seed Croí Lán Sauna tenant pages and content
   const croiLanSaunaTenant = bookingData.tenants.find((t) => t.slug === 'croi-lan-sauna')

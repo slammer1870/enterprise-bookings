@@ -49,10 +49,6 @@ export type BookingsPluginConfig = {
    */
   childrenEnabled?: boolean;
 
-  /**
-   * Access control hooks for modifying booking access
-   */
-
   lessonOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;

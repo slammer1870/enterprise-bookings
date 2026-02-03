@@ -67,11 +67,25 @@ export async function middleware(request: NextRequest) {
   // Set subdomain in cookies - tenant lookup will happen in API routes/server components
   // This avoids needing Payload in middleware (Edge runtime limitation)
   const response = NextResponse.next()
-  response.cookies.set('tenant-slug', subdomain, {
+  
+  // Set cookie with domain that works across subdomains
+  // For localhost, use no domain (works across subdomains in most browsers)
+  // For production, use .domain.com to share across subdomains
+  const cookieOptions: any = {
     httpOnly: false, // Allow client-side access
     sameSite: 'lax',
     path: '/',
-  })
+  }
+  
+  // Don't set domain for localhost (allows cookie sharing across subdomains in dev)
+  // In production, you'd want to set domain: '.yourdomain.com'
+  if (!isLocalhost) {
+    // Extract root domain (e.g., "atnd-me.com" from "tenant.atnd-me.com")
+    const rootDomain = parts.slice(-2).join('.')
+    cookieOptions.domain = `.${rootDomain}`
+  }
+  
+  response.cookies.set('tenant-slug', subdomain, cookieOptions)
   
   // Note: tenant-id will be resolved in API routes/server components via Payload
   // This keeps middleware lightweight and Edge-compatible

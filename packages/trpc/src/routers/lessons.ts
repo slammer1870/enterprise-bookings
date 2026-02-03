@@ -90,10 +90,21 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      // Extract tenant slug from cookie header (from subdomain)
+      // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
       const cookieHeader = ctx.headers.get("cookie") || "";
       const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      let tenantSlug: string | null | undefined = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      if (!tenantSlug) {
+        const host = ctx.headers.get("host") || "";
+        const hostWithoutPort = host.split(":")[0] || "";
+        const parts = hostWithoutPort.split(".");
+        const isLocalhost = hostWithoutPort.includes("localhost");
+        if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
+          tenantSlug = parts[0];
+        } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
+          tenantSlug = parts[0];
+        }
+      }
 
       // Resolve tenant ID from slug if available
       let tenantId: number | null = null;
@@ -166,9 +177,11 @@ export const lessonsRouter = {
         });
       }
 
+      // Allow "multipleBooked" to pass through without error
+      // The booking page's postValidation will redirect to the manage page
+      // This prevents server errors when users with 2+ bookings visit the booking page
       if (
         lesson.bookingStatus === "booked" ||
-        lesson.bookingStatus === "multipleBooked" ||
         lesson.bookingStatus === "childrenBooked"
       ) {
         throw new TRPCError({

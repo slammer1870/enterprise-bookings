@@ -8,6 +8,7 @@ export function LessonList({
   lessons: Lesson[];
   /**
    * Optional function or string to generate the manage booking URL.
+   * Defaults to `/bookings/[id]/manage` if not provided.
    * Passed through to LessonDetail components.
    */
   manageHref?: string | ((lessonId: number) => string);

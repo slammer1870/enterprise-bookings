@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User, Lesson, ClassOption, Booking } from '@repo/shared-types'
-import { addDays } from 'date-fns'
 
 const TEST_TIMEOUT = 120000 // 2 minutes (jobs can take time)
 const HOOK_TIMEOUT = 300000 // 5 minutes
@@ -61,7 +60,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         name: `Test Class Option ${Date.now()}`,
         places: 10,
         description: 'Test Description',
-        tenant: testTenant.id,
+        tenant: Number(testTenant.id),
       },
       overrideAccess: true,
     })) as ClassOption
@@ -73,7 +72,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         name: `Second Tenant Class Option ${Date.now()}`,
         places: 10,
         description: 'Second Tenant Description',
-        tenant: secondTenant.id,
+        tenant: Number(secondTenant.id),
       },
       overrideAccess: true,
     })) as ClassOption
@@ -81,7 +80,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy()
+      await payload.db.destroy?.()
     }
   })
 
@@ -105,7 +104,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           startTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
           endTime: new Date(tomorrow.getTime() + 11 * 60 * 60 * 1000).toISOString(), // 11 AM
           classOption: classOption.id,
-          tenant: testTenant.id,
+          tenant: Number(testTenant.id),
           active: true,
         },
         overrideAccess: true,
@@ -118,7 +117,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           startTime: new Date(tomorrow.getTime() + 14 * 60 * 60 * 1000).toISOString(), // 2 PM
           endTime: new Date(tomorrow.getTime() + 15 * 60 * 60 * 1000).toISOString(), // 3 PM
           classOption: classOption.id,
-          tenant: testTenant.id,
+          tenant: Number(testTenant.id),
           active: true,
         },
         overrideAccess: true,
@@ -132,7 +131,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           user: user.id,
           status: 'confirmed',
           quantity: 1,
-          tenant: testTenant.id,
+          tenant: Number(testTenant.id),
         },
         overrideAccess: true,
       })) as Booking
@@ -146,7 +145,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           startTime: new Date(tomorrow.getTime() + 16 * 60 * 60 * 1000).toISOString(), // 4 PM (different from test tenant's times)
           endTime: new Date(tomorrow.getTime() + 17 * 60 * 60 * 1000).toISOString(), // 5 PM
           classOption: secondTenantClassOption.id,
-          tenant: secondTenant.id,
+          tenant: Number(secondTenant.id),
           active: true,
         },
         overrideAccess: true,
@@ -198,7 +197,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       const scheduler = await payload.create({
         collection: 'scheduler',
         data: {
-          tenant: testTenant.id, // Explicitly set tenant for isGlobal collections
+          tenant: Number(testTenant.id), // Explicitly set tenant for isGlobal collections
           startDate: tomorrow.toISOString(),
           endDate: endDate.toISOString(),
           clearExisting: true, // Should delete lessons without bookings
@@ -393,7 +392,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           startTime: new Date(startDate.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
           endTime: new Date(startDate.getTime() + 11 * 60 * 60 * 1000).toISOString(), // 11 AM
           classOption: classOption.id,
-          tenant: testTenant.id,
+          tenant: Number(testTenant.id),
           active: true,
         },
         overrideAccess: true,
@@ -431,7 +430,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       await payload.create({
         collection: 'scheduler',
         data: {
-          tenant: testTenant.id, // Explicitly set tenant for isGlobal collections
+          tenant: Number(testTenant.id), // Explicitly set tenant for isGlobal collections
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
           clearExisting: false, // Should NOT delete existing lessons

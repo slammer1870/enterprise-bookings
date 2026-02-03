@@ -1,19 +1,5 @@
-import type { CollectionConfig } from "payload";
-import type { FieldsOverride, HooksOverride } from "@repo/shared-types";
-
 /**
- * Config shape for the membership branch when used inside BookingsPaymentsPluginConfig.membership.
- * Kept in sync with the merged type in ../types.ts for the membership key.
+ * Membership config when used inside BookingsPaymentsPluginConfig.membership.
+ * Re-exported from main types so membership code uses a single source of truth.
  */
-export type MembershipBranchConfig = {
-  enabled: boolean;
-  paymentMethodSlugs?: string[];
-  subscriptionOverrides?: {
-    fields?: FieldsOverride;
-    hooks?: HooksOverride;
-  } & Partial<Omit<CollectionConfig, "fields">>;
-  plansOverrides?: {
-    fields?: FieldsOverride;
-    hooks?: HooksOverride;
-  } & Partial<Omit<CollectionConfig, "fields">>;
-};
+export type { MembershipConfig as MembershipBranchConfig } from "../types";

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
 import { ManageBookingPageClient } from '@repo/bookings-next'
+import { PaymentMethods } from '@repo/payments-next'
 
 type ManageBookingPageProps = {
     params: Promise<{ id: string }>
@@ -31,8 +32,8 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
         // Fetch user's bookings first to verify they have multiple bookings
         const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: id })
 
-        // If user has only one or no bookings, redirect to regular booking page
-        // Use explicit check to ensure redirect happens even if array is undefined/null
+        // Must have at least one booking to manage.
+        // Use explicit check to ensure redirect happens even if array is undefined/null.
         const bookingCount = userBookings?.length ?? 0
         if (bookingCount === 0) {
             redirect(`/bookings/${id}`)
@@ -45,7 +46,10 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
 
         return (
             <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-                <ManageBookingPageClient lesson={lesson} />
+                <ManageBookingPageClient
+                    lesson={lesson}
+                    PaymentMethodsComponent={PaymentMethods}
+                />
             </div>
         )
     } catch (error: any) {

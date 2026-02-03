@@ -15,7 +15,7 @@ export const Footer: CollectionConfig = {
   admin: {
     useAsTitle: 'tenant',
     defaultColumns: ['tenant', 'logoLink', 'updatedAt'],
-    group: 'Configuration',
+    group: 'Website',
     description: 'Footer configuration for each tenant',
   },
   access: {

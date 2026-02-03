@@ -5,6 +5,18 @@ import { TZDate } from "@date-fns/tz";
 import { TaskGenerateLessonsFromSchedule } from "../types";
 import { Lesson } from "@repo/shared-types";
 
+/** Normalize relationship value to ID (handles populated { id } or raw number). */
+function toId(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "object" && value !== null && "id" in value) {
+    const id = (value as { id: number }).id;
+    return typeof id === "number" ? id : null;
+  }
+  const n = Number(value);
+  return Number.isNaN(n) ? null : n;
+}
+
 export const generateLessonsFromSchedule: TaskHandler<
   "generateLessonsFromSchedule"
 > = async ({ input, req }) => {
@@ -18,6 +30,8 @@ export const generateLessonsFromSchedule: TaskHandler<
   } = input as TaskGenerateLessonsFromSchedule["input"];
 
   const { payload } = req;
+
+  const defaultClassOptionId = toId(defaultClassOption);
 
   if (!startDate || !endDate || !week) {
     return {
@@ -259,21 +273,43 @@ export const generateLessonsFromSchedule: TaskHandler<
           timeZone
         );
 
+        const classOptionId =
+          toId(timeSlot.classOption) ?? defaultClassOptionId;
+        if (classOptionId == null) {
+          payload.logger.warn(
+            `Skipping lesson: no valid classOption for slot ${timeSlot.startTime}`
+          );
+          continue;
+        }
+
+        // Coerce to number so Payload relationship validation always receives a number ID
+        const classOptionIdNum =
+          typeof classOptionId === "number" && !Number.isNaN(classOptionId)
+            ? classOptionId
+            : Number(classOptionId);
+        if (Number.isNaN(classOptionIdNum)) {
+          payload.logger.warn(
+            `Skipping lesson: classOption id is not a valid number for slot ${timeSlot.startTime}`
+          );
+          continue;
+        }
+
         const newLesson = await payload.create({
           collection: "lessons",
           data: {
             date: lessonDate.toISOString(),
             startTime: lessonStartTime.toISOString(),
             endTime: lessonEndTime.toISOString(),
-            classOption:
-              Number(timeSlot.classOption) || Number(defaultClassOption),
+            classOption: classOptionIdNum,
             location: timeSlot.location || null,
-            instructor: Number(timeSlot.instructor) || null,
+            instructor: toId(timeSlot.instructor) ?? undefined,
             lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
             active: timeSlot.active || true,
             // Explicitly set tenant if available in context (for multi-tenant support)
             ...(tenantId ? { tenant: tenantId } : {}),
           },
+          req,
+          overrideAccess: true,
         });
         console.log("New lesson", newLesson);
       }

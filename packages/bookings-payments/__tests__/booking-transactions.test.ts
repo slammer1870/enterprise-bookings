@@ -1,5 +1,5 @@
 /**
- * Booking-transactions CRUD: create with paymentMethod class_pass or stripe, read back.
+ * Transactions CRUD: create with paymentMethod class_pass or stripe, read back.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildConfig, getPayload, type Payload } from "payload";
@@ -9,7 +9,7 @@ import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 
 const HOOK_TIMEOUT = 60000;
 
-describe("booking-transactions collection", () => {
+describe("transactions collection", () => {
   let payload: Payload;
   let userId: number;
   let bookingId: number;
@@ -56,9 +56,9 @@ describe("booking-transactions collection", () => {
     if (payload?.db) await payload.db.destroy();
   });
 
-  it("creates and reads booking-transaction with paymentMethod class_pass", async () => {
+  it("creates and reads transaction with paymentMethod class_pass", async () => {
     const created = await payload.create({
-      collection: "booking-transactions" as import("payload").CollectionSlug,
+      collection: "transactions" as import("payload").CollectionSlug,
       data: {
         booking: bookingId,
         paymentMethod: "class_pass",
@@ -75,14 +75,14 @@ describe("booking-transactions collection", () => {
     expect((created as { classPassId?: number }).classPassId).toBe(999);
 
     const read = await payload.findByID({
-      collection: "booking-transactions" as import("payload").CollectionSlug,
+      collection: "transactions" as import("payload").CollectionSlug,
       id: created.id as number,
       overrideAccess: true,
     });
     expect(read.paymentMethod).toBe("class_pass");
   });
 
-  it("creates booking-transaction with paymentMethod stripe", async () => {
+  it("creates transaction with paymentMethod stripe", async () => {
     const booking2 = await payload.create({
       collection: "bookings",
       data: {
@@ -93,7 +93,7 @@ describe("booking-transactions collection", () => {
       overrideAccess: true,
     });
     const created = await payload.create({
-      collection: "booking-transactions" as import("payload").CollectionSlug,
+      collection: "transactions" as import("payload").CollectionSlug,
       data: {
         booking: booking2.id,
         paymentMethod: "stripe",

@@ -221,48 +221,38 @@ const defaultHooks = {
 } as HooksConfig;
 
 export const generateInstructorCollection = (config: BookingsPluginConfig) => {
-  // Determine fields first, before spreading instructorOverrides
-  // This prevents conflicts if instructorOverrides has a fields property
+  const overrides = config?.instructorOverrides;
+  // Determine fields first, before spreading overrides
   const fields =
-    config?.instructorOverrides?.fields &&
-    typeof config?.instructorOverrides?.fields === "function"
-      ? config.instructorOverrides.fields({ defaultFields })
+    overrides?.fields && typeof overrides?.fields === "function"
+      ? overrides.fields({ defaultFields })
       : defaultFields;
 
   const instructorConfig: CollectionConfig = {
     slug: "instructors",
     labels: {
-      ...(config?.instructorOverrides?.labels || defaultLabels),
+      ...(overrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.instructorOverrides?.access &&
-      typeof config?.instructorOverrides?.access === "function"
-        ? config.instructorOverrides.access({ defaultAccess })
+      ...(overrides?.access && typeof overrides?.access === "function"
+        ? overrides.access({ defaultAccess })
         : defaultAccess),
     },
     admin: {
-      ...(config?.instructorOverrides?.admin || defaultAdmin),
+      ...(overrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.instructorOverrides?.hooks &&
-      typeof config?.instructorOverrides?.hooks === "function"
-        ? config.instructorOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks && typeof overrides?.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields,
-    // Spread other instructorOverrides properties (but not fields, hooks, access, admin, labels, slug)
-    ...(config?.instructorOverrides
+    // Spread other overrides properties (but not fields, hooks, access, admin, labels, slug)
+    ...(overrides
       ? Object.fromEntries(
-          Object.entries(config.instructorOverrides).filter(
+          Object.entries(overrides).filter(
             ([key]) =>
-              ![
-                "fields",
-                "hooks",
-                "access",
-                "admin",
-                "labels",
-                "slug",
-              ].includes(key)
+              !["fields", "hooks", "access", "admin", "labels", "slug"].includes(key)
           )
         )
       : {}),

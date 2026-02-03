@@ -52,6 +52,10 @@ export const CheckInButton = ({
   lessonId: number;
   type: Lesson["classOption"]["type"];
   scheduleState?: LessonScheduleState;
+  /**
+   * Optional function or string to generate the manage booking URL.
+   * Defaults to `/bookings/[id]/manage` if not provided.
+   */
   manageHref?: string | ((lessonId: number) => string);
 }) => {
   const trpc = useTRPC();
@@ -102,12 +106,12 @@ export const CheckInButton = ({
     }
 
     if (action === "modify") {
-      if (manageHref) {
-        const manageUrl = typeof manageHref === "function" ? manageHref(lessonId) : manageHref;
-        router.push(manageUrl);
-      } else {
-        router.push(`/bookings/${lessonId}`);
-      }
+      // Default to /bookings/[id]/manage if no custom manageHref is provided
+      const defaultManageUrl = `/bookings/${lessonId}/manage`;
+      const manageUrl = manageHref 
+        ? (typeof manageHref === "function" ? manageHref(lessonId) : manageHref)
+        : defaultManageUrl;
+      router.push(manageUrl);
       trackEvent("Modify Booking Initiated");
       return;
     }

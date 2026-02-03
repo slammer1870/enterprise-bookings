@@ -86,10 +86,17 @@ function RegisterFormContent() {
           email: normalizedEmail,
         });
 
-        // Send magic link via tRPC (Better Auth under the hood)
+        // Send magic link via tRPC (Better Auth under the hood).
+        // Use absolute callback URL so post-login redirect stays on current origin
+        // (e.g. tenant subdomain). Server baseURL is often bare localhost; resolving
+        // here avoids redirecting to the wrong host.
+        const callbackURL =
+          typeof window !== 'undefined' && !/^https?:\/\//i.test(callbackUrl)
+            ? new URL(callbackUrl, window.location.origin).href
+            : callbackUrl;
         await sendMagicLinkMutation({
           email: normalizedEmail,
-          callbackURL: callbackUrl,
+          callbackURL,
         });
 
         trackEvent("Registration Completed");
@@ -101,7 +108,7 @@ function RegisterFormContent() {
         });
       }
     },
-    [registerMutation, sendMagicLinkMutation, router, trackEvent]
+    [registerMutation, sendMagicLinkMutation, router, trackEvent, callbackUrl]
   );
 
   return (
