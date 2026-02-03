@@ -6,7 +6,7 @@ export default createPlaywrightConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
   globalTeardown: './tests/e2e/global-teardown.ts',
-  webServerCommand: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev',
+  webServerCommand: 'rm -rf .next && pnpm run payload migrate:fresh --force-accept-warning && pnpm dev',
   webServerUrl: 'http://localhost:3000/api/health',
   extraWebServerEnv: {
     ENABLE_TEST_MAGIC_LINKS: 'true',

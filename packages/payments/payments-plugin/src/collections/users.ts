@@ -1,4 +1,4 @@
-import { CollectionConfig, SelectField } from "payload";
+import type { CollectionConfig } from "payload";
 
 import { stripeCustomerId } from "../fields/stripe-customer-id";
 

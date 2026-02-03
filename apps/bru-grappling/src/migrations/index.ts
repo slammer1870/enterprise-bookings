@@ -17,6 +17,8 @@ import * as migration_20260116_120000_fix_schema_mismatch_hero_and_footer from '
 import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
 import * as migration_20260120_200715 from './20260120_200715';
 import * as migration_20260122_205531 from './20260122_205531';
+import * as migration_20260128_000001_locked_documents_rels_memberships from './20260128_000001_locked_documents_rels_memberships';
+import * as migration_20260203_000001_plans_allow_multiple_bookings_per_lesson from './20260203_000001_plans_allow_multiple_bookings_per_lesson';
 export const migrations = [
   {
     up: migration_20251123_131951.up,
@@ -111,6 +113,16 @@ export const migrations = [
   {
     up: migration_20260122_205531.up,
     down: migration_20260122_205531.down,
-    name: '20260122_205531'
+    name: '20260122_205531',
+  },
+  {
+    up: migration_20260128_000001_locked_documents_rels_memberships.up,
+    down: migration_20260128_000001_locked_documents_rels_memberships.down,
+    name: '20260128_000001_locked_documents_rels_memberships',
+  },
+  {
+    up: migration_20260203_000001_plans_allow_multiple_bookings_per_lesson.up,
+    down: migration_20260203_000001_plans_allow_multiple_bookings_per_lesson.down,
+    name: '20260203_000001_plans_allow_multiple_bookings_per_lesson',
   },
 ];

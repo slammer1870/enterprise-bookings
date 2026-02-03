@@ -25,7 +25,7 @@
     },
     "lint": {
       "dependsOn": ["^lint"],
-      "env": ["NEXT_PHASE"]
+      "env": ["NEXT_PHASE", "LOGS_STRIPE_PROXY"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]

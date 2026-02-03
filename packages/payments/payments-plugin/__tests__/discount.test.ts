@@ -130,7 +130,7 @@ describe("Discount calculation tests", () => {
 
   describe("Payment intent with discounts", () => {
     let user;
-    let dropIn: DropIn;
+    let _dropIn: DropIn;
 
     beforeAll(async () => {
       // Create test user
@@ -144,7 +144,7 @@ describe("Discount calculation tests", () => {
       });
 
       // Create test drop-in with discount tiers
-      dropIn = (await payload.create({
+      _dropIn = (await payload.create({
         collection: "drop-ins",
         data: {
           name: "Test Drop-In Class",
