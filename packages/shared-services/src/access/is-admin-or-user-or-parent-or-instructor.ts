@@ -5,7 +5,7 @@ import { checkRole } from "@repo/shared-utils";
 
 export const adminOrUserOrParentOrInstructor: Access = ({
   req: { user },
-  id,
+  id: _id,
 }) => {
   // Allow unauthenticated users to see instructors only
   if (!user) {

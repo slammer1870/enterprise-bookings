@@ -1,7 +1,6 @@
-import { Booking, Lesson, Plan, Subscription, User } from "@repo/shared-types";
+import { Booking, Lesson, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
-import { AccessArgs, CollectionSlug } from "payload";
-import { hasReachedSubscriptionLimit } from "..";
+import { AccessArgs } from "payload";
 
 // Helper function to validate lesson status and capacity
 import { validateLessonStatus } from "../lesson";

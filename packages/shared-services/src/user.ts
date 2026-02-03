@@ -12,14 +12,6 @@ import { redirect } from "next/navigation.js";
 
 import type { User } from "@repo/shared-types";
 
-const query: Where = {
-  color: {
-    equals: "mint",
-  },
-  // This query could be much more complex
-  // and qs-esm would handle it beautifully
-};
-
 type GetOrCreateUserProps = {
   name: string;
   email: string;
