@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import type { CollectionSlug } from "payload";
+import type { CollectionSlug, SelectType } from "payload";
 
 import { TRPCRouterRecord } from "@trpc/server";
 import {
@@ -381,6 +381,9 @@ export const lessonsRouter = {
           req: queryOptions.req,
           // Avoid expensive per-viewer virtual fields (bookingStatus/remainingCapacity/bookings join)
           // in the schedule query path. We'll compute what schedule needs in a single batch below.
+          // Type assertion: select shape is correct for apps with a lessons collection; apps
+          // without lessons (e.g. boatyard-sauna) use a different Config so the inferred select
+          // type doesn't include these fields. Runtime is correct when lessons exists.
           select: {
             id: true,
             date: true,
@@ -393,7 +396,7 @@ export const lessonsRouter = {
             classOption: true,
             tenant: true,
             active: true,
-          },
+          } as SelectType,
         });
 
         const now = new Date();
