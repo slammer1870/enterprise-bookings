@@ -5,7 +5,7 @@ import { User } from "@repo/shared-types";
 export const adminOrPublished: Access = ({ req }) => {
   // If there is a user logged in,
   // let them retrieve all documents
-  if (checkRole(["admin"], req.user as User)) return true;
+  if (checkRole(["admin"], req.user as unknown as User)) return true;
 
   // If there is no user,
   // restrict the documents that are returned
