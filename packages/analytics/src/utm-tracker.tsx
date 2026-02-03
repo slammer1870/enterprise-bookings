@@ -2,12 +2,10 @@
 
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { usePlausible } from "next-plausible";
 import { getUTMParams, storeUTMParams } from "./analytic-tracking";
 
 export function UTMTracker() {
   const searchParams = useSearchParams();
-  const plausible = usePlausible();
 
   useEffect(() => {
     // Get UTM parameters from URL
