@@ -70,9 +70,9 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                     {/* Quote */}
                     {study.quote && (
                       <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
-                        "{study.quote}"
+                        &ldquo;{study.quote}&rdquo;
                       </blockquote>
-                    )}{' '}
+                    )}
                   </div>
 
                   {/* Author */}
@@ -164,9 +164,9 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                     {/* Quote */}
                     {study.quote && (
                       <blockquote className="text-xl md:text-2xl font-medium leading-relaxed">
-                        "{study.quote}"
+                        &ldquo;{study.quote}&rdquo;
                       </blockquote>
-                    )}{' '}
+                    )}
                   </div>
 
                   {/* Author */}
