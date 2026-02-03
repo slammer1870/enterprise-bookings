@@ -1,5 +1,3 @@
-import os from 'node:os'
-
 import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test'
 
 export type SharedPlaywrightOptions = {

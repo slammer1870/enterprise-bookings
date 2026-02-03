@@ -22,7 +22,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.{ts,tsx}\" --max-warnings 0"
   }
 }
 

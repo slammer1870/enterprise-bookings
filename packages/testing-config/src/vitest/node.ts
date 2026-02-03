@@ -1,5 +1,4 @@
 import { defineConfig, mergeConfig, type UserConfig } from 'vitest/config';
-// @ts-expect-error - TypeScript resolves .js to .ts in this monorepo
 import { baseVitestConfig } from './base.js';
 
 /**
