@@ -10,7 +10,7 @@ import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { migrations } from './migrations'
 
 import path from 'path'
-import { buildConfig, SharpDependency } from 'payload'
+import { buildConfig, type CollectionSlug, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -141,7 +141,7 @@ export default buildConfig({
               {
                 name: 'allowedPlans',
                 type: 'relationship',
-                relationTo: 'memberships',
+                relationTo: 'memberships' as CollectionSlug,
                 hasMany: true,
                 filterOptions: ({ data }) => {
                   // returns a Where query dynamically by the type of relationship
