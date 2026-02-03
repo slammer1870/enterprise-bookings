@@ -83,7 +83,7 @@ export function createBetterAuthPlugins({
   enableMagicLink: boolean;
   magicLinkDisableSignUp?: boolean;
   adminUserIds: string[];
-  sendMagicLink: (args: {
+  sendMagicLink: (_args: {
     email: string;
     token: string;
     url: string;
@@ -127,12 +127,12 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     config.baseURL ||
     process.env.NEXT_PUBLIC_SERVER_URL ||
     "http://localhost:3000";
-  const emailCfg = resolveBetterAuthEmailConfig({
+  const _emailCfg = resolveBetterAuthEmailConfig({
     enabled: Boolean(config.email?.enabled),
     fromAddress: config.email?.fromAddress,
     fromName: config.email?.fromName,
   });
-  const enableOtherAuthEmails = Boolean(config.email?.enableOtherAuthEmails);
+  const _enableOtherAuthEmails = Boolean(config.email?.enableOtherAuthEmails);
 
   const handleSendMagicLink = async ({
     email,

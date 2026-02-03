@@ -62,34 +62,36 @@ export const generateLessonsFromSchedule: TaskHandler<
           : (rawTenant as string | number | undefined)
 
       // Build where clause with tenant filter if available
-      const whereClause: any = {
-          and: [
-            {
-              startTime: {
-                greater_than_equal: start.toISOString(),
-              },
-            },
-            {
-              endTime: {
-                less_than_equal: end.toISOString(),
-              },
-            },
-          ],
-        }
+      const whereConditions: any[] = [
+        {
+          startTime: {
+            greater_than_equal: start.toISOString(),
+          },
+        },
+        {
+          endTime: {
+            less_than_equal: end.toISOString(),
+          },
+        },
+      ]
 
-        // Add tenant filter if tenant context is available
-        if (tenantId) {
-          whereClause.and.push({
-            tenant: {
-              equals: tenantId,
-            },
-          })
-        }
+      // Add tenant filter if tenant context is available
+      if (tenantId) {
+        whereConditions.push({
+          tenant: {
+            equals: tenantId,
+          },
+        })
+      }
+
+      const whereClause = {
+        and: whereConditions,
+      }
 
         // First find lessons that have no bookings
         const lessonQuery = await payload.find({
           collection: "lessons",
-          where: whereClause,
+          where: whereClause as any,
           depth: 4,
           limit: 0,
         });

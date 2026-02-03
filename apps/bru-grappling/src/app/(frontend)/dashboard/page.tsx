@@ -40,7 +40,7 @@ export default async function Dashboard() {
   })
 
   const allowedPlans = await payload.find({
-    collection: 'memberships' as CollectionSlug,
+    collection: 'plans' as CollectionSlug,
     where: {
       status: { equals: 'active' },
     },

@@ -27,5 +27,11 @@ module.exports = {
         "no-unused-vars": "off",
       },
     },
+    {
+      files: ["**/*.js"],
+      parserOptions: {
+        project: null,
+      },
+    },
   ],
 };
