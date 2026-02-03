@@ -8,12 +8,11 @@ import { Button } from '@repo/ui/components/ui/button'
 
 import { signOut, useSession } from '@/lib/auth/client'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) => {
   const { data: session } = useSession()
   const user = session?.user
-  const pathname = usePathname()
   const router = useRouter()
 
   return (

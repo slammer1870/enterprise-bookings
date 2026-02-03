@@ -5,11 +5,11 @@ import { GRAPHQL_POST, REST_OPTIONS } from '@payloadcms/next/routes'
 import type { NextRequest } from 'next/server'
 
 export const POST = GRAPHQL_POST(config) as unknown as (
-  request: NextRequest,
-  context: { params: Promise<Record<string, never>> }
+  _request: NextRequest,
+  _context: { params: Promise<Record<string, never>> }
 ) => Promise<Response>
 
 export const OPTIONS = REST_OPTIONS(config) as unknown as (
-  request: NextRequest,
-  context: { params: Promise<Record<string, never>> }
+  _request: NextRequest,
+  _context: { params: Promise<Record<string, never>> }
 ) => Promise<Response>
