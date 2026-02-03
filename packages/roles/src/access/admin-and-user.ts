@@ -1,6 +1,6 @@
 import type { Access } from "payload";
 
-import { checkRole } from "../check-role";
+import { checkRole } from "@repo/shared-utils";
 
 export const adminsAndUser: Access = ({ req: { user } }) => {
   if (user) {
