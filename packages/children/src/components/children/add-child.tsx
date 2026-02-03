@@ -38,7 +38,7 @@ export const AddChild = ({
   bookChild,
   lessonId,
 }: {
-  bookChild: (data: { lessonId: number; childId: number }) => void
+  bookChild: (_data: { lessonId: number; childId: number }) => void
   lessonId: number
 }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -103,7 +103,7 @@ export const AddChild = ({
   )
   // tRPC + TanStack inference occasionally widens mutation variables to `void` across package boundaries.
   // We keep runtime behavior correct and narrow the call signature locally.
-  const createChild = createChildRaw as unknown as (input: { name: string; email: string }) => void
+  const createChild = createChildRaw as unknown as (_input: { name: string; email: string }) => void
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),

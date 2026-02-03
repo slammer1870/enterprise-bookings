@@ -63,7 +63,7 @@ export type PaymentsConfig = {
  * as a second line item in Stripe Checkout so the fee is visible to the customer.
  * Handler fetches the plan price, passes classPriceAmountCents and tenantId (from metadata).
  */
-export type GetSubscriptionBookingFeeCents = (params: {
+export type GetSubscriptionBookingFeeCents = (_params: {
   payload: import("payload").Payload;
   tenantId: number;
   classPriceAmountCents: number;

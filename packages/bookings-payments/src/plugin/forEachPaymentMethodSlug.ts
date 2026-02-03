@@ -10,8 +10,8 @@ export type JoinFieldResult = {
   hasMany: boolean;
 };
 
-function getPaymentMethodsJoinLabel(collection: CollectionConfig, slug: string): string {
-  const singular = (collection as { labels?: { singular?: string } })?.labels?.singular;
+function getPaymentMethodsJoinLabel(_collection: CollectionConfig, slug: string): string {
+  const singular = (_collection as { labels?: { singular?: string } })?.labels?.singular;
   return `${singular ?? slug} Payment Methods`;
 }
 
@@ -22,7 +22,7 @@ function getPaymentMethodsJoinLabel(collection: CollectionConfig, slug: string):
 export function forEachPaymentMethodSlug(
   ctx: PluginContext,
   slugs: string[],
-  inject: (collection: CollectionConfig, slug: string) => void,
+  inject: (_collection: CollectionConfig, _slug: string) => void,
   joinOptions: { on: string; hasMany: boolean }
 ): JoinFieldResult[] {
   const joinFields: JoinFieldResult[] = [];

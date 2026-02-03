@@ -207,14 +207,14 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
               ? (() => {
                   try {
                     const url = new URL(config.baseURL)
-                    const parts = url.hostname.split('.')
-                    if (parts.length >= 2) {
-                      const rootDomain = parts.slice(-2).join('.')
-                      return { domain: `.${rootDomain}` }
-                    }
-                  } catch (e) {
-                    // Invalid URL, skip domain setting
+                  const parts = url.hostname.split('.')
+                  if (parts.length >= 2) {
+                    const rootDomain = parts.slice(-2).join('.')
+                    return { domain: `.${rootDomain}` }
                   }
+                } catch {
+                  // Invalid URL, skip domain setting
+                }
                   return {}
                 })()
               : {}),
@@ -232,7 +232,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
                       const rootDomain = parts.slice(-2).join('.')
                       return { domain: `.${rootDomain}` }
                     }
-                  } catch (e) {
+                  } catch {
                     return {}
                   }
                   return {}
@@ -252,7 +252,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
                       const rootDomain = parts.slice(-2).join('.')
                       return { domain: `.${rootDomain}` }
                     }
-                  } catch (e) {
+                  } catch {
                     return {}
                   }
                   return {}
@@ -316,7 +316,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
           _user,
           newEmail,
           url,
-          token,
+          token: _token,
         }: {
           _user: any;
           newEmail: string;
@@ -343,7 +343,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
         sendDeleteAccountVerification: async ({
           _user,
           url,
-          token,
+          token: _token,
         }: {
           _user: any;
           url: string;

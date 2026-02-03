@@ -12,7 +12,9 @@
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
-    "@repo/ui": "workspace:*"
+    "@repo/ui": "workspace:*",
+    "lucide-react": "*",
+    "sonner": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

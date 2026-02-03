@@ -3,9 +3,6 @@ import { transactionsCollection } from "../collections/transactions";
 import type {
   BookingsPaymentsPluginConfig,
   DropInsConfig,
-  ClassPassConfig,
-  PaymentsConfig,
-  MembershipConfig,
 } from "../types";
 import type { PluginContext } from "./context";
 import { applyDropInsFeature } from "./apply-drop-ins";
@@ -97,7 +94,7 @@ export const bookingsPaymentsPlugin =
     const rawEndpoints = config.endpoints;
     const existingEndpoints: NonNullable<Config["endpoints"]> =
       typeof rawEndpoints === "function"
-        ? (rawEndpoints as (prev: unknown[]) => NonNullable<Config["endpoints"]>)([])
+        ? (rawEndpoints as (_prev: unknown[]) => NonNullable<Config["endpoints"]>)([])
         : rawEndpoints ?? [];
 
     const ctx: PluginContext = {

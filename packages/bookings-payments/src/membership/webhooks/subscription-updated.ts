@@ -9,7 +9,6 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 }> = async (args) => {
   const { event, payload } = args;
   // Plugin-added collection slugs; app Payload types may not include them when building.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin collections not in app types
   const asCollection = (s: string): any => s;
 
   const { customer } = event.data.object;

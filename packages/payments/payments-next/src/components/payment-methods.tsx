@@ -60,7 +60,7 @@ export function PaymentMethods({
   lesson,
   quantity: quantityProp,
   pendingBookings,
-  onPaymentSuccess,
+  onPaymentSuccess: _onPaymentSuccess,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();

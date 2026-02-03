@@ -81,8 +81,8 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
             stripeCustomerId: customer.id,
             password: hash,
             salt,
-            ...(('emailVerified' in payload.collections.users.config.fields) && { emailVerified: true }),
-            ...(('role' in payload.collections.users.config.fields) && { role: 'user' }),
+            ...(payload.collections.users && ('emailVerified' in payload.collections.users.config.fields) && { emailVerified: true }),
+            ...(payload.collections.users && ('role' in payload.collections.users.config.fields) && { role: 'user' }),
           } as any,
           draft: false,
         });
