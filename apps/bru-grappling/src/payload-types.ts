@@ -84,7 +84,7 @@ export interface Config {
     transactions: Transaction;
     users: User;
     subscriptions: Subscription;
-    plans: Plan;
+    memberships: Membership;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -105,7 +105,7 @@ export interface Config {
       session: 'sessions';
       userSubscription: 'subscriptions';
     };
-    plans: {
+    memberships: {
       classOptionsAllowedPlans: 'class-options';
     };
   };
@@ -127,7 +127,7 @@ export interface Config {
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
-    plans: PlansSelect<false> | PlansSelect<true>;
+    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -155,6 +155,7 @@ export interface Config {
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
+      syncStripeSubscriptions: TaskSyncStripeSubscriptions;
       inline: {
         input: unknown;
         output: unknown;
@@ -925,7 +926,10 @@ export interface ClassOption {
    */
   type: 'adult' | 'child' | 'family';
   paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
+    allowedPlans?: (number | Membership)[] | null;
+    /**
+     * One-off payment option for this class (e.g. pay at door, single-session fee). Select a drop-in to allow customers to pay per booking without a class pass or membership.
+     */
     allowedDropIn?: (number | null) | DropIn;
   };
   updatedAt: string;
@@ -933,9 +937,9 @@ export interface ClassOption {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans".
+ * via the `definition` "memberships".
  */
-export interface Plan {
+export interface Membership {
   id: number;
   name: string;
   /**
@@ -948,12 +952,16 @@ export interface Plan {
       }[]
     | null;
   /**
-   * Sessions included in this plan (if applicable)
+   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
    */
   sessionsInformation?: {
     sessions?: number | null;
     intervalCount?: number | null;
     interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+    /**
+     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
+     */
+    allowMultipleBookingsPerLesson?: boolean | null;
   };
   stripeProductId?: string | null;
   /**
@@ -1011,6 +1019,9 @@ export interface DropIn {
   description?: string | null;
   isActive: boolean;
   price: number;
+  /**
+   * When enabled, users can book more than one spot for the same lesson when paying drop-in.
+   */
   adjustable: boolean;
   discountTiers?:
     | {
@@ -1083,7 +1094,7 @@ export interface Session {
 export interface Subscription {
   id: number;
   user: number | User;
-  plan: number | Plan;
+  plan: number | Membership;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
@@ -1202,7 +1213,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule';
+        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions';
         taskID: string;
         input?:
           | {
@@ -1235,7 +1246,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule') | null;
+  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1318,8 +1329,8 @@ export interface PayloadLockedDocument {
         value: number | Subscription;
       } | null)
     | ({
-        relationTo: 'plans';
-        value: number | Plan;
+        relationTo: 'memberships';
+        value: number | Membership;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1967,9 +1978,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans_select".
+ * via the `definition` "memberships_select".
  */
-export interface PlansSelect<T extends boolean = true> {
+export interface MembershipsSelect<T extends boolean = true> {
   name?: T;
   features?:
     | T
@@ -1983,6 +1994,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
+        allowMultipleBookingsPerLesson?: T;
       };
   stripeProductId?: T;
   priceInformation?:
@@ -2259,6 +2271,14 @@ export interface TaskGenerateLessonsFromSchedule {
     success?: boolean | null;
     message?: string | null;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSyncStripeSubscriptions".
+ */
+export interface TaskSyncStripeSubscriptions {
+  input?: unknown;
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

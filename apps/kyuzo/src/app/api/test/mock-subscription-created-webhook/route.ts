@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload, type CollectionSlug } from 'payload'
 import config from '@/payload.config'
-import type { Plan } from '@/payload-types'
+import type { Membership } from '@/payload-types'
 import { subscriptionCreated } from '@repo/bookings-payments'
 import type Stripe from 'stripe'
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       sort: '-createdAt',
       overrideAccess: true,
     })
-    const plan = planQuery.docs[0] as Plan | undefined
+    const plan = planQuery.docs[0] as Membership | undefined
     if (!plan) {
       return NextResponse.json({ error: 'No plans available for subscription test' }, { status: 400 })
     }

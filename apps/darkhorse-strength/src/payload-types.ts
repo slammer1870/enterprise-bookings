@@ -79,10 +79,9 @@ export interface Config {
     'class-options': ClassOption;
     bookings: Booking;
     transactions: Transaction;
-    'booking-transactions': BookingTransaction;
     users: User;
     subscriptions: Subscription;
-    plans: Plan;
+    memberships: Membership;
     forms: Form;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
@@ -101,7 +100,7 @@ export interface Config {
       session: 'sessions';
       userSubscription: 'subscriptions';
     };
-    plans: {
+    memberships: {
       'class-optionsPaymentMethods': 'class-options';
     };
   };
@@ -118,10 +117,9 @@ export interface Config {
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
-    'booking-transactions': BookingTransactionsSelect<false> | BookingTransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
-    plans: PlansSelect<false> | PlansSelect<true>;
+    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -794,16 +792,19 @@ export interface ClassOption {
   places: number;
   description: string;
   paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
+    /**
+     * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
+     */
+    allowedPlans?: (number | Membership)[] | null;
   };
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans".
+ * via the `definition` "memberships".
  */
-export interface Plan {
+export interface Membership {
   id: number;
   name: string;
   /**
@@ -816,12 +817,16 @@ export interface Plan {
       }[]
     | null;
   /**
-   * Sessions included in this plan (if applicable)
+   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
    */
   sessionsInformation?: {
     sessions?: number | null;
     intervalCount?: number | null;
     interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+    /**
+     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
+     */
+    allowMultipleBookingsPerLesson?: boolean | null;
   };
   stripeProductId?: string | null;
   /**
@@ -912,7 +917,7 @@ export interface Session {
 export interface Subscription {
   id: number;
   user: number | User;
-  plan: number | Plan;
+  plan: number | Membership;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
@@ -963,33 +968,6 @@ export interface Transaction {
   status: 'pending' | 'completed' | 'failed';
   paymentMethod: 'cash' | 'card';
   createdBy?: (number | null) | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Records how each booking was paid. Used to decrement class pass only when paymentMethod is class_pass.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-transactions".
- */
-export interface BookingTransaction {
-  id: number;
-  /**
-   * The booking this transaction applies to.
-   */
-  booking: number | Booking;
-  /**
-   * How the booking was paid.
-   */
-  paymentMethod: 'stripe' | 'class_pass';
-  /**
-   * The class pass id used when paymentMethod is class_pass.
-   */
-  classPassId?: number | null;
-  /**
-   * Stripe payment intent id when paymentMethod is stripe.
-   */
-  stripePaymentIntentId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1175,10 +1153,6 @@ export interface PayloadLockedDocument {
         value: number | Transaction;
       } | null)
     | ({
-        relationTo: 'booking-transactions';
-        value: number | BookingTransaction;
-      } | null)
-    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
@@ -1187,8 +1161,8 @@ export interface PayloadLockedDocument {
         value: number | Subscription;
       } | null)
     | ({
-        relationTo: 'plans';
-        value: number | Plan;
+        relationTo: 'memberships';
+        value: number | Membership;
       } | null)
     | ({
         relationTo: 'forms';
@@ -1584,18 +1558,6 @@ export interface TransactionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-transactions_select".
- */
-export interface BookingTransactionsSelect<T extends boolean = true> {
-  booking?: T;
-  paymentMethod?: T;
-  classPassId?: T;
-  stripePaymentIntentId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -1648,9 +1610,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans_select".
+ * via the `definition` "memberships_select".
  */
-export interface PlansSelect<T extends boolean = true> {
+export interface MembershipsSelect<T extends boolean = true> {
   name?: T;
   features?:
     | T
@@ -1664,6 +1626,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
+        allowMultipleBookingsPerLesson?: T;
       };
   stripeProductId?: T;
   priceInformation?:
