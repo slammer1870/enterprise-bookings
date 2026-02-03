@@ -8,7 +8,11 @@
     "qs": "^6.14.0"
   },
   "devDependencies": {
-    "@types/qs": "^6.14.0"
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/qs": "^6.14.0",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "stripe": "*"
@@ -18,5 +22,9 @@
   ],
   "main": "src/index.ts",
   "type": "module",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  }
 }

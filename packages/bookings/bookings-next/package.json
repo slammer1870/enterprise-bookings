@@ -38,6 +38,10 @@
     "test": "vitest",
     "test:watch": "vitest --watch"
   },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  },
   "peerDependencies": {
     "@repo/analytics": "workspace:*"
   }

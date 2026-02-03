@@ -16,16 +16,22 @@
     "zod": "*"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
     "next": "*",
     "react": "*",
     "react-dom": "*",
+    "eslint": "^9.39.1",
     "typescript": "5.9.3"
   },
   "main": "./src/components/index.tsx",
   "types": "./src/components/index.tsx",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  },
   "peerDependencies": {
     "next": "*",
     "react": "*",

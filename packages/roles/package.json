@@ -23,5 +23,9 @@
     "vitest": "4.0.12"
   },
   "main": "./src/index.ts",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  }
 }

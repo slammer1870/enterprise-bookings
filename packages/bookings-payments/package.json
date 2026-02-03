@@ -15,6 +15,7 @@
     "@repo/ui": "workspace:*"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@types/react": "*",
     "@types/react-dom": "*",
     "@payloadcms/db-postgres": "*",
@@ -24,6 +25,7 @@
     "@repo/payload-testing": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
     "payload": "*",
     "typescript": "5.9.3",
     "sharp": "0.34.5",
@@ -38,5 +40,9 @@
     "react-dom": "*",
     "stripe": "*"
   },
-  "types": "./src/index.ts"
+  "types": "./src/index.ts",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  }
 }

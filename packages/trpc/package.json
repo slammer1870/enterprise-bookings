@@ -10,7 +10,8 @@
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint . --fix",
     "build": "pnpm trpc:generate || true",
-    "trpc:generate": "pnpm tsc --project tsconfig.json"
+    "trpc:generate": "pnpm tsc --project tsconfig.json",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@repo/shared-services": "workspace:*",
