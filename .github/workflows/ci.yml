@@ -360,7 +360,7 @@ jobs:
         working-directory: ${{ matrix.app.app_path }}
 
       - name: Run E2E tests for ${{ matrix.app.name }} (against production build)
-        run: turbo run test:e2e:ci --filter=${{ matrix.app.name }}
+        run: pnpm run test:e2e:ci -- --filter=${{ matrix.app.name }}
         env:
           E2E_USE_PROD: "true"
 
