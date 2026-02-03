@@ -1,9 +1,20 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      '@/payload.config': path.resolve(__dirname, 'src/payload.config.ts'),
+    },
+    conditions: ['node', 'import', 'module', 'browser', 'default'],
+  },
   test: {
     globals: true,
     environment: 'node',
@@ -17,9 +28,6 @@ export default defineConfig({
         inline: ['payload-auth'],
       },
     },
-  },
-  resolve: {
-    conditions: ['node', 'import', 'module', 'browser', 'default'],
   },
   ssr: {
     noExternal: ['payload-auth'],
