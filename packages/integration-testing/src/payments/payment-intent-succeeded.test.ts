@@ -21,7 +21,7 @@ import { User } from "@repo/shared-types";
 
 import { createLesson } from "../bookings/lesson-helpers";
 
-import { paymentIntentSucceeded } from "@repo/payments-plugin";
+import { paymentIntentSucceeded } from "@repo/bookings-payments";
 
 import type Stripe from "stripe";
 

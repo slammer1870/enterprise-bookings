@@ -299,7 +299,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -367,7 +367,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -456,7 +456,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -588,7 +588,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -694,7 +694,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -773,7 +773,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -876,7 +876,7 @@ describe("Booking tests", () => {
       });
 
       const allowedPlan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -893,7 +893,7 @@ describe("Booking tests", () => {
       });
 
       const disallowedPlan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan 2",
           priceInformation: {
@@ -972,7 +972,7 @@ describe("Booking tests", () => {
       });
 
       const allowedPlan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
@@ -989,7 +989,7 @@ describe("Booking tests", () => {
       });
 
       const disallowedPlan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan 2",
           priceInformation: {
@@ -1068,7 +1068,7 @@ describe("Booking tests", () => {
       });
 
       const plan = await payload.create({
-        collection: "plans",
+        collection: "memberships",
         data: {
           name: "Test Plan",
           priceInformation: {
