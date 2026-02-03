@@ -92,7 +92,7 @@ export interface Config {
     transactions: Transaction;
     users: User;
     subscriptions: Subscription;
-    memberships: Membership;
+    plans: Plan;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -113,7 +113,7 @@ export interface Config {
       session: 'sessions';
       userSubscription: 'subscriptions';
     };
-    memberships: {
+    plans: {
       'class-optionsPaymentMethods': 'class-options';
     };
     'payload-folders': {
@@ -146,7 +146,7 @@ export interface Config {
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
-    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -729,7 +729,7 @@ export interface Subscription {
   id: number;
   tenant?: (number | null) | Tenant;
   user: number | User;
-  plan: number | Membership;
+  plan: number | Plan;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
@@ -744,9 +744,9 @@ export interface Subscription {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "memberships".
+ * via the `definition` "plans".
  */
-export interface Membership {
+export interface Plan {
   id: number;
   tenant?: (number | null) | Tenant;
   name: string;
@@ -834,7 +834,7 @@ export interface ClassOption {
     /**
      * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
      */
-    allowedPlans?: (number | Membership)[] | null;
+    allowedPlans?: (number | Plan)[] | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -2099,8 +2099,8 @@ export interface PayloadLockedDocument {
         value: number | Subscription;
       } | null)
     | ({
-        relationTo: 'memberships';
-        value: number | Membership;
+        relationTo: 'plans';
+        value: number | Plan;
       } | null)
     | ({
         relationTo: 'form-submissions';
@@ -3146,9 +3146,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "memberships_select".
+ * via the `definition` "plans_select".
  */
-export interface MembershipsSelect<T extends boolean = true> {
+export interface PlansSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
   features?:

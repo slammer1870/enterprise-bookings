@@ -26,7 +26,7 @@ describe("config shorthand (true | object)", () => {
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
-    expect(slugs).toContain("memberships");
+    expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
     expect(result.jobs?.tasks?.some((t) => typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions")).toBe(true);
   });
@@ -38,7 +38,7 @@ describe("config shorthand (true | object)", () => {
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
-    expect(slugs).toContain("memberships");
+    expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
   });
 
@@ -118,7 +118,7 @@ describe("config shorthand (true | object)", () => {
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
     expect(slugs).toContain("class-passes");
-    expect(slugs).toContain("memberships");
+    expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
   });
 });

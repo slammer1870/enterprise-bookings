@@ -21,7 +21,7 @@ const defaultFields: Field[] = [
   {
     name: "plan",
     type: "relationship",
-    relationTo: "memberships" as CollectionSlug,
+    relationTo: "plans" as CollectionSlug,
     required: true,
   },
   {

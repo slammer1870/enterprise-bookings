@@ -13,7 +13,7 @@ import { forEachPaymentMethodSlug } from "./forEachPaymentMethodSlug";
 import { injectAllowedPlansIntoCollection } from "./inject-payment-methods";
 
 /**
- * Applies the membership feature: memberships, subscriptions, users (userSubscription),
+ * Applies the membership feature: plans, subscriptions, users (userSubscription),
  * membership endpoints, sync-stripe-subscriptions job, and allowedPlans injection
  * into the configured payment-method collections.
  */
@@ -84,7 +84,7 @@ export function applyMembershipFeature(
       ...(plansCollection.fields ?? []),
       ...joinFields,
     ];
-    ctx.collections = ctx.collections.filter((c) => c.slug !== "memberships");
+    ctx.collections = ctx.collections.filter((c) => c.slug !== "plans");
     ctx.collections.push(plansCollection);
   }
 }

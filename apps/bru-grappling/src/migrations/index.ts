@@ -17,7 +17,6 @@ import * as migration_20260116_120000_fix_schema_mismatch_hero_and_footer from '
 import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
 import * as migration_20260120_200715 from './20260120_200715';
 import * as migration_20260122_205531 from './20260122_205531';
-
 export const migrations = [
   {
     up: migration_20251123_131951.up,

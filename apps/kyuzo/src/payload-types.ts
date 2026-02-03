@@ -83,7 +83,7 @@ export interface Config {
     transactions: Transaction;
     users: User;
     subscriptions: Subscription;
-    memberships: Membership;
+    plans: Plan;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -119,7 +119,7 @@ export interface Config {
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
-    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -821,16 +821,16 @@ export interface ClassOption {
    */
   type: 'adult' | 'child';
   paymentMethods?: {
-    allowedPlans?: (number | Membership)[] | null;
+    allowedPlans?: (number | Plan)[] | null;
   };
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "memberships".
+ * via the `definition` "plans".
  */
-export interface Membership {
+export interface Plan {
   id: number;
   name: string;
   /**
@@ -946,7 +946,7 @@ export interface Session {
 export interface Subscription {
   id: number;
   user: number | User;
-  plan: number | Membership;
+  plan: number | Plan;
   status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
   startDate?: string | null;
   endDate?: string | null;
@@ -1177,8 +1177,8 @@ export interface PayloadLockedDocument {
         value: number | Subscription;
       } | null)
     | ({
-        relationTo: 'memberships';
-        value: number | Membership;
+        relationTo: 'plans';
+        value: number | Plan;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1736,9 +1736,9 @@ export interface SubscriptionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "memberships_select".
+ * via the `definition` "plans_select".
  */
-export interface MembershipsSelect<T extends boolean = true> {
+export interface PlansSelect<T extends boolean = true> {
   name?: T;
   features?:
     | T

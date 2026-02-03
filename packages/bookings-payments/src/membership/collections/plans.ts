@@ -165,7 +165,7 @@ export function generatePlansCollection(
   const overrides = config?.plansOverrides;
   return {
     ...(overrides ?? {}),
-    slug: "memberships",
+    slug: "plans",
     defaultSort: "priceInformation.price",
     labels: { ...(overrides?.labels ?? defaultLabels) },
     access: {

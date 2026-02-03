@@ -66,7 +66,7 @@ export function injectAllowedPlansIntoCollection(
   injectPaymentMethodField(collection, "allowedPlans", {
     type: "relationship",
     label: "Allowed Membership Plans",
-    relationTo: "memberships" as CollectionSlug,
+    relationTo: "plans" as CollectionSlug,
     hasMany: true,
     admin: {
       description:

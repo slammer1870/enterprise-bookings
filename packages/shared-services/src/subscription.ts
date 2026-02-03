@@ -3,10 +3,10 @@ import { Payload, Where, CollectionSlug } from "payload";
 import { Lesson, Plan, Subscription, User } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 
-/** Resolve plan collection slug (memberships in atnd-me, plans in other apps). */
+/** Resolve plan collection slug (plans). */
 function getPlanCollectionSlug(payload: Payload): CollectionSlug {
-  return payload.collections && "memberships" in payload.collections
-    ? ("memberships" as CollectionSlug)
+  return payload.collections && "plans" in payload.collections
+    ? ("plans" as CollectionSlug)
     : ("plans" as CollectionSlug);
 }
 

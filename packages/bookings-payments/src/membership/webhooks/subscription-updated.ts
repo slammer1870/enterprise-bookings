@@ -52,7 +52,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         : foundSubscription.user;
 
     const plan = await payload.find({
-      collection: asCollection("memberships"),
+      collection: asCollection("plans"),
       where: { stripeProductId: { equals: planId } },
       limit: 1,
     });

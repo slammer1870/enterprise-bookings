@@ -21,7 +21,6 @@ import * as migration_20260116_102317_replace_user_with_instructor_in_lessons fr
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260123_071019 from './20260123_071019';
 import * as migration_20260127_190008 from './20260127_190008';
-
 export const migrations = [
   {
     up: migration_20250717_093529.up,

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // 2) Plan with stripeProductId (create fake id if missing)
     const planQuery = await payload.find({
-      collection: 'memberships' as CollectionSlug,
+      collection: 'plans' as CollectionSlug,
       limit: 1,
       sort: '-createdAt',
       overrideAccess: true,
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const stripeProductId = plan.stripeProductId || `prod_test_${Date.now()}`
     if (!plan.stripeProductId) {
       await payload.update({
-        collection: 'memberships' as CollectionSlug,
+        collection: 'plans' as CollectionSlug,
         id: plan.id,
         data: { stripeProductId },
         overrideAccess: true,

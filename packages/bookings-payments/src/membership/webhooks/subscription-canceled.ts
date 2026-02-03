@@ -73,7 +73,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
     if (planId) {
       // Look up the plan by Stripe product ID
       const plan = await payload.find({
-        collection: asCollection("memberships"),
+        collection: asCollection("plans"),
         where: { stripeProductId: { equals: planId as string } },
         limit: 1,
       });

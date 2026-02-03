@@ -22,6 +22,7 @@ import * as migration_20260116_102317_replace_user_with_instructor_in_lessons fr
 import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
 import * as migration_20260120_200918 from './20260120_200918';
 import * as migration_20260127_082521 from './20260127_082521';
+import * as migration_20260203_000001_create_plans_tables from './20260203_000001_create_plans_tables';
 
 export const migrations = [
   {
@@ -143,5 +144,10 @@ export const migrations = [
     up: migration_20260127_082521.up,
     down: migration_20260127_082521.down,
     name: '20260127_082521'
+  },
+  {
+    up: migration_20260203_000001_create_plans_tables.up,
+    down: migration_20260203_000001_create_plans_tables.down,
+    name: '20260203_000001_create_plans_tables'
   },
 ];

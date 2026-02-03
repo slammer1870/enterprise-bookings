@@ -10,7 +10,6 @@ import * as migration_20251202_210000_add_better_auth_user_columns from './20251
 import * as migration_20251205_183120 from './20251205_183120';
 import * as migration_20251206_110241 from './20251206_110241';
 import * as migration_20260120_201317 from './20260120_201317';
-
 export const migrations = [
   {
     up: migration_20250717_093529.up,

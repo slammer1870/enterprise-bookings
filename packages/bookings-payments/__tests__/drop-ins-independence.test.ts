@@ -38,8 +38,8 @@ describe("drop-ins independence", () => {
     // Should NOT have class-pass-types or class-passes
     expect(slugs).not.toContain("class-pass-types");
     expect(slugs).not.toContain("class-passes");
-    // Should NOT have memberships/subscriptions
-    expect(slugs).not.toContain("memberships");
+    // Should NOT have plans/subscriptions
+    expect(slugs).not.toContain("plans");
     expect(slugs).not.toContain("subscriptions");
     // Should NOT have transactions (only added when classPass or payments enabled)
     expect(slugs).not.toContain("transactions");
@@ -108,7 +108,7 @@ describe("drop-ins independence", () => {
     const slugs = result.collections?.map((c) => c.slug) ?? [];
 
     expect(slugs).toContain("drop-ins");
-    expect(slugs).toContain("memberships");
+    expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
     // Should NOT have transactions (only added when classPass or payments enabled)
     expect(slugs).not.toContain("transactions");

@@ -7,6 +7,8 @@ function unique(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 }
 
+let cachedPlanCollectionSlug: 'plans' | 'memberships' | null = null
+
 async function apiPost<T>(
   page: any,
   path: string,
@@ -44,10 +46,34 @@ async function apiGet<T>(page: any, path: string): Promise<T> {
   return (json?.doc ?? json) as T
 }
 
+async function getPlanCollectionSlug(page: any): Promise<'plans' | 'memberships'> {
+  if (cachedPlanCollectionSlug) return cachedPlanCollectionSlug
+
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const cookies = await page.context().cookies()
+  const cookieHeader = cookies.map((c: { name: string; value: string }) => `${c.name}=${c.value}`).join('; ')
+
+  for (const slug of ['plans', 'memberships'] as const) {
+    const res = await page.context().request.get(`${baseUrl}/api/${slug}?limit=1&depth=0`, {
+      headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+      timeout: 30000,
+    })
+    if (res.ok()) {
+      cachedPlanCollectionSlug = slug
+      return slug
+    }
+    // If the route doesn't exist, Payload returns 404 with a JSON body.
+    if (res.status() === 404) continue
+  }
+
+  throw new Error('Neither /api/plans nor /api/memberships exists for this app')
+}
+
 async function createPlan(page: any, opts: { name: string; type: 'adult' | 'child' }): Promise<Created> {
   // Keep this minimal + skipSync to avoid Stripe side effects in test env.
   const now = Date.now()
-  return await apiPost(page, '/api/plans', {
+  const slug = await getPlanCollectionSlug(page)
+  return await apiPost(page, `/api/${slug}`, {
     name: opts.name,
     status: 'active',
     type: opts.type,
@@ -105,7 +131,8 @@ async function createSubscription(
   end.setDate(end.getDate() + 30)
   // Ensure referenced user + plan exist before inserting subscription (avoids flaky FK failures in CI).
   await apiGet(page, `/api/users/${opts.userId}?depth=0`)
-  await apiGet(page, `/api/plans/${opts.planId}?depth=0`)
+  const slug = await getPlanCollectionSlug(page)
+  await apiGet(page, `/api/${slug}/${opts.planId}?depth=0`)
 
   const created = await apiPost<any>(page, '/api/subscriptions', {
     user: opts.userId,
@@ -164,7 +191,8 @@ async function checkInViaKiosk(
   page: any,
   opts: { lessonId: number; userName: string; expectSuccess: boolean },
 ) {
-  const card = page.getByTestId(`kiosk-lesson-card-${opts.lessonId}`)
+  // Scope to main to avoid strict-mode collisions if the test id appears in multiple regions.
+  const card = page.getByRole('main').getByTestId(`kiosk-lesson-card-${opts.lessonId}`).first()
   await expect(card).toBeVisible({ timeout: 60000 })
 
   // Ensure the collapsible content is open (don't blindly toggle; it may already be open).

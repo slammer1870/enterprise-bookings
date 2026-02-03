@@ -17,7 +17,7 @@ export const productUpdated: StripeWebhookHandler<{
 
   try {
     const planQuery = await payload.find({
-      collection: asCollection("memberships"),
+      collection: asCollection("plans"),
       where: { stripeProductId: { equals: id } },
       limit: 1,
     });
@@ -30,7 +30,7 @@ export const productUpdated: StripeWebhookHandler<{
     const plan = planQuery.docs[0] as Plan;
 
     await payload.update({
-      collection: asCollection("memberships"),
+      collection: asCollection("plans"),
       id: plan.id as number,
       data: {
         // Trigger the beforeChange hook which will sync data from Stripe

@@ -44,7 +44,7 @@ type PayloadWithBetterAuth = Payload & {
  */
 
 /** Optional: return subscription booking fee in cents to add as a line item in Stripe Checkout. */
-export type GetSubscriptionBookingFeeCents = (params: {
+export type GetSubscriptionBookingFeeCents = (_params: {
   payload: Payload;
   tenantId: number;
   classPriceAmountCents: number;

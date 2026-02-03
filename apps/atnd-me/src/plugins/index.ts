@@ -364,7 +364,7 @@ export const plugins: Plugin[] = [
       'class-passes': {}, // Class passes; tenant-scoped
       'transactions': {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
-      memberships: {}, // Membership plans; tenant-scoped
+      plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions
