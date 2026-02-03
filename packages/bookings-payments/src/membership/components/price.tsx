@@ -62,7 +62,7 @@ export const priceFromJSON = (
             : parsed.recurring.interval
         }`;
       }
-    } catch (e) {
+    } catch {
       console.error(`Cannot parse priceJSON`); // eslint-disable-line no-console
     }
   }

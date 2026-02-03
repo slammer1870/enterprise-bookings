@@ -11,10 +11,9 @@ import { useConfirm } from "@repo/ui/components/ui/use-confirm";
 
 // Optional analytics - only used if available
 let useAnalyticsTracker:
-  | (() => { trackEvent: (event: string) => void })
+  | (() => { trackEvent: (_event: string) => void })
   | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const analytics = require("@repo/analytics");
   useAnalyticsTracker = analytics.useAnalyticsTracker;
 } catch {
@@ -56,7 +55,7 @@ export const CheckInButton = ({
    * Optional function or string to generate the manage booking URL.
    * Defaults to `/bookings/[id]/manage` if not provided.
    */
-  manageHref?: string | ((lessonId: number) => string);
+  manageHref?: string | ((_lessonId: number) => string);
 }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();

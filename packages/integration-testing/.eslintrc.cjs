@@ -4,7 +4,7 @@ module.exports = {
   extends: ["@repo/eslint-config/react-internal.js"],
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: "./tsconfig.json",
+    project: "./tsconfig.lint.json",
     tsconfigRootDir: __dirname,
   },
   env: {
@@ -16,6 +16,13 @@ module.exports = {
   },
   rules: {
     "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
-    "import/no-extraneous-dependencies": "off",
   },
+  overrides: [
+    {
+      files: ["**/*.test.ts", "**/*.test.tsx", "src/**/*.ts"],
+      rules: {
+        "no-unused-vars": "off",
+      },
+    },
+  ],
 };

@@ -176,11 +176,13 @@ export const createLessonData = async (
 
   if (existingLessons.docs.length > 0) {
     const existing = existingLessons.docs[0];
-    throw new Error(
-      `Lesson overlaps with existing lesson (ID: ${existing.id}) at location "${location}". ` +
-        `Existing: ${existing.startTime} - ${existing.endTime}, ` +
-        `New: ${startTime.toISOString()} - ${endTime.toISOString()}`
-    );
+    if (existing) {
+      throw new Error(
+        `Lesson overlaps with existing lesson (ID: ${existing.id}) at location "${location}". ` +
+          `Existing: ${existing.startTime} - ${existing.endTime}, ` +
+          `New: ${startTime.toISOString()} - ${endTime.toISOString()}`
+      );
+    }
   }
 
   return {

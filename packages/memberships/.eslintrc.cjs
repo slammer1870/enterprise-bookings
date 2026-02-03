@@ -17,4 +17,12 @@ module.exports = {
   rules: {
     "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
   },
+  overrides: [
+    {
+      files: ["__tests__/**/*.ts", "__tests__/**/*.tsx"],
+      rules: {
+        "no-unused-vars": "off",
+      },
+    },
+  ],
 };

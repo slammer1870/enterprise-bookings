@@ -29,5 +29,4 @@ export const syncStripeSubscriptionsTask = (async ({
     } satisfies SyncStripeSubscriptionsOutput,
   };
 // App Payload types may not include this task; cast so plugin registration type-checks.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin task not in app types
 }) as any;

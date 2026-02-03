@@ -84,7 +84,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
           id: lessonIdNum,
           depth: 1,
         })) as { id: number; tenant?: number | { id: number } } | null;
-      } catch (error) {
+      } catch {
         payload.logger.error(`Lesson not found: ${lessonIdNum}`);
         return;
       }

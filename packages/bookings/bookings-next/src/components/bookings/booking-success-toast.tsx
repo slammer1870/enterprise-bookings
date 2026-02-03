@@ -29,7 +29,7 @@ export function BookingSuccessToast() {
   )
 
   useEffect(() => {
-    if (!success || !lessonId || !lesson) return
+    if (!success || !lesson) return
 
     toast.success('Booking successful', {
       description: `You have successfully booked a lesson: ${lesson.classOption?.name} on ${new Date(
@@ -44,8 +44,7 @@ export function BookingSuccessToast() {
         minute: '2-digit',
       })}`,
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [success, lessonId, lesson?.id])
+  }, [success, lesson?.id])
 
   return null
 }

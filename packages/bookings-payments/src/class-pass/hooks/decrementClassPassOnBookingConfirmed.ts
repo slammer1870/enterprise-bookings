@@ -6,7 +6,7 @@ export type DecrementClassPassHookOptions = {
    * Return the class-pass document id to decrement, or null to skip.
    * Typically: look up transactions where booking=doc.id and paymentMethod='class_pass', return classPassId.
    */
-  getClassPassIdToDecrement: (args: {
+  getClassPassIdToDecrement: (_args: {
     doc: {
       id: number;
       lesson?: number | { id: number };

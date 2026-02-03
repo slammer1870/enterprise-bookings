@@ -44,7 +44,6 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
   afterAll(async () => {
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       await (payload.db as any).destroy();
     }
   });
@@ -114,7 +113,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       }
 
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -129,15 +128,15 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       });
 
       expect(bookingsAfter.docs.length).toBe(1);
-      expect(bookingsAfter.docs[0].status).toBe("confirmed");
+      expect(bookingsAfter.docs[0]?.status).toBe("confirmed");
       const lessonId =
-        typeof bookingsAfter.docs[0].lesson === "object"
-          ? bookingsAfter.docs[0].lesson?.id
-          : bookingsAfter.docs[0].lesson;
+        typeof bookingsAfter.docs[0]?.lesson === "object"
+          ? bookingsAfter.docs[0]?.lesson?.id
+          : bookingsAfter.docs[0]?.lesson;
       const userId =
-        typeof bookingsAfter.docs[0].user === "object"
-          ? bookingsAfter.docs[0].user?.id
-          : bookingsAfter.docs[0].user;
+        typeof bookingsAfter.docs[0]?.user === "object"
+          ? bookingsAfter.docs[0]?.user?.id
+          : bookingsAfter.docs[0]?.user;
       expect(lessonId).toBe(lesson.id);
       expect(userId).toBe(user.id);
     },
@@ -206,7 +205,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Call the webhook handler
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -283,7 +282,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Call the webhook handler
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -417,7 +416,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Call the webhook handler
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 

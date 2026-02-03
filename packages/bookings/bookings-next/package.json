@@ -30,6 +30,7 @@
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^9.39.1",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.0.12",
     "typescript": "5.9.3"

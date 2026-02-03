@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation.js";
  * loaded during Node/tsx config resolution (e.g. payload migrate). Only the
  * browser loads it when this component mounts.
  */
-type PayloadUI = { Button: React.ComponentType<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }>; toast: { success: (msg: string) => void; error: (msg: string) => void } };
+type PayloadUI = { Button: React.ComponentType<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }>; toast: { success: (_msg: string) => void; error: (_msg: string) => void } };
 
 const SyncStripeSubscriptionsButton: React.FC = () => {
   const [loading, setLoading] = useState(false);

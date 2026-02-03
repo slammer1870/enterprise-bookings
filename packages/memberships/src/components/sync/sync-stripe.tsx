@@ -4,7 +4,7 @@ import type { ViewDescriptionServerProps } from "payload";
 
 import SyncStripeSubscriptionsButton from "./sync-button";
 
-export function SyncStripe(props: ViewDescriptionServerProps) {
+export function SyncStripe(_props: ViewDescriptionServerProps) {
   return (
     <div className="flex items-center justify-start gap-4 w-full">
       <div className="w-1/2">

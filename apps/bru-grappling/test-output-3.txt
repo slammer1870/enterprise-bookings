@@ -1,4 +1,0 @@
-
-> bru-grappling@1.0.0 test:e2e /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling
-> cross-env NODE_OPTIONS=--no-deprecation pnpm exec playwright test
-

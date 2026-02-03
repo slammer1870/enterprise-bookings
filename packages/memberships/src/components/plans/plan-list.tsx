@@ -8,8 +8,8 @@ type PlanListProps = {
   plans: Plan[];
   actionLabel: string;
   onAction: (
-    planId: string,
-    metadata?: { [key: string]: string | undefined }
+    _planId: string,
+    _metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
 };
 

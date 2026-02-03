@@ -1,4 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
 'use client'
 
 import { adminClient, magicLinkClient } from 'better-auth/client/plugins'

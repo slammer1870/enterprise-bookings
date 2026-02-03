@@ -7,7 +7,6 @@ import { generatePasswordSaltHash, stripe } from "@repo/shared-utils";
 import type { Plan, User } from "@repo/shared-types";
 
 // Plugin-added collection slugs; app Payload types may not include them when building.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin collections not in app types
 const asCollection = (s: string): any => s;
 
 export async function syncStripeSubscriptions(payload: Payload) {
