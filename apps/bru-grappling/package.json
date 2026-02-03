@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
+    "dockerode": "^4.0.9",
     "@repo/eslint-config": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/testing-config": "workspace:*",

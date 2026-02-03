@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, Suspense } from "react";
+import { useCallback, Suspense } from "react";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import {
   Card,

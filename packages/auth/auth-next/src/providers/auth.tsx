@@ -19,20 +19,20 @@ type ResetPassword = (args: {
 
 type ForgotPassword = (args: { email: string }) => Promise<void>; // eslint-disable-line no-unused-vars
 
-type Create = (args: {
+type Create = (_args: {
   name?: string;
   email: string;
   password: string;
   passwordConfirm: string;
-}) => Promise<void>; // eslint-disable-line no-unused-vars
+}) => Promise<void>;
 
-type Register = (args: { name: string; email: string }) => Promise<void>; // eslint-disable-line no-unused-vars
+type Register = (_args: { name: string; email: string }) => Promise<void>;
 
 type Login = (args: { email: string; password: string }) => Promise<User>; // eslint-disable-line no-unused-vars
 
 type Logout = () => Promise<void>;
 
-type MagicLink = (args: {
+type MagicLink = (_args: {
   email: string;
   callbackUrl?: string;
   utmParams?: UTMParams;
@@ -114,9 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           errors[0].message || "An error occurred while registering user."
         );
       }
-    } catch (e) {
+    } catch {
       throw new Error(
-        (e as string) || "An error occurred while attempting to login."
+        "An error occurred while attempting to login."
       );
     }
   }, []);
@@ -160,19 +160,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (res.ok) {
-        const { user, errors } = await res.json();
+        const { user: loginUser, errors } = await res.json();
         if (errors) throw new Error(errors[0].message);
-        setUser(user);
+        setUser(loginUser);
         setStatus("loggedIn");
-        return user;
+        return loginUser;
       }
 
-      const { user, errors } = await res.json();
+      const { errors } = await res.json();
 
       throw new Error(errors[0].message || "Invalid login");
-    } catch (e) {
+    } catch {
       throw new Error(
-        (e as string) || "An error occurred while attempting to login."
+        "An error occurred while attempting to login."
       );
     }
   }, []);
@@ -219,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         throw new Error("An error occurred while attempting to logout.");
       }
-    } catch (e) {
+    } catch {
       throw new Error("An error occurred while attempting to logout.");
     }
   }, []);
@@ -242,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } else {
           throw new Error("An error occurred while fetching your account.");
         }
-      } catch (e) {
+      } catch {
         setUser(null);
         throw new Error("An error occurred while fetching your account.");
       }
@@ -271,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         throw new Error("Invalid login");
       }
-    } catch (e) {
+    } catch {
       throw new Error("An error occurred while attempting to login.");
     }
   }, []);
@@ -299,7 +299,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         throw new Error("Invalid login");
       }
-    } catch (e) {
+    } catch {
       throw new Error("An error occurred while attempting to login.");
     }
   }, []);
