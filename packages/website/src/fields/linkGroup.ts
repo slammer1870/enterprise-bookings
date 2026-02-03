@@ -1,7 +1,7 @@
 import type { ArrayField, Field } from 'payload'
 import { link } from './link'
 
-type LinkGroupType = (options?: {
+type LinkGroupType = (_options?: {
   appearances?: import('./link').LinkAppearances[] | false
   overrides?: Partial<ArrayField>
 }) => Field

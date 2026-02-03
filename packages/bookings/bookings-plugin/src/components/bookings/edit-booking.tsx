@@ -11,9 +11,7 @@ import { Booking } from "@repo/shared-types";
 import { Button } from "@repo/ui/components/ui/button";
 
 import {
-  Dialog,
   DialogTrigger,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,

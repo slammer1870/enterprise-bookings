@@ -19,10 +19,10 @@ type ScheduleContextType = {
   isLoading: boolean;
   error: string | null;
   selectedDate: Date;
-  setSelectedDate: (date: Date) => void;
-  checkIn: (lessonId: number, userId: number) => Promise<void>;
-  cancelBooking: (lessonId: number, userId: number) => Promise<void>;
-  joinWaitlist: (lessonId: number, userId: number) => Promise<void>;
+  setSelectedDate: (_date: Date) => void;
+  checkIn: (_lessonId: number, _userId: number) => Promise<void>;
+  cancelBooking: (_lessonId: number, _userId: number) => Promise<void>;
+  joinWaitlist: (_lessonId: number, _userId: number) => Promise<void>;
 };
 
 const ScheduleContext = createContext<ScheduleContextType | undefined>(

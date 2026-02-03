@@ -6,7 +6,7 @@ import { Label } from "@repo/ui/components/ui/label";
 interface PaymentMethodSelectorProps {
   value: string;
   methods: string[];
-  onChange: (value: string) => void;
+  onChange: (_value: string) => void;
 }
 
 export function PaymentMethodSelector({

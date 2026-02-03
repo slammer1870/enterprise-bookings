@@ -1,12 +1,6 @@
-import { AccessArgs, CollectionSlug } from "payload";
+import { AccessArgs } from "payload";
 
-import { Access } from "payload";
-
-import { BookingsPluginConfig } from "../types";
-
-import { Booking, Lesson, User, Subscription, Plan } from "@repo/shared-types";
-
-import { hasReachedSubscriptionLimit } from "@repo/shared-services";
+import { Booking, Lesson, User } from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils";
 
@@ -62,7 +56,6 @@ export const bookingCreateAccess = async ({
 export const bookingUpdateAccess = async ({
   req,
   id,
-  data,
 }: AccessArgs<Booking>) => {
   const searchParams = req.searchParams;
 

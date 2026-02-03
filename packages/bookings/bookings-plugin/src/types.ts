@@ -16,17 +16,17 @@ import {
 } from "payload";
 import { ClassOption, Lesson, User } from "@repo/shared-types";
 
-export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
-export type HooksOverride = (args: {
+export type FieldsOverride = (_args: { defaultFields: Field[] }) => Field[];
+export type HooksOverride = (_args: {
   defaultHooks: HooksConfig;
 }) => HooksConfig;
-export type AccessOverride = (args: {
+export type AccessOverride = (_args: {
   defaultAccess: AccessControls;
 }) => AccessControls;
 
 export type AccessControlHook = {
   name: string;
-  hook: (args: {
+  hook: (_args: {
     req: PayloadRequest;
     data?: any;
     id?: string;
@@ -73,7 +73,7 @@ export type BookingsPluginConfig = {
 
 export type AccessControls =
   | {
-      admin?: ({ req }: { req: PayloadRequest }) => boolean | Promise<boolean>;
+      admin?: (_args: { req: PayloadRequest }) => boolean | Promise<boolean>;
       create?: Access;
       delete?: Access;
       read?: Access;

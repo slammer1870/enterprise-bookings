@@ -9,11 +9,7 @@ import { ManageLesson } from "./manage-lesson";
 import { Button } from "@repo/ui/components/ui/button";
 
 import {
-  Table,
-  TableHeader,
-  TableBody,
   TableRow,
-  TableHead,
   TableCell,
 } from "@repo/ui/components/ui/table";
 
@@ -28,11 +24,6 @@ import { useState } from "react";
 import { AddBooking } from "../bookings/add-booking";
 
 /* eslint-disable-next-line */
-
-const options: Intl.DateTimeFormatOptions = {
-  hour: "numeric",
-  minute: "numeric",
-};
 
 export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
   const bookings = lesson.bookings.docs as Booking[];
@@ -54,11 +45,11 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
     });
   };
 
-  const handleEdit = (lessonId: number) => {
+  const _handleEdit = (lessonId: number) => {
     console.log("Edit lesson", lessonId);
   };
 
-  const handleDelete = (lessonId: number) => {
+  const _handleDelete = (lessonId: number) => {
     console.log("Delete lesson", lessonId);
   };
 

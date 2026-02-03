@@ -1,20 +1,17 @@
 import {
   Body,
-  Button,
   Container,
   Column,
   Head,
   Heading,
   Hr,
   Html,
-  Img,
-  Link,
   Preview,
   Row,
   Section,
   Text,
 } from "@react-email/components";
-import { Booking, Lesson, Transaction, User } from "@repo/shared-types";
+import { Lesson, Transaction } from "@repo/shared-types";
 import * as React from "react";
 
 interface BookingConfirmationEmailProps {
@@ -149,11 +146,6 @@ const container = {
   maxWidth: "600px",
 };
 
-const logoContainer = {
-  padding: "20px",
-  textAlign: "center" as const,
-};
-
 const content = {
   backgroundColor: "#ffffff",
   padding: "30px",
@@ -208,28 +200,6 @@ const detailValue = {
 const divider = {
   borderColor: "#e5e5e5",
   margin: "15px 0",
-};
-
-const ctaContainer = {
-  textAlign: "center" as const,
-  margin: "30px 0",
-};
-
-const ctaButton = {
-  backgroundColor: "#4a90e2",
-  color: "#fff",
-  borderRadius: "4px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  textDecoration: "none",
-  padding: "12px 20px",
-};
-
-const footer = {
-  fontSize: "14px",
-  color: "#777",
-  textAlign: "center" as const,
-  margin: "20px 0 0",
 };
 
 export default BookingConfirmationEmail;

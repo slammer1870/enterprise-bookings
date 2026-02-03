@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 
 import {
   getBookingsQuery,
-  getActiveBookingsQuery,
   getInactiveBookingsQuery,
 } from "@repo/shared-utils";
 

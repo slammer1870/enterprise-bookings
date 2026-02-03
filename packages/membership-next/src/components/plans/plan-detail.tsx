@@ -26,8 +26,8 @@ type PlanDetailProps = {
   plan: Plan;
   actionLabel: string;
   onAction: (
-    planId: string,
-    metadata?: { [key: string]: string | undefined }
+    _planId: string,
+    _metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
 };
 
@@ -55,7 +55,7 @@ export const PlanDetail = ({
     setLoading(true);
     try {
       await onAction(id, metadata);
-    } catch (error) {
+    } catch {
       toast.error("Error redirecting to Stripe");
     } finally {
       setLoading(false);

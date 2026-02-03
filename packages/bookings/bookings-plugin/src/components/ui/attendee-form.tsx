@@ -17,7 +17,7 @@ import {
 
 interface AttendeeFormProps {
   attendees: Attendee[];
-  setAttendees: (attendees: Attendee[]) => void;
+  setAttendees: (_attendees: Attendee[]) => void;
   remainingCapacity: number;
   adjustableQuantity: boolean;
   primaryUserDisabled?: boolean;

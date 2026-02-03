@@ -19,7 +19,7 @@ async function loadCacheFunctions() {
       const cache = await import('next/cache')
       revalidatePathCache = cache.revalidatePath
       revalidateTagCache = cache.revalidateTag
-    } catch (error) {
+    } catch {
       // If that fails, try the .js extension (for some Node.js versions)
       try {
         const cache = await import('next/cache.js')

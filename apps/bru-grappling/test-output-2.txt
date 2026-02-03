@@ -536,3 +536,432 @@ Running 7 tests using 2 workers
 (Use `node --trace-warnings ...` to show where the warning was created)
 (node:14295) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  12 [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:193:3 › Admin Lesson Creation Flow › should create lesson for class option with subscription payment only (retry #1) (15.5s)
+(node:15562) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15562) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  13 [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:234:3 › Admin Lesson Creation Flow › should create lesson for class option with drop-in and subscription payments (15.3s)
+(node:15815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  14 [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:234:3 › Admin Lesson Creation Flow › should create lesson for class option with drop-in and subscription payments (retry #1) (15.6s)
+Running global teardown...
+Killed process(es) listening on port 3000
+Global teardown complete
+
+
+  1) [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:120:3 › Admin Lesson Creation Flow › should create class option, create lesson for tomorrow, and verify it exists 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class 1770144287261-430' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class 1770144287261-430' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:146:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-76749-morrow-and-verify-it-exists-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class 1770144302862-230' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class 1770144302862-230' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:146:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-76749-morrow-and-verify-it-exists-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/admin-create-lesson.e2e-Ad-76749-morrow-and-verify-it-exists-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/admin-create-lesson.e2e-Ad-76749-morrow-and-verify-it-exists-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:152:3 › Admin Lesson Creation Flow › should create lesson for class option with drop-in payment only 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class Drop In 1770144318889-449' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class Drop In 1770144318889-449' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:189:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-2c59b-n-with-drop-in-payment-only-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class Drop In 1770144334773-668' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class Drop In 1770144334773-668' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:189:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-2c59b-n-with-drop-in-payment-only-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/admin-create-lesson.e2e-Ad-2c59b-n-with-drop-in-payment-only-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/admin-create-lesson.e2e-Ad-2c59b-n-with-drop-in-payment-only-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:193:3 › Admin Lesson Creation Flow › should create lesson for class option with subscription payment only 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class Subscription 1770144351395-401' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class Subscription 1770144351395-401' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:230:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-f83a3-h-subscription-payment-only-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class Subscription 1770144367179-572' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class Subscription 1770144367179-572' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:230:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-f83a3-h-subscription-payment-only-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/admin-create-lesson.e2e-Ad-f83a3-h-subscription-payment-only-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/admin-create-lesson.e2e-Ad-f83a3-h-subscription-payment-only-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:234:3 › Admin Lesson Creation Flow › should create lesson for class option with drop-in and subscription payments 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class Drop In + Subscription 1770144383430-907' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class Drop In + Subscription 1770144383430-907' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:286:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-ab199-n-and-subscription-payments-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'Test Class Drop In + Subscription 1770144399458-805' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'Test Class Drop In + Subscription 1770144399458-805' })[22m
+
+
+      38 |   // Wait for and select the option
+      39 |   const createdOption = page.getByRole('option', { name: className })
+    > 40 |   await expect(createdOption).toBeVisible({ timeout: 10000 })
+         |                               ^
+      41 |   await createdOption.click()
+      42 |   
+      43 |   // Wait for dropdown to close and selection to be applied
+        at selectClassOptionAndSaveLesson (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:40:31)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/admin-create-lesson.e2e.spec.ts:286:5
+
+    Error Context: test-results/admin-create-lesson.e2e-Ad-ab199-n-and-subscription-payments-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/admin-create-lesson.e2e-Ad-ab199-n-and-subscription-payments-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/admin-create-lesson.e2e-Ad-ab199-n-and-subscription-payments-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › tests/e2e/user-booking-flow.e2e.spec.ts:436:3 › User booking flow from schedule › user can check in and then cancel tomorrow’s lesson 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/Welcome/i)
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByText(/Welcome/i)[22m
+
+
+      643 |     // Verify session is established by checking for user name on dashboard
+      644 |     // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
+    > 645 |     await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+          |                                              ^
+      646 |
+      647 |     // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
+      648 |     // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:645:46
+
+    Error Context: test-results/user-booking-flow.e2e-User-f96ac-en-cancel-tomorrow’s-lesson-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/Welcome/i)
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByText(/Welcome/i)[22m
+
+
+      643 |     // Verify session is established by checking for user name on dashboard
+      644 |     // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
+    > 645 |     await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+          |                                              ^
+      646 |
+      647 |     // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
+      648 |     // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:645:46
+
+    Error Context: test-results/user-booking-flow.e2e-User-f96ac-en-cancel-tomorrow’s-lesson-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/user-booking-flow.e2e-User-f96ac-en-cancel-tomorrow’s-lesson-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/user-booking-flow.e2e-User-f96ac-en-cancel-tomorrow’s-lesson-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium] › tests/e2e/user-booking-flow.e2e.spec.ts:742:3 › User booking flow from schedule › drop-in lesson: after check-in + register/login redirects to /bookings/{id} and shows Drop-in payment element 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'E2E Drop-In Class 1770144323316' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'E2E Drop-In Class 1770144323316' })[22m
+
+
+      298 |   await classOptionCombobox.click()
+      299 |   const classOption = page.getByRole('option', { name: className })
+    > 300 |   await expect(classOption).toBeVisible({ timeout: 10000 })
+          |                             ^
+      301 |   await classOption.click()
+      302 |
+      303 |   // Verify the selected class option has the required payment method (drop-in)
+        at ensureLessonForTomorrowWithDropIn (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:300:29)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:748:5
+
+    Error Context: test-results/user-booking-flow.e2e-User-37b38-ows-Drop-in-payment-element-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('option', { name: 'E2E Drop-In Class 1770144338763' })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for getByRole('option', { name: 'E2E Drop-In Class 1770144338763' })[22m
+
+
+      298 |   await classOptionCombobox.click()
+      299 |   const classOption = page.getByRole('option', { name: className })
+    > 300 |   await expect(classOption).toBeVisible({ timeout: 10000 })
+          |                             ^
+      301 |   await classOption.click()
+      302 |
+      303 |   // Verify the selected class option has the required payment method (drop-in)
+        at ensureLessonForTomorrowWithDropIn (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:300:29)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:748:5
+
+    Error Context: test-results/user-booking-flow.e2e-User-37b38-ows-Drop-in-payment-element-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/user-booking-flow.e2e-User-37b38-ows-Drop-in-payment-element-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/user-booking-flow.e2e-User-37b38-ows-Drop-in-payment-element-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [chromium] › tests/e2e/user-booking-flow.e2e.spec.ts:962:3 › User booking flow from schedule › subscription lesson: after check-in + register/login, subscribe returns redirect URL and subscription webhook confirms booking 
+
+    Error: Failed to create plan via API: 500 {"errors":[{"message":"Something went wrong."}]}
+
+       at helpers.ts:179
+
+      177 |   if (!createRes.ok()) {
+      178 |     const txt = await createRes.text().catch(() => '')
+    > 179 |     throw new Error(`Failed to create plan via API: ${createRes.status()} ${txt}`)
+          |           ^
+      180 |   }
+      181 |   const created = await createRes.json().catch(() => null)
+      182 |   if (!created?.doc?.id) {
+        at ensureAtLeastOnePlan (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/helpers.ts:179:11)
+        at ensureLessonForTomorrowWithSubscription (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/helpers.ts:245:20)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:968:5
+
+    Error Context: test-results/user-booking-flow.e2e-User-53f85-on-webhook-confirms-booking-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Failed to create plan via API: 500 {"errors":[{"message":"Something went wrong."}]}
+
+       at helpers.ts:179
+
+      177 |   if (!createRes.ok()) {
+      178 |     const txt = await createRes.text().catch(() => '')
+    > 179 |     throw new Error(`Failed to create plan via API: ${createRes.status()} ${txt}`)
+          |           ^
+      180 |   }
+      181 |   const created = await createRes.json().catch(() => null)
+      182 |   if (!created?.doc?.id) {
+        at ensureAtLeastOnePlan (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/helpers.ts:179:11)
+        at ensureLessonForTomorrowWithSubscription (/Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/helpers.ts:245:20)
+        at /Users/sammcnally/Projects/enterprise-bookings/apps/bru-grappling/tests/e2e/user-booking-flow.e2e.spec.ts:968:5
+
+    Error Context: test-results/user-booking-flow.e2e-User-53f85-on-webhook-confirms-booking-chromium-retry1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/user-booking-flow.e2e-User-53f85-on-webhook-confirms-booking-chromium-retry1/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/user-booking-flow.e2e-User-53f85-on-webhook-confirms-booking-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7 failed
+    [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:120:3 › Admin Lesson Creation Flow › should create class option, create lesson for tomorrow, and verify it exists 
+    [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:152:3 › Admin Lesson Creation Flow › should create lesson for class option with drop-in payment only 
+    [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:193:3 › Admin Lesson Creation Flow › should create lesson for class option with subscription payment only 
+    [chromium] › tests/e2e/admin-create-lesson.e2e.spec.ts:234:3 › Admin Lesson Creation Flow › should create lesson for class option with drop-in and subscription payments 
+    [chromium] › tests/e2e/user-booking-flow.e2e.spec.ts:436:3 › User booking flow from schedule › user can check in and then cancel tomorrow’s lesson 
+    [chromium] › tests/e2e/user-booking-flow.e2e.spec.ts:742:3 › User booking flow from schedule › drop-in lesson: after check-in + register/login redirects to /bookings/{id} and shows Drop-in payment element 
+    [chromium] › tests/e2e/user-booking-flow.e2e.spec.ts:962:3 › User booking flow from schedule › subscription lesson: after check-in + register/login, subscribe returns redirect URL and subscription webhook confirms booking 
+ ELIFECYCLE  Command failed with exit code 1.

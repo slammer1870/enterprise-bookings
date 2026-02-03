@@ -51,7 +51,7 @@ export function validateCallbackUrl(
       ) {
         return trimmedUrl;
       }
-    } catch (error) {
+    } catch {
       // Invalid URL format
       return null;
     }

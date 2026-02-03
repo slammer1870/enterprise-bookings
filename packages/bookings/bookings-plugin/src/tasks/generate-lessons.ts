@@ -54,16 +54,15 @@ export const generateLessonsFromSchedule: TaskHandler<
     if (clearExisting) {
       payload.logger.info("Clearing existing lessons");
       try {
-        // Get tenant from context if available (for multi-tenant support)
-        const rawTenant = req.context?.tenant as unknown
-        const tenantId =
-          rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
-            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (rawTenant as any).id
-            : (rawTenant as string | number | undefined)
+      // Get tenant from context if available (for multi-tenant support)
+      const rawTenant = req.context?.tenant as unknown
+      const tenantId =
+        rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
+          ? (rawTenant as { id: string | number }).id
+          : (rawTenant as string | number | undefined)
 
-        // Build where clause with tenant filter if available
-        const whereClause: any = {
+      // Build where clause with tenant filter if available
+      const whereClause: any = {
           and: [
             {
               startTime: {
@@ -158,8 +157,7 @@ export const generateLessonsFromSchedule: TaskHandler<
     const rawTenant = req.context?.tenant as unknown
     const tenantId =
       rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (rawTenant as any).id
+        ? (rawTenant as { id: string | number }).id
         : (rawTenant as string | number | undefined)
 
     let currentDate = new Date(start);

@@ -86,7 +86,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           setLoading(false);
           break;
 
-        case "booked":
+        case "booked": {
           const ok = await confirm();
           if (ok) {
             setLoading(true);
@@ -94,7 +94,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           }
           setLoading(false);
           break;
-        case "waiting":
+        }
+        case "waiting": {
           const ok2 = await confirm();
           if (ok2) {
             setLoading(true);
@@ -102,6 +103,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           }
           setLoading(false);
           break;
+        }
         default:
           toast.error("Unknown status");
           setLoading(false);

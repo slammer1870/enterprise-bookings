@@ -82,10 +82,10 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/bru_grappling',
     },
-    ...(process.env.NODE_ENV === 'test' || process.env.CI
+    ...(process.env.NODE_ENV === 'test' || process.env.CI || process.env.PW_E2E_PROFILE
       ? {
           migrations: migrations,
-          push: false, // Disable automatic schema pushing in test/CI - rely on migrations only
+          push: false, // Disable automatic schema pushing in test/CI/E2E - rely on migrations only
         }
       : {}),
   }),

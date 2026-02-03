@@ -13,7 +13,7 @@ export const appearanceOptions: Record<LinkAppearances, { label: string; value: 
   },
 }
 
-type LinkType = (options?: {
+type LinkType = (_options?: {
   appearances?: LinkAppearances[] | false
   disableLabel?: boolean
   overrides?: Partial<GroupField>

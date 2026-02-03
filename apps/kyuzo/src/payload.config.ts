@@ -78,10 +78,10 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgres://postgres:brugrappling@localhost:5432/kyuzo',
     },
-    ...(process.env.NODE_ENV === 'test' || process.env.CI
+    ...(process.env.NODE_ENV === 'test' || process.env.CI || process.env.PW_E2E_PROFILE
       ? {
           migrations,
-          push: false,
+          push: false, // Disable automatic schema pushing in test/CI/E2E - rely on migrations only
         }
       : {}),
   }),

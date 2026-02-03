@@ -63,11 +63,11 @@ const isLessonClosed = (
   return currentTime.getTime() >= lockOutDeadline;
 };
 
-const getConfirmedBookingsCount = (bookings: Booking[]): number => {
+const _getConfirmedBookingsCount = (bookings: Booking[]): number => {
   return bookings.filter((booking) => booking.status === "confirmed").length;
 };
 
-const hasUserConfirmedBooking = (
+const _hasUserConfirmedBooking = (
   bookings: Booking[],
   userId: number
 ): boolean => {
@@ -78,7 +78,7 @@ const hasUserConfirmedBooking = (
   );
 };
 
-const hasUserWaitingBooking = (
+const _hasUserWaitingBooking = (
   bookings: Booking[],
   userId: number
 ): boolean => {
@@ -88,7 +88,7 @@ const hasUserWaitingBooking = (
   );
 };
 
-const hasParentConfirmedBooking = (
+const _hasParentConfirmedBooking = (
   bookings: Booking[],
   parentId: number
 ): boolean => {

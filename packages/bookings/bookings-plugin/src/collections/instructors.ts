@@ -102,13 +102,13 @@ const defaultHooks = {
               : data.user;
           const user = await req.payload.findByID({
             collection: "users",
-            id: userId,
-            req,
-          });
-          data.name = (user as any)?.name || `User ${userId}`;
-        } catch (error) {
-          data.name = data.name || `User ${data.user}`;
-        }
+          id: userId,
+          req,
+        });
+        data.name = (user as any)?.name || `User ${userId}`;
+      } catch {
+        data.name = data.name || `User ${data.user}`;
+      }
       } else if (data && !data.name && operation === "update") {
         // If updating and user exists but name is missing, populate it
         try {
@@ -125,19 +125,19 @@ const defaultHooks = {
             const user = await req.payload.findByID({
               collection: "users",
               id: userId,
-              req,
-            });
-            data.name = (user as any)?.name || `User ${userId}`;
-          }
-        } catch (error) {
-          // Ignore errors
+            req,
+          });
+          data.name = (user as any)?.name || `User ${userId}`;
         }
+      } catch {
+        // Ignore errors
+      }
       }
       return data;
     },
   ],
   afterChange: [
-    async ({ doc, req, operation }: any) => {
+    async ({ doc, req, operation: _operation }: any) => {
       // Ensure name is saved after change
       if (doc && doc.user && (!doc.name || doc.name === "")) {
         try {
@@ -155,13 +155,13 @@ const defaultHooks = {
           // Update the document with the name
           await req.payload.update({
             collection: "instructors" as CollectionSlug,
-            id: doc.id,
-            data: { name: userName },
-            req,
-          });
-        } catch (error) {
-          // Ignore errors
-        }
+          id: doc.id,
+          data: { name: userName },
+          req,
+        });
+      } catch {
+        // Ignore errors
+      }
       }
       return doc;
     },
@@ -197,13 +197,13 @@ const defaultHooks = {
               const user = await req.payload.findByID({
                 collection: "users",
                 id: userId,
-                req,
-              });
-              // Update the document with the name for display
-              d.name = (user as any)?.name || `User ${userId}`;
-            } catch (error) {
-              d.name = d.name || `User ${d.user}`;
-            }
+            req,
+          });
+          // Update the document with the name for display
+          d.name = (user as any)?.name || `User ${userId}`;
+        } catch {
+          d.name = d.name || `User ${d.user}`;
+        }
           }
         }
       }

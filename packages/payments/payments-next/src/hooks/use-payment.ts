@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { calculateQuantityDiscount } from "@repo/shared-utils";
-import { DiscountResult, DiscountTier } from "@repo/shared-types";
+import { DiscountTier } from "@repo/shared-types";
 
 interface UsePaymentOptions {
   basePrice: number;

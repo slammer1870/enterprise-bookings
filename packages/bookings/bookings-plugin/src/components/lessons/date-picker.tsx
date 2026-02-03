@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Calendar } from "@repo/ui/components/ui/calendar";
 
 import { Button } from "@repo/ui/components/ui/button";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,

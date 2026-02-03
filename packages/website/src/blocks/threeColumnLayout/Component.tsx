@@ -23,7 +23,7 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
   }
 
   // Calculate layout classes for each block
-  const getBlockClasses = (index: number, total: number) => {
+  const getBlockClasses = (index: number, _total: number) => {
     // Small screens: single column (grid-cols-1)
     // Medium screens: 2 columns on first row, 1 centered on second row
     // Large screens: 3 columns (grid-cols-3)

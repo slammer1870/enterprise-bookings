@@ -12,11 +12,11 @@ type PlanViewProps = {
   lessonDate: Date;
   subscriptionLimitReached: boolean;
   onCreateCheckoutSession: (
-    planId: string,
-    metadata?: { [key: string]: string | undefined }
+    _planId: string,
+    _metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
   onCreateCustomerPortal: () => Promise<void>;
-  onCreateCustomerUpgradePortal?: (productId: string) => Promise<void>;
+  onCreateCustomerUpgradePortal?: (_productId: string) => Promise<void>;
 };
 
 /**

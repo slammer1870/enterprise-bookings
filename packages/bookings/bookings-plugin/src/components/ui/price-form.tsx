@@ -6,8 +6,6 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-import { Separator } from "@repo/ui/components/ui/separator";
-
 import { CircleChevronLeft, CircleChevronRight } from "lucide-react";
 
 interface PriceFormProps {
@@ -18,7 +16,7 @@ interface PriceFormProps {
   totalAmountBeforeDiscount: number;
   remainingCapacity: number;
   attendees: Attendee[];
-  setAttendees: (attendees: Attendee[]) => void;
+  setAttendees: (_attendees: Attendee[]) => void;
   adjustableQuantity: boolean;
 }
 export const PriceForm = ({
