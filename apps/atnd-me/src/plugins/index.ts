@@ -4,7 +4,9 @@ import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
+import { sentryPlugin } from '@payloadcms/plugin-sentry'
 import { Plugin } from 'payload'
+import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
 import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
@@ -132,6 +134,11 @@ export const plugins: Plugin[] = [
         return [...defaultFields, ...searchFields]
       },
     },
+  }),
+  // Payload Sentry plugin: captures Payload API/admin/hooks errors and sends to Sentry.
+  // Requires Sentry Next.js setup (sentry.client/server.config) and SENTRY_DSN in production.
+  sentryPlugin({
+    Sentry
   }),
   payloadAuth(),
   // Must run after `payloadAuth()` so the Better Auth collections exist.
