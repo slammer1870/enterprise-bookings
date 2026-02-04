@@ -453,7 +453,7 @@ test.describe('User booking flow from schedule', () => {
 
     // User phase: navigate to home (has schedule) and view schedule
     await page.goto('/', { waitUntil: 'load', timeout: 60000 })
-    await expect(page.locator('#schedule')).toBeVisible()
+    await expect(page.locator('#schedule').first()).toBeVisible()
     await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
 
     await goToTomorrowInSchedule(page)
@@ -465,7 +465,7 @@ test.describe('User booking flow from schedule', () => {
     // Find the lesson card by locating the class name, then finding its parent container
     // The structure is: container > div (details) > div.text-xl.font-medium (class name)
     const classNameElement = page
-      .locator('#schedule')
+      .locator('#schedule').first()
       .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
       .first()
 
@@ -642,7 +642,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify session is established by checking for user name on dashboard
     // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
-    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 10000 })
 
     // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
     // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
@@ -650,10 +650,10 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify we're still authenticated after reload
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
-    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 10000 })
 
     // Wait for schedule to render
-    const scheduleLocator = page.locator('#schedule')
+    const scheduleLocator = page.locator('#schedule').first()
     const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
 
     await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
@@ -676,7 +676,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Find the lesson card by locating the class name, then finding its parent container
     const classNameElementForCancel = page
-      .locator('#schedule')
+      .locator('#schedule').first()
       .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
       .first()
 
@@ -755,7 +755,7 @@ test.describe('User booking flow from schedule', () => {
 
     // User phase: navigate to home (has schedule) and view schedule
     await page.goto('/', { waitUntil: 'load', timeout: 60000 })
-    await expect(page.locator('#schedule')).toBeVisible()
+    await expect(page.locator('#schedule').first()).toBeVisible()
     await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
 
     await goToTomorrowInSchedule(page)
@@ -915,7 +915,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify session is established by checking for user name on dashboard
     // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
-    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 10000 })
 
     // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
     // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
@@ -923,10 +923,10 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify we're still authenticated after reload
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
-    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 10000 })
 
     // Wait for the schedule to load
-    const scheduleLocator = page.locator('#schedule')
+    const scheduleLocator = page.locator('#schedule').first()
     const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
     await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
     await expect(scheduleHeading).toBeVisible({ timeout: 60000 })
@@ -975,7 +975,7 @@ test.describe('User booking flow from schedule', () => {
 
     // User phase: navigate to home (has schedule) and view schedule
     await page.goto('/', { waitUntil: 'load', timeout: 60000 })
-    await expect(page.locator('#schedule')).toBeVisible()
+    await expect(page.locator('#schedule').first()).toBeVisible()
     await expect(page.getByRole('heading', { name: /Schedule/i })).toBeVisible()
 
     await goToTomorrowInSchedule(page)
@@ -1163,7 +1163,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify session is established by checking for user name on dashboard
     // Dashboard shows "Welcome {user?.name}" - if we see this, user is authenticated
-    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 10000 })
 
     // Reload the page to ensure all client-side queries (including schedule) run with authenticated session
     // This ensures tRPC queries include the session cookies and bookingStatus is calculated correctly
@@ -1171,9 +1171,9 @@ test.describe('User booking flow from schedule', () => {
 
     // Verify we're still authenticated after reload
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
-    await expect(page.getByText(/Welcome/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 10000 })
 
-    const scheduleLocator = page.locator('#schedule')
+    const scheduleLocator = page.locator('#schedule').first()
     const scheduleHeading = page.getByRole('heading', { name: /Schedule/i })
     await expect(scheduleLocator).toBeVisible({ timeout: 60000 })
     await expect(scheduleHeading).toBeVisible({ timeout: 60000 })
