@@ -4,6 +4,9 @@ import { createCaller } from '@/trpc/server'
 import { ManageBookingPageClient } from '@repo/bookings-next'
 import { PaymentMethods } from '@repo/payments-next'
 
+// Uses getSession()/headers() and createCaller(); must be dynamic in production (avoids DYNAMIC_SERVER_USAGE in E2E).
+export const dynamic = 'force-dynamic'
+
 type ManageBookingPageProps = {
     params: Promise<{ id: string }>
 }

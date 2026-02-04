@@ -3,6 +3,9 @@ import { createCaller } from '@/trpc/server'
 import { createBookingPage, BookingPageClientSmart, type BookingPageConfig } from '@repo/bookings-next'
 import { PaymentMethods } from '@repo/payments-next'
 
+// Uses getSession()/headers() and createCaller()/cookies(); must be dynamic in production.
+export const dynamic = 'force-dynamic'
+
 // Route params are always strings in Next.js App Router
 type BookingPageProps = {
   params: Promise<{ id: string }>
