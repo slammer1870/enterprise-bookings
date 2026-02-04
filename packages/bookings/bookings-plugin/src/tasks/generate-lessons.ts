@@ -306,7 +306,7 @@ export const generateLessonsFromSchedule: TaskHandler<
             lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
             active: timeSlot.active || true,
             // Explicitly set tenant if available in context (for multi-tenant support)
-            ...(tenantId ? { tenant: tenantId } : {}),
+            ...(tenantId ? { tenant: typeof tenantId === 'number' ? tenantId : Number(tenantId) } : {}),
           },
           req,
           overrideAccess: true,
