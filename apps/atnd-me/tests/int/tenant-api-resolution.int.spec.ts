@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { Tenant } from '@repo/shared-types'
+import { getTenantContext } from '@/utilities/getTenantContext'
 
 const HOOK_TIMEOUT = 300000 // 5 minutes
 const TEST_TIMEOUT = 60000 // 60 seconds
@@ -137,6 +138,48 @@ describe('Tenant API Resolution', () => {
 
       expect(tenantResult.docs.length).toBe(1)
       expect(tenantResult.docs[0]?.slug).toBe(testTenant.slug)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'getTenantContext resolves slug from cookies/headers to tenant',
+    async () => {
+      const verifyTenant = await payload.findByID({
+        collection: 'tenants',
+        id: testTenant.id,
+        overrideAccess: true,
+      }).catch(() => null)
+
+      if (!verifyTenant) {
+        payload.logger.warn('Test tenant was deleted, skipping test')
+        return
+      }
+
+      const cookies = {
+        get: (name: string) =>
+          name === 'tenant-slug' ? { value: testTenant.slug } : undefined,
+      }
+      const context = await getTenantContext(payload, { cookies })
+      expect(context).not.toBeNull()
+      expect(context?.id).toBe(testTenant.id)
+      expect(context?.slug).toBe(testTenant.slug)
+      expect(context?.name).toBe(testTenant.name)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'getTenantContext returns null for non-existent slug',
+    async () => {
+      const cookies = {
+        get: (name: string) =>
+          name === 'tenant-slug'
+            ? { value: `non-existent-${Date.now()}` }
+            : undefined,
+      }
+      const context = await getTenantContext(payload, { cookies })
+      expect(context).toBeNull()
     },
     TEST_TIMEOUT,
   )

@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 
 import { getPayload } from '@/lib/payload'
+import { getTenantSlug, getTenantContext } from '@/utilities/getTenantContext'
 
 /**
  * API route to resolve tenant slug to tenant ID
@@ -11,30 +12,18 @@ import { getPayload } from '@/lib/payload'
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const tenantSlug = cookieStore.get('tenant-slug')?.value || 
-                      request.headers.get('x-tenant-slug') ||
-                      request.nextUrl.searchParams.get('slug')
-
-    if (!tenantSlug) {
+    const source = {
+      cookies: cookieStore,
+      headers: request.headers,
+      searchParams: request.nextUrl.searchParams,
+    }
+    const slug = await getTenantSlug(source)
+    if (!slug) {
       return NextResponse.json({ error: 'No tenant slug provided' }, { status: 400 })
     }
 
     const payload = await getPayload()
-
-    const tenantResult = await payload.find({
-      collection: 'tenants',
-      where: {
-        slug: {
-          equals: tenantSlug,
-        },
-      },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true, // Allow public lookup
-    })
-
-    const tenant = tenantResult.docs[0]
-
+    const tenant = await getTenantContext(payload, source)
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
