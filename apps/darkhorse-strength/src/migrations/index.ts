@@ -21,6 +21,7 @@ import * as migration_20260116_102317_replace_user_with_instructor_in_lessons fr
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260123_071019 from './20260123_071019';
 import * as migration_20260127_190008 from './20260127_190008';
+import * as migration_20260203_000001_plans_allow_multiple_bookings_per_lesson from './20260203_000001_plans_allow_multiple_bookings_per_lesson';
 export const migrations = [
   {
     up: migration_20250717_093529.up,
@@ -135,6 +136,11 @@ export const migrations = [
   {
     up: migration_20260127_190008.up,
     down: migration_20260127_190008.down,
-    name: '20260127_190008'
+    name: '20260127_190008',
+  },
+  {
+    up: migration_20260203_000001_plans_allow_multiple_bookings_per_lesson.up,
+    down: migration_20260203_000001_plans_allow_multiple_bookings_per_lesson.down,
+    name: '20260203_000001_plans_allow_multiple_bookings_per_lesson',
   },
 ];
