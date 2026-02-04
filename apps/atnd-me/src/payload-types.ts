@@ -210,7 +210,7 @@ export interface UserAuthOperations {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'user' | 'tenant-admin';
+  role: 'admin' | 'tenant-admin' | 'user';
   token: string;
   url?: string | null;
   updatedAt: string;
@@ -581,7 +581,7 @@ export interface User {
   /**
    * The role/ roles of the user
    */
-  role?: ('admin' | 'user' | 'tenant-admin')[] | null;
+  role?: ('admin' | 'tenant-admin' | 'user')[] | null;
   /**
    * Whether the user is banned from the platform
    */

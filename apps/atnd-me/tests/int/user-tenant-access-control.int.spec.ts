@@ -409,6 +409,194 @@ describe('User Tenant Access Control', () => {
     )
   })
 
+  describe('Users collection read/update scoping (userTenantAccess)', () => {
+    let userInTestTenant: User
+    let userInSecondTenant: User
+
+    beforeAll(async () => {
+      // User who registered in testTenant
+      userInTestTenant = (await payload.create({
+        collection: 'users',
+        data: {
+          name: 'User In Test Tenant',
+          email: `user-test-tenant-${Date.now()}@test.com`,
+          password: 'test',
+          roles: ['user'],
+          emailVerified: true,
+          registrationTenant: testTenant.id,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])) as User
+
+      // User who registered in secondTenant
+      userInSecondTenant = (await payload.create({
+        collection: 'users',
+        data: {
+          name: 'User In Second Tenant',
+          email: `user-second-tenant-${Date.now()}@test.com`,
+          password: 'test',
+          roles: ['user'],
+          emailVerified: true,
+          registrationTenant: secondTenant.id,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])) as User
+    })
+
+    it(
+      'super admin can read all users',
+      async () => {
+        const adminUsers = await payload.find({
+          collection: 'users',
+          where: {},
+          limit: 100,
+          user: adminUser,
+          overrideAccess: false,
+        })
+        const userIds = adminUsers.docs.map((u) => u.id)
+        expect(userIds).toContain(adminUser.id)
+        expect(userIds).toContain(tenantAdminUser.id)
+        expect(userIds).toContain(regularUser.id)
+        expect(userIds).toContain(userInTestTenant.id)
+        expect(userIds).toContain(userInSecondTenant.id)
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'tenant-admin can only read users in their assigned tenant',
+      async () => {
+        const req = {
+          ...payload,
+          context: { tenant: testTenant.id },
+          user: tenantAdminUser,
+        } as any
+
+        const tenantAdminUsers = await payload.find({
+          collection: 'users',
+          where: {},
+          limit: 100,
+          req,
+          overrideAccess: false,
+        })
+        const userIds = tenantAdminUsers.docs.map((u) => u.id)
+        expect(userIds).toContain(tenantAdminUser.id)
+        expect(userIds).toContain(userInTestTenant.id)
+        expect(userIds).not.toContain(userInSecondTenant.id)
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'tenant-admin cannot update users in other tenants',
+      async () => {
+        const req = {
+          ...payload,
+          context: { tenant: secondTenant.id },
+          user: tenantAdminUser,
+        } as any
+
+        await expect(
+          payload.update({
+            collection: 'users',
+            id: userInSecondTenant.id,
+            data: { name: 'Attempted Update' },
+            req,
+            overrideAccess: false,
+          }),
+        ).rejects.toThrow()
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'tenant-admin can update users in their tenant',
+      async () => {
+        const req = {
+          ...payload,
+          context: { tenant: testTenant.id },
+          user: tenantAdminUser,
+        } as any
+
+        const updated = await payload.update({
+          collection: 'users',
+          id: userInTestTenant.id,
+          data: { name: 'Updated By Tenant Admin' },
+          req,
+          overrideAccess: false,
+        })
+        expect(updated.name).toBe('Updated By Tenant Admin')
+
+        await payload.update({
+          collection: 'users',
+          id: userInTestTenant.id,
+          data: { name: 'User In Test Tenant' },
+          overrideAccess: true,
+        })
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'regular user can read themselves',
+      async () => {
+        const self = await payload.findByID({
+          collection: 'users',
+          id: regularUser.id,
+          user: regularUser,
+          overrideAccess: false,
+        })
+        expect(self).toBeDefined()
+        expect(self.id).toBe(regularUser.id)
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'regular user can update themselves',
+      async () => {
+        const updated = await payload.update({
+          collection: 'users',
+          id: regularUser.id,
+          data: { name: 'Self Updated Name' },
+          user: regularUser,
+          overrideAccess: false,
+        })
+        expect(updated.name).toBe('Self Updated Name')
+
+        await payload.update({
+          collection: 'users',
+          id: regularUser.id,
+          data: { name: 'Regular User' },
+          overrideAccess: true,
+        })
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'regular user cannot read other users via find',
+      async () => {
+        const users = await payload.find({
+          collection: 'users',
+          where: {},
+          limit: 100,
+          user: regularUser,
+          overrideAccess: false,
+        })
+        const userIds = users.docs.map((u) => u.id)
+        expect(userIds).toContain(regularUser.id)
+        expect(userIds).not.toContain(adminUser.id)
+        expect(userIds).not.toContain(tenantAdminUser.id)
+        expect(userIds).not.toContain(userInTestTenant.id)
+        expect(userIds).not.toContain(userInSecondTenant.id)
+      },
+      TEST_TIMEOUT,
+    )
+  })
+
   describe('Regular user access', () => {
     it(
       'can read tenant-scoped documents for booking purposes',

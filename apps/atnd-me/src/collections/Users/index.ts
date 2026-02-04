@@ -4,6 +4,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { authenticated } from '../../access/authenticated'
 import { getUserTenantIds } from '../../access/tenant-scoped'
+import { userTenantRead, userTenantUpdate } from '../../access/userTenantAccess'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -18,22 +19,8 @@ export const Users: CollectionConfig = {
       }
       return authenticated(args)
     },
-    read: (args) => {
-      // Admin can read all users (no query filtering)
-      const { req: { user } } = args
-      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        return true
-      }
-      return authenticated(args)
-    },
-    update: (args) => {
-      // Admin can update any user
-      const { req: { user } } = args
-      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        return true
-      }
-      return authenticated(args)
-    },
+    read: userTenantRead,
+    update: userTenantUpdate,
   },
   hooks: {
     beforeValidate: [
