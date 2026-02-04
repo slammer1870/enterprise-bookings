@@ -160,13 +160,9 @@ export interface Config {
   };
   fallbackLocale: null;
   globals: {
-    header: Header;
-    footer: Footer;
     'platform-fees': PlatformFee;
   };
   globalsSelect: {
-    header: HeaderSelect<false> | HeaderSelect<true>;
-    footer: FooterSelect<false> | FooterSelect<true>;
     'platform-fees': PlatformFeesSelect<false> | PlatformFeesSelect<true>;
   };
   locale: null;
@@ -3281,66 +3277,6 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   createdAt?: T;
 }
 /**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "header".
- */
-export interface Header {
-  id: number;
-  /**
-   * Custom logo for this site. If not set, default logo will be used.
-   */
-  logo?: (number | null) | Media;
-  /**
-   * URL the logo should link to (defaults to "/")
-   */
-  logoLink?: string | null;
-  navItems?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        /**
-         * If enabled, this nav item will render as a button instead of a text link.
-         */
-        renderAsButton?: boolean | null;
-        /**
-         * Choose which button style to use for this nav item.
-         */
-        buttonVariant?: ('default' | 'outline' | 'secondary' | 'ghost') | null;
-        id?: string | null;
-      }[]
-    | null;
-  styling?: {
-    /**
-     * CSS color value (e.g., "#ffffff", "transparent", "var(--background)")
-     */
-    backgroundColor?: string | null;
-    /**
-     * CSS color value for text
-     */
-    textColor?: string | null;
-    /**
-     * Make header stick to top when scrolling
-     */
-    sticky?: boolean | null;
-    padding?: ('small' | 'medium' | 'large') | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
  * Default booking fee percentages by product type and optional per-tenant overrides.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3398,41 +3334,6 @@ export interface PlatformFee {
   };
   updatedAt?: string | null;
   createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "header_select".
- */
-export interface HeaderSelect<T extends boolean = true> {
-  logo?: T;
-  logoLink?: T;
-  navItems?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        renderAsButton?: T;
-        buttonVariant?: T;
-        id?: T;
-      };
-  styling?:
-    | T
-    | {
-        backgroundColor?: T;
-        textColor?: T;
-        sticky?: T;
-        padding?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

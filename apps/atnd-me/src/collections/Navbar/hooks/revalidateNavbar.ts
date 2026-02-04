@@ -8,8 +8,6 @@ export const revalidateNavbar: CollectionAfterChangeHook = async ({ doc, req: { 
       payload.logger.info(`Revalidating navbar for tenant ${doc.tenant}`)
 
       await revalidateTag('navbar')
-      // Also revalidate the global header tag for backward compatibility during migration
-      await revalidateTag('global_header')
     } catch (error) {
       // Ignore revalidation errors when running outside Next.js context (e.g., seed scripts)
       if (error instanceof Error && error.message.includes('static generation store missing')) {

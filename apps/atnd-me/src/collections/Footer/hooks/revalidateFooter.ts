@@ -8,8 +8,6 @@ export const revalidateFooter: CollectionAfterChangeHook = async ({ doc, req: { 
       payload.logger.info(`Revalidating footer for tenant ${doc.tenant}`)
 
       await revalidateTag('footer')
-      // Also revalidate the global footer tag for backward compatibility during migration
-      await revalidateTag('global_footer')
     } catch (error) {
       // Ignore revalidation errors when running outside Next.js context (e.g., seed scripts)
       if (error instanceof Error && error.message.includes('static generation store missing')) {

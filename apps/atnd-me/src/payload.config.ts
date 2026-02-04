@@ -13,8 +13,6 @@ import { Tenants } from './collections/Tenants'
 import { Navbar } from './collections/Navbar'
 import { Footer } from './collections/Footer'
 import { Scheduler } from './collections/Scheduler'
-import { Footer as FooterGlobal } from './Footer/config'
-import { Header } from './Header/config'
 import { PlatformFees } from './globals/PlatformFees'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
@@ -82,7 +80,7 @@ export default buildConfig({
   }),
   collections: [Pages, Posts, Media, Categories, Users, Tenants, Navbar, Footer, Scheduler],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, FooterGlobal, PlatformFees],
+  globals: [PlatformFees],
   plugins,
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),
   sharp: sharp as unknown as SharpDependency,

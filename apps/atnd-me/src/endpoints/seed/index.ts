@@ -68,25 +68,14 @@ export const seed = async ({
   // Update globals individually to avoid type errors (not all globals have navItems)
   for (const global of globals) {
     try {
-      if (global === 'header' || global === 'footer') {
-        await payload.updateGlobal({
-          slug: global,
-          data: { navItems: [] } as any,
-          depth: 0,
-          context: {
-            disableRevalidate: true,
-          },
-        })
-      } else {
-        await payload.updateGlobal({
-          slug: global,
-          data: {} as any,
-          depth: 0,
-          context: {
-            disableRevalidate: true,
-          },
-        })
-      }
+      await payload.updateGlobal({
+        slug: global,
+        data: {} as any,
+        depth: 0,
+        context: {
+          disableRevalidate: true,
+        },
+      })
     } catch (error) {
       // Ignore errors if global doesn't exist or doesn't have navItems
       payload.logger.warn(`Could not clear global ${global}: ${error instanceof Error ? error.message : 'Unknown error'}`)
