@@ -46,7 +46,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   hidePluginCollections: true,
   trustedOrigins: getTrustedOrigins(),
   roles: {
-    adminRoles: ['admin'], // Both admin and tenant-admin can access admin panel
+    adminRoles: ['admin', 'tenant-admin'],
     defaultRole: 'user',
     defaultAdminRole: 'admin',
     roles: ['user', 'admin', 'tenant-admin'],
