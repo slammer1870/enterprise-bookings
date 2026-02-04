@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 
 import { cn } from '@/utilities/ui'
+
+// Header/Footer use cookies(), layout uses draftMode(), pages use getSession()/headers().
+// Force dynamic so these dynamic APIs are valid and we avoid DYNAMIC_SERVER_USAGE in CI/production.
+export const dynamic = 'force-dynamic'
 import { GeistMono } from 'geist/font/mono'
 import { GeistSans } from 'geist/font/sans'
 import React from 'react'
