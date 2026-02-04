@@ -1,16 +1,18 @@
-import { getCachedGlobal } from '@/utilities/getGlobals'
 import Link from 'next/link'
 import React from 'react'
 import Image from 'next/image'
-
-import type { Footer } from '@/payload-types'
+import { cookies } from 'next/headers'
 
 import { ThemeSelector } from '@/providers/Theme/ThemeSelector'
 import { CMSLink } from '@/components/Link'
 import { Logo } from '@/components/Logo/Logo'
+import { getPayload } from '@/lib/payload'
+import { getFooterForRequest } from '@/utilities/getNavbarFooterForRequest'
 
 export async function Footer() {
-  const footerData: Footer = await getCachedGlobal('footer', 1)()
+  const cookieStore = await cookies()
+  const payload = await getPayload()
+  const footerData = await getFooterForRequest(payload, { cookies: cookieStore })
 
   const navItems = footerData?.navItems || []
   const logo = footerData?.logo
@@ -58,7 +60,7 @@ export async function Footer() {
           {navItems.length > 0 && (
           <nav className="flex flex-col md:flex-row gap-4">
             {navItems.map(({ link }, i) => {
-                return <CMSLink className={textColor} key={i} {...link} />
+                return <CMSLink className={textColor} key={i} {...(link as React.ComponentProps<typeof CMSLink>)} />
             })}
           </nav>
           )}

@@ -5,13 +5,12 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 
-import type { Header } from '@/payload-types'
-
 import { Logo } from '@/components/Logo/Logo'
 import { HeaderNav } from './Nav'
+import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
 
 interface HeaderClientProps {
-  data: Header
+  data: NavbarData
 }
 
 export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {

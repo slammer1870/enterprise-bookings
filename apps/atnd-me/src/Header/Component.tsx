@@ -1,11 +1,13 @@
 import { HeaderClient } from './Component.client'
-import { getCachedGlobal } from '@/utilities/getGlobals'
+import { cookies } from 'next/headers'
 import React from 'react'
-
-import type { Header as HeaderType } from '@/payload-types'
+import { getPayload } from '@/lib/payload'
+import { getNavbarForRequest } from '@/utilities/getNavbarFooterForRequest'
 
 export async function Header() {
-  const headerData = (await getCachedGlobal('header', 1)()) as HeaderType
+  const cookieStore = await cookies()
+  const payload = await getPayload()
+  const headerData = await getNavbarForRequest(payload, { cookies: cookieStore })
 
   return <HeaderClient data={headerData} />
 }
