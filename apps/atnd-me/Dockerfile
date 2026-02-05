@@ -36,10 +36,11 @@ ENV SKIP_PAYLOAD_MIGRATIONS=1
 RUN mkdir -p /app/apps/atnd-me/.next
 RUN pnpm --filter atnd-me build
 # Standalone can miss require-in-the-middle (Sentry/OpenTelemetry load it at runtime). Copy it so
-# Payload admin and instrumentation work in production.
+# Payload admin and instrumentation work in production. Use 'if' so the step does not fail when
+# the package is missing or the pnpm store path differs (e.g. in CI).
 RUN mkdir -p /app/apps/atnd-me/.next/standalone/node_modules && \
   (for d in /app/node_modules/.pnpm/require-in-the-middle@*/node_modules/require-in-the-middle; do \
-     [ -d "$$d" ] && cp -r "$$d" /app/apps/atnd-me/.next/standalone/node_modules/ && break; \
+     if [ -d "$$d" ]; then cp -r "$$d" /app/apps/atnd-me/.next/standalone/node_modules/; break; fi; \
    done)
 
 # ---- runner: minimal production image ----
