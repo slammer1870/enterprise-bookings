@@ -47,6 +47,9 @@ RUN mkdir -p /app/apps/atnd-me/.next/standalone/node_modules && \
 FROM base AS runner
 WORKDIR /app
 
+# Coolify (and Docker HEALTHCHECK) need curl or wget to probe http://localhost:3000/admin
+RUN apk add --no-cache curl
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
