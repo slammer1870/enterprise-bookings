@@ -4,6 +4,24 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { getUserTenantIds } from './tenant-scoped'
 
+/** True if user is admin (checks both roles[] and role[] from Better Auth). */
+export function isAdmin(u: unknown): boolean {
+  if (checkRole(['admin'], u as SharedUser)) return true
+  const role = (u as { role?: string | string[] })?.role
+  if (Array.isArray(role) && role.includes('admin')) return true
+  if (role === 'admin') return true
+  return false
+}
+
+/** True if user is tenant-admin (checks both roles[] and role[] from Better Auth). */
+export function isTenantAdmin(u: unknown): boolean {
+  if (checkRole(['tenant-admin'], u as SharedUser)) return true
+  const role = (u as { role?: string | string[] })?.role
+  if (Array.isArray(role) && role.includes('tenant-admin')) return true
+  if (role === 'tenant-admin') return true
+  return false
+}
+
 /**
  * User read access for multi-tenant apps.
  *
@@ -15,11 +33,11 @@ import { getUserTenantIds } from './tenant-scoped'
 export const userTenantRead: Access = ({ req: { user } }) => {
   if (!user) return false
 
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (isAdmin(user)) {
     return true
   }
 
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (isTenantAdmin(user)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
     if (tenantIds === null || tenantIds.length === 0) return false
 
@@ -55,11 +73,11 @@ export const userTenantRead: Access = ({ req: { user } }) => {
 export const userTenantUpdate: Access = ({ req: { user }, id }) => {
   if (!user) return false
 
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (isAdmin(user)) {
     return true
   }
 
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (isTenantAdmin(user)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
     if (tenantIds === null || tenantIds.length === 0) return false
 

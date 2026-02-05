@@ -4,12 +4,12 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { authenticated } from '../../access/authenticated'
 import { getUserTenantIds } from '../../access/tenant-scoped'
-import { userTenantRead, userTenantUpdate } from '../../access/userTenantAccess'
+import { userTenantRead, userTenantUpdate, isAdmin, isTenantAdmin } from '../../access/userTenantAccess'
 
 export const Users: CollectionConfig = {
   slug: 'users',
   access: {
-    admin: ({ req: { user } }) => checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser),
+    admin: ({ req: { user } }) => isAdmin(user) || isTenantAdmin(user),
     create: () => true,
     delete: (args) => {
       // Admin can delete any user
@@ -23,6 +23,29 @@ export const Users: CollectionConfig = {
     update: userTenantUpdate,
   },
   hooks: {
+    afterChange: [
+      // Ensure the first user in the database always has admin role (Tenants and other
+      // admin-only collections are hidden otherwise). Covers first user created via
+      // Better Auth sign-up or any path that might bypass the roles plugin's beforeChange.
+      async ({ doc, operation, req }) => {
+        if (operation !== 'create' || !doc?.id) return
+        const count = await req.payload.find({
+          collection: 'users',
+          limit: 0,
+          overrideAccess: true,
+        })
+        if (count.totalDocs !== 1) return
+        const u = doc as { roles?: string[] }
+        if (u.roles?.includes('admin')) return
+        await req.payload.update({
+          collection: 'users',
+          id: doc.id,
+          data: { roles: [...(u.roles || []), 'admin'] as ('user' | 'admin' | 'tenant-admin')[] },
+          overrideAccess: true,
+        })
+        req.payload.logger.info(`Assigned admin role to first user (ID: ${doc.id}) so Tenants and admin collections are visible.`)
+      },
+    ],
     beforeValidate: [
       async ({ data, operation, req }) => {
         // When tenant-admin creates a user, automatically set registrationTenant from context

@@ -36,6 +36,25 @@ docker compose -f apps/atnd-me/docker-compose.yml build
 
 Use `.env` or Coolify env UI; do not commit secrets.
 
+## Fresh database: Tenants and admin collections
+
+With a **fresh database**, the first user is automatically given the **admin** role (so the **Tenants** collection and other admin-only items appear in the Payload sidebar). If you create the first user (e.g. via sign-up or Payload) and **Tenants** still doesn’t appear:
+
+1. **Log out and log back in** so your session picks up the admin role.
+2. If it still doesn’t appear, create the first user from the Payload admin “Create first user” flow (if shown when there are no users) so the roles plugin can assign admin on create.
+
+## Seed and production
+
+The **seed** flow (dashboard “Seed your database” button and `pnpm seed`) is **disabled in production** for security (`NODE_ENV=production`). The “Seed your database” button will return an error when used on the production URL.
+
+To **seed the production database** from your machine (with DB access):
+
+```bash
+NODE_ENV=development DATABASE_URI="postgresql://..." pnpm --filter atnd-me seed
+```
+
+Use your production Postgres URL and ensure you can reach the DB (VPN, IP allowlist, etc.). Do not set `NODE_ENV=production` when running the seed script.
+
 ## Coolify
 
 1. **Build**
