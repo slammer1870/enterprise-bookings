@@ -353,6 +353,9 @@ export const plugins: Plugin[] = [
   multiTenantPlugin({
     tenantsSlug: 'tenants',
     cleanupAfterTenantDelete: false,
+    // Opt out of baseListFilter on users so admins see all users (including themselves)
+    // when a tenant is selected. Our userTenantRead access already enforces admin/tenant-admin rules.
+    useUsersTenantFilter: true,
     // Configure admin users to have access to all tenants
     userHasAccessToAllTenants: (user) => {
       if (!user) return false
