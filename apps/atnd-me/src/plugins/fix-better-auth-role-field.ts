@@ -1,4 +1,6 @@
-import type { CollectionConfig, Config, Plugin } from 'payload'
+import type { CollectionConfig, Config, PayloadRequest, Plugin } from 'payload'
+
+import { isAdmin } from '@/access/userTenantAccess'
 
 /**
  * Fix for `payload-auth/better-auth` role field schema mismatch.
@@ -9,6 +11,9 @@ import type { CollectionConfig, Config, Plugin } from 'payload'
  * The `role` field from Better Auth is used for Better Auth's own admin checks.
  * The `roles` field from rolesPlugin is used by Payload's access control.
  * We sync them so both systems work together.
+ *
+ * We also restrict the `role` field to admin-only read/update (same as the roles plugin does
+ * for `roles`) so tenant-admins cannot change their own or others' role to admin.
  */
 export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Config => {
   const config = { ...incomingConfig }
@@ -21,10 +26,19 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
   }
 
   const fields = usersCollection.fields || []
-  
-  // Find the roles field (from rolesPlugin) and role field (from Better Auth)
-  const rolesField = fields.find((field) => 'name' in field && field.name === 'roles')
-  const roleField = fields.find((field) => 'name' in field && field.name === 'role')
+
+  // Restrict the role field (Better Auth) to admin-only read/update, matching the roles field.
+  const fieldsWithRoleAccess = fields.map((field) => {
+    if ('name' in field && field.name === 'role') {
+      const access = {
+        create: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
+        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
+        update: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
+      }
+      return { ...field, access } as typeof field
+    }
+    return field
+  })
 
   // Add hooks to sync role <-> roles
   const existingHooks = usersCollection.hooks || {}
@@ -66,6 +80,7 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
 
   const patched: CollectionConfig = {
     ...usersCollection,
+    fields: fieldsWithRoleAccess,
     hooks: {
       ...existingHooks,
       beforeChange: [syncRoleFields, ...existingBeforeChange],

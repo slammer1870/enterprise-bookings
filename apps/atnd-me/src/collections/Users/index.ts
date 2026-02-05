@@ -14,15 +14,34 @@ export const Users: CollectionConfig = {
     delete: (args) => {
       // Admin can delete any user
       const { req: { user } } = args
-      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        return true
-      }
+      if (user && isAdmin(user)) return true
       return authenticated(args)
     },
     read: userTenantRead,
     update: userTenantUpdate,
   },
   hooks: {
+    beforeChange: [
+      // Prevent tenant-admins (or any non-admin) from granting themselves or others the admin role.
+      // Field-level access on the roles field (roles plugin) already restricts who can update it;
+      // this hook is defense-in-depth in case role/roles are ever writable elsewhere (e.g. Better Auth).
+      // Only strip when there is an authenticated user who is not admin (e.g. avoid stripping on
+      // overrideAccess creates, seed, or system operations where req.user may be absent).
+      ({ data, req }) => {
+        if (!data || !req.user || isAdmin(req.user)) return data
+        const d = data as { roles?: string[]; role?: string | string[] }
+        if (d.roles && Array.isArray(d.roles) && d.roles.includes('admin')) {
+          d.roles = d.roles.filter((r) => r !== 'admin')
+        }
+        if (d.role !== undefined) {
+          const arr = Array.isArray(d.role) ? d.role : [d.role]
+          if (arr.includes('admin')) {
+            d.role = arr.filter((r) => r !== 'admin') as typeof d.role
+          }
+        }
+        return data
+      },
+    ],
     afterChange: [
       // Ensure the first user in the database always has admin role (Tenants and other
       // admin-only collections are hidden otherwise). Covers first user created via
@@ -37,13 +56,20 @@ export const Users: CollectionConfig = {
         if (count.totalDocs !== 1) return
         const u = doc as { roles?: string[] }
         if (u.roles?.includes('admin')) return
-        await req.payload.update({
-          collection: 'users',
-          id: doc.id,
-          data: { roles: [...(u.roles || []), 'admin'] as ('user' | 'admin' | 'tenant-admin')[] },
-          overrideAccess: true,
-        })
-        req.payload.logger.info(`Assigned admin role to first user (ID: ${doc.id}) so Tenants and admin collections are visible.`)
+        try {
+          await req.payload.update({
+            collection: 'users',
+            id: doc.id,
+            data: { roles: [...(u.roles || []), 'admin'] as ('user' | 'admin' | 'tenant-admin')[] },
+            overrideAccess: true,
+          })
+          req.payload.logger.info(`Assigned admin role to first user (ID: ${doc.id}) so Tenants and admin collections are visible.`)
+        } catch (err) {
+          // Update can throw NotFound when run immediately after create (e.g. transaction
+          // isolation in tests or DB replication lag). Don't fail the create; first user can
+          // be promoted to admin manually or on next login if needed.
+          req.payload.logger.warn(`Could not assign admin to first user (ID: ${doc.id}): ${err instanceof Error ? err.message : String(err)}`)
+        }
       },
     ],
     beforeValidate: [

@@ -45,7 +45,8 @@ export async function middleware(request: NextRequest) {
     if (hostname === rootHostname) {
       subdomain = null
     } else if (hostname.endsWith('.' + rootHostname)) {
-      subdomain = hostname.slice(0, -(rootHostname.length + 1))
+      const prefix = hostname.slice(0, -(rootHostname.length + 1))
+      subdomain = prefix.split('.')[0] || null
     }
   } else {
     if (parts.length >= 3 && parts[0]) {

@@ -9,6 +9,16 @@ import { middleware } from '../../src/middleware'
  * We test the core logic by mocking NextRequest and verifying cookie behavior.
  */
 describe('Middleware', () => {
+  const originalServerUrl = process.env.NEXT_PUBLIC_SERVER_URL
+
+  afterEach(() => {
+    if (originalServerUrl !== undefined) {
+      process.env.NEXT_PUBLIC_SERVER_URL = originalServerUrl
+    } else {
+      delete process.env.NEXT_PUBLIC_SERVER_URL
+    }
+  })
+
   const createMockRequest = (hostname: string, pathname: string = '/'): NextRequest => {
     const url = `http://${hostname}${pathname}`
     return new NextRequest(url, {
@@ -29,10 +39,11 @@ describe('Middleware', () => {
   })
 
   it('extracts subdomain from production hostname', async () => {
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
     const request = createMockRequest('tenant1.atnd-me.com', '/')
     const response = await middleware(request)
-    
-    // Should set tenant-slug cookie
+
+    // Should set tenant-slug cookie (production uses root hostname from env)
     const cookieHeader = response.headers.get('set-cookie')
     expect(cookieHeader).toBeTruthy()
     expect(cookieHeader).toContain('tenant-slug=tenant1')
@@ -95,11 +106,12 @@ describe('Middleware', () => {
   })
 
   it('handles multiple subdomain levels', async () => {
-    // Test with subdomain.subdomain.domain.com format
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    // Test with subdomain.tenant1.domain.com format; middleware uses first segment only
     const request = createMockRequest('subdomain.tenant1.atnd-me.com', '/')
     const response = await middleware(request)
-    
-    // Should extract first subdomain (subdomain)
+
+    // Should extract first subdomain segment (subdomain)
     const cookieHeader = response.headers.get('set-cookie')
     expect(cookieHeader).toBeTruthy()
     expect(cookieHeader).toContain('tenant-slug=subdomain')

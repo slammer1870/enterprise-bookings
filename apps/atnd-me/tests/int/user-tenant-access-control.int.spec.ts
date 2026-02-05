@@ -595,6 +595,71 @@ describe('User Tenant Access Control', () => {
       },
       TEST_TIMEOUT,
     )
+
+    describe('Tenant-admin cannot escalate to admin', () => {
+      it(
+        'tenant-admin cannot escalate self to admin via roles',
+        async () => {
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          try {
+            await payload.update({
+              collection: 'users',
+              id: tenantAdminUser.id,
+              data: { roles: ['admin', 'tenant-admin'] },
+              req,
+              overrideAccess: false,
+            })
+          } catch {
+            // Roles plugin or field-level access may reject the update
+          }
+
+          const refetched = await payload.findByID({
+            collection: 'users',
+            id: tenantAdminUser.id,
+            overrideAccess: true,
+          }) as User
+          expect(refetched.roles).not.toContain('admin')
+          expect(refetched.roles).toContain('tenant-admin')
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant-admin cannot escalate another user in their tenant to admin',
+        async () => {
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          try {
+            await payload.update({
+              collection: 'users',
+              id: userInTestTenant.id,
+              data: { roles: ['admin', 'user'] },
+              req,
+              overrideAccess: false,
+            })
+          } catch {
+            // Roles plugin or field-level access may reject the update
+          }
+
+          const refetched = await payload.findByID({
+            collection: 'users',
+            id: userInTestTenant.id,
+            overrideAccess: true,
+          }) as User
+          expect(refetched.roles).not.toContain('admin')
+        },
+        TEST_TIMEOUT,
+      )
+    })
   })
 
   describe('Regular user access', () => {
