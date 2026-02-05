@@ -19,6 +19,8 @@ import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
 
+import { migrations } from './migrations'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -72,10 +74,11 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
+    prodMigrations: migrations,
     ...(disableSchemaPush
       ? {
-          push: false, // Disable automatic schema pushing in test/CI/E2E after first push
-        }
+        push: false, // Disable automatic schema pushing in test/CI/E2E after first push
+      }
       : {}),
   }),
   collections: [Pages, Posts, Media, Categories, Users, Tenants, Navbar, Footer, Scheduler],

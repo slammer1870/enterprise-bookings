@@ -1,23 +1,28 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+/** Root hostname from NEXT_PUBLIC_SERVER_URL (e.g. atnd-me.com) for cookie domain and subdomain logic. */
+function getRootHostname(): string | null {
+  const url = process.env.NEXT_PUBLIC_SERVER_URL
+  if (!url) return null
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
 /**
- * Middleware to detect tenant from subdomain and set tenant context
- * 
- * Note: This middleware runs on Edge runtime and cannot use Node.js modules directly.
- * Tenant lookup is done via API route/server components to avoid bundling issues.
- * 
- * Flow:
- * - Root domain (atnd-me.com): Allow through (shows marketing page)
- * - Subdomain (tenant1.atnd-me.com): Extract subdomain, set tenant-slug cookie
- * - Admin routes: Skip tenant detection
- * - API routes: Set tenant context for Payload API
+ * Middleware: detect tenant from subdomain, set tenant-slug cookie.
+ * Root domain from NEXT_PUBLIC_SERVER_URL so *.atnd-me.com works on Coolify/custom domains.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const hostname = request.headers.get('host') || ''
-  
-  // Skip middleware for admin routes, API routes, and static files
+  const hostHeader = request.headers.get('host') || ''
+  const hostname = hostHeader.split(':')[0] ?? hostHeader
+  const isLocalhost = hostname.includes('localhost')
+  const rootHostname = getRootHostname()
+
   if (
     pathname.startsWith('/admin') ||
     pathname.startsWith('/api') ||
@@ -29,67 +34,44 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Extract subdomain from hostname
-  // Format: subdomain.domain.com or subdomain.localhost:3000
   const parts = hostname.split('.')
-  const isLocalhost = hostname.includes('localhost')
-  
   let subdomain: string | null = null
-  
+
   if (isLocalhost) {
-    // For localhost: subdomain.localhost:3000
-    const localhostParts = hostname.split(':')
-    const hostWithoutPort = localhostParts[0]
-    if (hostWithoutPort) {
-      const hostParts = hostWithoutPort.split('.')
-      if (hostParts.length > 1 && hostParts[0] && hostParts[0] !== 'localhost') {
-        subdomain = hostParts[0]
-      }
+    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') {
+      subdomain = parts[0]
+    }
+  } else if (rootHostname) {
+    if (hostname === rootHostname) {
+      subdomain = null
+    } else if (hostname.endsWith('.' + rootHostname)) {
+      subdomain = hostname.slice(0, -(rootHostname.length + 1))
     }
   } else {
-    // For production: subdomain.domain.com
-    // Assume domain has at least 2 parts (e.g., atnd-me.com)
-    // If hostname has 3+ parts, first part is subdomain
     if (parts.length >= 3 && parts[0]) {
       subdomain = parts[0]
     }
   }
 
-  // Root domain - no tenant context needed (shows marketing page)
   if (!subdomain) {
-    // Clear any existing tenant cookies
     const response = NextResponse.next()
     response.cookies.delete('tenant-id')
     response.cookies.delete('tenant-slug')
     return response
   }
 
-  // Set subdomain in cookies - tenant lookup will happen in API routes/server components
-  // This avoids needing Payload in middleware (Edge runtime limitation)
   const response = NextResponse.next()
-  
-  // Set cookie with domain that works across subdomains
-  // For localhost, use no domain (works across subdomains in most browsers)
-  // For production, use .domain.com to share across subdomains
-  const cookieOptions: any = {
-    httpOnly: false, // Allow client-side access
+  const cookieOptions: { httpOnly: boolean; sameSite: 'lax'; path: string; domain?: string } = {
+    httpOnly: false,
     sameSite: 'lax',
     path: '/',
   }
-  
-  // Don't set domain for localhost (allows cookie sharing across subdomains in dev)
-  // In production, you'd want to set domain: '.yourdomain.com'
-  if (!isLocalhost) {
-    // Extract root domain (e.g., "atnd-me.com" from "tenant.atnd-me.com")
-    const rootDomain = parts.slice(-2).join('.')
-    cookieOptions.domain = `.${rootDomain}`
+  if (!isLocalhost && rootHostname) {
+    cookieOptions.domain = `.${rootHostname}`
+  } else if (!isLocalhost) {
+    cookieOptions.domain = `.${parts.slice(-2).join('.')}`
   }
-  
   response.cookies.set('tenant-slug', subdomain, cookieOptions)
-  
-  // Note: tenant-id will be resolved in API routes/server components via Payload
-  // This keeps middleware lightweight and Edge-compatible
-
   return response
 }
 

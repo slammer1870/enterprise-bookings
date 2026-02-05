@@ -39,17 +39,16 @@ describe('Middleware', () => {
   })
 
   it('handles root domain without subdomain', async () => {
+    // With NEXT_PUBLIC_SERVER_URL set, atnd-me.com is the root hostname (no tenant)
+    const prev = process.env.NEXT_PUBLIC_SERVER_URL
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
     const request = createMockRequest('atnd-me.com', '/')
     const response = await middleware(request)
-    
-    // Should clear tenant cookies for root domain
+    process.env.NEXT_PUBLIC_SERVER_URL = prev
+
     const cookieHeader = response.headers.get('set-cookie')
-    // Cookie deletion sets cookies with empty values and expiration dates
-    // So we check that tenant-slug is being deleted (set to empty) rather than set to a value
     if (cookieHeader) {
-      // Should delete tenant-slug (empty value) or not set it to a non-empty value
       expect(cookieHeader).not.toContain('tenant-slug=tenant')
-      // May contain tenant-slug=; (empty) for deletion
     }
   })
 
@@ -132,14 +131,11 @@ describe('Middleware', () => {
   })
 
   it('clears tenant cookies for root domain', async () => {
+    const prev = process.env.NEXT_PUBLIC_SERVER_URL
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
     const request = createMockRequest('atnd-me.com', '/')
     const response = await middleware(request)
-    
-    // Should attempt to delete tenant cookies
-    const cookieHeader = response.headers.get('set-cookie')
-    // Cookie deletion is done via setting cookies with Max-Age=0 or Expires in the past
-    // The exact format depends on Next.js implementation
-    // For now, just verify the response is created
+    process.env.NEXT_PUBLIC_SERVER_URL = prev
     expect(response).toBeTruthy()
   })
 })
