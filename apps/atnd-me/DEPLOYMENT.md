@@ -2,14 +2,14 @@
 
 ## Build
 
-Build the image from the **monorepo root** (context must be repo root so workspace packages and `scripts/` resolve):
+Build the image from the **monorepo root** (context must be repo root so workspace packages and `scripts/` resolve). **Migrations run before the build**; pass `DATABASE_URI` so the migration step can connect. If migrations fail, the build fails.
 
 ```bash
-# From repo root
-docker build -f apps/atnd-me/Dockerfile -t atnd-me .
+# From repo root (DATABASE_URI required so migrations can run)
+docker build -f apps/atnd-me/Dockerfile -t atnd-me --build-arg DATABASE_URI="$DATABASE_URI" .
 ```
 
-Or with docker compose from this directory:
+Or with docker compose from this directory (set `DATABASE_URI` in the environment or in a `.env`):
 
 ```bash
 docker compose -f apps/atnd-me/docker-compose.yml build
@@ -41,19 +41,15 @@ Use `.env` or Coolify env UI; do not commit secrets.
 1. **Build**
    - Build context: repo root (e.g. root of the git clone).
    - Dockerfile path: `apps/atnd-me/Dockerfile`.
+   - **Pass `DATABASE_URI` as a build argument** so the Dockerfile can run Payload migrations before the Next.js build. Migrations run first; if they fail, the image build fails. In Coolify, set `DATABASE_URI` as a build arg or build-time env (same Postgres URL as runtime).
+   - The Dockerfile runs migrations first, then sets `SKIP_PAYLOAD_MIGRATIONS=1` for the Next.js build step.
 
 2. **Database**
    - Add a Postgres service in Coolify or use an external Postgres.
-   - Set `DATABASE_URI` on the atnd-me service to that Postgres URL.
+   - Set `DATABASE_URI` on the atnd-me service (and as build arg so the build can run migrations).
 
 3. **Migrations**
-   - The container does not run Payload migrations on start (standalone image has no Payload CLI).
-   - Run migrations once after deploy or after schema changes:
-     - In Coolify: use “Run Command” (or equivalent) to run inside the app container or a one-off job.
-     - From host (with repo and `DATABASE_URI` set):  
-       `pnpm --filter atnd-me exec payload migrate run --force-accept-warning`  
-       or from `apps/atnd-me`:  
-       `pnpm payload migrate run --force-accept-warning`.
+   - Migrations run **during the Docker build** (before `next build`). If they fail, the build fails. Pass `DATABASE_URI` as build arg. At runtime the app still runs any pending migrations on first DB connection as a fallback.
 
 4. **Public URL**
    - Set `NEXT_PUBLIC_SERVER_URL` to the public URL Coolify assigns (e.g. `https://your-app.coolify.io`).

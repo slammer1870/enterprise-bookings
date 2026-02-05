@@ -74,7 +74,6 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
-    prodMigrations: migrations,
     ...(disableSchemaPush
       ? {
         push: false, // Disable automatic schema pushing in test/CI/E2E after first push

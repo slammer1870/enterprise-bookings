@@ -13,7 +13,7 @@ COPY apps/ apps/
 COPY packages/ packages/
 RUN corepack enable pnpm && pnpm install --frozen-lockfile
 
-# ---- builder: build atnd-me ----
+# ---- builder: run migrations then build atnd-me ----
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -24,9 +24,17 @@ COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY scripts/ scripts/
 COPY turbo.json ./
+# DATABASE_URI must be provided at build time so migrations run before the build.
+# If migrations fail, the build fails (no image is produced).
+ARG DATABASE_URI
+ENV DATABASE_URI=${DATABASE_URI}
+RUN corepack enable pnpm && \
+  pnpm --filter atnd-me exec payload migrate run --force-accept-warning
+# Skip migrations during next build (DB already migrated above; avoids duplicate-key errors).
+ENV SKIP_PAYLOAD_MIGRATIONS=1
 # Create .next in the writable layer so Next.js build can write (avoids EROFS)
 RUN mkdir -p /app/apps/atnd-me/.next
-RUN corepack enable pnpm && pnpm --filter atnd-me build
+RUN pnpm --filter atnd-me build
 
 # ---- runner: minimal production image ----
 FROM base AS runner
@@ -44,7 +52,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/atnd-me/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/atnd-me/.next/static ./apps/atnd-me/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/atnd-me/public ./apps/atnd-me/public
 
-# Entrypoint runs migrate (when possible) then starts the server
+# Entrypoint starts the server (migrations are not run here; see DEPLOYMENT.md)
 COPY apps/atnd-me/scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 

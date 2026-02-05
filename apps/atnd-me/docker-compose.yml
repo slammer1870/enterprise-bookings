@@ -9,6 +9,8 @@ services:
     build:
       context: ../..
       dockerfile: apps/atnd-me/Dockerfile
+      args:
+        DATABASE_URI: ${DATABASE_URI}
     ports:
       - '3000:3000'
     env_file:
