@@ -10,6 +10,7 @@ const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   // Required so Next can compile workspace TS sources used at runtime.
   // Without this, Node will try to resolve deep imports like
   // `@repo/bookings-plugin/src/...` directly from `node_modules`, which fails in ESM.

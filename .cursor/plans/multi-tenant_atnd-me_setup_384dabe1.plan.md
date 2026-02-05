@@ -1529,41 +1529,33 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 - **13 – Migrations**: Migrations present for tenant fields / page slugs.
 - **14 – Seed**: Seed script exists.
 
-### Left to build or tighten (Phase 1)
+### Completed (Phase 1) – all items done
 
-1. **Tenant-admin admin panel access**  
+1. **Tenant-admin admin panel access** ✅ — `adminRoles: ['admin', 'tenant-admin']` in `src/lib/auth/options.ts`.
 
-   - Plan: add `tenant-admin` to `adminRoles` in auth so tenant-admins can access the admin panel.  
-   - Current: `apps/atnd-me/src/lib/auth/options.ts` has `adminRoles: ['admin']`.  
-   - Action: Add `'tenant-admin'` to `adminRoles` (or confirm another mechanism grants admin access).
+2. **Users read/update scoping (userTenantAccess)** ✅ — `userTenantRead` / `userTenantUpdate` in `src/access/userTenantAccess.ts`; Users collection uses them for `read` and `update`.
 
-2. **Users read/update scoping (userTenantAccess)**  
-
-   - Plan: `userTenantAccess.ts` — read: super-admin all; tenant-admin only users in their tenant; users see themselves or users visible by registrationTenant/bookings-in-tenant.  
+   - (was) Plan: `userTenantAccess.ts` — read: super-admin all; tenant-admin only users in their tenant; users see themselves or users visible by registrationTenant/bookings-in-tenant.  
    - Current: Users `read` is “admin => all, else authenticated” with no query constraint; tenant-admins could see all users.  
    - Action: Implement User read (and update) rules per plan (e.g. in `userTenantAccess.ts` and wire to Users access, or extend existing access with the right query constraints).
 
-3. **Central tenant helpers**  
+3. **Central tenant helpers** ✅ — `getTenantContext.ts` and `getTenantFromLesson.ts` in `src/utilities`; used by `/api/tenant`, `getNavbarFooterForRequest`, `bookingAccess`.
 
-   - Plan: `getTenantContext.ts` (tenant from request), `getTenantFromLesson.ts` (tenant from lesson).  
-   - Current: `/api/tenant` resolves slug→id; no shared `getTenantContext`/`getTenantFromLesson` in `src/utilities`.  
-   - Action: Add these helpers if you want a single place for tenant resolution (needed for Phase 2 booking access; optional for Phase 1 if all paths already resolve tenant elsewhere).
+4. **Globals cleanup** ✅ — `payload.config.ts` has `globals: [PlatformFees]` only; Header/Footer removed.
 
-4. **Globals cleanup**  
-
-   - Plan: “Remove Header, Footer from globals (now collections)”.  
+   - (was) Plan: “Remove Header, Footer from globals (now collections)”.  
    - Current: `payload.config.ts` still has `globals: [Header, FooterGlobal]` alongside Navbar/Footer collections.  
    - Action: Remove Header/Footer from globals once all usage is on Navbar/Footer collections, or document why both remain.
 
-5. **Optional – tenantAccess.ts**  
+5. **Optional – tenantAccess.ts** — Not added; `tenant-scoped.ts` covers behavior. No action required.
 
-   - Plan: “tenantAccess.ts – collection-level access for tenant-scoped collections”.  
+   - (was) Plan: “tenantAccess.ts – collection-level access for tenant-scoped collections”.  
    - Current: `tenant-scoped.ts` provides tenant-scoped create/update/delete/read.  
    - Action: Only if you want a separate file or naming; behavior is largely covered by existing tenant-scoped access.
 
 ### Summary
 
-**Phase 1 is mostly built.** The main gaps are: (1) tenant-admin in `adminRoles` for admin panel access, (2) User read/update scoping (tenant-admin and “visible users” rules), and (3) optional tenant helpers and globals cleanup. tRPC tenant context for Schedule is already handled in the shared lessons router via cookies.
+**Phase 1 is complete.** All MVP multi-tenant items are implemented: (1) tenant-admin in `adminRoles` for admin panel access, (2) User read/update scoping (tenant-admin and “visible users” rules), and (3) optional tenant helpers and globals cleanup. Next: Phase 2 (Payment Functionality).
 
 ---
 
@@ -1585,11 +1577,11 @@ When adding payment functionality:
 - **Tenant-scoped payment routing**: payments for Tenant A go to Tenant A’s Connect account
 - **User-paid software fee**: the booking user pays an extra “booking fee” so tenants perceive the software as free
 - **Admin UX**: tenant-admin can connect/disconnect and see connection status
-- **Foundation for Phase 3 fees**: design supports adding `application_fee_amount` later
+- **Foundation for Phase 6 fees**: design supports adding `application_fee_amount` later
 
 ### Non-goals (Phase 2)
 
-- Application fees / platform take rate (Phase 3)
+- Application fees / platform take rate (Phase 6)
 - Complex reconciliation / payouts reporting dashboards (can be added later)
 
 ### Booking fee model (important)
@@ -2131,7 +2123,13 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-## Phase 3: Application Fee Management (Future)
+**Roadmap order (Phases 3–6):** Next = Phase 3 (Self-Onboarding) → Phase 4 (Analytics) → Phase 5 (UTM) → Phase 6 (Application Fees, deferred).
+
+---
+
+## Phase 6: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
+
+*Deferred to later in roadmap. Implement after Self-Onboarding (Phase 3), Analytics (Phase 4), and UTM (Phase 5).*
 
 When implementing flexible application fees:
 
@@ -2141,7 +2139,7 @@ When implementing flexible application fees:
 - Per-tenant overrides
 - Stripe Connect implementation via `application_fee_amount`
 
-Phase 3 extends this with **advanced management**, not the core fee model:
+Phase 6 extends this with **advanced management**, not the core fee model:
 
 - Per-tenant self-service (optional, tenant-admin visibility/edit rules)
 - Fee preview tooling + audit logs
@@ -2158,7 +2156,7 @@ Phase 3 extends this with **advanced management**, not the core fee model:
 2. **Update Tenants Collection:**
 
    - Keep tenant fee overrides centralized in the `platform-fees` global (Phase 2 design).
-   - (Optional Phase 3) Add a read-only “effective fees” panel on Tenant admin pages for clarity.
+   - (Optional Phase 6) Add a read-only “effective fees” panel on Tenant admin pages for clarity.
 
 3. **Create Application Fee Calculation Utility:**
 
@@ -2234,29 +2232,29 @@ const paymentIntent = await stripe.paymentIntents.create({
 - Automatic fallback to defaults if overrides not set
 - Fee calculation is transparent and testable
 
-### MVP vs Phase 2 vs Phase 3 Summary
+### MVP vs Phase 2 vs Phase 6 Summary
 
-| Feature | MVP (Phase 1) | Phase 2 (Future) |
+| Feature | MVP (Phase 1) | Phase 2 | Phase 6 (Deferred) |
 
-|---------|---------------|-----------------|
+|---------|---------------|---------|-------------------|
 
-| **Multi-tenant core** | ✅ Included | - |
+| **Multi-tenant core** | ✅ Included | - | - |
 
-| **Tenant management** | ✅ Included | - |
+| **Tenant management** | ✅ Included | - | - |
 
-| **Role structure** | ✅ Included (admin, tenant-admin, user) | - |
+| **Role structure** | ✅ Included | - | - |
 
-| **User access control** | ✅ Included | - |
+| **User access control** | ✅ Included | - | - |
 
-| **Tenant-scoped collections** | ✅ Included | - |
+| **Tenant-scoped collections** | ✅ Included | - | - |
 
-| **Cross-tenant bookings** | ✅ Included (without payment validation) | Enhanced with payment validation |
+| **Cross-tenant bookings** | ✅ Included (without payment validation) | Enhanced with payment validation | - |
 
-| **Booking creation** | ✅ Direct creation (no payment checks) | Payment validation required |
+| **Booking creation** | ✅ Direct creation (no payment checks) | Payment validation required | - |
 
-| **Payment plugins** | ❌ Excluded | ✅ Add paymentsPlugin, membershipsPlugin |
+| **Payment plugins** | ❌ Excluded | ✅ Add paymentsPlugin, membershipsPlugin | - |
 
-| **Subscription validation** | ❌ Excluded | ✅ Add subscription checks |
+| **Subscription validation** | ❌ Excluded | ✅ Add subscription checks | - |
 
 | **Payment processing** | ❌ Excluded | ✅ Add Stripe integration | - |
 
@@ -2264,15 +2262,15 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 | **Class Passes** | ❌ Excluded | ✅ Add class passes with expiration dates | - |
 
-| **Application fees** | ❌ Excluded | ❌ Excluded | ✅ Add configurable application fees with per-tenant overrides |
+| **Application fees** | ❌ Excluded | ❌ Excluded | ✅ Phase 6 – configurable application fees with per-tenant overrides |
 
-| **Fee management UI** | ❌ Excluded | ❌ Excluded | ✅ Add admin UI for fee configuration |
+| **Fee management UI** | ❌ Excluded | ❌ Excluded | ✅ Phase 6 – admin UI for fee configuration |
 
-| **Plans/Subscriptions** | ❌ Excluded | ✅ Add tenant-scoped plans/subscriptions |
+| **Plans/Subscriptions** | ❌ Excluded | ✅ Add tenant-scoped plans/subscriptions | - |
 
 ---
 
-## Phase 4: Self-Onboarding with MCP-Driven Personalisation (Future)
+## Phase 3: Self-Onboarding with MCP-Driven Personalisation (Next)
 
 ### Overview
 
@@ -2329,34 +2327,34 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ### Implementation outline (TDD-friendly)
 
-- **Step 4.1** – Onboarding schema and API  
+- **Step 3.1** – Onboarding schema and API  
   - Define **onboarding payload** (business name, slug, social links, current software, schedule export/link, **business location** for geolocation: `address`, `latitude`, `longitude`, etc.).
   - Add `POST /api/onboarding` (or similar) that validates payload and returns a job id or token.
   - Persist `businessLocation` (address, latitude, longitude) on the tenant when creating from onboarding so `/tenants` (and future “near me” / map UIs) can filter or sort by location.
   - Tests: validation, sanitisation, idempotency for duplicate slugs.
 
-- **Step 4.2** – MCP server for onboarding  
+- **Step 3.2** – MCP server for onboarding  
   - Implement an MCP server (e.g. in `apps/atnd-me/mcp/` or `packages/onboarding-mcp/`) that:
     - Accepts onboarding context.
     - Exposes tools: `create_tenant_from_onboarding`, `prepopulate_pages`, `prepopulate_schedule`, `prepopulate_class_options`, etc.
   - Tools should call Payload (local or HTTP) to create/update tenant and collections; no direct DB.
   - Tests: unit tests for tool handlers with mocked Payload; integration tests with test Payload.
 
-- **Step 4.3** – Stripe MCP integration  
+- **Step 3.3** – Stripe MCP integration  
   - Configure **Stripe MCP** (e.g. `@stripe/mcp`) so the same process or agent can:
     - Create Connect accounts or generate Connect onboarding links for the new tenant.
     - Create products/prices if needed for class types.
   - Document how onboarding orchestrator invokes Stripe MCP tools (e.g. via MCP client in Node, or via an agent loop).
   - Tests: ensure tenant+Stripe linkage and that Connect onboarding link is correctly associated with tenant.
 
-- **Step 4.4** – Personalisation rules  
+- **Step 3.4** – Personalisation rules  
   - Implement **prepopulation logic** that uses:
     - **Social / website**: business name, branding hints, logo URL (if derivable), hero text suggestions.
     - **Current booking software / schedule**: map to class names, weekdays/times, capacities (template or heuristic).
   - Keep logic in MCP tool handlers or in shared helpers called by those tools.
   - Tests: given fixture onboarding payloads, assert created tenant and collection docs match expected personalised defaults.
 
-- **Step 4.5** – End-to-end self-onboarding  
+- **Step 3.5** – End-to-end self-onboarding  
   - UI: wizard or single form → submit → “Setting up your space…” → redirect to tenant admin or “next step” (e.g. Connect Stripe).
   - E2E tests: run through self-onboarding with sample data and assert tenant + key collections are created and personalised.
 
@@ -2386,7 +2384,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ---
 
-## Phase 5: Dashboard Analytics (Future)
+## Phase 4: Dashboard Analytics (Future)
 
 ### Overview
 
@@ -2431,32 +2429,32 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ### Implementation outline (TDD-friendly)
 
-- **Step 5.1 – Analytics API and access control**  
+- **Step 4.1 – Analytics API and access control**  
   - Add `apps/atnd-me/src/app/api/analytics/route.ts` (or tRPC `analytics` router).  
   - Query params (or tRPC input): `tenantId?`, `dateFrom`, `dateTo`.  
   - Enforce: tenant-admin may only request their own `tenantId`; super-admin may omit `tenantId` for “all” or pass any tenant.  
   - Tests: unit/int for access (tenant-admin cannot query other tenant; super-admin can query any/all).
 
-- **Step 5.2 – Bookings per week**  
+- **Step 4.2 – Bookings per week**  
   - Implement `bookingsPerWeek(tenantId, dateFrom, dateTo)` (or equivalent procedure).  
   - Group confirmed (and optionally waiting) bookings by week; return counts per week.  
   - Tests: with fixture bookings, assert correct counts and week boundaries.
 
-- **Step 5.3 – Top customers**  
+- **Step 4.3 – Top customers**  
   - Implement `topCustomers(tenantId, dateFrom, dateTo, limit?)`.  
   - Count bookings per user in range, sort descending, return top N with user info.  
   - Tests: fixture data, assert ordering and limit.
 
-- **Step 5.4 – Not seen since X**  
+- **Step 4.4 – Not seen since X**  
   - Implement `notSeenSince(tenantId, sinceDate)` (or `dateFrom`/`dateTo` used as “since”).  
   - Definition: users who have ≥1 booking in the tenant ever, and 0 bookings after `sinceDate`.  
   - Tests: fixture users/bookings, assert list and exclusion of users with later bookings.
 
-- **Step 5.5 – Optional metrics**  
+- **Step 4.5 – Optional metrics**  
   - Bookings by class option, bookings by instructor, new vs returning, etc., using the same tenant + date contract.  
   - Add tests per metric.
 
-- **Step 5.6 – Dashboard UI**  
+- **Step 4.6 – Dashboard UI**  
   - Add analytics view (Payload custom view or Next route) with date range picker and tenant selector (super-admin only).  
   - Call analytics API and render metrics (cards/tables/charts).  
   - E2E: tenant-admin sees only their tenant’s data; super-admin can change tenant and see “all”.
@@ -2507,7 +2505,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ---
 
-## Phase 6: Event Tracking & Marketing Attribution (UTM) (Future)
+## Phase 5: Event Tracking & Marketing Attribution (UTM) (Future)
 
 ### Overview
 
@@ -2535,6 +2533,7 @@ Add **event tracking** and **marketing attribution** so tenant-admins and super-
    - **Client**: Capture UTM params from URL (and optional `localStorage`/cookie) on landing; send with key events (e.g. track endpoint or form submit).  
    - **Server**: Store **first-touch** UTM on user (e.g. `users.utmSource`, `users.utmMedium`, … or a `userAttribution` block) when they first interact/signup; **last-touch** can be stored per event or overwritten per session.  
    - **Anonymous**: Before signup, use a **session id** (cookie or fingerprint) and store events + UTM in an **events** or **sessions** store; after signup, attach those events to the user and set first-touch from the earliest event.
+   - **Exploration**: Consider encrypting UTM params into a cookie (e.g. signed/encrypted payload) to persist the lead source over time across sessions and devices, improving attribution accuracy before signup and reducing reliance on URL-only capture.
 
 2. **Events store**  
 
@@ -2556,33 +2555,33 @@ Add **event tracking** and **marketing attribution** so tenant-admins and super-
 
 ### Implementation outline (TDD-friendly)
 
-- **Step 6.1 – UTM capture and storage**  
+- **Step 5.1 – UTM capture and storage**  
   - Add utilities to read UTM from URL/query and persist **first-touch** on user (and optionally last-touch per session).  
   - Ensure tenant context is set when storing (subdomain or explicit tenant).  
   - Tests: unit tests for UTM parsing; int tests for first-touch persistence and idempotency (don’t overwrite first-touch on later visits).
 
-- **Step 6.2 – Events collection / schema**  
+- **Step 5.2 – Events collection / schema**  
   - Add tenant-scoped `marketing_events` (or equivalent) with `eventType`, `userId?`, `sessionId?`, `occurredAt`, UTM fields, `metadata`, `tenant`.  
   - Add API or tRPC to **ingest** events (e.g. `POST /api/track` or `analytics.trackEvent`) with auth/tenant checks: only allow events for current tenant or allow server-side to set tenant.  
   - Tests: event creation, tenant scoping, validation of required fields.
 
-- **Step 6.3 – Client-side UTM + event emission**  
+- **Step 5.3 – Client-side UTM + event emission**  
   - On app load (e.g. layout or middleware), read UTM from query, store in cookie/sessionStorage, and send `page_view` (and optionally `landing`) with UTM + tenant.  
   - On signup, booking, etc., send corresponding events with current UTM (+ user id once logged in).  
   - Tests: E2E or integration tests that hit track endpoint with UTM query and assert event and first-touch on user.
 
-- **Step 6.4 – Attribution reports (conversion by UTM)**  
+- **Step 5.4 – Attribution reports (conversion by UTM)**  
   - Implement report helpers or tRPC procedures: e.g. `conversionsBySource`, `conversionsByCampaign`, `funnelByMedium(tenantId, dateFrom, dateTo)`.  
   - Use events + user first-touch/last-touch to compute counts and conversion rates segmented by source, medium, campaign.  
   - Enforce tenant scope and date filters.  
   - Tests: fixture events and users, assert correct segmentation and rates.
 
-- **Step 6.5 – Spend input and CAC/CPA/ROAS**  
+- **Step 5.5 – Spend input and CAC/CPA/ROAS**  
   - Add **spend** ingestion (e.g. per campaign or per medium + date) – manual upload or form.  
   - Compute CAC, CPA, ROAS (or similar) by UTM dimension when spend is available.  
   - Tests: fixture spend + events, assert correct CAC/CPA.
 
-- **Step 6.6 – Dashboard UI**  
+- **Step 5.6 – Dashboard UI**  
   - Add “Marketing” or “Attribution” section in admin: date range, tenant filter (super-admin), UTM dimension selector (source / medium / campaign).  
   - Show funnel, conversion rates, and optionally spend vs conversions.  
   - E2E: tenant-admin sees only their tenant; super-admin can switch tenant; UTM filters and date range affect numbers.
