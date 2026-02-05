@@ -103,6 +103,12 @@ Create tenants in the Payload admin at `https://yourdomain.com/admin` (or your r
 
 Middleware reads the `Host` header, derives the subdomain, and sets the `tenant-slug` cookie so the rest of the app knows the current tenant.
 
+## Production logs (expected / harmless)
+
+- **No email adapter provided** – Payload logs this when no email transport is configured. Emails (e.g. password reset) are written to the console. To send real email, configure an adapter in Payload and set the required env vars.
+- **Failed to find Server Action "…"** – Usually means a user had a page open from a previous deployment; the client still has the old action ID. A full refresh fixes it. Harmless after deploys.
+- **util._extend deprecation** – Comes from a dependency (e.g. Payload/Node). Safe to ignore until the dependency is updated; you can run with `NODE_OPTIONS=--no-deprecation` to hide it.
+
 ## Local dev with Docker (optional)
 
 For a full stack with Postgres, use an override or a separate compose file that adds a Postgres service and sets `DATABASE_URI` for the app. Example (not in repo): add a `postgres` service and point the app’s `DATABASE_URI` at it.

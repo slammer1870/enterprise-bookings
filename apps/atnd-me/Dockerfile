@@ -35,6 +35,12 @@ ENV SKIP_PAYLOAD_MIGRATIONS=1
 # Create .next in the writable layer so Next.js build can write (avoids EROFS)
 RUN mkdir -p /app/apps/atnd-me/.next
 RUN pnpm --filter atnd-me build
+# Standalone can miss require-in-the-middle (Sentry/OpenTelemetry load it at runtime). Copy it so
+# Payload admin and instrumentation work in production.
+RUN mkdir -p /app/apps/atnd-me/.next/standalone/node_modules && \
+  (for d in /app/node_modules/.pnpm/require-in-the-middle@*/node_modules/require-in-the-middle; do \
+     [ -d "$$d" ] && cp -r "$$d" /app/apps/atnd-me/.next/standalone/node_modules/ && break; \
+   done)
 
 # ---- runner: minimal production image ----
 FROM base AS runner
