@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { cookies, headers } from 'next/headers'
-import { getServerSideURL } from '@/utilities/getURL'
 
 /**
  * 404 Not Found page

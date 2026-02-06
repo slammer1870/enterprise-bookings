@@ -3,7 +3,7 @@
  * - Only admin can read/update the global config.
  * - getEffectiveBookingFeePercent / calculateBookingFeeAmount resolve override > default.
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'

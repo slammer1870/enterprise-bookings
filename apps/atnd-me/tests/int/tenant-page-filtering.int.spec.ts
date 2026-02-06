@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
-import type { Tenant, Page, ClassOption } from '@repo/shared-types'
+import type { Tenant, ClassOption } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000 // 5 minutes
 const TEST_TIMEOUT = 60000 // 60 seconds

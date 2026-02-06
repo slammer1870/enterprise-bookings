@@ -7,6 +7,7 @@ import { RenderHero } from '@/heros/RenderHero'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { draftMode } from 'next/headers'
 import type { RequiredDataFromCollectionSlug } from 'payload'
+import type { Page } from '@/payload-types'
 import PageClient from './[slug]/page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 
@@ -83,7 +84,7 @@ export default async function RootPage() {
     })
 
     // Filter to find pages with no tenant (null tenant field)
-    page = rootPages.docs.find((doc: any) => !doc.tenant || doc.tenant === null) || null
+    page = rootPages.docs.find((doc: Page) => !doc.tenant || doc.tenant === null) ?? null
   } catch (error) {
     // If query fails, continue with fallback
     console.error('Error loading root page:', error)

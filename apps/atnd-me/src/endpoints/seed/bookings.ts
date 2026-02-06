@@ -304,9 +304,9 @@ export async function seedBookings({
   await deleteDefaultTenantData(croiLanSaunaTenant.id, payload, req)
 
   // Helper function to create tenant-scoped documents with tenant context
-  const createWithTenant = async <T = any>(
+  const createWithTenant = async <T = unknown>(
     collection: string,
-    data: any,
+    data: Record<string, unknown>,
     tenantId: number | string,
     options?: Omit<Parameters<typeof payload.create>[0], 'collection' | 'data' | 'req'>
   ): Promise<T> => {
@@ -408,7 +408,7 @@ export async function seedBookings({
     ? await payload.update({
         collection: 'users',
         id: existingTenantAdmin.docs[0].id,
-        data: tenantAdminData as any,
+        data: tenantAdminData as Record<string, unknown>,
         draft: false,
         overrideAccess: true,
       })
@@ -1197,9 +1197,9 @@ export async function seedSchedulers({
   endDate.setDate(endDate.getDate() + 90) // End 90 days from now
 
   // Helper to extract ID from relationship
-  const getId = (item: any): number | string => {
+  const getId = (item: unknown): number | string => {
     if (!item) return ''
-    return typeof item === 'object' && 'id' in item ? item.id : item
+    return typeof item === 'object' && item !== null && 'id' in item ? (item as { id: number | string }).id : (item as number | string)
   }
 
   // Helper to create tenant-scoped scheduler
@@ -1243,7 +1243,7 @@ export async function seedSchedulers({
     ]
 
     const weekDays = daysOfWeek.map((dayName, index) => {
-      const timeSlots: any[] = []
+      const timeSlots: Array<{ startTime: string; endTime: string; classOption?: number; location?: string; [key: string]: unknown }> = []
 
       if (isCroiLanSauna) {
         // Croí Lán Sauna schedule: Daily sessions at 17:00 and 18:00 (50-minute sessions)

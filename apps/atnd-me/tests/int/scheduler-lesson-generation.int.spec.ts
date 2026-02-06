@@ -194,7 +194,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         context: { tenant: testTenant.id },
       } as any
 
-      const scheduler = await payload.create({
+      const _scheduler = await payload.create({
         collection: 'scheduler',
         data: {
           tenant: Number(testTenant.id), // Explicitly set tenant for isGlobal collections
@@ -422,7 +422,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       }
 
       // Create scheduler with clearExisting: false - explicitly set tenant
-      const req = {
+      const _req = {
         ...payload,
         context: { tenant: testTenant.id },
       } as any

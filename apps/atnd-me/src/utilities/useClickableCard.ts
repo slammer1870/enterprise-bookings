@@ -49,7 +49,6 @@ function useClickableCard<T extends HTMLElement>({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, card, link, timeDown],
   )
 
@@ -71,7 +70,6 @@ function useClickableCard<T extends HTMLElement>({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [router, card, link, timeDown],
   )
 
@@ -92,8 +90,7 @@ function useClickableCard<T extends HTMLElement>({
     return () => {
       abortController.abort()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card, link, router])
+  }, [card, link, router, handleMouseDown, handleMouseUp])
 
   return {
     card: {

@@ -55,9 +55,10 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
                 />
             </div>
         )
-    } catch (error: any) {
+    } catch (error: unknown) {
         // Handle tRPC errors - redirect on validation errors
-        if (error?.data?.code === 'NOT_FOUND' || error?.data?.code === 'BAD_REQUEST') {
+        const err = error as { data?: { code?: string } }
+        if (err?.data?.code === 'NOT_FOUND' || err?.data?.code === 'BAD_REQUEST') {
             redirect('/')
         }
         // Re-throw other errors

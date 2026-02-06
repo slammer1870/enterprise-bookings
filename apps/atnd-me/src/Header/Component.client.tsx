@@ -21,19 +21,17 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
 
   useEffect(() => {
     setHeaderTheme(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+  }, [pathname, setHeaderTheme])
 
   useEffect(() => {
     if (headerTheme && headerTheme !== theme) setTheme(headerTheme)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [headerTheme])
+  }, [headerTheme, theme])
 
   const logo = data?.logo
   const logoLink = data?.logoLink || '/'
   const styling = data?.styling
   const padding = styling?.padding || 'medium'
-  const sticky = styling?.sticky || false
+  const _sticky = styling?.sticky || false
 
   const logoUrl = typeof logo === 'object' && logo?.url ? logo.url : null
   const logoAlt = typeof logo === 'object' && logo?.alt ? logo.alt : 'Logo'

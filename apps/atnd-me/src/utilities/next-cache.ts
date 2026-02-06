@@ -21,7 +21,7 @@ async function loadCacheFunctions() {
       revalidatePathCache = cache.revalidatePath
       revalidateTagCache = cache.revalidateTag
       unstableCacheCache = cache.unstable_cache
-    } catch (error) {
+    } catch (_error) {
       // If that fails, try the .js extension (for some Node.js versions)
       try {
         const cache = await import('next/cache.js')
@@ -32,7 +32,7 @@ async function loadCacheFunctions() {
         // If next/cache is not available (e.g., in test environments), use no-op functions
         revalidatePathCache = () => {}
         revalidateTagCache = () => {}
-        unstableCacheCache = <T extends (...args: any[]) => any>(fn: T) => fn as T
+        unstableCacheCache = <T extends (...args: unknown[]) => unknown>(fn: T) => fn as T
       }
     }
   })()
@@ -71,8 +71,8 @@ export function unstable_cache<T>(
         const result = fn()
         return result instanceof Promise ? result : Promise.resolve(result)
       }
-      const cachedFn = unstableCacheCache(promiseFn as any, keyParts, options)
-      return cachedFn()
+      const cachedFn = unstableCacheCache(promiseFn as (...args: unknown[]) => Promise<unknown>, keyParts, options)
+      return cachedFn() as Promise<T>
     }
     const result = fn()
     return result instanceof Promise ? result : Promise.resolve(result)

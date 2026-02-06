@@ -446,7 +446,7 @@ describe('Tenant-Scoped Page Slugs', () => {
         const slug2 = `target-slug-${Date.now()}`
 
         // Create two pages with different slugs
-        const page1 = (await payload.create({
+        const _page1 = (await payload.create({
           collection: 'pages',
           data: {
             slug: slug1,
@@ -598,7 +598,7 @@ describe('Tenant-Scoped Page Slugs', () => {
         const title = `Unique Auto Generate ${Date.now()}`
 
         // Create first page
-        const page1 = (await payload.create({
+        const _page1 = (await payload.create({
           collection: 'pages',
           data: {
             title,

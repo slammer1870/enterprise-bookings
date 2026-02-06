@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import { getTenantSlug, getTenantContext } from './getTenantContext'
+import { getTenantContext } from './getTenantContext'
 
 export type TenantSlugSource = import('./getTenantContext').TenantSlugSource
 

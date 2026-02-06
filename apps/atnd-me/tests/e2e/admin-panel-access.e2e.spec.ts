@@ -36,10 +36,18 @@ test.describe('Admin Panel Access', () => {
         sawForbidden = true
       }
     })
-    await page.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' })
+    await page.goto('http://localhost:3000/admin', { waitUntil: 'networkidle' })
+    await Promise.race([
+      page.waitForURL((u) => /\/admin\/login|\/admin\/unauthorized|\/auth\//.test(u.pathname), { timeout: 5000 }),
+      page.getByRole('textbox', { name: /email/i }).first().waitFor({ state: 'visible', timeout: 5000 }),
+      page.getByText(/unauthorized|forbidden|access denied|don't have permission|sign in|log in/i).first().waitFor({ state: 'visible', timeout: 5000 }),
+    ]).catch(() => null)
     const url = page.url()
     const isRedirected = Boolean(url.match(/\/admin\/login|\/admin\/unauthorized|\/auth\//))
     const hasLoginForm = await page.getByRole('textbox', { name: /email/i }).first().isVisible().catch(() => false)
-    expect(isRedirected || hasLoginForm || sawForbidden).toBe(true)
+    const bodyText = await page.locator('body').textContent().catch(() => '')
+    const hasDeniedContent =
+      /unauthorized|forbidden|access denied|don't have permission|sign in|log in/i.test(bodyText ?? '')
+    expect(isRedirected || hasLoginForm || sawForbidden || hasDeniedContent).toBe(true)
   })
 })

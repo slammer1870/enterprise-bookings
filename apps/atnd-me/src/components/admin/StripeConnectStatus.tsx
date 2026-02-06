@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@payloadcms/ui'
-import { checkRole } from '@repo/shared-utils'
+import { isTenantAdmin } from '@/utilities/check-admin-role'
 
 type Status = { connected: boolean; tenantSlug?: string } | null
 
@@ -16,7 +16,7 @@ export const StripeConnectStatus: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user || !checkRole(['tenant-admin'], user as unknown as Parameters<typeof checkRole>[1])) {
+    if (!user || !isTenantAdmin(user)) {
       setLoading(false)
       return
     }
@@ -38,7 +38,7 @@ export const StripeConnectStatus: React.FC = () => {
     }
   }, [user])
 
-  if (loading || !user || !checkRole(['tenant-admin'], user as unknown as Parameters<typeof checkRole>[1])) {
+  if (loading || !user || !isTenantAdmin(user)) {
     return null
   }
   if (status === null) {

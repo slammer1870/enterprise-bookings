@@ -8,7 +8,7 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
  * 2. Creates a composite unique index on (tenant_id, slug) for pages
  * 3. Handles the version table _pages_v similarly
  */
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
     -- Drop the global unique index on pages.slug
     DROP INDEX IF EXISTS "pages_slug_idx";
@@ -52,7 +52,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   `)
 }
 
-export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
     -- Drop the composite unique indexes
     DROP INDEX IF EXISTS "pages_tenant_slug_idx";

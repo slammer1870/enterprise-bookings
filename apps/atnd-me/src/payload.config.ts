@@ -19,7 +19,7 @@ import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
 
-import { migrations } from './migrations'
+import { migrations as _migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -40,6 +40,8 @@ export default buildConfig({
       // The `BeforeDashboard` component renders the 'welcome' block that you see after logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeDashboard: ['@/components/BeforeDashboard'],
+      // Stripe Connect status in header so tenant-admins see it on every admin page (not only dashboard).
+      header: ['@/components/admin/StripeConnectStatus'],
     },
     importMap: {
       baseDir: path.resolve(dirname),

@@ -43,9 +43,17 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
   // Add hooks to sync role <-> roles
   const existingHooks = usersCollection.hooks || {}
   const existingBeforeChange = existingHooks.beforeChange || []
-  const existingAfterChange = existingHooks.afterChange || []
+  const _existingAfterChange = existingHooks.afterChange || []
 
-  const syncRoleFields = async ({ data, operation, req }: any) => {
+  const syncRoleFields = async ({
+    data,
+    operation: _operation,
+    req: _req,
+  }: {
+    data?: Record<string, unknown>
+    operation?: string
+    req?: unknown
+  }) => {
     if (!data) return data
 
     // Sync roles -> role (for Better Auth compatibility)
@@ -65,7 +73,7 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
     return data
   }
 
-  const syncRoleFieldsAfterRead = async ({ doc }: any) => {
+  const syncRoleFieldsAfterRead = async ({ doc }: { doc?: Record<string, unknown> }) => {
     if (!doc) return doc
 
     // Ensure both fields are populated after read

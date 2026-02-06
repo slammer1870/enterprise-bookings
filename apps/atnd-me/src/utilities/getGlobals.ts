@@ -1,3 +1,4 @@
+import type { GlobalSlug } from 'payload'
 import { getPayload } from '@/lib/payload'
 import { unstable_cache } from './next-cache'
 
@@ -8,7 +9,7 @@ async function getGlobal(slug: Global, depth = 0) {
   const payload = await getPayload()
 
   const global = await payload.findGlobal({
-    slug: slug as any,
+    slug: slug as GlobalSlug,
     depth,
   })
 

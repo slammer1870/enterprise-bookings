@@ -8,7 +8,7 @@ const TEST_TIMEOUT = 60000 // 60 seconds
 
 describe('Tenant Listing Page Access', () => {
   let payload: Payload
-  let testTenants: Tenant[] = []
+  const testTenants: Tenant[] = []
 
   beforeAll(async () => {
     const payloadConfig = await config

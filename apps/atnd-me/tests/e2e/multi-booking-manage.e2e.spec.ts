@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { loginAsRegularUser, loginAsRegularUserViaApi } from './helpers/auth-helpers'
+import { loginAsRegularUser } from './helpers/auth-helpers'
 import {
   createTestClassOption,
   createTestLesson,

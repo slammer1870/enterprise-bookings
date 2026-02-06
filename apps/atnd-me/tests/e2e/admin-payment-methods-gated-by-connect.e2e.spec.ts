@@ -4,7 +4,7 @@
  * - When tenant connected: payment controls enabled, status shows "Stripe connected".
  */
 import { test, expect } from './helpers/fixtures'
-import { loginAsTenantAdmin } from './helpers/auth-helpers'
+import { loginAsTenantAdmin, BASE_URL } from './helpers/auth-helpers'
 import { createTestClassOption } from './helpers/data-helpers'
 
 test.describe('Admin payment methods gated by Stripe Connect', () => {
@@ -15,14 +15,26 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
   }) => {
     const co = await createTestClassOption(testData.tenants[0]!.id, 'Gated Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`http://localhost:3000/admin/collections/class-options/${co.id}`, {
+    await page.goto(`${BASE_URL}/admin/collections/class-options/${co.id}`, {
       waitUntil: 'networkidle',
     })
+
+    // Allow Stripe status request to settle (do not couple to response code)
+    await page
+      .waitForResponse((resp) => resp.url().includes('/api/stripe/connect/status'), { timeout: 15000 })
+      .catch(() => null)
+
+    // Ensure document form is ready and scroll main so below-fold Payment Methods section can render
+    await page.getByRole('heading', { name: new RegExp(co.name, 'i') }).waitFor({ state: 'visible', timeout: 10000 })
+    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+
+    // Wait for the gated field to render (either not-connected or connected state)
+    await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
 
     // Target the <strong> element specifically to avoid strict mode violation
     await expect(
       page.locator('strong:has-text("Connect Stripe to enable payments")')
-    ).toBeVisible()
+    ).toBeVisible({ timeout: 10000 })
 
     // Verify the descriptive text is present
     await expect(
@@ -41,7 +53,7 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
     request,
   }) => {
     const { getPayload } = await import('payload')
-    const configMod = await import('@/payload.config')
+    const configMod = await import('../../src/payload.config')
     const payloadConfig = await configMod.default
     const payload = await getPayload({
       config: payloadConfig,
@@ -59,13 +71,23 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
 
     const co = await createTestClassOption(tenantId, 'Connected Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`http://localhost:3000/admin/collections/class-options/${co.id}`, {
+    await page.goto(`${BASE_URL}/admin/collections/class-options/${co.id}`, {
       waitUntil: 'networkidle',
     })
 
+    // Allow Stripe status request to settle (do not couple to response code)
+    await page
+      .waitForResponse((resp) => resp.url().includes('/api/stripe/connect/status'), { timeout: 15000 })
+      .catch(() => null)
+
+    await page.getByRole('heading', { name: new RegExp(co.name, 'i') }).waitFor({ state: 'visible', timeout: 10000 })
+    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+
+    await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
+
     await expect(
       page.getByText(/stripe connected/i).or(page.locator('text=/stripe connected/i'))
-    ).toBeVisible()
+    ).toBeVisible({ timeout: 10000 })
 
     // Payment method section should be present (e.g. "Payment Methods" or "Enable payments")
     const paymentSection = page.getByText(/payment methods|enable payments/i).first()

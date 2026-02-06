@@ -7,8 +7,8 @@ type CroiLanSaunaPageArgs = {
   aboutImage: Media
 }
 
-// Helper function to create a simple richText structure
-const createSimpleRichText = (text: string) => ({
+// Helper function to create a simple richText structure (used by callers that need richText)
+const _createSimpleRichText = (text: string) => ({
   root: {
     type: 'root' as const,
     children: [

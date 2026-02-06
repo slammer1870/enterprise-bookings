@@ -47,7 +47,7 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
     }
 
     if (typeof backgroundImage === 'object' && backgroundImage !== null) {
-        const media = backgroundImage as any // Use any to check all possible properties
+        const media = backgroundImage as { url?: string; updatedAt?: string; alt?: string }
         // Check if it's a populated Media object with url property
         // Payload Media objects have url as a direct property when populated
         if (media.url && typeof media.url === 'string') {
@@ -117,7 +117,11 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
             {/* Hero Section - Full width on mobile, half width on desktop */}
             <div className="w-full md:w-1/2 lg:w-2/3 flex-shrink-0 h-[550px] md:h-[750px]">
                 <HeroBlock
-                    backgroundImage={transformedBackgroundImage as any}
+                    backgroundImage={
+                      transformedBackgroundImage !== undefined
+                        ? (transformedBackgroundImage as string | number | { url?: string; alt?: string })
+                        : ''
+                    }
                     logo={transformedLogo}
                     title={title || undefined}
                     links={links || undefined}

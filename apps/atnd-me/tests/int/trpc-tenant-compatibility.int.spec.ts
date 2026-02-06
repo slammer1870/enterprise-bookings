@@ -597,7 +597,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         expect(Array.isArray(lessons)).toBe(true)
         // Filter out any lessons that might have been created by default hooks
         const lessonsForNonExistentTenant = lessons.filter((l) => {
-          const lessonTenantId = typeof l.tenant === 'object' && l.tenant !== null
+          const _lessonTenantId = typeof l.tenant === 'object' && l.tenant !== null
             ? l.tenant.id
             : l.tenant
           // Since the tenant doesn't exist, no lessons should match

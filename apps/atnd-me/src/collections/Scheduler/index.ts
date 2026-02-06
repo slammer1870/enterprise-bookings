@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field } from 'payload'
+import type { CollectionConfig, Field, Payload } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import {
@@ -27,18 +27,20 @@ const days: Field = {
             name: 'timeSlot',
             type: 'array',
             required: false,
-            validate: (value: any) => {
+            validate: (value: unknown) => {
                 if (!value || !Array.isArray(value)) return true
 
+                type TimeSlot = { location?: unknown; startTime?: string; endTime?: string }
                 // Check for time and location conflicts within the same day
                 for (let i = 0; i < value.length; i++) {
-                    const currentSlot = value[i] as any
+                    const currentSlot = value[i] as TimeSlot
 
                     for (let j = i + 1; j < value.length; j++) {
-                        const otherSlot = value[j] as any
+                        const otherSlot = value[j] as TimeSlot
 
                         // Skip if different locations
                         if (currentSlot.location !== otherSlot.location) continue
+                        if (!currentSlot.startTime || !currentSlot.endTime || !otherSlot.startTime || !otherSlot.endTime) continue
 
                         // Check for time overlap
                         const currentStart = new Date(currentSlot.startTime)
@@ -181,9 +183,8 @@ export const Scheduler: CollectionConfig = {
                         clearExisting: doc.clearExisting,
                         defaultClassOption: doc.defaultClassOption,
                         lockOutTime: doc.lockOutTime,
-                        // Pass tenant explicitly in input as backup
                         tenant: tenantId,
-                    } as any, // Type assertion needed since package type doesn't include tenant yet
+                    } as Parameters<Payload['jobs']['queue']>[0]['input'],
                 })
 
                 if (job.id) {
@@ -222,7 +223,7 @@ export const Scheduler: CollectionConfig = {
                     displayFormat: 'dd/MM/yyyy',
                 },
             },
-            validate: (value, { data }: { data: any }) => {
+            validate: (value, { data }: { data: { startDate?: string } }) => {
                 // Check if end date is after start date
                 if (value && data?.startDate) {
                     const endDate = new Date(value)

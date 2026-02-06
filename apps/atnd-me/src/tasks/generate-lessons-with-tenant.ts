@@ -9,7 +9,7 @@ export const generateLessonsFromScheduleWithTenant: TaskHandler<'generateLessons
   const { input, req } = args
   
   // Extract tenant from input (passed from scheduler document)
-  const tenantId = (input as any).tenant
+  const tenantId = (input as { tenant?: number }).tenant
 
   // Set tenant context in req so multi-tenant plugin filters queries correctly
   // This must be set before calling the original handler

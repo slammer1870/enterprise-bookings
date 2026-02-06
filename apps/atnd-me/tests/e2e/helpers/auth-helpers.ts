@@ -7,14 +7,14 @@ import type { APIRequestContext, BrowserContext, Page } from '@playwright/test'
 export const BASE_URL =
   process.env.PW_SKIP_WEB_SERVER === '1' ? 'http://127.0.0.1:3000' : 'http://localhost:3000'
 
-const ROOT_URL = 'http://localhost:3000'
+const _ROOT_URL = 'http://localhost:3000'
 
 function tenantBaseUrl(tenantSlug: string): string {
   // Tenant routing in tests is always via `subdomain.localhost:3000`.
   return `http://${tenantSlug}.localhost:3000`
 }
 
-function toDomainCookie(
+function _toDomainCookie(
   cookie: Awaited<ReturnType<BrowserContext['cookies']>>[number],
   domain: string
 ) {

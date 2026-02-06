@@ -32,7 +32,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   `)
 }
 
-export async function down({ db }: MigrateDownArgs): Promise<void> {
+export async function down({ db: _db }: MigrateDownArgs): Promise<void> {
   // No-op: we don't want to drop the constraint as it's needed
   // If needed, Payload's schema sync will handle it
 }

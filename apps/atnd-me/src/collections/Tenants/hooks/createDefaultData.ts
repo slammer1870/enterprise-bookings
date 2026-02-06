@@ -26,8 +26,8 @@ export async function createDefaultTenantData({
 
     // 1. Get or create default media (placeholder images)
     // Try to find existing placeholder media, or create new ones
-    let heroImage: Media | null = null
-    let metaImage: Media | null = null
+    let _heroImage: Media | null = null
+    let _metaImage: Media | null = null
 
     try {
       const existingMedia = await payload.find({
@@ -42,10 +42,10 @@ export async function createDefaultTenantData({
       })
 
       if (existingMedia.docs[0]) {
-        heroImage = existingMedia.docs[0] as Media
-        metaImage = existingMedia.docs[0] as Media
+        _heroImage = existingMedia.docs[0] as Media
+        _metaImage = existingMedia.docs[0] as Media
       }
-    } catch (error) {
+    } catch (_error) {
       payload.logger.warn('Could not find default media, skipping image setup')
     }
 
@@ -95,7 +95,7 @@ export async function createDefaultTenantData({
     
     // Create a simple home page without images to avoid validation errors
     // Images can be added later by the tenant admin
-    const homePageData: any = {
+    const homePageData: Record<string, unknown> = {
       // Pages.slug is now unique per tenant, so we can use simple slugs like "home"
       slug: 'home',
       title: `Welcome to ${tenant.name}`,
@@ -164,6 +164,7 @@ export async function createDefaultTenantData({
         ...homePageData,
         tenant: tenant.id,
       },
+      draft: true,
       req: tenantReq,
       overrideAccess: true,
     })

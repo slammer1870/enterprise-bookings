@@ -1,4 +1,5 @@
 import type { CollectionSlug, GlobalSlug, Payload, PayloadRequest, File } from 'payload'
+import type { Media } from '@/payload-types'
 
 import { contactForm as contactFormData } from './contact-form'
 import { contact as contactPageData } from './contact-page'
@@ -70,7 +71,7 @@ export const seed = async ({
     try {
       await payload.updateGlobal({
         slug: global,
-        data: {} as any,
+        data: {} as Record<string, unknown>,
         depth: 0,
         context: {
           disableRevalidate: true,
@@ -346,7 +347,7 @@ export const seed = async ({
   }
 
   // Create contact page
-  const contactPage = await payload.create({
+  const _contactPage = await payload.create({
     collection: 'pages',
     depth: 0,
     req: tenant1Req,
@@ -471,6 +472,10 @@ export const seed = async ({
       }),
     ])
 
+    if (!croiLanSaunaLogo || !croiLanSaunaHero || !croiLanSaunaAbout) {
+      throw new Error('Failed to get or create media for Croí Lán Sauna')
+    }
+
     // Create tenant-scoped request
     const croiLanSaunaReq = {
       ...req,
@@ -541,7 +546,7 @@ export const seed = async ({
         req: croiLanSaunaReq,
         overrideAccess: true,
       })
-    } catch (error) {
+    } catch (_error) {
       // If query fails, assume no navbar exists
       existingNavbar = { docs: [] }
     }
@@ -601,7 +606,7 @@ export const seed = async ({
         req: croiLanSaunaReq,
         overrideAccess: true,
       })
-    } catch (error) {
+    } catch (_error) {
       // If query fails, assume no footer exists
       existingFooter = { docs: [] }
     }
@@ -691,7 +696,7 @@ async function readLogoFile(): Promise<File | null> {
       mimetype: 'image/png',
       size: fileBuffer.length,
     }
-  } catch (error) {
+  } catch (_error) {
     // Logo file doesn't exist, return null (logo will be optional)
     return null
   }
@@ -704,7 +709,7 @@ async function readLogoFile(): Promise<File | null> {
  */
 async function getOrCreateMediaFromURL({
   payload,
-  req,
+  req: _req,
   url,
   alt,
   filename,
@@ -714,7 +719,7 @@ async function getOrCreateMediaFromURL({
   url: string
   alt?: string
   filename?: string
-}): Promise<any> {
+}): Promise<Media | null> {
   // First, check if media with this source URL already exists
   // We store the source URL in the alt text for reference
   const existingMedia = await payload.find({

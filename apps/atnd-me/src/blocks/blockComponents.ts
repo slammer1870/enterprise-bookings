@@ -12,9 +12,9 @@ import { ScheduleBlock } from '@/blocks/Schedule/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
 import { ThreeColumnLayoutBlock } from '@repo/website/src/blocks/threeColumnLayout'
 
-// Export the block components registry
-// This maps block slugs (from block configs) to their React components
-export const blockComponents: Record<string, React.ComponentType<any> | ((props: any) => any)> = {
+// Export the block components registry — heterogeneous block props, so typed loosely
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const blockComponents: Record<string, React.ComponentType<any>> = {
   archive: ArchiveBlock,
   content: ContentBlock,
   cta: CallToActionBlock,

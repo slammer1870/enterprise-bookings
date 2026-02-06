@@ -1,4 +1,3 @@
-import type { Page } from '@playwright/test'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { Tenant, User, Lesson, ClassOption, Booking } from '@repo/shared-types'
@@ -405,12 +404,13 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     'Tenant Admin 1',
     ['tenant-admin']
   )
-  // Assign tenant-admin to tenant1
+  // Assign tenant-admin to tenant1 (tenants array + registrationTenant so status API can resolve tenant)
   await payload.update({
     collection: 'users',
     where: { email: { equals: tenantAdmin1.email } },
     data: {
       tenants: [{ tenant: tenant1.id }],
+      registrationTenant: tenant1.id,
     },
     overrideAccess: true,
   })
@@ -427,6 +427,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     where: { email: { equals: tenantAdmin2.email } },
     data: {
       tenants: [{ tenant: tenant2.id }],
+      registrationTenant: tenant2.id,
     },
     overrideAccess: true,
   })

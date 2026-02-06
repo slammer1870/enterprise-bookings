@@ -3,7 +3,6 @@ import { getPayload, type Payload, createLocalReq } from 'payload'
 import config from '@/payload.config'
 import type { User, Lesson, ClassOption, Tenant } from "@/payload-types"
 import { getLessons } from '@repo/bookings-plugin/src/data/lessons'
-import { getLessonsQuery } from '@repo/shared-utils'
 
 
 // Mock next/navigation redirect to prevent test failures
@@ -114,7 +113,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
           testTenant = verified as Tenant
           break
         }
-      } catch (error) {
+      } catch (_error) {
         retries++
         if (retries >= maxRetries) {
           throw new Error(`Test tenant ${testTenant.id} not found in database after ${maxRetries} retries`)

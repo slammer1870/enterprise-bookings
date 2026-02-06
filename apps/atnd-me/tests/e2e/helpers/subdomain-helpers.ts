@@ -57,7 +57,7 @@ export async function getTenantContext(page: Page): Promise<string | null> {
  */
 export async function createTenantContext(
   browser: BrowserContext,
-  tenantSlug?: string
+  _tenantSlug?: string
 ): Promise<BrowserContext> {
   // For localhost, we can use subdomain.localhost:3000 directly
   // Playwright will handle the host header correctly

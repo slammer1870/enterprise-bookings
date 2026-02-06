@@ -29,7 +29,7 @@ export function tenantScopedSlugField({
     },
     hooks: {
       beforeValidate: [
-        async ({ data, operation, req, value }) => {
+        async ({ data, operation, req: _req, value }) => {
           // Auto-generate slug from title if not provided
           if (operation === 'create' && !value && data?.[fieldToUse]) {
             const title = data[fieldToUse] as string

@@ -11,9 +11,7 @@ export function Modal({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsMounted(true)
-    // @ts-ignore
     if (!dialogRef.current?.open) {
-      // @ts-ignore
       dialogRef.current?.showModal()
     }
   }, [])

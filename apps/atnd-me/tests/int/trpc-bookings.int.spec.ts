@@ -109,7 +109,7 @@ describe('tRPC Bookings Integration Tests', () => {
           collection: 'lessons',
           where: { id: { equals: lesson.id } },
         })
-      } catch (e) {
+      } catch (_e) {
         // Ignore cleanup errors
       }
       try {
@@ -117,7 +117,7 @@ describe('tRPC Bookings Integration Tests', () => {
           collection: 'class-options',
           where: { id: { equals: classOption.id } },
         })
-      } catch (e) {
+      } catch (_e) {
         // Ignore cleanup errors
       }
       try {
@@ -125,7 +125,7 @@ describe('tRPC Bookings Integration Tests', () => {
           collection: 'users',
           where: { id: { equals: user.id } },
         })
-      } catch (e) {
+      } catch (_e) {
         // Ignore cleanup errors
       }
       await payload.db?.destroy?.()
@@ -1158,19 +1158,19 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       // Create 3 confirmed bookings with delays to ensure different createdAt timestamps
-      const booking1 = await caller.bookings.createBookings({
+      const _booking1 = await caller.bookings.createBookings({
         lessonId: testLesson.id,
         quantity: 1,
       })
       await new Promise(resolve => setTimeout(resolve, 100)) // Small delay
       
-      const booking2 = await caller.bookings.createBookings({
+      const _booking2 = await caller.bookings.createBookings({
         lessonId: testLesson.id,
         quantity: 1,
       })
       await new Promise(resolve => setTimeout(resolve, 100))
       
-      const booking3 = await caller.bookings.createBookings({
+      const _booking3 = await caller.bookings.createBookings({
         lessonId: testLesson.id,
         quantity: 1,
       })
@@ -1504,7 +1504,7 @@ describe('tRPC Bookings Integration Tests', () => {
           collection: 'users',
           where: { id: { equals: otherUser.id } },
         })
-      } catch (e) {
+      } catch (_e) {
         // Ignore cleanup errors
       }
     }, TEST_TIMEOUT)

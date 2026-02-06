@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
-import type { Tenant, ClassOption, Lesson, Page } from '@repo/shared-types'
+import type { Tenant, Lesson } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000 // 5 minutes
 const TEST_TIMEOUT = 60000 // 60 seconds
@@ -183,7 +183,7 @@ describe('Tenant Onboarding Hook', () => {
             })
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore cleanup errors
       }
     },
@@ -309,7 +309,7 @@ describe('Tenant Onboarding Hook', () => {
             overrideAccess: true,
           })
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore cleanup errors
       }
     },

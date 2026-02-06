@@ -18,17 +18,20 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
   
   // Tenant-admin can access their assigned tenants
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tenants = (user as any).tenants as Array<any>
+    const tenants = (user as unknown as Record<string, unknown>).tenants as Array<{ tenant?: number | { id: number }; id?: number } | number> | undefined
     if (!tenants) return []
     
-    // tenants can be an array of IDs, an array of tenant objects with 'id', or an array of objects with 'tenant' property
-    return tenants.map((tenant: any) => {
+    // tenants can be an array of IDs, an array of tenant objects with 'id', or an array of objects with 'tenant' / 'tenant_id' (join table)
+    return tenants.map((tenant: { tenant?: number | { id: number }; tenant_id?: number; id?: number } | number) => {
       if (typeof tenant === 'object' && tenant !== null) {
-        // Handle structure: { tenant: <id> }
+        // Handle structure: { tenant: <id> } or { tenant: { id } }
         if ('tenant' in tenant) {
           const tenantValue = tenant.tenant
           return typeof tenantValue === 'object' && tenantValue !== null ? tenantValue.id : tenantValue
+        }
+        // Handle join table shape: { tenant_id: <id> }
+        if ('tenant_id' in tenant && typeof tenant.tenant_id === 'number') {
+          return tenant.tenant_id
         }
         // Handle structure: { id: <id> }
         if ('id' in tenant) {
@@ -50,7 +53,7 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
  * - Tenant-admin: can only read documents from their assigned tenants
  * - Regular users: can read documents for booking purposes (public read)
  */
-export const tenantScopedRead: Access = ({ req: { user } }) => {
+export const tenantScopedRead: Access = ({ req: { user: _user } }) => {
   // Public read access (for booking pages, etc.)
   // This allows regular users to read lessons, class-options, etc. for booking
   return true
@@ -120,7 +123,7 @@ export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => 
  * - Tenant-admin: can only update documents from their assigned tenants
  * - Regular users: cannot update configuration documents
  */
-export const tenantScopedUpdate: Access = ({ req: { user }, id }) => {
+export const tenantScopedUpdate: Access = ({ req: { user }, id: _id }) => {
   if (!user) return false
   
   // Admin can update any document

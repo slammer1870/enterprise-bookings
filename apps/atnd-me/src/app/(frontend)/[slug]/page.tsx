@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { getPayload } from '@/lib/payload'
-import type { RequiredDataFromCollectionSlug } from 'payload'
+import type { RequiredDataFromCollectionSlug, Where } from 'payload'
 import { draftMode } from 'next/headers'
 import React, { cache } from 'react'
 import { homeStatic } from '@/endpoints/seed/home-static'
@@ -181,17 +181,11 @@ const queryPageBySlug = cache(async ({ slug }: { slug: string }) => {
   }
 
   // Build where clause with tenant filter if tenant context exists
-  const where: any = {
+  const where: Where = {
     slug: {
       equals: slug,
     },
-  }
-
-  // Add tenant filter if tenant context is set (from subdomain)
-  if (tenantId) {
-    where.tenant = {
-      equals: tenantId,
-    }
+    ...(tenantId ? { tenant: { equals: tenantId } } : {}),
   }
 
   const result = await payload.find({
