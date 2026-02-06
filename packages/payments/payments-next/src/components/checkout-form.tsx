@@ -20,12 +20,14 @@ import CardSkeleton from "./card-skeleton";
 
 import { useAnalyticsTracker } from "@repo/analytics";
 
-// Make sure to call loadStripe outside of a component's render to avoid
-// recreating the Stripe object on every render.
-// This is your test publishable API key.
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-);
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+function getStripePromise() {
+  if (stripePromise) return stripePromise;
+  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!key) return null;
+  stripePromise = loadStripe(key);
+  return stripePromise;
+}
 
 function PaymentForm({
   priceComponent,
@@ -193,14 +195,6 @@ export default function CheckoutForm({
     createCheckoutSession();
   }, [price, metadata]);
 
-  // Check if Stripe is properly configured
-  useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-      console.error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not configured");
-      setError("Payment system is not properly configured");
-    }
-  }, []);
-
   if (error) {
     return (
       <div className="p-4 border border-red-200 rounded-md bg-red-50">
@@ -216,11 +210,30 @@ export default function CheckoutForm({
   }
 
   if (isLoading || !clientSecret) {
-    return <CardSkeleton />;
+    return (
+      <div>
+        {priceComponent}
+        <CardSkeleton />
+      </div>
+    );
+  }
+
+  const stripe = getStripePromise();
+  if (!stripe) {
+    // If Stripe isn't configured (e.g. in local dev or E2E), still render the price breakdown.
+    // The PaymentIntent request above still runs (and can be asserted in tests).
+    return (
+      <div>
+        {priceComponent}
+        <div className="text-sm text-muted-foreground" data-testid="stripe-not-configured">
+          Payments are not available in this environment.
+        </div>
+      </div>
+    );
   }
 
   return (
-    <Elements stripe={stripePromise} options={{ appearance, clientSecret }}>
+    <Elements stripe={stripe} options={{ appearance, clientSecret }}>
       <PaymentForm priceComponent={priceComponent} price={price} />
     </Elements>
   );

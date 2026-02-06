@@ -67,7 +67,23 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       return (
         <div className="space-y-6">
           <BookingSummary lesson={lesson} />
-          <PaymentMethodsComponent lesson={lesson} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Quantity</CardTitle>
+              <CardDescription>
+                Choose how many slots you would like to book for this lesson
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <QuantitySelector
+                lesson={lesson}
+                quantity={quantity}
+                onQuantityChange={setQuantity}
+              />
+            </CardContent>
+          </Card>
+
+          <PaymentMethodsComponent lesson={lesson} quantity={quantity} />
         </div>
       )
     }

@@ -19,6 +19,7 @@ import config from '@/payload.config'
 import type { TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 import { TenantNotConnectedError } from '@/lib/stripe-connect/tenantStripe'
+import { calculateQuantityDiscount } from '@repo/shared-utils'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -56,6 +57,21 @@ describe('Payments Connect routing (step 2.7)', () => {
       overrideAccess: true,
     })
     disconnectedTenant = disconnected as TenantDoc
+
+    // Ensure platform-fees global exists with a deterministic drop-in percent for this suite.
+    await payload.updateGlobal({
+      slug: 'platform-fees',
+      data: {
+        defaults: {
+          dropInPercent: 10,
+          classPassPercent: 3,
+          subscriptionPercent: 4,
+        },
+        overrides: [],
+      },
+      depth: 0,
+      overrideAccess: true,
+    } as Parameters<typeof payload.updateGlobal>[0])
   }, HOOK_TIMEOUT)
 
   beforeEach(() => {
@@ -141,6 +157,41 @@ describe('Payments Connect routing (step 2.7)', () => {
         bookingId: 'bk_meta',
         classPriceAmount: '500',
         bookingFeeAmount: '25',
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'when productType+payload are passed, bookingFeeAmount is computed from PlatformFees (works with discounted totals)',
+    async () => {
+      // €10.00 x2 with 10% discount => €18.00 => 1800 cents
+      const discount = calculateQuantityDiscount(
+        10,
+        2,
+        [{ minQuantity: 2, discountPercent: 10, type: 'normal' }],
+      )
+      expect(discount.totalAmount).toBe(18)
+      const classPriceAmountCents = Math.round(discount.totalAmount * 100)
+      expect(classPriceAmountCents).toBe(1800)
+
+      await createTenantPaymentIntent({
+        tenant: connectedTenant,
+        classPriceAmount: classPriceAmountCents,
+        currency: 'eur',
+        productType: 'drop-in',
+        payload,
+        metadata: { tenantId: String(connectedTenant.id), bookingId: 'bk_discount_fee' },
+      })
+
+      expect(mockPaymentIntentsCreate).toHaveBeenCalledTimes(1)
+      const call = mockPaymentIntentsCreate.mock.calls[0]?.[0]
+      // PlatformFees defaults: dropInPercent=10 => fee=180 cents, total=1980 cents
+      expect(call?.application_fee_amount).toBe(180)
+      expect(call?.amount).toBe(1980)
+      expect(call?.metadata).toMatchObject({
+        classPriceAmount: '1800',
+        bookingFeeAmount: '180',
       })
     },
     TEST_TIMEOUT,

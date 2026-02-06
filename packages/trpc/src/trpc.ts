@@ -133,7 +133,7 @@ async function getRequestUser(ctx: Context) {
   // for apps that haven't enabled Better Auth yet.
   if (ctx.betterAuth?.api?.getSession) {
     const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
-    return session?.user ?? null;
+    if (session?.user) return session.user;
   }
 
   const auth = await ctx.payload.auth({

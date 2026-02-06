@@ -15,6 +15,19 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
 
   const { price, metadata } = await req.json();
 
+  // E2E/CI: avoid calling Stripe (network) and return a deterministic response.
+  // The UI only needs a clientSecret string to render; tests can still assert on request payloads.
+  if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+    return new Response(
+      JSON.stringify({
+        clientSecret: `pi_test_${Date.now()}_secret_test`,
+        amount: price,
+        metadata: metadata ?? {},
+      }),
+      { status: 200 }
+    );
+  }
+
   const userQuery = (await req.payload.findByID({
     collection: "users",
     id: user.id,

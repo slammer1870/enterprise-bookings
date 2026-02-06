@@ -230,16 +230,24 @@ export async function loginAsRegularUserViaApi(
   page: Page,
   email: string,
   password: string,
-  opts?: { baseURL?: string }
+  opts?: { baseURL?: string; request?: APIRequestContext }
 ): Promise<void> {
   const baseURL = opts?.baseURL ?? BASE_URL
-  const res = await page.request.post(`${baseURL}/api/auth/sign-in/email`, {
+  const apiRequest = opts?.request ?? page.request
+  const res = await apiRequest.post(`${baseURL}/api/auth/sign-in/email`, {
     data: { email: email.toLowerCase(), password },
     failOnStatusCode: false,
   })
   if (!res.ok()) {
     const text = await res.text().catch(() => '')
     throw new Error(`API sign-in failed: ${res.status()} ${text}`)
+  }
+
+  // Copy cookies from the request context into the browser context.
+  // Playwright's API request cookie jar is not guaranteed to sync to the page context automatically.
+  const state = await apiRequest.storageState()
+  if (state.cookies.length) {
+    await page.context().addCookies(state.cookies)
   }
 }
 

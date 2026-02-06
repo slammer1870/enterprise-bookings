@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { DropIn, Lesson } from "@repo/shared-types";
 import { usePayment } from "../../hooks/use-payment";
 
@@ -14,20 +15,54 @@ export const DropInView = ({
   metadata,
 }: {
   bookingStatus: Lesson["bookingStatus"];
-  dropIn: DropIn;
+  dropIn: DropIn | number;
   quantity?: number;
   metadata?: Record<string, string>;
 }) => {
-  // Add safety check for undefined dropIn
-  if (!dropIn) {
-    console.error("DropInView: dropIn is undefined");
+  const [dropInDoc, setDropInDoc] = useState<DropIn | null>(
+    dropIn && typeof dropIn === "object" ? (dropIn as DropIn) : null
+  );
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    if (!dropIn) return;
+    if (typeof dropIn === "object") {
+      setDropInDoc(dropIn as DropIn);
+      setLoadError(false);
+      return;
+    }
+    // `allowedDropIn` can arrive as an ID depending on Payload depth/maxDepth.
+    // Fetch the full doc so we can render pricing + discount tiers.
+    let cancelled = false;
+    setDropInDoc(null);
+    setLoadError(false);
+    fetch(`/api/drop-ins/${dropIn}`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("drop-in fetch failed"))))
+      .then((data) => {
+        if (cancelled) return;
+        setDropInDoc(data as DropIn);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dropIn]);
+
+  if (!dropIn || loadError) {
     return <div>Drop-in payment option is not available</div>;
   }
 
+  if (!dropInDoc) {
+    return <div>Loading drop-in payment option…</div>;
+  }
+
   const { price } = usePayment({
-    basePrice: dropIn.price,
-    discountTiers: dropIn.discountTiers || [],
-    paymentMethods: dropIn.paymentMethods || [],
+    basePrice: dropInDoc.price,
+    discountTiers: dropInDoc.discountTiers || [],
+    paymentMethods: dropInDoc.paymentMethods || [],
     trialable: bookingStatus === "trialable" ? true : false,
     quantity: quantity || 1,
   });
