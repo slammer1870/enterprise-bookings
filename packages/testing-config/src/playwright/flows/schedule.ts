@@ -39,7 +39,8 @@ export async function goToTomorrowInSchedule(page: Page): Promise<Date> {
 
   // Right arrow is the sibling immediately after the date <p> in ToggleDate.
   // Don't rely on path#Polygon_3 — it can be stripped or duplicated in builds.
-  const rightArrow = p.locator('#schedule p.text-lg + svg')
+  // Scope to the specific date label we already found to avoid strict-mode collisions.
+  const rightArrow = dateLabel.locator('xpath=following-sibling::*[name()="svg"][1]')
   await expect(rightArrow).toBeVisible({ timeout: 10000 })
 
   for (let i = 0; i < 10; i++) {

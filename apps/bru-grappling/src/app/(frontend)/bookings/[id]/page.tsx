@@ -71,20 +71,26 @@ export default async function BookingPage({ params }: BookingPageProps) {
     redirect('/dashboard')
   }
 
-  // Attempt check-in if lesson status allows it (using tRPC procedure)
-  const caller = await createCaller()
-  const checkInResult = await caller.bookings.validateAndAttemptCheckIn({
-    lessonId: id,
-  })
+  // Attempt check-in if the viewer already has entitlement (e.g. active subscription).
+  // If the viewer does NOT have entitlement, this must *not* crash the page — we should fall
+  // through and render the payment methods UI so they can complete checkout.
+  try {
+    const caller = await createCaller()
+    const checkInResult = await caller.bookings.validateAndAttemptCheckIn({
+      lessonId: id,
+    })
 
-  // Handle redirects based on check-in result
-  if (checkInResult.shouldRedirect) {
-    redirect('/dashboard')
-  }
+    // Handle redirects based on check-in result
+    if (checkInResult.shouldRedirect) {
+      redirect('/dashboard')
+    }
 
-  // Handle special redirect cases
-  if (checkInResult.error === 'REDIRECT_TO_CHILDREN_BOOKING' && checkInResult.redirectUrl) {
-    redirect(checkInResult.redirectUrl)
+    // Handle special redirect cases
+    if (checkInResult.error === 'REDIRECT_TO_CHILDREN_BOOKING' && checkInResult.redirectUrl) {
+      redirect(checkInResult.redirectUrl)
+    }
+  } catch {
+    // ignore and continue to payment UI
   }
 
   return (

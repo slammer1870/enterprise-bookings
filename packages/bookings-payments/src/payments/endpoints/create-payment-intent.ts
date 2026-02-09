@@ -18,9 +18,12 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
   // E2E/CI: avoid calling Stripe (network) and return a deterministic response.
   // The UI only needs a clientSecret string to render; tests can still assert on request payloads.
   if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+    // IMPORTANT: Stripe Elements validates the client secret format.
+    // It must look like `pi_<id>_secret_<secret>` (and NOT `pi_test_*`), otherwise Stripe.js throws
+    // an IntegrationError and the page crashes (breaking E2E).
     return new Response(
       JSON.stringify({
-        clientSecret: `pi_test_${Date.now()}_secret_test`,
+        clientSecret: `pi_${Date.now()}_secret_test`,
         amount: price,
         metadata: metadata ?? {},
       }),

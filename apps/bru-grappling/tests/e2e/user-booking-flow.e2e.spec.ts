@@ -692,49 +692,90 @@ test.describe('User booking flow from schedule', () => {
     // Navigate to the lesson card container (parent of the details div)
     const lessonCardForCancel = classNameElementForCancel.locator('../..').first()
 
-    // Within this specific lesson card, find the "Cancel Booking" button
-    const cancelButton = lessonCardForCancel
-      .getByRole('button', { name: /Cancel Booking/i })
+    // With the schedule view model, a single booking can show "Modify Booking" (manage quantity)
+    // rather than "Cancel Booking". Cancel is available from the manage page.
+    const modifyButton = lessonCardForCancel
+      .getByRole('button', { name: /Modify Booking/i })
       .first()
-    await expect(cancelButton).toBeVisible({ timeout: 20000 })
-    // Ensure button is actionable (critical for UI mode)
-    await expect(cancelButton)
+    await expect(modifyButton).toBeVisible({ timeout: 20000 })
+    await expect(modifyButton)
       .toBeEnabled({ timeout: 10000 })
-      .catch(() => {
-        return page.waitForTimeout(1000)
-      })
-    await cancelButton.click()
+      .catch(() => page.waitForTimeout(1000))
 
-    // Cancel UX can vary (dialog confirm vs immediate cancel). Handle both:
-    // - If auth is missing, the app may open a login modal — fail fast.
-    const loginDialog = page.getByRole('dialog').filter({ hasText: /Log in to your account/i })
-    await expect(loginDialog).not.toBeVisible({ timeout: 20000 })
+    await Promise.all([
+      page.waitForURL(/\/bookings\/\d+\/manage/, { timeout: 30000 }),
+      modifyButton.click(),
+    ])
 
-    const confirmDialog = page.getByRole('dialog').filter({ hasText: /Are you sure you want to cancel/i })
+    // Manage page should render quantity + per-booking list.
+    await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({ timeout: 30000 })
+    const yourBookingsTitle = page.getByText(/^Your Bookings$/i).first()
+    await expect(yourBookingsTitle).toBeVisible({ timeout: 30000 })
+
+    const yourBookingsCard = page
+      .getByText(/^Your Bookings$/i)
+      .locator('..')
+      .locator('..')
+
+    const cancelBtnInManage = yourBookingsCard.getByRole('button', { name: /^Cancel$/i }).first()
+    await expect(cancelBtnInManage).toBeVisible({ timeout: 30000 })
+    await expect(cancelBtnInManage).toBeEnabled({ timeout: 10000 }).catch(() => page.waitForTimeout(1000))
+    await cancelBtnInManage.click()
+
+    // Confirm dialog (ManageBookingPage uses useConfirm)
+    const confirmDialog = page.getByRole('dialog').filter({ hasText: /are you sure/i })
     const dialogVisible = await confirmDialog.isVisible({ timeout: 1500 }).catch(() => false)
     if (dialogVisible) {
       const confirmButton = confirmDialog.getByRole('button', { name: /^Confirm$/i })
       await expect(confirmButton).toBeVisible({ timeout: 20000 })
-      await expect(confirmButton)
-        .toBeEnabled({ timeout: 10000 })
-        .catch(() => page.waitForTimeout(1000))
-      await confirmButton.click()
+      await expect(confirmButton).toBeEnabled({ timeout: 10000 }).catch(() => page.waitForTimeout(1000))
+      // Best-effort: capture the cancel mutation request.
+      // (We synchronize deterministically on UI state below; network matching can vary by batching/encoding.)
+      const cancelBookingRequest = page
+        .waitForRequest(
+          (req) => {
+            if (req.method() !== 'POST') return false
+            const url = req.url()
+            if (!url.includes('/api/trpc')) return false
+            const body = req.postData() ?? ''
+            return url.includes('bookings.cancelBooking') || body.includes('bookings.cancelBooking')
+          },
+          { timeout: 15000 },
+        )
+        .catch(() => null)
+
+      await Promise.all([confirmButton.click(), cancelBookingRequest]).then(async ([, req]) => {
+        await req?.response().catch(() => { })
+      })
     }
 
-    // Wait for UI to reflect cancellation on the same lesson card.
-    // With the new schedule viewmodel, the button should flip back to Book quickly.
-    const successToast = page
-      .locator('text=/booking cancelled|cancelled/i')
+    // Wait for cancellation to actually apply in the manage UI.
+    // After cancelling the only confirmed booking, there should be no "Cancel" buttons left.
+    await expect(
+      yourBookingsCard.getByRole('button', { name: /^Cancel$/i }),
+    ).toHaveCount(0, { timeout: 30000 })
+
+    // Navigate back to dashboard and verify the lesson becomes bookable again.
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 20000 })
+    // Reload so the schedule refetches; otherwise cached state can still show "Modify Booking".
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+    await expect(page.getByText(/Welcome/i).first()).toBeVisible({ timeout: 15000 })
+    await goToTomorrowInSchedule(page)
+
+    // Re-find the lesson card on the schedule (fresh DOM after reload).
+    const lessonCardAfterCancel = page
+      .locator('#schedule')
       .first()
-    await successToast.isVisible({ timeout: 10000 }).catch(() => { })
+      .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
+      .first()
+      .locator('../..')
+      .first()
 
-    const cancelButtonAfter = lessonCardForCancel.getByRole('button', { name: /Cancel Booking/i }).first()
-    await expect(cancelButtonAfter).not.toBeVisible({ timeout: 20000 }).catch(() => { })
-
-    const bookButtonAfter = lessonCardForCancel
+    const bookButtonAfter = lessonCardAfterCancel
       .getByRole('button', { name: /^(Book|Check In)$/i })
       .first()
-    await expect(bookButtonAfter).toBeVisible({ timeout: 20000 })
+    await expect(bookButtonAfter).toBeVisible({ timeout: 30000 })
 
     await clearTestMagicLinks(page.context().request, email).catch(() => { })
   })
@@ -742,6 +783,15 @@ test.describe('User booking flow from schedule', () => {
   test('drop-in lesson: after check-in + register/login redirects to /bookings/{id} and shows Drop-in payment element', async ({
     page,
   }) => {
+    // Capture client-side exceptions to make failures actionable.
+    const clientErrors: string[] = []
+    page.on('pageerror', (err) => {
+      clientErrors.push(`pageerror: ${err?.message ?? String(err)}\n${err?.stack ?? ''}`.trim())
+    })
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') clientErrors.push(`console.error: ${msg.text()}`)
+    })
+
     // Admin phase: ensure prerequisites
     await ensureAdminLoggedIn(page)
     await ensureHomePageWithSchedule(page)
@@ -857,6 +907,17 @@ test.describe('User booking flow from schedule', () => {
 
     // Booking page should include the payment methods UI + Drop-in tab.
     // In CI/prod builds this can take a bit longer to hydrate.
+    const appErrorHeading = page.getByRole('heading', { name: /Application error/i }).first()
+    const hasAppError = await appErrorHeading.isVisible({ timeout: 2000 }).catch(() => false)
+    if (hasAppError) {
+      throw new Error(
+        [
+          'Booking page crashed with a client-side exception.',
+          clientErrors.length ? `Captured errors:\n${clientErrors.join('\n\n')}` : '(no console/page errors captured)',
+        ].join('\n\n'),
+      )
+    }
+
     await expect(page.getByRole('heading', { name: /Payment Methods/i }).first()).toBeVisible({
       timeout: process.env.CI ? 60000 : 30000,
     })
