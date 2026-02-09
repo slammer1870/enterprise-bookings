@@ -132,16 +132,24 @@ async function getRequestUser(ctx: Context) {
   // Prefer Better Auth session (used by magic-link flow). Fall back to Payload auth
   // for apps that haven't enabled Better Auth yet.
   if (ctx.betterAuth?.api?.getSession) {
-    const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
-    if (session?.user) return session.user;
+    try {
+      const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+      if (session?.user) return session.user;
+    } catch {
+      // If Better Auth fails for any reason, fall back to Payload auth.
+    }
   }
 
-  const auth = await ctx.payload.auth({
-    headers: ctx.headers,
-    canSetHeaders: false,
-  });
-
-  return auth.user ?? null;
+  try {
+    const auth = await ctx.payload.auth({
+      headers: ctx.headers,
+      canSetHeaders: false,
+    });
+    return auth.user ?? null;
+  } catch {
+    // Some Payload setups throw (e.g. "No User") instead of returning { user: null }.
+    return null;
+  }
 }
 
 /**
@@ -167,6 +175,24 @@ export const protectedProcedure = publicProcedure.use(async (opts) => {
     ctx: {
       ...ctx,
       user,
+    },
+  });
+});
+
+/**
+ * Optional-user procedure.
+ *
+ * Adds `ctx.user` when present, but does NOT throw when unauthenticated.
+ * Useful for queries that can render a safe fallback for logged-out users.
+ */
+export const optionalUserProcedure = publicProcedure.use(async (opts) => {
+  const { ctx } = opts;
+  const user = await getRequestUser(ctx);
+
+  return opts.next({
+    ctx: {
+      ...ctx,
+      user: user ?? null,
     },
   });
 });

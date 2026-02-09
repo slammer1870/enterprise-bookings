@@ -2,7 +2,7 @@ import type { CollectionBeforeChangeHook } from 'payload'
 
 /**
  * Step 2.6.1 – Server enforcement: payment methods require Stripe Connect.
- * Rejects updates that set any payment method (allowedDropIn, allowedPlans, allowedClassPasses)
+ * Rejects updates that set Stripe-backed payment methods (allowedDropIn, allowedPlans, allowedClassPasses)
  * when the class-option's tenant has stripeConnectOnboardingStatus !== 'active'.
  */
 function hasAnyPaymentMethod(pm: Record<string, unknown> | null | undefined): boolean {

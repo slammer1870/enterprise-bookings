@@ -62,29 +62,36 @@ const nextConfig = {
 
 const payloadWrapped = withPayload(nextConfig, { devBundleServerPackages: true })
 
-export default withSentryConfig(payloadWrapped, {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
+// Build-time Sentry webpack plugin (source map upload) is optional and can be disabled.
+// This also prevents local/E2E builds from invoking native Sentry tooling.
+const enableSentryWebpack =
+  process.env.DISABLE_SENTRY !== 'true' && Boolean(process.env.SENTRY_AUTH_TOKEN)
 
-  org: 'atnd',
-  project: 'javascript-nextjs',
+export default enableSentryWebpack
+  ? withSentryConfig(payloadWrapped, {
+      // For all available options, see:
+      // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
+      org: 'atnd',
+      project: 'javascript-nextjs',
 
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+      // Only print logs for uploading source maps in CI
+      silent: !process.env.CI,
 
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
-  widenClientFileUpload: true,
+      // For all available options, see:
+      // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
 
-  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  tunnelRoute: '/monitoring',
+      // Upload a larger set of source maps for prettier stack traces (increases build time)
+      widenClientFileUpload: true,
 
-  webpack: {
-    automaticVercelMonitors: true,
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
-})
+      // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
+      tunnelRoute: '/monitoring',
+
+      webpack: {
+        automaticVercelMonitors: true,
+        treeshake: {
+          removeDebugLogging: true,
+        },
+      },
+    })
+  : payloadWrapped

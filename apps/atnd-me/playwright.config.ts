@@ -2,10 +2,13 @@ import 'dotenv/config'
 
 import { defineConfig, devices } from '@playwright/test'
 
-// Ensure all Playwright workers inherit this env flag.
+// Ensure all Playwright workers inherit these env flags.
 // Payload's drizzle adapter will attempt schema push in-process unless this is set,
 // which can collide with the already-migrated test DB (e.g. enum type already exists).
 process.env.PW_E2E_PROFILE ??= 'true'
+// Skip expensive default tenant data creation (class options, pages, lessons, etc.)
+// during test setup to avoid timeouts.
+process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA ??= 'true'
 
 // Use production build for e2e tests (faster, more stable, cacheable by Turbo)
 const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
@@ -44,6 +47,7 @@ export default defineConfig({
           NODE_ENV: 'production',
           NODE_OPTIONS: '--no-deprecation',
           PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+          PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
         },
       }
     : {
@@ -61,6 +65,7 @@ export default defineConfig({
           ENABLE_TEST_MAGIC_LINKS: 'true',
           ENABLE_TEST_WEBHOOKS: 'true',
           PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+          PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
         },
       },
 })

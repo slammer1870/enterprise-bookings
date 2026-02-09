@@ -7,13 +7,11 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsTenantAdmin, BASE_URL } from './helpers/auth-helpers'
-import { createTestClassOption } from './helpers/data-helpers'
+import { createTestClassOption, getPayloadInstance } from './helpers/data-helpers'
 
 test.describe('Stripe Connect onboarding (tenant-admin)', () => {
   test('tenant-admin sees "Connect Stripe" when not connected', async ({ page, testData, request }) => {
-    const { getPayload } = await import('payload')
-    const configMod = await import('@/payload.config')
-    const payload = await getPayload({ config: await configMod.default })
+    const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     await payload.update({
       collection: 'tenants',
@@ -41,9 +39,7 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
   })
 
   test('clicking "Connect Stripe" redirects to Stripe OAuth', async ({ page, testData, request }) => {
-    const { getPayload } = await import('payload')
-    const configMod = await import('@/payload.config')
-    const payload = await getPayload({ config: await configMod.default })
+    const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     await payload.update({
       collection: 'tenants',
@@ -89,10 +85,7 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
     testData,
     request,
   }) => {
-    const { getPayload } = await import('payload')
-    const configMod = await import('@/payload.config')
-    const payloadConfig = await configMod.default
-    const payload = await getPayload({ config: payloadConfig })
+    const payload = await getPayloadInstance()
     const tenant1 = testData.tenants[0]!
     await payload.update({
       collection: 'tenants',

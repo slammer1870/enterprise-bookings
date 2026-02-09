@@ -559,6 +559,28 @@ export const lessonsRouter = {
           const isTrialable =
             classOption?.paymentMethods?.allowedDropIn?.discountTiers?.some?.((t: any) => t?.type === "trial") ??
             false;
+          const hasPaymentMethods = Boolean(
+            classOption?.paymentMethods?.allowedDropIn ||
+              (Array.isArray(classOption?.paymentMethods?.allowedPlans) &&
+                classOption.paymentMethods.allowedPlans.length > 0)
+          );
+
+          const dropInAllowsMultiple =
+            classOption?.paymentMethods?.allowedDropIn?.allowMultipleBookingsPerLesson === true;
+
+          const planAllowsMultiple = Array.isArray(classOption?.paymentMethods?.allowedPlans)
+            ? classOption.paymentMethods.allowedPlans.some((p: any) => {
+                // Only opt-in to multi-booking for plans that explicitly allow it.
+                // (Safer default: existing apps expecting single-slot bookings keep "Cancel Booking".)
+                const si = p?.sessionsInformation;
+                return si?.allowMultipleBookingsPerLesson === true;
+              })
+            : false;
+
+          // If there are no payment methods, the flow is "no payment" and multi-booking is allowed
+          // by capacity/booking rules. If there are payment methods, only show "Modify" when at
+          // least one method supports multiple bookings per lesson.
+          const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
 
           if (availability === "closed") {
             scheduleState.action = "closed";
@@ -573,8 +595,14 @@ export const lessonsRouter = {
             scheduleState.action = "modify";
             scheduleState.label = "Modify Booking";
           } else if (viewerConfirmedCount === 1) {
-            scheduleState.action = "cancel";
-            scheduleState.label = "Cancel Booking";
+            const canIncreaseQuantity = availability === "open" && remainingCapacity > 0 && allowsMultipleBookingsForViewer;
+            if (canIncreaseQuantity) {
+              scheduleState.action = "modify";
+              scheduleState.label = "Modify Booking";
+            } else {
+              scheduleState.action = "cancel";
+              scheduleState.label = "Cancel Booking";
+            }
           } else if (viewerWaitingCount > 0) {
             scheduleState.action = "leaveWaitlist";
             scheduleState.label = "Leave Waitlist";

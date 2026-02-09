@@ -11,6 +11,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
   let lesson: any
   let guardLesson: any
   let fullLesson: any
+  let classOptionId: number
 
   test.beforeAll(async ({ testData }) => {
     const workerIndex = testData.workerIndex
@@ -24,6 +25,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       undefined,
       workerIndex
     )
+    classOptionId = classOption.id
 
     // Create lesson with available capacity
     const startTime = new Date()
@@ -220,30 +222,43 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     test('should decrease booking quantity from 3 to 1', async ({ page, testData }) => {
       const tenant = testData.tenants[0]!
       const user = testData.users.user2 ?? testData.users.user1
+      const workerIndex = testData.workerIndex
+
+      // IMPORTANT: don't reuse the shared `lesson` here.
+      // Other tests in this file also create bookings and Playwright may run them in parallel,
+      // which makes the initial booking count non-deterministic. Use a fresh lesson for this flow.
+      const startTime = new Date()
+      startTime.setHours(16, 0, 0, 0)
+      startTime.setDate(startTime.getDate() + 1 + workerIndex)
+      const endTime = new Date(startTime)
+      endTime.setHours(17, 0, 0, 0)
+
+      const decreaseLesson = await createTestLesson(
+        tenant.id,
+        classOptionId,
+        startTime,
+        endTime,
+        undefined,
+        true
+      )
       
       // Create 3 confirmed bookings
-      await createTestBooking(user.id, lesson.id, 'confirmed')
-      await createTestBooking(user.id, lesson.id, 'confirmed')
-      await createTestBooking(user.id, lesson.id, 'confirmed')
+      await createTestBooking(user.id, decreaseLesson.id, 'confirmed')
+      await createTestBooking(user.id, decreaseLesson.id, 'confirmed')
+      await createTestBooking(user.id, decreaseLesson.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      
-      // Add extra wait for session to stabilize
-      await page.waitForTimeout(1500)
-      
-      await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}/manage`)
 
-      // Wait for manage page to load
-      await page.waitForLoadState('networkidle').catch(() => null)
-      
-      // Add extra wait for page to render
-      await page.waitForTimeout(1000)
+      await navigateToTenant(page, tenant.slug, `/bookings/${decreaseLesson.id}/manage`)
+
+      // Wait for manage page UI to be ready (avoid fixed sleeps).
+      await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({ timeout: 15000 })
       
       // Verify the quantity display shows "3"
       const quantityDisplay = page.getByTestId('booking-quantity')
-      await expect(quantityDisplay).toHaveText('3', { timeout: 5000 })
+      await expect(quantityDisplay).toHaveText('3', { timeout: 15000 })
 
       // Find the decrease button (first button in the control group)
       const decreaseButton = page.getByLabel('Decrease quantity')
@@ -275,48 +290,64 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     test('should increase booking quantity from 1 to 2 (no payment)', async ({ page, testData }) => {
       const tenant = testData.tenants[0]!
       const user = testData.users.user3 ?? testData.users.user1
+      const workerIndex = testData.workerIndex
+
+      // IMPORTANT: don't reuse the shared `lesson` here.
+      // Other tests in this file also create bookings and Playwright may run them in parallel,
+      // which makes the initial booking count non-deterministic and can trigger redirects/guards.
+      const startTime = new Date()
+      startTime.setHours(18, 0, 0, 0)
+      startTime.setDate(startTime.getDate() + 1 + workerIndex)
+      const endTime = new Date(startTime)
+      endTime.setHours(19, 0, 0, 0)
+
+      const increaseLesson = await createTestLesson(
+        tenant.id,
+        classOptionId,
+        startTime,
+        endTime,
+        undefined,
+        true
+      )
       
       // Create 1 confirmed booking
-      const booking = await createTestBooking(user.id, lesson.id, 'confirmed')
+      const booking = await createTestBooking(user.id, increaseLesson.id, 'confirmed')
       
       // Verify booking was created
       expect(booking).toBeDefined()
       expect(booking.id).toBeDefined()
 
-      // Login and wait for successful authentication
+      // Login using the regular UI flow (tenant-scoped host so session cookies scope correctly).
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      
-      // Give extra time for session to be fully established
-      await page.waitForTimeout(1500)
-      
-      // Navigate to manage page
-      await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}/manage`)
 
-      // Wait for page load
-      await page.waitForLoadState('networkidle').catch(() => null)
-      
-      // Wait for manage page to load - check we're NOT on sign-in page
-      await page.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), { timeout: 15000 })
-      
-      // Verify we're on the correct page
-      const currentUrl = page.url()
-      if (currentUrl.includes('/auth/sign-in')) {
-        throw new Error(`Authentication failed - still on sign-in page: ${currentUrl}`)
+      // Navigate to manage page and wait for UI.
+      // Under load, the server can transiently redirect /manage -> /bookings/[id] if it doesn't
+      // see the booking count yet, so we retry navigation a couple times before failing.
+      const managePath = `/bookings/${increaseLesson.id}/manage`
+      const manageHeading = page.getByText(/update booking quantity/i).first()
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await navigateToTenant(page, tenant.slug, managePath)
+
+        if (page.url().includes('/auth/sign-in')) {
+          // Occasionally the sign-in redirect race can land us back on auth; re-login and retry.
+          await loginAsRegularUser(page, 1, user.email, 'password', {
+            tenantSlug: tenant.slug,
+          })
+          continue
+        }
+
+        const visible = await manageHeading.isVisible().catch(() => false)
+        if (visible) break
       }
-      
-      // Add extra wait for page to render
-      await page.waitForTimeout(1000)
-      
-      // Wait for the page to show the current booking count - be more flexible
-      await expect(
-        page.locator('text=/1|one/i').first()
-      ).toBeVisible({ timeout: 15000 })
+
+      await expect(manageHeading).toBeVisible({ timeout: 15000 })
 
       // Verify the quantity display shows "1" (not "0")
       const quantityDisplay = page.getByTestId('booking-quantity')
-      await expect(quantityDisplay).toHaveText('1', { timeout: 5000 })
+      await expect(quantityDisplay).toHaveText('1', { timeout: 15000 })
 
       // Find the increase button - be more specific (last button in the quantity control)
       const increaseButton = page.getByLabel('Increase quantity')

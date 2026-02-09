@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { protectedProcedure, requireCollections } from "../trpc";
+import { optionalUserProcedure, protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe } from "../utils/collections";
 
 import { Subscription, Lesson, Plan } from "@repo/shared-types";
@@ -160,7 +160,7 @@ export const subscriptionsRouter = {
 
       return false;
     }),
-  getSubscriptionForLesson: protectedProcedure
+  getSubscriptionForLesson: optionalUserProcedure
     .use(requireCollections("lessons", "subscriptions"))
     .input(
       z.object({
@@ -169,6 +169,14 @@ export const subscriptionsRouter = {
     )
     .query(async ({ ctx, input }) => {
       const { user, payload } = ctx;
+
+      // Logged out (or session missing): safe fallback so payment UI can still render.
+      if (!user) {
+        return {
+          subscription: null,
+          subscriptionLimitReached: false,
+        };
+      }
 
       // Get the lesson to check allowed plans
       const lesson = await findByIdSafe<Lesson>(

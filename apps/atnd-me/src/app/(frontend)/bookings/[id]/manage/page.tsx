@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
 import { ManageBookingPageClient } from '@repo/bookings-next'
-import { PaymentMethods } from '@repo/payments-next'
+import { PaymentMethodsConnect } from '@/components/payments/PaymentMethodsConnect.client'
 
 // Uses getSession()/headers() and createCaller(); must be dynamic in production (avoids DYNAMIC_SERVER_USAGE in E2E).
 export const dynamic = 'force-dynamic'
@@ -51,7 +51,8 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
             <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
                 <ManageBookingPageClient
                     lesson={lesson}
-                    PaymentMethodsComponent={PaymentMethods}
+                    initialBookings={userBookings}
+                    PaymentMethodsComponent={PaymentMethodsConnect}
                 />
             </div>
         )

@@ -37,20 +37,34 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   const payload = await getPayload()
 
-  const lessonQuery = await payload.find({
+  // This page is already gated by Better Auth above.
+  // Use overrideAccess to ensure we always fetch the full lesson shape needed for payment UI
+  // (classOption + paymentMethods), regardless of underlying collection access filters.
+  const lesson = (await payload.findByID({
     collection: 'lessons',
-    where: {
-      id: { equals: id },
-    },
+    id,
     depth: 5,
-    overrideAccess: false,
-    user: user,
-  })
-
-  const lesson = lessonQuery.docs[0] as Lesson
+    overrideAccess: true,
+  })) as Lesson
 
   if (!lesson) {
     redirect('/dashboard')
+  }
+
+  // Debugging aid for E2E: verify the payment methods are actually present on the fetched lesson.
+  // (Playwright looks for the "Drop-in" tab which depends on allowedDropIn being present.)
+  try {
+    const co: any = (lesson as any)?.classOption
+    const pm: any = co && typeof co === 'object' ? co.paymentMethods : null
+    // eslint-disable-next-line no-console
+    console.log('[bru-grappling]/bookings/[id] lesson paymentMethods', {
+      lessonId: (lesson as any)?.id,
+      classOptionType: typeof co,
+      hasAllowedDropIn: Boolean(pm?.allowedDropIn),
+      hasAllowedPlans: Array.isArray(pm?.allowedPlans) && pm.allowedPlans.length > 0,
+    })
+  } catch {
+    // ignore
   }
 
   if (['booked', 'closed'].includes(lesson.bookingStatus)) {

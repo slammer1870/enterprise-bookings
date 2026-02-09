@@ -22,6 +22,15 @@ import { format } from 'date-fns'
 interface ManageBookingPageClientProps {
   lesson: Lesson
   /**
+   * Optional initial bookings for this lesson that belong to the current user.
+   *
+   * IMPORTANT: Do not derive this from `lesson.bookings.docs` unless you are 100% sure
+   * the lesson was fetched with access controls enforced. In some server paths we fetch
+   * lessons with `overrideAccess: true` for multi-tenant compatibility, which can cause
+   * joins like `lesson.bookings` to include other users' bookings.
+   */
+  initialBookings?: Booking[]
+  /**
    * Optional component to render when payment is required for additional bookings.
    * Should handle payment method selection (membership, drop-in, etc.)
    * 
@@ -56,6 +65,7 @@ interface ManageBookingPageClientProps {
  */
 export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = ({
   lesson,
+  initialBookings,
   PaymentMethodsComponent,
 }) => {
   const trpc = useTRPC()
@@ -68,9 +78,16 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   )
 
   // Fetch user's bookings for this lesson
-  const { data: bookings, isLoading } = useQuery(
-    trpc.bookings.getUserBookingsForLesson.queryOptions({ lessonId: lesson.id })
-  )
+  const { data: bookings, isLoading } = useQuery({
+    ...trpc.bookings.getUserBookingsForLesson.queryOptions({ lessonId: lesson.id }),
+    // Only ever hydrate with user-scoped bookings passed from the server.
+    // Never trust `lesson.bookings.docs` here because it can include other users'
+    // bookings when lessons are fetched with elevated access for tenant routing.
+    initialData: initialBookings,
+    // Keep it "fresh" long enough that the page renders immediately without a spinner,
+    // but still allows eventual background refetches for correctness.
+    staleTime: 30_000,
+  })
 
   const activeBookings = useMemo(
     () => (bookings || []).filter((b) => String(b.status).toLowerCase() !== 'cancelled'),

@@ -37,9 +37,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
     })
   )
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const handleBook = async () => {
     if (quantity < 1 || quantity > lesson.remainingCapacity) {
       toast.error('Invalid quantity selected')
       return
@@ -57,7 +55,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
         <div>
           <p className="font-medium">Total Slots</p>
@@ -74,7 +72,8 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       </div>
 
       <Button
-        type="submit"
+        type="button"
+        onClick={handleBook}
         disabled={isLoading || quantity < 1 || quantity > lesson.remainingCapacity}
         className="w-full"
       >
@@ -87,6 +86,6 @@ export const BookingForm: React.FC<BookingFormProps> = ({
           `Book ${quantity} Slot${quantity !== 1 ? 's' : ''}`
         )}
       </Button>
-    </form>
+    </div>
   )
 }

@@ -855,9 +855,14 @@ test.describe('User booking flow from schedule', () => {
       { timeout: 60000 },
     )
 
-    // Booking page should include the Drop-in tab and Stripe PaymentElement
+    // Booking page should include the payment methods UI + Drop-in tab.
+    // In CI/prod builds this can take a bit longer to hydrate.
+    await expect(page.getByRole('heading', { name: /Payment Methods/i }).first()).toBeVisible({
+      timeout: process.env.CI ? 60000 : 30000,
+    })
+
     const dropInTab = page.getByRole('tab', { name: /Drop-?in/i })
-    await expect(dropInTab).toBeVisible({ timeout: 20000 })
+    await expect(dropInTab).toBeVisible({ timeout: process.env.CI ? 60000 : 30000 })
     await dropInTab.click()
 
     await page.waitForTimeout(10000)

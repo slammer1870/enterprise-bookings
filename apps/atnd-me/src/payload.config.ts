@@ -75,6 +75,11 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
+      // E2E/CI runs start multiple Node processes (Next server + Playwright workers + Payload local API).
+      // Increased from 2 to 5 to prevent connection pool exhaustion and deadlocks during E2E tests.
+      ...(disableSchemaPush || process.env.CI || process.env.NODE_ENV === 'test'
+        ? { max: 5 }
+        : {}),
     },
     ...(disableSchemaPush
       ? {

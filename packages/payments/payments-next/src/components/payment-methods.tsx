@@ -2,7 +2,7 @@
 
 import { Lesson, Booking, DropIn } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
-import { useSuspenseQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   Tabs,
@@ -22,6 +22,11 @@ type PaymentMethodsProps = {
   pendingBookings?: Booking[];
   /** Callback when payment succeeds (e.g. to refresh manage page) */
   onPaymentSuccess?: () => void;
+  /**
+   * Override the server endpoint used to create a PaymentIntent (drop-ins).
+   * Defaults to the bookings-payments plugin endpoint served via Payload's API.
+   */
+  createPaymentIntentUrl?: string;
 };
 
 /**
@@ -61,6 +66,7 @@ export function PaymentMethods({
   quantity: quantityProp,
   pendingBookings,
   onPaymentSuccess: _onPaymentSuccess,
+  createPaymentIntentUrl,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -68,13 +74,14 @@ export function PaymentMethods({
   const quantity = pendingBookings?.length ?? quantityProp ?? 1;
 
   // Get subscription data for this lesson using tRPC
-  const { data: subscriptionData } = useSuspenseQuery(
+  const { data: subscriptionData } = useQuery(
     trpc.subscriptions.getSubscriptionForLesson.queryOptions({
       lessonId: lesson.id,
     })
   );
 
-  const { subscription, subscriptionLimitReached } = subscriptionData;
+  const subscription = subscriptionData?.subscription ?? null;
+  const subscriptionLimitReached = subscriptionData?.subscriptionLimitReached ?? false;
 
   // Create checkout session mutation for plans
   const { mutateAsync: createCheckoutSession } = useMutation(
@@ -248,12 +255,14 @@ export function PaymentMethods({
                 bookingStatus={lesson.bookingStatus}
                 dropIn={allowedDropIn as DropIn}
                 quantity={quantity}
+                createPaymentIntentUrl={createPaymentIntentUrl}
                 metadata={
                   pendingBookings && pendingBookings.length > 0
                     ? {
                         bookingIds: pendingBookings
                           .map((b) => b.id)
                           .join(","),
+                        lessonId: lesson.id.toString(),
                       }
                     : { lessonId: lesson.id.toString() }
                 }

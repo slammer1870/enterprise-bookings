@@ -1,12 +1,8 @@
 import type { Metadata } from 'next'
 
-import { cn } from '@/utilities/ui'
-
 // Header/Footer use cookies(), layout uses draftMode(), pages use getSession()/headers().
 // Force dynamic so these dynamic APIs are valid and we avoid DYNAMIC_SERVER_USAGE in CI/production.
 export const dynamic = 'force-dynamic'
-import { GeistMono } from 'geist/font/mono'
-import { GeistSans } from 'geist/font/sans'
 import React from 'react'
 
 import { AdminBar } from '@/components/AdminBar'
@@ -33,29 +29,24 @@ export default async function RootLayout({
   const { isEnabled } = await draftMode()
 
   return (
-    <html className={cn(GeistSans.variable, GeistMono.variable)} lang="en" suppressHydrationWarning>
-      <head>
-        <InitTheme />
-        <link href="/favicon.ico" rel="icon" sizes="32x32" />
-        <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
-      </head>
-      <body>
-        <Providers>
-          <AdminBar
-            adminBarProps={{
-              preview: isEnabled,
-            }}
-          />
+    <>
+      {/* Must not render <html>/<head>/<body> here; root layout owns those tags. */}
+      <InitTheme />
+      <Providers>
+        <AdminBar
+          adminBarProps={{
+            preview: isEnabled,
+          }}
+        />
 
-          <Header />
-          {children}
-          {unauthenticated}
-          <Footer />
-          <div id="modal-root" />
-          <Toaster />
-        </Providers>
-      </body>
-    </html>
+        <Header />
+        {children}
+        {unauthenticated}
+        <Footer />
+        <div id="modal-root" />
+        <Toaster />
+      </Providers>
+    </>
   )
 }
 

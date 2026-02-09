@@ -3,13 +3,11 @@
  * Verifies:
  * - User can increase quantity to 2
  * - Discount tier applies and UI shows discounted total
- * - The discounted price is what gets posted to /api/stripe/create-payment-intent
+ * - The discounted price is what gets posted to the payment-intent endpoint
  */
 import { test, expect } from './helpers/fixtures'
 import { BASE_URL } from './helpers/auth-helpers'
-import { createTestClassOption, createTestLesson } from './helpers/data-helpers'
-import { getPayload } from 'payload'
-import config from '../../src/payload.config'
+import { createTestClassOption, createTestLesson, getPayloadInstance } from './helpers/data-helpers'
 import { clearTestMagicLinks, pollForTestMagicLink } from '@repo/testing-config/src/playwright'
 
 test.describe('Drop-in multi-quantity discount', () => {
@@ -19,9 +17,7 @@ test.describe('Drop-in multi-quantity discount', () => {
     page,
     testData,
   }) => {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
-    await payload.db.init?.()
+    const payload = await getPayloadInstance()
 
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug

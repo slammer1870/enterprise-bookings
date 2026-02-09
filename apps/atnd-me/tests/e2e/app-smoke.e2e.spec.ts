@@ -9,9 +9,8 @@ import {
   createTestClassOption,
   createTestLesson,
   createTestBooking,
+  getPayloadInstance,
 } from './helpers/data-helpers'
-import { getPayload } from 'payload'
-import config from '@/payload.config'
 
 test.describe('App smoke', () => {
   test.describe.configure({ timeout: 90_000 })
@@ -30,8 +29,20 @@ test.describe('App smoke', () => {
     page,
     testData,
   }) => {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
+    const consoleErrors: string[] = []
+    const pageErrors: string[] = []
+    const requestFailures: string[] = []
+
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text())
+    })
+    page.on('pageerror', (err) => pageErrors.push(err?.message || String(err)))
+    page.on('requestfailed', (req) => {
+      const failure = req.failure()
+      requestFailures.push(`${req.method()} ${req.url()}${failure?.errorText ? ` — ${failure.errorText}` : ''}`)
+    })
+
+    const payload = await getPayloadInstance()
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug
     const w = testData.workerIndex
@@ -64,26 +75,53 @@ test.describe('App smoke', () => {
     await expect(page.getByText(/select quantity/i).first()).toBeVisible({ timeout: 10000 })
     await expect(page.getByText(/number of slots/i).first()).toBeVisible()
     // QuantitySelector uses +/- buttons; default quantity is 1. Just click Book.
-    const bookBtn = page.locator('button:has-text("Book")').first()
+    const bookBtn = page.getByRole('button', { name: /^book\b/i }).first()
     await expect(bookBtn).toBeVisible()
     await expect(bookBtn).toBeEnabled()
-    await bookBtn.click()
 
-    await Promise.race([
-      page.getByText(/successfully booked|slot.*booked/i).waitFor({ state: 'visible', timeout: 15000 }),
-      page.waitForURL((u) => !u.pathname.includes('/bookings/'), { timeout: 15000 }),
-    ])
-    const sawToast = await page.getByText(/successfully booked|slot.*booked/i).isVisible().catch(() => false)
-    const redirected = !page.url().includes('/bookings/')
-    expect(sawToast || redirected).toBe(true)
+    // Hydration guard: ensure client-side interactivity is live before booking.
+    // If the page isn't hydrated, clicking "Book" (type="button") won't trigger anything.
+    const incQtyBtn = page.getByRole('button', { name: /increase quantity/i }).first()
+    await incQtyBtn.click()
+    try {
+      await expect(bookBtn).toHaveText(/book\s+2\s+slot/i, { timeout: 10000 })
+    } catch (err) {
+      const debug = [
+        'Hydration guard failed: quantity did not update after clicking "Increase quantity".',
+        consoleErrors.length ? `Console errors:\n- ${consoleErrors.join('\n- ')}` : 'Console errors: (none captured)',
+        pageErrors.length ? `Page errors:\n- ${pageErrors.join('\n- ')}` : 'Page errors: (none captured)',
+        requestFailures.length
+          ? `Request failures:\n- ${requestFailures.join('\n- ')}`
+          : 'Request failures: (none captured)',
+      ].join('\n\n')
+      throw new Error(`${debug}\n\nOriginal error:\n${String(err)}`)
+    }
+
+    // IMPORTANT: set up the waiter before clicking, otherwise a fast request can be missed
+    // and the test becomes flaky.
+    const createBookingsRequest = page.waitForRequest(
+      (request) => {
+        if (request.method() !== 'POST') return false
+        const url = request.url()
+        if (!url.includes('/api/trpc')) return false
+        if (url.includes('bookings.createBookings')) return true
+        const body = request.postData() ?? ''
+        return body.includes('bookings.createBookings')
+      },
+      { timeout: 15000 },
+    )
+
+    await Promise.all([createBookingsRequest, bookBtn.click()])
+
+    // BookingForm is expected to navigate to `onSuccessRedirect` (configured as `/` in this app).
+    await page.waitForURL((u) => u.pathname === '/', { timeout: 15000 })
   })
 
   test('checkout Stripe-enabled: fee breakdown visible (no payment submission)', async ({
     page,
     testData,
   }) => {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
+    const payload = await getPayloadInstance()
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug
     const w = testData.workerIndex
@@ -144,8 +182,7 @@ test.describe('App smoke', () => {
     page,
     testData,
   }) => {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
+    const payload = await getPayloadInstance()
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug
     const w = testData.workerIndex
@@ -160,6 +197,8 @@ test.describe('App smoke', () => {
         slug: `smoke-cp-only-${tenantId}-w${w}-${Date.now()}`,
         quantity: 5,
         tenant: tenantId,
+        status: 'active',
+        allowMultipleBookingsPerLesson: true,
       },
       overrideAccess: true,
     }) as { id: number }
@@ -199,8 +238,7 @@ test.describe('App smoke', () => {
     page,
     testData,
   }) => {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
+    const payload = await getPayloadInstance()
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug
     const user1 = testData.users.user1

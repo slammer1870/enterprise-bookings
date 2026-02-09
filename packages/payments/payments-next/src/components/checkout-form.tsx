@@ -120,10 +120,17 @@ export default function CheckoutForm({
   price,
   priceComponent,
   metadata,
+  createPaymentIntentUrl,
 }: {
   price: number;
   priceComponent: React.ReactNode;
   metadata?: { [key: string]: string };
+  /**
+   * Override the server endpoint used to create a PaymentIntent.
+   * Defaults to the bookings-payments plugin endpoint served via Payload's API:
+   * POST /api/stripe/create-payment-intent
+   */
+  createPaymentIntentUrl?: string;
 }) {
   const appearance = {
     theme: "stripe",
@@ -141,11 +148,15 @@ export default function CheckoutForm({
 
         console.log("Creating payment intent with price:", price);
 
-        const response = await fetch("/api/stripe/create-payment-intent", {
+        const url = createPaymentIntentUrl ?? "/api/stripe/create-payment-intent";
+        // Payments endpoint is typically provided by the Payload bookings-payments plugin at:
+        // POST /stripe/create-payment-intent (served under Payload's /api/* catch-all).
+        const response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             price,
             metadata,
@@ -193,7 +204,7 @@ export default function CheckoutForm({
     };
 
     createCheckoutSession();
-  }, [price, metadata]);
+  }, [price, metadata, createPaymentIntentUrl]);
 
   if (error) {
     return (

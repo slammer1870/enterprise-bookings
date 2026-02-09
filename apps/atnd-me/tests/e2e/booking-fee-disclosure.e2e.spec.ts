@@ -6,9 +6,8 @@ import { loginAsRegularUserViaApi, BASE_URL } from './helpers/auth-helpers'
 import {
   createTestClassOption,
   createTestLesson,
+  getPayloadInstance,
 } from './helpers/data-helpers'
-import { getPayload } from 'payload'
-import config from '@/payload.config'
 
 test.describe('Booking fee disclosure (step 2.7.2)', () => {
   test.describe.configure({ timeout: 90_000 })
@@ -16,11 +15,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     page,
     testData,
   }) => {
-    const payloadConfig = await config
-    const payload = await getPayload({ config: payloadConfig })
-    
-    // Ensure payload is initialized
-    await payload.db.init?.()
+    const payload = await getPayloadInstance()
     
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug

@@ -33,15 +33,21 @@ function _toDomainCookie(
 }
 
 async function fillLoginFormAndSubmit(page: Page, email: string, password: string) {
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Looking for form elements')
+  // #endregion
+  
   // Wait for login form to be visible (Better Auth UI can hydrate asynchronously)
   const emailInput = page
     .getByRole('textbox', { name: /email/i })
     .or(page.getByLabel(/email/i))
+    .or(page.locator('input[type="email"]'))
     .first()
 
+  // Password inputs have type="password" so they're not textboxes
   const passwordInput = page
-    .getByRole('textbox', { name: /password/i })
-    .or(page.getByLabel(/password/i))
+    .getByLabel(/password/i)
+    .or(page.locator('input[type="password"]'))
     .first()
 
   const submitButton = page
@@ -49,14 +55,35 @@ async function fillLoginFormAndSubmit(page: Page, email: string, password: strin
     .or(page.locator('button[type="submit"]'))
     .first()
 
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Waiting for email input')
+  // #endregion
   await emailInput.waitFor({ state: 'visible', timeout: 20000 })
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Waiting for password input')
+  // #endregion
   await passwordInput.waitFor({ state: 'visible', timeout: 20000 })
 
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Filling email')
+  // #endregion
   await emailInput.fill(email)
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Filling password')
+  // #endregion
   await passwordInput.fill(password)
 
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Waiting for submit button')
+  // #endregion
   await submitButton.waitFor({ state: 'visible', timeout: 20000 })
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Clicking submit button')
+  // #endregion
   await submitButton.click()
+  // #region agent log
+  console.log('[DEBUG] fillLoginFormAndSubmit: Submit button clicked')
+  // #endregion
 }
 
 /**
@@ -80,10 +107,10 @@ export async function loginAsUser(
   await page
     .waitForURL((url) => !url.pathname.includes('/auth/sign-in'), { timeout: 20000 })
     .catch(() => null)
-  
+
   // IMPORTANT: Wait for network to settle after redirect
   await page.waitForLoadState('networkidle').catch(() => null)
-  
+
   // Additional wait to ensure session is fully established
   await page.waitForTimeout(500)
 }
@@ -140,7 +167,7 @@ export async function loginToAdminPanel(
         throw new Error(`Login failed - still on login page: ${currentUrl}`)
       }
     })
-  
+
   // Wait a bit for admin panel to fully load
   await page.waitForTimeout(1000)
 }
@@ -209,7 +236,7 @@ export async function loginAsRegularUser(
   opts?: { tenantSlug?: string }
 ): Promise<void> {
   const userEmail = email || `user${userNumber}@test.com`
-  
+
   // For tenant-scoped tests, login directly on the tenant host so session cookies are host-scoped correctly.
   const authBaseURL = opts?.tenantSlug ? tenantBaseUrl(opts.tenantSlug) : BASE_URL
   await loginAsUser(page, userEmail, password, { baseURL: authBaseURL })
@@ -234,13 +261,42 @@ export async function loginAsRegularUserViaApi(
 ): Promise<void> {
   const baseURL = opts?.baseURL ?? BASE_URL
   const apiRequest = opts?.request ?? page.request
-  const res = await apiRequest.post(`${baseURL}/api/auth/sign-in/email`, {
-    data: { email: email.toLowerCase(), password },
-    failOnStatusCode: false,
-  })
-  if (!res.ok()) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`API sign-in failed: ${res.status()} ${text}`)
+  // Better Auth can rate limit sign-in. In E2E, multiple workers/tests can hit this concurrently.
+  // Prefer avoiding repeated logins entirely (storageState per worker), but keep this resilient.
+  const maxAttempts = 10
+  let lastStatus: number | null = null
+  let lastBody = ''
+
+  // Decorrelated jitter backoff (prevents thundering herd).
+  let backoffMs = 250
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await apiRequest.post(`${baseURL}/api/auth/sign-in/email`, {
+      data: { email: email.toLowerCase(), password },
+      failOnStatusCode: false,
+    })
+
+    if (res.ok()) break
+
+    lastStatus = res.status()
+    lastBody = await res.text().catch(() => '')
+
+    // Retry only on explicit rate limiting. All other failures should surface immediately.
+    if (lastStatus !== 429 || attempt === maxAttempts) {
+      throw new Error(`API sign-in failed: ${lastStatus} ${lastBody}`)
+    }
+
+    const retryAfterHeader = res.headers()['retry-after']
+    const retryAfterSec = retryAfterHeader != null ? Number(retryAfterHeader) : NaN
+
+    // If server tells us how long to wait, respect it (don't cap to 5s).
+    // Otherwise, use decorrelated jitter with a sane cap to keep tests moving.
+    const delayMs = Number.isFinite(retryAfterSec)
+      ? Math.min(30_000, Math.max(250, Math.floor(retryAfterSec * 1000)))
+      : Math.min(30_000, Math.max(250, Math.floor(backoffMs * (1.5 + Math.random()))))
+
+    backoffMs = delayMs
+    await new Promise((r) => setTimeout(r, delayMs))
   }
 
   // Copy cookies from the request context into the browser context.

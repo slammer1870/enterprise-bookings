@@ -13,11 +13,13 @@ export const DropInView = ({
   dropIn,
   quantity,
   metadata,
+  createPaymentIntentUrl,
 }: {
   bookingStatus: Lesson["bookingStatus"];
   dropIn: DropIn | number;
   quantity?: number;
   metadata?: Record<string, string>;
+  createPaymentIntentUrl?: string;
 }) => {
   const [dropInDoc, setDropInDoc] = useState<DropIn | null>(
     dropIn && typeof dropIn === "object" ? (dropIn as DropIn) : null
@@ -79,6 +81,7 @@ export const DropInView = ({
         price={price.totalAmount}
         priceComponent={<PriceView price={price} />}
         metadata={metadata}
+        createPaymentIntentUrl={createPaymentIntentUrl}
       />
     </div>
   );

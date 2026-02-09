@@ -1,5 +1,5 @@
 import { getPayload, type Payload } from 'payload'
-import config from '@/payload.config'
+import config from '../../../src/payload.config'
 import type { Tenant, User, Lesson, ClassOption, Booking } from '@repo/shared-types'
 
 /**
@@ -15,7 +15,7 @@ let payloadInstance: Payload | null = null
  * Note: Schema push is already disabled via PW_E2E_PROFILE env var
  * set by Playwright's webServer command (see payload.config.ts)
  */
-async function getPayloadInstance(): Promise<Payload> {
+export async function getPayloadInstance(): Promise<Payload> {
   if (!payloadInstance) {
     const payloadConfig = await config
     payloadInstance = await getPayload({ config: payloadConfig })
@@ -238,7 +238,7 @@ export async function createTestLesson(
   const classOptionIdNumber = typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
   // Extract date from startTime (YYYY-MM-DD format)
   const date = startTime.toISOString().split('T')[0] as string
-  
+
   return (await payload.create({
     collection: 'lessons',
     data: {
@@ -268,7 +268,7 @@ export async function createTestBooking(
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting' = 'pending'
 ): Promise<Booking> {
   const payload = await getPayloadInstance()
-  
+
   // Get lesson to determine tenant
   const lesson = (await payload.findByID({
     collection: 'lessons',
@@ -282,9 +282,9 @@ export async function createTestBooking(
   const tenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null && 'id' in lesson.tenant
     ? lesson.tenant.id
     : typeof lesson.tenant === 'number'
-    ? lesson.tenant
-    : null
-  
+      ? lesson.tenant
+      : null
+
   return (await payload.create({
     collection: 'bookings',
     data: {
@@ -338,7 +338,7 @@ export async function cleanupTestData(
   userIds: (string | number)[] = []
 ): Promise<void> {
   const payload = await getPayloadInstance()
-  
+
   try {
     // Delete users
     if (userIds.length > 0) {
@@ -453,7 +453,6 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     'User 3',
     ['user']
   )
-
   return {
     tenants: [tenant1, tenant2, tenant3],
     users: {

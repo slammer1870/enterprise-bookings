@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
 import { createBookingPage, BookingPageClientSmart, type BookingPageConfig } from '@repo/bookings-next'
-import { PaymentMethods } from '@repo/payments-next'
+import { PaymentMethodsConnect } from '@/components/payments/PaymentMethodsConnect.client'
 
 // Uses getSession()/headers() and createCaller()/cookies(); must be dynamic in production.
 export const dynamic = 'force-dynamic'
@@ -22,7 +22,7 @@ const bookingPageConfig: BookingPageConfig = {
   onSuccessRedirect: '/',
   // Show checkout (Drop-in / Membership tabs) when payment methods are attached
   BookingPageClient: (props) => (
-    <BookingPageClientSmart {...props} PaymentMethodsComponent={PaymentMethods} />
+    <BookingPageClientSmart {...props} PaymentMethodsComponent={PaymentMethodsConnect} />
   ),
   // MVP: Don't attempt check-in, always show booking page
   attemptCheckIn: false,
