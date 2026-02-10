@@ -8,18 +8,30 @@ import CheckoutForm from "../checkout-form";
 
 import { PriceView } from "./price";
 
+/**
+ * Optional component to render fee breakdown (class price, booking fee, total).
+ * Receives classPriceCents (drop-in total in cents) and lessonId for fee lookup.
+ */
+export type FeeBreakdownComponentProps = {
+  classPriceCents: number;
+  lessonId: number;
+};
+
 export const DropInView = ({
   bookingStatus,
   dropIn,
   quantity,
   metadata,
   createPaymentIntentUrl,
+  FeeBreakdownComponent,
 }: {
   bookingStatus: Lesson["bookingStatus"];
   dropIn: DropIn | number;
   quantity?: number;
   metadata?: Record<string, string>;
   createPaymentIntentUrl?: string;
+  /** Optional: render fee breakdown (class price + booking fee + total) when drop-in has platform fee */
+  FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
 }) => {
   const [dropInDoc, setDropInDoc] = useState<DropIn | null>(
     dropIn && typeof dropIn === "object" ? (dropIn as DropIn) : null
@@ -69,8 +81,17 @@ export const DropInView = ({
     quantity: quantity || 1,
   });
 
+  // Convert totalAmount to cents for fee breakdown (totalAmount is in currency units, e.g. euros)
+  const classPriceCents = Math.round(price.totalAmount * 100);
+  const lessonId = metadata?.lessonId ? parseInt(metadata.lessonId, 10) : null;
+
   return (
     <div>
+      {FeeBreakdownComponent && lessonId != null && !Number.isNaN(lessonId) && (
+        <div className="mb-4">
+          <FeeBreakdownComponent classPriceCents={classPriceCents} lessonId={lessonId} />
+        </div>
+      )}
       {bookingStatus === "trialable" && (
         <span className="text-sm text-gray-500 my-2">
           Since this is a trial class you will recieve a discount on your first

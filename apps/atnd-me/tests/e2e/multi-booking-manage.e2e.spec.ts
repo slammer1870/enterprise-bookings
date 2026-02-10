@@ -253,11 +253,11 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
       await navigateToTenant(page, tenant.slug, `/bookings/${decreaseLesson.id}/manage`)
 
-      // Wait for manage page UI to be ready (avoid fixed sleeps).
-      await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({ timeout: 15000 })
+      // Wait for the quantity control (survives loading state and copy changes).
+      const quantityDisplay = page.getByTestId('booking-quantity')
+      await expect(quantityDisplay).toBeVisible({ timeout: 20000 })
       
       // Verify the quantity display shows "3"
-      const quantityDisplay = page.getByTestId('booking-quantity')
       await expect(quantityDisplay).toHaveText('3', { timeout: 15000 })
 
       // Find the decrease button (first button in the control group)

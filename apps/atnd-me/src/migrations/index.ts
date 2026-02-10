@@ -18,11 +18,14 @@ import * as migration_20260127_tenant_stripe_connect_fields from './20260127_ten
 import * as migration_20260127_tenants_class_pass_settings from './20260127_tenants_class_pass_settings';
 import * as migration_20260128_class_pass_types_allow_multiple from './20260128_class_pass_types_allow_multiple';
 import * as migration_20260129_095208 from './20260129_095208';
-import * as migration_20260129_bookings_rels from './20260129_bookings_rels';
-import * as migration_20260129_class_pass_types_price_in_euros from './20260129_class_pass_types_price_in_euros';
 import * as migration_20260129_booking_transactions_subscription from './20260129_booking_transactions_subscription';
-import * as migration_20260129_memberships_allow_multiple_per_lesson from './20260129_memberships_allow_multiple_per_lesson';
+import * as migration_20260129_bookings_rels from './20260129_bookings_rels';
 import * as migration_20260129_bookings_subscription_id_used from './20260129_bookings_subscription_id_used';
+import * as migration_20260129_class_pass_types_price_in_euros from './20260129_class_pass_types_price_in_euros';
+import * as migration_20260129_memberships_allow_multiple_per_lesson from './20260129_memberships_allow_multiple_per_lesson';
+import * as migration_20260210_064706 from './20260210_064706';
+import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
+import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pages_generate_slug';
 
 export const migrations = [
   {
@@ -123,17 +126,7 @@ export const migrations = [
   {
     up: migration_20260129_095208.up,
     down: migration_20260129_095208.down,
-    name: '20260129_095208'
-  },
-  {
-    up: migration_20260129_bookings_rels.up,
-    down: migration_20260129_bookings_rels.down,
-    name: '20260129_bookings_rels',
-  },
-  {
-    up: migration_20260129_class_pass_types_price_in_euros.up,
-    down: migration_20260129_class_pass_types_price_in_euros.down,
-    name: '20260129_class_pass_types_price_in_euros',
+    name: '20260129_095208',
   },
   {
     up: migration_20260129_booking_transactions_subscription.up,
@@ -141,13 +134,38 @@ export const migrations = [
     name: '20260129_booking_transactions_subscription',
   },
   {
-    up: migration_20260129_memberships_allow_multiple_per_lesson.up,
-    down: migration_20260129_memberships_allow_multiple_per_lesson.down,
-    name: '20260129_memberships_allow_multiple_per_lesson',
+    up: migration_20260129_bookings_rels.up,
+    down: migration_20260129_bookings_rels.down,
+    name: '20260129_bookings_rels',
   },
   {
     up: migration_20260129_bookings_subscription_id_used.up,
     down: migration_20260129_bookings_subscription_id_used.down,
     name: '20260129_bookings_subscription_id_used',
+  },
+  {
+    up: migration_20260129_class_pass_types_price_in_euros.up,
+    down: migration_20260129_class_pass_types_price_in_euros.down,
+    name: '20260129_class_pass_types_price_in_euros',
+  },
+  {
+    up: migration_20260129_memberships_allow_multiple_per_lesson.up,
+    down: migration_20260129_memberships_allow_multiple_per_lesson.down,
+    name: '20260129_memberships_allow_multiple_per_lesson',
+  },
+  {
+    up: migration_20260210_064706.up,
+    down: migration_20260210_064706.down,
+    name: '20260210_064706'
+  },
+  {
+    up: migration_20260210_drop_payment_methods_allowed_class_passes.up,
+    down: migration_20260210_drop_payment_methods_allowed_class_passes.down,
+    name: '20260210_drop_payment_methods_allowed_class_passes',
+  },
+  {
+    up: migration_20260210_drop_pages_generate_slug.up,
+    down: migration_20260210_drop_pages_generate_slug.down,
+    name: '20260210_drop_pages_generate_slug',
   },
 ];

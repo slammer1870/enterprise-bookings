@@ -230,14 +230,20 @@ export default function CheckoutForm({
   }
 
   const stripe = getStripePromise();
-  if (!stripe) {
-    // If Stripe isn't configured (e.g. in local dev or E2E), still render the price breakdown.
-    // The PaymentIntent request above still runs (and can be asserted in tests).
+  // E2E/test mock secret (from create-payment-intent when ENABLE_TEST_WEBHOOKS or placeholder account).
+  // Don't pass to Elements or Stripe.js will throw loading the invalid PI.
+  const isTestClientSecret =
+    typeof clientSecret === "string" &&
+    /^pi_test_.*_secret_test$/.test(clientSecret);
+  if (!stripe || isTestClientSecret) {
+    // If Stripe isn't configured, or we have a test mock PI, render price breakdown only (no card form).
     return (
       <div>
         {priceComponent}
         <div className="text-sm text-muted-foreground" data-testid="stripe-not-configured">
-          Payments are not available in this environment.
+          {isTestClientSecret
+            ? "Payment form not available in test mode."
+            : "Payments are not available in this environment."}
         </div>
       </div>
     );

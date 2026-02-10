@@ -60,6 +60,11 @@ export const createTRPCContext = async (opts: {
    * API route handlers should NOT pass this.
    */
   user?: any;
+  /**
+   * Optional host override (e.g. from the same request that is rendering the page).
+   * Use when the request host is needed for tenant resolution and headers might not carry it.
+   */
+  hostOverride?: string;
 }) => {
   const payload = opts.payload;
   const betterAuth = (payload as PayloadWithBetterAuth).betterAuth;
@@ -73,6 +78,7 @@ export const createTRPCContext = async (opts: {
     payload,
     stripe: opts.stripe,
     betterAuth,
+    hostOverride: opts.hostOverride,
     // Only allow user injection in test runs to avoid accidental auth bypass in production.
     user: isTestEnv ? (opts.user ?? null) : null,
   };

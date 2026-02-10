@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   stripeProtectedProcedure,
+  protectedProcedure,
   requireCollections,
   type GetSubscriptionBookingFeeCents,
 } from "../trpc";
@@ -9,8 +10,15 @@ import { findSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
 
+export type GetDropInFeeBreakdown = (_params: {
+  payload: any;
+  lessonId: number;
+  classPriceCents: number;
+}) => Promise<{ classPriceCents: number; bookingFeeCents: number; totalCents: number }>;
+
 export type CreatePaymentsRouterDeps = {
   getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
+  getDropInFeeBreakdown?: GetDropInFeeBreakdown;
 };
 
 // Helper function to safely get stripeCustomerId
@@ -28,8 +36,29 @@ const getStripeCustomerId = (user: object): string => {
 
 export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
   const getFee = deps?.getSubscriptionBookingFeeCents;
+  const getDropInFeeBreakdown = deps?.getDropInFeeBreakdown;
 
   return {
+    ...(getDropInFeeBreakdown && {
+      /**
+       * Returns fee breakdown for drop-in checkout (class price, booking fee, total).
+       */
+      getDropInFeeBreakdown: protectedProcedure
+        .use(requireCollections("lessons", "tenants"))
+        .input(
+          z.object({
+            lessonId: z.number(),
+            classPriceCents: z.number().min(0),
+          })
+        )
+        .query(({ ctx, input }) =>
+          getDropInFeeBreakdown({
+            payload: ctx.payload,
+            lessonId: input.lessonId,
+            classPriceCents: input.classPriceCents,
+          })
+        ),
+    }),
     /**
      * Create Stripe Checkout session (subscription or one-time).
      * When getSubscriptionBookingFeeCents was passed to createPaymentsRouter and mode is "subscription",

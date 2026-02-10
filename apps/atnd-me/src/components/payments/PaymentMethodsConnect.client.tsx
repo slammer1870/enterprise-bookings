@@ -2,16 +2,18 @@
 
 import type { ComponentProps } from "react";
 import { PaymentMethods } from "@repo/payments-next";
+import { DropInFeeBreakdown } from "./DropInFeeBreakdown.client";
 
 /**
  * atnd-me routes PaymentIntents through a Connect-aware endpoint.
- * Other apps can use `PaymentMethods` directly and will default to the plugin endpoint.
+ * Includes fee breakdown (class price, booking fee, total) when drop-in payment.
  */
 export function PaymentMethodsConnect(props: ComponentProps<typeof PaymentMethods>) {
   return (
     <PaymentMethods
       {...props}
       createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
+      FeeBreakdownComponent={DropInFeeBreakdown}
     />
   );
 }

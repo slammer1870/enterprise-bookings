@@ -7,7 +7,7 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 
 function formatCentsToCurrency(cents: number): string {
-  return `£${(cents / 100).toFixed(2)}`
+  return `€${(cents / 100).toFixed(2)}`
 }
 
 export type BookingFeeBreakdownProps = {

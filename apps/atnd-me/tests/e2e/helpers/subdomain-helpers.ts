@@ -21,6 +21,9 @@ export async function navigateToTenant(
   // `networkidle` is flaky in Next dev due to HMR/websocket connections.
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
+  // TEMP: Disable reload to debug issue
+  // await page.reload({ waitUntil: 'domcontentloaded' })
+  // await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
 }
 
 /**

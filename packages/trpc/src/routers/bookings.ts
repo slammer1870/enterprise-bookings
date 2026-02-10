@@ -857,15 +857,19 @@ export const bookingsRouter = {
     .use(requireCollections("bookings"))
     .input(z.object({ lessonId: z.number() }))
     .query(async ({ ctx, input }) => {
+      console.log('[getUserBookingsForLesson] START lessonId:', input.lessonId, 'userId:', ctx.user.id);
+      
       // Extract tenant slug from cookie header (from subdomain)
       const cookieHeader = ctx.headers.get("cookie") || "";
       const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
       let tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
 
       // If the cookie isn't present yet (e.g. first request on a subdomain),
-      // fall back to deriving tenant slug from the Host header.
+      // fall back to deriving tenant slug from the Host header or hostOverride.
       if (!tenantSlug) {
-        const hostHeader = ctx.headers.get("x-forwarded-host") || ctx.headers.get("host") || "";
+        const hostHeader =
+          ctx.hostOverride ?? ctx.headers.get("x-forwarded-host") ?? ctx.headers.get("host") ?? "";
+        console.log('[getUserBookingsForLesson] hostHeader:', hostHeader, 'hostOverride:', ctx.hostOverride);
         const hostWithoutPort = hostHeader.split(":")[0] || "";
         const parts = hostWithoutPort.split(".");
         const isLocalhost = hostWithoutPort.includes("localhost");
@@ -881,6 +885,7 @@ export const bookingsRouter = {
             tenantSlug = parts[0];
           }
         }
+        console.log('[getUserBookingsForLesson] Derived tenantSlug from host:', tenantSlug);
       }
 
       // Resolve tenant ID from slug if available
@@ -1009,6 +1014,7 @@ export const bookingsRouter = {
         }
       }
 
+      console.log('[getUserBookingsForLesson] COMPLETE returning', filteredBookings.length, 'bookings');
       return filteredBookings.map((booking: any) => booking as Booking);
     }),
   /**

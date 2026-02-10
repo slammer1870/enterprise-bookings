@@ -11,7 +11,10 @@ import {
   TabsTrigger,
 } from "@repo/ui/components/ui/tabs";
 import { PlanView } from "@repo/membership-next";
-import { DropInView } from "./drop-ins";
+import {
+  DropInView,
+  type FeeBreakdownComponentProps,
+} from "./drop-ins";
 import { toast } from "sonner";
 
 type PaymentMethodsProps = {
@@ -27,6 +30,10 @@ type PaymentMethodsProps = {
    * Defaults to the bookings-payments plugin endpoint served via Payload's API.
    */
   createPaymentIntentUrl?: string;
+  /**
+   * Optional component to show fee breakdown (class price, booking fee, total) in the drop-in tab.
+   */
+  FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
 };
 
 /**
@@ -67,6 +74,7 @@ export function PaymentMethods({
   pendingBookings,
   onPaymentSuccess: _onPaymentSuccess,
   createPaymentIntentUrl,
+  FeeBreakdownComponent,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -256,6 +264,7 @@ export function PaymentMethods({
                 dropIn={allowedDropIn as DropIn}
                 quantity={quantity}
                 createPaymentIntentUrl={createPaymentIntentUrl}
+                FeeBreakdownComponent={FeeBreakdownComponent}
                 metadata={
                   pendingBookings && pendingBookings.length > 0
                     ? {

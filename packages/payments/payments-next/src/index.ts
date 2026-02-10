@@ -4,7 +4,10 @@ export { MembershipPaymentMethods } from "./components/membership-payment-method
 export { PlanView, useSubscriptionActions } from "@repo/membership-next";
 
 // Drop-in components
-export { DropInView } from "./components/drop-ins";
+export {
+  DropInView,
+  type FeeBreakdownComponentProps,
+} from "./components/drop-ins";
 export { PriceView } from "./components/drop-ins/price";
 
 // Payment components

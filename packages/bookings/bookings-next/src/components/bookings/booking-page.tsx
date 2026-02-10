@@ -11,9 +11,15 @@ export interface BookingPageConfig {
   getSession: () => Promise<{ user: any } | null>
   
   /**
-   * Function to create tRPC caller
+   * Function to create tRPC caller.
+   * May receive opts.host so tenant can be resolved from the same request that is rendering the page.
    */
-  createCaller: () => Promise<any>
+  createCaller: (opts?: { host?: string }) => Promise<any>
+  /**
+   * Optional: get the request host (e.g. for tenant subdomain resolution).
+   * When provided, createBookingPage will pass it to createCaller so getByIdForBooking sees the correct host.
+   */
+  getRequestHost?: () => Promise<string>
   
   /**
    * Redirect path when user is not authenticated
@@ -108,29 +114,30 @@ export async function createBookingPage(
     redirect(config.errorRedirectPath)
   }
 
-  // Auth check
-  const session = await config.getSession()
-  const user = session?.user
-
-  if (!user) {
-    const redirectPath = typeof config.authRedirectPath === 'function'
-      ? config.authRedirectPath(id)
-      : config.authRedirectPath.replace('{id}', id.toString())
-    redirect(redirectPath)
-  }
-
-  // Pre-validation (if provided)
-  if (config.preValidation) {
-    const preValidationRedirect = await config.preValidation(id, user)
-    if (preValidationRedirect) {
-      redirect(preValidationRedirect)
-    }
-  }
-
-  // Fetch lesson via tRPC
-  const caller = await config.createCaller()
-
   try {
+    // Auth check
+    const session = await config.getSession()
+    const user = session?.user
+
+    if (!user) {
+      const redirectPath = typeof config.authRedirectPath === 'function'
+        ? config.authRedirectPath(id)
+        : config.authRedirectPath.replace('{id}', id.toString())
+      redirect(redirectPath)
+    }
+
+    // Pre-validation (if provided)
+    if (config.preValidation) {
+      const preValidationRedirect = await config.preValidation(id, user)
+      if (preValidationRedirect) {
+        redirect(preValidationRedirect)
+      }
+    }
+
+    // Fetch lesson via tRPC (pass host when available so tenant resolution uses the same request's host)
+    const host = config.getRequestHost ? await config.getRequestHost() : undefined
+    const caller = await config.createCaller(host ? { host } : undefined)
+
     const lesson = await caller.lessons.getByIdForBooking({ id })
 
     // Post-validation (if provided)
@@ -160,10 +167,12 @@ export async function createBookingPage(
 
     // Use custom BookingPageClient if provided, otherwise use default
     const ClientComponent = config.BookingPageClient || BookingPageClient
-    
+    // Ensure lesson is plain-data so RSC serialization cannot throw (e.g. Dates, virtuals, or Payload internals)
+    const serializableLesson = JSON.parse(JSON.stringify(lesson)) as Lesson
+
     const content = (
       <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-        <ClientComponent lesson={lesson} onSuccessRedirect={config.onSuccessRedirect} />
+        <ClientComponent lesson={serializableLesson} onSuccessRedirect={config.onSuccessRedirect} />
       </div>
     )
 
@@ -174,11 +183,20 @@ export async function createBookingPage(
 
     return content
   } catch (error: any) {
-    // Handle tRPC errors - redirect on validation errors
-    if (error?.data?.code === 'NOT_FOUND' || error?.data?.code === 'BAD_REQUEST') {
+    // Redirect on known client-facing errors
+    const code = error?.data?.code
+    const msg = typeof error?.message === 'string' ? error.message : ''
+    const isNotFound =
+      code === 'NOT_FOUND' || /not found/i.test(msg)
+    const isBadRequest = code === 'BAD_REQUEST'
+    if (isNotFound || isBadRequest) {
       redirect(config.errorRedirectPath)
     }
-    // Re-throw other errors
-    throw error
+    // Log and redirect on any other error so we never show the global error boundary
+    if (error?.digest !== 'NEXT_REDIRECT') {
+      console.error('[createBookingPage] Error:', error?.message ?? error)
+      if (error?.stack) console.error('[createBookingPage] Stack:', error.stack)
+    }
+    redirect(config.errorRedirectPath)
   }
 }

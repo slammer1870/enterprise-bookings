@@ -94,9 +94,14 @@ export const lessonsRouter = {
       const cookieHeader = ctx.headers.get("cookie") || "";
       const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
       let tenantSlug: string | null | undefined = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      // Use hostOverride when provided (e.g. from same request as the page), else headers
+      const host =
+        ctx.hostOverride ??
+        ctx.headers.get("x-forwarded-host") ??
+        ctx.headers.get("host") ??
+        "";
       if (!tenantSlug) {
-        const host = ctx.headers.get("host") || "";
-        const hostWithoutPort = host.split(":")[0] || "";
+        const hostWithoutPort = host.split(":")[0]?.trim() || "";
         const parts = hostWithoutPort.split(".");
         const isLocalhost = hostWithoutPort.includes("localhost");
         if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
@@ -105,7 +110,8 @@ export const lessonsRouter = {
           tenantSlug = parts[0];
         }
       }
-
+      console.log('[getByIdForBooking] tenantSlug:', tenantSlug, 'host:', host);
+      
       // Resolve tenant ID from slug if available
       let tenantId: number | null = null;
       if (tenantSlug) {
@@ -131,16 +137,15 @@ export const lessonsRouter = {
         }
       }
 
-      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
-      // plugin filtering (which filters by user's tenants array). We'll verify the
-      // lesson belongs to the correct tenant manually if needed.
+      // Use overrideAccess so we always get the full lesson (tenant, classOption) and can populate
+      // classOption.paymentMethods regardless of cookie/host. Pass ctx.user so bookingStatus hook runs correctly.
       const lesson = await findByIdSafe<Lesson>(
         ctx.payload,
         "lessons",
         input.id,
         {
           depth: 5,
-          overrideAccess: tenantId ? true : false,
+          overrideAccess: true,
           user: ctx.user,
         }
       );
@@ -150,6 +155,25 @@ export const lessonsRouter = {
           code: "NOT_FOUND",
           message: `Lesson with id ${input.id} not found`,
         });
+      }
+
+      // Fallback: when no tenant from cookie/host (e.g. first request before cookie is set, or missing Host),
+      // derive tenant from the lesson (or its classOption) so we can still populate classOption with payment methods.
+      if (tenantId == null) {
+        const co = lesson.classOption != null && typeof lesson.classOption === 'object' ? (lesson.classOption as { tenant?: number | { id: number } }) : null;
+        const coTenant = co?.tenant;
+        const fromClassOption =
+          coTenant != null ? (typeof coTenant === 'object' ? coTenant.id : coTenant) : undefined;
+        const fromLesson =
+          lesson.tenant != null
+            ? typeof lesson.tenant === 'object' && lesson.tenant !== null
+              ? lesson.tenant.id
+              : (lesson.tenant as number)
+            : undefined;
+        const derivedTenantId = fromLesson ?? fromClassOption;
+        if (typeof derivedTenantId === 'number') {
+          tenantId = derivedTenantId;
+        }
       }
 
       // If we have tenant context, verify the lesson belongs to that tenant
@@ -163,6 +187,28 @@ export const lessonsRouter = {
             code: "NOT_FOUND",
             message: `Lesson with id ${input.id} not found`,
           });
+        }
+
+        // Populate classOption with overrideAccess so paymentMethods (allowedDropIn, allowedPlans) are included.
+        // Nested Payload relation fetches may not inherit overrideAccess, so the lesson's classOption can be missing payment methods.
+        const coId = typeof lesson.classOption === 'object' && lesson.classOption !== null
+          ? (lesson.classOption as { id: number }).id
+          : lesson.classOption;
+        if (coId != null && hasCollection(ctx.payload, "class-options")) {
+          try {
+            const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+              depth: 3,
+              overrideAccess: true,
+            });
+            if (populated) {
+              // Plain object so RSC serialization sends paymentMethods to the client
+              (lesson as { classOption: ClassOption }).classOption =
+                JSON.parse(JSON.stringify(populated)) as ClassOption;
+            }
+          } catch (err) {
+            // Don't fail the whole booking page: leave classOption as-is (payment methods may be missing)
+            console.error("[getByIdForBooking] Failed to populate classOption with payment methods:", err);
+          }
         }
       }
 

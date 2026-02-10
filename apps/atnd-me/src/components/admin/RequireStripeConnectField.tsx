@@ -64,7 +64,7 @@ export const RequireStripeConnectField: React.FC<RequireStripeConnectFieldProps>
   }, [user])
 
   const userIsAdmin = Boolean(user && isAdmin(user))
-  const userIsTenantAdmin = Boolean(user && isTenantAdmin(user))
+  const _userIsTenantAdmin = Boolean(user && isTenantAdmin(user))
 
   // No user yet (auth still loading) – show loading so E2E can find the block; re-render when user loads
   if (!user) {

@@ -3,8 +3,8 @@
  * Run in local profile (test:e2e:local) and CI.
  */
 import { test, expect } from './helpers/fixtures'
-import { loginAsSuperAdmin, loginAsRegularUserViaApi, BASE_URL } from './helpers/auth-helpers'
-import { navigateToRoot } from './helpers/subdomain-helpers'
+import { loginAsSuperAdmin, loginAsRegularUserViaApi, loginAsRegularUser, BASE_URL } from './helpers/auth-helpers'
+import { navigateToRoot, navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestClassOption,
   createTestLesson,
@@ -50,12 +50,8 @@ test.describe('App smoke', () => {
     if (!tenantId || !tenantSlug) throw new Error('Tenant required')
 
     const co = await createTestClassOption(tenantId, 'Smoke Pay at Door', 5, undefined, w)
-    await payload.update({
-      collection: 'class-options',
-      id: co.id,
-      data: { paymentMethods: { allowedClassPasses: [] } },
-      overrideAccess: true,
-    })
+    // Do not set paymentMethods (no drop-in, no class pass). Omitting allowedClassPasses avoids
+    // touching the dropped column (migration 20260210); class option stays pay-at-door.
 
     const start = new Date()
     start.setDate(start.getDate() + 2)
@@ -64,12 +60,9 @@ test.describe('App smoke', () => {
     end.setHours(13, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
 
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' })
-    await page.context().addCookies([
-      { name: 'tenant-slug', value: tenantSlug, domain: new URL(BASE_URL).hostname, path: '/' },
-    ])
-    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password')
-    await page.goto(`${BASE_URL}/bookings/${lesson.id}`, { waitUntil: 'domcontentloaded' })
+    // Use subdomain-aware login and navigation (preserves auth across subdomain)
+    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     await expect(page.getByText(/select quantity/i).first()).toBeVisible({ timeout: 10000 })
@@ -151,10 +144,11 @@ test.describe('App smoke', () => {
       overrideAccess: true,
     }) as { id: number }
     const co = await createTestClassOption(tenantId, 'Smoke Stripe UI', 5, undefined, w)
+    // Use only allowedDropIn; omit allowedClassPasses to avoid touching dropped column / rels (see migration 20260210).
     await payload.update({
       collection: 'class-options',
       id: co.id,
-      data: { paymentMethods: { allowedDropIn: dropIn.id, allowedClassPasses: [] } },
+      data: { paymentMethods: { allowedDropIn: dropIn.id } },
       overrideAccess: true,
     })
 
@@ -164,18 +158,40 @@ test.describe('App smoke', () => {
     const end = new Date(start)
     end.setHours(15, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    // Ensure lesson is for the same tenant we navigate to (host derives tenant from subdomain).
+    const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null ? (lesson.tenant as { id: number }).id : lesson.tenant
+    if (lessonTenantId !== tenantId) {
+      throw new Error(`Test setup: lesson ${lesson.id} tenant ${lessonTenantId} !== navigation tenant ${tenantId}. Use same testData.tenants[0].`)
+    }
 
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' })
-    await page.context().addCookies([
-      { name: 'tenant-slug', value: tenantSlug, domain: new URL(BASE_URL).hostname, path: '/' },
-    ])
-    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password')
-    await page.goto(`${BASE_URL}/bookings/${lesson.id}`, { waitUntil: 'domcontentloaded' })
+    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
-    // Checkout shows PaymentMethods (Drop-in / Membership tabs) when payment methods are attached
-    await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 15000 })
+    // Wait for booking page: either Payment Methods (success) or error (fail fast with clear message).
+    const result = await Promise.race([
+      page.getByText(/payment methods/i).first().waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success'),
+      page.getByText(/something went wrong/i).waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error'),
+    ]).catch(() => 'timeout')
+
+    if (result === 'error') {
+      throw new Error(`Server error on booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. Check server logs.`)
+    }
+    if (result === 'timeout') {
+      const url = page.url()
+      const body = await page.textContent('body').catch(() => '')
+      throw new Error(
+        `Timeout waiting for Stripe booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. URL: ${url}. Body: ${body?.slice(0, 300) ?? 'none'}`
+      )
+    }
+
+    const paymentMethodsEl = page.getByText(/payment methods/i).first()
+    await paymentMethodsEl.scrollIntoViewIfNeeded().catch(() => null)
+    await expect(paymentMethodsEl).toBeVisible({ timeout: 15000 })
     await expect(page.getByRole('tab', { name: /drop-?in/i })).toBeVisible()
+    // Fee breakdown visible in drop-in tab
+    await page.getByRole('tab', { name: /drop-?in/i }).click()
+    await expect(page.getByTestId('booking-fee-breakdown')).toBeVisible({ timeout: 10000 })
   })
 
   test('checkout class-pass-only: booking page loads with quantity and form', async ({
@@ -188,6 +204,17 @@ test.describe('App smoke', () => {
     const w = testData.workerIndex
 
     if (!tenantId || !tenantSlug) throw new Error('Tenant required')
+
+    // Class-option payment methods (including class passes) require tenant Stripe Connect to be active.
+    await payload.update({
+      collection: 'tenants',
+      id: tenantId,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectAccountId: `acct_cp_only_${tenantId}`,
+      },
+      overrideAccess: true,
+    })
 
     const cpType = await payload.create({
       collection: 'class-pass-types',
@@ -221,15 +248,74 @@ test.describe('App smoke', () => {
     end.setHours(17, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
 
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' })
-    await page.context().addCookies([
-      { name: 'tenant-slug', value: tenantSlug, domain: new URL(BASE_URL).hostname, path: '/' },
-    ])
-    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password')
-    await page.goto(`${BASE_URL}/bookings/${lesson.id}`, { waitUntil: 'domcontentloaded' })
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+    // UI login on tenant subdomain (API login can hit ENOTFOUND for subdomain in Node; browser resolves it).
+    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
 
-    await expect(page.getByText(/select quantity/i).first()).toBeVisible({ timeout: 10000 })
+    // Warm-up: hit tenant root so the app resolves the tenant once. If the app uses a different DB
+    // or tenant doesn't exist, we get 404 here instead of after a redirect from the booking page.
+    await navigateToTenant(page, tenantSlug, '/')
+    await page.waitForLoadState('domcontentloaded').catch(() => null)
+    const tenantNotFound = await page.getByText(/tenant not found/i).isVisible().catch(() => false)
+    if (tenantNotFound) {
+      throw new Error(
+        `Tenant "${tenantSlug}" not found when loading tenant root. Lesson ${lesson.id}. ` +
+          `App and test must use the same DB: set DATABASE_URI in apps/atnd-me/.env and run e2e with a fresh server ` +
+          `(CI=1 or close any existing dev server so Playwright starts it with the same env).`
+      )
+    }
+    // Root redirects to /home when tenant exists; wait for that so we're in a good state.
+    await page.waitForURL((u) => u.pathname === '/home', { timeout: 10000 }).catch(() => null)
+
+    const bookingPath = `/bookings/${lesson.id}`
+    const goToBooking = async () => {
+      await navigateToTenant(page, tenantSlug, bookingPath)
+      await page.waitForLoadState('domcontentloaded').catch(() => null)
+      return new URL(page.url()).pathname
+    }
+
+    let currentPath = await goToBooking()
+    // If createBookingPage fails (e.g. getByIdForBooking NOT_FOUND / tenant mismatch), we get redirect to / then /home. Retry once in case of timing.
+    if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
+      await new Promise((r) => setTimeout(r, 1500))
+      currentPath = await goToBooking()
+    }
+    if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
+      throw new Error(
+        `Booking page redirected away. Lesson ${lesson.id}, tenant ${tenantSlug}. ` +
+          `Expected ${bookingPath}, got ${currentPath}. ` +
+          `Check server logs for [createBookingPage] or getByIdForBooking (NOT_FOUND, tenant mismatch, or bookingStatus closed).`
+      )
+    }
+
+    // Wait for booking page: success, error, or tenant 404 (fail fast with clear message).
+    const result = await Promise.race([
+      page.getByText(/select quantity/i).first().waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success'),
+      page.getByText(/something went wrong/i).waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error'),
+      page.getByText(/tenant not found/i).waitFor({ state: 'visible', timeout: 15000 }).then(() => 'tenant_not_found'),
+    ]).catch(() => 'timeout')
+
+    if (result === 'error') {
+      throw new Error(`Server error on booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. Check server logs.`)
+    }
+    if (result === 'tenant_not_found') {
+      throw new Error(
+        `Tenant "${tenantSlug}" not found on subdomain. Lesson ${lesson.id}. ` +
+          `Ensure testData.tenants[0].slug matches the subdomain and the app uses the same DB as the test (e.g. same DATABASE_URI).`
+      )
+    }
+    if (result === 'timeout') {
+      const url = page.url()
+      const hasHome = /\/home$/.test(new URL(url).pathname)
+      const body = await page.textContent('body').catch(() => '')
+      const hint = hasHome
+        ? ' Redirected to /home — booking page likely failed (lesson not found or tenant mismatch), then root redirected to /home.'
+        : ''
+      throw new Error(
+        `Timeout waiting for class-pass booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. ` +
+          `Current URL: ${url}.${hint} Body preview: ${body?.slice(0, 300) ?? 'none'}`
+      )
+    }
+
     await expect(page.getByText(/number of slots/i).first()).toBeVisible()
     await expect(page.locator('button:has-text("Book")').first()).toBeVisible()
   })
@@ -247,12 +333,7 @@ test.describe('App smoke', () => {
     if (!tenantId || !tenantSlug || !user1) throw new Error('Tenant and user required')
 
     const co = await createTestClassOption(tenantId, 'Smoke Manage', 10, undefined, w)
-    await payload.update({
-      collection: 'class-options',
-      id: co.id,
-      data: { paymentMethods: { allowedClassPasses: [] } },
-      overrideAccess: true,
-    })
+    // No paymentMethods update needed for manage flow; avoid touching dropped column (migration 20260210).
 
     const start = new Date()
     start.setDate(start.getDate() + 2)
@@ -264,12 +345,9 @@ test.describe('App smoke', () => {
     await createTestBooking(user1.id, lesson.id, 'confirmed')
     await createTestBooking(user1.id, lesson.id, 'confirmed')
 
-    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' })
-    await page.context().addCookies([
-      { name: 'tenant-slug', value: tenantSlug, domain: new URL(BASE_URL).hostname, path: '/' },
-    ])
-    await loginAsRegularUserViaApi(page, user1.email, 'password')
-    await page.goto(`${BASE_URL}/bookings/${lesson.id}/manage`, { waitUntil: 'domcontentloaded' })
+    // Use subdomain-aware login and navigation (preserves auth across subdomain)
+    await loginAsRegularUser(page, 1, user1.email, 'password', { tenantSlug })
+    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}/manage`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), { timeout: 10000 })

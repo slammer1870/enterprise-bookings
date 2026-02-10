@@ -46,9 +46,12 @@ export async function createTestTenant(
   })
 
   const existingTenant = (existing?.docs?.[0] ?? null) as Tenant | null
-  if (existingTenant) return existingTenant
+  if (existingTenant) {
+    await createTestTenantHomePage(existingTenant.id, existingTenant.name ?? name).catch(() => null)
+    return existingTenant
+  }
 
-  return (await payload.create({
+  const tenant = (await payload.create({
     collection: 'tenants',
     data: {
       name,
@@ -57,6 +60,65 @@ export async function createTestTenant(
     },
     overrideAccess: true,
   })) as Tenant
+
+  // PW_E2E_SKIP_DEFAULT_TENANT_DATA skips the tenant hook that creates a "home" page.
+  // Create one so /home works when tests hit tenant root (redirect to /home).
+  await createTestTenantHomePage(tenant.id, name).catch(() => null)
+
+  return tenant
+}
+
+/**
+ * Create a minimal "home" page for a tenant so /home resolves (required when
+ * PW_E2E_SKIP_DEFAULT_TENANT_DATA is set and the tenant hook doesn't run).
+ */
+async function createTestTenantHomePage(tenantId: number, tenantName: string): Promise<void> {
+  const payload = await getPayloadInstance()
+  const existing = await payload.find({
+    collection: 'pages',
+    where: { slug: { equals: 'home' }, tenant: { equals: tenantId } },
+    limit: 1,
+    overrideAccess: true,
+  })
+  if (existing.docs?.[0]) return
+
+  const homePageData: Record<string, unknown> = {
+    slug: 'home',
+    title: `Welcome to ${tenantName}`,
+    _status: 'published',
+    tenant: tenantId,
+    hero: {
+      type: 'lowImpact',
+      richText: {
+        root: {
+          type: 'root',
+          children: [
+            {
+              type: 'heading',
+              children: [{ type: 'text', detail: 0, format: 0, mode: 'normal', style: '', text: tenantName, version: 1 }],
+              direction: 'ltr',
+              format: '',
+              indent: 0,
+              tag: 'h1',
+              version: 1,
+            },
+          ],
+          direction: 'ltr',
+          format: '',
+          indent: 0,
+          version: 1,
+        },
+      },
+    },
+    layout: [
+      { blockType: 'heroSchedule', blockName: 'Hero Schedule', title: tenantName },
+    ],
+  }
+  await payload.create({
+    collection: 'pages',
+    data: homePageData,
+    overrideAccess: true,
+  })
 }
 
 /**

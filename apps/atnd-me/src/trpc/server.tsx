@@ -11,6 +11,10 @@ import { stripe } from '../lib/stripe'
 const createContext = cache(async () => {
   const heads = new Headers(await nextHeaders())
   heads.set('x-trpc-source', 'rsc')
+  const host = heads.get('host') || heads.get('x-forwarded-host') || ''
+  if (host && !heads.get('host')) {
+    heads.set('host', host)
+  }
 
   const payload = await getPayload()
 
@@ -39,10 +43,17 @@ export const prefetch: ServerTRPC['prefetch'] = serverTRPC.prefetch
  * const result = await caller.bookings.validateAndAttemptCheckIn({ lessonId: 123 })
  * ```
  */
-export async function createCaller(): Promise<ReturnType<typeof appRouter.createCaller>> {
+export async function createCaller(opts?: {
+  host?: string
+}): Promise<ReturnType<typeof appRouter.createCaller>> {
   const heads = await nextHeaders()
   const headers = new Headers(heads)
   headers.set('x-trpc-source', 'rsc')
+  const host =
+    opts?.host ?? headers.get('host') ?? headers.get('x-forwarded-host') ?? ''
+  if (host && !headers.get('host')) {
+    headers.set('host', host)
+  }
 
   const payload = await getPayload()
 
@@ -50,6 +61,7 @@ export async function createCaller(): Promise<ReturnType<typeof appRouter.create
     headers,
     payload,
     stripe,
+    hostOverride: opts?.host || host || undefined,
   })
 
   return appRouter.createCaller(ctx)

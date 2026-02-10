@@ -2,7 +2,8 @@
  * Step 2.7.2 – E2E: Checkout UI shows when payment methods are attached (Payment Methods / Drop-in tab).
  */
 import { test, expect } from './helpers/fixtures'
-import { loginAsRegularUserViaApi, BASE_URL } from './helpers/auth-helpers'
+import { loginAsRegularUser } from './helpers/auth-helpers'
+import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestClassOption,
   createTestLesson,
@@ -71,47 +72,46 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     endTime.setHours(13, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
 
-    // Set tenant cookie BEFORE any navigation
-    await page.context().addCookies([
-      {
-        name: 'tenant-slug',
-        value: tenantSlug,
-        domain: new URL(BASE_URL).hostname,
-        path: '/',
-      },
-    ])
-    
-    // Login user
-    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password')
-    
-    // Navigate to booking page and check response
-    const response = await page.goto(`${BASE_URL}/bookings/${lesson.id}`, { 
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    })
-    
-    // Verify page loaded successfully
-    if (!response || response.status() !== 200) {
-      const pageContent = await page.content()
+    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+
+    // Wait for booking page: either Payment Methods (success) or error (fail fast with clear message).
+    const result = await Promise.race([
+      page.getByText(/payment methods/i).first().waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success'),
+      page.getByText(/something went wrong/i).waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error'),
+    ]).catch(() => 'timeout')
+
+    if (result === 'error') {
+      const url = page.url()
+      const isRouteBoundary = await page.getByRole('heading', { name: /booking page error/i }).isVisible().catch(() => false)
+      const boundaryHint = isRouteBoundary
+        ? 'Route error boundary (client error in booking/payment components). Check browser console.'
+        : 'Global error boundary. Check server logs for [createBookingPage] or [postValidation].'
       throw new Error(
-        `Page failed to load: HTTP ${response?.status() || 'unknown'}\n` +
-        `URL: ${BASE_URL}/bookings/${lesson.id}\n` +
-        `Page content preview: ${pageContent.slice(0, 500)}`
+        `Booking page hit error boundary. Lesson ${lesson.id}, tenant ${tenantSlug}. URL: ${url}. ${boundaryHint}`
       )
     }
-    
-    // Wait for network to settle
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
-    
-    // Check for server error on page
-    const hasServerError = await page.getByText(/application error|server-side exception/i).isVisible().catch(() => false)
-    if (hasServerError) {
-      const errorText = await page.textContent('body')
-      throw new Error(`Server-side error detected on page:\n${errorText}`)
+    if (result === 'timeout') {
+      const url = page.url()
+      const pathname = new URL(url).pathname
+      if (!pathname.startsWith('/bookings/')) {
+        throw new Error(
+          `Booking page redirected away (likely server error). Lesson ${lesson.id}, tenant ${tenantSlug}. Final URL: ${url}. Check server logs for [createBookingPage].`
+        )
+      }
+      const body = await page.textContent('body').catch(() => '')
+      throw new Error(`Timeout waiting for booking page. Lesson ${lesson.id}. URL: ${url}. Body: ${body?.slice(0, 300) ?? 'none'}`)
     }
 
-    // Verify payment methods section is visible
-    await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 15000 })
+    expect(new URL(page.url()).hostname).toBe(`${tenantSlug}.localhost`)
+    await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}$`), { timeout: 5000 })
+    const paymentMethodsEl = page.getByText(/payment methods/i).first()
+    await paymentMethodsEl.scrollIntoViewIfNeeded().catch(() => null)
+    await expect(paymentMethodsEl).toBeVisible({ timeout: 15000 })
     await expect(page.getByRole('tab', { name: /drop-?in/i })).toBeVisible()
+    // Click Drop-in tab and verify fee breakdown is visible
+    await page.getByRole('tab', { name: /drop-?in/i }).click()
+    await expect(page.getByTestId('booking-fee-breakdown')).toBeVisible({ timeout: 10000 })
   })
 })

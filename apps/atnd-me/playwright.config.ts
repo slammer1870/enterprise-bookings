@@ -1,4 +1,11 @@
-import 'dotenv/config'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+
+// Load .env from this package so test workers and webServer use the same DB (DATABASE_URI)
+// when run from monorepo root (e.g. turbo) or from apps/atnd-me.
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, '.env') })
 
 import { defineConfig, devices } from '@playwright/test'
 
@@ -27,6 +34,7 @@ export default defineConfig({
     actionTimeout: 30000,
     navigationTimeout: 60000,
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
@@ -46,8 +54,12 @@ export default defineConfig({
         env: {
           NODE_ENV: 'production',
           NODE_OPTIONS: '--no-deprecation',
+          ENABLE_TEST_WEBHOOKS: 'true', // Mock Stripe/create-payment-intent in e2e (avoid "No such destination" for placeholder accounts)
           PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
           PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
+          // Same DB as test workers so tenant/lesson data created in fixtures is visible to the app
+          ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
+          ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
         },
       }
     : {
@@ -66,6 +78,8 @@ export default defineConfig({
           ENABLE_TEST_WEBHOOKS: 'true',
           PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
           PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
+          ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
+          ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
         },
       },
 })

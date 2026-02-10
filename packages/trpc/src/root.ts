@@ -5,11 +5,16 @@ import { usersRouter } from "./routers/users";
 import { bookingsRouter } from "./routers/bookings";
 import { authRouter } from "./routers/auth";
 
-import { createTRPCRouter, type GetSubscriptionBookingFeeCents } from "./trpc";
+import {
+  createTRPCRouter,
+  type GetSubscriptionBookingFeeCents,
+} from "./trpc";
+import type { GetDropInFeeBreakdown } from "./routers/payments";
 
 export type AppRouterOptions = {
   payments?: {
     getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
+    getDropInFeeBreakdown?: GetDropInFeeBreakdown;
   };
 };
 
