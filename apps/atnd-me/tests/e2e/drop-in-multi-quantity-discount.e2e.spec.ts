@@ -6,7 +6,7 @@
  * - The discounted price is what gets posted to the payment-intent endpoint
  */
 import { test, expect } from './helpers/fixtures'
-import { loginAsRegularUser } from './helpers/auth-helpers'
+import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestClassOption, createTestLesson, getPayloadInstance } from './helpers/data-helpers'
 
@@ -70,7 +70,8 @@ test.describe('Drop-in multi-quantity discount', () => {
     endTime.setHours(13, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
 
-    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    // API login + tenant-scoped cookies so session is sent on tenant subdomain (same as app-smoke).
+    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
 
     // Warm-up: ensure app can resolve tenant (same DB). Fail fast if tenant not found.
     await navigateToTenant(page, tenantSlug, '/')
@@ -82,7 +83,23 @@ test.describe('Drop-in multi-quantity discount', () => {
     }
     await page.waitForURL((u) => u.pathname === '/home', { timeout: 10000 }).catch(() => null)
 
-    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
+    const bookingPath = `/bookings/${lesson.id}`
+    const goToBooking = async () => {
+      await navigateToTenant(page, tenantSlug, bookingPath)
+      await page.waitForLoadState('domcontentloaded').catch(() => null)
+      return new URL(page.url()).pathname
+    }
+    let currentPath = await goToBooking()
+    for (const delayMs of [1500, 2500]) {
+      if (currentPath !== '/home' && currentPath.startsWith('/bookings/')) break
+      await new Promise((r) => setTimeout(r, delayMs))
+      currentPath = await goToBooking()
+    }
+    if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
+      throw new Error(
+        `Booking page redirected away. Lesson ${lesson.id}, tenant ${tenantSlug}. Expected ${bookingPath}, got ${currentPath}. Check server logs for createBookingPage or getByIdForBooking.`
+      )
+    }
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     // Wait for booking page: success, error, or tenant 404 (fail fast).

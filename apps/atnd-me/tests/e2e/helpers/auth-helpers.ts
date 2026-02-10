@@ -220,13 +220,40 @@ export async function loginAsTenantAdmin(
   await loginToAdminPanel(page, adminEmail, password, requestOpts)
 }
 
+/** Cookie names that indicate auth/session (Better Auth). */
+const SESSION_COOKIE_NAMES = /^(better-auth\.|session_token|session_data|dont_remember)/
+
+/**
+ * Copy session cookies from the current context to a tenant subdomain so they're
+ * sent when navigating to tenantSlug.localhost (auth often sets cookies for the
+ * request host, which can be the main domain when the form posts there).
+ */
+function copySessionCookiesToTenantDomain(
+  cookies: Awaited<ReturnType<BrowserContext['cookies']>>,
+  tenantSlug: string
+): Parameters<BrowserContext['addCookies']>[0] {
+  const tenantDomain = `${tenantSlug}.localhost`
+  return cookies
+    .filter((c) => SESSION_COOKIE_NAMES.test(c.name))
+    .map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: tenantDomain,
+      path: c.path || '/',
+      expires: c.expires,
+      httpOnly: c.httpOnly,
+      secure: c.secure,
+      sameSite: c.sameSite,
+    }))
+}
+
 /**
  * Login as regular user
  * @param page - Playwright page object
  * @param userNumber - User number (1, 2, etc.)
  * @param email - User email (default: user{number}@test.com, or use worker-scoped email from testData)
  * @param password - User password (default: password)
- * @param opts - Optional { tenantSlug } - sets tenant context via cookie
+ * @param opts - Optional { tenantSlug } - sets tenant context via cookie; when set, also copies session cookies to tenant subdomain so protected routes on tenant host receive auth
  */
 export async function loginAsRegularUser(
   page: Page,
@@ -243,6 +270,11 @@ export async function loginAsRegularUser(
 
   if (opts?.tenantSlug) {
     const tenantDomain = `${opts.tenantSlug}.localhost`
+    const cookies = await page.context().cookies()
+    const tenantSessionCookies = copySessionCookiesToTenantDomain(cookies, opts.tenantSlug)
+    if (tenantSessionCookies.length) {
+      await page.context().addCookies(tenantSessionCookies)
+    }
     await page.context().addCookies([
       { name: 'tenant-slug', value: opts.tenantSlug, domain: tenantDomain, path: '/' },
     ])
@@ -252,12 +284,13 @@ export async function loginAsRegularUser(
 /**
  * Log in as regular user via Better Auth API (sign-in/email).
  * Session cookies are stored in the page context. Use before navigating to protected routes (e.g. booking page).
+ * @param opts.tenantSlug - When set, copies session cookies to this subdomain (tenantSlug.localhost) so protected routes on the tenant host receive auth; also sets tenant-slug cookie.
  */
 export async function loginAsRegularUserViaApi(
   page: Page,
   email: string,
   password: string,
-  opts?: { baseURL?: string; request?: APIRequestContext }
+  opts?: { baseURL?: string; request?: APIRequestContext; tenantSlug?: string }
 ): Promise<void> {
   const baseURL = opts?.baseURL ?? BASE_URL
   const apiRequest = opts?.request ?? page.request
@@ -304,6 +337,16 @@ export async function loginAsRegularUserViaApi(
   const state = await apiRequest.storageState()
   if (state.cookies.length) {
     await page.context().addCookies(state.cookies)
+    if (opts?.tenantSlug) {
+      const tenantSessionCookies = copySessionCookiesToTenantDomain(state.cookies, opts.tenantSlug)
+      if (tenantSessionCookies.length) {
+        await page.context().addCookies(tenantSessionCookies)
+      }
+      const tenantDomain = `${opts.tenantSlug}.localhost`
+      await page.context().addCookies([
+        { name: 'tenant-slug', value: opts.tenantSlug, domain: tenantDomain, path: '/' },
+      ])
+    }
   }
 }
 

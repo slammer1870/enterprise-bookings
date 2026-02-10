@@ -13,7 +13,8 @@ import {
 } from './helpers/data-helpers'
 
 test.describe('App smoke', () => {
-  test.describe.configure({ timeout: 90_000 })
+  // Serial mode: avoid cross-test interference (lesson IDs, session); fixes "pass in isolation, fail in suite".
+  test.describe.configure({ timeout: 90_000, mode: 'serial' })
 
   test('homepage and tenants listing load', async ({ page }) => {
     await navigateToRoot(page)
@@ -247,9 +248,10 @@ test.describe('App smoke', () => {
     const end = new Date(start)
     end.setHours(17, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    await new Promise((r) => setTimeout(r, 400))
 
-    // UI login on tenant subdomain (API login can hit ENOTFOUND for subdomain in Node; browser resolves it).
-    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    // API login + tenant-scoped cookies (same as manage test) so session is reliably sent on tenant subdomain.
+    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
 
     // Warm-up: hit tenant root so the app resolves the tenant once. If the app uses a different DB
     // or tenant doesn't exist, we get 404 here instead of after a redirect from the booking page.
@@ -263,7 +265,6 @@ test.describe('App smoke', () => {
           `(CI=1 or close any existing dev server so Playwright starts it with the same env).`
       )
     }
-    // Root redirects to /home when tenant exists; wait for that so we're in a good state.
     await page.waitForURL((u) => u.pathname === '/home', { timeout: 10000 }).catch(() => null)
 
     const bookingPath = `/bookings/${lesson.id}`
@@ -274,9 +275,9 @@ test.describe('App smoke', () => {
     }
 
     let currentPath = await goToBooking()
-    // If createBookingPage fails (e.g. getByIdForBooking NOT_FOUND / tenant mismatch), we get redirect to / then /home. Retry once in case of timing.
-    if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
-      await new Promise((r) => setTimeout(r, 1500))
+    for (const delayMs of [1500, 2500]) {
+      if (currentPath !== '/home' && currentPath.startsWith('/bookings/')) break
+      await new Promise((r) => setTimeout(r, delayMs))
       currentPath = await goToBooking()
     }
     if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
@@ -345,12 +346,20 @@ test.describe('App smoke', () => {
     await createTestBooking(user1.id, lesson.id, 'confirmed')
     await createTestBooking(user1.id, lesson.id, 'confirmed')
 
-    // Use subdomain-aware login and navigation (preserves auth across subdomain)
-    await loginAsRegularUser(page, 1, user1.email, 'password', { tenantSlug })
+    // API login then copy session to tenant subdomain so manage route receives auth (avoids UI form posting to main domain and cookie not sent on tenant).
+    await loginAsRegularUserViaApi(page, user1.email, 'password', { tenantSlug })
     await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}/manage`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), { timeout: 10000 })
+    // In full suite, session can be lost; fail fast if we landed on login instead of manage content.
+    const onLoginPage = await page.getByText(/sign in|enter your email/i).first().isVisible().catch(() => false)
+    if (onLoginPage) {
+      throw new Error(
+        `Manage page required login. Lesson ${lesson.id}, tenant ${tenantSlug}. ` +
+          `Session may not have persisted (run with mode: 'serial' or check auth cookie domain).`
+      )
+    }
     await expect(
       page.getByText(/your bookings|update booking quantity/i).first()
     ).toBeVisible({ timeout: 10000 })
