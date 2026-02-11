@@ -13,6 +13,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "_pages_v" DROP CONSTRAINT "_pages_v_version_hero_media_id_media_id_fk";
   
   ALTER TABLE "drop_ins_payment_methods" ALTER COLUMN "value" SET DATA TYPE text;
+  UPDATE "drop_ins_payment_methods" SET "value" = 'card' WHERE "value" = 'cash';
   DROP TYPE "public"."enum_drop_ins_payment_methods";
   CREATE TYPE "public"."enum_drop_ins_payment_methods" AS ENUM('card');
   ALTER TABLE "drop_ins_payment_methods" ALTER COLUMN "value" SET DATA TYPE "public"."enum_drop_ins_payment_methods" USING "value"::"public"."enum_drop_ins_payment_methods";
