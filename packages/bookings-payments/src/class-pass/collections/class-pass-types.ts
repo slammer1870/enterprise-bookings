@@ -11,9 +11,9 @@ import { beforeClassPassTypeChange } from "../hooks/before-class-pass-type-chang
 import type { CollectionOverrides } from "../../types";
 
 const adminOnlyFieldAccess = {
-  read: ({ req: { user } }: { req: { user: User | null } }) => checkRole(["admin"], user),
-  create: ({ req: { user } }: { req: { user: User | null } }) => checkRole(["admin"], user),
-  update: ({ req: { user } }: { req: { user: User | null } }) => checkRole(["admin"], user),
+  read: ({ req: { user } }: { req: { user: unknown } }) => checkRole(["admin"], user as User | null),
+  create: ({ req: { user } }: { req: { user: unknown } }) => checkRole(["admin"], user as User | null),
+  update: ({ req: { user } }: { req: { user: unknown } }) => checkRole(["admin"], user as User | null),
 };
 
 export type ClassPassTypesOpts = {
