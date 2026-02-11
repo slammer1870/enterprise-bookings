@@ -1,4 +1,6 @@
 import type { CollectionConfig, Field } from "payload";
+import { checkRole } from "@repo/shared-utils";
+import type { User } from "@repo/shared-types";
 import {
   classPassTypesReadAccess,
   classPassTypesCreateAccess,
@@ -7,6 +9,12 @@ import {
 } from "../access/class-pass-types";
 import { beforeClassPassTypeChange } from "../hooks/before-class-pass-type-change";
 import type { CollectionOverrides } from "../../types";
+
+const adminOnlyFieldAccess = {
+  read: ({ req: { user } }: { req: { user: User | null } }) => checkRole(["admin"], user),
+  create: ({ req: { user } }: { req: { user: User | null } }) => checkRole(["admin"], user),
+  update: ({ req: { user } }: { req: { user: User | null } }) => checkRole(["admin"], user),
+};
 
 export type ClassPassTypesOpts = {
   adminGroup?: string;
@@ -68,6 +76,7 @@ const defaultFields: Field[] = [
     type: "text",
     label: "Stripe product",
     required: false,
+    access: adminOnlyFieldAccess,
     admin: {
       description: "Link to a Stripe product with a one-time default price for purchase/checkout.",
       components: {
@@ -83,6 +92,7 @@ const defaultFields: Field[] = [
     name: "priceInformation",
     label: "Price Information",
     type: "group",
+    access: adminOnlyFieldAccess,
     admin: { description: "Price information for the pass type. Synced from Stripe when a product is linked." },
     fields: [
       {
@@ -96,6 +106,7 @@ const defaultFields: Field[] = [
   {
     name: "priceJSON",
     type: "textarea",
+    access: adminOnlyFieldAccess,
     admin: { hidden: true, readOnly: true, rows: 10 },
     label: "Price JSON",
   },
@@ -114,6 +125,7 @@ const defaultFields: Field[] = [
     name: "skipSync",
     type: "checkbox",
     defaultValue: false,
+    access: adminOnlyFieldAccess,
     admin: { description: "Skip syncing price/status from Stripe on save" },
     required: false,
   },

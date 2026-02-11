@@ -67,6 +67,8 @@ const defaultFields: Field[] = [
     label: "Stripe Subscription ID",
     access: {
       read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
     },
     unique: false,
     required: false,
@@ -88,6 +90,11 @@ const defaultFields: Field[] = [
     name: "skipSync",
     type: "checkbox",
     defaultValue: false,
+    access: {
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    },
     admin: { description: "Skip syncing to Stripe" },
     required: false,
   },

@@ -84,6 +84,11 @@ const defaultFields: Field[] = [
     name: "stripeProductId",
     type: "text",
     label: "Stripe Plan",
+    access: {
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    },
     admin: {
       components: {
         Field: {
@@ -135,6 +140,11 @@ const defaultFields: Field[] = [
   {
     name: "priceJSON",
     type: "textarea",
+    access: {
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    },
     admin: { hidden: true, readOnly: true, rows: 10 },
     label: "Price JSON",
   },
@@ -150,6 +160,11 @@ const defaultFields: Field[] = [
     name: "skipSync",
     type: "checkbox",
     defaultValue: false,
+    access: {
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    },
     admin: { description: "Skip syncing to Stripe" },
     required: false,
   },

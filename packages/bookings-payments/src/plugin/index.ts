@@ -107,7 +107,10 @@ export const bookingsPaymentsPlugin =
       }
     }
 
-    // Stripe customer field + GET /stripe/customers (for admin custom select) when dropIns or membership enabled
+    // Platform Stripe proxy endpoints (admin-only, use platform Stripe API for CustomSelect):
+    // - GET /stripe/customers (main plugin, when dropIns or membership)
+    // - GET /stripe/plans, GET /stripe/subscriptions (applyMembershipFeature)
+    // - GET /stripe/class-pass-products (applyClassPassFeature)
     const needsStripeCustomer = dropIns?.enabled || membership?.enabled;
     if (needsStripeCustomer) {
       const usersCollection = ctx.collections.find((c) => c.slug === "users");
