@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Lesson, Booking, DropIn } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -280,6 +281,19 @@ export function PaymentMethods({
     );
   }
 
+  // Controlled tab so we can auto-switch to drop-in when membership is filtered out by quantity
+  const defaultTab = hasMembershipTab ? "membership" : "dropin";
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
+
+  // When user increases quantity and membership is filtered out completely, show drop-in
+  useEffect(() => {
+    if (activeTab === "membership" && !hasMembershipTab && hasDropInTab) {
+      setActiveTab("dropin");
+    } else if (activeTab !== "membership" && activeTab !== "dropin") {
+      setActiveTab(defaultTab);
+    }
+  }, [hasMembershipTab, hasDropInTab, defaultTab, activeTab]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -288,7 +302,7 @@ export function PaymentMethods({
           Please select a payment method to continue:
         </p>
       </div>
-      <Tabs defaultValue={hasMembershipTab ? "membership" : "dropin"}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex w-full justify-around gap-4">
           {hasMembershipTab && (
             <TabsTrigger value="membership" className="w-full">

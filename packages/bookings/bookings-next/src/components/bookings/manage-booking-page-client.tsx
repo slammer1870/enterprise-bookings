@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Lesson, Booking } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -94,15 +94,39 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     [bookings]
   )
 
+  const confirmedBookings = useMemo(
+    () => (bookings || []).filter((b) => String(b.status).toLowerCase() === 'confirmed'),
+    [bookings]
+  )
+
+  const pendingFromServer = useMemo(
+    () => activeBookings.filter((b) => String(b.status).toLowerCase() === 'pending'),
+    [activeBookings]
+  )
+
   const initialQuantity = activeBookings.length || 0
 
   // Desired total quantity of bookings for this lesson.
   // IMPORTANT: `activeBookings` starts as `[]` until the query resolves.
   const [desiredQuantity, setDesiredQuantity] = useState<number>(initialQuantity)
 
-  // Track pending bookings created for payment flow
+  // Track pending bookings created for payment flow (or hydrated from server when user returns)
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([])
   const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
+
+  // When user returns to the page after leaving checkout: show checkout again with server pending
+  const hasHydratedCheckoutRef = useRef(false)
+  useEffect(() => {
+    if (pendingFromServer.length > 0 && !hasHydratedCheckoutRef.current) {
+      hasHydratedCheckoutRef.current = true
+      setPendingBookings(pendingFromServer)
+      setIsInPaymentFlow(true)
+      setDesiredQuantity(activeBookings.length)
+    }
+    if (pendingFromServer.length === 0) {
+      hasHydratedCheckoutRef.current = false
+    }
+  }, [pendingFromServer, activeBookings.length])
 
   // Keep the UI in sync with the server-backed booking count.
   // This prevents the quantity control from getting stuck at 0 before the query resolves.
@@ -113,6 +137,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   
   // Track which booking is currently being cancelled (for per-booking loading state)
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null)
+  // Track when we're abandoning checkout (cancelling all pending)
+  const [isAbandoningCheckout, setIsAbandoningCheckout] = useState(false)
 
   // Check if lesson has payment methods configured
   const hasPaymentMethods = Boolean(
@@ -120,7 +146,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     lesson.classOption.paymentMethods?.allowedPlans?.length
   )
 
-  const { mutate: cancelBooking, isPending: isCancelling } = useMutation(
+  const { mutate: cancelBooking, mutateAsync: cancelBookingAsync, isPending: isCancelling } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
       onSuccess: async () => {
         setCancellingBookingId(null) // Clear the cancelling state
@@ -231,16 +257,52 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
     const current = activeBookings.length
     const target = desiredQuantity
+    const confirmedCount = confirmedBookings.length
+    const pendingCount = pendingFromServer.length
 
     if (target === current) {
       toast.info('No changes to update')
       return
     }
 
-    // Decreasing quantity requires confirmation
+    // Decreasing quantity: only ask for confirmation when cancelling confirmed bookings.
+    // Pending (unpaid) bookings are removed without the same confirmation.
     if (target < current) {
-      const result = await confirm()
-      if (!result) return
+      const toCancelTotal = current - target
+      const toCancelPending = Math.min(pendingCount, toCancelTotal)
+      const toCancelConfirmed = toCancelTotal - toCancelPending
+
+      if (toCancelConfirmed > 0) {
+        const result = await confirm()
+        if (!result) return
+      }
+
+      try {
+        if (toCancelPending > 0) {
+          const pendingToCancel = [...pendingFromServer]
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .slice(0, toCancelPending)
+          for (const booking of pendingToCancel) {
+            if (booking.id != null) await cancelBookingAsync({ id: booking.id })
+          }
+          await queryClient.invalidateQueries({
+            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
+          })
+        }
+        if (toCancelConfirmed > 0) {
+          await setBookingQuantity({
+            lessonId: lesson.id,
+            desiredQuantity: confirmedCount - toCancelConfirmed,
+          })
+        }
+        const delta = Math.abs(target - current)
+        toast.success(
+          `Cancelled ${delta} booking${delta !== 1 ? 's' : ''} for this lesson.`
+        )
+      } catch (error: any) {
+        toast.error(error?.message ?? 'Failed to update bookings')
+      }
+      return
     }
 
     // Check if payment is required for increasing bookings
@@ -354,14 +416,37 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           <CardContent className="pt-6">
             <Button
               variant="outline"
-              onClick={() => {
-                setIsInPaymentFlow(false)
-                setPendingBookings([])
-                setDesiredQuantity(activeBookings.length)
+              disabled={isAbandoningCheckout}
+              onClick={async () => {
+                setIsAbandoningCheckout(true)
+                try {
+                  for (const booking of pendingBookings) {
+                    if (booking.id != null) await cancelBookingAsync({ id: booking.id })
+                  }
+                  setIsInPaymentFlow(false)
+                  setPendingBookings([])
+                  setDesiredQuantity(confirmedBookings.length)
+                  await queryClient.invalidateQueries({
+                    queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
+                      lessonId: lesson.id,
+                    }),
+                  })
+                } catch (err: any) {
+                  toast.error(err?.message ?? 'Failed to cancel pending bookings')
+                } finally {
+                  setIsAbandoningCheckout(false)
+                }
               }}
               className="w-full"
             >
-              Cancel
+              {isAbandoningCheckout ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                'Cancel'
+              )}
             </Button>
           </CardContent>
         </Card>

@@ -1539,4 +1539,124 @@ describe('tRPC Bookings Integration Tests', () => {
       }
     }, TEST_TIMEOUT)
   })
+
+  describe('pending and confirmed bookings (checkout return edge case)', () => {
+    it('setMyBookingQuantityForLesson only considers confirmed; pending bookings remain untouched', async () => {
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(22, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(23, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+
+      const caller = await createCaller()
+
+      // 2 confirmed
+      await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 2,
+      })
+      // 3 pending (e.g. user added more and went to checkout, then left)
+      const pendingBookings = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 3,
+        status: 'pending',
+      })
+      expect(pendingBookings.length).toBe(3)
+
+      // setMyBookingQuantityForLesson(2) should be a no-op: 2 confirmed, desired 2. Pending must not be cancelled.
+      const result = await caller.bookings.setMyBookingQuantityForLesson({
+        lessonId: testLesson.id,
+        desiredQuantity: 2,
+      })
+      expect(result).toBeDefined()
+      expect(result.length).toBe(2)
+      result.forEach((b) => expect(b.status).toBe('confirmed'))
+
+      const allBookings = await caller.bookings.getUserBookingsForLesson({
+        lessonId: testLesson.id,
+      })
+      const confirmed = allBookings.filter((b) => b.status === 'confirmed')
+      const pending = allBookings.filter((b) => b.status === 'pending')
+      expect(confirmed.length).toBe(2)
+      expect(pending.length).toBe(3)
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('cancelBooking cancels pending bookings; getUserBookingsForLesson then returns only confirmed', async () => {
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 2)
+      startTime.setHours(9, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(10, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+
+      const caller = await createCaller()
+
+      await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 2,
+      })
+      const pendingBookings = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 2,
+        status: 'pending',
+      })
+
+      for (const booking of pendingBookings) {
+        await caller.bookings.cancelBooking({ id: booking.id })
+      }
+
+      const after = await caller.bookings.getUserBookingsForLesson({
+        lessonId: testLesson.id,
+      })
+      const confirmed = after.filter((b) => b.status === 'confirmed')
+      const pending = after.filter((b) => b.status === 'pending')
+      expect(confirmed.length).toBe(2)
+      expect(pending.length).toBe(0)
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+  })
 })
