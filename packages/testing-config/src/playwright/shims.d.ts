@@ -25,6 +25,7 @@ declare module '@playwright/test' {
     first(): Locator
     count(): Promise<number>
     isVisible(options?: { timeout?: number }): Promise<boolean>
+    or(other: Locator): Locator
   }
 
   export type Response = {
@@ -48,6 +49,7 @@ declare module '@playwright/test' {
 
   export type Page = {
     getByRole(role: string, options?: { name?: string | RegExp }): Locator
+    getByLabel(selector: string | RegExp): Locator
     locator(selector: string): Locator
     waitForResponse(
       predicate: (response: Response) => boolean,

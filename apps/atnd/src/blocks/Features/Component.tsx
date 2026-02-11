@@ -87,8 +87,8 @@ export const FeaturesBlock: React.FC<Props> = ({
                       reference={
                         feature.link.reference
                           ? {
-                              relationTo: 'pages',
-                              value: feature.link.reference as any,
+                              relationTo: feature.link.reference.relationTo,
+                              value: feature.link.reference.value,
                             }
                           : undefined
                       }

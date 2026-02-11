@@ -1,6 +1,6 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   // Fix the payload_kv constraint issue - safely drop the constraint if it exists
   // This constraint cannot be dropped because id is part of the primary key
   // Payload tries to drop it during schema sync, but PostgreSQL prevents it
@@ -24,7 +24,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   `)
 }
 
-export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+export async function down(_args: MigrateDownArgs): Promise<void> {
   // No-op: we can't recreate a constraint that was invalid
 }
 

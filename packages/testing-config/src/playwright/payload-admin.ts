@@ -146,7 +146,7 @@ export async function ensureAdminLoggedIn(page: Page) {
   const createFirstUserHeading = page.getByRole('heading', { name: /^Welcome$/i })
   const loginButton = page.getByRole('button', { name: /log\s*in|login|sign\s*in/i })
   const emailInput = page.getByRole('textbox', { name: /^Email\s*\*?$/i })
-  const passwordInput = page.getByRole('textbox', { name: /^Password\s*\*?$/i })
+  const _passwordInput = page.getByRole('textbox', { name: /^Password\s*\*?$/i })
 
   const isCreateFirstUserRoute = () => {
     try {

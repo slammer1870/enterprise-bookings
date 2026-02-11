@@ -123,8 +123,8 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                         reference={
                           study.link.reference
                             ? {
-                                relationTo: 'pages',
-                                value: study.link.reference as any,
+                                relationTo: study.link.reference.relationTo,
+                                value: study.link.reference.value,
                               }
                             : undefined
                         }
@@ -217,8 +217,8 @@ export const CaseStudiesBlock: React.FC<Props> = ({
                         reference={
                           study.link.reference
                             ? {
-                                relationTo: 'pages',
-                                value: study.link.reference as any,
+                                relationTo: study.link.reference.relationTo,
+                                value: study.link.reference.value,
                               }
                             : undefined
                         }
