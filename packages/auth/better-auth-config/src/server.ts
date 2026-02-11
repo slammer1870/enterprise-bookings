@@ -56,6 +56,10 @@ export type BetterAuthServerConfig = {
   magicLinkDisableSignUp?: boolean;
   includeMagicLinkOptionConfig?: boolean;
   sessionCookieCache?: { enabled: boolean; maxAge?: number };
+  /** Session expires after this many seconds (Better Auth default ~7 days). */
+  sessionExpiresInSeconds?: number;
+  /** Refresh session every N seconds of activity; extends expiration. */
+  sessionUpdateAgeSeconds?: number;
 
   /**
    * Shared Better Auth email configuration.
@@ -373,6 +377,12 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
       },
     },
     session: {
+      ...(config.sessionExpiresInSeconds != null
+        ? { expiresIn: config.sessionExpiresInSeconds }
+        : {}),
+      ...(config.sessionUpdateAgeSeconds != null
+        ? { updateAge: config.sessionUpdateAgeSeconds }
+        : {}),
       cookieCache:
         config.sessionCookieCache ??
         ({

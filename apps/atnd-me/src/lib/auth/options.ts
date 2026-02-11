@@ -41,6 +41,8 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
     roles: ['user', 'admin', 'tenant-admin'],
     allowedFields: ['name'],
   },
+  sessionExpiresInSeconds: 60 * 60 * 24 * 365, // 1 year
+  sessionUpdateAgeSeconds: 60 * 60 * 24 * 30,  // refresh every 30 days of activity
 })
 
 export type ConstructedBetterAuthPluginOptions = typeof betterAuthPluginOptions
