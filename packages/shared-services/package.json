@@ -11,7 +11,8 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "eslint": "^9.39.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "4.0.12"
   },
   "main": "src/index.ts",
   "peerDependencies": {
@@ -22,6 +23,8 @@
   "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

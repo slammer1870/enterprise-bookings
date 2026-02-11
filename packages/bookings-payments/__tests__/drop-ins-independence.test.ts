@@ -11,7 +11,6 @@ describe("drop-ins independence", () => {
       dropIns: {
         enabled: true,
         paymentMethodSlugs: ["class-options"],
-        acceptedPaymentMethods: ["cash", "card"],
       },
     });
     const incoming: Partial<Config> = {

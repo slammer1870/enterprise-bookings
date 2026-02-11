@@ -26,6 +26,7 @@ import * as migration_20260129_memberships_allow_multiple_per_lesson from './202
 import * as migration_20260210_064706 from './20260210_064706';
 import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
 import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pages_generate_slug';
+import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
 
 export const migrations = [
   {
@@ -167,5 +168,10 @@ export const migrations = [
     up: migration_20260210_drop_pages_generate_slug.up,
     down: migration_20260210_drop_pages_generate_slug.down,
     name: '20260210_drop_pages_generate_slug',
+  },
+  {
+    up: migration_20260211_users_stripe_customer_id.up,
+    down: migration_20260211_users_stripe_customer_id.down,
+    name: '20260211_users_stripe_customer_id',
   },
 ];

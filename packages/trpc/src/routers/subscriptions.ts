@@ -4,7 +4,10 @@ import { findByIdSafe, findSafe } from "../utils/collections";
 
 import { Subscription, Lesson, Plan } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
-import { hasReachedSubscriptionLimit } from "@repo/shared-services";
+import {
+  hasReachedSubscriptionLimit,
+  getRemainingSessionsInPeriod,
+} from "@repo/shared-services";
 
 export const subscriptionsRouter = {
   getSubscription: protectedProcedure
@@ -175,6 +178,7 @@ export const subscriptionsRouter = {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
         };
       }
 
@@ -190,6 +194,7 @@ export const subscriptionsRouter = {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
         };
       }
 
@@ -201,6 +206,7 @@ export const subscriptionsRouter = {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
         };
       }
 
@@ -238,6 +244,7 @@ export const subscriptionsRouter = {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
         };
       }
 
@@ -248,9 +255,16 @@ export const subscriptionsRouter = {
         new Date(lesson.startTime)
       );
 
+      const remainingSessions = await getRemainingSessionsInPeriod(
+        subscription as Subscription,
+        payload,
+        new Date(lesson.startTime)
+      );
+
       return {
         subscription,
         subscriptionLimitReached: limitReached,
+        remainingSessions,
       };
     }),
 };

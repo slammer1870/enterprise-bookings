@@ -177,7 +177,6 @@ export default buildConfig({
       payments: {
         enabled: true,
         enableDropIns: true,
-        acceptedPaymentMethods: ['card'],
         paymentMethodSlugs: ['class-options'],
       },
       membership: {

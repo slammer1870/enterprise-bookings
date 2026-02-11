@@ -36,6 +36,40 @@ docker compose -f apps/atnd-me/docker-compose.yml build
 
 Use `.env` or Coolify env UI; do not commit secrets.
 
+## Stripe webhooks
+
+atnd-me uses a **single Connect webhook** for account, payment, and subscription events. Subscriptions are created on the **connected account** so events include `event.account`; subscription lifecycle (create, update, cancel, pause) is handled in this route. The sync job (`syncStripeSubscriptions`) is **disabled** for atnd-me; other apps that want it set `membership.syncStripeSubscriptions: true` in the plugin config.
+
+### Webhook URL
+
+- **URL**: `{NEXT_PUBLIC_SERVER_URL}/api/stripe/webhook` (e.g. `https://atnd-me.com/api/stripe/webhook`). Must be HTTPS in production; no trailing slash.
+
+### Environment
+
+- Set **`STRIPE_CONNECT_WEBHOOK_SECRET`** to the **Signing secret** (e.g. `whsec_...`) from the Stripe webhook endpoint. Required for signature verification when using Stripe Connect.
+
+### Stripe Dashboard
+
+1. Go to **Developers → Webhooks** (or **Connect → Webhooks**).
+2. For **Connect**, use “Listen to events on Connected accounts” and add the endpoint URL above.
+3. Select events:
+   - `account.updated`
+   - `account.application.deauthorized`
+   - `payment_intent.succeeded`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+4. After creating the endpoint, copy the **Signing secret** and set it as `STRIPE_CONNECT_WEBHOOK_SECRET`.
+
+### Subscription management
+
+- **Sync job**: Opt-in and **disabled** for atnd-me. Subscription create/update/cancel/pause are handled by the Connect webhook (same URL, same secret).
+- **Idempotency**: The app uses an in-memory store for webhook event idempotency. With multiple app instances, consider a DB-backed store; for single-instance deployments the current behaviour is sufficient.
+
+### Local testing
+
+- Use Stripe CLI: `stripe listen --forward-to https://your-ngrok-or-public-url/api/stripe/webhook` and use the printed `whsec_...` as `STRIPE_CONNECT_WEBHOOK_SECRET` for that environment.
+
 ## Fresh database: Tenants and admin collections
 
 With a **fresh database**, the first user is automatically given the **admin** role (so the **Tenants** collection and other admin-only items appear in the Payload sidebar). If you create the first user (e.g. via sign-up or Payload) and **Tenants** still doesn’t appear:

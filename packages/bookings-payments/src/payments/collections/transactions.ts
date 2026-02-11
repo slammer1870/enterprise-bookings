@@ -28,7 +28,7 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
   {
     name: "paymentMethod",
     type: "select",
-    options: ["cash", "card"],
+    options: ["card"],
     required: true,
   },
   {

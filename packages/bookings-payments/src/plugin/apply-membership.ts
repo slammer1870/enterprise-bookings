@@ -1,3 +1,4 @@
+import { modifyUsersCollectionForPayments } from "../payments/collections/users";
 import { modifyUsersCollectionForMembership } from "../membership/collections/users";
 import { generatePlansCollection } from "../membership/collections/plans";
 import { generateSubscriptionCollection } from "../membership/collections/subscriptions";
@@ -13,9 +14,10 @@ import { forEachPaymentMethodSlug } from "./forEachPaymentMethodSlug";
 import { injectAllowedPlansIntoCollection } from "./inject-payment-methods";
 
 /**
- * Applies the membership feature: plans, subscriptions, users (userSubscription),
+ * Applies the membership feature: plans, subscriptions, users (stripeCustomerId + userSubscription),
  * membership endpoints, sync-stripe-subscriptions job, and allowedPlans injection
  * into the configured payment-method collections.
+ * stripeCustomerId is added to users by default whenever drop-ins, payments, or membership is enabled.
  */
 export function applyMembershipFeature(
   ctx: PluginContext,
@@ -26,7 +28,9 @@ export function applyMembershipFeature(
     throw new Error("Users collection not found");
   }
   ctx.collections = ctx.collections.filter((c) => c.slug !== "users");
-  ctx.collections.push(modifyUsersCollectionForMembership(usersCollection));
+  const usersWithStripeCustomerId = modifyUsersCollectionForPayments(usersCollection);
+  const usersWithMembership = modifyUsersCollectionForMembership(usersWithStripeCustomerId);
+  ctx.collections.push(usersWithMembership);
   ctx.endpoints.push({
     path: "/stripe/plans",
     method: "get",
@@ -51,22 +55,24 @@ export function applyMembershipFeature(
     method: "post",
     handler: createCustomerPortal,
   });
-  ctx.endpoints.push({
-    path: "/stripe/sync-stripe-subscriptions",
-    method: "post",
-    handler: syncStripeSubscriptionsEndpoint,
-  });
 
-  if (!ctx.config.jobs) {
-    ctx.config.jobs = { tasks: [] };
+  if (membership.syncStripeSubscriptions === true) {
+    ctx.endpoints.push({
+      path: "/stripe/sync-stripe-subscriptions",
+      method: "post",
+      handler: syncStripeSubscriptionsEndpoint,
+    });
+    if (!ctx.config.jobs) {
+      ctx.config.jobs = { tasks: [] };
+    }
+    if (!ctx.config.jobs.tasks) {
+      ctx.config.jobs.tasks = [];
+    }
+    ctx.config.jobs.tasks.push({
+      slug: "syncStripeSubscriptions",
+      handler: syncStripeSubscriptionsTask,
+    });
   }
-  if (!ctx.config.jobs.tasks) {
-    ctx.config.jobs.tasks = [];
-  }
-  ctx.config.jobs.tasks.push({
-    slug: "syncStripeSubscriptions",
-    handler: syncStripeSubscriptionsTask,
-  });
 
   const plansCollection = generatePlansCollection(membership);
   ctx.collections.push(generateSubscriptionCollection(membership));

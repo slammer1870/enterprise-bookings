@@ -14,9 +14,9 @@ vi.mock("../src/membership/lib/sync-stripe-subscriptions", () => ({
 
 describe("syncStripeSubscriptions job", () => {
   describe("plugin registration", () => {
-    it("registers syncStripeSubscriptions task when membership is enabled", () => {
+    it("registers syncStripeSubscriptions task when membership is enabled and syncStripeSubscriptions is true", () => {
       const plugin = bookingsPaymentsPlugin({
-        membership: { enabled: true },
+        membership: { enabled: true, syncStripeSubscriptions: true },
       });
       const incoming: Partial<Config> = {
         collections: [
@@ -35,6 +35,50 @@ describe("syncStripeSubscriptions job", () => {
       );
       expect(task).toBeDefined();
       expect(task?.handler).toBeDefined();
+    });
+
+    it("does not register syncStripeSubscriptions task when membership is enabled but syncStripeSubscriptions is false", () => {
+      const plugin = bookingsPaymentsPlugin({
+        membership: { enabled: true, syncStripeSubscriptions: false },
+      });
+      const incoming: Partial<Config> = {
+        collections: [
+          {
+            slug: "users",
+            admin: { useAsTitle: "email" },
+            auth: true,
+            fields: [],
+          },
+        ],
+      };
+      const result = plugin(incoming as Config) as Config;
+      const task = result.jobs?.tasks?.find(
+        (t): t is { slug: string } =>
+          typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions"
+      );
+      expect(task).toBeUndefined();
+    });
+
+    it("does not register syncStripeSubscriptions task when membership is enabled but syncStripeSubscriptions is omitted", () => {
+      const plugin = bookingsPaymentsPlugin({
+        membership: { enabled: true },
+      });
+      const incoming: Partial<Config> = {
+        collections: [
+          {
+            slug: "users",
+            admin: { useAsTitle: "email" },
+            auth: true,
+            fields: [],
+          },
+        ],
+      };
+      const result = plugin(incoming as Config) as Config;
+      const task = result.jobs?.tasks?.find(
+        (t): t is { slug: string } =>
+          typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions"
+      );
+      expect(task).toBeUndefined();
     });
 
     it("does not register syncStripeSubscriptions task when membership is disabled", () => {

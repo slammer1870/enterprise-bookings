@@ -4,7 +4,6 @@ import type { User } from "@repo/shared-types";
 import type { CollectionOverrides } from "../../types";
 
 type DropInsOptions = {
-  acceptedPaymentMethods?: ("cash" | "card")[];
   overrides?: CollectionOverrides;
 };
 
@@ -15,13 +14,12 @@ const defaultAccess: NonNullable<CollectionConfig["access"]> = {
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
 };
 
+/** Card payments only; no config option. */
+const PAYMENT_METHODS = ["card"] as const;
+
 export function dropInsCollection(
-  pluginOptions: DropInsOptions
+  pluginOptions: DropInsOptions = {}
 ): CollectionConfig {
-  const acceptedPaymentMethods = pluginOptions.acceptedPaymentMethods ?? [
-    "cash",
-    "card",
-  ];
   const overrides = pluginOptions.overrides;
 
   const defaultFields: NonNullable<CollectionConfig["fields"]> = [
@@ -71,8 +69,8 @@ export function dropInsCollection(
       name: "paymentMethods",
       label: "Payment Methods",
       type: "select",
-      options: acceptedPaymentMethods,
-      defaultValue: acceptedPaymentMethods[0],
+      options: [...PAYMENT_METHODS],
+      defaultValue: PAYMENT_METHODS[0],
       hasMany: true,
       required: true,
     },

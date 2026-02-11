@@ -172,7 +172,6 @@ export interface Config {
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
-      syncStripeSubscriptions: TaskSyncStripeSubscriptions;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -601,6 +600,7 @@ export interface User {
     totalDocs?: number;
   };
   roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
+  stripeCustomerId?: string | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
     hasNextPage?: boolean;
@@ -858,7 +858,7 @@ export interface DropIn {
         id?: string | null;
       }[]
     | null;
-  paymentMethods: ('cash' | 'card')[];
+  paymentMethods: 'card'[];
   'class-optionsPaymentMethods'?: {
     docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
@@ -1947,7 +1947,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions' | 'schedulePublish';
+        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -1980,7 +1980,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -3101,6 +3101,7 @@ export interface UsersSelect<T extends boolean = true> {
   account?: T;
   session?: T;
   roles?: T;
+  stripeCustomerId?: T;
   userSubscription?: T;
   tenants?:
     | T
@@ -3394,14 +3395,6 @@ export interface TaskGenerateLessonsFromSchedule {
     success?: boolean | null;
     message?: string | null;
   };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskSyncStripeSubscriptions".
- */
-export interface TaskSyncStripeSubscriptions {
-  input?: unknown;
-  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

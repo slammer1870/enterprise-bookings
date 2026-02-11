@@ -204,6 +204,67 @@ export const hasReachedSubscriptionLimit = async (
 };
 
 /**
+ * Returns remaining sessions in the current billing period for the subscription.
+ * Returns null if the plan has no session limit (unlimited) or plan/session info is missing.
+ * Used to filter which plans can be shown on the booking page based on selected quantity.
+ */
+export const getRemainingSessionsInPeriod = async (
+  subscription: Subscription,
+  payload: Payload,
+  lessonDate: Date
+): Promise<number | null> => {
+  let plan = subscription.plan as unknown as Plan | number;
+  if (typeof plan === "number") {
+    try {
+      plan = (await payload.findByID({
+        collection: getPlanCollectionSlug(payload),
+        id: plan,
+      })) as Plan;
+    } catch {
+      return null;
+    }
+  }
+
+  if (
+    !plan ||
+    !plan.sessionsInformation ||
+    plan.sessionsInformation.sessions == null ||
+    plan.sessionsInformation.sessions <= 0 ||
+    !plan.sessionsInformation.interval ||
+    plan.sessionsInformation.intervalCount == null
+  ) {
+    return null; // unlimited
+  }
+
+  const { startDate, endDate } = subscription.startDate
+    ? getSubscriptionPeriodStartAndEndDate({
+        subscriptionStartDate: subscription.startDate as any,
+        lessonDate,
+        intervalType: plan.sessionsInformation.interval,
+        intervalCount: plan.sessionsInformation.intervalCount || 1,
+      })
+    : getIntervalStartAndEndDate(
+        plan.sessionsInformation.interval,
+        plan.sessionsInformation.intervalCount || 1,
+        lessonDate
+      );
+
+  try {
+    const bookings = await payload.find({
+      collection: "bookings" as CollectionSlug,
+      depth: 0,
+      where: query(subscription, plan as Plan, startDate, endDate),
+      limit: 0,
+    });
+    const used = bookings.totalDocs ?? 0;
+    const limit = plan.sessionsInformation.sessions;
+    return Math.max(0, limit - used);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Returns the maximum additional booking quantity the user can create for this lesson
  * when booking via subscription. Returns null if user has no subscription for this lesson
  * (caller may allow any quantity if they are paying).

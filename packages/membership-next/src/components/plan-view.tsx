@@ -11,6 +11,12 @@ type PlanViewProps = {
   subscription: Subscription | null;
   lessonDate: Date;
   subscriptionLimitReached: boolean;
+  /** Remaining sessions in current period (null = unlimited). */
+  remainingSessions?: number | null;
+  /** Number of bookings selected on the page. */
+  selectedQuantity?: number;
+  /** When false, user cannot use subscription for current selection. */
+  canUseSubscriptionForQuantity?: boolean;
   onCreateCheckoutSession: (
     _planId: string,
     _metadata?: { [key: string]: string | undefined }
@@ -28,6 +34,9 @@ export function PlanView({
   subscription,
   lessonDate,
   subscriptionLimitReached,
+  remainingSessions = null,
+  selectedQuantity = 1,
+  canUseSubscriptionForQuantity = true,
   onCreateCheckoutSession,
   onCreateCustomerPortal,
   onCreateCustomerUpgradePortal,
@@ -97,11 +106,22 @@ export function PlanView({
     );
   }
 
+  const notEnoughSessionsLeft =
+    !canUseSubscriptionForQuantity &&
+    remainingSessions != null &&
+    remainingSessions > 0;
+
   return (
     <>
       {subscriptionLimitReached && (
         <p className="text-sm text-red-500 mb-2">
           You have reached the limit of your subscription
+        </p>
+      )}
+      {notEnoughSessionsLeft && (
+        <p className="text-sm text-amber-600 mb-2">
+          You have {remainingSessions} session{remainingSessions === 1 ? "" : "s"} left this period.
+          Reduce quantity to {remainingSessions} or use drop-in to pay for more.
         </p>
       )}
       {(subscription.status === "unpaid" || subscription.status === "past_due") && (

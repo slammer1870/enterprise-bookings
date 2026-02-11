@@ -1,6 +1,6 @@
 /**
- * Step 2.5 / 2.8 – Stripe Connect webhook (account.updated, account.application.deauthorized, payment_intent.succeeded).
- * Verifies signature, resolves tenant by account id or metadata, updates status/booking, enforces idempotency.
+ * Step 2.5 / 2.8 – Stripe Connect webhook (account.*, payment_intent.succeeded, customer.subscription.*).
+ * Verifies signature, resolves tenant by account id or metadata, updates status/booking/subscription, enforces idempotency.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -146,8 +146,157 @@ export async function POST(request: NextRequest) {
     depth: 0,
     overrideAccess: true,
   })
-  const tenant = tenantResult.docs[0]
+  const tenant = tenantResult.docs[0] as { id: number } | undefined
   if (!tenant) {
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  const tenantId = tenant.id
+
+  if (
+    event.type === 'customer.subscription.created' ||
+    event.type === 'customer.subscription.updated' ||
+    event.type === 'customer.subscription.deleted'
+  ) {
+    const obj = event.data?.object as {
+      id?: string
+      customer?: string | { id?: string }
+      status?: string
+      current_period_start?: number
+      current_period_end?: number
+      cancel_at?: number
+      items?: { data?: Array<{ plan?: { product?: string } }> }
+    } | undefined
+    if (!obj?.id) {
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+    const customerId = typeof obj.customer === 'string' ? obj.customer : obj.customer?.id
+    const planProductId = obj.items?.data?.[0]?.plan?.product
+    const currentPeriodStart = obj.current_period_start
+    const currentPeriodEnd = obj.current_period_end
+    const cancelAt = obj.cancel_at
+
+    if (event.type === 'customer.subscription.created') {
+      if (!customerId || !planProductId) {
+        markStripeConnectEventProcessed(event.id)
+        return NextResponse.json({ received: true }, { status: 200 })
+      }
+      const userResult = await payload.find({
+        collection: 'users',
+        where: { stripeCustomerId: { equals: customerId } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const user = userResult.docs[0] as { id: number } | undefined
+      if (!user) {
+        markStripeConnectEventProcessed(event.id)
+        return NextResponse.json({ received: true }, { status: 200 })
+      }
+      const planResult = await payload.find({
+        collection: 'plans',
+        where: {
+          stripeProductId: { equals: planProductId },
+          tenant: { equals: tenantId },
+        },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const plan = planResult.docs[0] as { id: number } | undefined
+      if (!plan) {
+        markStripeConnectEventProcessed(event.id)
+        return NextResponse.json({ received: true }, { status: 200 })
+      }
+      const existing = await payload.find({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        where: { stripeSubscriptionId: { equals: obj.id } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      if (existing.docs.length > 0) {
+        markStripeConnectEventProcessed(event.id)
+        return NextResponse.json({ received: true }, { status: 200 })
+      }
+      await payload.create({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        data: {
+          tenant: tenantId,
+          user: user.id,
+          plan: plan.id,
+          status: (obj.status as 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused') ?? 'active',
+          stripeSubscriptionId: obj.id,
+          startDate: currentPeriodStart
+            ? new Date(currentPeriodStart * 1000).toISOString()
+            : null,
+          endDate: currentPeriodEnd
+            ? new Date(currentPeriodEnd * 1000).toISOString()
+            : null,
+          cancelAt: cancelAt ? new Date(cancelAt * 1000).toISOString() : null,
+          skipSync: true,
+        } as Record<string, unknown>,
+        overrideAccess: true,
+      })
+    } else if (event.type === 'customer.subscription.updated') {
+      const subResult = await payload.find({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        where: { stripeSubscriptionId: { equals: obj.id } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const sub = subResult.docs[0] as { id: number } | undefined
+      if (sub) {
+        const updateData: Record<string, unknown> = {
+          skipSync: true,
+        }
+        if (obj.status != null) {
+          updateData.status = obj.status as 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'
+        }
+        if (currentPeriodStart != null) {
+          updateData.startDate = new Date(currentPeriodStart * 1000).toISOString()
+        }
+        if (currentPeriodEnd != null) {
+          updateData.endDate = new Date(currentPeriodEnd * 1000).toISOString()
+        }
+        if (cancelAt != null) {
+          updateData.cancelAt = new Date(cancelAt * 1000).toISOString()
+        }
+        await payload.update({
+          collection: 'subscriptions' as import('payload').CollectionSlug,
+          id: sub.id,
+          data: updateData,
+          overrideAccess: true,
+        })
+      }
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subResult = await payload.find({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        where: { stripeSubscriptionId: { equals: obj.id } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const sub = subResult.docs[0] as { id: number } | undefined
+      if (sub) {
+        await payload.update({
+          collection: 'subscriptions' as import('payload').CollectionSlug,
+          id: sub.id,
+          data: {
+            status: 'canceled',
+            endDate: currentPeriodEnd
+              ? new Date(currentPeriodEnd * 1000).toISOString()
+              : new Date().toISOString(),
+            cancelAt: cancelAt ? new Date(cancelAt * 1000).toISOString() : new Date().toISOString(),
+            skipSync: true,
+          } as Record<string, unknown>,
+          overrideAccess: true,
+        })
+      }
+    }
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
   }

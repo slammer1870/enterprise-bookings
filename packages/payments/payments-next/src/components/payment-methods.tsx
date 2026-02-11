@@ -64,6 +64,25 @@ function planAllowsMultipleBookingsPerLesson(plan: unknown): boolean {
 }
 
 /**
+ * Returns true if the plan's capacity can cover at least `requiredQuantity` bookings in a period.
+ * Uses only the plan's session limit (sessions per period), not the user's usage.
+ * Unlimited plans (no sessionsInformation or sessions <= 0) always return true.
+ * Otherwise returns true when plan.sessionsInformation.sessions >= requiredQuantity.
+ */
+function planCanCoverQuantity(plan: unknown, requiredQuantity: number): boolean {
+  if (requiredQuantity <= 0) return true;
+  if (!plan || typeof plan !== "object") return false;
+  const p = plan as {
+    sessionsInformation?: {
+      sessions?: number;
+    };
+  };
+  const si = p.sessionsInformation;
+  if (!si || si.sessions == null || si.sessions <= 0) return true; // Unlimited
+  return si.sessions >= requiredQuantity;
+}
+
+/**
  * Component for displaying and managing payment methods for a lesson.
  * When quantity > 1, only shows payment methods that allow multiple bookings per lesson.
  * Uses tRPC procedures for data fetching and manipulation.
@@ -90,6 +109,7 @@ export function PaymentMethods({
 
   const subscription = subscriptionData?.subscription ?? null;
   const subscriptionLimitReached = subscriptionData?.subscriptionLimitReached ?? false;
+  const remainingSessions = subscriptionData?.remainingSessions ?? null;
 
   // Create checkout session mutation for plans
   const { mutateAsync: createCheckoutSession } = useMutation(
@@ -186,26 +206,46 @@ export function PaymentMethods({
 
   let activePlans = allowedPlans?.filter((plan) => plan.status === "active") ?? [];
 
+  // Filter plan list by plan capacity only (not by user's usage): show only plans whose
+  // per-period session limit can cover the selected quantity (sessions >= quantity or unlimited).
+  activePlans = activePlans.filter((plan) =>
+    planCanCoverQuantity(plan, quantity)
+  );
+
   const hasSubscriptionWithPlan =
     subscription &&
     allowedPlans?.some((plan) => plan.id === subscription?.plan?.id);
 
-  // Base visibility (quantity 1): membership tab if plans exist or user has subscription; drop-in if configured and no subscription
+  // For "use current subscription": session limits are based on sessions already booked
+  // on the user's active subscription this period (remainingSessions). Only then do we
+  // check if they can book this quantity (remainingSessions >= quantity or unlimited).
+  const canUseSubscriptionForQuantity =
+    hasSubscriptionWithPlan &&
+    !subscriptionLimitReached &&
+    (remainingSessions === null || remainingSessions >= quantity);
+
+  const userPlanAllowsMultiple =
+    subscription?.plan &&
+    planAllowsMultipleBookingsPerLesson(subscription.plan);
+
+  // When quantity > 1: only show plans that allow multiple bookings per lesson
+  if (quantity > 1) {
+    activePlans = activePlans.filter((plan) =>
+      planAllowsMultipleBookingsPerLesson(plan)
+    );
+  }
+
+  // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
+  // (so we can show "use subscription", "N sessions left", or limit reached message)
   let hasMembershipTab =
     activePlans.length > 0 || Boolean(hasSubscriptionWithPlan);
   let hasDropInTab =
     Boolean(allowedDropIn) && !hasSubscriptionWithPlan;
 
-  // When multiple bookings: only show methods that allow multiple per lesson
   if (quantity > 1) {
-    activePlans = activePlans.filter((plan) =>
-      planAllowsMultipleBookingsPerLesson(plan)
-    );
-    const userPlanAllowsMultiple =
-      subscription?.plan &&
-      planAllowsMultipleBookingsPerLesson(subscription.plan);
     hasMembershipTab =
-      activePlans.length > 0 || Boolean(hasSubscriptionWithPlan && userPlanAllowsMultiple);
+      activePlans.length > 0 ||
+      Boolean(hasSubscriptionWithPlan && userPlanAllowsMultiple);
     hasDropInTab =
       hasDropInTab && dropInAllowsMultiple(allowedDropIn as DropIn);
   }
@@ -250,6 +290,9 @@ export function PaymentMethods({
               subscription={subscription}
               lessonDate={new Date(lesson.startTime)}
               subscriptionLimitReached={subscriptionLimitReached}
+              remainingSessions={remainingSessions}
+              selectedQuantity={quantity}
+              canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
               onCreateCheckoutSession={handleCreateCheckoutSession}
               onCreateCustomerPortal={handleCreateCustomerPortal}
               onCreateCustomerUpgradePortal={handleCreateCustomerUpgradePortal}

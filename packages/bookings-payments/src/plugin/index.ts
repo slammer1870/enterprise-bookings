@@ -56,7 +56,6 @@ function resolveDropIns(
   const explicit = normalizeFeatureOption(pluginOptions.dropIns, {
     enabled: true,
     paymentMethodSlugs: ["class-options"],
-    acceptedPaymentMethods: ["cash", "card"],
   });
   if (explicit !== undefined) return explicit;
   const payments = pluginOptions.payments;
@@ -64,7 +63,6 @@ function resolveDropIns(
     return {
       enabled: true,
       paymentMethodSlugs: payments.paymentMethodSlugs ?? ["class-options"],
-      acceptedPaymentMethods: payments.acceptedPaymentMethods ?? ["cash", "card"],
     };
   }
   return undefined;

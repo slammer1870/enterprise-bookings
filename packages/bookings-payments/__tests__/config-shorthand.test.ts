@@ -19,7 +19,7 @@ const baseCollections: Partial<Config>["collections"] = [
 ];
 
 describe("config shorthand (true | object)", () => {
-  it("accepts membership: true and enables membership with defaults", () => {
+  it("accepts membership: true and enables membership with defaults (sync is opt-in, so not registered)", () => {
     const plugin = bookingsPaymentsPlugin({
       membership: true,
     });
@@ -28,7 +28,18 @@ describe("config shorthand (true | object)", () => {
     const slugs = result.collections?.map((c) => c.slug) ?? [];
     expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
+    expect(result.jobs?.tasks?.some((t) => typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions") ?? false).toBe(false);
+  });
+
+  it("accepts membership: { enabled: true, syncStripeSubscriptions: true } and registers sync task and endpoint", () => {
+    const plugin = bookingsPaymentsPlugin({
+      membership: { enabled: true, syncStripeSubscriptions: true },
+    });
+    const incoming: Partial<Config> = { collections: baseCollections };
+    const result = plugin(incoming as Config) as Config;
     expect(result.jobs?.tasks?.some((t) => typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions")).toBe(true);
+    const endpointPaths = (result.endpoints || []).map((e) => typeof e === "object" && e !== null && "path" in e ? e.path : null).filter(Boolean) as string[];
+    expect(endpointPaths).toContain("/stripe/sync-stripe-subscriptions");
   });
 
   it("accepts membership: { enabled: true, paymentMethodSlugs: ['class-options'] } for full config", () => {

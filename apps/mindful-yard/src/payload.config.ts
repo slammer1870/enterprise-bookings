@@ -154,7 +154,6 @@ export default buildConfig({
       payments: {
         enabled: true,
         enableDropIns: true,
-        acceptedPaymentMethods: ['cash'],
         paymentMethodSlugs: ['class-options'],
       },
     }),

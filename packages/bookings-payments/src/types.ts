@@ -30,7 +30,6 @@ export type ClassPassConfig = {
  */
 export type DropInsConfig = {
   enabled: boolean;
-  acceptedPaymentMethods?: ("cash" | "card")[];
   paymentMethodSlugs?: string[];
   /** Override access/fields/hooks for drop-ins (e.g. tenant-scoped in multi-tenant apps). */
   dropInsOverrides?: CollectionOverrides;
@@ -45,13 +44,11 @@ export type PaymentsConfig = {
   enabled: boolean;
   /**
    * @deprecated Use top-level `dropIns: { enabled: true, ... }` instead.
-   * If true and `dropIns` is not set, drop-ins are enabled using paymentMethodSlugs and acceptedPaymentMethods below.
+   * If true and `dropIns` is not set, drop-ins are enabled using paymentMethodSlugs below (card only).
    */
   enableDropIns?: boolean;
   /** Used when enableDropIns is true (backward compat). Prefer dropIns.paymentMethodSlugs. */
   paymentMethodSlugs?: string[];
-  /** Used when enableDropIns is true (backward compat). Prefer dropIns.acceptedPaymentMethods. */
-  acceptedPaymentMethods?: ("cash" | "card")[];
   /** Override access/fields/hooks for transactions (e.g. tenant-scoped in multi-tenant apps). */
   transactionsOverrides?: CollectionOverrides;
   /** Override access/fields/hooks for transactions when payments enabled but classPass disabled. */
@@ -72,11 +69,16 @@ export type GetSubscriptionBookingFeeCents = (_params: {
 
 /**
  * Membership feature config. When enabled, adds memberships, subscriptions,
- * users (userSubscription), membership endpoints, subscription webhooks, sync job.
+ * users (userSubscription), membership endpoints, subscription webhooks, and optionally the sync job.
  */
 export type MembershipConfig = {
   enabled: boolean;
   paymentMethodSlugs?: string[];
+  /**
+   * When true, registers the sync-stripe-subscriptions endpoint and syncStripeSubscriptions task.
+   * When false or omitted, sync is not registered (opt-in). Apps that need the sync must set this to true.
+   */
+  syncStripeSubscriptions?: boolean;
   /**
    * When set, subscription Stripe Checkout adds a second line item "Booking fee" with this amount (cents).
    * Caller must pass metadata.tenantId; handler uses Stripe Price to get classPriceAmountCents.

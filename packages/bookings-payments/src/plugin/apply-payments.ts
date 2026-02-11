@@ -6,7 +6,7 @@ import type { PaymentsConfig } from "../types";
 import type { PluginContext } from "./context";
 
 /**
- * Applies the payments feature: users modification (stripeCustomerId), transactions
+ * Applies the payments feature: users (stripeCustomerId by default), transactions
  * collection, endpoints (customers, create-payment-intent), paymentIntentSucceeded webhook.
  * Does not add transactions (handled by the main plugin) or drop-ins (separate feature).
  */

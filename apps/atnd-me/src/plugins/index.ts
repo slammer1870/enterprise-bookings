@@ -319,7 +319,6 @@ export const plugins: Plugin[] = [
     dropIns: {
       enabled: true,
       paymentMethodSlugs: ['class-options'],
-      acceptedPaymentMethods: ['cash', 'card'],
       dropInsOverrides: {
         access: {
           read: tenantScopedReadFiltered,
@@ -329,10 +328,11 @@ export const plugins: Plugin[] = [
         },
       },
     },
-    // Membership (subscriptions): recurring plans that grant access
+    // Membership (subscriptions): recurring plans that grant access; sync job disabled (subscription lifecycle via Connect webhook)
     membership: {
       enabled: true,
       paymentMethodSlugs: ['class-options'],
+      syncStripeSubscriptions: false,
       getSubscriptionBookingFeeCents: async ({
         payload,
         tenantId,
