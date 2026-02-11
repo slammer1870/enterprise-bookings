@@ -321,11 +321,26 @@ export const lessonsRouter = {
           ? (await ctx.betterAuth.api.getSession({ headers: ctx.headers }))?.user ?? null
           : (await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false }))?.user ?? null;
 
-        // Extract tenant slug from cookie header
-        // This comes from the subdomain (set by middleware) - NOT from the user's tenants array
+        // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
+        // so schedule shows correct button (Modify/Check in) when cookie isn't set yet on first load
         const cookieHeader = ctx.headers.get("cookie") || "";
         const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-        const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+        let tenantSlug: string | null = tenantSlugMatch ? (tenantSlugMatch[1] ?? null) : null;
+        const host =
+          ctx.hostOverride ??
+          ctx.headers.get("x-forwarded-host") ??
+          ctx.headers.get("host") ??
+          "";
+        if (!tenantSlug) {
+          const hostWithoutPort = host.split(":")[0]?.trim() || "";
+          const parts = hostWithoutPort.split(".");
+          const isLocalhost = hostWithoutPort.includes("localhost");
+          if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
+            tenantSlug = parts[0];
+          } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
+            tenantSlug = parts[0];
+          }
+        }
 
         // Resolve tenant ID from slug if available
         // If tenant slug is provided but tenant doesn't exist or collection doesn't exist
