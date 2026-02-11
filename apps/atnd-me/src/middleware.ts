@@ -54,6 +54,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // When returning from Stripe (or other external redirect), cancel/success URLs may land on root
+  // and lose tenant context. If ?tenant=slug is present, redirect to tenant subdomain so middleware
+  // sets the cookie and the app has correct tenant context (fixes continuous redirect to home).
+  const tenantParam = request.nextUrl.searchParams.get('tenant')
+  if (!subdomain && tenantParam && /^[a-z0-9-]+$/i.test(tenantParam)) {
+    const url = request.nextUrl.clone()
+    url.searchParams.delete('tenant')
+    url.hostname =
+      isLocalhost ? `${tenantParam}.localhost` : `${tenantParam}.${rootHostname ?? hostname}`
+    if (isLocalhost && (request.nextUrl.port || request.nextUrl.protocol === 'http:')) {
+      url.port = request.nextUrl.port || '3000'
+    }
+    return NextResponse.redirect(url)
+  }
+
   if (!subdomain) {
     const response = NextResponse.next()
     response.cookies.delete('tenant-id')

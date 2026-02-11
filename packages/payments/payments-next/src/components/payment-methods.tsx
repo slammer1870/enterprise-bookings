@@ -194,13 +194,26 @@ export function PaymentMethods({
       typeof window !== "undefined"
         ? window.location.origin
         : process.env.NEXT_PUBLIC_SERVER_URL || "";
+    // Include tenant in URL so when Stripe redirects back (cancel/success), middleware can restore
+    // tenant context if the redirect lands on root domain (avoids redirect loop to home).
+    const hostname =
+      typeof window !== "undefined" ? window.location.hostname : "";
+    const parts = hostname.split(".");
+    const isLocalhost = hostname.includes("localhost");
+    const tenantSlug =
+      isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost"
+        ? parts[0]
+        : !isLocalhost && parts.length >= 3 && parts[0]
+          ? parts[0]
+          : null;
+    const tenantQ = tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : "";
     await createCheckoutSession({
       priceId: planId,
       quantity: 1,
       metadata: metaWithTenant,
       mode: "subscription",
-      successUrl: `${origin}/dashboard`,
-      cancelUrl: `${origin}/bookings/${lesson.id}`,
+      successUrl: `${origin}/dashboard${tenantQ}`,
+      cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
     });
   };
 

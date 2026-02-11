@@ -95,6 +95,9 @@ export const Tenants: CollectionConfig = {
       required: true,
       unique: true,
       index: true,
+      access: {
+        update: adminOnlyUpdate, // Only admin can change slug; tenant-admins cannot
+      },
     },
     {
       name: 'domain',
@@ -116,6 +119,9 @@ export const Tenants: CollectionConfig = {
       })),
       admin: {
         description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.',
+      },
+      access: {
+        update: adminOnlyUpdate, // Only admin can change allowed blocks; tenant-admins cannot
       },
     },
     {

@@ -194,6 +194,66 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
   )
 
   it(
+    'only admin can update allowedBlocks; tenant-admin cannot',
+    async () => {
+      await payload.update({
+        collection: 'tenants',
+        id: testTenantId,
+        data: { allowedBlocks: ['location'] },
+        user: adminUser,
+        overrideAccess: false,
+      })
+
+      await payload.update({
+        collection: 'tenants',
+        id: testTenantId,
+        data: { allowedBlocks: ['faqs', 'archive'] },
+        user: tenantAdminUser,
+        overrideAccess: false,
+      })
+
+      const after = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        user: adminUser,
+        overrideAccess: false,
+      })
+      expect(after.allowedBlocks).toEqual(['location'])
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'only admin can update slug; tenant-admin cannot',
+    async () => {
+      const before = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        user: adminUser,
+        overrideAccess: false,
+      })
+      const originalSlug = before.slug
+
+      await payload.update({
+        collection: 'tenants',
+        id: testTenantId,
+        data: { slug: 'tenant-admin-tampered-slug' },
+        user: tenantAdminUser,
+        overrideAccess: false,
+      })
+
+      const after = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        user: adminUser,
+        overrideAccess: false,
+      })
+      expect(after.slug).toBe(originalSlug)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'regular users (and public read) do not see Stripe fields',
     async () => {
       const foundAsRegular = await payload.findByID({
