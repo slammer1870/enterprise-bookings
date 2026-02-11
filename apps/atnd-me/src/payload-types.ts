@@ -217,6 +217,9 @@ export interface AdminInvitation {
  */
 export interface Page {
   id: number;
+  /**
+   * Leave empty for global pages (e.g. root marketing page with slug "root"). To create a global page, clear the tenant filter in the nav first, then create the page with this field empty.
+   */
   tenant?: (number | null) | Tenant;
   title: string;
   /**
