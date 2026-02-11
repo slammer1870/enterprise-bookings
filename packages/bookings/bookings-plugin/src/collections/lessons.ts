@@ -64,11 +64,19 @@ const coerceToDateForTimeOnlyField = (value: unknown): Date | null => {
   return null;
 };
 
-/** Get a valid date from siblingData.date or from value (e.g. full ISO string). Used so API create works when date is not yet in siblingData. */
+/** Get a valid date from siblingData.date or from value (e.g. full ISO string). Used so API create works when date is not yet in siblingData or is localized. */
 const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date | null => {
   const raw = siblingData?.date;
   if (raw != null) {
-    const d = typeof raw === "string" ? new Date(raw) : raw instanceof Date ? raw : null;
+    const str =
+      typeof raw === "string"
+        ? raw
+        : raw instanceof Date
+          ? raw.toISOString()
+          : typeof raw === "object" && raw !== null
+            ? (Object.values(raw)[0] as string | undefined)
+            : undefined;
+    const d = str != null ? new Date(str) : raw instanceof Date ? raw : null;
     if (d instanceof Date && !Number.isNaN(d.getTime())) return d;
   }
   const time = coerceToDateForTimeOnlyField(value);
@@ -105,31 +113,24 @@ const defaultFields: Field[] = [
         hooks: {
           beforeChange: [
             ({ value, siblingData }) => {
-              const date = new Date(siblingData.date);
-
-              // Extract the date parts from value1
-              const year = date.getFullYear();
-              const month = date.getMonth();
-              const day = date.getDate(); // Extract date from sibling data
+              const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
+              if (!base) return value;
 
               const time = coerceToDateForTimeOnlyField(value);
               if (!time) return value;
 
-              const hours = time.getHours();
-              const minutes = time.getMinutes();
-              const seconds = time.getSeconds();
-              const milliseconds = time.getMilliseconds();
-
+              const year = base.getFullYear();
+              const month = base.getMonth();
+              const day = base.getDate();
               value = new Date(
                 year,
                 month,
                 day,
-                hours,
-                minutes,
-                seconds,
-                milliseconds
+                time.getHours(),
+                time.getMinutes(),
+                time.getSeconds(),
+                time.getMilliseconds()
               );
-
               return value;
             },
           ],
@@ -147,31 +148,24 @@ const defaultFields: Field[] = [
         hooks: {
           beforeChange: [
             ({ value, siblingData }) => {
-              const date = new Date(siblingData.date);
-
-              // Extract the date parts from value1
-              const year = date.getFullYear();
-              const month = date.getMonth();
-              const day = date.getDate(); // Extract date from sibling data
+              const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
+              if (!base) return value;
 
               const time = coerceToDateForTimeOnlyField(value);
               if (!time) return value;
 
-              const hours = time.getHours();
-              const minutes = time.getMinutes();
-              const seconds = time.getSeconds();
-              const milliseconds = time.getMilliseconds();
-
+              const year = base.getFullYear();
+              const month = base.getMonth();
+              const day = base.getDate();
               value = new Date(
                 year,
                 month,
                 day,
-                hours,
-                minutes,
-                seconds,
-                milliseconds
+                time.getHours(),
+                time.getMinutes(),
+                time.getSeconds(),
+                time.getMilliseconds()
               );
-
               return value;
             },
           ],

@@ -146,7 +146,7 @@ export async function createLessonViaApi(
   const end = new Date(opts.date)
   end.setHours(opts.endHour, opts.endMinute, 0, 0)
 
-  const res = await request.post(`${baseUrl}/api/lessons`, {
+  const res = await request.post(`${baseUrl}/api/lessons?locale=en`, {
     headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
     data: {
       date: opts.date.toISOString(),
