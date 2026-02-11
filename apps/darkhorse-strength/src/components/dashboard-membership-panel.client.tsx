@@ -34,9 +34,15 @@ export function DashboardMembershipPanel({
     return <PlanList plans={plans} actionLabel="Subscribe" onAction={handleCreateCheckoutSession} />
   }
 
-  return (
-    <PlanDetail plan={subscription.plan} actionLabel="Manage Subscription" onAction={openCustomerPortal} />
+  const handleOpenCustomerPortal = async (
+    _planId: string,
+    _metadata?: { [key: string]: string | undefined },
+  ) => {
+    await openCustomerPortal()
+  }
 
+  return (
+    <PlanDetail plan={subscription.plan} actionLabel="Manage Subscription" onAction={handleOpenCustomerPortal} />
   )
 }
 

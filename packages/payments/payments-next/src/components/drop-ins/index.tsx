@@ -15,11 +15,11 @@ type FeeBreakdownData = { classPriceCents: number; bookingFeeCents: number; tota
 /** Renders checkout form with fee-inclusive total when getDropInFeeBreakdown exists. */
 function DropInCheckoutWithFee({
   classPriceAmount,
-  price,
+  price: _price,
   priceComponent,
   metadata,
   createPaymentIntentUrl,
-  FeeBreakdownComponent,
+  FeeBreakdownComponent: _FeeBreakdownComponent,
   lessonId,
 }: {
   classPriceAmount: number;
@@ -31,7 +31,7 @@ function DropInCheckoutWithFee({
   lessonId: number;
 }) {
   const trpc = useTRPC();
-  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (i: { lessonId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
+  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { lessonId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
   const classPriceCents = Math.round(classPriceAmount * 100);
 
   const { data } = useQuery({
