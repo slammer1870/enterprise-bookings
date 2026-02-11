@@ -396,7 +396,16 @@ export const plugins: Plugin[] = [
     // Type assertion: multi-tenant plugin's types omit collections from @repo/bookings-payments
     collections: {
       // Standard collections
-      pages: {},
+      // Allow pages with no tenant (global/root pages, e.g. slug "root" for main domain)
+      pages: {
+        tenantFieldOverrides: {
+          required: false,
+          admin: {
+            description:
+              'Leave empty for global pages (e.g. root marketing page with slug "root"). To create a global page, clear the tenant filter in the nav first, then create the page with this field empty.',
+          },
+        },
+      },
       lessons: {},
       instructors: {},
       'class-options': {},
