@@ -213,6 +213,23 @@ export const Pages: CollectionConfig<'pages'> = {
   ],
   hooks: {
     afterChange: [revalidatePage],
+    beforeValidate: [
+      async ({ data, operation, req, originalDoc }) => {
+        // Ensure tenant is set so version creation and slug validation have it (tenant-admin context).
+        if (!data) return data
+        if (data.tenant) return data
+        const rawTenant =
+          req.context?.tenant ??
+          (operation === 'update' && originalDoc?.tenant ? originalDoc.tenant : null)
+        if (rawTenant) {
+          data.tenant =
+            typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
+              ? (rawTenant as { id: number }).id
+              : (rawTenant as number)
+        }
+        return data
+      },
+    ],
     beforeChange: [
       populatePublishedAt,
       async ({ data, req, operation }) => {

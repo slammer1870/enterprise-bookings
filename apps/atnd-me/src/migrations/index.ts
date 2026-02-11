@@ -31,6 +31,7 @@ import * as migration_20260211_180330 from './20260211_180330';
 import * as migration_20260211_183431 from './20260211_183431';
 import * as migration_20260211_tenants_allowed_blocks from './20260211_tenants_allowed_blocks';
 import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
+import * as migration_20260211_drop_pages_version_tenant_slug_unique from './20260211_drop_pages_version_tenant_slug_unique';
 
 export const migrations = [
   {
@@ -197,5 +198,10 @@ export const migrations = [
     up: migration_20260211_users_stripe_customer_id.up,
     down: migration_20260211_users_stripe_customer_id.down,
     name: '20260211_users_stripe_customer_id'
+  },
+  {
+    up: migration_20260211_drop_pages_version_tenant_slug_unique.up,
+    down: migration_20260211_drop_pages_version_tenant_slug_unique.down,
+    name: '20260211_drop_pages_version_tenant_slug_unique'
   },
 ];
