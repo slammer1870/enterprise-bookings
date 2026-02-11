@@ -35,7 +35,7 @@ export function PlanView({
   lessonDate,
   subscriptionLimitReached,
   remainingSessions = null,
-  selectedQuantity = 1,
+  selectedQuantity: _selectedQuantity = 1,
   canUseSubscriptionForQuantity = true,
   onCreateCheckoutSession,
   onCreateCustomerPortal,

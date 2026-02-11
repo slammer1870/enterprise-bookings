@@ -59,6 +59,8 @@ atnd-me uses a **single Connect webhook** for account, payment, and subscription
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
+   - `customer.subscription.paused`
+   - `customer.subscription.resumed`
 4. After creating the endpoint, copy the **Signing secret** and set it as `STRIPE_CONNECT_WEBHOOK_SECRET`.
 
 ### Subscription management

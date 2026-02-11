@@ -1,6 +1,6 @@
 /**
  * Step 2.5 / 2.8 – Stripe Connect webhook (account.*, payment_intent.succeeded, customer.subscription.*).
- * Verifies signature, resolves tenant by account id or metadata, updates status/booking/subscription, enforces idempotency.
+ * Handles created/updated/deleted/paused/resumed; verifies signature, resolves tenant, updates status/booking/subscription, enforces idempotency.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -157,7 +157,9 @@ export async function POST(request: NextRequest) {
   if (
     event.type === 'customer.subscription.created' ||
     event.type === 'customer.subscription.updated' ||
-    event.type === 'customer.subscription.deleted'
+    event.type === 'customer.subscription.deleted' ||
+    event.type === 'customer.subscription.paused' ||
+    event.type === 'customer.subscription.resumed'
   ) {
     const obj = event.data?.object as {
       id?: string
@@ -240,7 +242,11 @@ export async function POST(request: NextRequest) {
         } as Record<string, unknown>,
         overrideAccess: true,
       })
-    } else if (event.type === 'customer.subscription.updated') {
+    } else if (
+      event.type === 'customer.subscription.updated' ||
+      event.type === 'customer.subscription.paused' ||
+      event.type === 'customer.subscription.resumed'
+    ) {
       const subResult = await payload.find({
         collection: 'subscriptions' as import('payload').CollectionSlug,
         where: { stripeSubscriptionId: { equals: obj.id } },
@@ -253,7 +259,11 @@ export async function POST(request: NextRequest) {
         const updateData: Record<string, unknown> = {
           skipSync: true,
         }
-        if (obj.status != null) {
+        if (event.type === 'customer.subscription.paused') {
+          updateData.status = 'paused'
+        } else if (event.type === 'customer.subscription.resumed') {
+          updateData.status = 'active'
+        } else if (obj.status != null) {
           updateData.status = obj.status as 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'
         }
         if (currentPeriodStart != null) {
