@@ -18,10 +18,25 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      // Extract tenant slug from cookie header (from subdomain)
+      // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
       const cookieHeader = ctx.headers.get("cookie") || "";
       const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      let tenantSlug: string | null | undefined = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      const host =
+        ctx.hostOverride ??
+        ctx.headers.get("x-forwarded-host") ??
+        ctx.headers.get("host") ??
+        "";
+      if (!tenantSlug) {
+        const hostWithoutPort = host.split(":")[0]?.trim() || "";
+        const parts = hostWithoutPort.split(".");
+        const isLocalhost = hostWithoutPort.includes("localhost");
+        if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
+          tenantSlug = parts[0];
+        } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
+          tenantSlug = parts[0];
+        }
+      }
 
       // Resolve tenant ID from slug if available
       // For backward compatibility with non-multi-tenant apps, check if tenants collection exists

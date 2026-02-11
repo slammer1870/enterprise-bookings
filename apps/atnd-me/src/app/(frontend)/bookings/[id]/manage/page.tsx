@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { headers as nextHeaders } from 'next/headers'
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
 import { ManageBookingPageClient } from '@repo/bookings-next'
@@ -28,8 +29,11 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
         redirect(`/auth/sign-in?callbackUrl=/bookings/${id}/manage`)
     }
 
-    // Fetch lesson via tRPC
-    const caller = await createCaller()
+    // Pass request host so tenant is resolved from subdomain when cookie isn't set yet
+    // (e.g. navigating from schedule to manage page; avoids redirect to home)
+    const h = await nextHeaders()
+    const host = h.get('host') ?? h.get('x-forwarded-host') ?? ''
+    const caller = await createCaller(host ? { host } : undefined)
 
     try {
         // Fetch user's bookings first to verify they have multiple bookings
