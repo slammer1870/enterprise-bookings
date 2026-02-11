@@ -261,58 +261,286 @@ describe('Stripe payment webhooks (step 2.8)', () => {
   )
 
   it(
-    'payment_intent.succeeded: creates booking when lessonId+userId in metadata (drop-in, no pre-created booking)',
+    'payment_intent.succeeded: confirms existing pending when lessonId+userId in metadata (quantity 1)',
     async () => {
+      const lessonConfirm = await payload.create({
+        collection: 'lessons',
+        draft: false,
+        data: {
+          tenant: tenantId,
+          classOption: classOptionId,
+          date: new Date().toISOString().split('T')[0],
+          startTime: new Date(Date.now() + 86400000).toISOString(),
+          endTime: new Date(Date.now() + 86400000 + 3600000).toISOString(),
+          lockOutTime: 60,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+      const lessonConfirmId = lessonConfirm.id as number
+      const pendingBooking = await payload.create({
+        collection: 'bookings',
+        data: {
+          user: userId,
+          lesson: lessonConfirmId,
+          tenant: tenantId,
+          status: 'pending',
+        },
+        overrideAccess: true,
+      })
+
       const event = createPaymentIntentSucceededEvent({
-        id: 'evt_pi_succeeded_create',
-        paymentIntentId: 'pi_test_create_789',
+        id: 'evt_pi_succeeded_confirm',
+        account: 'acct_payment_webhook',
+        paymentIntentId: 'pi_test_confirm_789',
         metadata: {
           tenantId: String(tenantId),
-          lessonId: String(lessonId),
+          lessonId: String(lessonConfirmId),
           userId: String(userId),
-          classPriceAmount: '1900',
-          bookingFeeAmount: '38',
+        },
+      })
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+      expect(webhookProcessed.markStripeConnectEventProcessed).toHaveBeenCalledWith('evt_pi_succeeded_confirm')
+
+      const updated = await payload.findByID({
+        collection: 'bookings',
+        id: pendingBooking.id,
+        overrideAccess: true,
+      })
+      expect(updated.status).toBe('confirmed')
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { id: { equals: pendingBooking.id } },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: lessonConfirmId } },
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'payment_intent.succeeded: creates two bookings when lessonId+userId+quantity 2 in metadata',
+    async () => {
+      const co2 = await payload.create({
+        collection: 'class-options',
+        data: {
+          name: `Payment Webhook Class Qty ${Date.now()}`,
+          places: 10,
+          description: 'Test',
+          tenant: tenantId,
+        },
+        overrideAccess: true,
+      })
+      const startTime2 = new Date()
+      startTime2.setHours(16, 0, 0, 0)
+      const endTime2 = new Date(startTime2)
+      endTime2.setHours(17, 0, 0, 0)
+      const lesson2 = await payload.create({
+        collection: 'lessons',
+        draft: false,
+        data: {
+          tenant: tenantId,
+          classOption: co2.id,
+          date: startTime2.toISOString().split('T')[0],
+          startTime: startTime2.toISOString(),
+          endTime: endTime2.toISOString(),
+          lockOutTime: 60,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+      const lesson2Id = lesson2.id as number
+
+      const event = createPaymentIntentSucceededEvent({
+        id: 'evt_pi_succeeded_qty2',
+        account: 'acct_payment_webhook',
+        paymentIntentId: 'pi_test_qty2',
+        metadata: {
+          tenantId: String(tenantId),
+          lessonId: String(lesson2Id),
+          userId: String(userId),
+          quantity: '2',
         },
       })
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
 
       const bookingsBefore = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: lessonId }, user: { equals: userId } },
+        where: { lesson: { equals: lesson2Id }, user: { equals: userId } },
         overrideAccess: true,
       })
-      expect(bookingsBefore.docs.length).toBe(1)
+      expect(bookingsBefore.docs.length).toBe(0)
 
       const res = await POST(request(JSON.stringify(event)))
       expect(res.status).toBe(200)
-      expect(webhookProcessed.markStripeConnectEventProcessed).toHaveBeenCalledWith('evt_pi_succeeded_create')
 
       const bookingsAfter = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: lessonId }, user: { equals: userId } },
+        where: { lesson: { equals: lesson2Id }, user: { equals: userId } },
         overrideAccess: true,
       })
       expect(bookingsAfter.docs.length).toBe(2)
-      const created = bookingsAfter.docs.find((b) => b.status === 'confirmed' && b.id !== bookingId)
-      expect(created).toBeDefined()
-      expect(created?.status).toBe('confirmed')
+      expect(bookingsAfter.docs.every((b) => b.status === 'confirmed')).toBe(true)
 
-      const txResult = await payload.find({
-        collection: 'transactions' as import('payload').CollectionSlug,
-        where: { booking: { equals: created!.id } },
-        overrideAccess: true,
-      })
-      expect(txResult.docs).toHaveLength(1)
-      expect((txResult.docs[0] as { stripePaymentIntentId?: string }).stripePaymentIntentId).toBe('pi_test_create_789')
-
+      for (const b of bookingsAfter.docs) {
+        const txResult = await payload.find({
+          collection: 'transactions' as import('payload').CollectionSlug,
+          where: { booking: { equals: b.id } },
+          overrideAccess: true,
+        })
+        expect(txResult.docs).toHaveLength(1)
+        await payload.delete({
+          collection: 'transactions' as import('payload').CollectionSlug,
+          where: { booking: { equals: b.id } },
+          overrideAccess: true,
+        })
+        await payload.delete({
+          collection: 'bookings',
+          id: b.id,
+          overrideAccess: true,
+        })
+      }
       await payload.delete({
-        collection: 'transactions' as import('payload').CollectionSlug,
-        where: { booking: { equals: created!.id } },
+        collection: 'lessons',
+        where: { id: { equals: lesson2Id } },
         overrideAccess: true,
       })
+      await payload.delete({
+        collection: 'class-options',
+        where: { id: { equals: co2.id } },
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'payment_intent.succeeded: caps bookings to remainingCapacity when quantity exceeds capacity',
+    async () => {
+      const coCap = await payload.create({
+        collection: 'class-options',
+        data: {
+          name: `Payment Webhook Class Cap ${Date.now()}`,
+          places: 2,
+          description: 'Test',
+          tenant: tenantId,
+        },
+        overrideAccess: true,
+      })
+      const startTimeCap = new Date()
+      startTimeCap.setHours(18, 0, 0, 0)
+      const endTimeCap = new Date(startTimeCap)
+      endTimeCap.setHours(19, 0, 0, 0)
+      const lessonCap = await payload.create({
+        collection: 'lessons',
+        draft: false,
+        data: {
+          tenant: tenantId,
+          classOption: coCap.id,
+          date: startTimeCap.toISOString().split('T')[0],
+          startTime: startTimeCap.toISOString(),
+          endTime: endTimeCap.toISOString(),
+          lockOutTime: 60,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+      const lessonCapId = lessonCap.id as number
+
+      const otherUser = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Cap Other User',
+          email: `cap-other-${Date.now()}@test.com`,
+          password: 'test',
+          roles: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const otherUserId = otherUser.id as number
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          user: otherUserId,
+          lesson: lessonCapId,
+          tenant: tenantId,
+          status: 'confirmed',
+        },
+        overrideAccess: true,
+      })
+
+      const event = createPaymentIntentSucceededEvent({
+        id: 'evt_pi_succeeded_cap',
+        account: 'acct_payment_webhook',
+        paymentIntentId: 'pi_test_cap',
+        metadata: {
+          tenantId: String(tenantId),
+          lessonId: String(lessonCapId),
+          userId: String(userId),
+          quantity: '2',
+        },
+      })
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const bookingsAfter = await payload.find({
+        collection: 'bookings',
+        where: { lesson: { equals: lessonCapId }, user: { equals: userId } },
+        overrideAccess: true,
+      })
+      expect(bookingsAfter.docs.length).toBe(1)
+      expect(bookingsAfter.docs[0]?.status).toBe('confirmed')
+
+      const allForLesson = await payload.find({
+        collection: 'bookings',
+        where: { lesson: { equals: lessonCapId } },
+        overrideAccess: true,
+      })
+      expect(allForLesson.docs.filter((b) => b.status === 'confirmed').length).toBe(2)
+
+      for (const b of bookingsAfter.docs) {
+        await payload.delete({
+          collection: 'transactions' as import('payload').CollectionSlug,
+          where: { booking: { equals: b.id } },
+          overrideAccess: true,
+        })
+        await payload.delete({
+          collection: 'bookings',
+          id: b.id,
+          overrideAccess: true,
+        })
+      }
       await payload.delete({
         collection: 'bookings',
-        id: created!.id,
+        where: { lesson: { equals: lessonCapId }, user: { equals: otherUserId } },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'users',
+        where: { id: { equals: otherUserId } },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: lessonCapId } },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'class-options',
+        where: { id: { equals: coCap.id } },
         overrideAccess: true,
       })
     },

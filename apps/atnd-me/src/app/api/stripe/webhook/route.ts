@@ -157,29 +157,83 @@ export async function POST(request: NextRequest) {
     ) {
       const lessonId = parseInt(lessonIdFromMeta, 10)
       const userId = parseInt(userIdFromMeta, 10)
+      const quantity = Math.max(1, parseInt(meta.quantity ?? '1', 10) || 1)
       if (!Number.isNaN(lessonId) && !Number.isNaN(userId)) {
         const paymentIntentId = typeof obj?.id === 'string' ? obj.id : undefined
-        const created = await payload.create({
+        const lesson = await payload.findByID({
+          collection: 'lessons',
+          id: lessonId,
+          depth: 1,
+          overrideAccess: true,
+        }).catch(() => null)
+        const remainingCapacity =
+          lesson && typeof (lesson as { remainingCapacity?: number }).remainingCapacity === 'number'
+            ? Math.max(0, (lesson as { remainingCapacity: number }).remainingCapacity)
+            : 0
+
+        const existingBookings = await payload.find({
           collection: 'bookings' as import('payload').CollectionSlug,
-          data: {
-            lesson: lessonId,
-            user: userId,
-            tenant: tenant.id,
-            status: 'confirmed',
-          } as Record<string, unknown>,
+          where: {
+            lesson: { equals: lessonId },
+            user: { equals: userId },
+          },
+          limit: quantity * 2,
+          depth: 0,
           overrideAccess: true,
         })
-        if (paymentIntentId && created?.id) {
-          await payload.create({
-            collection: 'transactions' as import('payload').CollectionSlug,
+        const existingDocs = existingBookings.docs as { id: number; status?: string }[]
+        const confirmed = existingDocs.filter((b) => b.status === 'confirmed')
+        const pending = existingDocs.filter((b) => b.status !== 'confirmed')
+        const needToConfirm = Math.max(0, quantity - confirmed.length)
+        const toConfirm = pending.slice(0, needToConfirm)
+        const toCreate = needToConfirm - toConfirm.length
+        const maxCanAdd = remainingCapacity
+        const toConfirmCapped = toConfirm.slice(0, maxCanAdd)
+        const createCapped = Math.max(0, Math.min(toCreate, maxCanAdd - toConfirmCapped.length))
+
+        for (const b of toConfirmCapped) {
+          await payload.update({
+            collection: 'bookings',
+            id: b.id,
+            data: { status: 'confirmed' },
+            overrideAccess: true,
+          })
+          if (paymentIntentId) {
+            await payload.create({
+              collection: 'transactions' as import('payload').CollectionSlug,
+              data: {
+                booking: b.id,
+                paymentMethod: 'stripe',
+                stripePaymentIntentId: paymentIntentId,
+                tenant: tenant.id,
+              } as Record<string, unknown>,
+              overrideAccess: true,
+            })
+          }
+        }
+        for (let i = 0; i < createCapped; i++) {
+          const created = await payload.create({
+            collection: 'bookings' as import('payload').CollectionSlug,
             data: {
-              booking: created.id,
-              paymentMethod: 'stripe',
-              stripePaymentIntentId: paymentIntentId,
+              lesson: lessonId,
+              user: userId,
               tenant: tenant.id,
+              status: 'confirmed',
             } as Record<string, unknown>,
             overrideAccess: true,
           })
+          if (paymentIntentId && created?.id) {
+            await payload.create({
+              collection: 'transactions' as import('payload').CollectionSlug,
+              data: {
+                booking: created.id,
+                paymentMethod: 'stripe',
+                stripePaymentIntentId: paymentIntentId,
+                tenant: tenant.id,
+              } as Record<string, unknown>,
+              overrideAccess: true,
+            })
+          }
         }
       }
     }

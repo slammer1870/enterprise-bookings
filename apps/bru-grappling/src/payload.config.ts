@@ -174,9 +174,8 @@ export default buildConfig({
       },
     }),
     bookingsPaymentsPlugin({
-      payments: {
+      dropIns: {
         enabled: true,
-        enableDropIns: true,
         paymentMethodSlugs: ['class-options'],
       },
       membership: {

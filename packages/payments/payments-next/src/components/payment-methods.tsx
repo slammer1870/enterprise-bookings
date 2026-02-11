@@ -348,7 +348,10 @@ export function PaymentMethods({
                           .join(","),
                         lessonId: lesson.id.toString(),
                       }
-                    : { lessonId: lesson.id.toString() }
+                    : {
+                        lessonId: lesson.id.toString(),
+                        quantity: String(quantity),
+                      }
                 }
               />
             ) : (

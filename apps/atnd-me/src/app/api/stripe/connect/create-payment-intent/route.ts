@@ -52,13 +52,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'lessonId is required in metadata' }, { status: 400 })
   }
 
-  // Resolve tenant from the lesson (never accept raw tenantId from the request body).
+  const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
+
+  // Resolve tenant and remaining capacity from the lesson (depth so virtual remainingCapacity is populated).
   const lesson = (await payload.findByID({
     collection: 'lessons',
     id: lessonId,
-    depth: 0,
+    depth: 1,
     overrideAccess: true,
-  })) as { tenant?: number | { id: number } } | null
+  })) as { tenant?: number | { id: number }; remainingCapacity?: number } | null
+
+  const remainingCapacity =
+    lesson && typeof lesson.remainingCapacity === 'number'
+      ? Math.max(0, lesson.remainingCapacity)
+      : 0
+  if (quantity > remainingCapacity) {
+    return NextResponse.json(
+      {
+        error:
+          remainingCapacity === 0
+            ? 'This lesson is fully booked.'
+            : `Only ${remainingCapacity} spot${remainingCapacity !== 1 ? 's' : ''} available. You requested ${quantity}.`,
+      },
+      { status: 400 },
+    )
+  }
 
   const tenantId =
     lesson?.tenant != null
@@ -86,13 +104,72 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
-  // Convert currency units (e.g. 18.00) into cents for Stripe + Connect PI routing.
-  const classPriceAmountCents = formatAmountForStripe(price, 'eur')
-
   const isTestMode =
     process.env.NODE_ENV === 'test' ||
     process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
     /^acct_(fee_disclosure_|smoke_)/.test(tenant.stripeConnectAccountId ?? '')
+
+  // Reserve capacity by creating or reusing pending bookings (prevents race: two users at checkout with 1 spot).
+  // Only in production: in test mode we skip so we don't leave stale pendings.
+  let bookingIds: string[] = []
+  if (!isTestMode) {
+    const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const existing = await payload.find({
+      collection: 'bookings',
+      where: {
+        and: [
+          { lesson: { equals: lessonId } },
+          { user: { equals: user.id } },
+          { status: { equals: 'pending' } },
+          { createdAt: { greater_than: pendingCutoff } },
+        ],
+      },
+      sort: 'id',
+      limit: quantity,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const existingIds = (existing.docs as { id: number }[]).map((b) => String(b.id))
+    const need = quantity - existingIds.length
+    if (need > 0) {
+      const lessonNow = (await payload.findByID({
+        collection: 'lessons',
+        id: lessonId,
+        depth: 1,
+        overrideAccess: true,
+      })) as { remainingCapacity?: number } | null
+      const cap = lessonNow && typeof lessonNow.remainingCapacity === 'number' ? Math.max(0, lessonNow.remainingCapacity) : 0
+      if (need > cap) {
+        return NextResponse.json(
+          {
+            error:
+              cap === 0
+                ? 'This lesson is fully booked.'
+                : `Only ${cap} spot${cap !== 1 ? 's' : ''} available. You requested ${quantity}.`,
+          },
+          { status: 400 },
+        )
+      }
+      for (let i = 0; i < need; i++) {
+        const created = await payload.create({
+          collection: 'bookings',
+          data: {
+            user: user.id,
+            lesson: lessonId,
+            tenant: tenantId,
+            status: 'pending',
+          },
+          overrideAccess: true,
+        })
+        existingIds.push(String(created.id))
+      }
+    }
+    bookingIds = existingIds.slice(0, quantity)
+  }
+
+  // Convert currency units (e.g. 18.00) into cents for Stripe + Connect PI routing.
+  const classPriceAmountCents = formatAmountForStripe(price, 'eur')
+
   // E2E/CI or placeholder account: avoid calling Stripe (would fail with "No such destination").
   if (isTestMode) {
     return NextResponse.json(
@@ -116,6 +193,8 @@ export async function POST(request: NextRequest) {
         ...(metadata ?? {}),
         lessonId: String(lessonId),
         userId: String(user.id),
+        quantity: String(quantity),
+        ...(bookingIds.length > 0 ? { bookingIds: bookingIds.join(',') } : {}),
       },
     })
 

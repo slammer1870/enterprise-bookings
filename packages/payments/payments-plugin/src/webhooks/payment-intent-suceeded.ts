@@ -69,6 +69,7 @@ export const paymentIntentSucceeded = async (
 
     if (metadata.lessonId) {
       const lessonId = parseInt(metadata.lessonId);
+      const quantity = Math.max(1, parseInt(metadata.quantity ?? "1", 10) || 1);
 
       const userQuery = await payload.find({
         collection: "users",
@@ -86,6 +87,16 @@ export const paymentIntentSucceeded = async (
         return;
       }
 
+      const lesson = await payload.findByID({
+        collection: "lessons",
+        id: lessonId,
+        depth: 1,
+      }).catch(() => null);
+      const remainingCapacity =
+        lesson && typeof (lesson as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
+          ? Math.max(0, (lesson as unknown as { remainingCapacity: number }).remainingCapacity)
+          : 0;
+
       const existingBookingsQuery = await payload.find({
         collection: "bookings",
         where: {
@@ -94,17 +105,24 @@ export const paymentIntentSucceeded = async (
         },
       });
 
-      const existingBookings = existingBookingsQuery.docs;
+      const existingBookings = existingBookingsQuery.docs as { id: number; status?: string }[];
+      const confirmed = existingBookings.filter((b) => b.status === "confirmed");
+      const pending = existingBookings.filter((b) => b.status !== "confirmed");
+      const needToConfirm = Math.max(0, quantity - confirmed.length);
+      const toConfirm = pending.slice(0, needToConfirm);
+      const toCreate = needToConfirm - toConfirm.length;
+      const maxCanAdd = remainingCapacity;
+      const toConfirmCapped = toConfirm.slice(0, maxCanAdd);
+      const createCapped = Math.max(0, Math.min(toCreate, maxCanAdd - toConfirmCapped.length));
 
-      if (existingBookings.length > 0) {
+      for (const b of toConfirmCapped) {
         await payload.update({
           collection: "bookings",
-          id: existingBookings[0]?.id as number,
-          data: {
-            status: "confirmed",
-          },
+          id: b.id,
+          data: { status: "confirmed" },
         });
-      } else {
+      }
+      for (let i = 0; i < createCapped; i++) {
         const createBooking = await payload.create({
           collection: "bookings",
           data: {
@@ -113,13 +131,16 @@ export const paymentIntentSucceeded = async (
             user: user.id,
           },
         });
-
         payload.logger.info(
           `Created booking ${createBooking.id} - Payment Intent: ${event.data.object.id}, Lesson: ${lessonId}`
         );
-
-        return;
       }
+      if (createCapped < toCreate || toConfirmCapped.length < toConfirm.length) {
+        payload.logger.warn(
+          `Payment intent ${event.data.object.id}: capped bookings to avoid overbooking (remainingCapacity: ${remainingCapacity})`
+        );
+      }
+      return;
     }
 
     const bookingIds: number[] = [];
