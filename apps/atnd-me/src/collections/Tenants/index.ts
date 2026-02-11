@@ -1,7 +1,16 @@
 import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { createDefaultTenantData } from './hooks/createDefaultData'
+import { extraBlockSlugs } from '../../blocks/registry'
+
+const EXTRA_BLOCK_LABELS: Record<string, string> = {
+  location: 'Location',
+  faqs: 'FAQs',
+  mediaBlock: 'Media Block',
+  archive: 'Archive',
+  formBlock: 'Form Block',
+  threeColumnLayout: 'Three Column Layout',
+}
 
 /** Stripe Connect onboarding status (step 2.1). */
 const STRIPE_CONNECT_STATUS_OPTIONS = [
@@ -62,30 +71,6 @@ export const Tenants: CollectionConfig = {
       return checkRole(['admin'], user as unknown as SharedUser)
     },
   },
-  hooks: {
-    afterChange: [
-      async ({ doc, operation, req }) => {
-        // Create default data when tenant is created. Run in the same request so we
-        // share the same transaction/connection and tenant_id is visible for FK (avoids
-        // races with parallel tests where deferred callbacks run after test rollback).
-        if (operation === 'create') {
-          // Optional: allow skipping expensive default-data creation for specific runs.
-          if (process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA === 'true') return
-
-          const tenant = doc
-          const payload = req.payload
-          try {
-            await createDefaultTenantData({ tenant, payload, req })
-          } catch (e) {
-            payload.logger.error(
-              `Error in createDefaultTenantData for tenant ${tenant.name}: ${e instanceof Error ? e.message : String(e)}`
-            )
-            // Don't throw - allow tenant creation to succeed; admin can create data manually
-          }
-        }
-      },
-    ],
-  },
   fields: [
     {
       name: 'name',
@@ -108,6 +93,18 @@ export const Tenants: CollectionConfig = {
       name: 'description',
       type: 'textarea',
       required: false,
+    },
+    {
+      name: 'allowedBlocks',
+      type: 'select',
+      hasMany: true,
+      options: extraBlockSlugs.map((slug) => ({
+        label: EXTRA_BLOCK_LABELS[slug] ?? slug,
+        value: slug,
+      })),
+      admin: {
+        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.',
+      },
     },
     {
       name: 'logo',

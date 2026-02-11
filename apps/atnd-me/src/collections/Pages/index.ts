@@ -6,14 +6,16 @@ import {
   tenantScopedDelete,
   tenantScopedReadFiltered,
 } from '../../access/tenant-scoped'
+import { defaultBlockSlugs } from '../../blocks/registry'
+import { getBlocksForTenant } from '../../utilities/getBlocksForTenant'
+import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
 import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
-import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
-import { Schedule } from '@/blocks/Schedule/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
+import { Schedule } from '@/blocks/Schedule/config'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePage } from './hooks/revalidatePage'
@@ -27,7 +29,7 @@ import {
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
 
-// Define all available blocks for the pages collection
+// Define all available blocks for the pages collection (used for block schemas + filterOptions)
 const availableBlocks = [
   HeroSchedule,
   Hero,
@@ -43,8 +45,17 @@ const availableBlocks = [
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
-// This makes it dynamic - any block added to availableBlocks will be available in the layout
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
+
+/** Extract allowed block slugs for a tenant (from form data or req context). */
+function getAllowedBlockSlugs(data: { tenant?: unknown }, req?: { context?: { tenant?: unknown } }): string[] {
+  const tenant = data?.tenant ?? req?.context?.tenant
+  if (!tenant) return defaultBlockSlugs
+  const allowed = typeof tenant === 'object' && tenant !== null && 'allowedBlocks' in tenant
+    ? (tenant as { allowedBlocks?: string[] }).allowedBlocks
+    : undefined
+  return getBlocksForTenant(allowed ?? []).map((b) => b.slug!).filter(Boolean)
+}
 
 export const Pages: CollectionConfig<'pages'> = {
   slug: 'pages',
@@ -60,6 +71,7 @@ export const Pages: CollectionConfig<'pages'> = {
   defaultPopulate: {
     title: true,
     slug: true,
+    tenant: true, // Populate tenant (incl. allowedBlocks) for tenant-scoped block filterOptions
   },
   admin: {
     group: 'Website',
@@ -102,9 +114,13 @@ export const Pages: CollectionConfig<'pages'> = {
                   (block) => block.slug !== 'heroSchedule' && block.slug !== 'hero'
                 ),
               ],
+              filterOptions: ({ data, req }) => {
+                const allowed = getAllowedBlockSlugs(data ?? {}, req)
+                return allowed
+              },
               required: true,
               admin: {
-                description: 'Add blocks to build your page. Hero, Hero Schedule, and other blocks can be added in any order.',
+                description: 'Add blocks to build your page. Blocks available depend on your tenant settings.',
               },
             },
           ],
@@ -150,7 +166,37 @@ export const Pages: CollectionConfig<'pages'> = {
   ],
   hooks: {
     afterChange: [revalidatePage],
-    beforeChange: [populatePublishedAt],
+    beforeChange: [
+      populatePublishedAt,
+      async ({ data, req, operation }) => {
+        if (!data?.layout || !Array.isArray(data.layout)) return data
+        const tenantId =
+          typeof data.tenant === 'object' && data.tenant !== null && 'id' in data.tenant
+            ? (data.tenant as { id: number }).id
+            : data.tenant
+        if (!tenantId) return data
+        const id = typeof tenantId === 'object' && tenantId !== null && 'id' in tenantId
+          ? (tenantId as { id: number }).id
+          : tenantId
+        const tenant = await req.payload.findByID({
+          collection: 'tenants',
+          id: id as number,
+          depth: 0,
+        })
+        const allowed = getBlocksForTenant(
+          (tenant as { allowedBlocks?: string[] })?.allowedBlocks
+        ).map((b) => b.slug)
+        const disallowed = data.layout
+          .map((b: { blockType?: string }) => b?.blockType)
+          .filter((slug: string | undefined) => slug && !allowed.includes(slug))
+        if (disallowed.length > 0) {
+          throw new Error(
+            `The following blocks are not enabled for this tenant: ${disallowed.join(', ')}. Contact your administrator to enable them.`
+          )
+        }
+        return data
+      },
+    ],
     afterDelete: [revalidateDelete],
   },
   versions: {

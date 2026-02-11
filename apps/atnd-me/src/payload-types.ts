@@ -220,7 +220,7 @@ export interface Page {
   tenant?: (number | null) | Tenant;
   title: string;
   /**
-   * Add blocks to build your page. Hero, Hero Schedule, and other blocks can be added in any order.
+   * Add blocks to build your page. Blocks available depend on your tenant settings.
    */
   layout: (
     | HeroScheduleBlock
@@ -275,6 +275,10 @@ export interface Tenant {
   slug: string;
   domain?: string | null;
   description?: string | null;
+  /**
+   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.
+   */
+  allowedBlocks?: ('location' | 'faqs' | 'mediaBlock' | 'archive' | 'formBlock' | 'threeColumnLayout')[] | null;
   logo?: (number | null) | Media;
   /**
    * Stripe Connect account ID (set by OAuth callback).
@@ -2506,6 +2510,7 @@ export interface TenantsSelect<T extends boolean = true> {
   slug?: T;
   domain?: T;
   description?: T;
+  allowedBlocks?: T;
   logo?: T;
   stripeConnectAccountId?: T;
   stripeConnectOnboardingStatus?: T;

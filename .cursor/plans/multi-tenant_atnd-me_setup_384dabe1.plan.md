@@ -474,7 +474,7 @@ Create `apps/atnd-me/src/collections/Tenants/index.ts`:
     - `enabled` (checkbox) - Enable class passes
     - `defaultExpirationDays` (number) - Default expiration period
     - `pricing` (array) - Available pass packages
-  - **Phase 3 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
+  - **Phase 7 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
     - `dropInFee` (number, optional) - Override default drop-in fee (percentage or fixed amount)
     - `subscriptionFee` (number, optional) - Override default subscription fee (percentage or fixed amount)
     - `feeType` (select, optional) - Override fee type (percentage or fixed) - if not set, uses global default
@@ -1212,8 +1212,8 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 13. **Phase 2**: `apps/atnd-me/src/app/(frontend)/class-passes/purchase/page.tsx` - Class pass purchase UI
 14. **Phase 2**: `apps/atnd-me/src/utilities/checkClassPass.ts` - Utility to validate class pass for booking
 15. **Phase 2**: `apps/atnd-me/src/hooks/useClassPassForBooking.ts` - Hook to decrement pass on booking confirmation
-16. **Phase 3**: `apps/atnd-me/src/globals/ApplicationFees/index.ts` - Global configuration for default application fees
-17. **Phase 3**: `apps/atnd-me/src/utilities/calculateApplicationFee.ts` - Utility to calculate application fees with tenant overrides
+16. **Phase 7**: `apps/atnd-me/src/globals/ApplicationFees/index.ts` - Global configuration for default application fees
+17. **Phase 7**: `apps/atnd-me/src/utilities/calculateApplicationFee.ts` - Utility to calculate application fees with tenant overrides
 18. `apps/atnd-me/src/collections/Navbar/index.ts` - New collection (from Header global)
 19. `apps/atnd-me/src/collections/Footer/index.ts` - New collection (from Footer global)
 20. `apps/atnd-me/src/collections/Scheduler/index.ts` - New collection (from scheduler global)
@@ -1231,20 +1231,22 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 32. `apps/atnd-me/src/trpc/server.tsx` - Extract tenant from headers and pass to tRPC context
 33. `packages/trpc/src/routers/lessons.ts` - Set tenant context before querying lessons (Schedule component uses this)
 34. `packages/trpc/src/routers/bookings.ts` - Set tenant context before querying bookings (if exists)
-35. **Phase 4**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
-36. **Phase 4**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
-37. **Phase 4**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
-38. **Phase 4**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
-39. **Phase 4**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
-40. **Phase 5**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
-41. **Phase 5**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
-42. **Phase 5**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
-43. **Phase 6**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
-44. **Phase 6**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
-45. **Phase 6**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
-46. **Phase 6**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
-47. **Phase 6**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
-48. **Phase 6**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
+35. **Phase 3**: `apps/atnd-me/src/blocks/registry.ts` - Block registry for tenant-scoped blocks
+36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
+37. **Phase 4**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
+38. **Phase 4**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
+39. **Phase 4**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
+40. **Phase 4**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
+41. **Phase 4**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
+42. **Phase 5**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
+43. **Phase 5**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
+44. **Phase 5**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
+45. **Phase 6**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
+46. **Phase 6**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
+47. **Phase 6**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
+48. **Phase 6**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
+49. **Phase 6**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
+50. **Phase 6**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
 
 ## Test Files to Create
 
@@ -1292,6 +1294,8 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - `apps/atnd-me/tests/e2e/stripe-connect-onboarding.e2e.spec.ts` - Tenant-admin Connect Stripe UX (Phase 2)
 - `apps/atnd-me/tests/e2e/booking-fee-disclosure.e2e.spec.ts` - Booking fee disclosure in checkout (Phase 2)
 - `apps/atnd-me/tests/e2e/admin-payment-methods-gated-by-connect.e2e.spec.ts` - Admin UI gating: payment methods disabled until Connect active (Phase 2)
+- **Phase 3**: `apps/atnd-me/tests/int/tenant-scoped-blocks.int.spec.ts` - Tenant allowedBlocks and Pages layout filtering
+- **Phase 3**: `apps/atnd-me/tests/e2e/tenant-blocks-admin.e2e.spec.ts` - Tenant admin sees only allowed blocks
 - **Phase 4**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
 - **Phase 4**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
 - **Phase 4**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
@@ -1965,7 +1969,200 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–6):** Next = Phase 3 (Self-Onboarding) → Phase 4 (Analytics) → Phase 5 (UTM) → Phase 6 (Application Fees, deferred).
+**Roadmap order (Phases 3–8):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Self-Onboarding) → Phase 6 (Analytics) → Phase 7 (UTM) → Phase 8 (Application Fees, deferred).
+
+---
+
+## Phase 3: Custom Tenant-Scoped Blocks
+
+### Overview
+
+Enable **custom tenant-scoped blocks** so each tenant can have a distinct set of blocks available for their pages. The **super admin** configures which blocks are allowed per tenant via the tenant config; the **tenant admin** interacts only with blocks scoped to their tenant. This allows **custom frontends on a per-tenant basis**—e.g. Tenant A might use Hero, Schedule, and a custom “Classes” block, while Tenant B uses HeroSchedule, About, and Location.
+
+### Goals
+
+- **Default blocks**: A core set of blocks that **all tenants have access to** (e.g. Hero, HeroSchedule, Schedule, Content, etc.). These are always available.
+- **Tenant config**: Super admin can additionally enable extra blocks per tenant (e.g. `allowedBlocks` or `extraBlocks` in Tenants). Effective blocks = default blocks + tenant-specific blocks.
+- **Tenant admin UX**: When editing pages, tenant admin sees default blocks plus any blocks enabled for their tenant in the layout builder.
+- **Block registry**: Central registry of block types; default blocks are always included; super admin selects which additional blocks are enabled per tenant.
+- **Custom frontends**: Each tenant's pages render using default + their allowed blocks, enabling different layouts per tenant.
+
+### Non-goals (for this phase)
+
+- Tenant-defined block schemas (blocks are predefined; only selection is tenant-scoped).
+- Block marketplace or third-party block plugins.
+- Block-level permissions beyond “allowed for tenant” (no per-block role rules).
+
+### Architecture
+
+1. **Block registry**
+  - Define a registry of block types (slug, config) used by the Pages collection.
+  - May extend the existing `availableBlocks` pattern in `apps/atnd-me/src/collections/Pages/index.ts`.
+2. **Default blocks**
+  - Define a fixed set of **default blocks** (e.g. Hero, HeroSchedule, Schedule, Content, etc.) that every tenant always has. These are never disabled.
+3. **Tenant config**
+  - Add to Tenants collection: `allowedBlocks` or `extraBlocks` (array of block slugs) for blocks *in addition to* the defaults.
+  - If empty/null, tenant gets default blocks only. Super admin can add extra blocks per tenant.
+4. **Pages layout field**
+  - The Pages `layout` (blocks field) uses **dynamic blocks** based on current tenant context.
+  - When tenant admin edits a page, they see **default blocks** plus `tenant.allowedBlocks` in the block picker.
+  - Resolve tenant from `req.context.tenant` (middleware/cookie) or document’s tenant.
+5. **Frontend rendering**
+  - Page renderer (e.g. `[slug]/page.tsx`) maps block types to components.
+  - Only render blocks that exist in the page’s layout; block types are from the registry (tenant sees only allowed ones in admin, so no new types appear from user input).
+
+### Implementation outline (TDD-friendly)
+
+- **Step 3.1 – Block registry and default blocks**
+  - Create `apps/atnd-me/src/blocks/registry.ts` that exports a map of block slug → block config, plus a `defaultBlockSlugs` array (blocks all tenants always have).
+  - Refactor Pages to consume blocks from this registry.
+  - Tests: registry returns expected block configs; default blocks are defined.
+- **Step 3.2 – Tenant allowedBlocks field**
+  - Add `allowedBlocks` (array of text/select with block slugs) to Tenants collection.
+  - Access: super admin can read/write; tenant admin read-only for their tenant.
+  - Tests: tenant doc can store allowed block slugs; validation rejects unknown slugs.
+- **Step 3.3 – Dynamic blocks in Pages layout**
+  - Pass tenant context to Pages admin (e.g. via `useDocumentInfo`, request context).
+  - Effective blocks = default blocks + tenant's `allowedBlocks` (if any).
+  - Block picker shows only effective blocks. Tenants always have access to default blocks.
+  - Tests: integration test that Pages layout field shows only tenant’s allowed blocks when tenant is set.
+- **Step 3.4 – Frontend**
+  - Ensure page renderer supports all block types in registry.
+  - No frontend changes required if blocks are already rendered by type; verify tenant pages only use allowed block types.
+  - Tests: E2E that a tenant with restricted blocks cannot add disallowed blocks (if enforced in UI).
+- **Step 3.5 – Admin UX**
+  - Tenant config UI: block multi-select or tag input for `allowedBlocks`.
+  - Optional: preview of which blocks tenant admins will see.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/src/blocks/registry.ts` – Block registry (slug → config).
+- `apps/atnd-me/src/collections/Tenants/index.ts` – Add `allowedBlocks` field.
+- `apps/atnd-me/src/collections/Pages/index.ts` – Dynamic `blocks` array based on tenant’s `allowedBlocks`.
+- `apps/atnd-me/src/utilities/getBlocksForTenant.ts` – Resolve effective blocks for a tenant (default blocks + tenant's allowedBlocks).
+- Tests: `tests/int/tenant-scoped-blocks.int.spec.ts`, `tests/e2e/tenant-blocks-admin.e2e.spec.ts`.
+
+### Summary
+
+
+| Aspect             | Notes                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| **Default blocks** | Core blocks (e.g. Hero, HeroSchedule, Schedule, Content) that all tenants always have. |
+| **Who configures** | Super admin sets extra `allowedBlocks` per tenant (in addition to defaults).           |
+| **Who uses**       | Tenant admin adds/edits blocks; sees default blocks + tenant-specific blocks.          |
+| **Scope**          | Per tenant; enables custom frontends per tenant.                                       |
+
+
+---
+
+## Phase 4: Custom Admin Dashboard Homepage
+
+### Overview
+
+Build a **custom admin dashboard homepage** that replaces or augments the default Payload dashboard. The homepage displays **basic analytics about the site and bookings**, is **filterable and comparable by dates**, and uses **shadcn charts** for visualizations. Design is inspired by Stripe Dashboard and Plausible-style web analytics: clean, minimal, card-based layout with summary metrics, a main trend chart, and date range + comparison controls.
+
+### Goals
+
+- **Custom homepage**: Replace default Payload admin dashboard with a custom analytics dashboard.
+- **Date filtering**: Date range selector (e.g. Last 7 days, Last 30 days, Last 91 days, Custom).
+- **Date comparison**: “Compare to previous period” toggle; when enabled, show current vs previous period values and a dual-line chart.
+- **Tenant-scoped**: Tenant-admin sees only their tenant’s data; super-admin can select tenant or “all”.
+- **shadcn charts**: Use shadcn/ui chart components (recharts-based) for consistency and maintainability.
+
+### Suggested Analytics
+
+**Booking metrics (primary):**
+
+
+| Metric                | Description                                                            |
+| --------------------- | ---------------------------------------------------------------------- |
+| **Total bookings**    | Count of confirmed bookings in the selected period                     |
+| **Gross volume**      | Sum of booking revenue (from transactions / class price) in the period |
+| **Net volume**        | Gross minus platform/booking fees (if applicable)                      |
+| **Unique customers**  | Count of distinct users who made at least one booking in the period    |
+| **Bookings per week** | Trend over time (daily/weekly granularity)                             |
+| **New vs returning**  | First-time bookers vs users who booked before                          |
+| **Top customers**     | Users with most bookings in the period                                 |
+| **Bookings by class** | Breakdown by class option                                              |
+
+
+**Site metrics (if available):**
+
+- Total pageviews, unique visitors (requires analytics tracking; can be deferred to UTM phase or added as placeholder).
+
+### UI / Layout (inspired by examples)
+
+1. **Header**
+  - Tenant selector (super-admin only; tenant-admin sees current tenant)
+  - Date range dropdown (Last 7 days, Last 30 days, Last 91 days, Custom)
+  - “Compare to previous period” checkbox + optional granularity (Daily / Weekly)
+  - Optional: Export / Download
+2. **Summary cards (4–6 KPIs)**
+  - Each card: primary value, optional secondary “previous period” value
+  - Examples: Total bookings, Gross volume, Net volume, Unique customers
+  - Clean typography, subtle borders, info icons for tooltips
+3. **Main trend chart**
+  - Line/area chart of bookings (or revenue) over time
+  - When comparing: dual-line chart (current period vs previous period)
+  - X-axis: dates; Y-axis: count or amount
+4. **Metric cards with mini charts**
+  - Cards for Gross volume, Net volume, etc., with small embedded line charts
+  - “Explore” or “View details” links where useful
+5. **Tables (optional)**
+  - Top customers table
+  - Bookings by class option
+  - Tabs: CHANNELS / SOURCES (if UTM data exists later)
+
+### Technical Approach
+
+- **Backend**: Analytics API (tRPC procedures or REST) with params: `tenantId?`, `dateFrom`, `dateTo`, `comparePrevious?`, `granularity?`.
+- **Frontend**: Custom Payload dashboard component (React) that fetches analytics and renders shadcn charts.
+- **Charts**: Use `@/components/ui/chart` from shadcn (recharts) for `LineChart`, `BarChart`, `AreaChart`, etc.
+- **Payload integration**: Register custom dashboard as the default admin view via Payload `admin.components.views.dashboard`.
+
+### Implementation outline
+
+- **Step 4.1 – Analytics API**
+  - Add tRPC procedures or REST endpoints: `analytics.summary`, `analytics.bookingsOverTime`, `analytics.topCustomers`, etc.
+  - Enforce tenant scope; date range and comparison params.
+  - Tests: unit/int for access control and correct aggregation.
+- **Step 4.2 – shadcn chart setup**
+  - Ensure shadcn chart components are installed and themed.
+  - Create reusable chart wrappers if needed (e.g. `BookingsTrendChart`, `MetricCardWithChart`).
+- **Step 4.3 – Dashboard layout**
+  - Build dashboard component with header (date range, compare toggle, tenant selector).
+  - Implement summary cards and main trend chart.
+  - Wire to analytics API.
+- **Step 4.4 – Compare previous period**
+  - API accepts `comparePrevious`; returns current + previous period data.
+  - Render dual-line chart and previous-period values in cards when enabled.
+- **Step 4.5 – Payload integration**
+  - Register custom dashboard as Payload admin default view.
+  - Ensure tenant context is available in admin requests.
+- **Step 4.6 – Polish**
+  - Responsive layout, loading states, empty states.
+  - Optional: Top customers table, bookings by class.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard component
+- `apps/atnd-me/src/lib/analytics/` – `bookingsOverTime.ts`, `summaryMetrics.ts`, `topCustomers.ts`, etc.
+- tRPC `analytics` router or `GET /api/analytics` – Analytics endpoints
+- `apps/atnd-me/src/payload.config.ts` – Register custom dashboard view
+- shadcn chart components – Add if not present
+- Tests: `tests/int/analytics-api.int.spec.ts`, `tests/e2e/admin-dashboard.e2e.spec.ts`
+
+### Summary
+
+
+| Aspect          | Notes                                                             |
+| --------------- | ----------------------------------------------------------------- |
+| **Audience**    | Tenant-admin (own tenant); super-admin (any tenant or all)        |
+| **Filtering**   | Date range required; granularity optional                         |
+| **Comparison**  | “Compare to previous period” with dual-line chart and card values |
+| **Charts**      | shadcn charts (recharts)                                          |
+| **Look & feel** | Stripe / Plausible-inspired: cards, line charts, clean typography |
+
 
 ---
 
@@ -1995,9 +2192,9 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ---
 
-## Phase 6: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
+## Phase 8: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Self-Onboarding (Phase 3), Analytics (Phase 4), and UTM (Phase 5).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Self-Onboarding (Phase 5), Analytics (Phase 6), and UTM (Phase 7).*
 
 When implementing flexible application fees:
 
@@ -2007,7 +2204,7 @@ When implementing flexible application fees:
 - Per-tenant overrides
 - Stripe Connect implementation via `application_fee_amount`
 
-Phase 6 extends this with **advanced management**, not the core fee model:
+Phase 8 extends this with **advanced management**, not the core fee model:
 
 - Per-tenant self-service (optional, tenant-admin visibility/edit rules)
 - Fee preview tooling + audit logs
@@ -2125,7 +2322,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 ---
 
-## Phase 3: Self-Onboarding with MCP-Driven Personalisation (Next)
+## Phase 5: Self-Onboarding with MCP-Driven Personalisation
 
 ### Overview
 
@@ -2230,7 +2427,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ---
 
-## Phase 4: Dashboard Analytics (Future)
+## Phase 6: Dashboard Analytics (Future)
 
 ### Overview
 
@@ -2341,7 +2538,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ---
 
-## Phase 5: Event Tracking & Marketing Attribution (UTM) (Future)
+## Phase 7: Event Tracking & Marketing Attribution (UTM) (Future)
 
 ### Overview
 

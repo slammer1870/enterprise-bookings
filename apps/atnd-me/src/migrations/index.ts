@@ -28,6 +28,7 @@ import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pa
 import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
 import * as migration_20260211_144828 from './20260211_144828';
 import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
+import * as migration_20260211_tenants_allowed_blocks from './20260211_tenants_allowed_blocks';
 
 export const migrations = [
   {
@@ -180,4 +181,9 @@ export const migrations = [
     down: migration_20260211_users_stripe_customer_id.down,
     name: '20260211_users_stripe_customer_id'
   },
+  {
+    up: migration_20260211_tenants_allowed_blocks.up,
+    down: migration_20260211_tenants_allowed_blocks.down,
+    name: '20260211_tenants_allowed_blocks'
+  }
 ];
