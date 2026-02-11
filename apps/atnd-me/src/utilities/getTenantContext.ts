@@ -83,11 +83,50 @@ export async function getTenantContext(
 /**
  * Resolves tenant with branding fields (logo, description) for white labeling.
  * Uses depth: 1 to populate logo relation.
+ *
+ * Priority:
+ * 1. payload-tenant cookie (tenant ID from admin TenantSelector)
+ * 2. tenant-slug cookie / header / param (from subdomain)
  */
 export async function getTenantWithBranding(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<TenantWithBranding | null> {
+  const cookieStore = source?.cookies
+
+  // 1) Admin TenantSelector: payload-tenant cookie (tenant ID)
+  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
+  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
+    const tenantId = parseInt(payloadTenant, 10)
+    try {
+      const tenant = await payload.findByID({
+        collection: 'tenants',
+        id: tenantId,
+        depth: 1,
+        overrideAccess: true,
+      })
+      if (tenant) {
+        const t = tenant as {
+          id: number
+          slug: string
+          name?: string
+          logo?: { url?: string; alt?: string } | number | null
+          description?: string | null
+        }
+        return {
+          id: t.id,
+          slug: t.slug,
+          name: t.name ?? '',
+          logo: t.logo,
+          description: t.description,
+        }
+      }
+    } catch {
+      // Fall through to slug lookup
+    }
+  }
+
+  // 2) Subdomain: tenant-slug cookie / header / param
   const slug = await getTenantSlug(source)
   if (!slug) return null
 

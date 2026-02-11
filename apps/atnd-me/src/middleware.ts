@@ -23,8 +23,8 @@ export async function middleware(request: NextRequest) {
   const isLocalhost = hostname.includes('localhost')
   const rootHostname = getRootHostname()
 
+  // Allow tenant cookie to be set for /admin so admin panel shows tenant branding when accessed via tenant subdomain
   if (
-    pathname.startsWith('/admin') ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
