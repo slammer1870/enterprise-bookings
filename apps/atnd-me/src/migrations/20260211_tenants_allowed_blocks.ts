@@ -14,9 +14,14 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     );
   `)
   await db.execute(sql`
-    ALTER TABLE "tenants_allowed_blocks"
-      ADD CONSTRAINT "tenants_allowed_blocks_parent_fk"
-      FOREIGN KEY ("parent_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+    DO $$
+    BEGIN
+      ALTER TABLE "tenants_allowed_blocks"
+        ADD CONSTRAINT "tenants_allowed_blocks_parent_fk"
+        FOREIGN KEY ("parent_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;
   `)
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS "tenants_allowed_blocks_order_idx"

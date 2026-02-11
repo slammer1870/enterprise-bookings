@@ -8,16 +8,22 @@ import { CallToAction } from './CallToAction/config'
 import { Content } from './Content/config'
 import { FormBlock } from './Form/config'
 import { MediaBlock } from './MediaBlock/config'
+import { HealthBenefits } from './HealthBenefits/config'
 import { HeroSchedule } from './HeroSchedule/config'
+import { HeroScheduleSanctuary } from './HeroScheduleSanctuary/config'
 import { Schedule } from './Schedule/config'
+import { SectionTagline } from './SectionTagline/config'
 import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
 
 const allBlocks: Block[] = [
   HeroSchedule,
+  HeroScheduleSanctuary,
   Hero,
   About,
   Location,
   Schedule,
+  HealthBenefits,
+  SectionTagline,
   Faqs,
   CallToAction,
   Content,

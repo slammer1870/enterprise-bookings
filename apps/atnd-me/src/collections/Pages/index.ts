@@ -14,8 +14,11 @@ import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
 import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
+import { HealthBenefits } from '@/blocks/HealthBenefits/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
+import { HeroScheduleSanctuary } from '@/blocks/HeroScheduleSanctuary/config'
 import { Schedule } from '@/blocks/Schedule/config'
+import { SectionTagline } from '@/blocks/SectionTagline/config'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePage } from './hooks/revalidatePage'
@@ -32,10 +35,13 @@ import {
 // Define all available blocks for the pages collection (used for block schemas + filterOptions)
 const availableBlocks = [
   HeroSchedule,
+  HeroScheduleSanctuary,
   Hero,
   About,
   Location,
   Schedule,
+  HealthBenefits,
+  SectionTagline,
   Faqs,
   CallToAction,
   Content,
@@ -108,10 +114,14 @@ export const Pages: CollectionConfig<'pages'> = {
               type: 'blocks',
               blocks: [
                 HeroSchedule,
+                HeroScheduleSanctuary,
                 Hero,
                 ThreeColumnLayout,
                 ...availableBlocks.filter(
-                  (block) => block.slug !== 'heroSchedule' && block.slug !== 'hero'
+                  (block) =>
+                    block.slug !== 'heroSchedule' &&
+                    block.slug !== 'heroScheduleSanctuary' &&
+                    block.slug !== 'hero'
                 ),
               ],
               filterOptions: ({ data, req }) => {

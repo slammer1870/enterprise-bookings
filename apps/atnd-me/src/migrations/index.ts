@@ -27,8 +27,9 @@ import * as migration_20260210_064706 from './20260210_064706';
 import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pages_generate_slug';
 import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
 import * as migration_20260211_144828 from './20260211_144828';
-import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
+import * as migration_20260211_180330 from './20260211_180330';
 import * as migration_20260211_tenants_allowed_blocks from './20260211_tenants_allowed_blocks';
+import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
 
 export const migrations = [
   {
@@ -177,13 +178,18 @@ export const migrations = [
     name: '20260211_144828',
   },
   {
-    up: migration_20260211_users_stripe_customer_id.up,
-    down: migration_20260211_users_stripe_customer_id.down,
-    name: '20260211_users_stripe_customer_id'
+    up: migration_20260211_180330.up,
+    down: migration_20260211_180330.down,
+    name: '20260211_180330',
   },
   {
     up: migration_20260211_tenants_allowed_blocks.up,
     down: migration_20260211_tenants_allowed_blocks.down,
-    name: '20260211_tenants_allowed_blocks'
-  }
+    name: '20260211_tenants_allowed_blocks',
+  },
+  {
+    up: migration_20260211_users_stripe_customer_id.up,
+    down: migration_20260211_users_stripe_customer_id.down,
+    name: '20260211_users_stripe_customer_id'
+  },
 ];

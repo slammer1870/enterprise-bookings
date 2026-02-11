@@ -76,11 +76,15 @@ export async function ensureAdminLoggedIn(page: Page) {
   const adminPassword = 'password123'
 
   await waitForServerReady(page.context().request)
-  await page.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 120000 })
+  // In CI, wait for full load so the admin app (and login form) have time to render.
+  await page.goto('/admin', {
+    waitUntil: process.env.CI ? 'load' : 'domcontentloaded',
+    timeout: 120000,
+  })
   // Allow client-side redirects (/admin -> /admin/login or /admin/create-first-user) to settle.
   await page
     .waitForURL(/\/admin\/(login|create-first-user|collections|logout|account|reset-password)/, {
-      timeout: 10000,
+      timeout: process.env.CI ? 30000 : 10000,
     })
     .catch(() => {})
 
@@ -104,12 +108,13 @@ export async function ensureAdminLoggedIn(page: Page) {
 
   const fillStable = async (locatorFactory: () => ReturnType<Page['locator']>, value: string) => {
     const attempts = process.env.CI ? 5 : 3
+    const attachTimeout = process.env.CI ? 30000 : 10000
     for (let i = 0; i < attempts; i++) {
       // If we got redirected into the admin shell mid-fill, treat as success.
       if (await isAdminUIVisible()) return
       const loc = locatorFactory().first()
       try {
-        await loc.waitFor({ state: 'attached', timeout: process.env.CI ? 20000 : 10000 })
+        await loc.waitFor({ state: 'attached', timeout: attachTimeout })
         await (loc as any).scrollIntoViewIfNeeded?.().catch(() => {})
         await loc.fill(value)
         return
@@ -119,6 +124,11 @@ export async function ensureAdminLoggedIn(page: Page) {
         if (/detached|not attached|Target page|context or browser has been closed/i.test(msg) && i < attempts - 1) {
           await page.waitForTimeout(250)
           continue
+        }
+        if (/Timeout.*exceeded/i.test(msg) && process.env.CI) {
+          throw new Error(
+            `${msg} Current URL: ${page.url()}. In CI the admin login form can load slowly; ensure the server is ready and consider increasing timeouts.`,
+          )
         }
         throw err
       }
@@ -298,7 +308,12 @@ export async function ensureAdminLoggedIn(page: Page) {
   const loginAndWaitForAdminUI = async (): Promise<void> => {
     // If we're not on the login page, navigating to it is safe and makes selectors consistent.
     if (!isLoginRoute()) {
-      await page.goto('/admin/login', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {})
+      await page
+        .goto('/admin/login', {
+          waitUntil: process.env.CI ? 'load' : 'domcontentloaded',
+          timeout: 30000,
+        })
+        .catch(() => {})
     }
 
     // Wait for the login form to render before trying to fill it.
@@ -309,26 +324,39 @@ export async function ensureAdminLoggedIn(page: Page) {
       .waitFor({ state: 'attached', timeout: process.env.CI ? 30000 : 10000 })
       .catch(() => {})
 
-    // Payload login markup varies across versions/configs; prefer robust selectors.
+    // In CI, allow extra time for client-side hydration (Next.js admin can be slow on first load).
+    if (process.env.CI) {
+      await page.waitForTimeout(3000)
+    }
+
+    // Payload login markup varies across versions/configs (including payload-auth); prefer robust selectors.
     const emailFieldCandidates = page.locator(
-      'input[name="email"], input#field-email, input[type="email"], input[autocomplete="email"]',
+      'input[name="email"], input#field-email, input[type="email"], input[autocomplete="email"], input[id*="email"], input[aria-label*="mail" i], input[placeholder*="mail" i]',
     )
     const passwordFieldCandidates = page.locator(
       'input[name="password"], input#field-password, input[type="password"], input[autocomplete="current-password"]',
     )
+    // Fallbacks when Payload uses labels like "Email address" or role-based names that don't match /^Email\s*\*?$/i.
+    const anyEmailField = emailFieldCandidates
+      .or(page.getByLabel(/email/i))
+      .or(page.getByRole('textbox', { name: /email/i }))
+    const anyPasswordField = passwordFieldCandidates
+      .or(page.getByLabel(/password/i))
+      .or(page.locator('input[type="password"]'))
 
-    // Wait for at least one email field to appear (form is ready).
-    await emailFieldCandidates
-      .first()
-      .waitFor({ state: 'attached', timeout: process.env.CI ? 30000 : 10000 })
-      .catch(() => {})
+    // Wait for at least one email/password field (form is ready). Throw on timeout so we fail with a clear error.
+    const formWaitTimeout = process.env.CI ? 45000 : 15000
+    await anyEmailField.first().waitFor({ state: 'attached', timeout: formWaitTimeout })
+    await anyPasswordField.first().waitFor({ state: 'attached', timeout: formWaitTimeout })
 
     const emailField =
-      (await emailFieldCandidates.count()) > 0 ? emailFieldCandidates.first() : emailInput.first()
+      (await emailFieldCandidates.count()) > 0
+        ? emailFieldCandidates.first()
+        : page.getByLabel(/email/i).or(page.getByRole('textbox', { name: /email/i })).first()
     const passwordField =
       (await passwordFieldCandidates.count()) > 0
         ? passwordFieldCandidates.first()
-        : passwordInput.first()
+        : page.getByLabel(/password/i).or(page.locator('input[type="password"]')).first()
 
     await fillStable(() => emailField, adminEmail)
     await fillStable(() => passwordField, adminPassword)

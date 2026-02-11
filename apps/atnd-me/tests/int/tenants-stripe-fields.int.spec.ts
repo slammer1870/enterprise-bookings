@@ -138,17 +138,29 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
   it(
     'only admin can update Stripe fields directly; tenant-admin cannot',
     async () => {
-      await expect(
-        payload.update({
-          collection: 'tenants',
-          id: testTenantId,
-          data: {
-            stripeConnectAccountId: 'acct_tampered',
-          },
-          user: tenantAdminUser,
-          overrideAccess: false,
-        }),
-      ).rejects.toThrow()
+      await payload.update({
+        collection: 'tenants',
+        id: testTenantId,
+        data: { stripeConnectAccountId: 'acct_original' },
+        user: adminUser,
+        overrideAccess: false,
+      })
+
+      await payload.update({
+        collection: 'tenants',
+        id: testTenantId,
+        data: { stripeConnectAccountId: 'acct_tampered' },
+        user: tenantAdminUser,
+        overrideAccess: false,
+      })
+
+      const after = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        user: adminUser,
+        overrideAccess: false,
+      }) as TenantWithStripe
+      expect(after.stripeConnectAccountId).toBe('acct_original')
     },
     TEST_TIMEOUT,
   )

@@ -224,11 +224,14 @@ export interface Page {
    */
   layout: (
     | HeroScheduleBlock
+    | HeroScheduleSanctuaryBlock
     | HeroBlock
     | ThreeColumnLayoutBlock
     | AboutBlock
     | LocationBlock
     | ScheduleBlock
+    | HealthBenefitsBlock
+    | SectionTaglineBlock
     | {
         /**
          * Optional title displayed above the FAQs. Defaults to "FAQs".
@@ -278,7 +281,19 @@ export interface Tenant {
   /**
    * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.
    */
-  allowedBlocks?: ('location' | 'faqs' | 'mediaBlock' | 'archive' | 'formBlock' | 'threeColumnLayout')[] | null;
+  allowedBlocks?:
+    | (
+        | 'heroScheduleSanctuary'
+        | 'location'
+        | 'healthBenefits'
+        | 'sectionTagline'
+        | 'faqs'
+        | 'mediaBlock'
+        | 'archive'
+        | 'formBlock'
+        | 'threeColumnLayout'
+      )[]
+    | null;
   logo?: (number | null) | Media;
   /**
    * Stripe Connect account ID (set by OAuth callback).
@@ -902,6 +917,53 @@ export interface ClassPassType {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroScheduleSanctuaryBlock".
+ */
+export interface HeroScheduleSanctuaryBlock {
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  /**
+   * Main hero heading (e.g. CROÍ LÁN SAUNA)
+   */
+  title?: string | null;
+  /**
+   * Line under the title (e.g. The Bog Meadow, Enniskerry Village)
+   */
+  subtitle?: string | null;
+  /**
+   * Short line below subtitle (e.g. 30 minutes outside Dublin)
+   */
+  tagline?: string | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'heroScheduleSanctuary';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "HeroBlock".
  */
 export interface HeroBlock {
@@ -944,10 +1006,13 @@ export interface ThreeColumnLayoutBlock {
   blocks?:
     | (
         | HeroScheduleBlock
+        | HeroScheduleSanctuaryBlock
         | HeroBlock
         | AboutBlock
         | LocationBlock
         | ScheduleBlock
+        | HealthBenefitsBlock
+        | SectionTaglineBlock
         | {
             /**
              * Optional title displayed above the FAQs. Defaults to "FAQs".
@@ -1027,6 +1092,47 @@ export interface ScheduleBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HealthBenefitsBlock".
+ */
+export interface HealthBenefitsBlock {
+  /**
+   * Main heading for the section (e.g. "Health Benefits of Sauna")
+   */
+  sectionTitle: string;
+  items: {
+    /**
+     * Short benefit title (e.g. "Reduced inflammation & muscle soreness")
+     */
+    title: string;
+    /**
+     * Brief description of the benefit
+     */
+    description: string;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'healthBenefits';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionTaglineBlock".
+ */
+export interface SectionTaglineBlock {
+  /**
+   * Short tagline or section heading (e.g. "Release. Relax. Recover.")
+   */
+  title: string;
+  /**
+   * Optional subtitle below the tagline
+   */
+  subtitle?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionTagline';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2113,11 +2219,14 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
+        healthBenefits?: T | HealthBenefitsBlockSelect<T>;
+        sectionTagline?: T | SectionTaglineBlockSelect<T>;
         faqs?:
           | T
           | {
@@ -2179,6 +2288,34 @@ export interface HeroScheduleBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroScheduleSanctuaryBlock_select".
+ */
+export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
+  backgroundImage?: T;
+  logo?: T;
+  title?: T;
+  subtitle?: T;
+  tagline?: T;
+  links?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+            };
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "HeroBlock_select".
  */
 export interface HeroBlockSelect<T extends boolean = true> {
@@ -2212,10 +2349,13 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
     | T
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
+        healthBenefits?: T | HealthBenefitsBlockSelect<T>;
+        sectionTagline?: T | SectionTaglineBlockSelect<T>;
         faqs?:
           | T
           | {
@@ -2269,6 +2409,32 @@ export interface LocationBlockSelect<T extends boolean = true> {
  * via the `definition` "ScheduleBlock_select".
  */
 export interface ScheduleBlockSelect<T extends boolean = true> {
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HealthBenefitsBlock_select".
+ */
+export interface HealthBenefitsBlockSelect<T extends boolean = true> {
+  sectionTitle?: T;
+  items?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionTaglineBlock_select".
+ */
+export interface SectionTaglineBlockSelect<T extends boolean = true> {
+  title?: T;
+  subtitle?: T;
   id?: T;
   blockName?: T;
 }

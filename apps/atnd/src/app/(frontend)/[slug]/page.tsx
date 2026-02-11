@@ -10,6 +10,8 @@ import { homeStatic } from '@/endpoints/seed/home-static'
 import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { RenderHero } from '@/heros/RenderHero'
 import { generateMeta } from '@/utilities/generateMeta'
+import type { Homepage } from '@/payload-types'
+import { getCachedGlobal } from '@/utilities/getGlobals'
 import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 
@@ -56,6 +58,23 @@ export default async function Page({ params: paramsPromise }: Args) {
     // Decode to support slugs with special characters
     const decodedSlug = decodeURIComponent(slug)
     const url = '/' + decodedSlug
+
+    // Base URL (/) is driven by the Homepage global so the overall admin can edit it in one place
+    if (decodedSlug === 'home') {
+      const homepage = (await getCachedGlobal('homepage', 2)()) as Homepage | null
+      if (homepage?.layout != null) {
+        return (
+          <article className="pt-16 pb-24">
+            <PageClient />
+            <PayloadRedirects disableNotFound url={url} />
+            {draft && <LivePreviewListener />}
+            <RenderHero {...homepage.hero} />
+            <RenderBlocks blocks={homepage.layout} />
+          </article>
+        )
+      }
+    }
+
     let page: RequiredDataFromCollectionSlug<'pages'> | null
 
     page = await queryPageBySlug({
@@ -100,6 +119,15 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
     const { slug = 'home' } = await paramsPromise
     // Decode to support slugs with special characters
     const decodedSlug = decodeURIComponent(slug)
+
+    // Use Homepage global meta for the base URL
+    if (decodedSlug === 'home') {
+      const homepage = (await getCachedGlobal('homepage', 0)()) as Homepage | null
+      if (homepage?.meta != null) {
+        return generateMeta({ doc: { meta: homepage.meta, slug: 'home' } })
+      }
+    }
+
     const page = await queryPageBySlug({
       slug: decodedSlug,
     })

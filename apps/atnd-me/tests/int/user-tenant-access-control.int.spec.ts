@@ -122,8 +122,86 @@ describe('User Tenant Access Control', () => {
 
   afterAll(async () => {
     if (payload) {
-      await payload.db.destroy()
+      await payload.db?.destroy?.()
     }
+  })
+
+  describe('Auth collections (accounts, sessions, verifications, admin-invitations) restricted to full admin', () => {
+    const AUTH_COLLECTION_SLUGS = ['accounts', 'sessions', 'verifications', 'admin-invitations'] as const
+
+    it(
+      'tenant-admin cannot read accounts, sessions, verifications, or admin-invitations',
+      async () => {
+        const req = {
+          ...payload,
+          context: { tenant: testTenant.id },
+          user: tenantAdminUser,
+        } as any
+
+        for (const slug of AUTH_COLLECTION_SLUGS) {
+          const collection = payload.config.collections?.find((c) => c.slug === slug)
+          if (!collection) continue // skip if plugin did not register this collection
+
+          await expect(
+            payload.find({
+              collection: slug,
+              where: {},
+              limit: 1,
+              req,
+              overrideAccess: false,
+            }),
+          ).rejects.toThrow()
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'tenant-admin cannot create admin invitations',
+      async () => {
+        const req = {
+          ...payload,
+          context: { tenant: testTenant.id },
+          user: tenantAdminUser,
+        } as any
+
+        await expect(
+          payload.create({
+            collection: 'admin-invitations',
+            data: { role: 'user' },
+            req,
+            overrideAccess: false,
+          }),
+        ).rejects.toThrow()
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'super admin can read auth collections',
+      async () => {
+        const req = {
+          ...payload,
+          user: adminUser,
+        } as any
+
+        for (const slug of AUTH_COLLECTION_SLUGS) {
+          const collection = payload.config.collections?.find((c) => c.slug === slug)
+          if (!collection) continue
+
+          const result = await payload.find({
+            collection: slug,
+            where: {},
+            limit: 1,
+            req,
+            overrideAccess: false,
+          })
+          expect(result).toBeDefined()
+          expect(Array.isArray(result.docs)).toBe(true)
+        }
+      },
+      TEST_TIMEOUT,
+    )
   })
 
   describe('Admin user access', () => {
@@ -595,6 +673,121 @@ describe('User Tenant Access Control', () => {
       },
       TEST_TIMEOUT,
     )
+
+    it(
+      'tenant-admin can read users when req.user is a shallow session user (no tenants populated)',
+      async () => {
+        // Simulate Better Auth / session: user object without populated `tenants` relationship.
+        // Access control should fetch the full user from DB and still resolve tenant IDs.
+        const shallowSessionUser = {
+          id: tenantAdminUser.id,
+          email: tenantAdminUser.email,
+          name: tenantAdminUser.name,
+          roles: ['tenant-admin'],
+          role: 'tenant-admin',
+          // Intentionally omit: tenants
+        }
+        const req = {
+          ...payload,
+          context: { tenant: testTenant.id },
+          user: shallowSessionUser,
+        } as any
+
+        const tenantAdminUsers = await payload.find({
+          collection: 'users',
+          where: {},
+          limit: 100,
+          req,
+          overrideAccess: false,
+        })
+        const userIds = tenantAdminUsers.docs.map((u) => u.id)
+        expect(userIds).toContain(tenantAdminUser.id)
+        expect(userIds).toContain(userInTestTenant.id)
+        expect(userIds).not.toContain(userInSecondTenant.id)
+      },
+      TEST_TIMEOUT,
+    )
+
+    describe('Tenant-admin sees users who have a booking with their tenant', () => {
+      let userWithBookingOnly: User
+      let bookingLesson: Lesson
+
+      beforeAll(async () => {
+        // User who registered in secondTenant (so not visible by registrationTenant for testTenant)
+        userWithBookingOnly = (await payload.create({
+          collection: 'users',
+          data: {
+            name: 'User With Booking Only',
+            email: `user-booking-only-${Date.now()}@test.com`,
+            password: 'test',
+            roles: ['user'],
+            emailVerified: true,
+            registrationTenant: secondTenant.id,
+          },
+          draft: false,
+          overrideAccess: true,
+        } as Parameters<typeof payload.create>[0])) as User
+
+        const classOpt = (await createWithTenantContext<ClassOption>(
+          'class-options',
+          {
+            name: `Booking visibility class ${Date.now()}`,
+            places: 10,
+            description: 'For tenant-admin user list test',
+          },
+          testTenant.id,
+          { overrideAccess: true },
+        ))
+        bookingLesson = (await createWithTenantContext<Lesson>(
+          'lessons',
+          {
+            date: new Date().toISOString(),
+            startTime: new Date().toISOString(),
+            endTime: new Date(Date.now() + 3600000).toISOString(),
+            classOption: classOpt.id,
+            active: true,
+          },
+          testTenant.id,
+          { overrideAccess: true },
+        ))
+
+        await payload.create({
+          collection: 'bookings',
+          data: {
+            user: userWithBookingOnly.id,
+            lesson: bookingLesson.id,
+            tenant: testTenant.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+      })
+
+      it(
+        'tenant-admin sees users who have made a booking with their tenant',
+        async () => {
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          const tenantAdminUsers = await payload.find({
+            collection: 'users',
+            where: {},
+            limit: 100,
+            req,
+            overrideAccess: false,
+          })
+          const userIds = tenantAdminUsers.docs.map((u) => u.id)
+          expect(userIds).toContain(userWithBookingOnly.id)
+          expect(userIds).toContain(userInTestTenant.id)
+          expect(userIds).toContain(tenantAdminUser.id)
+          expect(userIds).not.toContain(userInSecondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+    })
 
     describe('Tenant-admin cannot escalate to admin', () => {
       it(

@@ -1,11 +1,15 @@
 import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
+import { getUserTenantIds } from '@/access/tenant-scoped'
 import { extraBlockSlugs } from '../../blocks/registry'
 
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
   faqs: 'FAQs',
+  heroScheduleSanctuary: 'Hero & Schedule (Sanctuary)',
+  healthBenefits: 'Health Benefits',
+  sectionTagline: 'Section Tagline',
   mediaBlock: 'Media Block',
   archive: 'Archive',
   formBlock: 'Form Block',
@@ -27,6 +31,10 @@ function canReadStripeFields(user: unknown): boolean {
   return checkRole(['admin', 'tenant-admin'], user as SharedUser)
 }
 
+/** Only full admin can update Stripe Connect fields (set by OAuth/webhooks). */
+const adminOnlyUpdate = ({ req }: { req: { user?: unknown } }) =>
+  Boolean(req?.user && checkRole(['admin'], req.user as SharedUser))
+
 export const Tenants: CollectionConfig = {
   slug: 'tenants',
   admin: {
@@ -37,20 +45,17 @@ export const Tenants: CollectionConfig = {
   access: {
     admin: ({ req: { user } }) => {
       if (!user) return false
-      return checkRole(['admin'], user as unknown as SharedUser)
+      return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
     },
     read: (args) => {
       const { req: { user } } = args
       if (user && checkRole(['admin'], user as unknown as SharedUser)) {
         return true
       }
-      // Tenant-admins can read only their assigned tenant(s) (e.g. for Stripe Connect status)
+      // Tenant-admins can read only their assigned tenant(s) (e.g. for Stripe Connect status, logo)
       if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-        const u = user as { tenants?: { tenant: number | { id: number } }[] | null }
-        const tenantIds = (u.tenants ?? [])
-          .map((t) => (typeof t.tenant === 'object' && t.tenant != null && 'id' in t.tenant ? (t.tenant as { id: number }).id : t.tenant))
-          .filter((id): id is number => typeof id === 'number')
-        if (tenantIds.length === 0) return false
+        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+        if (tenantIds === null || tenantIds.length === 0) return false
         return { id: { in: tenantIds } }
       }
       return true
@@ -63,7 +68,14 @@ export const Tenants: CollectionConfig = {
     update: (args) => {
       const { req: { user } } = args
       if (!user) return false
-      return checkRole(['admin'], user as unknown as SharedUser)
+      if (checkRole(['admin'], user as unknown as SharedUser)) return true
+      // Tenant-admins can update only their assigned tenant(s) (e.g. logo, description)
+      if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+        if (tenantIds === null || tenantIds.length === 0) return false
+        return { id: { in: tenantIds } }
+      }
+      return false
     },
     delete: (args) => {
       const { req: { user } } = args
@@ -112,14 +124,14 @@ export const Tenants: CollectionConfig = {
       relationTo: 'media',
       required: false,
     },
-    // Stripe Connect (step 2.1) – admin and tenant-admin only
+    // Stripe Connect (step 2.1) – admin and tenant-admin can read; only admin can update (OAuth/webhooks set these)
     {
       name: 'stripeConnectAccountId',
       type: 'text',
       required: false,
       unique: true,
       admin: { description: 'Stripe Connect account ID (set by OAuth callback).' },
-      access: { read: ({ req }) => canReadStripeFields(req.user) },
+      access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
     {
       name: 'stripeConnectOnboardingStatus',
@@ -128,21 +140,24 @@ export const Tenants: CollectionConfig = {
       options: [...STRIPE_CONNECT_STATUS_OPTIONS],
       defaultValue: 'not_connected',
       admin: { description: 'Connect onboarding status (updated via webhooks).' },
-      access: { read: ({ req }) => canReadStripeFields(req.user) },
+      access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
     {
       name: 'stripeConnectLastError',
       type: 'textarea',
       required: false,
       admin: { description: 'Last OAuth or webhook error (admin-only).' },
-      access: { read: ({ req }) => Boolean(req?.user && checkRole(['admin'], req.user as SharedUser)) },
+      access: {
+        read: ({ req }) => Boolean(req?.user && checkRole(['admin'], req.user as SharedUser)),
+        update: adminOnlyUpdate,
+      },
     },
     {
       name: 'stripeConnectConnectedAt',
       type: 'date',
       required: false,
       admin: { description: 'When Connect was linked.' },
-      access: { read: ({ req }) => canReadStripeFields(req.user) },
+      access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
   ],
 }

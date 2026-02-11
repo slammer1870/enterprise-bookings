@@ -211,7 +211,10 @@ describe('mock-subscription-created-webhook', () => {
       })
 
       const res = await POST(req)
-      expect(res.status).toBe(200)
+      if (res.status !== 200) {
+        const body = await res.text()
+        throw new Error(`Expected 200, got ${res.status}: ${body}`)
+      }
 
       const subs = await payload.find({
         collection: 'subscriptions' as import('payload').CollectionSlug,

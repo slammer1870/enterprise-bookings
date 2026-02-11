@@ -61,7 +61,15 @@ export function verifyStripeConnectWebhook(
   if (secret) {
     secretsToTry.push(secret)
   } else {
-    secretsToTry.push(getStripeConnectEnv().webhookSecret)
+    // Try Connect webhook secret from env first so verification works in test/CI
+    // without requiring STRIPE_CONNECT_CLIENT_ID (getStripeConnectEnv asserts all vars).
+    const connectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET?.trim()
+    if (connectSecret) secretsToTry.push(connectSecret)
+    try {
+      secretsToTry.push(getStripeConnectEnv().webhookSecret)
+    } catch {
+      // Omit when STRIPE_SECRET_KEY / STRIPE_CONNECT_CLIENT_ID not set (e.g. test env)
+    }
     const platformSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim()
     if (platformSecret) secretsToTry.push(platformSecret)
   }

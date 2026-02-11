@@ -64,6 +64,18 @@ const coerceToDateForTimeOnlyField = (value: unknown): Date | null => {
   return null;
 };
 
+/** Get a valid date from siblingData.date or from value (e.g. full ISO string). Used so API create works when date is not yet in siblingData. */
+const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date | null => {
+  const raw = siblingData?.date;
+  if (raw != null) {
+    const d = typeof raw === "string" ? new Date(raw) : raw instanceof Date ? raw : null;
+    if (d instanceof Date && !Number.isNaN(d.getTime())) return d;
+  }
+  const time = coerceToDateForTimeOnlyField(value);
+  if (time && !Number.isNaN(time.getTime())) return time;
+  return null;
+};
+
 const defaultFields: Field[] = [
   {
     type: "row",

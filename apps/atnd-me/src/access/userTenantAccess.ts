@@ -23,6 +23,27 @@ export function isTenantAdmin(u: unknown): boolean {
 }
 
 /**
+ * For tenant-admins, req.user may come from the session without the `tenants`
+ * relationship populated. Fetch the full user from the database so we can resolve
+ * their tenant IDs and show users who belong to them or have bookings with them.
+ */
+async function getTenantAdminUserWithTenants(
+  user: unknown,
+  payload: { findByID: (args: { collection: 'users'; id: number; depth?: number; overrideAccess?: boolean }) => Promise<unknown> },
+): Promise<SharedUser | null> {
+  const userId = typeof user === 'object' && user !== null && 'id' in user
+    ? (user as { id: number }).id
+    : (user as number)
+  const full = await payload.findByID({
+    collection: 'users',
+    id: userId,
+    depth: 1,
+    overrideAccess: true,
+  })
+  return full as SharedUser | null
+}
+
+/**
  * User read access for multi-tenant apps.
  *
  * - Super admin: can read all users (no query filter)
@@ -40,7 +61,12 @@ export const userTenantRead: Access = async ({ req: { user, payload } }) => {
   }
 
   if (isTenantAdmin(user)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+    let tenantIds = getUserTenantIds(user as unknown as SharedUser)
+    // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
+    if (tenantIds !== null && tenantIds.length === 0) {
+      const fullUser = await getTenantAdminUserWithTenants(user, payload)
+      if (fullUser) tenantIds = getUserTenantIds(fullUser)
+    }
     if (tenantIds === null || tenantIds.length === 0) return false
 
     const userId = typeof user === 'object' && user !== null && 'id' in user
@@ -98,7 +124,12 @@ export const userTenantUpdate: Access = async ({ req: { user, payload }, id }) =
   }
 
   if (isTenantAdmin(user)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+    let tenantIds = getUserTenantIds(user as unknown as SharedUser)
+    // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
+    if (tenantIds !== null && tenantIds.length === 0) {
+      const fullUser = await getTenantAdminUserWithTenants(user, payload)
+      if (fullUser) tenantIds = getUserTenantIds(fullUser)
+    }
     if (tenantIds === null || tenantIds.length === 0) return false
 
     const userId = typeof user === 'object' && user !== null && 'id' in user

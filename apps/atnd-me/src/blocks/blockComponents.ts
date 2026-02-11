@@ -9,7 +9,10 @@ import { AboutBlock } from '@repo/website/src/blocks/about'
 import { LocationBlock } from '@repo/website/src/blocks/location'
 import { FaqsBlock } from '@repo/website/src/blocks/faqs'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
+import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
+import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Component'
+import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { ThreeColumnLayoutBlock } from '@repo/website/src/blocks/threeColumnLayout'
 
 // Export the block components registry — heterogeneous block props, so typed loosely
@@ -26,5 +29,8 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   schedule: ScheduleBlock,
   faqs: FaqsBlock,
   heroSchedule: HeroScheduleBlock,
+  heroScheduleSanctuary: HeroScheduleSanctuaryBlock,
+  healthBenefits: HealthBenefitsBlock,
+  sectionTagline: SectionTaglineBlock,
   threeColumnLayout: ThreeColumnLayoutBlock,
 }
