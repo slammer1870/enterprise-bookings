@@ -78,13 +78,14 @@ describe('Middleware', () => {
     }
   })
 
-  it('skips middleware for admin routes', async () => {
+  it('sets tenant-slug cookie for admin routes on tenant subdomain (for admin branding)', async () => {
     const request = createMockRequest('tenant1.localhost:3000', '/admin')
     const response = await middleware(request)
     
-    // Should not set tenant-slug cookie for admin routes
+    // Admin routes now receive tenant cookie so favicon/admin graphics show tenant branding
     const cookieHeader = response.headers.get('set-cookie')
-    expect(cookieHeader).toBeFalsy()
+    expect(cookieHeader).toBeTruthy()
+    expect(cookieHeader).toContain('tenant-slug=tenant1')
   })
 
   it('skips middleware for API routes', async () => {
