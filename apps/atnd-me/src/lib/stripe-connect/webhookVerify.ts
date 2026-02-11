@@ -1,6 +1,8 @@
 /**
  * Stripe Connect webhook signature verification (step 2.5).
  * Verifies Stripe-Signature (t=timestamp,v1=hmac) using raw body and endpoint secret.
+ * Supports two secrets: Connect (account/subscription events) and platform (payment_intent.succeeded
+ * for destination charges, which Stripe sends to the platform webhook, not the Connect one).
  * Callers can mock this in tests.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto'
@@ -14,18 +16,11 @@ export type StripeConnectEvent = {
   [k: string]: unknown
 }
 
-/**
- * Verifies Stripe webhook signature (v1) and returns parsed event.
- * @throws Error when signature is invalid or body is not valid JSON
- */
-export function verifyStripeConnectWebhook(
-  rawBody: string | Buffer,
+function verifyWithSecret(
+  body: string,
   signature: string,
-  secret?: string,
-): StripeConnectEvent {
-  const webhookSecret = secret ?? getStripeConnectEnv().webhookSecret
-  const body = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8')
-
+  webhookSecret: string,
+): void {
   const parts = signature.split(',')
   const entries: Record<string, string> = {}
   for (const part of parts) {
@@ -37,7 +32,6 @@ export function verifyStripeConnectWebhook(
   if (!t || !v1) {
     throw new Error('Invalid Stripe-Signature: missing t or v1')
   }
-
   const payload = `${t}.${body}`
   const expected = createHmac('sha256', webhookSecret).update(payload).digest('hex')
   const received = Buffer.from(v1, 'hex')
@@ -46,6 +40,43 @@ export function verifyStripeConnectWebhook(
     received.length !== expectedBuf.length ||
     !timingSafeEqual(new Uint8Array(received), new Uint8Array(expectedBuf))
   ) {
+    throw new Error('Webhook signature verification failed')
+  }
+}
+
+/**
+ * Verifies Stripe webhook signature (v1) and returns parsed event.
+ * Tries STRIPE_CONNECT_WEBHOOK_SECRET first (Connect events), then STRIPE_WEBHOOK_SECRET
+ * (platform events like payment_intent.succeeded for destination charges).
+ * @throws Error when signature is invalid or body is not valid JSON
+ */
+export function verifyStripeConnectWebhook(
+  rawBody: string | Buffer,
+  signature: string,
+  secret?: string,
+): StripeConnectEvent {
+  const body = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8')
+
+  const secretsToTry: string[] = []
+  if (secret) {
+    secretsToTry.push(secret)
+  } else {
+    secretsToTry.push(getStripeConnectEnv().webhookSecret)
+    const platformSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim()
+    if (platformSecret) secretsToTry.push(platformSecret)
+  }
+
+  let verified = false
+  for (const webhookSecret of secretsToTry) {
+    try {
+      verifyWithSecret(body, signature, webhookSecret)
+      verified = true
+      break
+    } catch {
+      continue
+    }
+  }
+  if (!verified) {
     throw new Error('Webhook signature verification failed')
   }
 
