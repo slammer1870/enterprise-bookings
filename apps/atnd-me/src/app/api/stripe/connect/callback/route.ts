@@ -7,6 +7,7 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { verifyConnectState } from '@/lib/stripe-connect/authorize'
 import { exchangeCodeForStripeConnectAccount } from '@/lib/stripe-connect/callbackExchange'
+import { getServerSideURL } from '@/utilities/getURL'
 
 const SUCCESS_REDIRECT = '/admin'
 const ERROR_REDIRECT = '/admin'
@@ -21,6 +22,7 @@ function getCurrentUserId(request: NextRequest): number | null {
 }
 
 export async function GET(request: NextRequest) {
+  const baseUrl = getServerSideURL().replace(/\/$/, '')
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const state = searchParams.get('state')
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   if (errorParam) {
     return NextResponse.redirect(
-      `${request.nextUrl.origin}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent(errorParam)}`,
+      `${baseUrl}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent(errorParam)}`,
       302,
     )
   }
@@ -57,12 +59,12 @@ export async function GET(request: NextRequest) {
   }
   if (currentUserId === null || currentUserId !== stateUserId) {
     return NextResponse.redirect(
-      `${request.nextUrl.origin}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent('User mismatch')}`,
+      `${baseUrl}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent('User mismatch')}`,
       302,
     )
   }
 
-  const redirectUri = `${request.nextUrl.origin}/api/stripe/connect/callback`
+  const redirectUri = `${baseUrl}/api/stripe/connect/callback`
 
   try {
     const result = await exchangeCodeForStripeConnectAccount(code, redirectUri)
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
     })
     console.info('[Stripe Connect] connected', { tenantId, userId: stateUserId })
     return NextResponse.redirect(
-      `${request.nextUrl.origin}${SUCCESS_REDIRECT}?stripe_connect=success`,
+      `${baseUrl}${SUCCESS_REDIRECT}?stripe_connect=success`,
       302,
     )
   } catch (e) {
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
       overrideAccess: true,
     })
     return NextResponse.redirect(
-      `${request.nextUrl.origin}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent(message)}`,
+      `${baseUrl}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent(message)}`,
       302,
     )
   }
