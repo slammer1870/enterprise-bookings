@@ -89,10 +89,10 @@ export interface Config {
     'drop-ins': DropIn;
     'class-pass-types': ClassPassType;
     'class-passes': ClassPass;
-    transactions: Transaction;
-    users: User;
     subscriptions: Subscription;
     plans: Plan;
+    transactions: Transaction;
+    users: User;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -108,13 +108,13 @@ export interface Config {
     'drop-ins': {
       'class-optionsPaymentMethods': 'class-options';
     };
+    plans: {
+      'class-optionsPaymentMethods': 'class-options';
+    };
     users: {
       account: 'accounts';
       session: 'sessions';
       userSubscription: 'subscriptions';
-    };
-    plans: {
-      'class-optionsPaymentMethods': 'class-options';
     };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
@@ -143,10 +143,10 @@ export interface Config {
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
     'class-passes': ClassPassesSelect<false> | ClassPassesSelect<true>;
-    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -2026,20 +2026,20 @@ export interface PayloadLockedDocument {
         value: number | ClassPass;
       } | null)
     | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
         relationTo: 'subscriptions';
         value: number | Subscription;
       } | null)
     | ({
         relationTo: 'plans';
         value: number | Plan;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'form-submissions';
@@ -2979,6 +2979,59 @@ export interface ClassPassesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  plan?: T;
+  status?: T;
+  startDate?: T;
+  endDate?: T;
+  cancelAt?: T;
+  stripeSubscriptionId?: T;
+  skipSync?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans_select".
+ */
+export interface PlansSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessionsInformation?:
+    | T
+    | {
+        sessions?: T;
+        intervalCount?: T;
+        interval?: T;
+        allowMultipleBookingsPerLesson?: T;
+      };
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
+  priceJSON?: T;
+  status?: T;
+  skipSync?: T;
+  'class-optionsPaymentMethods'?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions_select".
  */
 export interface TransactionsSelect<T extends boolean = true> {
@@ -3031,59 +3084,6 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions_select".
- */
-export interface SubscriptionsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  plan?: T;
-  status?: T;
-  startDate?: T;
-  endDate?: T;
-  cancelAt?: T;
-  stripeSubscriptionId?: T;
-  skipSync?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans_select".
- */
-export interface PlansSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  features?:
-    | T
-    | {
-        feature?: T;
-        id?: T;
-      };
-  sessionsInformation?:
-    | T
-    | {
-        sessions?: T;
-        intervalCount?: T;
-        interval?: T;
-        allowMultipleBookingsPerLesson?: T;
-      };
-  stripeProductId?: T;
-  priceInformation?:
-    | T
-    | {
-        price?: T;
-        intervalCount?: T;
-        interval?: T;
-      };
-  priceJSON?: T;
-  status?: T;
-  skipSync?: T;
-  'class-optionsPaymentMethods'?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

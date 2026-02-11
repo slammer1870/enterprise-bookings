@@ -56,7 +56,19 @@ test.describe('Manage page: pending bookings and checkout return', () => {
       tenantSlug: tenant.slug,
     })
 
-    await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}/manage`)
+    const managePath = `/bookings/${lesson.id}/manage`
+    await navigateToTenant(page, tenant.slug, managePath)
+
+    // If we were redirected to sign-in (session not sent to subdomain), re-login and retry once
+    if (page.url().includes('/auth/sign-in')) {
+      await loginAsRegularUser(page, 1, user.email, 'password', {
+        tenantSlug: tenant.slug,
+      })
+      await navigateToTenant(page, tenant.slug, managePath)
+    }
+    await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
+      timeout: 15000,
+    })
 
     // Hydration from server pending should show checkout view (Complete Payment)
     await expect(
@@ -106,7 +118,17 @@ test.describe('Manage page: pending bookings and checkout return', () => {
       tenantSlug: tenant.slug,
     })
 
-    await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}/manage`)
+    const managePath = `/bookings/${lesson.id}/manage`
+    await navigateToTenant(page, tenant.slug, managePath)
+    if (page.url().includes('/auth/sign-in')) {
+      await loginAsRegularUser(page, 1, user.email, 'password', {
+        tenantSlug: tenant.slug,
+      })
+      await navigateToTenant(page, tenant.slug, managePath)
+    }
+    await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
+      timeout: 15000,
+    })
 
     await expect(
       page.getByText(/complete payment/i).first()

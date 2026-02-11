@@ -25,33 +25,24 @@ export type ClassPassConfig = {
 };
 
 /**
- * Drop-ins feature config. When enabled, adds drop-ins collection and allowedDropIn
- * injection into configured payment-method collections. Independent of payments processing.
+ * Drop-ins feature config. When enabled, adds drop-ins collection, allowedDropIn injection,
+ * transactions collection, and Stripe endpoints (customers, create-payment-intent).
  */
 export type DropInsConfig = {
   enabled: boolean;
   paymentMethodSlugs?: string[];
   /** Override access/fields/hooks for drop-ins (e.g. tenant-scoped in multi-tenant apps). */
   dropInsOverrides?: CollectionOverrides;
-};
-
-/**
- * Payments feature config. When enabled, adds transactions collection,
- * users (stripeCustomerId), endpoints (customers, create-payment-intent), paymentIntentSucceeded webhook.
- * Note: Drop-ins are now a separate feature (use dropIns config).
- */
-export type PaymentsConfig = {
-  enabled: boolean;
-  /**
-   * @deprecated Use top-level `dropIns: { enabled: true, ... }` instead.
-   * If true and `dropIns` is not set, drop-ins are enabled using paymentMethodSlugs below (card only).
-   */
-  enableDropIns?: boolean;
-  /** Used when enableDropIns is true (backward compat). Prefer dropIns.paymentMethodSlugs. */
-  paymentMethodSlugs?: string[];
   /** Override access/fields/hooks for transactions (e.g. tenant-scoped in multi-tenant apps). */
   transactionsOverrides?: CollectionOverrides;
-  /** Override access/fields/hooks for transactions when payments enabled but classPass disabled. */
+  /** Override access/fields/hooks for transactions when dropIns enabled but classPass disabled. */
+  bookingTransactionsOverrides?: CollectionOverrides;
+};
+
+/** Internal: used when applying transactions + create-payment-intent (unified under dropIns). */
+export type PaymentsConfig = {
+  enabled: boolean;
+  transactionsOverrides?: CollectionOverrides;
   bookingTransactionsOverrides?: CollectionOverrides;
 };
 
@@ -105,12 +96,10 @@ export type FeatureOption<T> = true | T;
  * `true` (enable with defaults) or a config object.
  */
 export type BookingsPaymentsPluginConfig = {
-  /** Drop-ins: `true` or `{ ...DropInsConfig }` */
+  /** Drop-ins + card payments: drop-ins collection, transactions, create-payment-intent. */
   dropIns?: FeatureOption<DropInsConfig>;
   /** Class-pass: `true` or `{ ...ClassPassConfig }` */
   classPass?: FeatureOption<ClassPassConfig>;
-  /** Payments: `true` or `{ ...PaymentsConfig }` */
-  payments?: FeatureOption<PaymentsConfig>;
   /** Membership (subscriptions): `true` or `{ ...MembershipConfig }` */
   membership?: FeatureOption<MembershipConfig>;
 };

@@ -76,7 +76,7 @@ describe("config shorthand (true | object)", () => {
     expect(slugs).toContain("class-passes");
   });
 
-  it("accepts dropIns: true and enables drop-ins with defaults (paymentMethodSlugs: ['class-options'])", () => {
+  it("accepts dropIns: true and enables drop-ins + transactions + create-payment-intent + customers endpoint", () => {
     const plugin = bookingsPaymentsPlugin({
       dropIns: true,
     });
@@ -84,6 +84,12 @@ describe("config shorthand (true | object)", () => {
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
     expect(slugs).toContain("drop-ins");
+    expect(slugs).toContain("transactions");
+    const paths = (result.endpoints ?? [])
+      .map((e) => (typeof e === "object" && e !== null && "path" in e ? e.path : null))
+      .filter(Boolean) as string[];
+    expect(paths).toContain("/stripe/customers");
+    expect(paths).toContain("/stripe/create-payment-intent");
   });
 
   it("accepts dropIns: { enabled: true, paymentMethodSlugs: ['class-options'] } for full config", () => {
@@ -94,30 +100,19 @@ describe("config shorthand (true | object)", () => {
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
     expect(slugs).toContain("drop-ins");
+    expect(slugs).toContain("transactions");
   });
 
-  it("accepts payments: true and enables payments with defaults", () => {
+  it("adds transactions at root when only membership is enabled (subscription booking payments)", () => {
     const plugin = bookingsPaymentsPlugin({
-      payments: true,
+      membership: true,
     });
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
     expect(slugs).toContain("transactions");
-    const endpoints = result.endpoints ?? [];
-    const paths = endpoints.map((e) => (typeof e === "object" && e !== null && "path" in e ? e.path : null)).filter(Boolean) as string[];
-    expect(paths).toContain("/stripe/customers");
-    expect(paths).toContain("/stripe/create-payment-intent");
-  });
-
-  it("accepts payments: { enabled: true } for full config", () => {
-    const plugin = bookingsPaymentsPlugin({
-      payments: { enabled: true },
-    });
-    const incoming: Partial<Config> = { collections: baseCollections };
-    const result = plugin(incoming as Config) as Config;
-    const slugs = result.collections?.map((c) => c.slug) ?? [];
-    expect(slugs).toContain("transactions");
+    expect(slugs).toContain("plans");
+    expect(slugs).toContain("subscriptions");
   });
 
   it("can combine boolean and object config in one call", () => {

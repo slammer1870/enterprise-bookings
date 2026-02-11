@@ -3,7 +3,7 @@
  * and the task handler returns output from syncStripeSubscriptions.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Config } from "payload";
+import type { Config, TaskHandler } from "payload";
 import { bookingsPaymentsPlugin } from "../src/plugin";
 import { syncStripeSubscriptionsTask } from "../src/membership/tasks/sync-stripe-subscriptions";
 
@@ -30,7 +30,7 @@ describe("syncStripeSubscriptions job", () => {
       };
       const result = plugin(incoming as Config) as Config;
       const task = result.jobs?.tasks?.find(
-        (t): t is { slug: string; handler: unknown } =>
+        (t): t is { slug: string; handler: string | TaskHandler<any, string> } =>
           typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions"
       );
       expect(task).toBeDefined();
@@ -53,7 +53,7 @@ describe("syncStripeSubscriptions job", () => {
       };
       const result = plugin(incoming as Config) as Config;
       const task = result.jobs?.tasks?.find(
-        (t): t is { slug: string } =>
+        (t): t is { slug: string; handler: string | TaskHandler<any, string> } =>
           typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions"
       );
       expect(task).toBeUndefined();
@@ -75,7 +75,7 @@ describe("syncStripeSubscriptions job", () => {
       };
       const result = plugin(incoming as Config) as Config;
       const task = result.jobs?.tasks?.find(
-        (t): t is { slug: string } =>
+        (t): t is { slug: string; handler: string | TaskHandler<any, string> } =>
           typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions"
       );
       expect(task).toBeUndefined();
@@ -98,7 +98,7 @@ describe("syncStripeSubscriptions job", () => {
       };
       const result = plugin(incoming as Config) as Config;
       const task = result.jobs?.tasks?.find(
-        (t): t is { slug: string } =>
+        (t): t is { slug: string; handler: string | TaskHandler<any, string> } =>
           typeof t === "object" && t !== null && "slug" in t && t.slug === "syncStripeSubscriptions"
       );
       expect(task).toBeUndefined();

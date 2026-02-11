@@ -1,15 +1,14 @@
 import type { Config, Plugin } from "payload";
 import { transactionsCollection } from "../collections/transactions";
-import type {
-  BookingsPaymentsPluginConfig,
-  DropInsConfig,
-} from "../types";
+import type { BookingsPaymentsPluginConfig } from "../types";
 import type { PluginContext } from "./context";
 import { applyDropInsFeature } from "./apply-drop-ins";
 import { applyClassPassFeature } from "./apply-class-pass";
 import { applyPaymentsFeature } from "./apply-payments";
 import { applyMembershipFeature } from "./apply-membership";
 import { injectTransactionsIntoBookings } from "./inject-transactions";
+import { modifyUsersCollectionForPayments } from "../payments/collections/users";
+import { customersProxy } from "../payments/endpoints/customers";
 
 /** Normalize feature option: true → default config; false → undefined; object → use as-is (ensure enabled). */
 function normalizeFeatureOption<T extends { enabled?: boolean }>(
@@ -26,64 +25,35 @@ function normalizeFeatureOption<T extends { enabled?: boolean }>(
  * Unified bookings-payments plugin. Each feature uses the same config shape:
  * `true` (enable with defaults) or a config object.
  *
- * - dropIns: true | DropInsConfig
- * - classPass: true | ClassPassConfig
- * - payments: true | PaymentsConfig
- * - membership (subscriptions): true | MembershipConfig
+ * - dropIns: drop-ins collection + card payments (transactions, create-payment-intent)
+ * - classPass: class-pass-types, class-passes, transactions
+ * - membership: plans, subscriptions, checkout/portal endpoints
  *
  * @example
- * // Shorthand: enable with defaults
  * bookingsPaymentsPlugin({
  *   dropIns: true,
  *   classPass: true,
- *   payments: true,
  *   membership: true,
  * })
- *
- * @example
- * // Config objects
- * bookingsPaymentsPlugin({
- *   dropIns: { enabled: true, paymentMethodSlugs: ['class-options'] },
- *   classPass: { enabled: true, classOptionsSlug: 'class-options' },
- *   payments: { enabled: true },
- *   membership: { enabled: true, paymentMethodSlugs: ['class-options'] },
- * })
  */
-/** Backward compat: when payments.enableDropIns is true and dropIns not set, enable dropIns from payments config. */
-function resolveDropIns(
-  pluginOptions: BookingsPaymentsPluginConfig
-): DropInsConfig | undefined {
-  const explicit = normalizeFeatureOption(pluginOptions.dropIns, {
-    enabled: true,
-    paymentMethodSlugs: ["class-options"],
-  });
-  if (explicit !== undefined) return explicit;
-  const payments = pluginOptions.payments;
-  if (typeof payments === "object" && payments?.enableDropIns === true) {
-    return {
-      enabled: true,
-      paymentMethodSlugs: payments.paymentMethodSlugs ?? ["class-options"],
-    };
-  }
-  return undefined;
-}
-
 export const bookingsPaymentsPlugin =
   (pluginOptions: BookingsPaymentsPluginConfig): Plugin =>
   (incomingConfig: Config) => {
     const config = { ...incomingConfig };
-    const dropIns = resolveDropIns(pluginOptions);
+    const dropIns = normalizeFeatureOption(pluginOptions.dropIns, {
+      enabled: true,
+      paymentMethodSlugs: ["class-options"],
+    });
     const classPass = normalizeFeatureOption(pluginOptions.classPass, {
       enabled: true,
       classOptionsSlug: "class-options",
     });
-    const payments = normalizeFeatureOption(pluginOptions.payments, { enabled: true });
     const membership = normalizeFeatureOption(pluginOptions.membership, {
       enabled: true,
       paymentMethodSlugs: [],
     });
 
-    const anyEnabled = dropIns?.enabled || classPass?.enabled || payments?.enabled || membership?.enabled;
+    const anyEnabled = dropIns?.enabled || classPass?.enabled || membership?.enabled;
     if (!anyEnabled) {
       return config;
     }
@@ -101,14 +71,14 @@ export const bookingsPaymentsPlugin =
       config,
     };
 
-    // Drop-ins feature: drop-ins collection, allowedDropIn injection
+    // Drop-ins (unified): drop-ins collection, allowedDropIn, transactions, create-payment-intent
     if (dropIns?.enabled) {
       applyDropInsFeature(ctx, dropIns);
-    }
-
-    // Payments feature: users, transactions, endpoints
-    if (payments?.enabled) {
-      applyPaymentsFeature(ctx, payments);
+      applyPaymentsFeature(ctx, {
+        enabled: true,
+        transactionsOverrides: dropIns.transactionsOverrides,
+        bookingTransactionsOverrides: dropIns.bookingTransactionsOverrides,
+      });
     }
 
     // Class-pass feature: class-passes collection, allowedClassPasses injection
@@ -116,16 +86,19 @@ export const bookingsPaymentsPlugin =
       applyClassPassFeature(ctx, classPass);
     }
 
-    // Shared: transactions when classPass OR payments (single collection; db table booking_transactions).
-    // Also inject "transactions" relationship into bookings so admins can see payment records.
+    // Membership feature: memberships, subscriptions, users, endpoints, allowedPlans injection
+    if (membership?.enabled) {
+      applyMembershipFeature(ctx, membership);
+    }
+
+    // Transactions at root: one collection for subscription, class-pass, or drop-in booking payments
     const needsTransactions =
-      (classPass?.enabled || payments?.enabled) &&
       !ctx.collections.some((c) => c.slug === "transactions");
     if (needsTransactions) {
       ctx.collections.push(
         transactionsCollection(
           classPass?.bookingTransactionsOverrides ??
-            payments?.bookingTransactionsOverrides
+            dropIns?.bookingTransactionsOverrides
         )
       );
       const bookingsCol = ctx.collections.find((c) => c.slug === "bookings");
@@ -134,9 +107,24 @@ export const bookingsPaymentsPlugin =
       }
     }
 
-    // Membership feature: memberships, subscriptions, users, endpoints, allowedPlans injection
-    if (membership?.enabled) {
-      applyMembershipFeature(ctx, membership);
+    // Stripe customer field + GET /stripe/customers (for admin custom select) when dropIns or membership enabled
+    const needsStripeCustomer = dropIns?.enabled || membership?.enabled;
+    if (needsStripeCustomer) {
+      const usersCollection = ctx.collections.find((c) => c.slug === "users");
+      if (usersCollection) {
+        ctx.collections = ctx.collections.filter((c) => c.slug !== "users");
+        ctx.collections.push(modifyUsersCollectionForPayments(usersCollection));
+      }
+      const hasCustomersEndpoint = ctx.endpoints.some(
+        (e) => typeof e === "object" && e !== null && "path" in e && e.path === "/stripe/customers"
+      );
+      if (!hasCustomersEndpoint) {
+        ctx.endpoints.push({
+          path: "/stripe/customers",
+          method: "get",
+          handler: customersProxy,
+        });
+      }
     }
 
     config.collections = ctx.collections;

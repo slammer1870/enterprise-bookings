@@ -1,12 +1,12 @@
 /**
- * Drop-ins independence: verify drop-ins can be enabled independently of payments, class-pass, and membership.
+ * Drop-ins: unified with card payments; transactions at plugin root for any feature.
  */
 import { describe, it, expect } from "vitest";
 import type { Config } from "payload";
 import { bookingsPaymentsPlugin } from "../src/plugin";
 
-describe("drop-ins independence", () => {
-  it("can enable drop-ins independently without payments, class-pass, or membership", () => {
+describe("drop-ins and transactions at root", () => {
+  it("can enable drop-ins only and gets drop-ins + transactions + stripe endpoints", () => {
     const plugin = bookingsPaymentsPlugin({
       dropIns: {
         enabled: true,
@@ -29,19 +29,18 @@ describe("drop-ins independence", () => {
     };
     const result = plugin(incoming as Config) as Config;
     const slugs = result.collections?.map((c) => c.slug) ?? [];
+    const paths = (result.endpoints ?? [])
+      .map((e) => (typeof e === "object" && e !== null && "path" in e ? e.path : null))
+      .filter(Boolean) as string[];
 
-    // Should have drop-ins collection
     expect(slugs).toContain("drop-ins");
-    // Should NOT have transactions (payments)
-    expect(slugs).not.toContain("transactions");
-    // Should NOT have class-pass-types or class-passes
+    expect(slugs).toContain("transactions");
     expect(slugs).not.toContain("class-pass-types");
     expect(slugs).not.toContain("class-passes");
-    // Should NOT have plans/subscriptions
     expect(slugs).not.toContain("plans");
     expect(slugs).not.toContain("subscriptions");
-    // Should NOT have transactions (only added when classPass or payments enabled)
-    expect(slugs).not.toContain("transactions");
+    expect(paths).toContain("/stripe/customers");
+    expect(paths).toContain("/stripe/create-payment-intent");
   });
 
   it("can enable drop-ins with class-pass", () => {
@@ -109,8 +108,7 @@ describe("drop-ins independence", () => {
     expect(slugs).toContain("drop-ins");
     expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
-    // Should NOT have transactions (only added when classPass or payments enabled)
-    expect(slugs).not.toContain("transactions");
+    expect(slugs).toContain("transactions");
   });
 
   it("requires paymentMethodSlugs when drop-ins enabled", () => {
