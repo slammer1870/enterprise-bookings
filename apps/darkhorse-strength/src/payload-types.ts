@@ -78,10 +78,10 @@ export interface Config {
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
-    transactions: Transaction;
-    users: User;
     subscriptions: Subscription;
     plans: Plan;
+    transactions: Transaction;
+    users: User;
     forms: Form;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
@@ -94,14 +94,14 @@ export interface Config {
     lessons: {
       bookings: 'bookings';
     };
+    plans: {
+      'class-optionsPaymentMethods': 'class-options';
+    };
     users: {
       lessons: 'lessons';
       account: 'accounts';
       session: 'sessions';
       userSubscription: 'subscriptions';
-    };
-    plans: {
-      'class-optionsPaymentMethods': 'class-options';
     };
   };
   collectionsSelect: {
@@ -116,10 +116,10 @@ export interface Config {
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
-    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -145,7 +145,6 @@ export interface Config {
   jobs: {
     tasks: {
       generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
-      syncStripeSubscriptions: TaskSyncStripeSubscriptions;
       inline: {
         input: unknown;
         output: unknown;
@@ -872,6 +871,41 @@ export interface Booking {
   user: number | User;
   lesson: number | Lesson;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  /**
+   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
+   */
+  transactions?: (number | Transaction)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Subscription id when paymentMethod is subscription (booking created by subscription).
+   */
+  subscriptionId?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -959,20 +993,6 @@ export interface Verification {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-submissions".
  */
 export interface FormSubmission {
@@ -1057,7 +1077,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions';
+        taskSlug: 'inline' | 'generateLessonsFromSchedule';
         taskID: string;
         input?:
           | {
@@ -1090,7 +1110,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'syncStripeSubscriptions') | null;
+  taskSlug?: ('inline' | 'generateLessonsFromSchedule') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1149,20 +1169,20 @@ export interface PayloadLockedDocument {
         value: number | Booking;
       } | null)
     | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
         relationTo: 'subscriptions';
         value: number | Subscription;
       } | null)
     | ({
         relationTo: 'plans';
         value: number | Plan;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'forms';
@@ -1540,56 +1560,9 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  transactions?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  amount?: T;
-  currency?: T;
-  status?: T;
-  paymentMethod?: T;
-  createdBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  lessons?: T;
-  name?: T;
-  emailVerified?: T;
-  image?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  role?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
-  account?: T;
-  session?: T;
-  roles?: T;
-  stripeCustomerId?: T;
-  userSubscription?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1642,6 +1615,54 @@ export interface PlansSelect<T extends boolean = true> {
   'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
+  subscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  lessons?: T;
+  name?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  roles?: T;
+  stripeCustomerId?: T;
+  userSubscription?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1988,14 +2009,6 @@ export interface TaskGenerateLessonsFromSchedule {
     success?: boolean | null;
     message?: string | null;
   };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskSyncStripeSubscriptions".
- */
-export interface TaskSyncStripeSubscriptions {
-  input?: unknown;
-  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
