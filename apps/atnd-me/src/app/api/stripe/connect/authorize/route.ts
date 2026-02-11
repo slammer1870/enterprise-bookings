@@ -9,6 +9,7 @@ import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { buildStripeConnectAuthorizeUrl } from '@/lib/stripe-connect/authorize'
+import { getServerSideURL } from '@/utilities/getURL'
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,7 +77,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: tenant not accessible' }, { status: 403 })
     }
 
-    const baseUrl = request.nextUrl.origin
+    // Use configured public URL so redirect_uri matches Stripe Connect settings (avoids 0.0.0.0 in production).
+    const baseUrl = getServerSideURL().replace(/\/$/, '')
     const { url } = buildStripeConnectAuthorizeUrl(tenant.id, user.id as number, baseUrl)
     return NextResponse.redirect(url, 302)
   } catch (err) {
@@ -86,8 +88,18 @@ export async function GET(request: NextRequest) {
       message.includes('Stripe Connect') ||
       message.includes('required for Stripe')
     ) {
+      // Hint which env var is missing (name only, no values) to help production debugging.
+      const missingVar =
+        message.includes('STRIPE_SECRET_KEY') ? 'STRIPE_SECRET_KEY' :
+        message.includes('STRIPE_CONNECT_CLIENT_ID') ? 'STRIPE_CONNECT_CLIENT_ID' :
+        message.includes('STRIPE_CONNECT_WEBHOOK_SECRET') ? 'STRIPE_CONNECT_WEBHOOK_SECRET' :
+        null
       return NextResponse.json(
-        { error: 'Stripe Connect is not configured', details: process.env.NODE_ENV === 'development' ? message : undefined },
+        {
+          error: 'Stripe Connect is not configured',
+          hint: missingVar ? `Ensure ${missingVar} is set in this environment.` : undefined,
+          details: process.env.NODE_ENV === 'development' ? message : undefined,
+        },
         { status: 503 },
       )
     }
