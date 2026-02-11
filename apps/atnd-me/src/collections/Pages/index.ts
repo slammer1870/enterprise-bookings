@@ -53,13 +53,51 @@ const availableBlocks = [
 // Create the three column layout block - automatically uses all blocks from the pages config
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 
-/** Extract allowed block slugs for a tenant (from form data or req context). */
+/** Extract allowed block slugs for a tenant (from form data or req context). Sync version when tenant has allowedBlocks. */
 function getAllowedBlockSlugs(data: { tenant?: unknown }, req?: { context?: { tenant?: unknown } }): string[] {
   const tenant = data?.tenant ?? req?.context?.tenant
   if (!tenant) return defaultBlockSlugs
   const allowed = typeof tenant === 'object' && tenant !== null && 'allowedBlocks' in tenant
     ? (tenant as { allowedBlocks?: string[] }).allowedBlocks
     : undefined
+  return getBlocksForTenant(allowed ?? []).map((b) => b.slug!).filter(Boolean)
+}
+
+/**
+ * Resolve allowed block slugs for a tenant, fetching the tenant doc when context only has an ID.
+ * Use this for admin UI (e.g. filterOptions) so tenant-admins see their assigned allowedBlocks when creating a page.
+ */
+async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unknown): Promise<string[]> {
+  const r = req as
+    | { context?: { tenant?: unknown }; payload?: { findByID: (opts: { collection: 'tenants'; id: number | string; depth: number }) => Promise<{ allowedBlocks?: string[] }> } }
+    | undefined
+  const tenant = data?.tenant ?? r?.context?.tenant
+  if (!tenant) return defaultBlockSlugs
+
+  let allowed: string[] | undefined
+  if (typeof tenant === 'object' && tenant !== null && 'allowedBlocks' in tenant) {
+    allowed = (tenant as { allowedBlocks?: string[] }).allowedBlocks
+  }
+
+  if (allowed === undefined && r?.payload) {
+    const tenantId =
+      typeof tenant === 'object' && tenant !== null && 'id' in tenant
+        ? (tenant as { id: number }).id
+        : tenant
+    if (typeof tenantId === 'number' || typeof tenantId === 'string') {
+      try {
+        const tenantDoc = await r.payload.findByID({
+          collection: 'tenants',
+          id: tenantId,
+          depth: 0,
+        })
+        allowed = tenantDoc?.allowedBlocks
+      } catch {
+        // Fall back to defaults if tenant fetch fails
+      }
+    }
+  }
+
   return getBlocksForTenant(allowed ?? []).map((b) => b.slug!).filter(Boolean)
 }
 
@@ -124,9 +162,8 @@ export const Pages: CollectionConfig<'pages'> = {
                     block.slug !== 'hero'
                 ),
               ],
-              filterOptions: ({ data, req }) => {
-                const allowed = getAllowedBlockSlugs(data ?? {}, req)
-                return allowed
+              filterOptions: async ({ data, req }) => {
+                return getAllowedBlockSlugsAsync(data ?? {}, req)
               },
               required: true,
               admin: {

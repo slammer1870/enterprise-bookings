@@ -105,13 +105,19 @@ const defaultAccess: AccessControls = {
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
 };
 
-const defaultAdmin: CollectionAdminOptions = {
-  group: "Billing",
-  useAsTitle: "stripeSubscriptionId",
-  components: {
-    beforeListTable: ["@repo/bookings-payments#SyncStripe"],
-  },
-};
+function getDefaultAdmin(config: MembershipBranchConfig): CollectionAdminOptions {
+  const beforeListTable: string[] =
+    config.syncStripeSubscriptions === true
+      ? ["@repo/bookings-payments#SyncStripe"]
+      : [];
+  return {
+    group: "Billing",
+    useAsTitle: "stripeSubscriptionId",
+    components: {
+      beforeListTable,
+    },
+  };
+}
 
 const defaultHooks: HooksConfig = {
   beforeChange: [beforeSubscriptionChange],
@@ -130,7 +136,7 @@ export function generateSubscriptionCollection(
       ...(overrides?.access ?? {}),
     },
     admin: {
-      ...defaultAdmin,
+      ...getDefaultAdmin(config),
       ...(overrides?.admin ?? {}),
     },
     hooks: {
