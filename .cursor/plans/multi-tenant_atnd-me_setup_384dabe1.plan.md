@@ -159,6 +159,7 @@ todos:
     dependencies:
       - create-tenants-collection
       - create-migration
+isProject: false
 ---
 
 # Multi-Tenant Setup for atnd-me App
@@ -208,10 +209,8 @@ Transform the atnd-me app into a multi-tenant application using `@payloadcms/plu
 
 **Why Excluded:**
 
-- Current atnd-me app doesn't have paymentsPlugin or membershipsPlugin enabled
-- Simplifies MVP implementation
-- Can be added later without major refactoring
-- Architecture will support adding payments in Phase 2
+- MVP atnd-me did not have payment/membership features enabled
+- Phase 2 uses the unified `@repo/bookings-payments` plugin (`bookingsPaymentsPlugin`), which provides payments, memberships, and class passes in one plugin
 
 ### Architecture for Future Payments
 
@@ -244,20 +243,20 @@ The MVP will be structured to easily add payment functionality later:
 
 #### In Packages (Reusable)
 
-**New Package: `packages/multi-tenant-utils/`** (Optional - if reusable patterns emerge)
+**New Package: `packages/multi-tenant-utils/**` (Optional - if reusable patterns emerge)
 
 - `getTenantFromRequest()` - Extract tenant from request context
 - `setTenantContext()` - Set tenant context in requests
 - `validateTenantAccess()` - Generic tenant access validation
 - Tenant context types and interfaces
 
-**Extend Existing: `packages/shared-services/`**
+**Extend Existing: `packages/shared-services/**`
 
 - `access/is-admin-or-tenant-admin.ts` - Reusable access control for admin/tenant-admin
 - `access/tenant-scoped-access.ts` - Generic tenant-scoped access patterns
 - `tenant/getTenantFromLesson.ts` - Extract tenant from lesson (if reusable pattern)
 
-**Extend Existing: `packages/shared-utils/`**
+**Extend Existing: `packages/shared-utils/**`
 
 - `check-admin-role.ts` - Helper to check admin or tenant-admin roles
 - Tenant-related type guards and utilities
@@ -378,18 +377,16 @@ This implementation will follow **Test-Driven Development (TDD)** principles:
 
 ### Role Structure
 
-- **`admin`** (Super Admin): Can access all tenants and all data across the entire system
-- **`tenant-admin`**: Can only access their assigned tenant's data (pages, lessons, instructors, bookings, etc.)
-- **`user`**: Regular users who can book classes across any tenant
+- `**admin**` (Super Admin): Can access all tenants and all data across the entire system
+- `**tenant-admin**`: Can only access their assigned tenant's data (pages, lessons, instructors, bookings, etc.)
+- `**user**`: Regular users who can book classes across any tenant
 
 ### User Scoping Model
 
 - Users can book into **any tenant** (cross-tenant capability)
 - Each tenant can only see users who:
-
   1. Registered through their domain, OR
   2. Made a booking through their version of the app
-
 - **Super admins** (`admin` role) can access all tenants and all users
 - **Tenant admins** (`tenant-admin` role) can only access their assigned tenant's data
 
@@ -471,12 +468,12 @@ Create `apps/atnd-me/src/collections/Tenants/index.ts`:
   - `domain` (text, optional) - Custom domain if applicable
   - `description` (textarea, optional) - Description for tenants listing page
   - `logo` (upload, optional) - Logo/image for tenants listing page
-   - **Phase 2 (Stripe Connect)**: `stripeConnectAccountId` (text, optional) - Stripe Connect account ID for this tenant
-   - **Phase 2 (Stripe Connect)**: `stripeConnectOnboardingStatus` (select, optional) - Status of Stripe Connect onboarding (pending, active, restricted)
-   - **Phase 2 (Class Passes)**: `classPassSettings` (group, optional) - Class pass configuration for tenant
-     - `enabled` (checkbox) - Enable class passes
-     - `defaultExpirationDays` (number) - Default expiration period
-     - `pricing` (array) - Available pass packages
+  - **Phase 2 (Stripe Connect)**: `stripeConnectAccountId` (text, optional) - Stripe Connect account ID for this tenant
+  - **Phase 2 (Stripe Connect)**: `stripeConnectOnboardingStatus` (select, optional) - Status of Stripe Connect onboarding (pending, active, restricted)
+  - **Phase 2 (Class Passes)**: `classPassSettings` (group, optional) - Class pass configuration for tenant
+    - `enabled` (checkbox) - Enable class passes
+    - `defaultExpirationDays` (number) - Default expiration period
+    - `pricing` (array) - Available pass packages
   - **Phase 3 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
     - `dropInFee` (number, optional) - Override default drop-in fee (percentage or fixed amount)
     - `subscriptionFee` (number, optional) - Override default subscription fee (percentage or fixed amount)
@@ -572,7 +569,7 @@ Update `apps/atnd-me/src/lib/auth/options.ts`:
 
 #### 6.1 Understanding Current Role Checks
 
-The monorepo packages extensively use `checkRole(["admin"], user) `from `@repo/shared-utils`. These checks need to be updated to support `tenant-admin` role while maintaining security.
+The monorepo packages extensively use `checkRole(["admin"], user)` from `@repo/shared-utils`. These checks need to be updated to support `tenant-admin` role while maintaining security.
 
 **Current Pattern:**
 
@@ -825,47 +822,36 @@ This hook will automatically create default data when a tenant is created to hel
 **Default Data Created:**
 
 1. **Default Home Page** (`slug: 'home'`):
-
-   - HeroScheduleBlock with:
-     - Background image (use default/placeholder or tenant logo)
-     - Title: "Welcome to {tenant.name}"
-     - CTA button: "Book a Class" linking to `/bookings`
-   - Additional blocks (optional):
-     - About block with description
-     - Location block (if applicable)
-     - FAQs block with common questions
-
+  - HeroScheduleBlock with:
+    - Background image (use default/placeholder or tenant logo)
+    - Title: "Welcome to {tenant.name}"
+    - CTA button: "Book a Class" linking to `/bookings`
+  - Additional blocks (optional):
+    - About block with description
+    - Location block (if applicable)
+    - FAQs block with common questions
 2. **Default Class Options** (2-3 options):
-
-   - "Yoga Class" - 10 places - "A relaxing yoga class for all levels"
-   - "Fitness Class" - 15 places - "High-intensity fitness training"
-   - "Small Group Class" - 5 places (optional) - "Intimate small group session"
-
+  - "Yoga Class" - 10 places - "A relaxing yoga class for all levels"
+  - "Fitness Class" - 15 places - "High-intensity fitness training"
+  - "Small Group Class" - 5 places (optional) - "Intimate small group session"
 3. **Default Lessons** (2-3 upcoming lessons):
-
-   - Tomorrow at 10:00-11:00 (Yoga Class)
-   - Day after tomorrow at 14:00-15:00 (Fitness Class)
-   - 3 days from now at 16:00-17:00 (optional)
-   - All active, with default lockOutTime (30 minutes)
-   - Use default class options created above
-
+  - Tomorrow at 10:00-11:00 (Yoga Class)
+  - Day after tomorrow at 14:00-15:00 (Fitness Class)
+  - 3 days from now at 16:00-17:00 (optional)
+  - All active, with default lockOutTime (30 minutes)
+  - Use default class options created above
 4. **Default Instructor** (optional):
-
-   - Create a placeholder instructor user
-   - Or skip if instructors require manual setup
-   - Assign to default lessons if created
-
+  - Create a placeholder instructor user
+  - Or skip if instructors require manual setup
+  - Assign to default lessons if created
 5. **Default Navbar**:
-
-   - Basic navigation items:
-     - Home (link to `/`)
-     - Bookings (link to `/bookings`)
-   - Use tenant logo if available
-
+  - Basic navigation items:
+    - Home (link to `/`)
+    - Bookings (link to `/bookings`)
+  - Use tenant logo if available
 6. **Default Footer**:
-
-   - Basic footer with copyright text
-   - Optional: Links to pages
+  - Basic footer with copyright text
+  - Optional: Links to pages
 
 **Implementation:**
 
@@ -1135,132 +1121,19 @@ The tRPC router (`packages/trpc/src/routers/lessons.ts`) needs to be updated to 
 
 1. **Update tRPC Context Creation:**
 
-Modify `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts `and `apps/atnd-me/src/trpc/server.tsx` to extract tenant from headers and pass it to tRPC context:
+Modify `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts` and `apps/atnd-me/src/trpc/server.tsx` to extract tenant from headers and pass it to tRPC context:
 
-   ```typescript
-   // apps/atnd-me/src/app/api/trpc/[trpc]/route.ts
-   const handler = async (req: NextRequest) => {
-     const payload = await getPayload({ config })
-     
-     // Extract tenant ID from headers (set by middleware)
-     const tenantId = req.headers.get('x-tenant-id')
-     
-     const response = await fetchRequestHandler({
-       endpoint: '/api/trpc',
-       router: appRouter,
-       req,
-       createContext: async () => {
-         const ctx = await createTRPCContext({ 
-           headers: req.headers, 
-           payload, 
-           stripe 
-         })
-         
-         // Add tenant to context
-         return {
-           ...ctx,
-           tenantId: tenantId ? parseInt(tenantId, 10) : null,
-         }
-       },
-       // ...
-     })
-     
-     return response
-   }
-   ```
-
-2. **Update tRPC Context Type:**
+1. **Update tRPC Context Type:**
 
 Modify `packages/trpc/src/trpc.ts` to include `tenantId` in context:
 
-   ```typescript
-   export const createTRPCContext = async (opts: {
-     headers: Headers;
-     payload: Payload;
-     stripe?: Stripe;
-     tenantId?: number | null; // Add tenant ID
-   }) => {
-     // ...
-     return {
-       headers: opts.headers,
-       payload,
-       stripe: opts.stripe,
-       betterAuth,
-       tenantId: opts.tenantId, // Include tenant ID
-     };
-   };
-   ```
-
-3. **Update Lessons Router to Use Tenant Context:**
+1. **Update Lessons Router to Use Tenant Context:**
 
 Modify `packages/trpc/src/routers/lessons.ts` to set tenant context before querying:
-
-   ```typescript
-   getByDate: publicProcedure
-     .use(requireCollections("lessons"))
-     .input(z.object({ date: z.string() }))
-     .query(async ({ ctx, input }) => {
-       try {
-         const { user } = await ctx.payload.auth({
-           headers: ctx.headers,
-         });
-   
-         // Set tenant context if available (from middleware)
-         // This allows multi-tenant plugin to automatically filter queries
-         if (ctx.tenantId) {
-           // Create a mock request object with tenant context
-           // The multi-tenant plugin reads from req.context.tenant
-           const mockReq = {
-             context: { tenant: ctx.tenantId },
-             user,
-           } as any;
-           
-           // Use findSafe with tenant context
-           const queryOptions = {
-             where: {
-               and: [
-                 {
-                   startTime: {
-                     greater_than_equal: startOfDay.toISOString(),
-                     less_than_equal: endOfDay.toISOString(),
-                   },
-                 },
-               ],
-             },
-             depth: 2,
-             sort: "startTime",
-             overrideAccess: false,
-             user,
-           };
-   
-           // Set tenant context on payload request
-           // Multi-tenant plugin will automatically filter by tenant
-           const lessons = await ctx.payload.find({
-             collection: 'lessons',
-             ...queryOptions,
-             req: mockReq, // Pass req with tenant context
-           });
-   
-           return lessons.docs.map((lesson: any) => lesson as Lesson);
-         } else {
-           // No tenant context - return empty array or handle error
-           // This should only happen on root domain (marketing page)
-           return [];
-         }
-       } catch (error) {
-         // ...
-       }
-     }),
-   ```
 
 **Alternative Approach (Recommended):**
 
 Instead of modifying the shared `packages/trpc` package, create a tenant-aware wrapper in the app:
-
-   ```typescript
-   // apps/atnd-me/src/trpc/routers/lessons.ts
-   // Override or extend the lessons router with tenant-aware queries
-   ```
 
 Or, modify the tRPC context creation in `apps/atnd-me` to inject tenant context into Payload requests automatically.
 
@@ -1532,26 +1405,19 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 ### Completed (Phase 1) – all items done
 
 1. **Tenant-admin admin panel access** ✅ — `adminRoles: ['admin', 'tenant-admin']` in `src/lib/auth/options.ts`.
-
 2. **Users read/update scoping (userTenantAccess)** ✅ — `userTenantRead` / `userTenantUpdate` in `src/access/userTenantAccess.ts`; Users collection uses them for `read` and `update`.
-
-   - (was) Plan: `userTenantAccess.ts` — read: super-admin all; tenant-admin only users in their tenant; users see themselves or users visible by registrationTenant/bookings-in-tenant.  
-   - Current: Users `read` is “admin => all, else authenticated” with no query constraint; tenant-admins could see all users.  
-   - Action: Implement User read (and update) rules per plan (e.g. in `userTenantAccess.ts` and wire to Users access, or extend existing access with the right query constraints).
-
+  - (was) Plan: `userTenantAccess.ts` — read: super-admin all; tenant-admin only users in their tenant; users see themselves or users visible by registrationTenant/bookings-in-tenant.  
+  - Current: Users `read` is “admin => all, else authenticated” with no query constraint; tenant-admins could see all users.  
+  - Action: Implement User read (and update) rules per plan (e.g. in `userTenantAccess.ts` and wire to Users access, or extend existing access with the right query constraints).
 3. **Central tenant helpers** ✅ — `getTenantContext.ts` and `getTenantFromLesson.ts` in `src/utilities`; used by `/api/tenant`, `getNavbarFooterForRequest`, `bookingAccess`.
-
 4. **Globals cleanup** ✅ — `payload.config.ts` has `globals: [PlatformFees]` only; Header/Footer removed.
-
-   - (was) Plan: “Remove Header, Footer from globals (now collections)”.  
-   - Current: `payload.config.ts` still has `globals: [Header, FooterGlobal]` alongside Navbar/Footer collections.  
-   - Action: Remove Header/Footer from globals once all usage is on Navbar/Footer collections, or document why both remain.
-
+  - (was) Plan: “Remove Header, Footer from globals (now collections)”.  
+  - Current: `payload.config.ts` still has `globals: [Header, FooterGlobal]` alongside Navbar/Footer collections.  
+  - Action: Remove Header/Footer from globals once all usage is on Navbar/Footer collections, or document why both remain.
 5. **Optional – tenantAccess.ts** — Not added; `tenant-scoped.ts` covers behavior. No action required.
-
-   - (was) Plan: “tenantAccess.ts – collection-level access for tenant-scoped collections”.  
-   - Current: `tenant-scoped.ts` provides tenant-scoped create/update/delete/read.  
-   - Action: Only if you want a separate file or naming; behavior is largely covered by existing tenant-scoped access.
+  - (was) Plan: “tenantAccess.ts – collection-level access for tenant-scoped collections”.  
+  - Current: `tenant-scoped.ts` provides tenant-scoped create/update/delete/read.  
+  - Action: Only if you want a separate file or naming; behavior is largely covered by existing tenant-scoped access.
 
 ### Summary
 
@@ -1563,12 +1429,9 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 
 When adding payment functionality:
 
-1. **Add Payment Plugins:**
-
-   - Enable `paymentsPlugin` in plugins array
-   - Enable `membershipsPlugin` in plugins array
-   - Configure Stripe integration
-
+1. **Add Payment/Membership Features:**
+  - Enable `bookingsPaymentsPlugin` from `@repo/bookings-payments` (unified plugin for drop-ins, class passes, subscriptions)
+  - Configure Stripe integration and Stripe Connect for per-tenant accounts
 2. **Stripe Connect Integration (Expanded, TDD Step-by-Step)**
 
 ### Phase 2 Goals
@@ -1588,9 +1451,9 @@ When adding payment functionality:
 
 To make the tenant experience “free”, the **customer pays a separate booking fee** on top of the class price:
 
-- **Total charged to user**: \(classPrice + bookingFee\)
-- **Amount routed to tenant**: \(classPrice\)
-- **Platform revenue**: \(bookingFee\)
+- **Total charged to user**: classPrice + bookingFee
+- **Amount routed to tenant**: classPrice
+- **Platform revenue**: bookingFee
 
 In Stripe Connect, this is implemented as a **destination charge**:
 
@@ -1639,7 +1502,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 
 - `apps/atnd-me/tests/int/tenants-stripe-fields.int.spec.ts`
   - Tenant doc includes Stripe fields.
-  - **Only `admin`** can modify sensitive fields directly.
+  - **Only `admin**` can modify sensitive fields directly.
   - **Tenant-admin** can read connection status for their tenant.
   - Regular users cannot read Stripe fields.
 
@@ -1803,7 +1666,6 @@ In Stripe Connect, this is implemented as a **destination charge**:
   - When tenant is **connected**:
     - Payment method controls are enabled
     - Status indicator shows “Stripe connected”
-
 - `apps/atnd-me/tests/int/payment-methods-require-connect.int.spec.ts`
   - Attempting to enable payment methods via Payload API while tenant is not connected is rejected (validation/hook).
   - When connected, saving succeeds.
@@ -1816,7 +1678,6 @@ In Stripe Connect, this is implemented as a **destination charge**:
   - Wrap/replace payment-method fields UI so:
     - If not connected: show warning + connect CTA; inputs disabled
     - If connected: render the actual inputs
-
 - Server-side enforcement (cannot be bypassed):
   - Add validation in the `class-options` collection (and any other “payment-enabled” config docs):
     - `beforeChange` hook checks tenant’s `stripeConnectOnboardingStatus === 'active'`
@@ -1875,7 +1736,6 @@ In Stripe Connect, this is implemented as a **destination charge**:
     - subscriptions default **4%**
   - Applies per-tenant overrides from a central global config
   - Rounds safely (cents) and clamps within optional bounds (never negative)
-
 - `apps/atnd-me/tests/int/platform-fees-global.int.spec.ts`
   - Only `admin` can read/update the global config
   - Resolves effective fee percent for a given tenant + product type (override > default)
@@ -1899,14 +1759,12 @@ In Stripe Connect, this is implemented as a **destination charge**:
       - `maxCents` (number, optional)
   - Access:
     - `read/update`: **admin only**
-
 - Create `apps/atnd-me/src/lib/stripe-connect/bookingFee.ts`
   - `getEffectiveBookingFeePercent({ tenantId, productType, payload }): Promise<number>`
   - `calculateBookingFeeAmount({ tenantId, productType, classPriceAmount, payload }): Promise<number>`
     - percent is read from `platform-fees` global (tenant override wins)
     - fee in cents: `Math.round(classPriceAmount * (percent / 100))`
     - apply optional `minCents/maxCents` bounds
-
 - Update payment creation to use product types:
   - `createTenantPaymentIntent({ tenant, classPriceAmount, currency, productType, payload, metadata })`
   - It should call `calculateBookingFeeAmount(...)` and set:
@@ -1965,153 +1823,137 @@ In Stripe Connect, this is implemented as a **destination charge**:
   - All writes to tenant-scoped collections must run with `req.context.tenant` set.
 - **Auditability**: log Connect connect/disconnect events with tenantId + actor userId.
 
-3. **Update Booking Access Controls:**
+1. **Update Booking Access Controls:**
+  - Implement `bookingAccess.ts` with payment validation
+  - Add `getTenantFromLesson.ts` utility
+  - Update booking access to validate:
+    - **Subscriptions**: Check user has valid subscription from lesson's tenant
+    - **Class Passes**: Check user has valid, non-expired class pass for lesson's tenant (see section 7)
+    - **Drop-ins**: Allow direct payment if class option allows drop-ins
+  - **Stripe Connect**: Ensure payment validation uses tenant's Connect account
+  - Priority order: Subscription > Class Pass > Drop-in payment
+2. **Update Class Options:**
+  - Add `paymentMethods` field to class-options
+  - Configure allowed plans per class option
+  - Add `allowedClassPasses` (checkbox or relationship) - Whether class passes can be used for this class option
+  - Add **Stripe connection status UI + gating** in the payment methods admin UI for class options:
+    - If the current tenant is **not** connected to Stripe (no `stripeConnectAccountId` or onboarding incomplete), show a clear message like: *"To enable payments for this class, connect Stripe for this tenant."*
+    - Display a prominent **"Connect Stripe"** button that links to or triggers the Stripe Connect onboarding flow (e.g. calls `/api/stripe/connect/authorize` with the current tenant context).
+    - When the tenant **is** connected, hide the warning and button, and instead show a small, non-blocking status indicator (e.g. "Stripe connected") near the payment method controls.
+    - Payment method controls must be **disabled/hidden** until Stripe Connect status is **active** (see step 2.6.1).
+    - Implement this as a reusable UI component so similar Stripe connection prompts can be used on other payment-related admin screens (e.g. class passes, plans).
+3. **Add Class Passes Collection:**
+  - Create `apps/atnd-me/src/collections/ClassPasses/index.ts`
+  - Fields:
+    - `user` (relationship to users, required) - Owner of the class pass
+    - `tenant` (relationship to tenants, required) - Tenant this pass belongs to (tenant-scoped)
+    - `quantity` (number, required, min: 1) - Number of passes/credits remaining
+    - `originalQuantity` (number, required) - Original quantity when purchased (for tracking)
+    - `expirationDate` (date, required) - Date when passes expire
+    - `purchasedAt` (date, required, default: now) - When the pass was purchased
+    - `price` (number, required) - Price paid for the pass (in cents)
+    - `transaction` (relationship to transactions, optional) - Stripe transaction reference
+    - `status` (select, default: 'active') - Status: 'active', 'expired', 'used', 'cancelled'
+    - `notes` (textarea, optional) - Admin notes
+  - Access:
+    - `read`: User can read their own passes, tenant-admin can read passes in their tenant, super admin can read all
+    - `create`: Users can purchase passes (via API endpoint), tenant-admin and super admin can create manually
+    - `update`: Only tenant-admin and super admin (users cannot modify their passes)
+    - `delete`: Only super admin
+  - Hooks:
+    - `beforeChange`: Validate expiration date is in the future
+    - `afterChange`: Update status to 'expired' if expirationDate has passed
+  - Admin: Group under "Bookings"
+  - Tenant-scoped: Yes (via multi-tenant plugin)
+4. **Class Pass Purchase Flow:**
+  - Create `apps/atnd-me/src/app/api/class-passes/purchase/route.ts`:
+    - Accept: `quantity`, `expirationDays` (optional, default from tenant config), `tenantId`
+    - Calculate price based on tenant's class pass pricing
+    - Create Stripe payment intent with tenant's Connect account
+    - On successful payment, create ClassPass record
+    - Link transaction to class pass
+  - Create `apps/atnd-me/src/app/(frontend)/class-passes/purchase/page.tsx`:
+    - UI for purchasing class passes
+    - Show available pass packages (if configured)
+    - Handle payment flow
+5. **Update Booking Access Controls for Class Passes:**
+  - Modify `bookingAccess.ts`:
+    - Check if user has valid class passes for the lesson's tenant
+    - Validate pass hasn't expired (`expirationDate > now`)
+    - Validate pass has remaining quantity (`quantity > 0`)
+    - Validate class option allows class passes (`allowedClassPasses === true`)
+    - Decrement pass quantity when booking is confirmed
+  - Create `apps/atnd-me/src/utilities/checkClassPass.ts`:
+    ```typescript
+    export const checkClassPass = async ({
+      user,
+      tenant,
+      classOption,
+      payload,
+    }: {
+      user: User
+      tenant: Tenant
+      classOption: ClassOption
+      payload: Payload
+    }): Promise<{ valid: boolean; pass?: ClassPass; error?: string }> => {
+      // 1. Check if class option allows class passes
+      if (!classOption.paymentMethods?.allowedClassPasses) {
+        return { valid: false, error: 'Class passes not allowed for this class' }
+      }
 
-   - Implement `bookingAccess.ts` with payment validation
-   - Add `getTenantFromLesson.ts` utility
-   - Update booking access to validate:
-     - **Subscriptions**: Check user has valid subscription from lesson's tenant
-     - **Class Passes**: Check user has valid, non-expired class pass for lesson's tenant (see section 7)
-     - **Drop-ins**: Allow direct payment if class option allows drop-ins
-   - **Stripe Connect**: Ensure payment validation uses tenant's Connect account
-   - Priority order: Subscription > Class Pass > Drop-in payment
+      // 2. Find active, non-expired class pass for user in tenant
+      const now = new Date()
+      const passes = await payload.find({
+        collection: 'class-passes',
+        where: {
+          user: { equals: user.id },
+          tenant: { equals: tenant.id },
+          status: { equals: 'active' },
+          quantity: { greater_than: 0 },
+          expirationDate: { greater_than: now.toISOString() },
+        },
+        limit: 1,
+        sort: 'expirationDate',
+      })
 
-4. **Update Class Options:**
+      if (passes.docs.length === 0) {
+        return { valid: false, error: 'No valid class pass found' }
+      }
 
-   - Add `paymentMethods` field to class-options
-   - Configure allowed plans per class option
-   - Add `allowedClassPasses` (checkbox or relationship) - Whether class passes can be used for this class option
-   - Add **Stripe connection status UI + gating** in the payment methods admin UI for class options:
-     - If the current tenant is **not** connected to Stripe (no `stripeConnectAccountId` or onboarding incomplete), show a clear message like: *"To enable payments for this class, connect Stripe for this tenant."*
-     - Display a prominent **"Connect Stripe"** button that links to or triggers the Stripe Connect onboarding flow (e.g. calls `/api/stripe/connect/authorize` with the current tenant context).
-     - When the tenant **is** connected, hide the warning and button, and instead show a small, non-blocking status indicator (e.g. "Stripe connected") near the payment method controls.
-     - Payment method controls must be **disabled/hidden** until Stripe Connect status is **active** (see step 2.6.1).
-     - Implement this as a reusable UI component so similar Stripe connection prompts can be used on other payment-related admin screens (e.g. class passes, plans).
-
-5. **Add Class Passes Collection:**
-
-   - Create `apps/atnd-me/src/collections/ClassPasses/index.ts`
-   - Fields:
-     - `user` (relationship to users, required) - Owner of the class pass
-     - `tenant` (relationship to tenants, required) - Tenant this pass belongs to (tenant-scoped)
-     - `quantity` (number, required, min: 1) - Number of passes/credits remaining
-     - `originalQuantity` (number, required) - Original quantity when purchased (for tracking)
-     - `expirationDate` (date, required) - Date when passes expire
-     - `purchasedAt` (date, required, default: now) - When the pass was purchased
-     - `price` (number, required) - Price paid for the pass (in cents)
-     - `transaction` (relationship to transactions, optional) - Stripe transaction reference
-     - `status` (select, default: 'active') - Status: 'active', 'expired', 'used', 'cancelled'
-     - `notes` (textarea, optional) - Admin notes
-   - Access:
-     - `read`: User can read their own passes, tenant-admin can read passes in their tenant, super admin can read all
-     - `create`: Users can purchase passes (via API endpoint), tenant-admin and super admin can create manually
-     - `update`: Only tenant-admin and super admin (users cannot modify their passes)
-     - `delete`: Only super admin
-   - Hooks:
-     - `beforeChange`: Validate expiration date is in the future
-     - `afterChange`: Update status to 'expired' if expirationDate has passed
-   - Admin: Group under "Bookings"
-   - Tenant-scoped: Yes (via multi-tenant plugin)
-
-6. **Class Pass Purchase Flow:**
-
-   - Create `apps/atnd-me/src/app/api/class-passes/purchase/route.ts`:
-     - Accept: `quantity`, `expirationDays` (optional, default from tenant config), `tenantId`
-     - Calculate price based on tenant's class pass pricing
-     - Create Stripe payment intent with tenant's Connect account
-     - On successful payment, create ClassPass record
-     - Link transaction to class pass
-   - Create `apps/atnd-me/src/app/(frontend)/class-passes/purchase/page.tsx`:
-     - UI for purchasing class passes
-     - Show available pass packages (if configured)
-     - Handle payment flow
-
-7. **Update Booking Access Controls for Class Passes:**
-
-   - Modify `bookingAccess.ts`:
-     - Check if user has valid class passes for the lesson's tenant
-     - Validate pass hasn't expired (`expirationDate > now`)
-     - Validate pass has remaining quantity (`quantity > 0`)
-     - Validate class option allows class passes (`allowedClassPasses === true`)
-     - Decrement pass quantity when booking is confirmed
-   - Create `apps/atnd-me/src/utilities/checkClassPass.ts`:
-     ```typescript
-     export const checkClassPass = async ({
-       user,
-       tenant,
-       classOption,
-       payload,
-     }: {
-       user: User
-       tenant: Tenant
-       classOption: ClassOption
-       payload: Payload
-     }): Promise<{ valid: boolean; pass?: ClassPass; error?: string }> => {
-       // 1. Check if class option allows class passes
-       if (!classOption.paymentMethods?.allowedClassPasses) {
-         return { valid: false, error: 'Class passes not allowed for this class' }
-       }
-       
-       // 2. Find active, non-expired class pass for user in tenant
-       const now = new Date()
-       const passes = await payload.find({
-         collection: 'class-passes',
-         where: {
-           user: { equals: user.id },
-           tenant: { equals: tenant.id },
-           status: { equals: 'active' },
-           quantity: { greater_than: 0 },
-           expirationDate: { greater_than: now.toISOString() },
-         },
-         limit: 1,
-         sort: 'expirationDate',
-       })
-       
-       if (passes.docs.length === 0) {
-         return { valid: false, error: 'No valid class pass found' }
-       }
-       
-       return { valid: true, pass: passes.docs[0] as ClassPass }
-     }
-     ```
-
-   - Create `apps/atnd-me/src/hooks/useClassPassForBooking.ts`:
-     - Hook to decrement class pass quantity when booking is confirmed
-     - Update pass status to 'used' if quantity reaches 0
-     - Add to booking's `afterChange` hook
-
-8. **Add Collections:**
-
-   - Plans collection (tenant-scoped)
-   - Subscriptions collection (tenant-scoped)
-   - Transactions collection (tenant-scoped)
-   - **Class Passes collection (tenant-scoped)** - See above
-
-9. **Class Pass Configuration:**
-
-   - Add to Tenants collection (Phase 2):
-     - `classPassSettings` (group, optional):
-       - `enabled` (checkbox, default: false) - Enable class passes for this tenant
-       - `defaultExpirationDays` (number, default: 365) - Default expiration period for purchased passes
-       - `pricing` (array) - Pass packages:
-         - `quantity` (number) - Number of passes
-         - `price` (number) - Price in cents
-         - `name` (text) - Package name (e.g., "5-Pack", "10-Pack")
-   - Or create separate `ClassPassPackages` collection (tenant-scoped) for more flexibility
-
-10. **Update Tests:**
-
-   - Add payment validation tests
-   - Add subscription validation tests
-   - Add cross-tenant payment tests
-   - **Stripe Connect**: Add tests for OAuth flow, account creation, payment routing
-   - **Class Passes**: Add tests for:
-     - Class pass purchase flow
-     - Expiration date validation
-     - Booking with class passes
-     - Pass quantity decrementing
-     - Expired pass rejection
-     - Cross-tenant pass validation (passes only work for their tenant)
+      return { valid: true, pass: passes.docs[0] as ClassPass }
+    }
+    ```
+  - Create `apps/atnd-me/src/hooks/useClassPassForBooking.ts`:
+    - Hook to decrement class pass quantity when booking is confirmed
+    - Update pass status to 'used' if quantity reaches 0
+    - Add to booking's `afterChange` hook
+6. **Add Collections:**
+  - Plans collection (tenant-scoped)
+  - Subscriptions collection (tenant-scoped)
+  - Transactions collection (tenant-scoped)
+  - **Class Passes collection (tenant-scoped)** - See above
+7. **Class Pass Configuration:**
+  - Add to Tenants collection (Phase 2):
+    - `classPassSettings` (group, optional):
+      - `enabled` (checkbox, default: false) - Enable class passes for this tenant
+      - `defaultExpirationDays` (number, default: 365) - Default expiration period for purchased passes
+      - `pricing` (array) - Pass packages:
+        - `quantity` (number) - Number of passes
+        - `price` (number) - Price in cents
+        - `name` (text) - Package name (e.g., "5-Pack", "10-Pack")
+  - Or create separate `ClassPassPackages` collection (tenant-scoped) for more flexibility
+8. **Update Tests:**
+  - Add payment validation tests
+  - Add subscription validation tests
+  - Add cross-tenant payment tests
+  - **Stripe Connect**: Add tests for OAuth flow, account creation, payment routing
+  - **Class Passes**: Add tests for:
+    - Class pass purchase flow
+    - Expiration date validation
+    - Booking with class passes
+    - Pass quantity decrementing
+    - Expired pass rejection
+    - Cross-tenant pass validation (passes only work for their tenant)
 
 **Architecture Note:** MVP is structured to support adding payments without major refactoring. All tenant-scoped collections are already set up, and access controls can be extended. The multi-tenant architecture with tenant context isolation is **perfectly suited for Stripe Connect**, as each tenant's payments are already isolated and can be routed to their respective Connect accounts.
 
@@ -2124,6 +1966,32 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Supports both Express and Custom Connect accounts (flexibility)
 
 **Roadmap order (Phases 3–6):** Next = Phase 3 (Self-Onboarding) → Phase 4 (Analytics) → Phase 5 (UTM) → Phase 6 (Application Fees, deferred).
+
+---
+
+## Phase 2 Completion Status (vs codebase)
+
+*Updated from a scan of the atnd-me app.*
+
+### Built (Phase 2)
+
+- **bookingsPaymentsPlugin** – Enabled with classPass, dropIns, membership; collections tenant-scoped via multiTenantPlugin
+- **2.0–2.2** – Stripe platform.ts, Tenants Stripe fields, tenantStripe.ts
+- **2.3–2.5** – OAuth authorize/callback routes, webhook handler (Connect + payment lifecycle)
+- **2.6–2.6.1** – StripeConnectStatus, RequireStripeConnectField, productsRequireStripeConnect, requireStripeConnectForPayments
+- **2.7–2.7.2** – charges.ts, bookingFee.ts, PlatformFees global, fee disclosure in checkout
+- **2.8** – Connect-aware payment webhooks
+- **Class passes** – From @repo/bookings-payments; purchase route/page, checkClassPass, decrement hook, bookingAccess with payment validation
+
+### Remaining / To verify
+
+1. **All Phase 2 tests green** – Run int/e2e suites; fix any failures
+2. **Subscription webhook handling** – Confirm subscription.created and lifecycle events are fully wired and tested
+3. **Phase 2.9 security** – Confirm CSRF, webhook signature verification, idempotency, tenant isolation, audit logging
+
+### Summary
+
+Phase 2 core is complete. Remaining work is mostly verification and test stability.
 
 ---
 
@@ -2146,59 +2014,46 @@ Phase 6 extends this with **advanced management**, not the core fee model:
 - More granular fee rules (min/max per product type, fixed + percent per product type, experiments)
 
 1. **Create Application Fee Configuration Global:**
-
-   - (Already introduced in Phase 2) Evolve `apps/atnd-me/src/globals/PlatformFees/index.ts`
-   - Add optional advanced fields:
-     - per-product bounds (min/max cents for drop-in/class pass/subscription)
-     - fixed + percent support per product type
-     - audit log entries for changes (who/when/what)
-
+  - (Already introduced in Phase 2) Evolve `apps/atnd-me/src/globals/PlatformFees/index.ts`
+  - Add optional advanced fields:
+    - per-product bounds (min/max cents for drop-in/class pass/subscription)
+    - fixed + percent support per product type
+    - audit log entries for changes (who/when/what)
 2. **Update Tenants Collection:**
-
-   - Keep tenant fee overrides centralized in the `platform-fees` global (Phase 2 design).
-   - (Optional Phase 6) Add a read-only “effective fees” panel on Tenant admin pages for clarity.
-
+  - Keep tenant fee overrides centralized in the `platform-fees` global (Phase 2 design).
+  - (Optional Phase 6) Add a read-only “effective fees” panel on Tenant admin pages for clarity.
 3. **Create Application Fee Calculation Utility:**
-
-   - Reuse the Phase 2 helper:
-     - `apps/atnd-me/src/lib/stripe-connect/bookingFee.ts`
-   - If advanced rules are added (fixed+percent/bounds per product type), extend this helper and its unit tests.
-
+  - Reuse the Phase 2 helper:
+    - `apps/atnd-me/src/lib/stripe-connect/bookingFee.ts`
+  - If advanced rules are added (fixed+percent/bounds per product type), extend this helper and its unit tests.
 4. **Update Stripe Connect Payment Creation:**
-
-   - Modify `apps/atnd-me/src/lib/stripe-connect.ts`:
-     - Add `calculateApplicationFee` import
-     - When creating payment intents or checkout sessions:
-       - Calculate application fee using `calculateApplicationFee`
-       - Add `application_fee_amount` parameter to Stripe API calls
-       - For subscriptions, use `application_fee_percent` or handle via transfer reversal
-   - Update `create-payment-intent.ts`:
-     - Determine payment type from metadata (drop-in vs subscription)
-     - Calculate application fee based on tenant and payment type
-     - Include application fee in payment intent creation
-
+  - Modify `apps/atnd-me/src/lib/stripe-connect.ts`:
+    - Add `calculateApplicationFee` import
+    - When creating payment intents or checkout sessions:
+      - Calculate application fee using `calculateApplicationFee`
+      - Add `application_fee_amount` parameter to Stripe API calls
+      - For subscriptions, use `application_fee_percent` or handle via transfer reversal
+  - Update `create-payment-intent.ts`:
+    - Determine payment type from metadata (drop-in vs subscription)
+    - Calculate application fee based on tenant and payment type
+    - Include application fee in payment intent creation
 5. **Update Subscription Creation:**
-
-   - For recurring subscriptions, Stripe Connect supports:
-     - `application_fee_percent` - Percentage fee on each subscription payment
-     - Or use `transfer_data` with `amount` for fixed fees
-   - Update subscription creation endpoints to include calculated application fees
-
+  - For recurring subscriptions, Stripe Connect supports:
+    - `application_fee_percent` - Percentage fee on each subscription payment
+    - Or use `transfer_data` with `amount` for fixed fees
+  - Update subscription creation endpoints to include calculated application fees
 6. **Admin UI for Fee Management:**
-
-   - Super admin can view/edit default fees in global settings
-   - Super admin can view/edit per-tenant fee overrides
-   - Tenant-admin can view (read-only) their own fee overrides
-   - Display fee calculation preview (show example calculation)
-
+  - Super admin can view/edit default fees in global settings
+  - Super admin can view/edit per-tenant fee overrides
+  - Tenant-admin can view (read-only) their own fee overrides
+  - Display fee calculation preview (show example calculation)
 7. **Add Tests:**
-
-   - Test default fee calculation (percentage and fixed)
-   - Test tenant-specific fee overrides
-   - Test fee calculation for drop-in vs subscription
-   - Test that overrides take precedence over defaults
-   - Test that missing overrides fall back to defaults
-   - Test edge cases (zero fees, 100% fees, negative amounts)
+  - Test default fee calculation (percentage and fixed)
+  - Test tenant-specific fee overrides
+  - Test fee calculation for drop-in vs subscription
+  - Test that overrides take precedence over defaults
+  - Test that missing overrides fall back to defaults
+  - Test edge cases (zero fees, 100% fees, negative amounts)
 
 **Implementation Example:**
 
@@ -2252,7 +2107,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 | **Booking creation** | ✅ Direct creation (no payment checks) | Payment validation required | - |
 
-| **Payment plugins** | ❌ Excluded | ✅ Add paymentsPlugin, membershipsPlugin | - |
+| **Payment plugins** | ❌ Excluded | ✅ Add bookingsPaymentsPlugin (@repo/bookings-payments) | - |
 
 | **Subscription validation** | ❌ Excluded | ✅ Add subscription checks | - |
 
@@ -2292,38 +2147,33 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ### Architecture
 
-1. **Onboarding UI**  
-
-   - Public or semi-public route(s) where the user enters:
-     - Business name, preferred subdomain/slug
-     - Social media links (e.g. Instagram, Facebook, website)
-     - Current booking software / schedule source (select or “paste export / link”)
-     - **Business location** for geolocation filtering: address (for display + geocoding) and/or latitude/longitude (for “near me” / distance sorting on `/tenants`)
-     - Optional: contact email, timezone, currency
-   - Submits to a backend **onboarding API**.
-
-2. **MCP server**  
-
-   - **Configure an MCP server** that:
-     - Accepts structured **onboarding context** (the above payload).
-     - Exposes **tools** (or resources) such as:
-       - `create_tenant_from_onboarding(context)` → returns tenant id + suggested slug
-       - `prepopulate_pages(tenantId, context)` → uses social/branding to suggest hero text, colours, logo URL
-       - `prepopulate_schedule(tenantId, context)` → uses “current software” / schedule export to suggest lessons, class names, times
-       - `prepopulate_class_options(tenantId, context)` → suggests class types and capacities
-     - Can call **Stripe MCP** tools (or a shared Stripe MCP plugin) to e.g. create Connect account, products, or placeholder prices during tenant creation.
-   - Implementation options:
-     - **Custom MCP server** in-repo that implements these tools and, under the hood, calls Payload APIs + optionally `@stripe/mcp` or Stripe REST.
-     - **Stripe MCP** configured alongside (e.g. in Cursor / same runtime) so agents or backend services can use Stripe tools in the same context as “create tenant / prepopulate” tools.
-
-3. **Data flow**  
-
-   - Onboarding API receives form payload → builds **onboarding context**.
-   - Calls MCP server tools (or an agent using those tools) with that context.
-   - MCP tools (or agent):
-     - Create tenant (and optionally trigger Stripe Connect onboarding link).
-     - Create default pages, lessons, instructors, class-options, navbar, footer, scheduler using **personalised** values derived from context (e.g. class names from schedule export, hero text from social/business name).
-   - Tenant collections are **prepopulated**; user lands in admin to review/edit and complete Stripe Connect if not done in-flow.
+1. **Onboarding UI**
+  - Public or semi-public route(s) where the user enters:
+    - Business name, preferred subdomain/slug
+    - Social media links (e.g. Instagram, Facebook, website)
+    - Current booking software / schedule source (select or “paste export / link”)
+    - **Business location** for geolocation filtering: address (for display + geocoding) and/or latitude/longitude (for “near me” / distance sorting on `/tenants`)
+    - Optional: contact email, timezone, currency
+  - Submits to a backend **onboarding API**.
+2. **MCP server**
+  - **Configure an MCP server** that:
+    - Accepts structured **onboarding context** (the above payload).
+    - Exposes **tools** (or resources) such as:
+      - `create_tenant_from_onboarding(context)` → returns tenant id + suggested slug
+      - `prepopulate_pages(tenantId, context)` → uses social/branding to suggest hero text, colours, logo URL
+      - `prepopulate_schedule(tenantId, context)` → uses “current software” / schedule export to suggest lessons, class names, times
+      - `prepopulate_class_options(tenantId, context)` → suggests class types and capacities
+    - Can call **Stripe MCP** tools (or a shared Stripe MCP plugin) to e.g. create Connect account, products, or placeholder prices during tenant creation.
+  - Implementation options:
+    - **Custom MCP server** in-repo that implements these tools and, under the hood, calls Payload APIs + optionally `@stripe/mcp` or Stripe REST.
+    - **Stripe MCP** configured alongside (e.g. in Cursor / same runtime) so agents or backend services can use Stripe tools in the same context as “create tenant / prepopulate” tools.
+3. **Data flow**
+  - Onboarding API receives form payload → builds **onboarding context**.
+  - Calls MCP server tools (or an agent using those tools) with that context.
+  - MCP tools (or agent):
+    - Create tenant (and optionally trigger Stripe Connect onboarding link).
+    - Create default pages, lessons, instructors, class-options, navbar, footer, scheduler using **personalised** values derived from context (e.g. class names from schedule export, hero text from social/business name).
+  - Tenant collections are **prepopulated**; user lands in admin to review/edit and complete Stripe Connect if not done in-flow.
 
 ### Implementation outline (TDD-friendly)
 
@@ -2332,28 +2182,24 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
   - Add `POST /api/onboarding` (or similar) that validates payload and returns a job id or token.
   - Persist `businessLocation` (address, latitude, longitude) on the tenant when creating from onboarding so `/tenants` (and future “near me” / map UIs) can filter or sort by location.
   - Tests: validation, sanitisation, idempotency for duplicate slugs.
-
 - **Step 3.2** – MCP server for onboarding  
   - Implement an MCP server (e.g. in `apps/atnd-me/mcp/` or `packages/onboarding-mcp/`) that:
     - Accepts onboarding context.
     - Exposes tools: `create_tenant_from_onboarding`, `prepopulate_pages`, `prepopulate_schedule`, `prepopulate_class_options`, etc.
   - Tools should call Payload (local or HTTP) to create/update tenant and collections; no direct DB.
   - Tests: unit tests for tool handlers with mocked Payload; integration tests with test Payload.
-
 - **Step 3.3** – Stripe MCP integration  
   - Configure **Stripe MCP** (e.g. `@stripe/mcp`) so the same process or agent can:
     - Create Connect accounts or generate Connect onboarding links for the new tenant.
     - Create products/prices if needed for class types.
   - Document how onboarding orchestrator invokes Stripe MCP tools (e.g. via MCP client in Node, or via an agent loop).
   - Tests: ensure tenant+Stripe linkage and that Connect onboarding link is correctly associated with tenant.
-
 - **Step 3.4** – Personalisation rules  
   - Implement **prepopulation logic** that uses:
     - **Social / website**: business name, branding hints, logo URL (if derivable), hero text suggestions.
     - **Current booking software / schedule**: map to class names, weekdays/times, capacities (template or heuristic).
   - Keep logic in MCP tool handlers or in shared helpers called by those tools.
   - Tests: given fixture onboarding payloads, assert created tenant and collection docs match expected personalised defaults.
-
 - **Step 3.5** – End-to-end self-onboarding  
   - UI: wizard or single form → submit → “Setting up your space…” → redirect to tenant admin or “next step” (e.g. Connect Stripe).
   - E2E tests: run through self-onboarding with sample data and assert tenant + key collections are created and personalised.
@@ -2410,22 +2256,17 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ### Architecture
 
-1. **Data sources**  
-
-   - All from existing tenant-scoped collections: **bookings** (status, dates, user, lesson), **users**, **lessons** (classOption, instructor, tenant).  
-   - Tenant context comes from request (middleware / tenant selector); super-admin can pass `tenantId` or “all”.
-
-2. **Backend**  
-
-   - **Analytics API** – e.g. `GET /api/analytics` or tRPC procedures `analytics.bookingsPerWeek`, `analytics.topCustomers`, `analytics.notSeenSince`, etc.  
-   - Inputs: `tenantId` (or null for “all” when super-admin), `dateFrom`, `dateTo`.  
-   - Queries run against Payload with tenant filter and date filters on booking dates; access control enforces tenant-admin can only request their tenant.
-
-3. **Frontend**  
-
-   - **Date range picker** – Shared component for “from / to” or presets (last 7 days, this month, etc.).  
-   - **Analytics view** – Renders the above metrics (cards, tables, or simple charts).  
-   - Can be a custom Payload admin component (e.g. “Reports” or “Analytics” in the nav) or a Next route that uses the same auth/tenant context as admin.
+1. **Data sources**
+  - All from existing tenant-scoped collections: **bookings** (status, dates, user, lesson), **users**, **lessons** (classOption, instructor, tenant).  
+  - Tenant context comes from request (middleware / tenant selector); super-admin can pass `tenantId` or “all”.
+2. **Backend**
+  - **Analytics API** – e.g. `GET /api/analytics` or tRPC procedures `analytics.bookingsPerWeek`, `analytics.topCustomers`, `analytics.notSeenSince`, etc.  
+  - Inputs: `tenantId` (or null for “all” when super-admin), `dateFrom`, `dateTo`.  
+  - Queries run against Payload with tenant filter and date filters on booking dates; access control enforces tenant-admin can only request their tenant.
+3. **Frontend**
+  - **Date range picker** – Shared component for “from / to” or presets (last 7 days, this month, etc.).  
+  - **Analytics view** – Renders the above metrics (cards, tables, or simple charts).  
+  - Can be a custom Payload admin component (e.g. “Reports” or “Analytics” in the nav) or a Next route that uses the same auth/tenant context as admin.
 
 ### Implementation outline (TDD-friendly)
 
@@ -2434,26 +2275,21 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
   - Query params (or tRPC input): `tenantId?`, `dateFrom`, `dateTo`.  
   - Enforce: tenant-admin may only request their own `tenantId`; super-admin may omit `tenantId` for “all” or pass any tenant.  
   - Tests: unit/int for access (tenant-admin cannot query other tenant; super-admin can query any/all).
-
 - **Step 4.2 – Bookings per week**  
   - Implement `bookingsPerWeek(tenantId, dateFrom, dateTo)` (or equivalent procedure).  
   - Group confirmed (and optionally waiting) bookings by week; return counts per week.  
   - Tests: with fixture bookings, assert correct counts and week boundaries.
-
 - **Step 4.3 – Top customers**  
   - Implement `topCustomers(tenantId, dateFrom, dateTo, limit?)`.  
   - Count bookings per user in range, sort descending, return top N with user info.  
   - Tests: fixture data, assert ordering and limit.
-
 - **Step 4.4 – Not seen since X**  
   - Implement `notSeenSince(tenantId, sinceDate)` (or `dateFrom`/`dateTo` used as “since”).  
   - Definition: users who have ≥1 booking in the tenant ever, and 0 bookings after `sinceDate`.  
   - Tests: fixture users/bookings, assert list and exclusion of users with later bookings.
-
 - **Step 4.5 – Optional metrics**  
   - Bookings by class option, bookings by instructor, new vs returning, etc., using the same tenant + date contract.  
   - Add tests per metric.
-
 - **Step 4.6 – Dashboard UI**  
   - Add analytics view (Payload custom view or Next route) with date range picker and tenant selector (super-admin only).  
   - Call analytics API and render metrics (cards/tables/charts).  
@@ -2528,30 +2364,23 @@ Add **event tracking** and **marketing attribution** so tenant-admins and super-
 
 ### Architecture
 
-1. **UTM persistence**  
-
-   - **Client**: Capture UTM params from URL (and optional `localStorage`/cookie) on landing; send with key events (e.g. track endpoint or form submit).  
-   - **Server**: Store **first-touch** UTM on user (e.g. `users.utmSource`, `users.utmMedium`, … or a `userAttribution` block) when they first interact/signup; **last-touch** can be stored per event or overwritten per session.  
-   - **Anonymous**: Before signup, use a **session id** (cookie or fingerprint) and store events + UTM in an **events** or **sessions** store; after signup, attach those events to the user and set first-touch from the earliest event.
-   - **Exploration**: Consider encrypting UTM params into a cookie (e.g. signed/encrypted payload) to persist the lead source over time across sessions and devices, improving attribution accuracy before signup and reducing reliance on URL-only capture.
-
-2. **Events store**  
-
-   - New **tenant-scoped** collection (or append-only store) e.g. `marketing_events` or `attribution_events`:  
-     - `tenant`, `eventType` (page_view, signup, booking, …), `userId?`, `sessionId?`, `occurredAt`, UTM fields (`utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`), `metadata` (e.g. path, lessonId, bookingId).  
-   - Or reuse/expand existing “events” if one exists; ensure tenant + date + UTM are queryable.
-
-3. **Spend / cost data (optional)**  
-
-   - Allow tenants to upload or enter **marketing spend** by dimension (e.g. by `utm_campaign` or `utm_medium` + date).  
-   - Use this to compute **cost per acquisition**, **CPA per booking**, and **conversion rate vs spend** in reports.
-
-4. **Reporting**  
-
-   - **Funnel**: e.g. landing → signup → first booking, with counts and drop-off **by source / medium / campaign**.  
-   - **Conversion rates**: e.g. signup rate, booking rate, per UTM dimension and per tenant.  
-   - **Spend efficiency**: if spend is provided, CAC, CPA, ROAS by channel/campaign.  
-   - Access: tenant-admin sees own tenant; super-admin sees all or per-tenant; date filter required.
+1. **UTM persistence**
+  - **Client**: Capture UTM params from URL (and optional `localStorage`/cookie) on landing; send with key events (e.g. track endpoint or form submit).  
+  - **Server**: Store **first-touch** UTM on user (e.g. `users.utmSource`, `users.utmMedium`, … or a `userAttribution` block) when they first interact/signup; **last-touch** can be stored per event or overwritten per session.  
+  - **Anonymous**: Before signup, use a **session id** (cookie or fingerprint) and store events + UTM in an **events** or **sessions** store; after signup, attach those events to the user and set first-touch from the earliest event.
+  - **Exploration**: Consider encrypting UTM params into a cookie (e.g. signed/encrypted payload) to persist the lead source over time across sessions and devices, improving attribution accuracy before signup and reducing reliance on URL-only capture.
+2. **Events store**
+  - New **tenant-scoped** collection (or append-only store) e.g. `marketing_events` or `attribution_events`:  
+    - `tenant`, `eventType` (page_view, signup, booking, …), `userId?`, `sessionId?`, `occurredAt`, UTM fields (`utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`), `metadata` (e.g. path, lessonId, bookingId).
+  - Or reuse/expand existing “events” if one exists; ensure tenant + date + UTM are queryable.
+3. **Spend / cost data (optional)**
+  - Allow tenants to upload or enter **marketing spend** by dimension (e.g. by `utm_campaign` or `utm_medium` + date).  
+  - Use this to compute **cost per acquisition**, **CPA per booking**, and **conversion rate vs spend** in reports.
+4. **Reporting**
+  - **Funnel**: e.g. landing → signup → first booking, with counts and drop-off **by source / medium / campaign**.  
+  - **Conversion rates**: e.g. signup rate, booking rate, per UTM dimension and per tenant.  
+  - **Spend efficiency**: if spend is provided, CAC, CPA, ROAS by channel/campaign.  
+  - Access: tenant-admin sees own tenant; super-admin sees all or per-tenant; date filter required.
 
 ### Implementation outline (TDD-friendly)
 
@@ -2559,28 +2388,23 @@ Add **event tracking** and **marketing attribution** so tenant-admins and super-
   - Add utilities to read UTM from URL/query and persist **first-touch** on user (and optionally last-touch per session).  
   - Ensure tenant context is set when storing (subdomain or explicit tenant).  
   - Tests: unit tests for UTM parsing; int tests for first-touch persistence and idempotency (don’t overwrite first-touch on later visits).
-
 - **Step 5.2 – Events collection / schema**  
   - Add tenant-scoped `marketing_events` (or equivalent) with `eventType`, `userId?`, `sessionId?`, `occurredAt`, UTM fields, `metadata`, `tenant`.  
   - Add API or tRPC to **ingest** events (e.g. `POST /api/track` or `analytics.trackEvent`) with auth/tenant checks: only allow events for current tenant or allow server-side to set tenant.  
   - Tests: event creation, tenant scoping, validation of required fields.
-
 - **Step 5.3 – Client-side UTM + event emission**  
   - On app load (e.g. layout or middleware), read UTM from query, store in cookie/sessionStorage, and send `page_view` (and optionally `landing`) with UTM + tenant.  
   - On signup, booking, etc., send corresponding events with current UTM (+ user id once logged in).  
   - Tests: E2E or integration tests that hit track endpoint with UTM query and assert event and first-touch on user.
-
 - **Step 5.4 – Attribution reports (conversion by UTM)**  
   - Implement report helpers or tRPC procedures: e.g. `conversionsBySource`, `conversionsByCampaign`, `funnelByMedium(tenantId, dateFrom, dateTo)`.  
   - Use events + user first-touch/last-touch to compute counts and conversion rates segmented by source, medium, campaign.  
   - Enforce tenant scope and date filters.  
   - Tests: fixture events and users, assert correct segmentation and rates.
-
 - **Step 5.5 – Spend input and CAC/CPA/ROAS**  
   - Add **spend** ingestion (e.g. per campaign or per medium + date) – manual upload or form.  
   - Compute CAC, CPA, ROAS (or similar) by UTM dimension when spend is available.  
   - Tests: fixture spend + events, assert correct CAC/CPA.
-
 - **Step 5.6 – Dashboard UI**  
   - Add “Marketing” or “Attribution” section in admin: date range, tenant filter (super-admin), UTM dimension selector (source / medium / campaign).  
   - Show funnel, conversion rates, and optionally spend vs conversions.  

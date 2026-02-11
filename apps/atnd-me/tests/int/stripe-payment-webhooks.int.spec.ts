@@ -2,6 +2,9 @@
  * Step 2.8 – Connect-aware webhooks for payment lifecycle.
  * - When receiving payment_intent.succeeded, identify tenant via event.account (Connect) or metadata.tenantId.
  * - Updates booking/payment records in the correct tenant context.
+ * - Creates booking when lessonId+userId in metadata (drop-in flow, no pre-created booking).
+ *
+ * Event structure matches Stripe payment_intent.succeeded (platform/destination charges).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 
@@ -19,6 +22,7 @@ import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/stripe/webhook/route'
 import * as webhookVerify from '@/lib/stripe-connect/webhookVerify'
 import * as webhookProcessed from '@/lib/stripe-connect/webhookProcessed'
+import { createPaymentIntentSucceededEvent } from '../helpers/stripe-webhook-event'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -165,17 +169,19 @@ describe('Stripe payment webhooks (step 2.8)', () => {
   it(
     'payment_intent.succeeded: identifies tenant via event.account (Connect) and updates booking',
     async () => {
-      const event = {
+      const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_1',
-        type: 'payment_intent.succeeded',
         account: 'acct_payment_webhook',
-        data: {
-          object: {
-            id: 'pi_test_123',
-            metadata: { tenantId: String(tenantId), bookingId: String(bookingId) },
-          },
+        paymentIntentId: 'pi_test_123',
+        metadata: {
+          tenantId: String(tenantId),
+          bookingId: String(bookingId),
+          classPriceAmount: '1900',
+          bookingFeeAmount: '38',
+          lessonId: String(lessonId),
+          userId: String(userId),
         },
-      }
+      })
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
       const res = await POST(request(JSON.stringify(event)))
       expect(res.status).toBe(200)
@@ -208,16 +214,18 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         data: { user: userId, lesson: lessonId, tenant: tenantId, status: 'pending' },
         overrideAccess: true,
       })
-      const event = {
+      const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_2',
-        type: 'payment_intent.succeeded',
-        data: {
-          object: {
-            id: 'pi_test_456',
-            metadata: { tenantId: String(tenantId), bookingId: String(booking2.id) },
-          },
+        paymentIntentId: 'pi_test_456',
+        metadata: {
+          tenantId: String(tenantId),
+          bookingId: String(booking2.id),
+          classPriceAmount: '1900',
+          bookingFeeAmount: '38',
+          lessonId: String(lessonId),
+          userId: String(userId),
         },
-      }
+      })
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
       const res = await POST(request(JSON.stringify(event)))
       expect(res.status).toBe(200)
@@ -246,6 +254,65 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       await payload.delete({
         collection: 'bookings',
         id: booking2.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'payment_intent.succeeded: creates booking when lessonId+userId in metadata (drop-in, no pre-created booking)',
+    async () => {
+      const event = createPaymentIntentSucceededEvent({
+        id: 'evt_pi_succeeded_create',
+        paymentIntentId: 'pi_test_create_789',
+        metadata: {
+          tenantId: String(tenantId),
+          lessonId: String(lessonId),
+          userId: String(userId),
+          classPriceAmount: '1900',
+          bookingFeeAmount: '38',
+        },
+      })
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+      const bookingsBefore = await payload.find({
+        collection: 'bookings',
+        where: { lesson: { equals: lessonId }, user: { equals: userId } },
+        overrideAccess: true,
+      })
+      expect(bookingsBefore.docs.length).toBe(1)
+
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+      expect(webhookProcessed.markStripeConnectEventProcessed).toHaveBeenCalledWith('evt_pi_succeeded_create')
+
+      const bookingsAfter = await payload.find({
+        collection: 'bookings',
+        where: { lesson: { equals: lessonId }, user: { equals: userId } },
+        overrideAccess: true,
+      })
+      expect(bookingsAfter.docs.length).toBe(2)
+      const created = bookingsAfter.docs.find((b) => b.status === 'confirmed' && b.id !== bookingId)
+      expect(created).toBeDefined()
+      expect(created?.status).toBe('confirmed')
+
+      const txResult = await payload.find({
+        collection: 'transactions' as import('payload').CollectionSlug,
+        where: { booking: { equals: created!.id } },
+        overrideAccess: true,
+      })
+      expect(txResult.docs).toHaveLength(1)
+      expect((txResult.docs[0] as { stripePaymentIntentId?: string }).stripePaymentIntentId).toBe('pi_test_create_789')
+
+      await payload.delete({
+        collection: 'transactions' as import('payload').CollectionSlug,
+        where: { booking: { equals: created!.id } },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'bookings',
+        id: created!.id,
         overrideAccess: true,
       })
     },

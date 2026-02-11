@@ -150,7 +150,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         }
       }
 
-      const session = await ctx.stripe.checkout.sessions.create({
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
         line_items: lineItems,
         metadata: meta,
         mode: input.mode,
@@ -159,25 +159,37 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           input.successUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
         cancel_url:
           input.cancelUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
+      };
+      if (input.mode === "subscription") {
+        sessionParams.subscription_data = { metadata: meta };
+      }
+      const session = await ctx.stripe.checkout.sessions.create(
+        sessionParams
+      );
+
+      return session;
+    }),
+  createCustomerPortal: stripeProtectedProcedure
+    .input(z.object({ returnUrl: z.string().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const customerId = getStripeCustomerId(ctx.user);
+      const returnUrl =
+        input?.returnUrl ||
+        `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
+
+      const session = await ctx.stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: returnUrl,
       });
 
       return session;
     }),
-  createCustomerPortal: stripeProtectedProcedure.mutation(async ({ ctx }) => {
-    const customerId = getStripeCustomerId(ctx.user);
-
-    const session = await ctx.stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
-    });
-
-    return session;
-  }),
   createCustomerUpgradePortal: stripeProtectedProcedure
     .use(requireCollections("plans"))
     .input(
       z.object({
         productId: z.string(),
+        returnUrl: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -237,10 +249,12 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       configId = newConfig.id;
       console.log(`Created new configuration: ${configId}`);
 
+      const returnUrl =
+        input.returnUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
       const session = await ctx.stripe.billingPortal.sessions.create({
         customer: customerId,
         configuration: configId,
-        return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
+        return_url: returnUrl,
         flow_data: {
           type: "subscription_update",
           subscription_update: {

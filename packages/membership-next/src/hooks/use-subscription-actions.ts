@@ -95,8 +95,11 @@ export function useSubscriptionActions(options: UseSubscriptionActionsOptions = 
     })
   }
 
-  const openCustomerPortal = async () => {
-    await portal.mutateAsync()
+  const openCustomerPortal = async (opts?: { returnUrl?: string }) => {
+    const returnUrl =
+      opts?.returnUrl ??
+      (typeof window !== 'undefined' ? `${window.location.origin}/dashboard` : undefined)
+    await portal.mutateAsync({ returnUrl })
   }
 
   return {

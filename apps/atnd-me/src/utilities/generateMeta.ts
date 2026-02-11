@@ -4,6 +4,7 @@ import type { Media, Page, Post, Config } from '../payload-types'
 
 import { mergeOpenGraph } from './mergeOpenGraph'
 import { getServerSideURL } from './getURL'
+import type { TenantWithBranding } from './getTenantContext'
 
 const getImageURL = (image?: Media | Config['db']['defaultIDType'] | null) => {
   const serverUrl = getServerSideURL()
@@ -19,21 +20,27 @@ const getImageURL = (image?: Media | Config['db']['defaultIDType'] | null) => {
   return url
 }
 
+const DEFAULT_SITE_NAME = 'Payload Website Template'
+
 export const generateMeta = async (args: {
   doc: Partial<Page> | Partial<Post> | null
+  tenantBranding?: TenantWithBranding | null
 }): Promise<Metadata> => {
-  const { doc } = args
+  const { doc, tenantBranding } = args
 
   const ogImage = getImageURL(doc?.meta?.image)
 
+  const siteName = tenantBranding?.name || DEFAULT_SITE_NAME
   const title = doc?.meta?.title
-    ? doc?.meta?.title + ' | Payload Website Template'
-    : 'Payload Website Template'
+    ? `${doc.meta.title} | ${siteName}`
+    : siteName
+
+  const description = doc?.meta?.description || tenantBranding?.description || undefined
 
   return {
-    description: doc?.meta?.description,
+    description,
     openGraph: mergeOpenGraph({
-      description: doc?.meta?.description || '',
+      description: description || '',
       images: ogImage
         ? [
             {

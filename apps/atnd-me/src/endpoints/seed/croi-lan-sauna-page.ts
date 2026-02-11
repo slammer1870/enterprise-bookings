@@ -77,19 +77,6 @@ export const croiLanSaunaPage: (args: CroiLanSaunaPageArgs) => RequiredDataFromC
   return {
     slug: 'home',
     _status: 'published',
-    hero: {
-      type: 'lowImpact' as const,
-      richText: {
-        root: {
-          type: 'root' as const,
-          children: [],
-          direction: 'ltr' as const,
-          format: '' as const,
-          indent: 0,
-          version: 1,
-        },
-      },
-    },
     layout: [
       // Hero Schedule block
       {

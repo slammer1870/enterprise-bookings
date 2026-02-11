@@ -87,29 +87,6 @@ async function createTestTenantHomePage(tenantId: number, tenantName: string): P
     title: `Welcome to ${tenantName}`,
     _status: 'published',
     tenant: tenantId,
-    hero: {
-      type: 'lowImpact',
-      richText: {
-        root: {
-          type: 'root',
-          children: [
-            {
-              type: 'heading',
-              children: [{ type: 'text', detail: 0, format: 0, mode: 'normal', style: '', text: tenantName, version: 1 }],
-              direction: 'ltr',
-              format: '',
-              indent: 0,
-              tag: 'h1',
-              version: 1,
-            },
-          ],
-          direction: 'ltr',
-          format: '',
-          indent: 0,
-          version: 1,
-        },
-      },
-    },
     layout: [
       { blockType: 'heroSchedule', blockName: 'Hero Schedule', title: tenantName },
     ],
@@ -379,9 +356,6 @@ export async function createTestPage(
       title,
       tenant: tenantIdNumber,
       _status: 'published',
-      hero: {
-        type: 'none',
-      },
       // Pages.layout is required; provide a minimal valid block.
       layout: [{ blockType: 'content', columns: [] }],
     },

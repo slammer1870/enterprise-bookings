@@ -43,6 +43,14 @@ export type TenantContext = {
 }
 
 /**
+ * Tenant with branding fields for white labeling (logo, description).
+ */
+export type TenantWithBranding = TenantContext & {
+  logo?: { url?: string; alt?: string } | number | null
+  description?: string | null
+}
+
+/**
  * Resolves tenant context from request-like source.
  * Extracts slug via getTenantSlug, then looks up tenant in Payload.
  * Returns null if no slug or tenant not found.
@@ -69,5 +77,44 @@ export async function getTenantContext(
     id: tenant.id as number,
     slug: tenant.slug as string,
     name: (tenant as { name?: string }).name ?? '',
+  }
+}
+
+/**
+ * Resolves tenant with branding fields (logo, description) for white labeling.
+ * Uses depth: 1 to populate logo relation.
+ */
+export async function getTenantWithBranding(
+  payload: Payload,
+  source?: TenantSlugSource | null
+): Promise<TenantWithBranding | null> {
+  const slug = await getTenantSlug(source)
+  if (!slug) return null
+
+  const result = await payload.find({
+    collection: 'tenants',
+    where: { slug: { equals: slug } },
+    limit: 1,
+    depth: 1,
+    overrideAccess: true,
+  })
+
+  const tenant = result.docs[0]
+  if (!tenant) return null
+
+  const t = tenant as {
+    id: number
+    slug: string
+    name?: string
+    logo?: { url?: string; alt?: string } | number | null
+    description?: string | null
+  }
+
+  return {
+    id: t.id,
+    slug: t.slug,
+    name: t.name ?? '',
+    logo: t.logo,
+    description: t.description,
   }
 }

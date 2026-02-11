@@ -219,49 +219,9 @@ export interface Page {
   id: number;
   tenant?: (number | null) | Tenant;
   title: string;
-  hero: {
-    type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
-    richText?: {
-      root: {
-        type: string;
-        children: {
-          type: any;
-          version: number;
-          [k: string]: unknown;
-        }[];
-        direction: ('ltr' | 'rtl') | null;
-        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-        indent: number;
-        version: number;
-      };
-      [k: string]: unknown;
-    } | null;
-    links?:
-      | {
-          link: {
-            type?: ('reference' | 'custom') | null;
-            newTab?: boolean | null;
-            reference?:
-              | ({
-                  relationTo: 'pages';
-                  value: number | Page;
-                } | null)
-              | ({
-                  relationTo: 'posts';
-                  value: number | Post;
-                } | null);
-            url?: string | null;
-            label: string;
-            /**
-             * Choose how the link should be rendered.
-             */
-            appearance?: ('default' | 'outline') | null;
-          };
-          id?: string | null;
-        }[]
-      | null;
-    media?: (number | null) | Media;
-  };
+  /**
+   * Add blocks to build your page. Hero, Hero Schedule, and other blocks can be added in any order.
+   */
   layout: (
     | HeroScheduleBlock
     | HeroBlock
@@ -332,27 +292,6 @@ export interface Tenant {
    * When Connect was linked.
    */
   stripeConnectConnectedAt?: string | null;
-  /**
-   * Configure class pass packages and defaults for this tenant.
-   */
-  classPassSettings?: {
-    enabled?: boolean | null;
-    /**
-     * Default validity when no package specifies it.
-     */
-    defaultExpirationDays?: number | null;
-    pricing?:
-      | {
-          quantity: number;
-          price: number;
-          /**
-           * e.g. "5-Pack", "10-Pack"
-           */
-          name: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -474,6 +413,42 @@ export interface FolderInterface {
   folderType?: 'media'[] | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroScheduleBlock".
+ */
+export interface HeroScheduleBlock {
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  title?: string | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'heroSchedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -920,42 +895,6 @@ export interface ClassPassType {
   skipSync?: boolean | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "HeroScheduleBlock".
- */
-export interface HeroScheduleBlock {
-  backgroundImage?: (number | null) | Media;
-  logo?: (number | null) | Media;
-  title?: string | null;
-  links?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-          /**
-           * Choose how the link should be rendered.
-           */
-          appearance?: ('default' | 'outline') | null;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'heroSchedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2166,28 +2105,6 @@ export interface AdminInvitationsSelect<T extends boolean = true> {
 export interface PagesSelect<T extends boolean = true> {
   tenant?: T;
   title?: T;
-  hero?:
-    | T
-    | {
-        type?: T;
-        richText?: T;
-        links?:
-          | T
-          | {
-              link?:
-                | T
-                | {
-                    type?: T;
-                    newTab?: T;
-                    reference?: T;
-                    url?: T;
-                    label?: T;
-                    appearance?: T;
-                  };
-              id?: T;
-            };
-        media?: T;
-      };
   layout?:
     | T
     | {
@@ -2594,20 +2511,6 @@ export interface TenantsSelect<T extends boolean = true> {
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;
   stripeConnectConnectedAt?: T;
-  classPassSettings?:
-    | T
-    | {
-        enabled?: T;
-        defaultExpirationDays?: T;
-        pricing?:
-          | T
-          | {
-              quantity?: T;
-              price?: T;
-              name?: T;
-              id?: T;
-            };
-      };
   updatedAt?: T;
   createdAt?: T;
 }

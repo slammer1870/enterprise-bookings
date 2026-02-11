@@ -982,7 +982,16 @@ describe('tRPC Bookings Integration Tests', () => {
     }, TEST_TIMEOUT)
 
     it('should prevent increasing quantity beyond remaining capacity', async () => {
-      // Create a fresh lesson with limited capacity
+      // Create a fresh lesson with limited capacity (small places to keep test fast)
+      const smallClassOption = (await createWithTenant<ClassOption>(
+        'class-options',
+        {
+          name: `Small Cap ${Date.now()}`,
+          places: 3,
+          description: 'Test',
+        },
+        { overrideAccess: true }
+      ))
       const startTime = new Date()
       startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(18, 0, 0, 0)
@@ -995,10 +1004,10 @@ describe('tRPC Bookings Integration Tests', () => {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          classOption: smallClassOption.id,
           location: 'Test Location',
           active: true,
-          lockOutTime: 0, // Required field with default value
+          lockOutTime: 0,
         },
         {
           draft: false,
@@ -1008,18 +1017,31 @@ describe('tRPC Bookings Integration Tests', () => {
 
       const caller = await createCaller()
 
-      // Create initial booking
+      // Create 1 booking for test user
       await caller.bookings.createBookings({
         lessonId: testLesson.id,
         quantity: 1,
       })
 
-      // Fill remaining capacity with other bookings (using overrideAccess)
-      const remainingCapacity = classOption.places - 1
+      // Fill remaining capacity with another user's bookings (avoids potential hangs when same user has all)
+      const otherUser = (await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Other Cap User',
+          email: `other-cap-${Date.now()}@test.com`,
+          password: 'test',
+          roles: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])) as User
+
+      const remainingCapacity = smallClassOption.places - 1
       for (let i = 0; i < remainingCapacity; i++) {
         await createWithTenant('bookings', {
           lesson: testLesson.id,
-          user: user.id,
+          user: otherUser.id,
           status: 'confirmed',
         }, {
           overrideAccess: true,
@@ -1042,6 +1064,14 @@ describe('tRPC Bookings Integration Tests', () => {
       await payload.delete({
         collection: 'lessons',
         where: { id: { equals: testLesson.id } },
+      })
+      await payload.delete({
+        collection: 'class-options',
+        where: { id: { equals: smallClassOption.id } },
+      })
+      await payload.delete({
+        collection: 'users',
+        where: { id: { equals: otherUser.id } },
       })
     }, TEST_TIMEOUT)
   })

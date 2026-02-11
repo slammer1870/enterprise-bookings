@@ -1,5 +1,6 @@
 /**
  * Step 2.7.2 – E2E: Checkout UI shows when payment methods are attached (Payment Methods / Drop-in tab).
+ * Verifies total displayed includes booking fee (class price + fee), not class price only.
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUser } from './helpers/auth-helpers'
@@ -25,6 +26,28 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
       throw new Error('Tenant ID or slug is missing from test data')
     }
 
+    // Set platform fee to 10% for this tenant so total = €10 + €1 = €11.00
+    const platformFees = (await payload.findGlobal({
+      slug: 'platform-fees',
+      depth: 0,
+      overrideAccess: true,
+    })) as { defaults?: object; overrides?: Array<{ tenant: number; dropInPercent?: number }> } | null
+    const overrides = platformFees?.overrides ?? []
+    const existingIdx = overrides.findIndex((o: { tenant: number }) => o.tenant === tenantId)
+    const newOverrides =
+      existingIdx >= 0
+        ? overrides.map((o, i) => (i === existingIdx ? { ...o, dropInPercent: 10 } : o))
+        : [...overrides, { tenant: tenantId, dropInPercent: 10 }]
+    await payload.updateGlobal({
+      slug: 'platform-fees',
+      data: {
+        defaults: platformFees?.defaults ?? { dropInPercent: 2, classPassPercent: 3, subscriptionPercent: 4 },
+        overrides: newOverrides,
+      },
+      depth: 0,
+      overrideAccess: true,
+    } as Parameters<typeof payload.updateGlobal>[0])
+
     // Update tenant with Stripe Connect setup
     await payload.update({
       collection: 'tenants',
@@ -36,13 +59,13 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
       overrideAccess: true,
     })
 
-    // Create drop-in payment method
+    // Create drop-in: price 10 = €10.00 (currency units)
     const dropIn = await payload.create({
       collection: 'drop-ins',
       data: {
         name: `Fee Disclosure Drop-in ${tenantId}-${Date.now()}`,
         isActive: true,
-        price: 1000,
+        price: 10,
         adjustable: true,
         paymentMethods: ['card'],
         tenant: tenantId,
@@ -113,5 +136,13 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     // Click Drop-in tab and verify fee breakdown is visible
     await page.getByRole('tab', { name: /drop-?in/i }).click()
     await expect(page.getByTestId('booking-fee-breakdown')).toBeVisible({ timeout: 10000 })
+
+    // Verify breakdown: class €10.00, fee €1.00 (10%), total €11.00
+    await expect(page.getByTestId('class-price')).toHaveText('€10.00')
+    await expect(page.getByTestId('booking-fee')).toHaveText('€1.00')
+    await expect(page.getByTestId('total')).toHaveText('€11.00')
+
+    // Verify total next to Pay button includes booking fee (not class price only)
+    await expect(page.getByTestId('payment-total')).toHaveText('€11.00')
   })
 })

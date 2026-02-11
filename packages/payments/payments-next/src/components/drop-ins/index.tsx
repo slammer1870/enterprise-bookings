@@ -2,11 +2,66 @@
 
 import { useEffect, useState } from "react";
 import { DropIn, Lesson } from "@repo/shared-types";
+import { useTRPC } from "@repo/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 import { usePayment } from "../../hooks/use-payment";
 
 import CheckoutForm from "../checkout-form";
 
 import { PriceView } from "./price";
+
+type FeeBreakdownData = { classPriceCents: number; bookingFeeCents: number; totalCents: number };
+
+/** Renders checkout form with fee-inclusive total when getDropInFeeBreakdown exists. */
+function DropInCheckoutWithFee({
+  classPriceAmount,
+  price,
+  priceComponent,
+  metadata,
+  createPaymentIntentUrl,
+  FeeBreakdownComponent,
+  lessonId,
+}: {
+  classPriceAmount: number;
+  price: { totalAmount: number; totalAmountBeforeDiscount?: number; discountApplied?: boolean };
+  priceComponent: React.ReactNode;
+  metadata?: Record<string, string>;
+  createPaymentIntentUrl?: string;
+  FeeBreakdownComponent?: React.ComponentType<{ classPriceCents: number; lessonId: number }>;
+  lessonId: number;
+}) {
+  const trpc = useTRPC();
+  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (i: { lessonId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
+  const classPriceCents = Math.round(classPriceAmount * 100);
+
+  const { data } = useQuery({
+    ...(procedure?.queryOptions({ lessonId, classPriceCents }) ?? {
+      queryKey: ["drop-in-fee", lessonId, classPriceCents],
+      queryFn: (): FeeBreakdownData | null => null,
+      enabled: false,
+    }),
+  } as { queryKey: unknown[]; queryFn: () => FeeBreakdownData | null; enabled?: boolean });
+
+  const totalCents = (data as FeeBreakdownData | undefined)?.totalCents;
+  const displayComponent =
+    totalCents != null ? (
+      <div className="flex justify-start items-center text-lg font-medium my-4 gap-4">
+        <span className="font-semibold">Total:</span>
+        <span data-testid="payment-total">€{(totalCents / 100).toFixed(2)}</span>
+      </div>
+    ) : (
+      priceComponent
+    );
+
+  return (
+    <CheckoutForm
+      price={classPriceAmount}
+      priceComponent={displayComponent}
+      metadata={metadata}
+      createPaymentIntentUrl={createPaymentIntentUrl}
+    />
+  );
+}
 
 /**
  * Optional component to render fee breakdown (class price, booking fee, total).
@@ -85,11 +140,14 @@ export const DropInView = ({
   const classPriceCents = Math.round(price.totalAmount * 100);
   const lessonId = metadata?.lessonId ? parseInt(metadata.lessonId, 10) : null;
 
+  const lessonIdNum =
+    lessonId != null && !Number.isNaN(lessonId) ? lessonId : null;
+
   return (
     <div>
-      {FeeBreakdownComponent && lessonId != null && !Number.isNaN(lessonId) && (
+      {FeeBreakdownComponent && lessonIdNum != null && (
         <div className="mb-4">
-          <FeeBreakdownComponent classPriceCents={classPriceCents} lessonId={lessonId} />
+          <FeeBreakdownComponent classPriceCents={classPriceCents} lessonId={lessonIdNum} />
         </div>
       )}
       {bookingStatus === "trialable" && (
@@ -98,12 +156,24 @@ export const DropInView = ({
           payment.
         </span>
       )}
-      <CheckoutForm
-        price={price.totalAmount}
-        priceComponent={<PriceView price={price} />}
-        metadata={metadata}
-        createPaymentIntentUrl={createPaymentIntentUrl}
-      />
+      {lessonIdNum != null && FeeBreakdownComponent ? (
+        <DropInCheckoutWithFee
+          classPriceAmount={price.totalAmount}
+          price={price}
+          priceComponent={<PriceView price={price} />}
+          metadata={metadata}
+          createPaymentIntentUrl={createPaymentIntentUrl}
+          FeeBreakdownComponent={FeeBreakdownComponent}
+          lessonId={lessonIdNum}
+        />
+      ) : (
+        <CheckoutForm
+          price={price.totalAmount}
+          priceComponent={<PriceView price={price} />}
+          metadata={metadata}
+          createPaymentIntentUrl={createPaymentIntentUrl}
+        />
+      )}
     </div>
   );
 };

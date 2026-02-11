@@ -4,20 +4,20 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 
-vi.mock('@/lib/stripe-connect/webhookVerify', () => ({
+vi.mock('../../src/lib/stripe-connect/webhookVerify', () => ({
   verifyStripeConnectWebhook: vi.fn(),
 }))
-vi.mock('@/lib/stripe-connect/webhookProcessed', () => ({
+vi.mock('../../src/lib/stripe-connect/webhookProcessed', () => ({
   hasProcessedStripeConnectEvent: vi.fn(),
   markStripeConnectEventProcessed: vi.fn(),
 }))
 
 import { getPayload, type Payload } from 'payload'
-import config from '@/payload.config'
+import config from '../../src/payload.config'
 import { NextRequest } from 'next/server'
-import { POST } from '@/app/api/stripe/webhook/route'
-import * as webhookVerify from '@/lib/stripe-connect/webhookVerify'
-import * as webhookProcessed from '@/lib/stripe-connect/webhookProcessed'
+import { POST } from '../../src/app/api/stripe/webhook/route'
+import * as webhookVerify from '../../src/lib/stripe-connect/webhookVerify'
+import * as webhookProcessed from '../../src/lib/stripe-connect/webhookProcessed'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -109,6 +109,54 @@ describe('Stripe subscription webhooks (Connect)', () => {
           await payload.delete({
             collection: 'subscriptions' as import('payload').CollectionSlug,
             id: s.id,
+            overrideAccess: true,
+          })
+        }
+        const txResult = await payload.find({
+          collection: 'transactions' as import('payload').CollectionSlug,
+          where: { tenant: { equals: tenantId } },
+          overrideAccess: true,
+        })
+        for (const t of txResult.docs) {
+          await payload.delete({
+            collection: 'transactions' as import('payload').CollectionSlug,
+            id: t.id,
+            overrideAccess: true,
+          })
+        }
+        const bookingsResult = await payload.find({
+          collection: 'bookings',
+          where: { tenant: { equals: tenantId } },
+          overrideAccess: true,
+        })
+        for (const b of bookingsResult.docs) {
+          await payload.delete({
+            collection: 'bookings',
+            id: b.id,
+            overrideAccess: true,
+          })
+        }
+        const lessonsResult = await payload.find({
+          collection: 'lessons',
+          where: { tenant: { equals: tenantId } },
+          overrideAccess: true,
+        })
+        for (const l of lessonsResult.docs) {
+          await payload.delete({
+            collection: 'lessons',
+            id: l.id,
+            overrideAccess: true,
+          })
+        }
+        const coResult = await payload.find({
+          collection: 'class-options',
+          where: { tenant: { equals: tenantId } },
+          overrideAccess: true,
+        })
+        for (const c of coResult.docs) {
+          await payload.delete({
+            collection: 'class-options',
+            id: c.id,
             overrideAccess: true,
           })
         }
@@ -337,6 +385,171 @@ describe('Stripe subscription webhooks (Connect)', () => {
         overrideAccess: true,
       })
       expect(subs.docs).toHaveLength(0)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'customer.subscription.created with lessonId in metadata: creates subscription and confirms booking (subscription-from-booking-page flow)',
+    async () => {
+      const co = await payload.create({
+        collection: 'class-options',
+        data: {
+          name: `Sub Booking Class ${Date.now()}`,
+          places: 10,
+          description: 'Test',
+          tenant: tenantId,
+        },
+        overrideAccess: true,
+      })
+      const classOptionId = co.id as number
+
+      const startTime = new Date()
+      startTime.setHours(14, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(15, 0, 0, 0)
+      const lesson = await payload.create({
+        collection: 'lessons',
+        draft: false,
+        data: {
+          tenant: tenantId,
+          classOption: classOptionId,
+          date: startTime.toISOString().split('T')[0],
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          lockOutTime: 60,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+      const testLessonId = lesson.id as number
+
+      const pendingBooking = await payload.create({
+        collection: 'bookings',
+        data: {
+          user: userId,
+          lesson: testLessonId,
+          tenant: tenantId,
+          status: 'pending',
+        },
+        overrideAccess: true,
+      })
+      const pendingBookingId = pendingBooking.id as number
+
+      const event = subscriptionCreatedEvent({
+        metadata: { lessonId: String(testLessonId) },
+      })
+      ;(event.data.object as { id: string }).id = 'sub_booking_flow_123'
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const subs = await payload.find({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        where: { stripeSubscriptionId: { equals: 'sub_booking_flow_123' } },
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(subs.docs).toHaveLength(1)
+
+      const updatedBooking = await payload.findByID({
+        collection: 'bookings',
+        id: pendingBookingId,
+        overrideAccess: true,
+      }) as { status?: string }
+      expect(updatedBooking.status).toBe('confirmed')
+
+      const tx = await payload.find({
+        collection: 'transactions' as import('payload').CollectionSlug,
+        where: { booking: { equals: pendingBookingId } },
+        overrideAccess: true,
+      })
+      expect(tx.totalDocs).toBe(1)
+      const txDoc = tx.docs[0] as { paymentMethod?: string; subscriptionId?: number }
+      expect(txDoc.paymentMethod).toBe('subscription')
+      expect(txDoc.subscriptionId).toBe((subs.docs[0] as { id: number }).id)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'customer.subscription.created with bookingIds in metadata: confirms specified bookings (children flow)',
+    async () => {
+      const co = await payload.create({
+        collection: 'class-options',
+        data: {
+          name: `Sub BookingIds Class ${Date.now()}`,
+          places: 10,
+          description: 'Test',
+          tenant: tenantId,
+        },
+        overrideAccess: true,
+      })
+      const classOptionId = co.id as number
+
+      const startTime = new Date()
+      startTime.setHours(16, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(17, 0, 0, 0)
+      const lesson = await payload.create({
+        collection: 'lessons',
+        draft: false,
+        data: {
+          tenant: tenantId,
+          classOption: classOptionId,
+          date: startTime.toISOString().split('T')[0],
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          lockOutTime: 60,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+      const testLessonId = lesson.id as number
+
+      const childBooking = await payload.create({
+        collection: 'bookings',
+        data: {
+          user: userId,
+          lesson: testLessonId,
+          tenant: tenantId,
+          status: 'pending',
+        },
+        overrideAccess: true,
+      })
+      const childBookingId = childBooking.id as number
+
+      const event = subscriptionCreatedEvent({
+        metadata: { bookingIds: String(childBookingId) },
+      })
+      ;(event.data.object as { id: string }).id = 'sub_booking_ids_flow_123'
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const subs = await payload.find({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        where: { stripeSubscriptionId: { equals: 'sub_booking_ids_flow_123' } },
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(subs.docs).toHaveLength(1)
+
+      const updatedBooking = await payload.findByID({
+        collection: 'bookings',
+        id: childBookingId,
+        overrideAccess: true,
+      }) as { status?: string }
+      expect(updatedBooking.status).toBe('confirmed')
+
+      const tx = await payload.find({
+        collection: 'transactions' as import('payload').CollectionSlug,
+        where: { booking: { equals: childBookingId } },
+        overrideAccess: true,
+      })
+      expect(tx.totalDocs).toBe(1)
     },
     TEST_TIMEOUT,
   )

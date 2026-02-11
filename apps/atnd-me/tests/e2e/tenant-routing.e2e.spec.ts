@@ -13,26 +13,27 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
   })
 
   test.describe('Valid Subdomain Routing', () => {
-    test('should route to tenant subdomain and maintain context', async ({ page, testData }) => {
+    test('should route to tenant subdomain and render home at /', async ({ page, testData }) => {
       const tenantSlug = testData.tenants[0]!.slug
       await navigateToTenant(page, tenantSlug)
 
-      const homeUrl = `http://${tenantSlug}.localhost:3000/home`
+      // Home page content is rendered at / (no redirect to /home)
+      const tenantRootUrl = `http://${tenantSlug}.localhost:3000/`
       try {
-        await page.waitForURL(homeUrl, { timeout: 10000 })
+        await page.waitForURL(tenantRootUrl, { timeout: 10000 })
       } catch {
         const currentUrl = page.url()
         const has404 = page.locator('text=/tenant not found|404/i').first()
         const is404 = await has404.isVisible().catch(() => false)
         if (is404) throw new Error(`Tenant "${tenantSlug}" not found at ${currentUrl}`)
-        throw new Error(`Expected redirect to /home but stayed on: ${currentUrl}`)
+        throw new Error(`Expected to render at tenant root but got: ${currentUrl}`)
       }
 
       const tenantContext = await getTenantContext(page)
       expect(tenantContext).toBe(tenantSlug)
       const url = new URL(page.url())
       expect(url.hostname).toContain(tenantSlug)
-      expect(page.url()).toContain('/home')
+      expect(url.pathname).toBe('/')
     })
   })
 

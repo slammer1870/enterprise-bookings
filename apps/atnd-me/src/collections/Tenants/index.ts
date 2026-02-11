@@ -147,38 +147,6 @@ export const Tenants: CollectionConfig = {
       admin: { description: 'When Connect was linked.' },
       access: { read: ({ req }) => canReadStripeFields(req.user) },
     },
-    // Step 9 – Class pass configuration (used by purchase flow)
-    {
-      name: 'classPassSettings',
-      type: 'group',
-      label: 'Class pass settings',
-      admin: { description: 'Configure class pass packages and defaults for this tenant.' },
-      fields: [
-        {
-          name: 'enabled',
-          type: 'checkbox',
-          label: 'Enable class passes',
-          defaultValue: false,
-        },
-        {
-          name: 'defaultExpirationDays',
-          type: 'number',
-          label: 'Default expiration (days)',
-          defaultValue: 365,
-          admin: { description: 'Default validity when no package specifies it.' },
-        },
-        {
-          name: 'pricing',
-          type: 'array',
-          label: 'Pass packages',
-          fields: [
-            { name: 'quantity', type: 'number', label: 'Quantity', required: true, min: 1 },
-            { name: 'price', type: 'number', label: 'Price (cents)', required: true, min: 0 },
-            { name: 'name', type: 'text', label: 'Name', required: true, admin: { description: 'e.g. "5-Pack", "10-Pack"' } },
-          ],
-        },
-      ],
-    },
   ],
 }
 

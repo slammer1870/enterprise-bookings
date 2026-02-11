@@ -1,5 +1,5 @@
 import type { Payload } from 'payload'
-import { getTenantContext } from './getTenantContext'
+import { getTenantContext, getTenantWithBranding } from './getTenantContext'
 
 export type TenantSlugSource = import('./getTenantContext').TenantSlugSource
 
@@ -52,9 +52,23 @@ const DEFAULT_FOOTER: FooterData = {
   navItems: [],
 }
 
+/** Resolves logo from doc or tenant; uses tenant as white-label fallback. */
+function resolveLogo(
+  docLogo: unknown,
+  tenantBranding: { logo?: unknown; name?: string } | null
+): NavbarData['logo'] {
+  const hasDocLogo = docLogo && typeof docLogo === 'object' && 'url' in (docLogo as object)
+  if (hasDocLogo) return docLogo as NavbarData['logo']
+  const tenantLogo = tenantBranding?.logo
+  const hasTenantLogo = tenantLogo && typeof tenantLogo === 'object' && 'url' in (tenantLogo as object)
+  if (hasTenantLogo) return tenantLogo as NavbarData['logo']
+  return null
+}
+
 /**
  * Fetches navbar for the current request.
  * When tenant context exists: fetches from navbar collection for that tenant.
+ * White labeling: uses tenant.logo and tenant.name as fallback when navbar has no logo.
  * When no tenant (root domain): returns minimal default for marketing page.
  */
 export async function getNavbarForRequest(
@@ -66,6 +80,8 @@ export async function getNavbarForRequest(
     return DEFAULT_NAVBAR
   }
 
+  const tenantBranding = await getTenantWithBranding(payload, source)
+
   const result = await payload.find({
     collection: 'navbar',
     where: { tenant: { equals: tenant.id } },
@@ -75,19 +91,38 @@ export async function getNavbarForRequest(
   })
 
   const doc = result.docs[0]
-  if (!doc) return DEFAULT_NAVBAR
+  const logo = resolveLogo(doc?.logo, tenantBranding)
+
+  if (!doc) {
+    const logoWithAlt =
+      logo && typeof logo === 'object' && logo !== null
+        ? { ...logo, alt: (logo.alt as string) || tenantBranding?.name || 'Logo' }
+        : logo
+    return {
+      logo: logoWithAlt,
+      logoLink: '/',
+      navItems: [],
+      styling: undefined,
+    }
+  }
+
+  const logoWithAlt =
+    logo && typeof logo === 'object' && logo !== null
+      ? { ...logo, alt: (logo.alt as string) || tenantBranding?.name || 'Logo' }
+      : logo
 
   return {
-    logo: doc.logo,
-    logoLink: doc.logoLink ?? '/',
-    navItems: doc.navItems ?? [],
-    styling: doc.styling,
-  } as NavbarData
+    logo: logoWithAlt,
+    logoLink: (doc as { logoLink?: string }).logoLink ?? '/',
+    navItems: (doc as { navItems?: NavbarData['navItems'] }).navItems ?? [],
+    styling: (doc as { styling?: NavbarData['styling'] }).styling,
+  }
 }
 
 /**
  * Fetches footer for the current request.
  * When tenant context exists: fetches from footer collection for that tenant.
+ * White labeling: uses tenant.logo and tenant.name/description as fallback when footer has no logo/copyright.
  * When no tenant (root domain): returns minimal default for marketing page.
  */
 export async function getFooterForRequest(
@@ -98,6 +133,8 @@ export async function getFooterForRequest(
   if (!tenant) {
     return DEFAULT_FOOTER
   }
+
+  const tenantBranding = await getTenantWithBranding(payload, source)
 
   // Use req.context.tenant instead of where.tenant to avoid known bug
   // (footer find with where.tenant generates invalid SQL: "where  = $1")
@@ -114,13 +151,39 @@ export async function getFooterForRequest(
   })
 
   const doc = result.docs[0]
-  if (!doc) return DEFAULT_FOOTER
+  const logo = resolveLogo(doc?.logo, tenantBranding)
+
+  const logoWithAlt =
+    logo && typeof logo === 'object' && logo !== null
+      ? { ...logo, alt: (logo.alt as string) || tenantBranding?.name || 'Logo' }
+      : logo
+
+  if (!doc) {
+    return {
+      logo: logoWithAlt,
+      logoLink: '/',
+      copyrightText: tenantBranding?.name
+        ? `© ${new Date().getFullYear()} ${tenantBranding.name}`
+        : undefined,
+      navItems: [],
+      styling: undefined,
+    }
+  }
+
+  const docTyped = doc as {
+    logoLink?: string
+    copyrightText?: string
+    navItems?: FooterData['navItems']
+    styling?: FooterData['styling']
+  }
 
   return {
-    logo: doc.logo,
-    logoLink: doc.logoLink ?? '/',
-    copyrightText: doc.copyrightText,
-    navItems: doc.navItems ?? [],
-    styling: doc.styling,
-  } as FooterData
+    logo: logoWithAlt,
+    logoLink: docTyped.logoLink ?? '/',
+    copyrightText:
+      docTyped.copyrightText ??
+      (tenantBranding?.name ? `© ${new Date().getFullYear()} ${tenantBranding.name}` : undefined),
+    navItems: docTyped.navItems ?? [],
+    styling: docTyped.styling,
+  }
 }

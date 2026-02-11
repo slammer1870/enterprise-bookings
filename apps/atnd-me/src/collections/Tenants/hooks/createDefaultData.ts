@@ -100,39 +100,6 @@ export async function createDefaultTenantData({
       slug: 'home',
       title: `Welcome to ${tenant.name}`,
       _status: 'published',
-      hero: {
-        type: 'lowImpact',
-        richText: {
-          root: {
-            type: 'root',
-            children: [
-              {
-                type: 'heading',
-                children: [
-                  {
-                    type: 'text',
-                    detail: 0,
-                    format: 0,
-                    mode: 'normal',
-                    style: '',
-                    text: `Welcome to ${tenant.name}`,
-                    version: 1,
-                  },
-                ],
-                direction: 'ltr',
-                format: '',
-                indent: 0,
-                tag: 'h1',
-                version: 1,
-              },
-            ],
-            direction: 'ltr',
-            format: '',
-            indent: 0,
-            version: 1,
-          },
-        },
-      },
       layout: [
         // Simple HeroScheduleBlock without images
         {

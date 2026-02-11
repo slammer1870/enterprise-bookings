@@ -11,15 +11,10 @@ import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 const DEFAULT_PRICE_CENTS = 1000
 const DEFAULT_EXPIRATION_DAYS = 365
 
-type TenantWithClassPass = {
+type TenantForConnect = {
   id: number
   stripeConnectAccountId?: string | null
   stripeConnectOnboardingStatus?: string | null
-  classPassSettings?: {
-    enabled?: boolean
-    defaultExpirationDays?: number
-    pricing?: Array<{ quantity: number; price: number; name?: string }>
-  } | null
 }
 
 /** Resolve tenant from headers/cookies only. Never call request.json() here — body is consumed by the handler. */
@@ -60,7 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant context required (tenantSlug or x-tenant-slug / x-tenant-id)' }, { status: 400 })
   }
 
-  let tenant: TenantWithClassPass | null = null
+  let tenant: TenantForConnect | null = null
   if (process.env.NODE_ENV === 'test' && /^\d+$/.test(String(tenantSlugOrId))) {
     const t = await payload.findByID({
       collection: 'tenants',
@@ -68,7 +63,7 @@ export async function POST(request: NextRequest) {
       depth: 0,
       overrideAccess: true,
     })
-    tenant = t as TenantWithClassPass
+    tenant = t as TenantForConnect
   }
   if (!tenant) {
     const result = await payload.find({
@@ -78,7 +73,7 @@ export async function POST(request: NextRequest) {
       depth: 0,
       overrideAccess: true,
     })
-    tenant = (result.docs[0] as TenantWithClassPass) ?? null
+    tenant = (result.docs[0] as TenantForConnect) ?? null
   }
 
   if (!tenant) {
@@ -89,16 +84,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
-  const settings = tenant.classPassSettings
-  const expirationDays = typeof body.expirationDays === 'number'
-    ? body.expirationDays
-    : (settings?.defaultExpirationDays ?? DEFAULT_EXPIRATION_DAYS)
-
-  const pricing = settings?.pricing ?? []
-  const packageMatch = pricing.find((p) => p.quantity === quantity)
-  const totalCents = packageMatch
-    ? packageMatch.price
-    : (pricing[0] ? Math.round((pricing[0].price / pricing[0].quantity) * quantity) : DEFAULT_PRICE_CENTS * quantity)
+  const expirationDays =
+    typeof body.expirationDays === 'number' ? body.expirationDays : DEFAULT_EXPIRATION_DAYS
+  const totalCents = DEFAULT_PRICE_CENTS * quantity
 
   try {
     const { client_secret } = await createTenantPaymentIntent({

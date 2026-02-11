@@ -1,21 +1,20 @@
 import { getPayload } from '@/lib/payload'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { RenderBlocks } from '@/blocks/RenderBlocks'
-import { RenderHero } from '@/heros/RenderHero'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { draftMode } from 'next/headers'
 import type { RequiredDataFromCollectionSlug } from 'payload'
 import type { Page } from '@/payload-types'
 import PageClient from './[slug]/page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
+import { queryPageBySlug } from './[slug]/page'
 
 /**
  * Root page handler for both marketing (no subdomain) and tenant home pages
- * 
+ *
  * Flow:
- * - If tenant subdomain detected: Redirect to /home (tenant-specific)
+ * - If tenant subdomain detected: Render the slug "home" page at / (no redirect)
  * - If no subdomain: Try to load a page with slug "root" (editable in admin, no tenant)
  * - Fallback: Show default marketing content
  */
@@ -23,11 +22,11 @@ export default async function RootPage() {
   const { isEnabled: draft } = await draftMode()
   const cookieStore = await cookies()
   const tenantSlug = cookieStore.get('tenant-slug')?.value
-  
-  // If tenant context exists, validate tenant exists before redirecting
+
+  // If tenant context exists, render the home page at / instead of redirecting
   if (tenantSlug) {
     const payload = await getPayload()
-    
+
     // Validate that the tenant exists
     try {
       const tenantResult = await payload.find({
@@ -41,7 +40,7 @@ export default async function RootPage() {
         depth: 0,
         overrideAccess: true,
       })
-      
+
       // If tenant doesn't exist, show 404
       if (!tenantResult.docs[0]) {
         const { notFound } = await import('next/navigation')
@@ -53,9 +52,22 @@ export default async function RootPage() {
       const { notFound } = await import('next/navigation')
       notFound()
     }
-    
-    // Tenant exists, redirect to home page
-    redirect('/home')
+
+    // Render the tenant's home page (slug "home") at /
+    const page = await queryPageBySlug({ slug: 'home' })
+    if (page) {
+      const { layout } = page
+      return (
+        <article>
+          <PageClient />
+          <PayloadRedirects disableNotFound url="/" />
+          {draft && <LivePreviewListener />}
+          <RenderBlocks blocks={layout} />
+        </article>
+      )
+    }
+    // No home page found, let PayloadRedirects handle (redirects or 404)
+    return <PayloadRedirects url="/home" />
   }
 
   // For root domain (no subdomain), try to load an editable landing page
@@ -144,14 +156,13 @@ export default async function RootPage() {
   }
 
   // Render the editable page from admin
-  const { hero, layout } = page
+  const { layout } = page
 
   return (
     <article>
       <PageClient />
       <PayloadRedirects disableNotFound url="/" />
       {draft && <LivePreviewListener />}
-      <RenderHero {...hero} />
       <RenderBlocks blocks={layout} />
     </article>
   )

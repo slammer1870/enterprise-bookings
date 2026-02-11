@@ -25,6 +25,13 @@ import {
   tenantScopedReadFiltered,
 } from '../access/tenant-scoped'
 import {
+  productsRequireStripeConnectRead,
+  productsRequireStripeConnectCreate,
+  productsRequireStripeConnectUpdate,
+  productsRequireStripeConnectDelete,
+  productsRequireStripeConnectAdmin,
+} from '../access/productsRequireStripeConnect'
+import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
 } from '../access/bookingAccess'
@@ -38,6 +45,7 @@ import {
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
+import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 
 import { Page, Post } from '@/payload-types'
@@ -151,6 +159,8 @@ export const plugins: Plugin[] = [
   }),
   // Must run after both payloadAuth() and rolesPlugin() to sync role/roles fields
   fixBetterAuthRoleField(),
+  // Hide Better Auth collections (accounts, sessions, verifications) from tenant-admins; only full admins see them
+  hideBetterAuthCollectionsFromTenantAdmins(),
   bookingsPlugin({
     enabled: true,
     lessonOverrides: {
@@ -292,26 +302,29 @@ export const plugins: Plugin[] = [
       classOptionsSlug: 'class-options',
       bookingTransactionsOverrides: {
         access: {
-          read: tenantScopedReadFiltered,
-          create: tenantScopedCreate,
-          update: tenantScopedUpdate,
-          delete: tenantScopedDelete,
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
         },
       },
       classPassesOverrides: {
         access: {
-          read: tenantScopedReadFiltered,
-          create: tenantScopedCreate,
-          update: tenantScopedUpdate,
-          delete: tenantScopedDelete,
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
         },
       },
       classPassTypesOverrides: {
         access: {
-          read: tenantScopedReadFiltered,
-          create: tenantScopedCreate,
-          update: tenantScopedUpdate,
-          delete: tenantScopedDelete,
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
         },
       },
     },
@@ -321,10 +334,11 @@ export const plugins: Plugin[] = [
       paymentMethodSlugs: ['class-options'],
       dropInsOverrides: {
         access: {
-          read: tenantScopedReadFiltered,
-          create: tenantScopedCreate,
-          update: tenantScopedUpdate,
-          delete: tenantScopedDelete,
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
         },
       },
     },
@@ -344,6 +358,24 @@ export const plugins: Plugin[] = [
           productType: 'subscription',
           classPriceAmount: classPriceAmountCents,
         })
+      },
+      plansOverrides: {
+        access: {
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
+        },
+      },
+      subscriptionOverrides: {
+        access: {
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
+        },
       },
     },
   }),

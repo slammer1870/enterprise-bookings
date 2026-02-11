@@ -24,8 +24,9 @@ import * as migration_20260129_bookings_subscription_id_used from './20260129_bo
 import * as migration_20260129_class_pass_types_price_in_euros from './20260129_class_pass_types_price_in_euros';
 import * as migration_20260129_memberships_allow_multiple_per_lesson from './20260129_memberships_allow_multiple_per_lesson';
 import * as migration_20260210_064706 from './20260210_064706';
-import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
 import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pages_generate_slug';
+import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
+import * as migration_20260211_144828 from './20260211_144828';
 import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
 
 export const migrations = [
@@ -157,12 +158,7 @@ export const migrations = [
   {
     up: migration_20260210_064706.up,
     down: migration_20260210_064706.down,
-    name: '20260210_064706'
-  },
-  {
-    up: migration_20260210_drop_payment_methods_allowed_class_passes.up,
-    down: migration_20260210_drop_payment_methods_allowed_class_passes.down,
-    name: '20260210_drop_payment_methods_allowed_class_passes',
+    name: '20260210_064706',
   },
   {
     up: migration_20260210_drop_pages_generate_slug.up,
@@ -170,8 +166,18 @@ export const migrations = [
     name: '20260210_drop_pages_generate_slug',
   },
   {
+    up: migration_20260210_drop_payment_methods_allowed_class_passes.up,
+    down: migration_20260210_drop_payment_methods_allowed_class_passes.down,
+    name: '20260210_drop_payment_methods_allowed_class_passes',
+  },
+  {
+    up: migration_20260211_144828.up,
+    down: migration_20260211_144828.down,
+    name: '20260211_144828',
+  },
+  {
     up: migration_20260211_users_stripe_customer_id.up,
     down: migration_20260211_users_stripe_customer_id.down,
-    name: '20260211_users_stripe_customer_id',
+    name: '20260211_users_stripe_customer_id'
   },
 ];

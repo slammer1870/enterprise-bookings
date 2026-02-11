@@ -27,10 +27,12 @@ export function isTenantAdmin(u: unknown): boolean {
  *
  * - Super admin: can read all users (no query filter)
  * - Tenant admin: can only read users in their assigned tenant
- *   (registrationTenant in their tenant IDs, or themselves)
+ *   - Users who registered with tenant (registrationTenant in tenant IDs)
+ *   - Users who have previously made a booking with tenant
+ *   - The tenant-admin themselves
  * - Regular user: can only read themselves
  */
-export const userTenantRead: Access = ({ req: { user } }) => {
+export const userTenantRead: Access = async ({ req: { user, payload } }) => {
   if (!user) return false
 
   if (isAdmin(user)) {
@@ -45,12 +47,30 @@ export const userTenantRead: Access = ({ req: { user } }) => {
       ? (user as { id: number }).id
       : (user as number)
 
-    const where: Where = {
-      or: [
-        { registrationTenant: { in: tenantIds } },
-        { id: { equals: userId } },
-      ],
+    const orClauses: Where['or'] = [
+      { registrationTenant: { in: tenantIds } },
+      { id: { equals: userId } },
+    ]
+
+    const bookingsWithTenant = await payload.find({
+      collection: 'bookings',
+      where: { tenant: { in: tenantIds } },
+      limit: 5000,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const userIdsWithBookings = [
+      ...new Set(
+        bookingsWithTenant.docs
+          .map((b) => (typeof b.user === 'object' && b.user != null && 'id' in b.user ? (b.user as { id: number }).id : b.user))
+          .filter((id): id is number => typeof id === 'number')
+      ),
+    ]
+    if (userIdsWithBookings.length > 0) {
+      orClauses.push({ id: { in: userIdsWithBookings } })
     }
+
+    const where: Where = { or: orClauses }
     return where
   }
 
@@ -58,9 +78,8 @@ export const userTenantRead: Access = ({ req: { user } }) => {
   const readUserId = typeof user === 'object' && user !== null && 'id' in user
     ? (user as { id: number }).id
     : (user as number)
-  return {
-    id: { equals: readUserId },
-  }
+  const where: Where = { id: { equals: readUserId } }
+  return where
 }
 
 /**
@@ -68,9 +87,10 @@ export const userTenantRead: Access = ({ req: { user } }) => {
  *
  * - Super admin: can update any user
  * - Tenant admin: can only update users in their assigned tenant
+ *   (registrationTenant, or users who have a booking with tenant, or themselves)
  * - Regular user: can only update themselves
  */
-export const userTenantUpdate: Access = ({ req: { user }, id }) => {
+export const userTenantUpdate: Access = async ({ req: { user, payload }, id }) => {
   if (!user) return false
 
   if (isAdmin(user)) {
@@ -85,18 +105,36 @@ export const userTenantUpdate: Access = ({ req: { user }, id }) => {
       ? (user as { id: number }).id
       : (user as number)
 
-    const where: Where = {
-      or: [
-        { registrationTenant: { in: tenantIds } },
-        { id: { equals: userId } },
-      ],
+    const orClauses: Where['or'] = [
+      { registrationTenant: { in: tenantIds } },
+      { id: { equals: userId } },
+    ]
+
+    const bookingsWithTenant = await payload.find({
+      collection: 'bookings',
+      where: { tenant: { in: tenantIds } },
+      limit: 5000,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const userIdsWithBookings = [
+      ...new Set(
+        bookingsWithTenant.docs
+          .map((b) => (typeof b.user === 'object' && b.user != null && 'id' in b.user ? (b.user as { id: number }).id : b.user))
+          .filter((id): id is number => typeof id === 'number')
+      ),
+    ]
+    if (userIdsWithBookings.length > 0) {
+      orClauses.push({ id: { in: userIdsWithBookings } })
     }
+
+    const where: Where = { or: orClauses }
     return where
   }
 
   // Regular user: can only update themselves
-  const userId = typeof user === 'object' && user !== null && 'id' in user
+  const updateUserId = typeof user === 'object' && user !== null && 'id' in user
     ? (user as { id: number }).id
     : (user as number)
-  return id === userId
+  return id === updateUserId
 }

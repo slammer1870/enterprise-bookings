@@ -11,7 +11,6 @@ import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
 import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
-import { hero } from '@/heros/config'
 import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
 import { Schedule } from '@/blocks/Schedule/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
@@ -91,10 +90,6 @@ export const Pages: CollectionConfig<'pages'> = {
       type: 'tabs',
       tabs: [
         {
-          fields: [hero],
-          label: 'Hero',
-        },
-        {
           fields: [
             {
               name: 'layout',
@@ -103,12 +98,14 @@ export const Pages: CollectionConfig<'pages'> = {
                 HeroSchedule,
                 Hero,
                 ThreeColumnLayout,
-                // availableBlocks already includes HeroSchedule and Hero, so we filter them out
                 ...availableBlocks.filter(
                   (block) => block.slug !== 'heroSchedule' && block.slug !== 'hero'
                 ),
               ],
               required: true,
+              admin: {
+                description: 'Add blocks to build your page. Hero, Hero Schedule, and other blocks can be added in any order.',
+              },
             },
           ],
           label: 'Content',

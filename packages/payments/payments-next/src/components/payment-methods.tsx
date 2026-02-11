@@ -178,27 +178,45 @@ export function PaymentMethods({
           ? lesson.tenant.id
           : lesson.tenant
         : undefined;
-    const metaWithTenant = {
+    const metaWithTenant: Record<string, string> = {
       ...cleanMetadata,
+      lessonId: String(lesson.id),
       ...(tenantId != null && { tenantId: String(tenantId) }),
     };
+    if (pendingBookings && pendingBookings.length > 0) {
+      metaWithTenant.bookingIds = pendingBookings
+        .map((b) => b.id)
+        .join(",");
+    }
 
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SERVER_URL || "";
     await createCheckoutSession({
       priceId: planId,
       quantity: 1,
       metadata: metaWithTenant,
       mode: "subscription",
-      successUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
-      cancelUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/bookings/${lesson.id}`,
+      successUrl: `${origin}/dashboard`,
+      cancelUrl: `${origin}/bookings/${lesson.id}`,
     });
   };
 
   const handleCreateCustomerPortal = async () => {
-    await createCustomerPortal();
+    const returnUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/dashboard`
+        : undefined;
+    await createCustomerPortal({ returnUrl });
   };
 
   const handleCreateCustomerUpgradePortal = async (productId: string) => {
-    await createCustomerUpgradePortal({ productId });
+    const returnUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/dashboard`
+        : undefined;
+    await createCustomerUpgradePortal({ productId, returnUrl });
   };
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;

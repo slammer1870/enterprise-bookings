@@ -57,11 +57,14 @@ function PaymentForm({
       revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
     });
 
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SERVER_URL || "";
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        // Make sure to change this to your payment completion page
-        return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+        return_url: `${origin}/dashboard`,
       },
     });
 

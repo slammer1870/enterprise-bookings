@@ -29,7 +29,7 @@ docker compose -f apps/atnd-me/docker-compose.yml build
 
 | Variable | Description |
 |---------|-------------|
-| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_CONNECT_CLIENT_ID`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_CONNECT_CLIENT_ID`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `STRIPE_WEBHOOK_SECRET` (platform payments), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
 | Auth | Better Auth URL and related vars as used in the app. |
 | `PREVIEW_SECRET`, `SEED_SECRET`, `CRON_SECRET` | For preview, seed, and cron endpoints. |
 | Sentry | As configured in the app. |
@@ -38,30 +38,23 @@ Use `.env` or Coolify env UI; do not commit secrets.
 
 ## Stripe webhooks
 
-atnd-me uses a **single Connect webhook** for account, payment, and subscription events. Subscriptions are created on the **connected account** so events include `event.account`; subscription lifecycle (create, update, cancel, pause) is handled in this route. The sync job (`syncStripeSubscriptions`) is **disabled** for atnd-me; other apps that want it set `membership.syncStripeSubscriptions: true` in the plugin config.
+atnd-me uses **one URL** for all webhooks (`/api/stripe/webhook`) but **two webhook endpoints** in Stripe: payments on subdomains use **destination charges**, so Stripe sends `payment_intent.succeeded` to the **platform** webhook, not the Connect one. Account/subscription events use the **Connect** webhook. Both endpoints use the same URL; each has its own signing secret. Subscriptions are created on the **connected account** so events include `event.account`; subscription lifecycle (create, update, cancel, pause) is handled in this route. The sync job (`syncStripeSubscriptions`) is **disabled** for atnd-me; other apps that want it set `membership.syncStripeSubscriptions: true` in the plugin config.
 
 ### Webhook URL
 
-- **URL**: `{NEXT_PUBLIC_SERVER_URL}/api/stripe/webhook` (e.g. `https://atnd-me.com/api/stripe/webhook`). Must be HTTPS in production; no trailing slash.
+- **URL** (both endpoints): `{NEXT_PUBLIC_SERVER_URL}/api/stripe/webhook` (e.g. `https://atnd-me.com/api/stripe/webhook`). Must be HTTPS in production; no trailing slash.
 
 ### Environment
 
-- Set **`STRIPE_CONNECT_WEBHOOK_SECRET`** to the **Signing secret** (e.g. `whsec_...`) from the Stripe webhook endpoint. Required for signature verification when using Stripe Connect.
+- **`STRIPE_CONNECT_WEBHOOK_SECRET`** – Signing secret from the **Connect** webhook. Required for account and subscription events.
+- **`STRIPE_WEBHOOK_SECRET`** – Signing secret from the **platform** webhook. Required for `payment_intent.succeeded` (subdomain payments).
 
 ### Stripe Dashboard
 
 1. Go to **Developers → Webhooks** (or **Connect → Webhooks**).
 2. For **Connect**, use “Listen to events on Connected accounts” and add the endpoint URL above.
-3. Select events:
-   - `account.updated`
-   - `account.application.deauthorized`
-   - `payment_intent.succeeded`
-   - `customer.subscription.created`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - `customer.subscription.paused`
-   - `customer.subscription.resumed`
-4. After creating the endpoint, copy the **Signing secret** and set it as `STRIPE_CONNECT_WEBHOOK_SECRET`.
+3. Select events: `account.updated`, `account.application.deauthorized`, `customer.subscription.*` (no `payment_intent.succeeded` here—that goes to the platform endpoint). Copy the **Signing secret** → `STRIPE_CONNECT_WEBHOOK_SECRET`.
+4. Add a **second** endpoint (same URL). Do **not** enable "Listen to events on Connected accounts". Select only `payment_intent.succeeded`. Copy its **Signing secret** → `STRIPE_WEBHOOK_SECRET`.
 
 ### Subscription management
 

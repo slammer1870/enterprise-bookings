@@ -15,7 +15,10 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
   const planId = event.data.object.items.data[0]?.plan?.product;
 
-  const { lessonId } = event.data.object.metadata;
+  const metadata = event.data.object.metadata ?? {};
+  const lessonId =
+    metadata.lessonId ?? metadata.lesson_id ?? undefined;
+  const bookingIdsRaw = metadata.bookingIds ?? undefined;
 
   // Get current_period_start and current_period_end from subscription or items
   // In newer Stripe API versions, these may only be on subscription items
@@ -69,8 +72,60 @@ export const subscriptionCreated: StripeWebhookHandler<{
       },
     });
 
-    if (lessonId) {
-      // Convert lessonId to number and verify it exists
+    const confirmBookingAndCreateTransaction = async (
+      bookingId: number,
+      tenantId: number | undefined
+    ) => {
+      const hasTransactions = await payload.find({
+        collection: asCollection("transactions"),
+        where: { booking: { equals: bookingId } },
+        limit: 1,
+      });
+      if (hasTransactions.totalDocs === 0) {
+        await payload.create({
+          collection: asCollection("transactions"),
+          data: {
+            booking: bookingId,
+            paymentMethod: "subscription",
+            subscriptionId: subscription.id as number,
+            ...(tenantId != null ? { tenant: tenantId } : {}),
+          },
+          overrideAccess: true,
+        });
+      }
+    };
+
+    if (bookingIdsRaw) {
+      const ids = bookingIdsRaw
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => Number.isFinite(n));
+      for (const id of ids) {
+        try {
+          const booking = (await payload.findByID({
+            collection: "bookings",
+            id,
+            depth: 1,
+          })) as { tenant?: number | { id: number }; status?: string } | null;
+          if (!booking) continue;
+          await payload.update({
+            collection: "bookings",
+            id,
+            data: { status: "confirmed" },
+            overrideAccess: true,
+          });
+          const tenantId =
+            booking?.tenant != null
+              ? typeof booking.tenant === "object" && "id" in booking.tenant
+                ? booking.tenant.id
+                : (booking.tenant as number)
+              : undefined;
+          await confirmBookingAndCreateTransaction(id, tenantId);
+        } catch {
+          payload.logger.error(`Failed to confirm booking ${id} from subscription metadata`);
+        }
+      }
+    } else if (lessonId) {
       const lessonIdNum = Number(lessonId);
       if (isNaN(lessonIdNum)) {
         payload.logger.error(`Invalid lessonId in metadata: ${lessonId}`);
@@ -129,24 +184,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
             : (lesson.tenant as number)
           : undefined;
 
-      const hasTransactions = await payload.find({
-        collection: asCollection("transactions"),
-        where: { booking: { equals: bookingId } },
-        limit: 1,
-      });
-
-      if (hasTransactions.totalDocs === 0) {
-        await payload.create({
-          collection: asCollection("transactions"),
-          data: {
-            booking: bookingId,
-            paymentMethod: "subscription",
-            subscriptionId: subscription.id as number,
-            ...(tenantId != null ? { tenant: tenantId } : {}),
-          },
-          overrideAccess: true,
-        });
-      }
+      await confirmBookingAndCreateTransaction(bookingId, tenantId);
     }
   } catch (error) {
     payload.logger.error(`Error creating subscription: ${error}`);
