@@ -294,10 +294,12 @@ export const bookingsRouter = {
         status: z.enum(["confirmed", "pending"]).optional(),
         /** When provided, bookings are created as confirmed using this subscription (no payment). */
         subscriptionId: z.number().optional(),
+        /** When provided with subscriptionId, these pending booking IDs are confirmed (updated) instead of creating new ones. */
+        pendingBookingIds: z.array(z.number()).optional(),
       })
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
-      const { lessonId, quantity, status: statusInput, subscriptionId } = input;
+      const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds } = input;
       const status = subscriptionId != null ? "confirmed" : (statusInput ?? "confirmed");
 
       // Extract tenant slug from cookie header (from subdomain)
@@ -474,8 +476,84 @@ export const bookingsRouter = {
         }
       }
 
-      // Create multiple bookings
-      const createdBookings: Booking[] = [];
+      const lessonTenantId =
+        typeof lesson.tenant === "object" && lesson.tenant != null
+          ? (lesson.tenant as { id: number }).id
+          : (lesson.tenant as number | undefined) ?? null;
+
+      // When subscriptionId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
+      const confirmedBookings: Booking[] = [];
+      if (
+        subscriptionId != null &&
+        pendingBookingIds != null &&
+        pendingBookingIds.length > 0 &&
+        paymentMethodUsed === "subscription" &&
+        subscriptionIdUsed != null
+      ) {
+        if (pendingBookingIds.length > quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "pendingBookingIds count cannot exceed quantity.",
+          });
+        }
+        const pendingResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            id: { in: pendingBookingIds },
+            lesson: { equals: lessonId },
+            user: { equals: ctx.user.id },
+            status: { equals: "pending" },
+          },
+          limit: pendingBookingIds.length + 1,
+          depth: 1,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+        if (pendingResult.docs.length !== pendingBookingIds.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized pending bookings for this lesson.",
+          });
+        }
+        for (const doc of pendingResult.docs) {
+          const id = doc.id as number;
+          const updated = await updateSafe<Booking>(
+            ctx.payload,
+            "bookings",
+            id,
+            {
+              status: "confirmed",
+              paymentMethodUsed: "subscription",
+              subscriptionIdUsed,
+            } as Partial<Booking>,
+            { overrideAccess: true }
+          );
+          confirmedBookings.push(updated as Booking);
+          if (hasCollection(ctx.payload, "transactions")) {
+            const existingTx = await ctx.payload.find({
+              collection: "transactions" as import("payload").CollectionSlug,
+              where: { booking: { equals: id } },
+              limit: 1,
+              overrideAccess: true,
+            });
+            if (existingTx.totalDocs === 0) {
+              await ctx.payload.create({
+                collection: "transactions" as import("payload").CollectionSlug,
+                data: {
+                  booking: id,
+                  paymentMethod: "subscription",
+                  subscriptionId: subscriptionIdUsed,
+                  ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                } as Record<string, unknown>,
+                overrideAccess: true,
+              });
+            }
+          }
+        }
+      }
+
+      // Create any additional new bookings (when not confirming pending, or quantity > pendingBookingIds.length)
+      const createCount =
+        confirmedBookings.length > 0 ? quantity - confirmedBookings.length : quantity;
       const baseData: Record<string, unknown> = {
         lesson: Number(lessonId),
         user: Number(ctx.user.id),
@@ -484,7 +562,7 @@ export const bookingsRouter = {
       if (paymentMethodUsed) (baseData as any).paymentMethodUsed = paymentMethodUsed;
       if (subscriptionIdUsed != null) (baseData as any).subscriptionIdUsed = subscriptionIdUsed;
 
-      for (let i = 0; i < quantity; i++) {
+      for (let i = 0; i < createCount; i++) {
         const booking = await createSafe<Booking>(
           ctx.payload,
           "bookings",
@@ -494,10 +572,10 @@ export const bookingsRouter = {
             user: ctx.user,
           }
         );
-        createdBookings.push(booking as Booking);
+        confirmedBookings.push(booking as Booking);
       }
 
-      return createdBookings;
+      return confirmedBookings;
     }),
   createOrUpdateBooking: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
