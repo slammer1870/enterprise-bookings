@@ -258,8 +258,30 @@ export const lessonsRouter = {
         });
       }
 
-      // Validate remaining capacity
+      // Validate remaining capacity - but allow access if the user has pending bookings
+      // for this lesson so they can return to the page and complete payment
       if (lesson.remainingCapacity <= 0 || lesson.bookingStatus === "waitlist") {
+        if (hasCollection(ctx.payload, "bookings")) {
+          const userId = typeof ctx.user?.id === "string" ? parseInt(ctx.user.id, 10) : ctx.user?.id;
+          if (userId && !Number.isNaN(userId)) {
+            const userPending = await findSafe(ctx.payload, "bookings", {
+              where: {
+                and: [
+                  { lesson: { equals: input.id } },
+                  { user: { equals: userId } },
+                  { status: { equals: "pending" } },
+                ],
+              },
+              limit: 1,
+              depth: 0,
+              overrideAccess: true,
+            });
+            if (userPending.docs.length > 0) {
+              // User has pending bookings; allow through so they can complete checkout
+              return lesson;
+            }
+          }
+        }
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "This lesson is fully booked",

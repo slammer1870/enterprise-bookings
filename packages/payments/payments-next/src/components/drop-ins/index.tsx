@@ -21,6 +21,7 @@ function DropInCheckoutWithFee({
   createPaymentIntentUrl,
   FeeBreakdownComponent: _FeeBreakdownComponent,
   lessonId,
+  onPaymentRedirectStart,
 }: {
   classPriceAmount: number;
   price: { totalAmount: number; totalAmountBeforeDiscount?: number; discountApplied?: boolean };
@@ -29,6 +30,7 @@ function DropInCheckoutWithFee({
   createPaymentIntentUrl?: string;
   FeeBreakdownComponent?: React.ComponentType<{ classPriceCents: number; lessonId: number }>;
   lessonId: number;
+  onPaymentRedirectStart?: () => void;
 }) {
   const trpc = useTRPC();
   const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { lessonId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
@@ -59,6 +61,7 @@ function DropInCheckoutWithFee({
       priceComponent={displayComponent}
       metadata={metadata}
       createPaymentIntentUrl={createPaymentIntentUrl}
+      onPaymentRedirectStart={onPaymentRedirectStart}
     />
   );
 }
@@ -77,6 +80,7 @@ export const DropInView = ({
   dropIn,
   quantity,
   metadata,
+  onPaymentRedirectStart,
   createPaymentIntentUrl,
   FeeBreakdownComponent,
 }: {
@@ -84,6 +88,8 @@ export const DropInView = ({
   dropIn: DropIn | number;
   quantity?: number;
   metadata?: Record<string, string>;
+  /** Called when user starts payment redirect (e.g. to Stripe) so parent can avoid cancelling pending bookings */
+  onPaymentRedirectStart?: () => void;
   createPaymentIntentUrl?: string;
   /** Optional: render fee breakdown (class price + booking fee + total) when drop-in has platform fee */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
@@ -165,6 +171,7 @@ export const DropInView = ({
           createPaymentIntentUrl={createPaymentIntentUrl}
           FeeBreakdownComponent={FeeBreakdownComponent}
           lessonId={lessonIdNum}
+          onPaymentRedirectStart={onPaymentRedirectStart}
         />
       ) : (
         <CheckoutForm
@@ -172,6 +179,7 @@ export const DropInView = ({
           priceComponent={<PriceView price={price} />}
           metadata={metadata}
           createPaymentIntentUrl={createPaymentIntentUrl}
+          onPaymentRedirectStart={onPaymentRedirectStart}
         />
       )}
     </div>

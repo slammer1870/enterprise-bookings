@@ -32,9 +32,11 @@ function getStripePromise() {
 function PaymentForm({
   priceComponent,
   price,
+  onPaymentRedirectStart,
 }: {
   priceComponent: React.ReactNode;
   price: number;
+  onPaymentRedirectStart?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -53,6 +55,7 @@ function PaymentForm({
     }
 
     setIsLoading(true);
+    onPaymentRedirectStart?.();
     trackEvent("Payment Button Clicked", {
       revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
     });
@@ -124,6 +127,7 @@ export default function CheckoutForm({
   priceComponent,
   metadata,
   createPaymentIntentUrl,
+  onPaymentRedirectStart,
 }: {
   price: number;
   priceComponent: React.ReactNode;
@@ -134,6 +138,8 @@ export default function CheckoutForm({
    * POST /api/stripe/create-payment-intent
    */
   createPaymentIntentUrl?: string;
+  /** Called when user starts payment (before redirect to Stripe) so parent can avoid cancelling pending bookings */
+  onPaymentRedirectStart?: () => void;
 }) {
   const appearance = {
     theme: "stripe",
@@ -254,7 +260,11 @@ export default function CheckoutForm({
 
   return (
     <Elements stripe={stripe} options={{ appearance, clientSecret }}>
-      <PaymentForm priceComponent={priceComponent} price={price} />
+      <PaymentForm
+        priceComponent={priceComponent}
+        price={price}
+        onPaymentRedirectStart={onPaymentRedirectStart}
+      />
     </Elements>
   );
 }

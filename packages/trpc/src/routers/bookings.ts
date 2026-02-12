@@ -550,6 +550,60 @@ export const bookingsRouter = {
 
       return updatedBooking as Booking;
     }),
+
+  /**
+   * Cancel all of the current user's pending bookings for a lesson.
+   * Used when the user leaves the booking checkout page so capacity is released.
+   */
+  cancelPendingBookingsForLesson: protectedProcedure
+    .use(requireCollections("bookings"))
+    .input(z.object({ lessonId: z.number() }))
+    .mutation(async ({ ctx, input }): Promise<{ cancelled: number }> => {
+      const cookieHeader = ctx.headers.get("cookie") || "";
+      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+      let tenantSlug: string | null = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      let tenantId: number | null = null;
+      if (tenantSlug && hasCollection(ctx.payload, "tenants")) {
+        try {
+          const tenantResult = await findSafe(ctx.payload, "tenants", {
+            where: { slug: { equals: tenantSlug } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          });
+          if (tenantResult.docs[0]) tenantId = tenantResult.docs[0].id as number;
+        } catch {
+          // continue without tenant
+        }
+      }
+
+      const pending = await findSafe(ctx.payload, "bookings", {
+        where: {
+          and: [
+            { lesson: { equals: input.lessonId } },
+            { user: { equals: ctx.user.id } },
+            { status: { equals: "pending" } },
+          ],
+        },
+        limit: 100,
+        depth: 0,
+        overrideAccess: tenantId ? true : false,
+        user: ctx.user,
+      });
+
+      let cancelled = 0;
+      for (const doc of pending.docs) {
+        const id = doc.id as number;
+        if (id == null) continue;
+        await updateSafe(ctx.payload, "bookings", id, { status: "cancelled" }, {
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        });
+        cancelled += 1;
+      }
+      return { cancelled };
+    }),
+
   joinWaitlist: protectedProcedure
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))

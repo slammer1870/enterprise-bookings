@@ -853,6 +853,114 @@ describe('tRPC Bookings Integration Tests', () => {
     }, TEST_TIMEOUT)
   })
 
+  describe('bookings.cancelPendingBookingsForLesson', () => {
+    it('cancels all of the current user’s pending bookings for the lesson', async () => {
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(14, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(15, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+
+      const confirmed = await createWithTenant<any>('bookings', {
+        lesson: testLesson.id,
+        user: user.id,
+        status: 'confirmed',
+      })
+      const pending1 = await createWithTenant<any>('bookings', {
+        lesson: testLesson.id,
+        user: user.id,
+        status: 'pending',
+      })
+      const pending2 = await createWithTenant<any>('bookings', {
+        lesson: testLesson.id,
+        user: user.id,
+        status: 'pending',
+      })
+
+      const caller = await createCaller()
+      const result = await caller.bookings.cancelPendingBookingsForLesson({
+        lessonId: testLesson.id,
+      })
+
+      expect(result).toEqual({ cancelled: 2 })
+
+      const after = await caller.bookings.getUserBookingsForLesson({
+        lessonId: testLesson.id,
+      })
+      expect(after.length).toBe(1)
+      expect(after[0]?.id).toBe(confirmed.id)
+      expect(after[0]?.status).toBe('confirmed')
+
+      const dbPending1 = await payload.findByID({
+        collection: 'bookings',
+        id: pending1.id,
+      })
+      const dbPending2 = await payload.findByID({
+        collection: 'bookings',
+        id: pending2.id,
+      })
+      expect(dbPending1.status).toBe('cancelled')
+      expect(dbPending2.status).toBe('cancelled')
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { id: { in: [confirmed.id, pending1.id, pending2.id] } },
+      })
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('returns { cancelled: 0 } when user has no pending bookings for the lesson', async () => {
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(16, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(17, 0, 0, 0)
+
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+
+      const caller = await createCaller()
+      const result = await caller.bookings.cancelPendingBookingsForLesson({
+        lessonId: testLesson.id,
+      })
+
+      expect(result).toEqual({ cancelled: 0 })
+
+      await payload.delete({
+        collection: 'lessons',
+        where: { id: { equals: testLesson.id } },
+      })
+    }, TEST_TIMEOUT)
+  })
+
   describe('bookings modification flow (MVP)', () => {
     it('should allow increasing booking quantity', async () => {
       // Create a fresh lesson with capacity

@@ -57,6 +57,7 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
                     lesson={lesson}
                     initialBookings={userBookings}
                     PaymentMethodsComponent={PaymentMethodsConnect}
+                    cancelPendingApiUrl="/api/bookings/cancel-pending"
                 />
             </div>
         )

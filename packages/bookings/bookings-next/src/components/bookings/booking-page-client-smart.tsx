@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Lesson } from '@repo/shared-types'
+import { useTRPC } from '@repo/trpc/client'
+import { useMutation } from '@tanstack/react-query'
 import { BookingSummary } from './booking-summary'
 import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
@@ -43,6 +45,7 @@ interface BookingPageClientSmartProps {
     quantity?: number
     pendingBookings?: import('@repo/shared-types').Booking[]
     onPaymentSuccess?: () => void
+    onPaymentRedirectStart?: () => void
   }>
 }
 
@@ -51,7 +54,21 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   onSuccessRedirect,
   PaymentMethodsComponent,
 }) => {
+  const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
+  const paymentRedirectInProgressRef = useRef(false)
+
+  const { mutateAsync: cancelPendingForLesson } = useMutation(
+    trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
+  )
+
+  // When user leaves the booking page, cancel any pending bookings for this lesson
+  useEffect(() => {
+    return () => {
+      if (paymentRedirectInProgressRef.current) return
+      cancelPendingForLesson({ lessonId: lesson.id }).catch(() => {})
+    }
+  }, [lesson.id, cancelPendingForLesson])
 
   const maxQuantity = Math.max(1, lesson.remainingCapacity || 1)
 
@@ -85,7 +102,11 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
             </CardContent>
           </Card>
 
-          <PaymentMethodsComponent lesson={lesson} quantity={quantity} />
+          <PaymentMethodsComponent
+            lesson={lesson}
+            quantity={quantity}
+            onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
+          />
         </div>
       )
     }

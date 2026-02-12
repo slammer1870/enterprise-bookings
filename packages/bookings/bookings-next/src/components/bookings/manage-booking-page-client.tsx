@@ -46,7 +46,14 @@ interface ManageBookingPageClientProps {
     lesson: Lesson
     pendingBookings?: Booking[]
     onPaymentSuccess?: () => void
+    /** Called when user starts payment redirect (e.g. to Stripe); used to avoid cancelling pending on page leave */
+    onPaymentRedirectStart?: () => void
   }>
+  /**
+   * Optional URL for POST to cancel pending bookings (e.g. /api/bookings/cancel-pending).
+   * When set, used on beforeunload so pending are cancelled when user closes the tab.
+   */
+  cancelPendingApiUrl?: string
 }
 
 /**
@@ -67,6 +74,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   lesson,
   initialBookings,
   PaymentMethodsComponent,
+  cancelPendingApiUrl,
 }) => {
   const trpc = useTRPC()
   const router = useRouter()
@@ -128,6 +136,30 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     }
   }, [pendingFromServer, activeBookings.length])
 
+  // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
+  // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
+  useEffect(() => {
+    if (!isInPaymentFlow || pendingBookings.length === 0) return
+    const lessonId = lesson.id
+    const handleBeforeUnload = () => {
+      if (paymentRedirectInProgressRef.current) return
+      if (cancelPendingApiUrl) {
+        fetch(cancelPendingApiUrl, {
+          method: 'POST',
+          body: JSON.stringify({ lessonId }),
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+        }).catch(() => {})
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (paymentRedirectInProgressRef.current) return
+      cancelPendingForLesson({ lessonId }).catch(() => {})
+    }
+  }, [isInPaymentFlow, pendingBookings.length, lesson.id, cancelPendingForLesson, cancelPendingApiUrl])
+
   // Keep the UI in sync with the server-backed booking count.
   // This prevents the quantity control from getting stuck at 0 before the query resolves.
   useEffect(() => {
@@ -139,6 +171,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null)
   // Track when we're abandoning checkout (cancelling all pending)
   const [isAbandoningCheckout, setIsAbandoningCheckout] = useState(false)
+  // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
+  const paymentRedirectInProgressRef = useRef(false)
 
   // Check if lesson has payment methods configured
   const hasPaymentMethods = Boolean(
@@ -203,6 +237,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         toast.error(error.message || 'Failed to update bookings')
       },
     })
+  )
+
+  const { mutateAsync: cancelPendingForLesson } = useMutation(
+    trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
   )
 
   const { mutateAsync: setBookingQuantity, isPending: isSettingQuantity } = useMutation(
@@ -409,6 +447,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               lesson={lesson}
               pendingBookings={pendingBookings}
               onPaymentSuccess={handlePaymentSuccess}
+              onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
             />
           </CardContent>
         </Card>

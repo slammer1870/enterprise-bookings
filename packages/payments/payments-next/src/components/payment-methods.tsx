@@ -27,6 +27,11 @@ type PaymentMethodsProps = {
   /** Callback when payment succeeds (e.g. to refresh manage page) */
   onPaymentSuccess?: () => void;
   /**
+   * Called when the user has started a payment redirect (e.g. to Stripe).
+   * Use this to avoid cancelling pending bookings when the page unloads for the redirect.
+   */
+  onPaymentRedirectStart?: () => void;
+  /**
    * Override the server endpoint used to create a PaymentIntent (drop-ins).
    * Defaults to the bookings-payments plugin endpoint served via Payload's API.
    */
@@ -93,6 +98,7 @@ export function PaymentMethods({
   quantity: quantityProp,
   pendingBookings,
   onPaymentSuccess: _onPaymentSuccess,
+  onPaymentRedirectStart,
   createPaymentIntentUrl,
   FeeBreakdownComponent,
 }: PaymentMethodsProps) {
@@ -117,6 +123,7 @@ export function PaymentMethods({
     trpc.payments.createCustomerCheckoutSession.mutationOptions({
       onSuccess: (session: { url: string | null }) => {
         if (session.url) {
+          onPaymentRedirectStart?.();
           router.push(session.url);
         } else {
           toast.error("Failed to create checkout session");
@@ -133,6 +140,7 @@ export function PaymentMethods({
     trpc.payments.createCustomerPortal.mutationOptions({
       onSuccess: (session: { url: string | null }) => {
         if (session.url) {
+          onPaymentRedirectStart?.();
           router.push(session.url);
         } else {
           toast.error("Failed to create customer portal");
@@ -148,6 +156,7 @@ export function PaymentMethods({
     trpc.payments.createCustomerUpgradePortal.mutationOptions({
       onSuccess: (session: { url: string | null }) => {
         if (session.url) {
+          onPaymentRedirectStart?.();
           router.push(session.url);
         } else {
           toast.error("Failed to create upgrade portal");
@@ -351,6 +360,7 @@ export function PaymentMethods({
                 bookingStatus={lesson.bookingStatus}
                 dropIn={allowedDropIn as DropIn}
                 quantity={quantity}
+                onPaymentRedirectStart={onPaymentRedirectStart}
                 createPaymentIntentUrl={createPaymentIntentUrl}
                 FeeBreakdownComponent={FeeBreakdownComponent}
                 metadata={
