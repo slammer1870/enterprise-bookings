@@ -54,6 +54,7 @@
     "@repo/bookings-plugin": "workspace:*",
     "@repo/payments-next": "workspace:*",
     "@repo/roles": "workspace:*",
+    "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/testing-config": "workspace:*",

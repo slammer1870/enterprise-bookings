@@ -1767,4 +1767,266 @@ describe('tRPC Bookings Integration Tests', () => {
       })
     }, TEST_TIMEOUT)
   })
+
+  describe('Subscription booking and getSubscriptionForLesson', () => {
+    it('getSubscriptionForLesson returns needsCustomerPortal and upgradeOptions', async () => {
+      const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
+      const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
+      if (!hasPlans || !hasSubs) {
+        return
+      }
+      const plan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: '2 per week',
+          status: 'active',
+          tenant: testTenant.id,
+          sessionsInformation: { sessions: 2, interval: 'week', intervalCount: 1 },
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: 'acct_test_subscription',
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: {
+          paymentMethods: { allowedPlans: [plan.id] },
+        },
+        overrideAccess: true,
+      })
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 30)
+      const sub = await payload.create({
+        collection: 'subscriptions',
+        data: {
+          user: user.id,
+          plan: plan.id,
+          status: 'active',
+          tenant: testTenant.id,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        overrideAccess: true,
+      })
+      const caller = await createCaller()
+      const result = await caller.subscriptions.getSubscriptionForLesson({ lessonId: lesson.id })
+      expect(result.subscription).toBeDefined()
+      expect(result.subscription?.id).toBe(sub.id)
+      expect(result.needsCustomerPortal).toBe(false)
+      expect(Array.isArray(result.upgradeOptions)).toBe(true)
+      await payload.update({
+        collection: 'subscriptions',
+        id: sub.id,
+        data: { status: 'past_due' },
+        overrideAccess: true,
+      })
+      const resultPastDue = await caller.subscriptions.getSubscriptionForLesson({ lessonId: lesson.id })
+      expect(resultPastDue.needsCustomerPortal).toBe(true)
+      await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
+      await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: {} },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: { stripeConnectOnboardingStatus: 'not_connected', stripeConnectAccountId: null },
+        overrideAccess: true,
+      })
+    }, TEST_TIMEOUT)
+
+    it('createBookings with subscriptionId creates bookings with paymentMethodUsed and subscriptionIdUsed', async () => {
+      const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
+      const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
+      if (!hasPlans || !hasSubs) return
+      const plan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: '2 per week',
+          status: 'active',
+          tenant: testTenant.id,
+          sessionsInformation: { sessions: 2, interval: 'week', intervalCount: 1 },
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: 'acct_test_subscription',
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: { allowedPlans: [plan.id] } },
+        overrideAccess: true,
+      })
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 30)
+      const sub = await payload.create({
+        collection: 'subscriptions',
+        data: {
+          user: user.id,
+          plan: plan.id,
+          status: 'active',
+          tenant: testTenant.id,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        overrideAccess: true,
+      })
+      const startTime = new Date()
+      startTime.setHours(20, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(21, 0, 0, 0)
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+      const caller = await createCaller()
+      const created = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+        subscriptionId: sub.id,
+      })
+      expect(created.length).toBe(1)
+      const booking = await payload.findByID({
+        collection: 'bookings',
+        id: created[0]!.id,
+        depth: 0,
+      }) as any
+      expect(booking.paymentMethodUsed).toBe('subscription')
+      expect(booking.subscriptionIdUsed).toBe(sub.id)
+      await payload.delete({ collection: 'bookings', where: { id: { equals: created[0]!.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
+      await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: {} },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: { stripeConnectOnboardingStatus: 'not_connected', stripeConnectAccountId: null },
+        overrideAccess: true,
+      })
+    }, TEST_TIMEOUT)
+
+    it('createBookings with subscriptionId throws when subscription is past_due', async () => {
+      const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
+      const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
+      if (!hasPlans || !hasSubs) return
+      const plan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: '2 per week',
+          status: 'active',
+          tenant: testTenant.id,
+          sessionsInformation: { sessions: 2, interval: 'week', intervalCount: 1 },
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: 'acct_test_subscription',
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: { allowedPlans: [plan.id] } },
+        overrideAccess: true,
+      })
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 30)
+      const sub = await payload.create({
+        collection: 'subscriptions',
+        data: {
+          user: user.id,
+          plan: plan.id,
+          status: 'past_due',
+          tenant: testTenant.id,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        overrideAccess: true,
+      })
+      const startTime = new Date()
+      startTime.setHours(21, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(22, 0, 0, 0)
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+      const caller = await createCaller()
+      await expect(
+        caller.bookings.createBookings({
+          lessonId: testLesson.id,
+          quantity: 1,
+          subscriptionId: sub.id,
+        })
+      ).rejects.toThrow(/past due|portal/)
+      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
+      await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: {} },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: { stripeConnectOnboardingStatus: 'not_connected', stripeConnectAccountId: null },
+        overrideAccess: true,
+      })
+    }, TEST_TIMEOUT)
+  })
 })

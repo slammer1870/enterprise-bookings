@@ -7,6 +7,9 @@ import type { Payload } from "payload";
 import {
   getRemainingSessionsInPeriod,
   hasReachedSubscriptionLimit,
+  subscriptionNeedsCustomerPortal,
+  canUseSubscriptionForBooking,
+  getSubscriptionUpgradeOptions,
 } from "../src/subscription";
 import type { Plan, Subscription } from "@repo/shared-types";
 
@@ -228,5 +231,112 @@ describe("hasReachedSubscriptionLimit", () => {
 
     expect(result).toBe(false);
     expect(payload.find).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscriptionNeedsCustomerPortal", () => {
+  it("returns true for past_due and unpaid", () => {
+    expect(subscriptionNeedsCustomerPortal("past_due")).toBe(true);
+    expect(subscriptionNeedsCustomerPortal("unpaid")).toBe(true);
+  });
+
+  it("returns false for active and trialing", () => {
+    expect(subscriptionNeedsCustomerPortal("active")).toBe(false);
+    expect(subscriptionNeedsCustomerPortal("trialing")).toBe(false);
+  });
+
+  it("returns false for undefined or other statuses", () => {
+    expect(subscriptionNeedsCustomerPortal(undefined)).toBe(false);
+    expect(subscriptionNeedsCustomerPortal("canceled")).toBe(false);
+  });
+});
+
+describe("canUseSubscriptionForBooking", () => {
+  it("returns true for active and trialing", () => {
+    expect(canUseSubscriptionForBooking("active")).toBe(true);
+    expect(canUseSubscriptionForBooking("trialing")).toBe(true);
+  });
+
+  it("returns false for past_due and unpaid", () => {
+    expect(canUseSubscriptionForBooking("past_due")).toBe(false);
+    expect(canUseSubscriptionForBooking("unpaid")).toBe(false);
+  });
+
+  it("returns false for undefined or other statuses", () => {
+    expect(canUseSubscriptionForBooking(undefined)).toBe(false);
+    expect(canUseSubscriptionForBooking("canceled")).toBe(false);
+  });
+});
+
+describe("getSubscriptionUpgradeOptions", () => {
+  const plan2PerWeek: Plan = {
+    id: 1,
+    name: "2/week",
+    status: "active",
+    sessionsInformation: {
+      sessions: 2,
+      interval: "week",
+      intervalCount: 1,
+    },
+    updatedAt: "",
+    createdAt: "",
+  };
+
+  const plan3PerWeek: Plan = {
+    id: 2,
+    name: "3/week",
+    status: "active",
+    sessionsInformation: {
+      sessions: 3,
+      interval: "week",
+      intervalCount: 1,
+    },
+    updatedAt: "",
+    createdAt: "",
+  };
+
+  const sub2PerWeek: Subscription = {
+    ...subscriptionWithPlan,
+    plan: plan2PerWeek,
+  } as Subscription;
+
+  it("returns empty when no allowed plans with more sessions", async () => {
+    const payload = createMockPayload({});
+    const result = await getSubscriptionUpgradeOptions(
+      sub2PerWeek,
+      [plan2PerWeek],
+      payload,
+      lessonDate
+    );
+    expect(result).toEqual([]);
+  });
+
+  it("returns upgrade option with pro-rata max additional sessions (2/week used 2, upgrade to 3/week = 1 more)", async () => {
+    const payload = createMockPayload({
+      find: vi.fn().mockResolvedValue({ totalDocs: 2 }),
+    });
+    const result = await getSubscriptionUpgradeOptions(
+      sub2PerWeek,
+      [plan2PerWeek, plan3PerWeek],
+      payload,
+      lessonDate
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]!.plan.id).toBe(2);
+    expect(result[0]!.maxAdditionalSessions).toBe(1);
+  });
+
+  it("returns upgrade option when used 0 (pro-rata cap: 1 more)", async () => {
+    const payload = createMockPayload({
+      find: vi.fn().mockResolvedValue({ totalDocs: 0 }),
+    });
+    const result = await getSubscriptionUpgradeOptions(
+      sub2PerWeek,
+      [plan2PerWeek, plan3PerWeek],
+      payload,
+      lessonDate
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]!.maxAdditionalSessions).toBe(1);
   });
 });

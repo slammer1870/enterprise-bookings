@@ -123,6 +123,8 @@ export function PaymentMethods({
   const subscription = subscriptionData?.subscription ?? null;
   const subscriptionLimitReached = subscriptionData?.subscriptionLimitReached ?? false;
   const remainingSessions = subscriptionData?.remainingSessions ?? null;
+  const needsCustomerPortal = subscriptionData?.needsCustomerPortal ?? false;
+  const upgradeOptions = subscriptionData?.upgradeOptions ?? [];
 
   // Create checkout session mutation for plans
   const { mutateAsync: createCheckoutSession } = useMutation(
@@ -170,6 +172,19 @@ export function PaymentMethods({
       },
       onError: (error: { message?: string }) => {
         toast.error(error.message || "Failed to create upgrade portal");
+      },
+    })
+  );
+
+  const { mutateAsync: createBookingsWithSubscription } = useMutation(
+    trpc.bookings.createBookings.mutationOptions({
+      onSuccess: () => {
+        onPaymentRedirectStart?.();
+        const url = successUrlProp ?? "/dashboard";
+        router.push(url.startsWith("http") ? url : `${typeof window !== "undefined" ? window.location.origin : ""}${url.startsWith("/") ? url : `/${url}`}`);
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to book with membership");
       },
     })
   );
@@ -275,10 +290,15 @@ export function PaymentMethods({
     subscription?.plan &&
     planAllowsMultipleBookingsPerLesson(subscription.plan);
 
-  // For "use current subscription": require (1) session headroom, and (2) when quantity > 1,
-  // the plan must allow multiple bookings per lesson (otherwise subscription cannot cover this).
+  const subscriptionUsableForBooking =
+    subscription &&
+    (subscription.status === "active" || subscription.status === "trialing");
+
+  // For "use current subscription": require (1) valid payment status (active/trialing), (2) session headroom,
+  // and (3) when quantity > 1, the plan must allow multiple bookings per lesson.
   const canUseSubscriptionForQuantity =
     hasSubscriptionWithPlan &&
+    Boolean(subscriptionUsableForBooking) &&
     !subscriptionLimitReached &&
     (remainingSessions === null || remainingSessions >= quantity) &&
     (quantity <= 1 || Boolean(userPlanAllowsMultiple));
@@ -291,11 +311,11 @@ export function PaymentMethods({
   }
 
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
-  // (so we can show "use subscription", "N sessions left", or limit reached message)
+  // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
     activePlans.length > 0 || Boolean(hasSubscriptionWithPlan);
   let hasDropInTab =
-    Boolean(allowedDropIn) && !hasSubscriptionWithPlan;
+    Boolean(allowedDropIn) && !(hasSubscriptionWithPlan && subscriptionUsableForBooking);
 
   if (quantity > 1) {
     hasMembershipTab =
@@ -362,9 +382,22 @@ export function PaymentMethods({
               selectedQuantity={quantity}
               canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
               subscriptionAllowsMultiplePerLesson={Boolean(userPlanAllowsMultiple)}
+              needsCustomerPortal={needsCustomerPortal}
+              upgradeOptions={upgradeOptions}
               onCreateCheckoutSession={handleCreateCheckoutSession}
               onCreateCustomerPortal={handleCreateCustomerPortal}
               onCreateCustomerUpgradePortal={handleCreateCustomerUpgradePortal}
+              onConfirmBookingWithSubscription={
+                subscription?.id != null
+                  ? async (subscriptionId: number) => {
+                      await createBookingsWithSubscription({
+                        lessonId: lesson.id,
+                        quantity,
+                        subscriptionId,
+                      });
+                    }
+                  : undefined
+              }
             />
           </TabsContent>
         )}

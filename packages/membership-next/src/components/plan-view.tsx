@@ -6,6 +6,11 @@ import { PlanDetail } from "./plans/plan-detail";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 
+export type UpgradeOption = {
+  plan: Plan;
+  maxAdditionalSessions: number;
+};
+
 export type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
   subscription: Subscription | null;
@@ -19,12 +24,18 @@ export type PlanViewProps = {
   canUseSubscriptionForQuantity?: boolean;
   /** When false and selectedQuantity > 1, plan allows only one slot per lesson. */
   subscriptionAllowsMultiplePerLesson?: boolean;
+  /** When true, show customer portal CTA (e.g. payment past due). */
+  needsCustomerPortal?: boolean;
+  /** Upgrade options with pro-rata additional sessions when limit reached. */
+  upgradeOptions?: UpgradeOption[];
   onCreateCheckoutSession: (
     _planId: string,
     _metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
   onCreateCustomerPortal: () => Promise<void>;
   onCreateCustomerUpgradePortal?: (_productId: string) => Promise<void>;
+  /** When set and canUseSubscriptionForQuantity, show "Use my membership" to book without paying. */
+  onConfirmBookingWithSubscription?: (_subscriptionId: number) => Promise<void>;
 };
 
 /**
@@ -40,9 +51,12 @@ export function PlanView({
   selectedQuantity = 1,
   canUseSubscriptionForQuantity = true,
   subscriptionAllowsMultiplePerLesson = true,
+  needsCustomerPortal = false,
+  upgradeOptions = [],
   onCreateCheckoutSession,
   onCreateCustomerPortal,
   onCreateCustomerUpgradePortal,
+  onConfirmBookingWithSubscription,
 }: PlanViewProps) {
   if (!allowedPlans) {
     return (
@@ -121,12 +135,65 @@ export function PlanView({
     selectedQuantity > 1 &&
     !subscriptionAllowsMultiplePerLesson;
 
+  const showPastDueMessage = needsCustomerPortal || subscription.status === "unpaid" || subscription.status === "past_due";
+
   return (
     <>
       {subscriptionLimitReached && (
         <p className="text-sm text-red-500 mb-2">
           You have reached the limit of your subscription
         </p>
+      )}
+      {subscriptionLimitReached && upgradeOptions.length > 0 && (
+        <div className="flex flex-col gap-3 mb-4">
+          <p className="text-sm text-muted-foreground">
+            Upgrade to get more sessions this period (pro-rata):
+          </p>
+          {upgradeOptions.map(({ plan, maxAdditionalSessions }) => (
+            <Card key={plan.id}>
+              <CardHeader>
+                <CardTitle className="font-light">{plan.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {maxAdditionalSessions} more session{maxAdditionalSessions === 1 ? "" : "s"} this period
+                </p>
+              </CardContent>
+              <CardFooter>
+                {onCreateCustomerUpgradePortal && (plan as any).stripeProductId ? (
+                  <Button
+                    className="w-full"
+                    onClick={() =>
+                      onCreateCustomerUpgradePortal((plan as any).stripeProductId as string)
+                    }
+                  >
+                    Upgrade
+                  </Button>
+                ) : (() => {
+                  const priceJson = (plan as any).priceJSON;
+                  const priceId =
+                    typeof priceJson === "string"
+                      ? JSON.parse(priceJson || "{}")?.id
+                      : priceJson?.id;
+                  return priceId ? (
+                    <Button
+                      className="w-full"
+                      onClick={() =>
+                        onCreateCheckoutSession(priceId, { lesson_id: String(lessonDate) })
+                      }
+                    >
+                      Upgrade
+                    </Button>
+                  ) : (
+                    <Button className="w-full" disabled>
+                      Upgrade (not configured)
+                    </Button>
+                  );
+                })()}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       )}
       {oneSlotPerLessonOnly && (
         <p className="text-sm text-amber-600 mb-2">
@@ -139,10 +206,9 @@ export function PlanView({
           Reduce quantity to {remainingSessions} or use drop-in to pay for more.
         </p>
       )}
-      {(subscription.status === "unpaid" || subscription.status === "past_due") && (
+      {showPastDueMessage && (
         <p className="text-sm text-red-500 mb-2">
-          Your Subscription is past due. Please pay your subscription to
-          continue.
+          Your subscription payment is past due. Please update your payment method to continue.
         </p>
       )}
       {subscription.cancelAt &&
@@ -151,9 +217,19 @@ export function PlanView({
             {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan.`}
           </p>
         )}
+      {canUseSubscriptionForQuantity && onConfirmBookingWithSubscription && subscription.id != null && (
+        <div className="mb-4">
+          <Button
+            className="w-full"
+            onClick={() => onConfirmBookingWithSubscription(subscription.id as number)}
+          >
+            Use my membership
+          </Button>
+        </div>
+      )}
       <PlanDetail
         plan={subscription.plan}
-        actionLabel="Manage Subscription"
+        actionLabel={showPastDueMessage ? "Update payment" : "Manage Subscription"}
         onAction={onCreateCustomerPortal}
       />
     </>

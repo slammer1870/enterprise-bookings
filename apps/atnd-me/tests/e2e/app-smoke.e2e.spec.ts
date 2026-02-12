@@ -107,8 +107,9 @@ test.describe('App smoke', () => {
 
     await Promise.all([createBookingsRequest, bookBtn.click()])
 
-    // BookingForm is expected to navigate to `onSuccessRedirect` (configured as `/` in this app).
-    await page.waitForURL((u) => u.pathname === '/', { timeout: 15000 })
+    // Success page: wait for visible confirmation (resilient to redirect path / vs /success).
+    await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/your booking has been confirmed/i)).toBeVisible()
   })
 
   test('checkout Stripe-enabled: fee breakdown visible (no payment submission)', async ({

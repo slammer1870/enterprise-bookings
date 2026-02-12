@@ -52,31 +52,49 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     await createTestBooking(user.id, lesson.id, 'pending')
     await createTestBooking(user.id, lesson.id, 'pending')
 
+    const managePath = `/bookings/${lesson.id}/manage`
+    const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+    const completePayment = page.getByText(/complete payment/i).first()
+
+    const gotoManageAndRace = async () => {
+      await navigateToTenant(page, tenant.slug, managePath)
+      if (page.url().includes('/auth/sign-in')) {
+        await loginAsRegularUser(page, 1, user.email, 'password', {
+          tenantSlug: tenant.slug,
+        })
+        await page.waitForTimeout(1500)
+        await navigateToTenant(page, tenant.slug, managePath)
+      }
+      await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
+        timeout: 15000,
+      })
+      await page.waitForLoadState('load').catch(() => null)
+      return Promise.race([
+        completePayment.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success' as const),
+        errorHeading.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error' as const),
+      ])
+    }
+
     await loginAsRegularUser(page, 1, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
+    await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
-    const managePath = `/bookings/${lesson.id}/manage`
-    await navigateToTenant(page, tenant.slug, managePath)
-
-    // If we were redirected to sign-in (session not sent to subdomain), re-login and retry once
-    if (page.url().includes('/auth/sign-in')) {
+    let outcome = await gotoManageAndRace()
+    if (outcome === 'error') {
+      // One retry: re-login and re-navigate (session can be flaky on first request to manage)
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      await navigateToTenant(page, tenant.slug, managePath)
+      await page.waitForTimeout(2000)
+      outcome = await gotoManageAndRace()
     }
-    await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
-      timeout: 15000,
-    })
-
-    // Hydration from server pending should show checkout view (Complete Payment)
-    await expect(
-      page.getByText(/complete payment/i).first()
-    ).toBeVisible({ timeout: 15000 })
-    await expect(
-      page.getByText(/pending booking/i).first()
-    ).toBeVisible({ timeout: 5000 })
+    if (outcome === 'error') {
+      throw new Error(
+        'Manage page showed "Booking page error" instead of checkout. Check server logs and auth/session for this lesson.'
+      )
+    }
+    await expect(page.getByText(/pending booking/i).first()).toBeVisible({ timeout: 5000 })
   })
 
   test('Cancel on checkout cancels pending bookings and shows quantity view with confirmed count', async ({
@@ -114,25 +132,47 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     await createTestBooking(user.id, lesson.id, 'pending')
     await createTestBooking(user.id, lesson.id, 'pending')
 
+    const managePath = `/bookings/${lesson.id}/manage`
+    const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+    const completePayment = page.getByText(/complete payment/i).first()
+
+    const gotoManageAndRace = async () => {
+      await navigateToTenant(page, tenant.slug, managePath)
+      if (page.url().includes('/auth/sign-in')) {
+        await loginAsRegularUser(page, 1, user.email, 'password', {
+          tenantSlug: tenant.slug,
+        })
+        await page.waitForTimeout(1500)
+        await navigateToTenant(page, tenant.slug, managePath)
+      }
+      await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
+        timeout: 15000,
+      })
+      await page.waitForLoadState('load').catch(() => null)
+      return Promise.race([
+        completePayment.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success' as const),
+        errorHeading.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error' as const),
+      ])
+    }
+
     await loginAsRegularUser(page, 1, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
+    await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
-    const managePath = `/bookings/${lesson.id}/manage`
-    await navigateToTenant(page, tenant.slug, managePath)
-    if (page.url().includes('/auth/sign-in')) {
+    let outcome = await gotoManageAndRace()
+    if (outcome === 'error') {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      await navigateToTenant(page, tenant.slug, managePath)
+      await page.waitForTimeout(2000)
+      outcome = await gotoManageAndRace()
     }
-    await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
-      timeout: 15000,
-    })
-
-    await expect(
-      page.getByText(/complete payment/i).first()
-    ).toBeVisible({ timeout: 15000 })
+    if (outcome === 'error') {
+      throw new Error(
+        'Manage page showed "Booking page error" instead of checkout. Check server logs and auth/session for this lesson.'
+      )
+    }
 
     const cancelButton = page.getByRole('button', { name: /^cancel$/i })
     await expect(cancelButton).toBeVisible({ timeout: 5000 })

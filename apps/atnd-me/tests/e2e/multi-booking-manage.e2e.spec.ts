@@ -150,39 +150,39 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         tenantSlug: tenant.slug,
       })
       
-      // Navigate to manage page - should redirect to regular booking page
+      // Navigate to manage page - server should redirect to /bookings/[id] when user has 0 bookings
       await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
+      await page.waitForLoadState('load').catch(() => null)
 
-      // Should redirect to /bookings/[id] (not /manage) OR stay on manage if redirect hasn't happened yet
-      // Wait for either the redirect or verify we're not on manage
-      await page.waitForURL(
-        (url) => {
-          const pathname = url.pathname
-          // Accept: /bookings/[id] without /manage, or /auth/sign-in (if not logged in)
-          return (
-            (pathname.includes('/bookings/') && !pathname.includes('/manage')) ||
-            pathname.includes('/auth/sign-in')
-          )
-        },
-        { timeout: 10000 }
-      ).catch(() => {
-        // If timeout, check current URL
+      // Wait for either redirect (success) or error boundary (fail fast with clear message)
+      const redirectPredicate = (url: URL) => {
+        const pathname = url.pathname
+        return (
+          (pathname.includes('/bookings/') && !pathname.includes('/manage')) ||
+          pathname.includes('/auth/sign-in')
+        )
+      }
+      const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+      const outcome = await Promise.race([
+        page.waitForURL(redirectPredicate, { timeout: 10000 }).then(() => 'redirected' as const),
+        errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+      ]).catch(async () => {
         const currentUrl = page.url()
-        const currentPathname = (() => {
-          try {
-            return new URL(currentUrl).pathname
-          } catch {
-            return currentUrl
-          }
-        })()
-        // If we're still on /manage, that's a failure
-        if (currentPathname.includes('/manage')) {
-          throw new Error(`Expected redirect from /manage but still on: ${currentUrl}`)
+        if (await errorHeading.isVisible().catch(() => false)) {
+          throw new Error(
+            `Manage page showed "Booking page error" instead of redirecting to booking page. Check server/session for /bookings/${guardLesson.id}/manage with 0 bookings.`
+          )
         }
+        throw new Error(`Expected redirect from /manage but still on: ${currentUrl}`)
       })
 
+      if (outcome === 'error') {
+        throw new Error(
+          `Manage page showed "Booking page error" instead of redirecting to booking page. Check server/session for /bookings/${guardLesson.id}/manage with 0 bookings.`
+        )
+      }
+
       const finalUrl = page.url()
-      // Should either be on booking page or sign-in (if auth failed)
       expect(
         (finalUrl.includes('/bookings/') && !finalUrl.includes('/manage')) ||
         finalUrl.includes('/auth/sign-in')
@@ -321,26 +321,43 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
+      await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
       // Navigate to manage page and wait for UI.
-      // Under load, the server can transiently redirect /manage -> /bookings/[id] if it doesn't
-      // see the booking count yet, so we retry navigation a couple times before failing.
+      // Under load, the server can transiently redirect /manage -> /bookings/[id] or show error boundary.
       const managePath = `/bookings/${increaseLesson.id}/manage`
       const manageHeading = page.getByText(/update booking quantity/i).first()
+      const errorHeading = page.getByRole('heading', { name: /booking page error/i })
 
       for (let attempt = 0; attempt < 3; attempt++) {
         await navigateToTenant(page, tenant.slug, managePath)
 
         if (page.url().includes('/auth/sign-in')) {
-          // Occasionally the sign-in redirect race can land us back on auth; re-login and retry.
           await loginAsRegularUser(page, 1, user.email, 'password', {
             tenantSlug: tenant.slug,
           })
+          await page.waitForTimeout(1500)
           continue
         }
 
-        const visible = await manageHeading.isVisible().catch(() => false)
-        if (visible) break
+        await page.waitForLoadState('load').catch(() => null)
+        const outcome = await Promise.race([
+          manageHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'success' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+        ]).catch(() => null)
+        if (outcome === 'error') {
+          if (attempt < 2) {
+            await loginAsRegularUser(page, 1, user.email, 'password', {
+              tenantSlug: tenant.slug,
+            })
+            await page.waitForTimeout(2000)
+            continue
+          }
+          throw new Error(
+            `Manage page showed "Booking page error" instead of quantity view. Check server/session for /bookings/${increaseLesson.id}/manage.`
+          )
+        }
+        if (outcome === 'success') break
       }
 
       await expect(manageHeading).toBeVisible({ timeout: 15000 })

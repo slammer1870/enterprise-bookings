@@ -28,7 +28,9 @@ export async function getRequestHost(): Promise<string> {
 }
 
 /** Create tRPC caller with optional host override for tenant resolution. */
-export async function createCallerForBooking(host?: string) {
+export async function createCallerForBooking(
+  host?: string
+): Promise<Awaited<ReturnType<typeof createCaller>>> {
   const h = host || (await getRequestHost())
   return createCaller(h ? { host: h } : undefined)
 }

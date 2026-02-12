@@ -84,17 +84,37 @@ export const lessonsRouter = {
         });
       }
 
-      // If we have tenant context, verify the lesson belongs to that tenant
+      // If we have tenant context, verify the lesson belongs to that tenant and populate
+      // classOption.paymentMethods so manage/checkout pages can filter plans and drop-in by quantity.
       if (tenantId) {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant;
-        
+
         if (lessonTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: `Lesson with id ${input.id} not found`,
           });
+        }
+
+        // Populate classOption with payment methods (allowedPlans, allowedDropIn) for payment UI filtering
+        const coId = typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as { id: number }).id
+          : lesson.classOption;
+        if (coId != null && hasCollection(ctx.payload, "class-options")) {
+          try {
+            const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+              depth: 3,
+              overrideAccess: true,
+            });
+            if (populated) {
+              (lesson as { classOption: ClassOption }).classOption =
+                JSON.parse(JSON.stringify(populated)) as ClassOption;
+            }
+          } catch (err) {
+            console.error("[getById] Failed to populate classOption with payment methods:", err);
+          }
         }
       }
 

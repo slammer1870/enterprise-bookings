@@ -333,6 +333,81 @@ export const getMaxSubscriptionQuantityPerLesson = async (
   }
 };
 
+/** Statuses that allow using subscription for booking (no portal required). */
+const USABLE_SUBSCRIPTION_STATUSES = ["active", "trialing"] as const;
+
+/** Statuses that require the customer to visit the portal (e.g. update payment). */
+export const NEEDS_PORTAL_SUBSCRIPTION_STATUSES = ["past_due", "unpaid"] as const;
+
+export function subscriptionNeedsCustomerPortal(
+  status: string | undefined
+): boolean {
+  return status != null && (NEEDS_PORTAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}
+
+export function canUseSubscriptionForBooking(status: string | undefined): boolean {
+  return status != null && (USABLE_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}
+
+export type SubscriptionUpgradeOption = {
+  plan: Plan;
+  maxAdditionalSessions: number;
+};
+
+/**
+ * For a user with a current subscription and session limit reached (or nearly),
+ * returns allowed plans they can upgrade to with pro-rata additional sessions.
+ * E.g. 2/week plan, used 2 this week, upgrade to 3/week → 1 more session (not 3).
+ */
+export const getSubscriptionUpgradeOptions = async (
+  subscription: Subscription,
+  allowedPlans: Plan[],
+  payload: Payload,
+  lessonDate: Date
+): Promise<SubscriptionUpgradeOption[]> => {
+  let currentPlan = subscription.plan as Plan | number;
+  if (typeof currentPlan === "number") {
+    try {
+      currentPlan = (await payload.findByID({
+        collection: getPlanCollectionSlug(payload),
+        id: currentPlan,
+        depth: 0,
+      })) as Plan;
+    } catch {
+      return [];
+    }
+  }
+  if (!currentPlan?.sessionsInformation?.sessions) return [];
+
+  const remaining = await getRemainingSessionsInPeriod(
+    subscription,
+    payload,
+    lessonDate
+  );
+  const usedInPeriod =
+    remaining != null
+      ? currentPlan.sessionsInformation!.sessions! - remaining
+      : 0;
+
+  const currentSessions = currentPlan.sessionsInformation!.sessions!;
+  const options: SubscriptionUpgradeOption[] = [];
+
+  for (const targetPlan of allowedPlans) {
+    if (targetPlan.id === currentPlan.id) continue;
+    const si = targetPlan.sessionsInformation;
+    if (!si?.sessions || si.sessions <= currentSessions) continue;
+
+    const sessionsLeftIfUpgraded = Math.max(0, si.sessions - usedInPeriod);
+    const proRataCap = si.sessions - currentSessions;
+    const maxAdditionalSessions = Math.min(sessionsLeftIfUpgraded, proRataCap);
+    if (maxAdditionalSessions > 0) {
+      options.push({ plan: targetPlan, maxAdditionalSessions });
+    }
+  }
+
+  return options;
+};
+
 // Helper function to check user subscription
 export const checkUserSubscription = async (
   user: User,

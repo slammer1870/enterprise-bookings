@@ -111,8 +111,12 @@ export async function loginAsUser(
   // IMPORTANT: Wait for network to settle after redirect
   await page.waitForLoadState('networkidle').catch(() => null)
 
-  // Additional wait to ensure session is fully established
-  await page.waitForTimeout(500)
+  // Additional wait to ensure session is fully established.
+  // Ignore "Target page, context or browser has been closed" (e.g. test timeout / teardown during wait).
+  await page.waitForTimeout(500).catch((err: Error) => {
+    if (err?.message?.includes('closed')) return
+    throw err
+  })
 }
 
 /**

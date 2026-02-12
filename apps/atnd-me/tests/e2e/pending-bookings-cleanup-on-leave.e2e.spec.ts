@@ -83,23 +83,46 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
+      await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
       const managePath = `/bookings/${lesson.id}/manage`
-      await navigateToTenant(page, tenant.slug, managePath)
-      if (page.url().includes('/auth/sign-in')) {
+      const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+      const quantityViewHeading = page.getByText(/update booking quantity/i).first()
+
+      const gotoManageAndRace = async () => {
+        await navigateToTenant(page, tenant.slug, managePath)
+        if (page.url().includes('/auth/sign-in')) {
+          await loginAsRegularUser(page, 1, user.email, 'password', {
+            tenantSlug: tenant.slug,
+          })
+          await page.waitForTimeout(1500)
+          await navigateToTenant(page, tenant.slug, managePath)
+        }
+        await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
+          timeout: 15000,
+        })
+        await page.waitForLoadState('load').catch(() => null)
+        return Promise.race([
+          quantityViewHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'success' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+        ])
+      }
+
+      let outcome = await gotoManageAndRace()
+      if (outcome === 'error') {
         await loginAsRegularUser(page, 1, user.email, 'password', {
           tenantSlug: tenant.slug,
         })
-        await navigateToTenant(page, tenant.slug, managePath)
+        await page.waitForTimeout(2000)
+        outcome = await gotoManageAndRace()
       }
-      await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
-        timeout: 15000,
-      })
+      if (outcome === 'error') {
+        throw new Error(
+          'Manage page showed "Booking page error" instead of quantity view. Check server/session for this lesson.'
+        )
+      }
 
       // Quantity view: 1 booking
-      await expect(
-        page.getByText(/update booking quantity/i).first()
-      ).toBeVisible({ timeout: 10000 })
       await expect(page.getByTestId('booking-quantity')).toHaveText('1', {
         timeout: 5000,
       })
@@ -198,26 +221,46 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
+      await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
       const managePath = `/bookings/${lesson.id}/manage`
-      await navigateToTenant(page, tenant.slug, managePath)
-      if (page.url().includes('/auth/sign-in')) {
+      const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+      const completePayment = page.getByText(/complete payment/i).first()
+
+      const gotoManageAndRace = async () => {
+        await navigateToTenant(page, tenant.slug, managePath)
+        if (page.url().includes('/auth/sign-in')) {
+          await loginAsRegularUser(page, 1, user.email, 'password', {
+            tenantSlug: tenant.slug,
+          })
+          await page.waitForTimeout(1500)
+          await navigateToTenant(page, tenant.slug, managePath)
+        }
+        await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
+          timeout: 15000,
+        })
+        await page.waitForLoadState('load').catch(() => null)
+        return Promise.race([
+          completePayment.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'success' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+        ])
+      }
+
+      let outcome = await gotoManageAndRace()
+      if (outcome === 'error') {
         await loginAsRegularUser(page, 1, user.email, 'password', {
           tenantSlug: tenant.slug,
         })
-        await navigateToTenant(page, tenant.slug, managePath)
+        await page.waitForTimeout(2000)
+        outcome = await gotoManageAndRace()
       }
-      await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
-        timeout: 15000,
-      })
+      if (outcome === 'error') {
+        throw new Error(
+          'Manage page showed "Booking page error" instead of checkout. Check server/session for this lesson.'
+        )
+      }
 
-      // With pending from API, manage page shows checkout (Complete Payment), not quantity view
-      await expect(
-        page.getByText(/complete payment/i).first()
-      ).toBeVisible({ timeout: 10000 })
-      await expect(
-        page.getByText(/pending booking/i).first()
-      ).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(/pending booking/i).first()).toBeVisible({ timeout: 5000 })
 
       // Leave the page – cleanup should cancel pending
       await navigateToTenant(page, tenant.slug, '/')

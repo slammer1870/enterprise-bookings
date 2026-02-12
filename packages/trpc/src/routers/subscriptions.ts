@@ -7,6 +7,8 @@ import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 import {
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
+  subscriptionNeedsCustomerPortal,
+  getSubscriptionUpgradeOptions,
 } from "@repo/shared-services";
 
 export const subscriptionsRouter = {
@@ -179,6 +181,8 @@ export const subscriptionsRouter = {
           subscription: null,
           subscriptionLimitReached: false,
           remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
         };
       }
 
@@ -195,6 +199,8 @@ export const subscriptionsRouter = {
           subscription: null,
           subscriptionLimitReached: false,
           remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
         };
       }
 
@@ -207,10 +213,12 @@ export const subscriptionsRouter = {
           subscription: null,
           subscriptionLimitReached: false,
           remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
         };
       }
 
-      // Find active subscription for this user with allowed plans
+      // Find subscription for this user with allowed plans (include past_due so UI can show portal)
       const userSubscription = await findSafe<Subscription & { plan: Plan }>(
         payload,
         "subscriptions",
@@ -220,7 +228,6 @@ export const subscriptionsRouter = {
             status: {
               not_in: [
                 "canceled",
-                "unpaid",
                 "incomplete_expired",
                 "incomplete",
               ],
@@ -245,8 +252,14 @@ export const subscriptionsRouter = {
           subscription: null,
           subscriptionLimitReached: false,
           remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
         };
       }
+
+      const needsCustomerPortal = subscriptionNeedsCustomerPortal(
+        subscription.status
+      );
 
       // Check if subscription limit is reached
       const limitReached = await hasReachedSubscriptionLimit(
@@ -261,10 +274,22 @@ export const subscriptionsRouter = {
         new Date(lesson.startTime)
       );
 
+      const upgradeOptions =
+        limitReached && allowedPlans.length > 0
+          ? await getSubscriptionUpgradeOptions(
+              subscription as Subscription,
+              allowedPlans as Plan[],
+              payload,
+              new Date(lesson.startTime)
+            )
+          : [];
+
       return {
         subscription,
         subscriptionLimitReached: limitReached,
         remainingSessions,
+        needsCustomerPortal,
+        upgradeOptions,
       };
     }),
 };

@@ -7,7 +7,12 @@ import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from ".
 
 import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
-import { getMaxSubscriptionQuantityPerLesson } from "@repo/shared-services";
+import {
+  getMaxSubscriptionQuantityPerLesson,
+  hasReachedSubscriptionLimit,
+  getRemainingSessionsInPeriod,
+  canUseSubscriptionForBooking,
+} from "@repo/shared-services";
 
 export const bookingsRouter = {
   checkIn: protectedProcedure
@@ -281,16 +286,19 @@ export const bookingsRouter = {
       return booking;
     }),
   createBookings: protectedProcedure
-    .use(requireCollections("lessons", "bookings"))
+    .use(requireCollections("lessons", "bookings", "subscriptions"))
     .input(
       z.object({
         lessonId: z.number(),
         quantity: z.number().min(1),
         status: z.enum(["confirmed", "pending"]).optional(),
+        /** When provided, bookings are created as confirmed using this subscription (no payment). */
+        subscriptionId: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
-      const { lessonId, quantity, status = "confirmed" } = input;
+      const { lessonId, quantity, status: statusInput, subscriptionId } = input;
+      const status = subscriptionId != null ? "confirmed" : (statusInput ?? "confirmed");
 
       // Extract tenant slug from cookie header (from subdomain)
       const cookieHeader = ctx.headers.get("cookie") || "";
@@ -374,6 +382,80 @@ export const bookingsRouter = {
         });
       }
 
+      let paymentMethodUsed: "subscription" | undefined;
+      let subscriptionIdUsed: number | undefined;
+
+      if (subscriptionId != null) {
+        if (status !== "confirmed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Booking with subscription must be confirmed.",
+          });
+        }
+        const allowedPlanIds =
+          (lesson.classOption as ClassOption)?.paymentMethods?.allowedPlans?.map(
+            (p: { id?: number }) => (typeof p === "object" && p != null ? p.id : p)
+          ) ?? [];
+        if (!allowedPlanIds?.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This lesson does not allow membership booking.",
+          });
+        }
+        const subResult = await findSafe<Subscription>(
+          ctx.payload,
+          "subscriptions",
+          {
+            where: {
+              id: { equals: subscriptionId },
+              user: { equals: ctx.user.id },
+              plan: { in: allowedPlanIds },
+            },
+            limit: 1,
+            depth: 2,
+            overrideAccess: false,
+            user: ctx.user,
+          }
+        );
+        const subscription = subResult.docs[0];
+        if (!subscription) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized subscription for this lesson.",
+          });
+        }
+        if (!canUseSubscriptionForBooking(subscription.status)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Your membership payment is past due. Please update payment in the customer portal.",
+          });
+        }
+        const limitReached = await hasReachedSubscriptionLimit(
+          subscription,
+          ctx.payload,
+          new Date(lesson.startTime)
+        );
+        if (limitReached) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You have reached your membership session limit for this period.",
+          });
+        }
+        const remaining = await getRemainingSessionsInPeriod(
+          subscription,
+          ctx.payload,
+          new Date(lesson.startTime)
+        );
+        if (remaining != null && remaining < quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `You have ${remaining} session${remaining === 1 ? "" : "s"} left this period. Reduce quantity or use another payment method.`,
+          });
+        }
+        paymentMethodUsed = "subscription";
+        subscriptionIdUsed = subscriptionId;
+      }
+
       // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerLesson
       if (status === "confirmed") {
         const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
@@ -394,15 +476,19 @@ export const bookingsRouter = {
 
       // Create multiple bookings
       const createdBookings: Booking[] = [];
+      const baseData: Record<string, unknown> = {
+        lesson: Number(lessonId),
+        user: Number(ctx.user.id),
+        status: status,
+      };
+      if (paymentMethodUsed) (baseData as any).paymentMethodUsed = paymentMethodUsed;
+      if (subscriptionIdUsed != null) (baseData as any).subscriptionIdUsed = subscriptionIdUsed;
+
       for (let i = 0; i < quantity; i++) {
         const booking = await createSafe<Booking>(
           ctx.payload,
           "bookings",
-          {
-            lesson: Number(lessonId),
-            user: Number(ctx.user.id),
-            status: status,
-          },
+          baseData,
           {
             overrideAccess: false,
             user: ctx.user,
