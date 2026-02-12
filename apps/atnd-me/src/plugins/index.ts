@@ -36,6 +36,7 @@ import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
 } from '../access/bookingAccess'
+import { userTenantRead, userTenantUpdate } from '../access/userTenantAccess'
 import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
 import {
   bookingsPaymentsPlugin,
@@ -386,9 +387,15 @@ export const plugins: Plugin[] = [
   multiTenantPlugin({
     tenantsSlug: 'tenants',
     cleanupAfterTenantDelete: false,
-    // Opt out of baseListFilter on users so admins see all users (including themselves)
-    // when a tenant is selected. Our userTenantRead access already enforces admin/tenant-admin rules.
-    useUsersTenantFilter: true,
+    // Opt out of baseListFilter on users so tenant selector doesn't filter the list.
+    useUsersTenantFilter: false,
+    // Bypass the plugin's default users constraint (tenants.tenant in [...]) so tenant-admins
+    // can see users who registered at their domain or have a booking there, not only themselves.
+    usersAccessResultOverride: async ({ accessKey, accessResult, ...args }) => {
+      if (accessKey === 'read') return await userTenantRead(args)
+      if (accessKey === 'update') return await userTenantUpdate(args)
+      return accessResult
+    },
     // Configure admin users to have access to all tenants
     userHasAccessToAllTenants: (user) => {
       if (!user) return false
