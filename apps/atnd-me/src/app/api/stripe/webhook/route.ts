@@ -1,8 +1,15 @@
 /**
  * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
+ * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
 import { NextResponse } from 'next/server'
+
+/** Format Stripe Unix timestamp as date-only (YYYY-MM-DD) for Payload dayOnly date fields. */
+function stripeDateOnly(unix: number | null | undefined): string | null {
+  if (unix == null) return null
+  return new Date(unix * 1000).toISOString().slice(0, 10)
+}
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { verifyStripeConnectWebhook } from '@/lib/stripe-connect/webhookVerify'
@@ -225,13 +232,9 @@ export async function POST(request: NextRequest) {
           plan: plan.id,
           status: (obj.status as 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused') ?? 'active',
           stripeSubscriptionId: obj.id,
-          startDate: currentPeriodStart
-            ? new Date(currentPeriodStart * 1000).toISOString()
-            : null,
-          endDate: currentPeriodEnd
-            ? new Date(currentPeriodEnd * 1000).toISOString()
-            : null,
-          cancelAt: cancelAt ? new Date(cancelAt * 1000).toISOString() : null,
+          startDate: stripeDateOnly(currentPeriodStart),
+          endDate: stripeDateOnly(currentPeriodEnd),
+          cancelAt: stripeDateOnly(cancelAt),
           skipSync: true,
         } as Record<string, unknown>,
         overrideAccess: true,
@@ -283,14 +286,12 @@ export async function POST(request: NextRequest) {
           updateData.status = obj.status as 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'
         }
         if (currentPeriodStart != null) {
-          updateData.startDate = new Date(currentPeriodStart * 1000).toISOString()
+          updateData.startDate = stripeDateOnly(currentPeriodStart)
         }
         if (currentPeriodEnd != null) {
-          updateData.endDate = new Date(currentPeriodEnd * 1000).toISOString()
+          updateData.endDate = stripeDateOnly(currentPeriodEnd)
         }
-        if (cancelAt != null) {
-          updateData.cancelAt = new Date(cancelAt * 1000).toISOString()
-        }
+        updateData.cancelAt = stripeDateOnly(cancelAt)
         await payload.update({
           collection: 'subscriptions' as import('payload').CollectionSlug,
           id: sub.id,
@@ -313,10 +314,8 @@ export async function POST(request: NextRequest) {
           id: sub.id,
           data: {
             status: 'canceled',
-            endDate: currentPeriodEnd
-              ? new Date(currentPeriodEnd * 1000).toISOString()
-              : new Date().toISOString(),
-            cancelAt: cancelAt ? new Date(cancelAt * 1000).toISOString() : new Date().toISOString(),
+            endDate: stripeDateOnly(currentPeriodEnd) ?? new Date().toISOString().slice(0, 10),
+            cancelAt: stripeDateOnly(cancelAt) ?? new Date().toISOString().slice(0, 10),
             skipSync: true,
           } as Record<string, unknown>,
           overrideAccess: true,
