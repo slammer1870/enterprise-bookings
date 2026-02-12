@@ -161,6 +161,13 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     setDesiredPendingQuantity(pendingBookings.length)
   }, [isInPaymentFlow, pendingBookings.length])
 
+  // Clamp desired pending to lesson capacity so we never show/allow more than remainingCapacity new bookings
+  useEffect(() => {
+    if (!isInPaymentFlow) return
+    const cap = Math.max(0, lesson.remainingCapacity)
+    setDesiredPendingQuantity((q) => (q > cap ? cap : q))
+  }, [isInPaymentFlow, lesson.remainingCapacity])
+
   // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
   // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
   useEffect(() => {
@@ -509,7 +516,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // Show payment UI if in payment flow (quantity selector = number of new/pending bookings to pay for)
   if (isInPaymentFlow && PaymentMethodsComponent && pendingBookings.length > 0) {
-    const maxPendingQuantity = pendingBookings.length + lesson.remainingCapacity
+    // Cap by lesson capacity: user's total (confirmed + pending) must not exceed confirmed + remainingCapacity
+    const maxPendingQuantity = Math.max(0, lesson.remainingCapacity)
     const minPendingQuantity = 0
 
     return (
@@ -536,7 +544,11 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   This will bring your total number of bookings up to{' '}
-                  {confirmedBookings.length + desiredPendingQuantity}.
+                  {Math.min(
+                    confirmedBookings.length + desiredPendingQuantity,
+                    confirmedBookings.length + maxPendingQuantity
+                  )}
+                  .
                 </p>
               </div>
               <div className="flex items-center gap-3">
