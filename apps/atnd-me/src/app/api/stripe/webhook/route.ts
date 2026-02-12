@@ -125,11 +125,27 @@ export async function POST(request: NextRequest) {
   }
 
   const accountId = getAccountIdFromEvent(event)
-  if (!accountId) {
-    return NextResponse.json({ received: true }, { status: 200 })
-  }
+  const isSubscriptionEvent =
+    event.type === 'customer.subscription.created' ||
+    event.type === 'customer.subscription.updated' ||
+    event.type === 'customer.subscription.deleted' ||
+    event.type === 'customer.subscription.paused' ||
+    event.type === 'customer.subscription.resumed'
 
-  const tenant = await resolveTenant(payload, accountId)
+  // Subscription checkouts are created on the platform (tRPC uses platform Stripe), so
+  // customer.subscription.* arrives with no event.account. Resolve tenant from subscription
+  // metadata.tenantId when accountId is missing.
+  let tenant: Awaited<ReturnType<typeof resolveTenant>> = null
+  if (isSubscriptionEvent && !accountId) {
+    const subObj = event.data?.object as { metadata?: { tenantId?: string } } | undefined
+    const metaTenantId = subObj?.metadata?.tenantId
+    if (metaTenantId) {
+      tenant = await resolveTenant(payload, undefined, metaTenantId)
+    }
+  }
+  if (!tenant && accountId) {
+    tenant = await resolveTenant(payload, accountId)
+  }
   if (!tenant) {
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
@@ -137,13 +153,7 @@ export async function POST(request: NextRequest) {
 
   const tenantId = tenant.id
 
-  if (
-    event.type === 'customer.subscription.created' ||
-    event.type === 'customer.subscription.updated' ||
-    event.type === 'customer.subscription.deleted' ||
-    event.type === 'customer.subscription.paused' ||
-    event.type === 'customer.subscription.resumed'
-  ) {
+  if (isSubscriptionEvent) {
     const obj = event.data?.object as {
       id?: string
       customer?: string | { id?: string }
@@ -152,7 +162,7 @@ export async function POST(request: NextRequest) {
       current_period_end?: number
       cancel_at?: number
       items?: { data?: Array<{ plan?: { product?: string } }> }
-      metadata?: { lessonId?: string; lesson_id?: string; bookingIds?: string }
+      metadata?: { lessonId?: string; lesson_id?: string; bookingIds?: string; tenantId?: string }
     } | undefined
     if (!obj?.id) {
       markStripeConnectEventProcessed(event.id)

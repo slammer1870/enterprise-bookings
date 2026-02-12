@@ -390,6 +390,36 @@ describe('Stripe subscription webhooks (Connect)', () => {
   )
 
   it(
+    'customer.subscription.created (platform, no event.account): resolves tenant from metadata.tenantId and creates subscription',
+    async () => {
+      const event = subscriptionCreatedEvent({
+        metadata: { tenantId: String(tenantId) },
+      })
+      ;(event.data.object as { id: string }).id = 'sub_platform_meta_123'
+      delete (event as { account?: string }).account
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+      expect(webhookProcessed.markStripeConnectEventProcessed).toHaveBeenCalledWith(event.id)
+
+      const subs = await payload.find({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        where: { stripeSubscriptionId: { equals: 'sub_platform_meta_123' } },
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(subs.docs).toHaveLength(1)
+      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string }
+      expect(sub.tenant).toBe(tenantId)
+      expect(sub.user).toBe(userId)
+      expect(sub.plan).toBe(planId)
+      expect(sub.status).toBe('active')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'customer.subscription.created with lessonId in metadata: creates subscription and confirms booking (subscription-from-booking-page flow)',
     async () => {
       const co = await payload.create({
