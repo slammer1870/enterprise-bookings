@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
   const isLocalhost = hostname.includes('localhost')
   const rootHostname = getRootHostname()
 
-  // Allow tenant cookie to be set for /admin so admin panel shows tenant branding when accessed via tenant subdomain
+  // Skip middleware for static/API paths (admin is handled below so we can set tenant cookie from subdomain).
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
@@ -71,8 +71,12 @@ export async function middleware(request: NextRequest) {
 
   if (!subdomain) {
     const response = NextResponse.next()
-    response.cookies.delete('tenant-id')
-    response.cookies.delete('tenant-slug')
+    // Do not delete tenant cookies on /admin: every admin request was getting Set-Cookie delete
+    // which caused the admin dashboard to constantly reload. Only clear on frontend routes.
+    if (!pathname.startsWith('/admin')) {
+      response.cookies.delete('tenant-id')
+      response.cookies.delete('tenant-slug')
+    }
     return response
   }
 
