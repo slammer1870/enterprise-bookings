@@ -220,6 +220,18 @@ The MVP will be structured to easily add payment functionality later:
 - Tenant-aware payment validation helpers can be added
 - No breaking changes needed when adding payments
 
+### Roadmap (logical phase order)
+
+1. **Phase 1** – Multi-tenant MVP (tenant collections, roles, frontend, onboarding)
+2. **Phase 2** – Payment functionality (Stripe Connect, class passes, booking fees)
+3. **Phase 3** – Custom tenant-scoped blocks
+4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
+5. **Phase 5** – Admin bookings bulk operations & Payload UI (bulk actions, payloadcms/ui in bookings admin)
+6. **Phase 6** – Self-onboarding with MCP-driven personalisation
+7. **Phase 7** – Dashboard analytics (date-filtered, tenant-scoped metrics)
+8. **Phase 8** – Event tracking & marketing attribution (UTM)
+9. **Phase 9** – Application fee management & platform revenue (deferred)
+
 ## Code Organization: App vs Packages
 
 ### Architecture Principles
@@ -1212,8 +1224,8 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 13. **Phase 2**: `apps/atnd-me/src/app/(frontend)/class-passes/purchase/page.tsx` - Class pass purchase UI
 14. **Phase 2**: `apps/atnd-me/src/utilities/checkClassPass.ts` - Utility to validate class pass for booking
 15. **Phase 2**: `apps/atnd-me/src/hooks/useClassPassForBooking.ts` - Hook to decrement pass on booking confirmation
-16. **Phase 7**: `apps/atnd-me/src/globals/ApplicationFees/index.ts` - Global configuration for default application fees
-17. **Phase 7**: `apps/atnd-me/src/utilities/calculateApplicationFee.ts` - Utility to calculate application fees with tenant overrides
+16. **Phase 9**: `apps/atnd-me/src/globals/ApplicationFees/index.ts` - Global configuration for default application fees
+17. **Phase 9**: `apps/atnd-me/src/utilities/calculateApplicationFee.ts` - Utility to calculate application fees with tenant overrides
 18. `apps/atnd-me/src/collections/Navbar/index.ts` - New collection (from Header global)
 19. `apps/atnd-me/src/collections/Footer/index.ts` - New collection (from Footer global)
 20. `apps/atnd-me/src/collections/Scheduler/index.ts` - New collection (from scheduler global)
@@ -1233,20 +1245,22 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 34. `packages/trpc/src/routers/bookings.ts` - Set tenant context before querying bookings (if exists)
 35. **Phase 3**: `apps/atnd-me/src/blocks/registry.ts` - Block registry for tenant-scoped blocks
 36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
-37. **Phase 4**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
-38. **Phase 4**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
-39. **Phase 4**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
-40. **Phase 4**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
-41. **Phase 4**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
-42. **Phase 5**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
-43. **Phase 5**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
-44. **Phase 5**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
-45. **Phase 6**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
-46. **Phase 6**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
-47. **Phase 6**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
-48. **Phase 6**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
-49. **Phase 6**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
-50. **Phase 6**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
+37. **Phase 4**: `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard (payloadcms/ui)
+38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; replace shadcn with payloadcms/ui in bookings admin
+39. **Phase 6**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
+40. **Phase 6**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
+41. **Phase 6**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
+42. **Phase 6**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
+43. **Phase 6**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
+44. **Phase 7**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
+45. **Phase 7**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
+46. **Phase 7**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
+47. **Phase 8**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
+48. **Phase 8**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
+49. **Phase 8**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
+50. **Phase 8**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
+51. **Phase 8**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
+52. **Phase 8**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
 
 ## Test Files to Create
 
@@ -1296,20 +1310,23 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - `apps/atnd-me/tests/e2e/admin-payment-methods-gated-by-connect.e2e.spec.ts` - Admin UI gating: payment methods disabled until Connect active (Phase 2)
 - **Phase 3**: `apps/atnd-me/tests/int/tenant-scoped-blocks.int.spec.ts` - Tenant allowedBlocks and Pages layout filtering
 - **Phase 3**: `apps/atnd-me/tests/e2e/tenant-blocks-admin.e2e.spec.ts` - Tenant admin sees only allowed blocks
-- **Phase 4**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
-- **Phase 4**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
-- **Phase 4**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
-- **Phase 4**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
-- **Phase 5**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
-- **Phase 5**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
-- **Phase 5**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
-- **Phase 5**: `apps/atnd-me/tests/int/analytics-access.int.spec.ts` - Tenant-admin can only query own tenant; super-admin can query any/all
-- **Phase 5**: `apps/atnd-me/tests/e2e/analytics-dashboard.e2e.spec.ts` - Analytics dashboard date filter + tenant scoping
-- **Phase 6**: `apps/atnd-me/tests/unit/utm/parse-utm.test.ts` - UTM parsing from URL/query
-- **Phase 6**: `apps/atnd-me/tests/unit/utm/first-touch.test.ts` - First-touch persistence and idempotency
-- **Phase 6**: `apps/atnd-me/tests/int/marketing-events.int.spec.ts` - Event ingest, tenant scoping, validation
-- **Phase 6**: `apps/atnd-me/tests/int/attribution-reports.int.spec.ts` - Conversions and funnel by UTM dimension
-- **Phase 6**: `apps/atnd-me/tests/e2e/utm-tracking.e2e.spec.ts` - UTM capture on landing + event emission + dashboard filter
+- **Phase 4**: `apps/atnd-me/tests/int/analytics-api.int.spec.ts`, `apps/atnd-me/tests/e2e/admin-dashboard.e2e.spec.ts` - Custom dashboard
+- **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
+- **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
+- **Phase 6**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
+- **Phase 6**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
+- **Phase 6**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
+- **Phase 6**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
+- **Phase 7**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
+- **Phase 7**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
+- **Phase 7**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
+- **Phase 7**: `apps/atnd-me/tests/int/analytics-access.int.spec.ts` - Tenant-admin can only query own tenant; super-admin can query any/all
+- **Phase 7**: `apps/atnd-me/tests/e2e/analytics-dashboard.e2e.spec.ts` - Analytics dashboard date filter + tenant scoping
+- **Phase 8**: `apps/atnd-me/tests/unit/utm/parse-utm.test.ts` - UTM parsing from URL/query
+- **Phase 8**: `apps/atnd-me/tests/unit/utm/first-touch.test.ts` - First-touch persistence and idempotency
+- **Phase 8**: `apps/atnd-me/tests/int/marketing-events.int.spec.ts` - Event ingest, tenant scoping, validation
+- **Phase 8**: `apps/atnd-me/tests/int/attribution-reports.int.spec.ts` - Conversions and funnel by UTM dimension
+- **Phase 8**: `apps/atnd-me/tests/e2e/utm-tracking.e2e.spec.ts` - UTM capture on landing + event emission + dashboard filter
 
 ## Testing Strategy (TDD)
 
@@ -1969,7 +1986,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–8):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Self-Onboarding) → Phase 6 (Analytics) → Phase 7 (UTM) → Phase 8 (Application Fees, deferred).
+**Roadmap order (Phases 3–9):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bookings Bulk Operations & Payload UI) → Phase 6 (Self-Onboarding) → Phase 7 (Analytics) → Phase 8 (UTM) → Phase 9 (Application Fees, deferred).
 
 ---
 
@@ -2059,7 +2076,7 @@ Enable **custom tenant-scoped blocks** so each tenant can have a distinct set of
 
 ### Overview
 
-Build a **custom admin dashboard homepage** that replaces or augments the default Payload dashboard. The homepage displays **basic analytics about the site and bookings**, is **filterable and comparable by dates**, and uses **shadcn charts** for visualizations. Design is inspired by Stripe Dashboard and Plausible-style web analytics: clean, minimal, card-based layout with summary metrics, a main trend chart, and date range + comparison controls.
+Build a **custom admin dashboard homepage** that replaces or augments the default Payload dashboard. The homepage displays **basic analytics about the site and bookings**, is **filterable and comparable by dates**, and uses **payloadcms/ui** (or Payload-compatible chart components) for visualizations. Design is inspired by Stripe Dashboard and Plausible-style web analytics: clean, minimal, card-based layout with summary metrics, a main trend chart, and date range + comparison controls. Prefer **payloadcms/ui** over shadcn for consistency with the rest of the admin.
 
 ### Goals
 
@@ -2067,7 +2084,7 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
 - **Date filtering**: Date range selector (e.g. Last 7 days, Last 30 days, Last 91 days, Custom).
 - **Date comparison**: “Compare to previous period” toggle; when enabled, show current vs previous period values and a dual-line chart.
 - **Tenant-scoped**: Tenant-admin sees only their tenant’s data; super-admin can select tenant or “all”.
-- **shadcn charts**: Use shadcn/ui chart components (recharts-based) for consistency and maintainability.
+- **Charts / UI**: Use **payloadcms/ui** components where available; fall back to recharts-based chart primitives that match Payload admin styling. Prefer payloadcms/ui over shadcn for consistency with the admin.
 
 ### Suggested Analytics
 
@@ -2116,8 +2133,7 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
 ### Technical Approach
 
 - **Backend**: Analytics API (tRPC procedures or REST) with params: `tenantId?`, `dateFrom`, `dateTo`, `comparePrevious?`, `granularity?`.
-- **Frontend**: Custom Payload dashboard component (React) that fetches analytics and renders shadcn charts.
-- **Charts**: Use `@/components/ui/chart` from shadcn (recharts) for `LineChart`, `BarChart`, `AreaChart`, etc.
+- **Frontend**: Custom Payload dashboard component (React) that fetches analytics and renders charts. Prefer **payloadcms/ui** components; use recharts-based chart components that align with Payload admin styling where payloadcms/ui does not provide charts.
 - **Payload integration**: Register custom dashboard as the default admin view via Payload `admin.components.views.dashboard`.
 
 ### Implementation outline
@@ -2126,8 +2142,8 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
   - Add tRPC procedures or REST endpoints: `analytics.summary`, `analytics.bookingsOverTime`, `analytics.topCustomers`, etc.
   - Enforce tenant scope; date range and comparison params.
   - Tests: unit/int for access control and correct aggregation.
-- **Step 4.2 – shadcn chart setup**
-  - Ensure shadcn chart components are installed and themed.
+- **Step 4.2 – Chart / UI setup**
+  - Prefer **payloadcms/ui** components for cards, dropdowns, and layout. Add recharts-based chart components (e.g. `LineChart`, `BarChart`, `AreaChart`) that match Payload admin styling if not provided by payloadcms/ui.
   - Create reusable chart wrappers if needed (e.g. `BookingsTrendChart`, `MetricCardWithChart`).
 - **Step 4.3 – Dashboard layout**
   - Build dashboard component with header (date range, compare toggle, tenant selector).
@@ -2149,19 +2165,90 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
 - `apps/atnd-me/src/lib/analytics/` – `bookingsOverTime.ts`, `summaryMetrics.ts`, `topCustomers.ts`, etc.
 - tRPC `analytics` router or `GET /api/analytics` – Analytics endpoints
 - `apps/atnd-me/src/payload.config.ts` – Register custom dashboard view
-- shadcn chart components – Add if not present
+- payloadcms/ui (and chart components if needed) – Prefer payloadcms/ui; add chart primitives if not in payloadcms/ui
 - Tests: `tests/int/analytics-api.int.spec.ts`, `tests/e2e/admin-dashboard.e2e.spec.ts`
 
 ### Summary
 
 
-| Aspect          | Notes                                                             |
-| --------------- | ----------------------------------------------------------------- |
-| **Audience**    | Tenant-admin (own tenant); super-admin (any tenant or all)        |
-| **Filtering**   | Date range required; granularity optional                         |
-| **Comparison**  | “Compare to previous period” with dual-line chart and card values |
-| **Charts**      | shadcn charts (recharts)                                          |
-| **Look & feel** | Stripe / Plausible-inspired: cards, line charts, clean typography |
+| Aspect          | Notes                                                                     |
+| --------------- | ------------------------------------------------------------------------- |
+| **Audience**    | Tenant-admin (own tenant); super-admin (any tenant or all)                |
+| **Filtering**   | Date range required; granularity optional                                 |
+| **Comparison**  | “Compare to previous period” with dual-line chart and card values         |
+| **Charts / UI** | payloadcms/ui preferred; recharts-based charts aligned with Payload admin |
+| **Look & feel** | Stripe / Plausible-inspired: cards, line charts, clean typography         |
+
+
+---
+
+## Phase 5: Admin Bookings Bulk Operations & Payload UI
+
+### Overview
+
+Refactor the **admin area for the Bookings collection** so it supports **bulk operations** in line with other collections in the Payload admin (e.g. select multiple rows, bulk update status, bulk delete). Where the bookings admin uses custom UI, **prefer payloadcms/ui components** over shadcn so the admin experience is consistent and maintainable.
+
+### Goals
+
+- **Bulk operations**: Bookings list view supports multi-select and bulk actions (e.g. bulk status change to confirmed/cancelled/waiting, bulk delete) similar to Pages, Users, Lessons, etc.
+- **Consistent list UX**: Use Payload’s default list view patterns for bookings where possible (table, checkboxes, bulk action bar), or extend them without replacing the whole list.
+- **Payload UI over shadcn**: In the bookings admin (list, detail, and any custom components), use **payloadcms/ui** components instead of shadcn so styling and behaviour match the rest of the admin.
+- **Tenant-scoped**: Bulk actions respect tenant context (tenant-admin only affects their tenant’s bookings; super-admin can operate across tenants if the UI allows).
+
+### Non-goals (for this phase)
+
+- Changing booking access control rules (already defined in Phase 1/2).
+- New booking-specific analytics (covered by Phase 4 dashboard and Phase 7 analytics).
+- Public-facing booking UI changes.
+
+### Architecture
+
+1. **List view**
+  - Ensure the Bookings collection uses (or is aligned with) Payload’s default collection list view so that row selection and bulk action toolbar appear.
+  - If the bookings plugin currently injects a custom list component that lacks bulk behaviour, refactor to use the default list with optional custom columns or add bulk actions to the existing view.
+2. **Bulk actions**
+  - **Bulk update status**: Allow selecting multiple bookings and setting status to e.g. `confirmed`, `cancelled`, `waiting`, `pending` in one action.
+  - **Bulk delete**: Allow selecting multiple bookings and deleting (with confirmation).
+  - Optional: bulk export (e.g. CSV) for selected bookings.
+  - All bulk operations must run with tenant context set so the multi-tenant plugin (and access control) only touch the correct tenant’s data.
+3. **Payload UI**
+  - Replace any shadcn usage in bookings admin (e.g. in `packages/bookings/bookings-plugin` or atnd-me overrides) with payloadcms/ui equivalents (buttons, modals, dropdowns, tables, etc.).
+  - If payloadcms/ui does not provide a component (e.g. a specific chart), use a minimal recharts-based or other component that matches Payload admin styling; avoid introducing new shadcn dependencies in the admin.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 5.1 – List view and selection**
+  - Confirm or refactor Bookings collection list view so it uses Payload’s default list (or a compatible custom list) with checkboxes and select-all.
+  - Tests: integration test that list renders and selection state works; tenant-admin only sees their tenant’s bookings.
+- **Step 5.2 – Bulk update status**
+  - Add bulk action “Update status” that accepts a status value and applies it to all selected booking IDs. Enforce tenant scope and access (tenant-admin only their tenant; super-admin as per policy).
+  - Tests: integration tests for bulk status update with tenant scope and access control.
+- **Step 5.3 – Bulk delete**
+  - Add bulk action “Delete” with confirmation. Enforce tenant scope and access.
+  - Tests: integration tests for bulk delete; ensure no cross-tenant deletion.
+- **Step 5.4 – Replace shadcn with payloadcms/ui in bookings admin**
+  - Audit bookings-related admin components (list, detail, edit view, modals). Replace shadcn imports with payloadcms/ui where available.
+  - Tests: visual or E2E smoke test that bookings admin still works; no regressions.
+- **Step 5.5 – Documentation and polish**
+  - Document any remaining custom list/bulk behaviour. Ensure keyboard and screen-reader behaviour is consistent with other collections.
+
+### Files / areas to add or modify
+
+- `packages/bookings/bookings-plugin` – Bookings collection config (list view, bulk actions); any custom list/detail components.
+- `apps/atnd-me/src/plugins/index.ts` – If bookings plugin is extended with overrides for list or bulk actions.
+- Bookings admin components – Replace shadcn with payloadcms/ui (e.g. in `packages/bookings/bookings-plugin/src/components/` or atnd-me overrides).
+- Tests: `tests/int/bookings-bulk-actions.int.spec.ts`, optional `tests/e2e/bookings-admin-bulk.e2e.spec.ts`.
+
+### Summary
+
+
+| Aspect              | Notes                                                                 |
+| ------------------- | --------------------------------------------------------------------- |
+| **Bulk operations** | Multi-select + bulk status update, bulk delete (and optional export). |
+| **List UX**         | Align with default Payload collection list (checkboxes, bulk bar).    |
+| **UI stack**        | payloadcms/ui in bookings admin; avoid new shadcn in admin.           |
+| **Tenant scope**    | All bulk actions respect tenant context and access control.           |
+| **Green gates**     | Int tests for bulk actions and tenant scope; E2E for admin flows.     |
 
 
 ---
@@ -2192,9 +2279,9 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ---
 
-## Phase 8: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
+## Phase 9: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Self-Onboarding (Phase 5), Analytics (Phase 6), and UTM (Phase 7).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bookings Bulk Operations (Phase 5), Self-Onboarding (Phase 6), Analytics (Phase 7), and UTM (Phase 8).*
 
 When implementing flexible application fees:
 
@@ -2284,9 +2371,9 @@ const paymentIntent = await stripe.paymentIntents.create({
 - Automatic fallback to defaults if overrides not set
 - Fee calculation is transparent and testable
 
-### MVP vs Phase 2 vs Phase 6 Summary
+### MVP vs Phase 2 vs Phase 9 Summary
 
-| Feature | MVP (Phase 1) | Phase 2 | Phase 6 (Deferred) |
+| Feature | MVP (Phase 1) | Phase 2 | Phase 9 (Deferred) |
 
 |---------|---------------|---------|-------------------|
 
@@ -2314,15 +2401,15 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 | **Class Passes** | ❌ Excluded | ✅ Add class passes with expiration dates | - |
 
-| **Application fees** | ❌ Excluded | ❌ Excluded | ✅ Phase 6 – configurable application fees with per-tenant overrides |
+| **Application fees** | ❌ Excluded | ❌ Excluded | ✅ Phase 9 – configurable application fees with per-tenant overrides |
 
-| **Fee management UI** | ❌ Excluded | ❌ Excluded | ✅ Phase 6 – admin UI for fee configuration |
+| **Fee management UI** | ❌ Excluded | ❌ Excluded | ✅ Phase 9 – admin UI for fee configuration |
 
 | **Plans/Subscriptions** | ❌ Excluded | ✅ Add tenant-scoped plans/subscriptions | - |
 
 ---
 
-## Phase 5: Self-Onboarding with MCP-Driven Personalisation
+## Phase 6: Self-Onboarding with MCP-Driven Personalisation
 
 ### Overview
 
@@ -2427,7 +2514,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ---
 
-## Phase 6: Dashboard Analytics (Future)
+## Phase 7: Dashboard Analytics (Future)
 
 ### Overview
 
@@ -2538,7 +2625,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ---
 
-## Phase 7: Event Tracking & Marketing Attribution (UTM) (Future)
+## Phase 8: Event Tracking & Marketing Attribution (UTM) (Future)
 
 ### Overview
 

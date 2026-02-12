@@ -46,6 +46,12 @@ export default buildConfig({
       beforeDashboard: ['@/components/BeforeDashboard'],
       // Stripe Connect status in header so tenant-admins see it on every admin page (not only dashboard).
       header: ['@/components/admin/StripeConnectStatus'],
+      // Phase 4 – Custom analytics dashboard (replaces default dashboard view).
+      views: {
+        dashboard: {
+          Component: '@/components/admin/dashboard/AnalyticsDashboard',
+        },
+      },
     },
     importMap: {
       baseDir: path.resolve(dirname),
