@@ -121,6 +121,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // Track pending bookings created for payment flow (or hydrated from server when user returns)
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([])
   const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
+  /** In payment flow: desired number of new (pending) bookings to pay for. Controls the payment-flow quantity selector. */
+  const [desiredPendingQuantity, setDesiredPendingQuantity] = useState<number>(0)
   // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
   const paymentRedirectInProgressRef = useRef(false)
 
@@ -141,6 +143,18 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       hasHydratedCheckoutRef.current = false
     }
   }, [pendingFromServer, activeBookings.length])
+
+  // Keep pendingBookings in sync with server when in payment flow (e.g. after user updates quantity)
+  useEffect(() => {
+    if (!isInPaymentFlow) return
+    setPendingBookings(pendingFromServer)
+  }, [isInPaymentFlow, pendingFromServer])
+
+  // Keep desired pending quantity in sync with actual pending count when in payment flow
+  useEffect(() => {
+    if (!isInPaymentFlow || pendingBookings.length === 0) return
+    setDesiredPendingQuantity(pendingBookings.length)
+  }, [isInPaymentFlow, pendingBookings.length])
 
   // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
   // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
@@ -397,6 +411,65 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
+  /** In payment flow: apply desired number of new (pending) bookings — cancel or create pending as needed. */
+  const handleUpdatePendingQuantity = async () => {
+    const current = pendingBookings.length
+    const target = desiredPendingQuantity
+
+    if (target === current) return
+
+    if (target === 0) {
+      setIsAbandoningCheckout(true)
+      try {
+        await cancelPendingForLesson({ lessonId: lesson.id })
+        setIsInPaymentFlow(false)
+        setPendingBookings([])
+        setDesiredQuantity(confirmedBookings.length)
+        await queryClient.invalidateQueries({
+          queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
+        })
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Failed to cancel pending bookings')
+      } finally {
+        setIsAbandoningCheckout(false)
+      }
+      return
+    }
+
+    if (target < current) {
+      const toCancel = current - target
+      const pendingToCancel = [...pendingBookings]
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, toCancel)
+      try {
+        for (const booking of pendingToCancel) {
+          if (booking.id != null) await cancelBookingAsync({ id: booking.id })
+        }
+        await queryClient.invalidateQueries({
+          queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
+        })
+        toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Failed to update pending bookings')
+      }
+      return
+    }
+
+    // target > current: create more pending
+    const toCreate = target - current
+    try {
+      const newPending = await createBookings({
+        lessonId: lesson.id,
+        quantity: toCreate,
+        status: 'pending',
+      })
+      setPendingBookings((prev) => [...prev, ...newPending])
+      toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to add pending bookings')
+    }
+  }
+
   // Handle payment success callback
   const handlePaymentSuccess = () => {
     setIsInPaymentFlow(false)
@@ -429,17 +502,95 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  // Show payment UI if in payment flow
+  // Show payment UI if in payment flow (quantity selector = number of new/pending bookings to pay for)
   if (isInPaymentFlow && PaymentMethodsComponent && pendingBookings.length > 0) {
+    const maxPendingQuantity = pendingBookings.length + lesson.remainingCapacity
+    const minPendingQuantity = 0
+
     return (
       <div className="space-y-6">
+        <ConfirmationDialog />
         <BookingSummary lesson={lesson} />
+
+        {/* Quantity selector for new bookings (pending) to pay for */}
+        <Card>
+          <CardHeader>
+            <CardTitle>New Bookings to Pay For</CardTitle>
+            <CardDescription>
+              You have {confirmedBookings.length} confirmed booking
+              {confirmedBookings.length !== 1 ? 's' : ''}. Choose how many additional bookings to add and pay for now.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Number of new bookings</p>
+                <p className="text-sm text-muted-foreground">
+                  You can add up to {maxPendingQuantity} new booking
+                  {maxPendingQuantity !== 1 ? 's' : ''} for this lesson.
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This will bring your total number of bookings up to{' '}
+                  {confirmedBookings.length + desiredPendingQuantity}.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  disabled={desiredPendingQuantity <= minPendingQuantity || isCreating || isCancelling}
+                  onClick={() => setDesiredPendingQuantity((q) => Math.max(minPendingQuantity, q - 1))}
+                  aria-label="Decrease new bookings"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span
+                  data-testid="pending-booking-quantity"
+                  className="min-w-[2rem] text-center text-lg font-semibold"
+                >
+                  {desiredPendingQuantity}
+                </span>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  disabled={
+                    desiredPendingQuantity >= maxPendingQuantity || isCreating || isCancelling
+                  }
+                  onClick={() =>
+                    setDesiredPendingQuantity((q) => Math.min(maxPendingQuantity, q + 1))
+                  }
+                  aria-label="Increase new bookings"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              disabled={isCreating || isCancelling || isAbandoningCheckout || desiredPendingQuantity === pendingBookings.length}
+              onClick={handleUpdatePendingQuantity}
+            >
+              {isCreating || isCancelling || isAbandoningCheckout ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Quantity'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Complete Payment</CardTitle>
             <CardDescription>
-              You have {pendingBookings.length} pending booking{pendingBookings.length !== 1 ? 's' : ''} 
-              {' '}for this lesson. Please complete payment to confirm.
+              You have {pendingBookings.length} pending booking{pendingBookings.length !== 1 ? 's' : ''}{' '}
+              for this lesson. Please complete payment to confirm.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -459,9 +610,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               onClick={async () => {
                 setIsAbandoningCheckout(true)
                 try {
-                  for (const booking of pendingBookings) {
-                    if (booking.id != null) await cancelBookingAsync({ id: booking.id })
-                  }
+                  await cancelPendingForLesson({ lessonId: lesson.id })
                   setIsInPaymentFlow(false)
                   setPendingBookings([])
                   setDesiredQuantity(confirmedBookings.length)
