@@ -22,16 +22,44 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
   type TenantOption = { label: string; value: string } | undefined
   const [tenantSelection, setTenantSelection] = React.useState<TenantOption>(undefined)
 
-  /** SelectInput passes Option<unknown> | Option<unknown>[]; normalize to our shape */
-  const toTenantOption = (
-    v: { value?: unknown; label?: unknown } | { value?: unknown; label?: unknown }[],
-  ): TenantOption => {
-    const option = Array.isArray(v) ? v[0] : v
-    if (!option || typeof option !== 'object') return undefined
-    const value = 'value' in option ? option.value : undefined
-    const label = 'label' in option ? String(option.label ?? '') : ''
-    return value != null ? { label, value: String(value) } : undefined
-  }
+  /** SelectInput passes Option<unknown> | Option<unknown>[] or raw value; normalize to our shape */
+  const toTenantOption = React.useCallback(
+    (
+      v:
+        | { value?: unknown; label?: unknown }
+        | { value?: unknown; label?: unknown }[]
+        | string
+        | number
+        | null
+        | undefined,
+    ): TenantOption => {
+      if (v == null) return undefined
+      if (typeof v === 'string' || typeof v === 'number') {
+        const value = String(v)
+        const found = options.find(
+          (o: { value?: unknown; id?: unknown }) =>
+            (o?.value != null && String(o.value) === value) ||
+            (o?.id != null && String(o.id) === value),
+        ) as { value?: unknown; label?: unknown; name?: unknown } | undefined
+        const label = found
+          ? String(
+              ('label' in found && found.label) ||
+                ('name' in found && found.name) ||
+                value,
+            )
+          : value
+        return { label, value }
+      }
+      const option = Array.isArray(v) ? v[0] : v
+      if (!option || typeof option !== 'object') return undefined
+      const value = 'value' in option ? option.value : 'id' in option ? option.id : undefined
+      const label = String(
+        ('label' in option && option.label) || ('name' in option && option.name) || '',
+      )
+      return value != null ? { label: label || String(value), value: String(value) } : undefined
+    },
+    [options],
+  )
 
   const switchTenant = React.useCallback(
     (option: TenantOption) => {
@@ -48,10 +76,17 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
     (
       value:
         | { value?: unknown; label?: unknown }
-        | { value?: unknown; label?: unknown }[],
+        | { value?: unknown; label?: unknown }[]
+        | string
+        | number
+        | null
+        | undefined,
     ) => {
       const option = toTenantOption(value)
-      if (option?.value !== undefined && option.value === selectedTenantID) {
+      if (
+        option?.value !== undefined &&
+        option.value === String(selectedTenantID ?? '')
+      ) {
         return
       }
       if (entityType === 'global' && modified) {
@@ -61,12 +96,27 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
         switchTenant(option)
       }
     },
-    [selectedTenantID, entityType, modified, switchTenant, openModal],
+    [selectedTenantID, entityType, modified, switchTenant, openModal, toTenantOption],
   )
 
   if (options.length <= 1) {
     return null
   }
+
+  // Normalize options so value is always string and label shows tenant name (not ID).
+  // Plugin may return { value, label }, { value, name }, or { id, name }; ensure we have both.
+  const normalizedOptions: { label: string; value: string }[] = React.useMemo(
+    () =>
+      options.map((o: { value?: unknown; label?: unknown; name?: unknown; id?: unknown }) => {
+        const value = String(o?.value ?? o?.id ?? '')
+        const label =
+          (o && typeof o === 'object' && 'label' in o && String(o.label)) ||
+          (o && typeof o === 'object' && 'name' in o && String(o.name)) ||
+          value
+        return { label, value }
+      }),
+    [options],
+  )
 
   const selectValue: string | undefined =
     selectedTenantID != null ? String(selectedTenantID) : undefined
@@ -82,7 +132,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
         }
         name="setTenant"
         onChange={onChange}
-        options={options}
+        options={normalizedOptions}
         path="setTenant"
         readOnly={
           entityType !== 'global' &&
