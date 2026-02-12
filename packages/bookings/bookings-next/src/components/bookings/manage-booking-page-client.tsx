@@ -48,12 +48,16 @@ interface ManageBookingPageClientProps {
     onPaymentSuccess?: () => void
     /** Called when user starts payment redirect (e.g. to Stripe); used to avoid cancelling pending on page leave */
     onPaymentRedirectStart?: () => void
+    /** URL to redirect to after successful payment */
+    successUrl?: string
   }>
   /**
    * Optional URL for POST to cancel pending bookings (e.g. /api/bookings/cancel-pending).
    * When set, used on beforeunload so pending are cancelled when user closes the tab.
    */
   cancelPendingApiUrl?: string
+  /** URL to redirect to after successful payment. Defaults to /dashboard for backwards compatibility. */
+  successUrl?: string
 }
 
 /**
@@ -75,6 +79,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   initialBookings,
   PaymentMethodsComponent,
   cancelPendingApiUrl,
+  successUrl = '/dashboard',
 }) => {
   const trpc = useTRPC()
   const router = useRouter()
@@ -599,6 +604,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               pendingBookings={pendingBookings}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
+              successUrl={successUrl}
             />
           </CardContent>
         </Card>

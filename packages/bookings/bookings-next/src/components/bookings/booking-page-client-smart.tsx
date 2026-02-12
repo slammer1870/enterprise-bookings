@@ -46,6 +46,8 @@ interface BookingPageClientSmartProps {
     pendingBookings?: import('@repo/shared-types').Booking[]
     onPaymentSuccess?: () => void
     onPaymentRedirectStart?: () => void
+    /** URL to redirect to after successful payment (Stripe Elements, Checkout Session). */
+    successUrl?: string
   }>
 }
 
@@ -106,6 +108,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
             lesson={lesson}
             quantity={quantity}
             onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
+            successUrl={onSuccessRedirect}
           />
         </div>
       )

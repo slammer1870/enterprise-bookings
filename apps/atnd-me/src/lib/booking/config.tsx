@@ -13,7 +13,7 @@ export const bookingPageConfig: BookingPageConfig = {
   createCaller,
   authRedirectPath: (id) => `/complete-booking?mode=login&callbackUrl=/bookings/${id}`,
   errorRedirectPath: '/',
-  onSuccessRedirect: '/',
+  onSuccessRedirect: '/success',
   BookingPageClient: (props) => (
     <BookingPageClientSmart {...props} PaymentMethodsComponent={PaymentMethodsConnect} />
   ),

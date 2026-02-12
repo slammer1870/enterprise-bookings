@@ -40,6 +40,11 @@ type PaymentMethodsProps = {
    * Optional component to show fee breakdown (class price, booking fee, total) in the drop-in tab.
    */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
+  /**
+   * URL to redirect to after successful payment (checkout session, customer portal, drop-in).
+   * Defaults to /dashboard for backwards compatibility with apps that use that route.
+   */
+  successUrl?: string;
 };
 
 /**
@@ -101,6 +106,7 @@ export function PaymentMethods({
   onPaymentRedirectStart,
   createPaymentIntentUrl,
   FeeBreakdownComponent,
+  successUrl: successUrlProp,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -216,28 +222,36 @@ export function PaymentMethods({
           ? parts[0]
           : null;
     const tenantQ = tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : "";
+    const baseSuccess = successUrlProp ?? "/dashboard";
+    const successPath = baseSuccess.startsWith("http") ? baseSuccess : `${origin}${baseSuccess.startsWith("/") ? "" : "/"}${baseSuccess}`;
     await createCheckoutSession({
       priceId: planId,
       quantity: 1,
       metadata: metaWithTenant,
       mode: "subscription",
-      successUrl: `${origin}/dashboard${tenantQ}`,
+      successUrl: `${successPath}${tenantQ}`,
       cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
     });
   };
 
   const handleCreateCustomerPortal = async () => {
+    const baseSuccess = successUrlProp ?? "/dashboard";
     const returnUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/dashboard`
+        ? baseSuccess.startsWith("http")
+          ? baseSuccess
+          : `${window.location.origin}${baseSuccess.startsWith("/") ? baseSuccess : `/${baseSuccess}`}`
         : undefined;
     await createCustomerPortal({ returnUrl });
   };
 
   const handleCreateCustomerUpgradePortal = async (productId: string) => {
+    const baseSuccess = successUrlProp ?? "/dashboard";
     const returnUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/dashboard`
+        ? baseSuccess.startsWith("http")
+          ? baseSuccess
+          : `${window.location.origin}${baseSuccess.startsWith("/") ? baseSuccess : `/${baseSuccess}`}`
         : undefined;
     await createCustomerUpgradePortal({ productId, returnUrl });
   };
@@ -364,6 +378,7 @@ export function PaymentMethods({
                 onPaymentRedirectStart={onPaymentRedirectStart}
                 createPaymentIntentUrl={createPaymentIntentUrl}
                 FeeBreakdownComponent={FeeBreakdownComponent}
+                returnUrl={successUrlProp}
                 metadata={
                   pendingBookings && pendingBookings.length > 0
                     ? {

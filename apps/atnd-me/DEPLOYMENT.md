@@ -38,7 +38,7 @@ Use `.env` or Coolify env UI; do not commit secrets.
 
 ## Stripe webhooks
 
-atnd-me uses **one URL** for all webhooks (`/api/stripe/webhook`) but **two webhook endpoints** in Stripe: payments on subdomains use **destination charges**, so Stripe sends `payment_intent.succeeded` to the **platform** webhook, not the Connect one. Account/subscription events use the **Connect** webhook. Both endpoints use the same URL; each has its own signing secret. Subscriptions are created on the **connected account** so events include `event.account`; subscription lifecycle (create, update, cancel, pause) is handled in this route. The sync job (`syncStripeSubscriptions`) is **disabled** for atnd-me; other apps that want it set `membership.syncStripeSubscriptions: true` in the plugin config.
+atnd-me uses **one URL** for all webhooks (`/api/stripe/webhook`) but **two webhook endpoints** in Stripe: payments on subdomains use **destination charges**, so Stripe sends `payment_intent.succeeded` to the **platform** webhook, not the Connect one. Subscription checkouts are created on the **platform** (via tRPC), so `customer.subscription.*` is sent to the **platform** webhook; the route verifies with either secret and for subscription events with no `event.account` resolves the tenant from **subscription metadata.tenantId** (callers must pass `metadata.tenantId` when creating checkout). Connect account events (`account.updated`, `account.application.deauthorized`) still use the Connect webhook and `event.account`. Subscription lifecycle (create, update, cancel, pause) is handled in this route. The sync job (`syncStripeSubscriptions`) is **disabled** for atnd-me; other apps that want it set `membership.syncStripeSubscriptions: true` in the plugin config.
 
 ### Webhook URL
 
@@ -54,11 +54,11 @@ atnd-me uses **one URL** for all webhooks (`/api/stripe/webhook`) but **two webh
 1. Go to **Developers → Webhooks** (or **Connect → Webhooks**).
 2. For **Connect**, use “Listen to events on Connected accounts” and add the endpoint URL above.
 3. Select events: `account.updated`, `account.application.deauthorized`, `customer.subscription.*` (no `payment_intent.succeeded` here—that goes to the platform endpoint). Copy the **Signing secret** → `STRIPE_CONNECT_WEBHOOK_SECRET`.
-4. Add a **second** endpoint (same URL). Do **not** enable "Listen to events on Connected accounts". Select only `payment_intent.succeeded`. Copy its **Signing secret** → `STRIPE_WEBHOOK_SECRET`.
+4. Add a **second** endpoint (same URL). Do **not** enable "Listen to events on Connected accounts". Select `payment_intent.succeeded` and `customer.subscription.*` (subscriptions are created on the platform). Copy its **Signing secret** → `STRIPE_WEBHOOK_SECRET`.
 
 ### Subscription management
 
-- **Sync job**: Opt-in and **disabled** for atnd-me. Subscription create/update/cancel/pause are handled by the Connect webhook (same URL, same secret).
+- **Sync job**: Opt-in and **disabled** for atnd-me. Subscription create/update/cancel/pause are handled in this route (platform subscription events use `metadata.tenantId`; Connect account events use `event.account`).
 - **Idempotency**: The app uses an in-memory store for webhook event idempotency. With multiple app instances, consider a DB-backed store; for single-instance deployments the current behaviour is sufficient.
 
 ### Local testing

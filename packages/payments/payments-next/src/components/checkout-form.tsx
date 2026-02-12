@@ -33,10 +33,13 @@ function PaymentForm({
   priceComponent,
   price,
   onPaymentRedirectStart,
+  returnUrl,
 }: {
   priceComponent: React.ReactNode;
   price: number;
   onPaymentRedirectStart?: () => void;
+  /** URL Stripe redirects to after payment. Defaults to /dashboard for backwards compatibility. */
+  returnUrl?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -64,10 +67,14 @@ function PaymentForm({
       typeof window !== "undefined"
         ? window.location.origin
         : process.env.NEXT_PUBLIC_SERVER_URL || "";
+    const baseReturn = returnUrl ?? "/dashboard";
+    const fullReturnUrl = baseReturn.startsWith("http")
+      ? baseReturn
+      : `${origin}${baseReturn.startsWith("/") ? baseReturn : `/${baseReturn}`}`;
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${origin}/dashboard`,
+        return_url: fullReturnUrl,
       },
     });
 
@@ -128,6 +135,7 @@ export default function CheckoutForm({
   metadata,
   createPaymentIntentUrl,
   onPaymentRedirectStart,
+  returnUrl,
 }: {
   price: number;
   priceComponent: React.ReactNode;
@@ -140,6 +148,8 @@ export default function CheckoutForm({
   createPaymentIntentUrl?: string;
   /** Called when user starts payment (before redirect to Stripe) so parent can avoid cancelling pending bookings */
   onPaymentRedirectStart?: () => void;
+  /** URL Stripe redirects to after payment. Defaults to /dashboard for backwards compatibility. */
+  returnUrl?: string;
 }) {
   const appearance = {
     theme: "stripe",
@@ -264,6 +274,7 @@ export default function CheckoutForm({
         priceComponent={priceComponent}
         price={price}
         onPaymentRedirectStart={onPaymentRedirectStart}
+        returnUrl={returnUrl}
       />
     </Elements>
   );

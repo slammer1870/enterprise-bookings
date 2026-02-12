@@ -22,6 +22,7 @@ function DropInCheckoutWithFee({
   FeeBreakdownComponent: _FeeBreakdownComponent,
   lessonId,
   onPaymentRedirectStart,
+  returnUrl,
 }: {
   classPriceAmount: number;
   price: { totalAmount: number; totalAmountBeforeDiscount?: number; discountApplied?: boolean };
@@ -31,6 +32,7 @@ function DropInCheckoutWithFee({
   FeeBreakdownComponent?: React.ComponentType<{ classPriceCents: number; lessonId: number }>;
   lessonId: number;
   onPaymentRedirectStart?: () => void;
+  returnUrl?: string;
 }) {
   const trpc = useTRPC();
   const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { lessonId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
@@ -62,6 +64,7 @@ function DropInCheckoutWithFee({
       metadata={metadata}
       createPaymentIntentUrl={createPaymentIntentUrl}
       onPaymentRedirectStart={onPaymentRedirectStart}
+      returnUrl={returnUrl}
     />
   );
 }
@@ -83,6 +86,7 @@ export const DropInView = ({
   onPaymentRedirectStart,
   createPaymentIntentUrl,
   FeeBreakdownComponent,
+  returnUrl,
 }: {
   bookingStatus: Lesson["bookingStatus"];
   dropIn: DropIn | number;
@@ -93,6 +97,8 @@ export const DropInView = ({
   createPaymentIntentUrl?: string;
   /** Optional: render fee breakdown (class price + booking fee + total) when drop-in has platform fee */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
+  /** URL to redirect to after successful payment. Defaults to /dashboard for backwards compatibility. */
+  returnUrl?: string;
 }) => {
   const [dropInDoc, setDropInDoc] = useState<DropIn | null>(
     dropIn && typeof dropIn === "object" ? (dropIn as DropIn) : null
@@ -162,7 +168,7 @@ export const DropInView = ({
           payment.
         </span>
       )}
-      {lessonIdNum != null && FeeBreakdownComponent ? (
+      {      lessonIdNum != null && FeeBreakdownComponent ? (
         <DropInCheckoutWithFee
           classPriceAmount={price.totalAmount}
           price={price}
@@ -172,6 +178,7 @@ export const DropInView = ({
           FeeBreakdownComponent={FeeBreakdownComponent}
           lessonId={lessonIdNum}
           onPaymentRedirectStart={onPaymentRedirectStart}
+          returnUrl={returnUrl}
         />
       ) : (
         <CheckoutForm
@@ -180,6 +187,7 @@ export const DropInView = ({
           metadata={metadata}
           createPaymentIntentUrl={createPaymentIntentUrl}
           onPaymentRedirectStart={onPaymentRedirectStart}
+          returnUrl={returnUrl}
         />
       )}
     </div>
