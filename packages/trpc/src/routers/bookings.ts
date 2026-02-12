@@ -561,7 +561,7 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }): Promise<{ cancelled: number }> => {
       const cookieHeader = ctx.headers.get("cookie") || "";
       const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      let tenantSlug: string | null = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      let tenantSlug: string | null = tenantSlugMatch?.[1] ?? null;
       let tenantId: number | null = null;
       if (tenantSlug && hasCollection(ctx.payload, "tenants")) {
         try {

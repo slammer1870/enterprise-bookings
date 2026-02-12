@@ -121,6 +121,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // Track pending bookings created for payment flow (or hydrated from server when user returns)
   const [pendingBookings, setPendingBookings] = useState<Booking[]>([])
   const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
+  // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
+  const paymentRedirectInProgressRef = useRef(false)
+
+  const { mutateAsync: cancelPendingForLesson } = useMutation(
+    trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
+  )
 
   // When user returns to the page after leaving checkout: show checkout again with server pending
   const hasHydratedCheckoutRef = useRef(false)
@@ -171,8 +177,6 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null)
   // Track when we're abandoning checkout (cancelling all pending)
   const [isAbandoningCheckout, setIsAbandoningCheckout] = useState(false)
-  // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
-  const paymentRedirectInProgressRef = useRef(false)
 
   // Check if lesson has payment methods configured
   const hasPaymentMethods = Boolean(
@@ -237,10 +241,6 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         toast.error(error.message || 'Failed to update bookings')
       },
     })
-  )
-
-  const { mutateAsync: cancelPendingForLesson } = useMutation(
-    trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
   )
 
   const { mutateAsync: setBookingQuantity, isPending: isSettingQuantity } = useMutation(
