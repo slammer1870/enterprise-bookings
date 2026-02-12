@@ -169,10 +169,17 @@ export async function POST(request: NextRequest) {
       id?: string
       customer?: string | { id?: string }
       status?: string
+      start_date?: number
       current_period_start?: number
       current_period_end?: number
       cancel_at?: number
-      items?: { data?: Array<{ plan?: { product?: string } }> }
+      items?: {
+        data?: Array<{
+          plan?: { product?: string }
+          current_period_start?: number
+          current_period_end?: number
+        }>
+      }
       metadata?: { lessonId?: string; lesson_id?: string; bookingIds?: string; tenantId?: string }
     } | undefined
     if (!obj?.id) {
@@ -181,8 +188,14 @@ export async function POST(request: NextRequest) {
     }
     const customerId = typeof obj.customer === 'string' ? obj.customer : obj.customer?.id
     const planProductId = obj.items?.data?.[0]?.plan?.product
-    const currentPeriodStart = obj.current_period_start
-    const currentPeriodEnd = obj.current_period_end
+    const firstItem = obj.items?.data?.[0]
+    // Period dates: Stripe may send at subscription root or only on the first subscription item (e.g. 2025 API)
+    const currentPeriodStart =
+      obj.current_period_start ??
+      firstItem?.current_period_start ??
+      obj.start_date
+    const currentPeriodEnd =
+      obj.current_period_end ?? firstItem?.current_period_end
     const cancelAt = obj.cancel_at
 
     if (event.type === 'customer.subscription.created') {
@@ -228,14 +241,38 @@ export async function POST(request: NextRequest) {
         overrideAccess: true,
       })
       if (existing.docs.length > 0) {
-        payload.logger?.info?.(`subscription.created skipped: subscription already exists (sub=${obj.id})`)
+        // subscription.updated may have created the record first; still run booking confirmation
+        const existingSub = existing.docs[0] as { id: number }
+        const meta = obj.metadata ?? {}
+        const lessonId = meta.lessonId ?? meta.lesson_id
+        const bookingIdsFromMeta = parseBookingIds(meta)
+        if (bookingIdsFromMeta.length > 0) {
+          await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, existingSub.id)
+        } else if (lessonId) {
+          const lessonIdNum = Number(lessonId)
+          if (Number.isFinite(lessonIdNum)) {
+            try {
+              await findOrCreateAndConfirmBookingForLesson(payload, {
+                lessonId: lessonIdNum,
+                userId: user.id,
+                tenantId,
+                subscriptionId: existingSub.id,
+              })
+            } catch (e) {
+              payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+            }
+          }
+        }
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
       const allowedStatuses = ['incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'] as const
-      const status = obj.status && allowedStatuses.includes(obj.status as (typeof allowedStatuses)[number])
+      const rawStatus = obj.status && allowedStatuses.includes(obj.status as (typeof allowedStatuses)[number])
         ? (obj.status as (typeof allowedStatuses)[number])
         : 'active'
+      // At creation Stripe often sends "incomplete" (first payment still processing). Show as "active" in admin
+      // until subscription.updated delivers the final status (active, past_due, canceled, etc.).
+      const status = rawStatus === 'incomplete' ? 'active' : rawStatus
       const created = await payload.create({
         collection: 'subscriptions' as import('payload').CollectionSlug,
         data: {
@@ -310,6 +347,80 @@ export async function POST(request: NextRequest) {
           data: updateData,
           overrideAccess: true,
         })
+      } else {
+        // subscription.updated can arrive before subscription.created; create record so status/dates are correct
+        if (customerId && planProductId) {
+          const userResult = await payload.find({
+            collection: 'users',
+            where: { stripeCustomerId: { equals: customerId } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          })
+          const user = userResult.docs[0] as { id: number } | undefined
+          const planResult = await payload.find({
+            collection: 'plans',
+            where: {
+              stripeProductId: { equals: planProductId },
+              tenant: { equals: tenantId },
+            },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          })
+          const plan = planResult.docs[0] as { id: number } | undefined
+          if (user && plan) {
+            const existingAgain = await payload.find({
+              collection: 'subscriptions' as import('payload').CollectionSlug,
+              where: { stripeSubscriptionId: { equals: obj.id } },
+              limit: 1,
+              depth: 0,
+              overrideAccess: true,
+            })
+            if (existingAgain.docs.length === 0) {
+              const allowedStatuses = ['incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'] as const
+              const status = obj.status && allowedStatuses.includes(obj.status as (typeof allowedStatuses)[number])
+                ? (obj.status as (typeof allowedStatuses)[number])
+                : 'active'
+              const createdSub = await payload.create({
+                collection: 'subscriptions' as import('payload').CollectionSlug,
+                data: {
+                  tenant: tenantId,
+                  user: user.id,
+                  plan: plan.id,
+                  status: event.type === 'customer.subscription.paused' ? 'paused' : event.type === 'customer.subscription.resumed' ? 'active' : status,
+                  stripeSubscriptionId: obj.id,
+                  startDate: stripeDateOnly(currentPeriodStart),
+                  endDate: stripeDateOnly(currentPeriodEnd),
+                  cancelAt: stripeDateOnly(cancelAt),
+                  skipSync: true,
+                } as Record<string, unknown>,
+                overrideAccess: true,
+              })
+              const subId = createdSub.id as number
+              const meta = obj.metadata ?? {}
+              const lessonId = meta.lessonId ?? meta.lesson_id
+              const bookingIdsFromMeta = parseBookingIds(meta)
+              if (bookingIdsFromMeta.length > 0) {
+                await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, subId)
+              } else if (lessonId) {
+                const lessonIdNum = Number(lessonId)
+                if (Number.isFinite(lessonIdNum)) {
+                  try {
+                    await findOrCreateAndConfirmBookingForLesson(payload, {
+                      lessonId: lessonIdNum,
+                      userId: user.id,
+                      tenantId,
+                      subscriptionId: subId,
+                    })
+                  } catch (e) {
+                    payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     } else if (event.type === 'customer.subscription.deleted') {
       const subResult = await payload.find({
