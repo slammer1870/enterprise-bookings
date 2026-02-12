@@ -32,14 +32,12 @@ import {
   productUpdated,
 } from '@repo/bookings-payments'
 
-import { Lesson, User } from '@repo/shared-types'
+import { User } from '@repo/shared-types'
 
 import {
   bookingCreateMembershipDropinAccess,
   bookingUpdateMembershipDropinAccess,
 } from '@repo/shared-services/src/access/booking-membership-dropin'
-
-import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'

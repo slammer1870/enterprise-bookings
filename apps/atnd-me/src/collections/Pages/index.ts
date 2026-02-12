@@ -54,7 +54,7 @@ const availableBlocks = [
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 
 /** Extract allowed block slugs for a tenant (from form data or req context). Sync version when tenant has allowedBlocks. */
-function getAllowedBlockSlugs(data: { tenant?: unknown }, req?: { context?: { tenant?: unknown } }): string[] {
+function _getAllowedBlockSlugs(data: { tenant?: unknown }, req?: { context?: { tenant?: unknown } }): string[] {
   const tenant = data?.tenant ?? req?.context?.tenant
   if (!tenant) return defaultBlockSlugs
   const allowed = typeof tenant === 'object' && tenant !== null && 'allowedBlocks' in tenant
@@ -232,7 +232,7 @@ export const Pages: CollectionConfig<'pages'> = {
     ],
     beforeChange: [
       populatePublishedAt,
-      async ({ data, req, operation }) => {
+      async ({ data, req, operation: _operation }) => {
         if (!data?.layout || !Array.isArray(data.layout)) return data
         const tenantId =
           typeof data.tenant === 'object' && data.tenant !== null && 'id' in data.tenant

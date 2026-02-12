@@ -1,4 +1,5 @@
 import React from 'react'
+import Image from 'next/image'
 import { cookies } from 'next/headers'
 
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
@@ -38,27 +39,31 @@ export async function TenantBranding({ payload, variant, className }: TenantBran
   const src = logoUrl || DEFAULT_PAYLOAD_LOGO
   const alt = logoUrl ? logoAlt : 'Payload'
 
+  const isExternal = src === DEFAULT_PAYLOAD_LOGO
+
   if (variant === 'icon') {
     return (
-      <img
+      <Image
         src={src}
         alt={alt}
         width={24}
         height={24}
         className={className}
         style={{ objectFit: 'contain' }}
+        unoptimized={isExternal}
       />
     )
   }
 
   return (
-    <img
+    <Image
       src={src}
       alt={alt}
       width={193}
       height={34}
       className={className}
       style={{ maxWidth: '9.375rem', width: '100%', height: 34, objectFit: 'contain' }}
+      unoptimized={isExternal}
     />
   )
 }

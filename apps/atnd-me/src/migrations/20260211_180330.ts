@@ -225,7 +225,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   `)
 }
 
-export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
    ALTER TABLE "hero_sched_sanc_links" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "hero_sched_sanc" DISABLE ROW LEVEL SECURITY;

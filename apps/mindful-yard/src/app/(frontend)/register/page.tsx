@@ -3,7 +3,7 @@ import { getMeUser } from '@repo/auth-next'
 import { RegisterLoginTabs } from '@repo/auth-next'
 
 export default async function Register() {
-  const user = await getMeUser({ validUserRedirect: '/' })
+  await getMeUser({ validUserRedirect: '/' })
 
   return (
     <div className="flex h-screen w-screen items-center justify-center">

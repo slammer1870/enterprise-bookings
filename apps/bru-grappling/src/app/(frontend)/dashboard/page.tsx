@@ -8,8 +8,6 @@ import type { CollectionSlug } from 'payload'
 
 import { redirect } from 'next/navigation'
 
-import config from '@payload-config'
-
 import { Plan } from '@repo/shared-types'
 import { DashboardMemberships } from '@/components/dashboard/memberships.client'
 

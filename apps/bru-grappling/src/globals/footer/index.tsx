@@ -16,7 +16,7 @@ export async function Footer() {
 
   try {
     footerData = (await getCachedGlobal('footer', 1)()) as FooterType
-  } catch (error) {
+  } catch {
     // Footer global might not exist yet, that's okay
     console.log('Footer global not found, using default footer')
   }

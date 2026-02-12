@@ -27,7 +27,7 @@ export const Users: CollectionConfig = {
      * are set before validation occurs.
      */
     beforeChange: [
-      ({ data, operation, req }) => {
+      ({ data, operation, req: _req }) => {
         if (operation === 'create' && data) {
           // Ensure name field has a value (better-auth requires it but may not provide it during first user registration)
           const nameValue = (data as any).name

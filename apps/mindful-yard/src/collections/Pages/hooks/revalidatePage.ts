@@ -6,7 +6,7 @@ import type { Page } from '@/payload-types'
 
 export const revalidatePage: CollectionAfterChangeHook<Page> = ({
   doc,
-  previousDoc,
+  previousDoc: _previousDoc,
   req: { payload, context },
 }) => {
   if (!context.disableRevalidate) {
