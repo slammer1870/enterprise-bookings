@@ -22,6 +22,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
   type TenantOption = { label: string; value: string } | undefined
   const [tenantSelection, setTenantSelection] = React.useState<TenantOption>(undefined)
 
+  const optionsList = Array.isArray(options) ? options : []
   /** SelectInput passes Option<unknown> | Option<unknown>[] or raw value; normalize to our shape */
   const toTenantOption = React.useCallback(
     (
@@ -36,7 +37,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
       if (v == null) return undefined
       if (typeof v === 'string' || typeof v === 'number') {
         const value = String(v)
-        const found = options.find(
+        const found = optionsList.find(
           (o: { value?: unknown; id?: unknown }) =>
             (o?.value != null && String(o.value) === value) ||
             (o?.id != null && String(o.id) === value),
@@ -58,7 +59,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
       )
       return value != null ? { label: label || String(value), value: String(value) } : undefined
     },
-    [options],
+    [optionsList],
   )
 
   const switchTenant = React.useCallback(
@@ -99,7 +100,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
     [selectedTenantID, entityType, modified, switchTenant, openModal, toTenantOption],
   )
 
-  if (options.length <= 1) {
+  if (optionsList.length <= 1) {
     return null
   }
 
@@ -107,7 +108,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
   // Plugin may return { value, label }, { value, name }, or { id, name }; ensure we have both.
   const normalizedOptions: { label: string; value: string }[] = React.useMemo(
     () =>
-      options.map((o: { value?: unknown; label?: unknown; name?: unknown; id?: unknown }) => {
+      optionsList.map((o: { value?: unknown; label?: unknown; name?: unknown; id?: unknown }) => {
         const value = String(o?.value ?? o?.id ?? '')
         const label =
           (o && typeof o === 'object' && 'label' in o && String(o.label)) ||
@@ -115,17 +116,12 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
           value
         return { label, value }
       }),
-    [options],
+    [optionsList],
   )
 
-  // Pass the full option object so the underlying react-select can match the selection.
-  // Passing only the value string can prevent non-first options from being selected.
-  const selectValue =
-    selectedTenantID != null
-      ? normalizedOptions.find(
-          (o) => String(o.value) === String(selectedTenantID),
-        )
-      : undefined
+  // Pass string value only. Passing an option object can cause React to throw (invalid child) and white-screen.
+  const selectValue: string | undefined =
+    selectedTenantID != null ? String(selectedTenantID) : undefined
 
   return (
     <div
@@ -148,7 +144,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
           entityType !== 'global' &&
           (entityType === 'document' || entityType === 'version')
         }
-        value={selectValue as unknown as string | undefined}
+        value={selectValue}
       />
       <ConfirmationModal
         body={t('general:changesNotSaved')}
