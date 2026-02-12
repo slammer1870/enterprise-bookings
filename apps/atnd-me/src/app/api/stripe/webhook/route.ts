@@ -1,6 +1,6 @@
 /**
- * Step 2.5 / 2.8 – Stripe Connect webhook (account.*, payment_intent.succeeded, customer.subscription.*).
- * Handles created/updated/deleted/paused/resumed; verifies signature, resolves tenant, updates status/booking/subscription, enforces idempotency.
+ * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*.
+ * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -10,7 +10,15 @@ import {
   hasProcessedStripeConnectEvent,
   markStripeConnectEventProcessed,
 } from '@/lib/stripe-connect/webhookProcessed'
-import type { StripeConnectEvent } from '@/lib/stripe-connect/webhookVerify'
+import {
+  parseBookingIds,
+  getAccountIdFromEvent,
+  resolveTenant,
+  confirmBookingsFromPaymentIntent,
+  confirmBookingsFromQuantityFlow,
+  confirmBookingsFromSubscriptionMetadata,
+  findOrCreateAndConfirmBookingForLesson,
+} from '@/lib/stripe-connect/webhook'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -25,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
   }
 
-  let event: StripeConnectEvent
+  let event
   try {
     event = verifyStripeConnectWebhook(rawBody, signature)
   } catch {
@@ -41,52 +49,21 @@ export async function POST(request: NextRequest) {
   if (event.type === 'payment_intent.succeeded') {
     const obj = event.data?.object as {
       id?: string
-      metadata?: {
-        tenantId?: string
-        bookingId?: string
-        bookingIds?: string
-        lessonId?: string
-        type?: string
-        userId?: string
-        quantity?: string
-        expirationDays?: string
-        totalCents?: string
-      }
+      metadata?: Record<string, string>
     } | undefined
     const meta = obj?.metadata ?? {}
-    const metaTenantId = meta.tenantId
-    const bookingIdFromMeta = meta.bookingId
-    const bookingIdsFromMeta = meta.bookingIds
-    const lessonIdFromMeta = meta.lessonId
-    const userIdFromMeta = meta.userId
-    const typeFromMeta = meta.type
 
-    let tenant: { id: number } | null = null
-    const accountId = typeof event.account === 'string' ? event.account : (event.account as { id?: string })?.id
-    if (accountId) {
-      const tr = await payload.find({
-        collection: 'tenants',
-        where: { stripeConnectAccountId: { equals: accountId } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-      })
-      tenant = tr.docs[0] ?? null
-    }
-    if (!tenant && metaTenantId) {
-      try {
-        const t = await payload.findByID({
-          collection: 'tenants',
-          id: Number(metaTenantId),
-          overrideAccess: true,
-        })
-        tenant = t
-      } catch {
-        tenant = null
-      }
-    }
+    const accountId = getAccountIdFromEvent(event)
+    const tenant = await resolveTenant(payload, accountId, meta.tenantId)
+    const bookingIdsToConfirm = parseBookingIds(meta)
 
-    if (tenant && typeFromMeta === 'class_pass_purchase' && !bookingIdFromMeta && !bookingIdsFromMeta) {
+    // Class pass purchase (no bookingIds)
+    if (
+      tenant &&
+      meta.type === 'class_pass_purchase' &&
+      !meta.bookingId &&
+      !meta.bookingIds
+    ) {
       const userId = meta.userId
       const quantity = meta.quantity ? parseInt(meta.quantity, 10) : 0
       const expirationDays = meta.expirationDays ? parseInt(meta.expirationDays, 10) : 365
@@ -98,6 +75,7 @@ export async function POST(request: NextRequest) {
         expirationDate.setDate(expirationDate.getDate() + expirationDays)
         await payload.create({
           collection: 'class-passes' as import('payload').CollectionSlug,
+          draft: false,
           data: {
             user: Number(userId),
             tenant: tenant.id,
@@ -113,128 +91,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const bookingIdsToConfirm: number[] = []
-    if (meta.bookingId) {
-      const id = parseInt(meta.bookingId, 10)
-      if (!Number.isNaN(id)) bookingIdsToConfirm.push(id)
-    }
-    if (meta.bookingIds) {
-      const ids = meta.bookingIds
-        .split(',')
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n))
-      bookingIdsToConfirm.push(...ids)
-    }
-
+    // Explicit booking IDs (drop-in / modify-booking flow)
     if (tenant && bookingIdsToConfirm.length > 0) {
-      const paymentIntentId = typeof obj?.id === 'string' ? obj.id : undefined
-      for (const bookingId of bookingIdsToConfirm) {
-        if (paymentIntentId) {
-          await payload.create({
-            collection: 'transactions' as import('payload').CollectionSlug,
-            data: {
-              booking: bookingId,
-              paymentMethod: 'stripe',
-              stripePaymentIntentId: paymentIntentId,
-              ...(tenant?.id ? { tenant: tenant.id } : {}),
-            } as Record<string, unknown>,
-            overrideAccess: true,
-          })
-        }
-        await payload.update({
-          collection: 'bookings',
-          id: bookingId,
-          data: { status: 'confirmed' },
-          overrideAccess: true,
-        })
-      }
-    } else if (
+      await confirmBookingsFromPaymentIntent(payload, bookingIdsToConfirm, {
+        paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
+        tenantId: tenant.id,
+      })
+    }
+    // Legacy quantity-based flow (lessonId + userId, no explicit bookingIds)
+    else if (
       tenant &&
-      lessonIdFromMeta &&
-      userIdFromMeta &&
-      !typeFromMeta &&
+      meta.lessonId &&
+      meta.userId &&
+      !meta.type &&
       bookingIdsToConfirm.length === 0
     ) {
-      const lessonId = parseInt(lessonIdFromMeta, 10)
-      const userId = parseInt(userIdFromMeta, 10)
+      const lessonId = parseInt(meta.lessonId, 10)
+      const userId = parseInt(meta.userId, 10)
       const quantity = Math.max(1, parseInt(meta.quantity ?? '1', 10) || 1)
       if (!Number.isNaN(lessonId) && !Number.isNaN(userId)) {
-        const paymentIntentId = typeof obj?.id === 'string' ? obj.id : undefined
-        const lesson = await payload.findByID({
-          collection: 'lessons',
-          id: lessonId,
-          depth: 1,
-          overrideAccess: true,
-        }).catch(() => null)
-        const remainingCapacity =
-          lesson && typeof (lesson as { remainingCapacity?: number }).remainingCapacity === 'number'
-            ? Math.max(0, (lesson as { remainingCapacity: number }).remainingCapacity)
-            : 0
-
-        const existingBookings = await payload.find({
-          collection: 'bookings' as import('payload').CollectionSlug,
-          where: {
-            lesson: { equals: lessonId },
-            user: { equals: userId },
-          },
-          limit: quantity * 2,
-          depth: 0,
-          overrideAccess: true,
+        await confirmBookingsFromQuantityFlow(payload, {
+          lessonId,
+          userId,
+          quantity,
+          paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
+          tenantId: tenant.id,
         })
-        const existingDocs = existingBookings.docs as { id: number; status?: string }[]
-        const confirmed = existingDocs.filter((b) => b.status === 'confirmed')
-        const pending = existingDocs.filter((b) => b.status !== 'confirmed')
-        const needToConfirm = Math.max(0, quantity - confirmed.length)
-        const toConfirm = pending.slice(0, needToConfirm)
-        const toCreate = needToConfirm - toConfirm.length
-        const maxCanAdd = remainingCapacity
-        const toConfirmCapped = toConfirm.slice(0, maxCanAdd)
-        const createCapped = Math.max(0, Math.min(toCreate, maxCanAdd - toConfirmCapped.length))
-
-        for (const b of toConfirmCapped) {
-          await payload.update({
-            collection: 'bookings',
-            id: b.id,
-            data: { status: 'confirmed' },
-            overrideAccess: true,
-          })
-          if (paymentIntentId) {
-            await payload.create({
-              collection: 'transactions' as import('payload').CollectionSlug,
-              data: {
-                booking: b.id,
-                paymentMethod: 'stripe',
-                stripePaymentIntentId: paymentIntentId,
-                tenant: tenant.id,
-              } as Record<string, unknown>,
-              overrideAccess: true,
-            })
-          }
-        }
-        for (let i = 0; i < createCapped; i++) {
-          const created = await payload.create({
-            collection: 'bookings' as import('payload').CollectionSlug,
-            data: {
-              lesson: lessonId,
-              user: userId,
-              tenant: tenant.id,
-              status: 'confirmed',
-            } as Record<string, unknown>,
-            overrideAccess: true,
-          })
-          if (paymentIntentId && created?.id) {
-            await payload.create({
-              collection: 'transactions' as import('payload').CollectionSlug,
-              data: {
-                booking: created.id,
-                paymentMethod: 'stripe',
-                stripePaymentIntentId: paymentIntentId,
-                tenant: tenant.id,
-              } as Record<string, unknown>,
-              overrideAccess: true,
-            })
-          }
-        }
       }
     }
 
@@ -242,19 +124,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true }, { status: 200 })
   }
 
-  const accountId = typeof event.account === 'string' ? event.account : (event.account as { id?: string })?.id
+  const accountId = getAccountIdFromEvent(event)
   if (!accountId) {
     return NextResponse.json({ received: true }, { status: 200 })
   }
 
-  const tenantResult = await payload.find({
-    collection: 'tenants',
-    where: { stripeConnectAccountId: { equals: accountId } },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  })
-  const tenant = tenantResult.docs[0] as { id: number } | undefined
+  const tenant = await resolveTenant(payload, accountId)
   if (!tenant) {
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
@@ -352,116 +227,22 @@ export async function POST(request: NextRequest) {
         overrideAccess: true,
       })
       const subId = created.id as number
-
       const meta = obj.metadata ?? {}
       const lessonId = meta.lessonId ?? meta.lesson_id
-      const bookingIdsRaw = meta.bookingIds
+      const bookingIdsFromMeta = parseBookingIds(meta)
 
-      const confirmBookingAndCreateTransaction = async (
-        bookingId: number,
-        bkTenantId: number | undefined
-      ) => {
-        const hasTx = await payload.find({
-          collection: 'transactions' as import('payload').CollectionSlug,
-          where: { booking: { equals: bookingId } },
-          limit: 1,
-          overrideAccess: true,
-        })
-        if (hasTx.totalDocs === 0) {
-          await payload.create({
-            collection: 'transactions' as import('payload').CollectionSlug,
-            data: {
-              booking: bookingId,
-              paymentMethod: 'subscription',
-              subscriptionId: subId,
-              ...(bkTenantId != null ? { tenant: bkTenantId } : {}),
-            } as Record<string, unknown>,
-            overrideAccess: true,
-          })
-        }
-      }
-
-      if (bookingIdsRaw) {
-        const ids = bookingIdsRaw
-          .split(',')
-          .map((s) => parseInt(s.trim(), 10))
-          .filter((n) => Number.isFinite(n))
-        for (const id of ids) {
-          try {
-            const booking = (await payload.findByID({
-              collection: 'bookings',
-              id,
-              depth: 1,
-              overrideAccess: true,
-            })) as { tenant?: number | { id: number } } | null
-            if (!booking) continue
-            await payload.update({
-              collection: 'bookings',
-              id,
-              data: { status: 'confirmed' },
-              overrideAccess: true,
-            })
-            const bkTenantId =
-              booking?.tenant != null
-                ? typeof booking.tenant === 'object' && 'id' in booking.tenant
-                  ? booking.tenant.id
-                  : (booking.tenant as number)
-                : undefined
-            await confirmBookingAndCreateTransaction(id, bkTenantId)
-          } catch {
-            payload.logger?.error?.(`Failed to confirm booking ${id} from subscription metadata`)
-          }
-        }
+      if (bookingIdsFromMeta.length > 0) {
+        await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, subId)
       } else if (lessonId) {
         const lessonIdNum = Number(lessonId)
         if (Number.isFinite(lessonIdNum)) {
           try {
-            const lesson = (await payload.findByID({
-              collection: 'lessons',
-              id: lessonIdNum,
-              depth: 1,
-              overrideAccess: true,
-            })) as { tenant?: number | { id: number } } | null
-            const bookingQuery = await payload.find({
-              collection: 'bookings',
-              where: {
-                user: { equals: user.id },
-                lesson: { equals: lessonIdNum },
-              },
-              limit: 1,
-              overrideAccess: true,
+            await findOrCreateAndConfirmBookingForLesson(payload, {
+              lessonId: lessonIdNum,
+              userId: user.id,
+              tenantId,
+              subscriptionId: subId,
             })
-            let bookingId: number
-            if (bookingQuery.totalDocs === 0) {
-              const createdBk = await payload.create({
-                collection: 'bookings',
-                draft: false,
-                data: {
-                  lesson: lessonIdNum,
-                  user: user.id,
-                  status: 'confirmed',
-                  ...(tenantId != null ? { tenant: tenantId } : {}),
-                },
-                overrideAccess: true,
-              })
-              bookingId = createdBk.id as number
-            } else {
-              const existing = bookingQuery.docs[0]
-              bookingId = existing?.id as number
-              await payload.update({
-                collection: 'bookings',
-                id: bookingId,
-                data: { status: 'confirmed' },
-                overrideAccess: true,
-              })
-            }
-            const bkTenantId =
-              lesson?.tenant != null
-                ? typeof lesson.tenant === 'object' && 'id' in lesson.tenant
-                  ? lesson.tenant.id
-                  : (lesson.tenant as number)
-                : tenantId
-            await confirmBookingAndCreateTransaction(bookingId, bkTenantId ?? undefined)
           } catch (e) {
             payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
           }

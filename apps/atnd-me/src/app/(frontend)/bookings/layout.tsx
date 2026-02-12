@@ -1,15 +1,10 @@
-import React from 'react'
+import type { ReactNode } from 'react'
 
 /**
- * Booking routes use getSession()/headers() and createCaller().
- * Force dynamic so we avoid DYNAMIC_SERVER_USAGE in production/E2E.
+ * Booking layout. Child routes use dynamic server APIs (session, headers, tRPC caller).
  */
 export const dynamic = 'force-dynamic'
 
-export default function BookingsLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function BookingsLayout({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
