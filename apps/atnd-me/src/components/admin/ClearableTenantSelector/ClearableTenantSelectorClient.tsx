@@ -128,7 +128,11 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
       : undefined
 
   return (
-    <div className="tenant-selector" style={{ width: '100%', marginBottom: '2rem' }}>
+    <div
+      className="tenant-selector"
+      data-testid="tenant-selector"
+      style={{ width: '100%', marginBottom: '2rem' }}
+    >
       <SelectInput
         isClearable
         label={
