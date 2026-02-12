@@ -249,25 +249,19 @@ export function PaymentMethods({
     });
   };
 
+  /** Return to the exact route the user came from after the customer portal (not a fixed success URL). */
+  const getCustomerPortalReturnUrl = () => {
+    if (typeof window === "undefined") return undefined;
+    return `${window.location.origin}${window.location.pathname}${window.location.search || ""}`;
+  };
+
   const handleCreateCustomerPortal = async () => {
-    const baseSuccess = successUrlProp ?? "/dashboard";
-    const returnUrl =
-      typeof window !== "undefined"
-        ? baseSuccess.startsWith("http")
-          ? baseSuccess
-          : `${window.location.origin}${baseSuccess.startsWith("/") ? baseSuccess : `/${baseSuccess}`}`
-        : undefined;
+    const returnUrl = getCustomerPortalReturnUrl();
     await createCustomerPortal({ returnUrl });
   };
 
   const handleCreateCustomerUpgradePortal = async (productId: string) => {
-    const baseSuccess = successUrlProp ?? "/dashboard";
-    const returnUrl =
-      typeof window !== "undefined"
-        ? baseSuccess.startsWith("http")
-          ? baseSuccess
-          : `${window.location.origin}${baseSuccess.startsWith("/") ? baseSuccess : `/${baseSuccess}`}`
-        : undefined;
+    const returnUrl = getCustomerPortalReturnUrl();
     await createCustomerUpgradePortal({ productId, returnUrl });
   };
 
@@ -394,10 +388,15 @@ export function PaymentMethods({
               onConfirmBookingWithSubscription={
                 subscription?.id != null
                   ? async (subscriptionId: number) => {
+                      const pendingIds =
+                        pendingBookings && pendingBookings.length > 0
+                          ? pendingBookings.map((b) => b.id as number)
+                          : undefined;
                       await createBookingsWithSubscription({
                         lessonId: lesson.id,
-                        quantity,
+                        quantity: pendingIds ? pendingIds.length : quantity,
                         subscriptionId,
+                        pendingBookingIds: pendingIds,
                       });
                     }
                   : undefined
