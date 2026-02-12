@@ -116,6 +116,17 @@ export default buildConfig({
       membership: {
         enabled: true,
         paymentMethodSlugs: ['class-options'],
+        // Allow read of priceJSON so booking/checkout UI can read Stripe price id (createCustomerCheckoutSession needs it)
+        plansOverrides: {
+          fields: ({ defaultFields }) =>
+            defaultFields.map((field) => {
+              if ('name' in field && field.name === 'priceJSON') {
+                const access = (field as { access?: Record<string, unknown> }).access ?? {}
+                return { ...field, access: { ...access, read: () => true } } as typeof field
+              }
+              return field
+            }),
+        },
         subscriptionOverrides: {
           fields: ({ defaultFields }) => [
             ...defaultFields,

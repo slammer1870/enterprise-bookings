@@ -51,7 +51,13 @@ export const PlanDetail = ({
       ? { lesson_id: params.id as string }
       : undefined;
 
+  const hasPriceId = typeof id === "string" && id.length > 0;
+
   const handleAction = async () => {
+    if (!hasPriceId) {
+      toast.error("This plan is not set up for checkout yet");
+      return;
+    }
     setLoading(true);
     try {
       await onAction(id, metadata);
@@ -82,7 +88,11 @@ export const PlanDetail = ({
         ))}
       </CardContent>
       <CardFooter>
-        <Button onClick={handleAction} disabled={loading} className="w-full">
+        <Button
+          onClick={handleAction}
+          disabled={loading || !hasPriceId}
+          className="w-full"
+        >
           {loading ? "Loading..." : actionLabel}
         </Button>
       </CardFooter>

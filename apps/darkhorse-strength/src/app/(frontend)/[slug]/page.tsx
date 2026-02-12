@@ -8,6 +8,10 @@ import { RenderBlocks } from '@/blocks/render-blocks'
 
 import { generateMetadataFunction } from '@repo/website/src/utils/generate-metadata'
 
+// Mark as dynamic so request-time headers (e.g. auth) don't trigger
+// "Page changed from static to dynamic at runtime" when visiting e.g. /personal-training
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
   const payload = await getPayload({ config })
   return generateMetadataFunction({ params: paramsPromise, payload })
