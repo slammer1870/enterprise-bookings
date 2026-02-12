@@ -6,7 +6,7 @@ import { PlanDetail } from "./plans/plan-detail";
 import { Button } from "@repo/ui/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 
-type PlanViewProps = {
+export type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
   subscription: Subscription | null;
   lessonDate: Date;
@@ -17,6 +17,8 @@ type PlanViewProps = {
   selectedQuantity?: number;
   /** When false, user cannot use subscription for current selection. */
   canUseSubscriptionForQuantity?: boolean;
+  /** When false and selectedQuantity > 1, plan allows only one slot per lesson. */
+  subscriptionAllowsMultiplePerLesson?: boolean;
   onCreateCheckoutSession: (
     _planId: string,
     _metadata?: { [key: string]: string | undefined }
@@ -35,8 +37,9 @@ export function PlanView({
   lessonDate,
   subscriptionLimitReached,
   remainingSessions = null,
-  selectedQuantity: _selectedQuantity = 1,
+  selectedQuantity = 1,
   canUseSubscriptionForQuantity = true,
+  subscriptionAllowsMultiplePerLesson = true,
   onCreateCheckoutSession,
   onCreateCustomerPortal,
   onCreateCustomerUpgradePortal,
@@ -106,16 +109,28 @@ export function PlanView({
     );
   }
 
+  // Only show "not enough sessions" when the limiting factor is session count (not per-lesson limit)
   const notEnoughSessionsLeft =
     !canUseSubscriptionForQuantity &&
     remainingSessions != null &&
-    remainingSessions > 0;
+    remainingSessions > 0 &&
+    remainingSessions < selectedQuantity;
+
+  const oneSlotPerLessonOnly =
+    !canUseSubscriptionForQuantity &&
+    selectedQuantity > 1 &&
+    !subscriptionAllowsMultiplePerLesson;
 
   return (
     <>
       {subscriptionLimitReached && (
         <p className="text-sm text-red-500 mb-2">
           You have reached the limit of your subscription
+        </p>
+      )}
+      {oneSlotPerLessonOnly && (
+        <p className="text-sm text-amber-600 mb-2">
+          Your plan allows one slot per lesson. Use drop-in to pay for additional slots.
         </p>
       )}
       {notEnoughSessionsLeft && (

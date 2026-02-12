@@ -257,17 +257,17 @@ export function PaymentMethods({
     subscription &&
     allowedPlans?.some((plan) => plan.id === subscription?.plan?.id);
 
-  // For "use current subscription": session limits are based on sessions already booked
-  // on the user's active subscription this period (remainingSessions). Only then do we
-  // check if they can book this quantity (remainingSessions >= quantity or unlimited).
-  const canUseSubscriptionForQuantity =
-    hasSubscriptionWithPlan &&
-    !subscriptionLimitReached &&
-    (remainingSessions === null || remainingSessions >= quantity);
-
   const userPlanAllowsMultiple =
     subscription?.plan &&
     planAllowsMultipleBookingsPerLesson(subscription.plan);
+
+  // For "use current subscription": require (1) session headroom, and (2) when quantity > 1,
+  // the plan must allow multiple bookings per lesson (otherwise subscription cannot cover this).
+  const canUseSubscriptionForQuantity =
+    hasSubscriptionWithPlan &&
+    !subscriptionLimitReached &&
+    (remainingSessions === null || remainingSessions >= quantity) &&
+    (quantity <= 1 || Boolean(userPlanAllowsMultiple));
 
   // When quantity > 1: only show plans that allow multiple bookings per lesson
   if (quantity > 1) {
@@ -347,6 +347,7 @@ export function PaymentMethods({
               remainingSessions={remainingSessions}
               selectedQuantity={quantity}
               canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
+              subscriptionAllowsMultiplePerLesson={Boolean(userPlanAllowsMultiple)}
               onCreateCheckoutSession={handleCreateCheckoutSession}
               onCreateCustomerPortal={handleCreateCustomerPortal}
               onCreateCustomerUpgradePortal={handleCreateCustomerUpgradePortal}
