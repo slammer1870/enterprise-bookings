@@ -314,8 +314,12 @@ export function PaymentMethods({
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
     activePlans.length > 0 || Boolean(hasSubscriptionWithPlan);
+  // Show drop-in when: (1) no usable membership, or (2) quantity > 1 and drop-in allows multiple
+  // (so members modifying a booking can pay for additional slots with drop-in)
   let hasDropInTab =
-    Boolean(allowedDropIn) && !(hasSubscriptionWithPlan && subscriptionUsableForBooking);
+    Boolean(allowedDropIn) &&
+    (!(hasSubscriptionWithPlan && subscriptionUsableForBooking) ||
+      (quantity > 1 && dropInAllowsMultiple(allowedDropIn as DropIn)));
 
   if (quantity > 1) {
     hasMembershipTab =

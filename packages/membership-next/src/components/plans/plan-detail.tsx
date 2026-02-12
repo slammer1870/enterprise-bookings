@@ -25,6 +25,8 @@ import { toast } from "sonner";
 type PlanDetailProps = {
   plan: Plan;
   actionLabel: string;
+  /** When false, the action does not require a price ID (e.g. Manage Subscription / customer portal). Default true. */
+  actionRequiresPriceId?: boolean;
   onAction: (
     _planId: string,
     _metadata?: { [key: string]: string | undefined }
@@ -34,6 +36,7 @@ type PlanDetailProps = {
 export const PlanDetail = ({
   plan,
   actionLabel,
+  actionRequiresPriceId = true,
   onAction,
 }: PlanDetailProps) => {
   const [loading, setLoading] = useState(false);
@@ -52,15 +55,16 @@ export const PlanDetail = ({
       : undefined;
 
   const hasPriceId = typeof id === "string" && id.length > 0;
+  const canPerformAction = actionRequiresPriceId ? hasPriceId : true;
 
   const handleAction = async () => {
-    if (!hasPriceId) {
+    if (actionRequiresPriceId && !hasPriceId) {
       toast.error("This plan is not set up for checkout yet");
       return;
     }
     setLoading(true);
     try {
-      await onAction(id, metadata);
+      await onAction(hasPriceId ? id : "", metadata);
     } catch {
       toast.error("Error redirecting to Stripe");
     } finally {
@@ -90,7 +94,7 @@ export const PlanDetail = ({
       <CardFooter>
         <Button
           onClick={handleAction}
-          disabled={loading || !hasPriceId}
+          disabled={loading || !canPerformAction}
           className="w-full"
         >
           {loading ? "Loading..." : actionLabel}

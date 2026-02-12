@@ -230,6 +230,7 @@ export function PlanView({
       <PlanDetail
         plan={subscription.plan}
         actionLabel={showPastDueMessage ? "Update payment" : "Manage Subscription"}
+        actionRequiresPriceId={false}
         onAction={onCreateCustomerPortal}
       />
     </>
