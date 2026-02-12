@@ -9,7 +9,7 @@ import { homeStatic } from '@/endpoints/seed/home-static'
 
 import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { generateMeta } from '@/utilities/generateMeta'
-import { getTenantWithBranding } from '@/utilities/getTenantContext'
+import { getTenantSlug, getTenantContext, getTenantWithBranding } from '@/utilities/getTenantContext'
 import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 
@@ -66,35 +66,13 @@ export default async function Page({ params: paramsPromise }: Args) {
   const decodedSlug = decodeURIComponent(slug)
   const url = '/' + decodedSlug
   
-  // Check for tenant slug to validate tenant exists
   const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
-  const tenantSlug = cookieStore.get('tenant-slug')?.value
-  
-  // If we have a tenant slug, validate the tenant exists before proceeding
+  const tenantSlug = await getTenantSlug({ cookies: cookieStore })
   if (tenantSlug) {
     const payload = await getPayload()
-    try {
-      const tenantResult = await payload.find({
-        collection: 'tenants',
-        where: {
-          slug: {
-            equals: tenantSlug,
-          },
-        },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-      })
-      
-      // If tenant doesn't exist, show 404
-      if (!tenantResult.docs || tenantResult.docs.length === 0) {
-        const { notFound } = await import('next/navigation')
-        notFound()
-      }
-    } catch (error) {
-      // If lookup fails, show 404
-      console.error('Error validating tenant:', error)
+    const tenant = await getTenantContext(payload, { cookies: cookieStore })
+    if (!tenant) {
       const { notFound } = await import('next/navigation')
       notFound()
     }
@@ -151,38 +129,9 @@ export const queryPageBySlug = cache(async ({ slug }: { slug: string }) => {
   const { isEnabled: draft } = await draftMode()
   const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
-  const tenantSlug = cookieStore.get('tenant-slug')?.value
-
   const payload = await getPayload()
-
-  // Resolve tenant slug to tenant ID if subdomain is present
-  let tenantId: string | number | null = null
-  if (tenantSlug) {
-    try {
-      const tenantResult = await payload.find({
-        collection: 'tenants',
-        where: {
-          slug: {
-            equals: tenantSlug,
-          },
-        },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-      })
-      
-      // If tenant doesn't exist, return null to trigger 404
-      if (!tenantResult.docs[0]) {
-        return null
-      }
-      
-      tenantId = tenantResult.docs[0].id
-    } catch (error) {
-      // If tenant lookup fails, return null to trigger 404
-      console.error('Error looking up tenant:', error)
-      return null
-    }
-  }
+  const tenant = await getTenantContext(payload, { cookies: cookieStore })
+  const tenantId = tenant?.id ?? null
 
   // Build where clause with tenant filter if tenant context exists
   const where: Where = {

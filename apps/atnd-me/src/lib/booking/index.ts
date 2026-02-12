@@ -6,3 +6,8 @@ export {
   requireAuthForBooking,
   redirectToManageIfMultipleBookings,
 } from './utils'
+export {
+  validateBookingIdsFromMetadata,
+  reservePendingBookings,
+  formatCapacityError,
+} from './payment-intent'
