@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
     const tenantIdParam = searchParams.get('tenantId')
+    const viewAll = searchParams.get('viewAll') === '1'
     const comparePrevious = searchParams.get('comparePrevious') === 'true'
     const granularity: 'day' | 'week' =
       searchParams.get('granularity') === 'week' ? 'week' : 'day'
@@ -63,10 +64,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: tenant not accessible' }, { status: 403 })
     }
 
+    // Tenant-admin without tenantId: scope to their first tenant so they only see their data
+    let effectiveTenantId: number | null =
+      tenantId ?? (allowedTenantIds != null && allowedTenantIds.length > 0 ? allowedTenantIds[0]! : null)
+
+    // Admin: viewAll=1 means "show all tenants" (same as the X in sidebar on other collections)
+    const skipCookieForAll = viewAll && allowedTenantIds === null
+    if (skipCookieForAll) {
+      effectiveTenantId = null
+    } else if (effectiveTenantId === null && allowedTenantIds === null) {
+      // Admin with no tenantId in query: respect sidebar tenant selection (payload-tenant cookie)
+      const payloadTenantCookie = request.cookies.get('payload-tenant')?.value
+      if (payloadTenantCookie && /^\d+$/.test(payloadTenantCookie)) {
+        const cookieTenantId = parseInt(payloadTenantCookie, 10)
+        try {
+          const tenant = await payload.findByID({
+            collection: 'tenants',
+            id: cookieTenantId,
+            depth: 0,
+            overrideAccess: true,
+          })
+          if (tenant) effectiveTenantId = cookieTenantId
+        } catch {
+          // Tenant not found or invalid; keep all-tenants (effectiveTenantId null)
+        }
+      }
+    }
+
     const params = {
       dateFrom,
       dateTo,
-      tenantId: tenantId ?? undefined,
+      tenantId: effectiveTenantId ?? undefined,
       granularity,
       limitTopCustomers,
     }
@@ -89,7 +117,7 @@ export async function GET(request: NextRequest) {
       previousParams = {
         dateFrom: prevStart.toISOString().slice(0, 10),
         dateTo: prevEnd.toISOString().slice(0, 10),
-        tenantId: tenantId ?? undefined,
+        tenantId: effectiveTenantId ?? undefined,
         granularity,
         limitTopCustomers,
       }
