@@ -154,6 +154,10 @@ export async function POST(request: NextRequest) {
     tenant = await resolveTenant(payload, accountId)
   }
   if (!tenant) {
+    if (isSubscriptionEvent) {
+      const subObj = event.data?.object as { id?: string; metadata?: { tenantId?: string } } | undefined
+      payload.logger?.info?.(`subscription event skipped: tenant not resolved (event=${event.type}, sub=${subObj?.id}, metadata.tenantId=${subObj?.metadata?.tenantId ?? 'null'}, accountId=${accountId ?? 'null'})`)
+    }
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
   }
@@ -183,6 +187,7 @@ export async function POST(request: NextRequest) {
 
     if (event.type === 'customer.subscription.created') {
       if (!customerId || !planProductId) {
+        payload.logger?.info?.(`subscription.created skipped: missing customerId or planProductId (sub=${obj.id}, customerId=${customerId ?? 'null'}, planProductId=${planProductId ?? 'null'})`)
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
@@ -195,6 +200,7 @@ export async function POST(request: NextRequest) {
       })
       const user = userResult.docs[0] as { id: number } | undefined
       if (!user) {
+        payload.logger?.info?.(`subscription.created skipped: no user with stripeCustomerId=${customerId} (sub=${obj.id})`)
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
@@ -210,6 +216,7 @@ export async function POST(request: NextRequest) {
       })
       const plan = planResult.docs[0] as { id: number } | undefined
       if (!plan) {
+        payload.logger?.info?.(`subscription.created skipped: no plan with stripeProductId=${planProductId} and tenant=${tenantId} (sub=${obj.id})`)
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
@@ -221,16 +228,21 @@ export async function POST(request: NextRequest) {
         overrideAccess: true,
       })
       if (existing.docs.length > 0) {
+        payload.logger?.info?.(`subscription.created skipped: subscription already exists (sub=${obj.id})`)
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
+      const allowedStatuses = ['incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'] as const
+      const status = obj.status && allowedStatuses.includes(obj.status as (typeof allowedStatuses)[number])
+        ? (obj.status as (typeof allowedStatuses)[number])
+        : 'active'
       const created = await payload.create({
         collection: 'subscriptions' as import('payload').CollectionSlug,
         data: {
           tenant: tenantId,
           user: user.id,
           plan: plan.id,
-          status: (obj.status as 'active' | 'trialing' | 'past_due' | 'canceled' | 'unpaid' | 'paused') ?? 'active',
+          status,
           stripeSubscriptionId: obj.id,
           startDate: stripeDateOnly(currentPeriodStart),
           endDate: stripeDateOnly(currentPeriodEnd),
