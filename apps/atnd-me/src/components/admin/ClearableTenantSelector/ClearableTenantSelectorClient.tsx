@@ -118,8 +118,14 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
     [options],
   )
 
-  const selectValue: string | undefined =
-    selectedTenantID != null ? String(selectedTenantID) : undefined
+  // Pass the full option object so the underlying react-select can match the selection.
+  // Passing only the value string can prevent non-first options from being selected.
+  const selectValue =
+    selectedTenantID != null
+      ? normalizedOptions.find(
+          (o) => String(o.value) === String(selectedTenantID),
+        )
+      : undefined
 
   return (
     <div className="tenant-selector" style={{ width: '100%', marginBottom: '2rem' }}>
@@ -138,7 +144,7 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
           entityType !== 'global' &&
           (entityType === 'document' || entityType === 'version')
         }
-        value={selectValue}
+        value={selectValue as unknown as string | undefined}
       />
       <ConfirmationModal
         body={t('general:changesNotSaved')}
