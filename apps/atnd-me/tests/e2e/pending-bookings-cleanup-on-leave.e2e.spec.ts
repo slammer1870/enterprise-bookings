@@ -211,13 +211,13 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         timeout: 15000,
       })
 
-      // Should see 2 bookings (1 confirmed, 1 pending) – quantity view
+      // With pending from API, manage page shows checkout (Complete Payment), not quantity view
       await expect(
-        page.getByText(/update booking quantity/i).first()
+        page.getByText(/complete payment/i).first()
       ).toBeVisible({ timeout: 10000 })
-      await expect(page.getByTestId('booking-quantity')).toHaveText('2', {
-        timeout: 5000,
-      })
+      await expect(
+        page.getByText(/pending booking/i).first()
+      ).toBeVisible({ timeout: 5000 })
 
       // Leave the page – cleanup should cancel pending
       await navigateToTenant(page, tenant.slug, '/')

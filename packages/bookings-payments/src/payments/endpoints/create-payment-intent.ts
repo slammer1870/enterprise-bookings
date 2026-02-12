@@ -22,7 +22,41 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
       ? parseInt(lessonIdRaw, 10)
       : null;
   let bookingIdsToAttach: string[] = [];
-  if (lessonId != null) {
+
+  // When client passes explicit bookingIds (modify-booking flow with pre-created pending bookings),
+  // use those directly instead of quantity-based reserve logic. Otherwise only 1 booking is attached.
+  const clientBookingIdsRaw = rawMetadata.bookingIds;
+  if (lessonId != null && clientBookingIdsRaw && typeof clientBookingIdsRaw === "string") {
+    const parsed = clientBookingIdsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parsed.length > 0) {
+      const ids = parsed.map((id) => parseInt(id, 10)).filter((n) => !Number.isNaN(n));
+      if (ids.length > 0) {
+        const docs = await req.payload.find({
+          collection: "bookings",
+          where: {
+            and: [
+              { id: { in: ids } },
+              { lesson: { equals: lessonId } },
+              { user: { equals: user.id } },
+              { status: { equals: "pending" } },
+            ],
+          },
+          depth: 0,
+          limit: ids.length,
+          overrideAccess: true,
+        });
+        const validIds = (docs.docs as { id: number }[]).map((b) => String(b.id));
+        if (validIds.length > 0) {
+          bookingIdsToAttach = validIds;
+        }
+      }
+    }
+  }
+
+  if (lessonId != null && bookingIdsToAttach.length === 0) {
     const quantity = Math.max(1, parseInt(String(rawMetadata.quantity ?? "1"), 10) || 1);
     const lesson = await req.payload
       .findByID({

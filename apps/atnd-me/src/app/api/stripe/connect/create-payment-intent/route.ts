@@ -54,6 +54,37 @@ export async function POST(request: NextRequest) {
 
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
 
+  // When client passes explicit bookingIds (modify-booking flow with pre-created pending bookings),
+  // use those directly instead of quantity-based reserve logic. Otherwise only 1 booking is attached.
+  const clientBookingIdsRaw = metadata?.bookingIds
+  let bookingIds: string[] = []
+  if (clientBookingIdsRaw && typeof clientBookingIdsRaw === 'string') {
+    const parsed = clientBookingIdsRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (parsed.length > 0) {
+      const docs = await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { id: { in: parsed.map((id) => parseInt(id, 10)).filter((n) => !Number.isNaN(n)) } },
+            { lesson: { equals: lessonId } },
+            { user: { equals: user.id } },
+            { status: { equals: 'pending' } },
+          ],
+        },
+        depth: 0,
+        limit: parsed.length,
+        overrideAccess: true,
+      })
+      const validIds = (docs.docs as { id: number }[]).map((b) => String(b.id))
+      if (validIds.length > 0) {
+        bookingIds = validIds
+      }
+    }
+  }
+
   // Resolve tenant and remaining capacity from the lesson (depth so virtual remainingCapacity is populated).
   const lesson = (await payload.findByID({
     collection: 'lessons',
@@ -66,7 +97,8 @@ export async function POST(request: NextRequest) {
     lesson && typeof lesson.remainingCapacity === 'number'
       ? Math.max(0, lesson.remainingCapacity)
       : 0
-  if (quantity > remainingCapacity) {
+  // Only check capacity when using quantity-based reserve flow; explicit bookingIds were validated when created.
+  if (bookingIds.length === 0 && quantity > remainingCapacity) {
     return NextResponse.json(
       {
         error:
@@ -110,9 +142,8 @@ export async function POST(request: NextRequest) {
     /^acct_(fee_disclosure_|smoke_)/.test(tenant.stripeConnectAccountId ?? '')
 
   // Reserve capacity by creating or reusing pending bookings (prevents race: two users at checkout with 1 spot).
-  // Only in production: in test mode we skip so we don't leave stale pendings.
-  let bookingIds: string[] = []
-  if (!isTestMode) {
+  // Skip when we already have explicit bookingIds from modify-booking flow, or in test mode.
+  if (bookingIds.length === 0 && !isTestMode) {
     const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
     const existing = await payload.find({
       collection: 'bookings',
