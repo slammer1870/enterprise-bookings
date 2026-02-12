@@ -4,7 +4,6 @@
  * Phase 4 – Analytics dashboard (client): fetches /api/analytics and renders summary + trend chart.
  */
 import React, { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Gutter } from '@payloadcms/ui'
 import { BookingsTrendChart } from './BookingsTrendChart'
 
@@ -40,14 +39,12 @@ export const AnalyticsDashboardClient: React.FC<{
   selectedTenantId?: number | null
   /** Tenant name for display when scoped to one tenant. */
   selectedTenantName?: string | null
-}> = ({ selectedTenantId, selectedTenantName }) => {
-  const router = useRouter()
+}> = ({ selectedTenantId }) => {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [presetIndex, setPresetIndex] = useState(1)
   const [comparePrevious, setComparePrevious] = useState(false)
-  const [clearingTenant, setClearingTenant] = useState(false)
 
   const preset = PRESETS[Math.min(presetIndex, PRESETS.length - 1)] ?? PRESETS[0]
   const days = preset.days
@@ -86,82 +83,9 @@ export const AnalyticsDashboardClient: React.FC<{
     }
   }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId])
 
-  const showingAllTenants = selectedTenantId == null
-
-  const handleClearTenant = async () => {
-    setClearingTenant(true)
-    try {
-      const res = await fetch('/api/admin/clear-tenant-cookie', {
-        method: 'POST',
-        credentials: 'include',
-      })
-      if (res.ok) {
-        router.refresh()
-      } else {
-        setError('Failed to clear tenant selection')
-      }
-    } catch {
-      setError('Failed to clear tenant selection')
-    } finally {
-      setClearingTenant(false)
-    }
-  }
-  const tenantLabel =
-    selectedTenantName || (selectedTenantId != null ? `Tenant ${selectedTenantId}` : null)
-
   return (
     <Gutter>
       <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>Analytics</h1>
-
-      {!showingAllTenants && tenantLabel && (
-        <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.25rem 0.5rem',
-              fontSize: '0.8125rem',
-              backgroundColor: 'var(--theme-elevation-150, #eee)',
-              border: '1px solid var(--theme-elevation-300, #ccc)',
-              borderRadius: '4px',
-            }}
-          >
-            <span>Viewing: {tenantLabel}</span>
-            <button
-              type="button"
-              onClick={handleClearTenant}
-              disabled={clearingTenant}
-              title="View all tenants"
-              aria-label="View all tenants"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '1.25rem',
-                height: '1.25rem',
-                padding: 0,
-                border: 'none',
-                borderRadius: '2px',
-                background: 'var(--theme-elevation-400, #999)',
-                color: 'white',
-                cursor: clearingTenant ? 'wait' : 'pointer',
-                fontSize: '0.875rem',
-                lineHeight: 1,
-                opacity: clearingTenant ? 0.7 : 1,
-              }}
-            >
-              ×
-            </button>
-          </span>
-        </div>
-      )}
-
-      {showingAllTenants && (
-        <div style={{ marginBottom: '0.75rem', fontSize: '0.8125rem', color: 'var(--theme-elevation-600, #666)' }}>
-          Viewing: All tenants
-        </div>
-      )}
 
       <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {PRESETS.map((p, i) => (

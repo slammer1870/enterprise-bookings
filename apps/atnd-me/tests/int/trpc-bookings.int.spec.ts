@@ -750,7 +750,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       // Cancel by booking ID (API expects booking id, not lesson id)
-      const result = await caller.bookings.cancelBooking({ id: booking.id })
+      const result = await caller.bookings.cancelBooking({ id: Number(booking.id) })
 
       expect(result).toBeDefined()
       expect(result.status).toBe('cancelled')
@@ -834,7 +834,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Try to cancel the other user's booking by its ID (should fail)
       await expect(
-        caller.bookings.cancelBooking({ id: otherUserBooking.id })
+        caller.bookings.cancelBooking({ id: Number(otherUserBooking.id) })
       ).rejects.toThrow()
 
       // Cleanup
@@ -1914,7 +1914,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const created = await caller.bookings.createBookings({
         lessonId: testLesson.id,
         quantity: 1,
-        subscriptionId: sub.id,
+        subscriptionId: Number(sub.id),
       })
       expect(created.length).toBe(1)
       const booking = await payload.findByID({
@@ -1925,6 +1925,137 @@ describe('tRPC Bookings Integration Tests', () => {
       expect(booking.paymentMethodUsed).toBe('subscription')
       expect(booking.subscriptionIdUsed).toBe(sub.id)
       await payload.delete({ collection: 'bookings', where: { id: { equals: created[0]!.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
+      await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: {} },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: { stripeConnectOnboardingStatus: 'not_connected', stripeConnectAccountId: null },
+        overrideAccess: true,
+      })
+    }, TEST_TIMEOUT)
+
+    it('createBookings with subscriptionId + pendingBookingIds confirms pending bookings (use my membership)', async () => {
+      const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
+      const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
+      if (!hasPlans || !hasSubs) return
+      const plan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: '2 per week',
+          status: 'active',
+          tenant: testTenant.id,
+          sessionsInformation: { sessions: 2, interval: 'week', intervalCount: 1 },
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: 'acct_test_subscription',
+        },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: { allowedPlans: [plan.id] } },
+        overrideAccess: true,
+      })
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 30)
+      const sub = await payload.create({
+        collection: 'subscriptions',
+        data: {
+          user: user.id,
+          plan: plan.id,
+          status: 'active',
+          tenant: testTenant.id,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        overrideAccess: true,
+      })
+      const startTime = new Date()
+      startTime.setHours(20, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(21, 0, 0, 0)
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+      const caller = await createCaller()
+      const pendingBookings = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+        status: 'pending',
+      })
+      expect(pendingBookings.length).toBe(1)
+      pendingBookings.forEach((b) => expect(b.status).toBe('pending'))
+
+      const confirmed = await caller.bookings.createBookings({
+        lessonId: testLesson.id,
+        quantity: 1,
+        subscriptionId: Number(sub.id),
+        pendingBookingIds: pendingBookings.map((b) => Number(b.id)),
+      })
+      expect(confirmed.length).toBe(1)
+      const allForLesson = await payload.find({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+        limit: 10,
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(allForLesson.totalDocs).toBe(1)
+      for (const b of confirmed) {
+        expect(b.status).toBe('confirmed')
+        const doc = await payload.findByID({
+          collection: 'bookings',
+          id: b.id,
+          depth: 0,
+        }) as any
+        expect(doc.status).toBe('confirmed')
+        expect(doc.paymentMethodUsed).toBe('subscription')
+        expect(doc.subscriptionIdUsed).toBe(sub.id)
+      }
+      const hasTransactions = payload.config?.collections?.some((c: any) => c.slug === 'transactions')
+      if (hasTransactions) {
+        for (const b of confirmed) {
+          const txs = await payload.find({
+            collection: 'transactions',
+            where: { booking: { equals: b.id } },
+            limit: 1,
+            overrideAccess: true,
+          })
+          expect(txs.totalDocs).toBe(1)
+        }
+      }
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+        overrideAccess: true,
+      })
       await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
@@ -2009,7 +2140,7 @@ describe('tRPC Bookings Integration Tests', () => {
         caller.bookings.createBookings({
           lessonId: testLesson.id,
           quantity: 1,
-          subscriptionId: sub.id,
+          subscriptionId: Number(sub.id),
         })
       ).rejects.toThrow(/past due|portal/)
       await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
