@@ -16,6 +16,7 @@ import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
+import { clearableTenantSelectorPlugin } from './clearable-tenant-selector'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import {
@@ -431,6 +432,8 @@ export const plugins: Plugin[] = [
       // - tenants (plugin-managed, plural): tenants user has access to
     } as Parameters<typeof multiTenantPlugin>[0]['collections'],
   }),
+  // Replace plugin TenantSelector with our ClearableTenantSelector so the X appears on dashboard too
+  clearableTenantSelectorPlugin,
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,
 ]
