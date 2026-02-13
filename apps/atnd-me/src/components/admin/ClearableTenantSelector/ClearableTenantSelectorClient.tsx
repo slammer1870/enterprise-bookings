@@ -104,22 +104,25 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
     return null
   }
 
-  // Normalize options so value is always string and label shows tenant name (not ID).
-  // Plugin may return { value, label }, { value, name }, or { id, name }; ensure we have both.
-  const normalizedOptions: { label: string; value: string }[] = React.useMemo(
-    () =>
-      optionsList.map((o: { value?: unknown; label?: unknown; name?: unknown; id?: unknown }) => {
-        const value = String(o?.value ?? o?.id ?? '')
-        const label =
-          (o && typeof o === 'object' && 'label' in o && String(o.label)) ||
-          (o && typeof o === 'object' && 'name' in o && String(o.name)) ||
-          value
-        return { label, value }
-      }),
-    [optionsList],
-  )
+  // Normalize options: use string value so SelectInput value matching works (plugin may pass number id/value).
+  // Exclude options with empty value so the select only has valid choices.
+  const normalizedOptions: { label: string; value: string }[] = React.useMemo(() => {
+    const result: { label: string; value: string }[] = []
+    for (const o of optionsList) {
+      const raw = o && typeof o === 'object' ? o as { value?: unknown; label?: unknown; name?: unknown; id?: unknown } : null
+      if (!raw) continue
+      const value = String(raw.value ?? raw.id ?? '')
+      if (value === '') continue
+      const label =
+        ('label' in raw && raw.label != null && String(raw.label)) ||
+        ('name' in raw && raw.name != null && String(raw.name)) ||
+        value
+      result.push({ label, value })
+    }
+    return result
+  }, [optionsList])
 
-  // Pass string value only. Passing an option object can cause React to throw (invalid child) and white-screen.
+  // String value so it matches normalizedOptions[].value (plugin may pass numeric id).
   const selectValue: string | undefined =
     selectedTenantID != null ? String(selectedTenantID) : undefined
 
@@ -129,8 +132,10 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ label }) => {
       data-testid="tenant-selector"
       style={{ width: '100%', marginBottom: '2rem' }}
     >
+      {/* key forces re-mount when tenant changes so internal state matches selectedTenantID */}
       <SelectInput
         isClearable
+        key={`tenant-select-${selectValue ?? 'none'}`}
         label={
           (label
             ? (t as (key: string) => string)(label)
