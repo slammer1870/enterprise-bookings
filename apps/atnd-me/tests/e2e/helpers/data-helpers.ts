@@ -24,7 +24,10 @@ export async function getPayloadInstance(): Promise<Payload> {
 }
 
 /**
- * Create a test tenant
+ * Create a test tenant (idempotent by slug, then by name).
+ * Reuses an existing tenant when one with the same slug or same name already exists,
+ * so re-runs and multiple workers do not create duplicate "Test Tenant 1" etc.
+ *
  * @param name - Tenant name
  * @param slug - Tenant slug (subdomain)
  * @param domain - Optional domain
@@ -35,20 +38,31 @@ export async function createTestTenant(
   domain?: string
 ): Promise<Tenant> {
   const payload = await getPayloadInstance()
-  // Tests are often re-run against a non-empty DB; make tenant creation idempotent.
-  const existing = await payload.find({
+
+  // 1. Find by slug (same slug => same tenant)
+  const bySlug = await payload.find({
     collection: 'tenants',
-    where: {
-      slug: { equals: slug },
-    },
+    where: { slug: { equals: slug } },
     limit: 1,
     overrideAccess: true,
   })
+  const existingBySlug = (bySlug?.docs?.[0] ?? null) as Tenant | null
+  if (existingBySlug) {
+    await createTestTenantHomePage(existingBySlug.id, existingBySlug.name ?? name).catch(() => null)
+    return existingBySlug
+  }
 
-  const existingTenant = (existing?.docs?.[0] ?? null) as Tenant | null
-  if (existingTenant) {
-    await createTestTenantHomePage(existingTenant.id, existingTenant.name ?? name).catch(() => null)
-    return existingTenant
+  // 2. Find by name so we don't create a second "Test Tenant 1" when slug differs (e.g. worker suffix)
+  const byName = await payload.find({
+    collection: 'tenants',
+    where: { name: { equals: name } },
+    limit: 1,
+    overrideAccess: true,
+  })
+  const existingByName = (byName?.docs?.[0] ?? null) as Tenant | null
+  if (existingByName) {
+    await createTestTenantHomePage(existingByName.id, existingByName.name ?? name).catch(() => null)
+    return existingByName
   }
 
   const tenant = (await payload.create({

@@ -1,16 +1,28 @@
+import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin } from './helpers/auth-helpers'
 
 const ADMIN_ORIGIN = 'http://localhost:3000'
 
+/** Desktop viewport so Payload admin sidebar (and tenant selector) is visible, not collapsed. */
+const ADMIN_VIEWPORT = { width: 1440, height: 900 }
+
+/** Open the admin sidebar if it is collapsed (e.g. on smaller viewports). */
+async function ensureSidebarOpen(page: Page) {
+  const openMenu = page.getByRole('button', { name: 'Open Menu' })
+  if (await openMenu.isVisible().catch(() => false)) {
+    await openMenu.click()
+    await page.waitForTimeout(300)
+  }
+}
+
 /**
  * E2E: Admin tenant selector (ClearableTenantSelector).
- * The nav control can be covered by Payload's gutter in the test environment,
- * so we validate behavior via the payload-tenant cookie and that the selector
- * displays the selected tenant name after reload.
+ * Tests that opening the dropdown and clicking a tenant (e.g. the second one)
+ * actually selects that tenant (cookie + displayed value), not the first.
  */
 test.describe('Admin Tenant Selector', () => {
-  test('tenant selector is visible and selection is reflected via cookie and display', async ({
+  test('clicking second tenant in dropdown selects that tenant (cookie and display)', async ({
     page,
     testData,
     request,
@@ -18,11 +30,10 @@ test.describe('Admin Tenant Selector', () => {
     const { tenants } = testData
     const tenant1 = tenants[0]
     const tenant2 = tenants[1]
-    const tenant1Name = tenant1.name ?? 'Test Tenant 1'
-    const tenant2Name = tenant2.name ?? 'Test Tenant 2'
 
+    await page.setViewportSize(ADMIN_VIEWPORT)
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
-    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
     await page
       .waitForURL(
         (url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'),
@@ -34,8 +45,81 @@ test.describe('Admin Tenant Selector', () => {
         }
       })
 
-    const tenantSelectorWrap = page.getByTestId('tenant-selector')
-    await expect(tenantSelectorWrap).toBeVisible({ timeout: 10000 })
+    await ensureSidebarOpen(page)
+
+    // Wait for tenant selector
+    const wrap = page.getByTestId('tenant-selector')
+    await wrap.waitFor({ state: 'visible', timeout: 20000 })
+
+    // Start with first tenant so we can switch to second
+    await page.context().addCookies([
+      {
+        name: 'payload-tenant',
+        value: String(tenant1.id),
+        domain: new URL(ADMIN_ORIGIN).hostname,
+        path: '/',
+      },
+    ])
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(500)
+
+    // Use a collection list page so there is no "modified" form state — tenant switch runs without confirmation modal
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/categories`, { waitUntil: 'load' })
+    await wrap.waitFor({ state: 'visible', timeout: 10000 })
+
+    const selectEl = page.getByTestId('tenant-selector-trigger')
+    await expect(selectEl).toBeVisible()
+    await selectEl.selectOption(String(tenant2.id))
+
+    // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
+    // If the modal appears, we must confirm it or the controlled <select> will snap back.
+    const leaveAnyway = page.getByRole('button', { name: /leave/i })
+    await leaveAnyway
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(async () => {
+        await leaveAnyway.click()
+      })
+      .catch(() => null)
+
+    // setTenant(..., refresh: true) may reload; if it doesn't, the assertions below will still synchronize.
+    await page.waitForLoadState('load').catch(() => null)
+
+    const trigger = page.getByTestId('tenant-selector-trigger')
+    await expect(trigger).toHaveValue(String(tenant2.id), { timeout: 15000 })
+
+    const cookies = await page.context().cookies()
+    const payloadTenantCookies = cookies.filter((c) => c.name === 'payload-tenant')
+    expect(payloadTenantCookies.length).toBeGreaterThan(0)
+    expect(payloadTenantCookies.every((c) => c.value === String(tenant2.id))).toBe(true)
+  })
+
+  test('tenant selector is visible and selection is reflected via cookie and display', async ({
+    page,
+    testData,
+    request,
+  }) => {
+    const { tenants } = testData
+    const tenant1 = tenants[0]
+    const tenant2 = tenants[1]
+    const tenant1Name = tenant1.name ?? 'Test Tenant 1'
+    const tenant2Name = tenant2.name ?? 'Test Tenant 2'
+
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
+    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
+    await page
+      .waitForURL(
+        (url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'),
+        { timeout: 15000 },
+      )
+      .catch(() => {
+        if (page.url().includes('/admin/login')) {
+          throw new Error('Super admin denied - redirected to login')
+        }
+      })
+
+    await ensureSidebarOpen(page)
+    await page.getByTestId('tenant-selector').waitFor({ state: 'visible', timeout: 20000 })
 
     // Set tenant via cookie (simulates selecting a tenant); reload so the app reads it
     await page.context().addCookies([
@@ -71,7 +155,7 @@ test.describe('Admin Tenant Selector', () => {
     expect(payloadTenantAfter?.value).toBe(String(tenant1.id))
   })
 
-  test('clearing payload-tenant cookie shows no tenant filter', async ({
+  test('clearing tenant on dashboard removes tenant cookie (aggregate analytics)', async ({
     page,
     testData,
     request,
@@ -79,8 +163,9 @@ test.describe('Admin Tenant Selector', () => {
     const { tenants } = testData
     const tenant2 = tenants[1]
 
+    await page.setViewportSize(ADMIN_VIEWPORT)
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
-    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
     await page
       .waitForURL(
         (url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'),
@@ -88,6 +173,9 @@ test.describe('Admin Tenant Selector', () => {
       )
       .catch(() => null)
 
+    await ensureSidebarOpen(page)
+
+    // Simulate plugin behavior: cookie may exist on both / and /admin paths
     await page.context().addCookies([
       {
         name: 'payload-tenant',
@@ -95,24 +183,44 @@ test.describe('Admin Tenant Selector', () => {
         domain: new URL(ADMIN_ORIGIN).hostname,
         path: '/',
       },
-    ])
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(500)
-
-    // Clear tenant filter by setting payload-tenant to empty (don't clear all cookies or we lose session)
-    await page.context().addCookies([
       {
         name: 'payload-tenant',
-        value: '',
+        value: String(tenant2.id),
         domain: new URL(ADMIN_ORIGIN).hostname,
-        path: '/',
+        path: '/admin',
       },
     ])
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(500)
+    await page.reload({ waitUntil: 'load' })
 
-    const cookies = await page.context().cookies()
-    const payloadTenant = cookies.find((c) => c.name === 'payload-tenant')
-    expect(payloadTenant == null || payloadTenant?.value === '').toBe(true)
+    const selector = page.getByTestId('tenant-selector-trigger')
+    await expect(selector).toBeVisible()
+    await expect(selector).toHaveValue(String(tenant2.id))
+
+    // After clearing, dashboard should request aggregate analytics (no tenantId param)
+    const waitForAggregateAnalytics = page.waitForRequest((req) => {
+      if (!req.url().includes('/api/analytics')) return false
+      try {
+        const url = new URL(req.url())
+        return !url.searchParams.has('tenantId')
+      } catch {
+        return false
+      }
+    })
+
+    // Clear via UI (native select uses empty string value). Dashboard can be "modified" so a confirm modal may appear.
+    await selector.selectOption({ value: '' })
+
+    const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
+    if (await leaveAnyway.isVisible().catch(() => false)) {
+      await leaveAnyway.click()
+    }
+
+    await page.waitForLoadState('load')
+    await waitForAggregateAnalytics
+
+    // Cookie should be removed/empty regardless of path scope
+    const cookiesAfter = await page.context().cookies()
+    const payloadTenantCookies = cookiesAfter.filter((c) => c.name === 'payload-tenant')
+    expect(payloadTenantCookies.every((c) => c.value === '') || payloadTenantCookies.length === 0).toBe(true)
   })
 })
