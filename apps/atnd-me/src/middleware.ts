@@ -16,8 +16,12 @@ function getRootHostname(): string | null {
  * Middleware: detect tenant from subdomain, set tenant-slug cookie.
  * Root domain from NEXT_PUBLIC_SERVER_URL so *.atnd-me.com works on Coolify/custom domains.
  */
+/** When true, root layout will not render <html>/<body> so Payload's RootLayout can be the only document (avoids hydration error). */
+const ADMIN_HEADER = 'x-next-payload-admin'
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const isPayloadAdmin = pathname.startsWith('/admin')
   const hostHeader = request.headers.get('host') || ''
   const hostname = hostHeader.split(':')[0] ?? hostHeader
   const isLocalhost = hostname.includes('localhost')
@@ -70,7 +74,17 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!subdomain) {
-    const response = NextResponse.next()
+    const response = isPayloadAdmin
+      ? NextResponse.next({
+          request: {
+            headers: (() => {
+              const h = new Headers(request.headers)
+              h.set(ADMIN_HEADER, '1')
+              return h
+            })(),
+          },
+        })
+      : NextResponse.next()
     // Do not delete tenant cookies on /admin: every admin request was getting Set-Cookie delete
     // which caused the admin dashboard to constantly reload. Only clear on frontend routes.
     if (!pathname.startsWith('/admin')) {
@@ -80,7 +94,17 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  const response = NextResponse.next()
+  const response = isPayloadAdmin
+    ? NextResponse.next({
+        request: {
+          headers: (() => {
+            const h = new Headers(request.headers)
+            h.set(ADMIN_HEADER, '1')
+            return h
+          })(),
+        },
+      })
+    : NextResponse.next()
   const cookieOptions: { httpOnly: boolean; sameSite: 'lax'; path: string; domain?: string } = {
     httpOnly: false,
     sameSite: 'lax',

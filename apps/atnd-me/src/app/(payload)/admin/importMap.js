@@ -1,6 +1,5 @@
 import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
-import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { LexicalDiffComponent as LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -24,6 +23,7 @@ import { SlugField as SlugField_3817bf644402e67bfe6577f60ef982de } from '@payloa
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
+import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
@@ -35,7 +35,7 @@ import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'p
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
 import { default as default_d500ae2ad98a0a33d640ae0ac1a3417c } from '@/components/admin/AdminIcon'
 import { default as default_b80a86fce1072afc84cd6a430a965697 } from '@/components/admin/AdminLogo'
-import { GlobalViewRedirect as GlobalViewRedirect_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
+import { GlobalViewRedirectRootAware as GlobalViewRedirectRootAware_b4eb1ca059fe4fd85cb215f2b3e3ca81 } from '@/components/admin/GlobalViewRedirectRootAware'
 import { default as default_1a7510af427896d367a49dbf838d2de6 } from '@/components/BeforeDashboard'
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
 import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/components/admin/NavHomeLink'
@@ -48,7 +48,6 @@ import { CollectionCards as CollectionCards_ab83ff7e88da8d3530831f296ec4756a } f
 export const importMap = {
   "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
   "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
-  "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#LexicalDiffComponent": LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -72,6 +71,7 @@ export const importMap = {
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
+  "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
@@ -83,7 +83,7 @@ export const importMap = {
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,
   "@/components/admin/AdminIcon#default": default_d500ae2ad98a0a33d640ae0ac1a3417c,
   "@/components/admin/AdminLogo#default": default_b80a86fce1072afc84cd6a430a965697,
-  "@payloadcms/plugin-multi-tenant/rsc#GlobalViewRedirect": GlobalViewRedirect_d6d5f193a167989e2ee7d14202901e62,
+  "@/components/admin/GlobalViewRedirectRootAware#GlobalViewRedirectRootAware": GlobalViewRedirectRootAware_b4eb1ca059fe4fd85cb215f2b3e3ca81,
   "@/components/BeforeDashboard#default": default_1a7510af427896d367a49dbf838d2de6,
   "@/components/BeforeLogin#default": default_8a7ab0eb7ab5c511aba12e68480bfe5e,
   "@/components/admin/NavHomeLink#default": default_03c174bc83c57c8b0eee299d05fde10d,

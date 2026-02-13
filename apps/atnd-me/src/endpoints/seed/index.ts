@@ -442,6 +442,71 @@ export const seed = async ({
     )
   }
 
+  // Root navbar and footer: shown when no tenant is assigned (e.g. root domain). Create if missing.
+  payload.logger.info(`— Seeding root navbar and footer (no tenant)...`)
+  const existingRootNavbar = await payload.find({
+    collection: 'navbar',
+    where: { tenant: { equals: null } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  if (existingRootNavbar.docs.length === 0) {
+    try {
+      await payload.create({
+        collection: 'navbar',
+        depth: 0,
+        overrideAccess: true,
+        data: {
+          tenant: null,
+          logo: logoDoc?.id || undefined,
+          logoLink: '/',
+          navItems: [
+            { link: { type: 'custom' as const, label: 'Tenants', url: '/tenants' } },
+            { link: { type: 'custom' as const, label: 'Admin', url: '/admin' } },
+          ],
+          styling: { padding: 'medium' as const, sticky: false },
+        },
+      })
+      payload.logger.info('  Created root navbar')
+    } catch (err) {
+      payload.logger.warn(
+        `  Could not create root navbar (plugin may require tenant): ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
+  const existingRootFooter = await payload.find({
+    collection: 'footer',
+    where: { tenant: { equals: null } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  if (existingRootFooter.docs.length === 0) {
+    try {
+      await payload.create({
+        collection: 'footer',
+        depth: 0,
+        overrideAccess: true,
+        data: {
+          tenant: null,
+          logoLink: '/',
+          copyrightText: `© ${new Date().getFullYear()} Root site`,
+          navItems: [
+            { link: { type: 'custom' as const, label: 'Tenants', url: '/tenants' } },
+            { link: { type: 'custom' as const, label: 'Admin', url: '/admin' } },
+          ],
+          styling: { showThemeSelector: true },
+        },
+      })
+      payload.logger.info('  Created root footer')
+    } catch (err) {
+      payload.logger.warn(
+        `  Could not create root footer (plugin may require tenant): ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
+
   // Seed Croí Lán Sauna tenant pages and content
   const croiLanSaunaTenant = bookingData.tenants.find((t) => t.slug === 'croi-lan-sauna')
   if (croiLanSaunaTenant) {

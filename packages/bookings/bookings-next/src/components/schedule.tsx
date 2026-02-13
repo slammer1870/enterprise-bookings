@@ -10,15 +10,20 @@ import { ToggleDate } from "@repo/ui/components/toggle-date";
 import { LessonList } from "./lessons/lesson-list";
 import { Loader2 } from "lucide-react";
 
-export function Schedule({ 
+export function Schedule({
   manageHref,
-}: { 
+  tenantId,
+}: {
   /**
    * Optional function or string to generate the manage booking URL.
    * Defaults to `/bookings/[id]/manage` if not provided.
    * Passed through to CheckInButton components.
    */
   manageHref?: string | ((lessonId: number) => string);
+  /**
+   * When provided (e.g. on root home page), filter lessons to this tenant only.
+   */
+  tenantId?: number;
 }) {
   const trpc = useTRPC();
 
@@ -26,9 +31,8 @@ export function Schedule({
 
   const { data: lessons, isLoading } = useQuery({
     ...trpc.lessons.getByDate.queryOptions({
-      // Date-only string so the requested day matches the UI label (toDateString).
-      // toISOString() is UTC and can shift the calendar day near midnight, breaking E2E "tomorrow".
       date: selectedDate.toDateString(),
+      ...(tenantId != null && { tenantId }),
     }),
     // Always refetch on mount to ensure fresh data after navigation (e.g., after booking)
     // This ensures bookingStatus is recalculated with the latest booking data

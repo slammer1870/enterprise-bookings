@@ -29,9 +29,10 @@ import * as migration_20260210_drop_payment_methods_allowed_class_passes from '.
 import * as migration_20260211_144828 from './20260211_144828';
 import * as migration_20260211_180330 from './20260211_180330';
 import * as migration_20260211_183431 from './20260211_183431';
+import * as migration_20260211_drop_pages_version_tenant_slug_unique from './20260211_drop_pages_version_tenant_slug_unique';
 import * as migration_20260211_tenants_allowed_blocks from './20260211_tenants_allowed_blocks';
 import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
-import * as migration_20260211_drop_pages_version_tenant_slug_unique from './20260211_drop_pages_version_tenant_slug_unique';
+import * as migration_20260213_171100 from './20260213_171100';
 
 export const migrations = [
   {
@@ -190,6 +191,11 @@ export const migrations = [
     name: '20260211_183431',
   },
   {
+    up: migration_20260211_drop_pages_version_tenant_slug_unique.up,
+    down: migration_20260211_drop_pages_version_tenant_slug_unique.down,
+    name: '20260211_drop_pages_version_tenant_slug_unique',
+  },
+  {
     up: migration_20260211_tenants_allowed_blocks.up,
     down: migration_20260211_tenants_allowed_blocks.down,
     name: '20260211_tenants_allowed_blocks',
@@ -197,11 +203,11 @@ export const migrations = [
   {
     up: migration_20260211_users_stripe_customer_id.up,
     down: migration_20260211_users_stripe_customer_id.down,
-    name: '20260211_users_stripe_customer_id'
+    name: '20260211_users_stripe_customer_id',
   },
   {
-    up: migration_20260211_drop_pages_version_tenant_slug_unique.up,
-    down: migration_20260211_drop_pages_version_tenant_slug_unique.down,
-    name: '20260211_drop_pages_version_tenant_slug_unique'
+    up: migration_20260213_171100.up,
+    down: migration_20260213_171100.down,
+    name: '20260213_171100'
   },
 ];

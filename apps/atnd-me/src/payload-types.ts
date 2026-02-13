@@ -212,11 +212,11 @@ export interface AdminInvitation {
  */
 export interface Page {
   id: number;
+  title: string;
   /**
-   * Leave empty for global pages (e.g. root marketing page with slug "root"). To create a global page, clear the tenant filter in the nav first, then create the page with this field empty.
+   * Optional. Leave empty for global pages (e.g. root landing page on the main domain).
    */
   tenant?: (number | null) | Tenant;
-  title: string;
   /**
    * Add blocks to build your page. Blocks available depend on your tenant settings.
    */
@@ -228,6 +228,7 @@ export interface Page {
     | AboutBlock
     | LocationBlock
     | ScheduleBlock
+    | TenantScopedScheduleBlock
     | HealthBenefitsBlock
     | SectionTaglineBlock
     | {
@@ -982,6 +983,7 @@ export interface ThreeColumnLayoutBlock {
         | AboutBlock
         | LocationBlock
         | ScheduleBlock
+        | TenantScopedScheduleBlock
         | HealthBenefitsBlock
         | SectionTaglineBlock
         | {
@@ -1063,6 +1065,19 @@ export interface ScheduleBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TenantScopedScheduleBlock".
+ */
+export interface TenantScopedScheduleBlock {
+  /**
+   * Optional. When set, this tenant’s schedule is shown by default. Visitors can still change the tenant using the dropdown.
+   */
+  defaultTenant?: (number | null) | Tenant;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'tenantScopedSchedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1449,13 +1464,16 @@ export interface Form {
   createdAt: string;
 }
 /**
- * Navigation bar configuration for each tenant
+ * Navigation bar per tenant. To show a navbar when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "navbar".
  */
 export interface Navbar {
   id: number;
+  /**
+   * Optional. Leave empty for the root site navbar (when no tenant is assigned, e.g. root domain).
+   */
   tenant?: (number | null) | Tenant;
   /**
    * Custom logo for this site. If not set, default logo will be used.
@@ -1512,13 +1530,16 @@ export interface Navbar {
   createdAt: string;
 }
 /**
- * Footer configuration for each tenant
+ * Footer per tenant. To show a footer when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "footer".
  */
 export interface Footer {
   id: number;
+  /**
+   * Optional. Leave empty for the root site footer (when no tenant is assigned, e.g. root domain).
+   */
   tenant?: (number | null) | Tenant;
   /**
    * Custom logo for this site. If not set, default logo will be used.
@@ -2180,8 +2201,8 @@ export interface AdminInvitationsSelect<T extends boolean = true> {
  * via the `definition` "pages_select".
  */
 export interface PagesSelect<T extends boolean = true> {
-  tenant?: T;
   title?: T;
+  tenant?: T;
   layout?:
     | T
     | {
@@ -2192,6 +2213,7 @@ export interface PagesSelect<T extends boolean = true> {
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
+        tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
         healthBenefits?: T | HealthBenefitsBlockSelect<T>;
         sectionTagline?: T | SectionTaglineBlockSelect<T>;
         faqs?:
@@ -2321,6 +2343,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
+        tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
         healthBenefits?: T | HealthBenefitsBlockSelect<T>;
         sectionTagline?: T | SectionTaglineBlockSelect<T>;
         faqs?:
@@ -2376,6 +2399,15 @@ export interface LocationBlockSelect<T extends boolean = true> {
  * via the `definition` "ScheduleBlock_select".
  */
 export interface ScheduleBlockSelect<T extends boolean = true> {
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TenantScopedScheduleBlock_select".
+ */
+export interface TenantScopedScheduleBlockSelect<T extends boolean = true> {
+  defaultTenant?: T;
   id?: T;
   blockName?: T;
 }

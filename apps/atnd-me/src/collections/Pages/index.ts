@@ -18,11 +18,13 @@ import { HealthBenefits } from '@/blocks/HealthBenefits/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
 import { HeroScheduleSanctuary } from '@/blocks/HeroScheduleSanctuary/config'
 import { Schedule } from '@/blocks/Schedule/config'
+import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePage } from './hooks/revalidatePage'
 import { tenantScopedSlugField } from '../../fields/tenant-scoped-slug-field'
+import { getUserTenantIds } from '../../access/tenant-scoped'
 
 import {
   MetaDescriptionField,
@@ -40,6 +42,7 @@ const availableBlocks = [
   About,
   Location,
   Schedule,
+  TenantScopedSchedule,
   HealthBenefits,
   SectionTagline,
   Faqs,
@@ -143,6 +146,27 @@ export const Pages: CollectionConfig<'pages'> = {
       required: true,
     },
     {
+      name: 'tenant',
+      type: 'relationship',
+      relationTo: 'tenants',
+      required: false,
+      index: true,
+      label: 'Assigned Tenant',
+      admin: {
+        position: 'sidebar',
+        description:
+          'Optional. Leave empty for global pages (e.g. root landing page on the main domain).',
+      },
+      filterOptions: ({ req }) => {
+        const tenantIds = getUserTenantIds((req as any)?.user ?? null)
+        if (tenantIds === null) return true // admin: all tenants
+        if (Array.isArray(tenantIds) && tenantIds.length > 0) {
+          return { id: { in: tenantIds } }
+        }
+        return true
+      },
+    },
+    {
       type: 'tabs',
       tabs: [
         {
@@ -217,6 +241,9 @@ export const Pages: CollectionConfig<'pages'> = {
       async ({ data, operation, req, originalDoc }) => {
         // Ensure tenant is set so version creation and slug validation have it (tenant-admin context).
         if (!data) return data
+        // Respect an explicit "no tenant" selection (global page).
+        // Payload will send `null` when a relationship field is cleared.
+        if (data.tenant === null) return data
         if (data.tenant) return data
         const rawTenant =
           req.context?.tenant ??

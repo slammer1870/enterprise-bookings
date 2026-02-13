@@ -9,6 +9,7 @@ import { AboutBlock } from '@repo/website/src/blocks/about'
 import { LocationBlock } from '@repo/website/src/blocks/location'
 import { FaqsBlock } from '@repo/website/src/blocks/faqs'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
+import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Component'
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
 import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Component'
@@ -27,6 +28,7 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   about: AboutBlock,
   location: LocationBlock,
   schedule: ScheduleBlock,
+  tenantScopedSchedule: TenantScopedScheduleBlock,
   faqs: FaqsBlock,
   heroSchedule: HeroScheduleBlock,
   heroScheduleSanctuary: HeroScheduleSanctuaryBlock,

@@ -227,10 +227,11 @@ The MVP will be structured to easily add payment functionality later:
 3. **Phase 3** – Custom tenant-scoped blocks
 4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
 5. **Phase 5** – Admin bookings bulk operations & Payload UI (bulk actions, payloadcms/ui in bookings admin)
-6. **Phase 6** – Self-onboarding with MCP-driven personalisation
-7. **Phase 7** – Dashboard analytics (date-filtered, tenant-scoped metrics)
-8. **Phase 8** – Event tracking & marketing attribution (UTM)
-9. **Phase 9** – Application fee management & platform revenue (deferred)
+6. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
+7. **Phase 7** – Self-onboarding with MCP-driven personalisation
+8. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
+9. **Phase 9** – Event tracking & marketing attribution (UTM)
+10. **Phase 10** – Application fee management & platform revenue (deferred)
 
 ## Code Organization: App vs Packages
 
@@ -486,7 +487,7 @@ Create `apps/atnd-me/src/collections/Tenants/index.ts`:
     - `enabled` (checkbox) - Enable class passes
     - `defaultExpirationDays` (number) - Default expiration period
     - `pricing` (array) - Available pass packages
-  - **Phase 7 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
+  - **Phase 10 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
     - `dropInFee` (number, optional) - Override default drop-in fee (percentage or fixed amount)
     - `subscriptionFee` (number, optional) - Override default subscription fee (percentage or fixed amount)
     - `feeType` (select, optional) - Override fee type (percentage or fixed) - if not set, uses global default
@@ -1247,20 +1248,25 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
 37. **Phase 4**: `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard (payloadcms/ui)
 38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; replace shadcn with payloadcms/ui in bookings admin
-39. **Phase 6**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
-40. **Phase 6**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
-41. **Phase 6**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
-42. **Phase 6**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
-43. **Phase 6**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
-44. **Phase 7**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
-45. **Phase 7**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
-46. **Phase 7**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
-47. **Phase 8**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
-48. **Phase 8**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
-49. **Phase 8**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
-50. **Phase 8**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
-51. **Phase 8**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
-52. **Phase 8**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
+39. **Phase 6**: `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection (tenant-scoped; slug unique per tenant)
+40. **Phase 6**: `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path or cookie for current tenant
+41. **Phase 6**: `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`
+42. **Phase 6**: `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (location-manager assignment)
+43. **Phase 6**: Lessons (and optionally bookings, instructors, class-options) – Add `location` relationship; access/listing filter by location
+44. **Phase 7**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
+45. **Phase 7**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
+46. **Phase 7**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
+47. **Phase 7**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
+48. **Phase 7**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
+49. **Phase 8**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
+50. **Phase 8**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
+51. **Phase 8**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
+52. **Phase 9**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
+53. **Phase 9**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
+54. **Phase 9**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
+55. **Phase 9**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
+56. **Phase 9**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
+57. **Phase 9**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
 
 ## Test Files to Create
 
@@ -1313,20 +1319,24 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 4**: `apps/atnd-me/tests/int/analytics-api.int.spec.ts`, `apps/atnd-me/tests/e2e/admin-dashboard.e2e.spec.ts` - Custom dashboard
 - **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
 - **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
-- **Phase 6**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
-- **Phase 6**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
-- **Phase 6**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
-- **Phase 6**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
-- **Phase 7**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
-- **Phase 7**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
-- **Phase 7**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
-- **Phase 7**: `apps/atnd-me/tests/int/analytics-access.int.spec.ts` - Tenant-admin can only query own tenant; super-admin can query any/all
-- **Phase 7**: `apps/atnd-me/tests/e2e/analytics-dashboard.e2e.spec.ts` - Analytics dashboard date filter + tenant scoping
-- **Phase 8**: `apps/atnd-me/tests/unit/utm/parse-utm.test.ts` - UTM parsing from URL/query
-- **Phase 8**: `apps/atnd-me/tests/unit/utm/first-touch.test.ts` - First-touch persistence and idempotency
-- **Phase 8**: `apps/atnd-me/tests/int/marketing-events.int.spec.ts` - Event ingest, tenant scoping, validation
-- **Phase 8**: `apps/atnd-me/tests/int/attribution-reports.int.spec.ts` - Conversions and funnel by UTM dimension
-- **Phase 8**: `apps/atnd-me/tests/e2e/utm-tracking.e2e.spec.ts` - UTM capture on landing + event emission + dashboard filter
+- **Phase 6**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
+- **Phase 6**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
+- **Phase 6**: `apps/atnd-me/tests/unit/getLocationContext.test.ts` - Location context unit tests
+- **Phase 6**: `apps/atnd-me/tests/e2e/multi-location.e2e.spec.ts` - tenant subdomain + path or selector, tenant + location context, location-manager scope
+- **Phase 7**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
+- **Phase 7**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
+- **Phase 7**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
+- **Phase 7**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
+- **Phase 8**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
+- **Phase 8**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
+- **Phase 8**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
+- **Phase 8**: `apps/atnd-me/tests/int/analytics-access.int.spec.ts` - Tenant-admin can only query own tenant; super-admin can query any/all
+- **Phase 8**: `apps/atnd-me/tests/e2e/analytics-dashboard.e2e.spec.ts` - Analytics dashboard date filter + tenant scoping
+- **Phase 9**: `apps/atnd-me/tests/unit/utm/parse-utm.test.ts` - UTM parsing from URL/query
+- **Phase 9**: `apps/atnd-me/tests/unit/utm/first-touch.test.ts` - First-touch persistence and idempotency
+- **Phase 9**: `apps/atnd-me/tests/int/marketing-events.int.spec.ts` - Event ingest, tenant scoping, validation
+- **Phase 9**: `apps/atnd-me/tests/int/attribution-reports.int.spec.ts` - Conversions and funnel by UTM dimension
+- **Phase 9**: `apps/atnd-me/tests/e2e/utm-tracking.e2e.spec.ts` - UTM capture on landing + event emission + dashboard filter
 
 ## Testing Strategy (TDD)
 
@@ -1461,11 +1471,11 @@ When adding payment functionality:
 - **Tenant-scoped payment routing**: payments for Tenant A go to Tenant A’s Connect account
 - **User-paid software fee**: the booking user pays an extra “booking fee” so tenants perceive the software as free
 - **Admin UX**: tenant-admin can connect/disconnect and see connection status
-- **Foundation for Phase 6 fees**: design supports adding `application_fee_amount` later
+- **Foundation for Phase 10 fees**: design supports adding `application_fee_amount` later
 
 ### Non-goals (Phase 2)
 
-- Application fees / platform take rate (Phase 6)
+- Application fees / platform take rate (Phase 10)
 - Complex reconciliation / payouts reporting dashboards (can be added later)
 
 ### Booking fee model (important)
@@ -1986,7 +1996,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–9):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bookings Bulk Operations & Payload UI) → Phase 6 (Self-Onboarding) → Phase 7 (Analytics) → Phase 8 (UTM) → Phase 9 (Application Fees, deferred).
+**Roadmap order (Phases 3–10):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bookings Bulk Operations & Payload UI) → Phase 6 (Multi-Location Architecture) → Phase 7 (Self-Onboarding) → Phase 8 (Analytics) → Phase 9 (UTM) → Phase 10 (Application Fees, deferred).
 
 ---
 
@@ -2198,7 +2208,7 @@ Refactor the **admin area for the Bookings collection** so it supports **bulk op
 ### Non-goals (for this phase)
 
 - Changing booking access control rules (already defined in Phase 1/2).
-- New booking-specific analytics (covered by Phase 4 dashboard and Phase 7 analytics).
+- New booking-specific analytics (covered by Phase 4 dashboard and Phase 8 analytics).
 - Public-facing booking UI changes.
 
 ### Architecture
@@ -2253,6 +2263,93 @@ Refactor the **admin area for the Bookings collection** so it supports **bulk op
 
 ---
 
+## Phase 6: Multi-Location Architecture
+
+### Overview
+
+Enable **multi-location** for a single tenant (business): one tenant with multiple physical locations; **subdomain resolution stays one segment only** (e.g. `saunabusiness.atnd.me` = tenant). Location is **not** in the host; customers choose or land on a location via **path** (e.g. `saunabusiness.atnd.me/locations/dublin`) or a **location selector** on the site (cookie/state). **Location-managers** get a location-scoped admin; **pages** stay tenant-wide and are managed only by tenant-admin (no location field on Pages). This phase does **not** introduce organisations or sub-subdomains. See `apps/atnd-me/docs/subdomain-hierarchy-design.md` for an optional future extension (sub-subdomain = location); Phase 6 implements the **one-subdomain** approach only.
+
+### Goals
+
+- **Locations collection**: Tenant-scoped collection (slug unique per tenant, name, address?, timezone?); **one subdomain = tenant** — no sub-subdomain for location.
+- **Subdomain resolution**: Unchanged: **one subdomain** = tenant (middleware sets `tenant-slug`; no 2-segment logic in this phase).
+- **Location context**: From **path** (e.g. `/locations/[locationSlug]`) and/or **frontend location selector** (cookie/state); server resolves location from path or cookie. Admin: `payload-location` cookie.
+- **Location on lessons/bookings**: Optional `location` relationship on lessons (and optionally bookings, instructors, class-options) so content can be location-scoped.
+- **Pages (and Navbar, Footer)**: Remain **tenant-scoped only**; no `location` field. Only **tenant-admin** and super admin manage pages; **location-manager** has no access (or read-only).
+- **Location-manager role**: New role (or `user.locations` relationship); access restricted to docs where location is in their assigned locations; included in `adminRoles`; Pages/Navbar/Footer create/update/delete denied (or read-only).
+- **Admin**: Location selector (e.g. `payload-location` cookie), URL preview on Tenant and Location edit views (e.g. `https://{tenant.slug}.atnd.me/locations/{location.slug}`), Locations in Configuration.
+
+### Non-goals (for this phase)
+
+- Organisations collection and tenant.org (Phase 2 of subdomain-hierarchy design = a later phase).
+- **Sub-subdomains for location** (e.g. `dublin.saunabusiness.atnd.me`) — deferred; Phase 6 resolves to **one subdomain** only.
+- Location-level pages or different page sets per location (pages stay tenant-wide).
+
+### Architecture
+
+1. **Data model**
+  - **Locations** collection: slug (unique per tenant), tenant (required), name, address?, timezone?; tenant-scoped (multi-tenant plugin or explicit `where: { tenant }`); compound unique `(tenant_id, slug)` or `beforeValidate` check.
+  - **Lessons**: add `location` (relationship to locations, optional). Optionally bookings, instructors, class-options.
+  - **Pages / Navbar / Footer**: do **not** add location; stay tenant-scoped only.
+2. **Middleware**
+  - No change in Phase 6: **one subdomain** = tenant only (current behaviour: 1 segment → `tenant-slug`; 0 segments clear). No `subdomain-prefix` or 2-segment handling.
+3. **Location context (server-side)**
+  - **Admin**: From `payload-location` cookie (location ID or slug) when present; resolve to location doc for current tenant.
+  - **Frontend**: From **path** (e.g. route `/locations/[locationSlug]/...`) and/or a **location cookie/header** (e.g. `location-slug`) set when user picks a location. Helper **getLocationContext(payload, source)** returns `{ location }` when path or cookie has a valid location slug for the current tenant; otherwise null. **getTenantContext** unchanged (tenant from `tenant-slug` only).
+4. **Location-manager role and access**
+  - Role `location-manager` (or model via `user.locations`). Access: read/update only docs where `location` in user’s locations and tenant matches. Pages (and Navbar, Footer): create/update/delete only admin and tenant-admin; location-manager `false` (or read-only); optionally hide Pages in sidebar for location-manager. Include `location-manager` in `adminRoles`.
+5. **Admin dashboard**
+  - Super admin: Configuration → Tenants, Locations; tenant selector + location selector when tenant has locations. Tenant-admin: their tenant; Locations for their tenant; Pages full access; Lessons/Bookings with optional location filter. Location-manager: no Tenants list, no Pages; only their location(s) and location-scoped Lessons, Bookings. Location selector: “All locations” + list (super admin / tenant-admin); location-manager only their locations; store in `payload-location` cookie. URL preview: Location edit → `https://{tenant.slug}.atnd.me/locations/{location.slug}`; Tenant edit → `https://{tenant.slug}.atnd.me`.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 6.1 – Locations collection**
+  - Create Locations collection (slug, tenant, name, address?, timezone?; slug unique per tenant; tenant-scoped). Add to payload.config and multi-tenant plugin if applicable.
+  - Tests: int tests for Locations CRUD, slug uniqueness per tenant, access (tenant-admin their tenant; location-manager their locations).
+- **Step 6.2 – Location on lessons (and optionally bookings)**
+  - Add `location` relationship to lessons; optionally to bookings, instructors, class-options. Migration.
+  - Tests: lessons can be scoped to location; list/filter by location.
+- **Step 6.3 – Location context (path / cookie)**
+  - Add **getLocationContext(payload, source)** that resolves location from path (e.g. `locations/[locationSlug]`) or cookie/header (e.g. `location-slug`) for the current tenant; returns `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
+  - Frontend: route(s) for `/locations/[locationSlug]` (or equivalent) that set location context (cookie or state) and render location-scoped content (e.g. lessons, booking).
+  - Tests: unit/int for getLocationContext (path, cookie, invalid slug); no 2-segment subdomain tests in Phase 6.
+- **Step 6.4 – Location-manager role and access**
+  - Add `location-manager` to roles (and `user.locations` relationship); add to `adminRoles` in auth options. Access helpers for location-scoped collections. Pages (and Navbar, Footer): deny create/update/delete for location-manager (or read-only); optionally hide in nav.
+  - Tests: location-manager can log in; sees only their location(s); cannot manage Pages.
+- **Step 6.5 – Admin: location selector and URL preview**
+  - Location selector in sidebar/header when tenant has locations; persist `payload-location`; filter lists by location when set. URL preview on Tenant and Location edit views (tenant URL + `/locations/{location.slug}`).
+  - Tests: E2E or int that selector and preview work.
+- **Step 6.6 – Frontend**
+  - When loading page by slug, use **tenant** only (no location) for Pages query. Use location context (from path or cookie) for “Book at this location”, lessons filter, contact info. E2E: navigate to tenant subdomain + `/locations/dublin` (or location selector), verify tenant + location context and location-manager scope.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/src/collections/Locations/index.ts` – New Locations collection (tenant-scoped; slug unique per tenant).
+- `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path (e.g. `locations/[locationSlug]`) or cookie/header for current tenant; return `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
+- `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`.
+- `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (for location-manager assignment).
+- Lessons (and optionally bookings, instructors, class-options) – Add `location` relationship; access/listing filter by location when context set.
+- Pages, Navbar, Footer – Access: location-manager no create/update/delete (or read-only).
+- Admin: location selector component, URL preview on Tenant and Location edit; payload.config collections (Locations).
+- Tests: `tests/int/locations-collection.int.spec.ts`, `tests/int/location-context.int.spec.ts` (getLocationContext from path/cookie), `tests/unit/getLocationContext.test.ts`, `tests/e2e/multi-location.e2e.spec.ts` (tenant subdomain + path or selector).
+- Reference: `apps/atnd-me/docs/subdomain-hierarchy-design.md` (optional future: sub-subdomain = location).
+
+### Summary
+
+
+| Aspect               | Notes                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| **URL pattern**      | **One subdomain** = tenant only (e.g. `saunabusiness.atnd.me`). Location via path or selector.        |
+| **Location context** | From path (e.g. `/locations/dublin`) or frontend cookie/selector; getLocationContext helper.          |
+| **Locations**        | Tenant-scoped collection; slug unique per tenant; no org in this phase.                               |
+| **Pages**            | Tenant-scoped only; no location field; managed by tenant-admin only; location-manager no access.      |
+| **Location-manager** | New role; access to their location(s) and location-scoped lessons/bookings; no Pages.                 |
+| **Resolution**       | getTenantContext unchanged (tenant from tenant-slug); getLocationContext from path/cookie.            |
+| **Green gates**      | Int tests (Locations, getLocationContext, access); E2E (tenant + path or selector, location-manager). |
+
+
+---
+
 ## Phase 2 Completion Status (vs codebase)
 
 *Updated from a scan of the atnd-me app.*
@@ -2279,9 +2376,9 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ---
 
-## Phase 9: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
+## Phase 10: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bookings Bulk Operations (Phase 5), Self-Onboarding (Phase 6), Analytics (Phase 7), and UTM (Phase 8).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bookings Bulk Operations (Phase 5), Multi-Location Architecture (Phase 6), Self-Onboarding (Phase 7), Analytics (Phase 8), and UTM (Phase 9).*
 
 When implementing flexible application fees:
 
@@ -2305,7 +2402,7 @@ Phase 8 extends this with **advanced management**, not the core fee model:
     - audit log entries for changes (who/when/what)
 2. **Update Tenants Collection:**
   - Keep tenant fee overrides centralized in the `platform-fees` global (Phase 2 design).
-  - (Optional Phase 6) Add a read-only “effective fees” panel on Tenant admin pages for clarity.
+  - (Optional Phase 7) Add a read-only “effective fees” panel on Tenant admin pages for clarity.
 3. **Create Application Fee Calculation Utility:**
   - Reuse the Phase 2 helper:
     - `apps/atnd-me/src/lib/stripe-connect/bookingFee.ts`
@@ -2409,7 +2506,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 ---
 
-## Phase 6: Self-Onboarding with MCP-Driven Personalisation
+## Phase 7: Self-Onboarding with MCP-Driven Personalisation
 
 ### Overview
 
@@ -2514,7 +2611,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ---
 
-## Phase 7: Dashboard Analytics (Future)
+## Phase 8: Dashboard Analytics (Future)
 
 ### Overview
 
@@ -2625,7 +2722,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ---
 
-## Phase 8: Event Tracking & Marketing Attribution (UTM) (Future)
+## Phase 9: Event Tracking & Marketing Attribution (UTM) (Future)
 
 ### Overview
 

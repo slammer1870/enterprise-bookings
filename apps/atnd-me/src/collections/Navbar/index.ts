@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { link } from '@/fields/link'
+import { getUserTenantIds } from '../../access/tenant-scoped'
 import { revalidateNavbar } from './hooks/revalidateNavbar'
 import {
     tenantScopedCreate,
@@ -9,14 +10,15 @@ import {
 } from '../../access/tenant-scoped'
 
 // Multi-tenant Navbar collection (converted from Header global)
-// Each tenant has one navbar document
+// Each tenant has one navbar document. One document with no tenant is used as the root site navbar (when no tenant is assigned, e.g. root domain).
 export const Navbar: CollectionConfig = {
     slug: 'navbar',
     admin: {
         useAsTitle: 'tenant',
         defaultColumns: ['tenant', 'logoLink', 'updatedAt'],
         group: 'Website',
-        description: 'Navigation bar configuration for each tenant',
+        description:
+            'Navigation bar per tenant. To show a navbar when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).',
     },
     access: {
         read: () => true, // Public read for frontend rendering
@@ -25,6 +27,25 @@ export const Navbar: CollectionConfig = {
         delete: tenantScopedDelete,
     },
     fields: [
+        {
+            name: 'tenant',
+            type: 'relationship',
+            relationTo: 'tenants',
+            required: false,
+            admin: {
+                position: 'sidebar',
+                description:
+                    'Optional. Leave empty for the root site navbar (when no tenant is assigned, e.g. root domain).',
+            },
+            filterOptions: ({ req }) => {
+                const tenantIds = getUserTenantIds((req as any)?.user ?? null)
+                if (tenantIds === null) return true
+                if (Array.isArray(tenantIds) && tenantIds.length > 0) {
+                    return { id: { in: tenantIds } }
+                }
+                return true
+            },
+        },
         {
             name: 'logo',
             type: 'upload',
@@ -134,10 +155,8 @@ export const Navbar: CollectionConfig = {
     hooks: {
         beforeValidate: [
             async ({ data, operation, req }) => {
-                // Ensure tenant field is set on create if not already provided
-                // Use beforeValidate so it runs before plugin validation
-                if (operation === 'create' && data && !data.tenant) {
-                    // Try to get tenant from context (set by middleware or tests)
+                // Set tenant from context on create only when not explicitly set (allow null for root navbar)
+                if (operation === 'create' && data && data.tenant === undefined) {
                     const rawTenant = req.context?.tenant as unknown
                     if (rawTenant) {
                         // `tenant` may be a primitive ID or an object with an `id` field

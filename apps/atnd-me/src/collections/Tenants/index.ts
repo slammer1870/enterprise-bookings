@@ -7,6 +7,7 @@ import { extraBlockSlugs } from '../../blocks/registry'
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
   faqs: 'FAQs',
+  tenantScopedSchedule: 'Schedule by Tenant',
   heroScheduleSanctuary: 'Hero & Schedule (Sanctuary)',
   healthBenefits: 'Health Benefits',
   sectionTagline: 'Section Tagline',

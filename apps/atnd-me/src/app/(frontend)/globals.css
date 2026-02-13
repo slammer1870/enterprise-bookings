@@ -56,6 +56,8 @@
   --waitlist-foreground: hsl(0, 0%, 9%);
   --children-booked: hsl(271, 84%, 42%);
   --children-booked-foreground: hsl(0, 0%, 9%);
+  --modify: hsl(263, 70%, 50%);
+  --modify-foreground: hsl(0, 0%, 100%);
   --closed: hsl(0, 0%, 50%);
   --closed-foreground: hsl(0, 0%, 9%);
 }
@@ -129,6 +131,8 @@
   --waitlist-foreground: 0 0% 98%;
   --children-booked: 271 91% 65%;
   --children-booked-foreground: 0 0% 98%;
+  --modify: 263 70% 55%;
+  --modify-foreground: 0 0% 98%;
   --closed: 0 0% 50%;
   --closed-foreground: 0 0% 98%;
 }

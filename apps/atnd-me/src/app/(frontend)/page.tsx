@@ -8,7 +8,7 @@ import type { RequiredDataFromCollectionSlug } from 'payload'
 import type { Page } from '@/payload-types'
 import PageClient from './[slug]/page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
-import { queryPageBySlug } from './[slug]/page'
+import { queryPageBySlug } from './[slug]/queryPageBySlug'
 
 /**
  * Root page handler for both marketing (no subdomain) and tenant home pages

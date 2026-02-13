@@ -23,6 +23,7 @@ import type { ReactSelectOption } from '@payloadcms/ui'
 import { ConfirmationModal, SelectInput, useModal, useTranslation } from '@payloadcms/ui'
 import type { ViewTypes } from 'payload'
 import React from 'react'
+import { usePathname } from 'next/navigation'
 import { useTenantSelection } from '@payloadcms/plugin-multi-tenant/client'
 
 const confirmLeaveWithoutSavingSlug = 'confirm-leave-without-saving-clearable-tenant'
@@ -57,13 +58,20 @@ type Props = {
   viewType?: ViewTypes
 }
 
+const ROOT_NAVBAR_FOOTER_COLLECTIONS = ['/collections/navbar', '/collections/footer']
+
 export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label, viewType }) => {
+  const pathname = usePathname()
   const { entityType, modified, options, selectedTenantID, setTenant } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
   const [tenantSelection, setTenantSelection] = React.useState<
     ReactSelectOption | ReactSelectOption[] | undefined
   >(undefined)
+
+  const isOnNavbarOrFooter =
+    typeof pathname === 'string' &&
+    ROOT_NAVBAR_FOOTER_COLLECTIONS.some((seg) => pathname.includes(seg))
 
   const optionsList = Array.isArray(options) ? options : []
 
@@ -93,6 +101,14 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
         return
       }
 
+      // When clearing to "no tenant" on Navbar/Footer, switch immediately so clearing always works
+      // (globals can block or confuse the confirmation flow).
+      const isClearingToNoTenant = !normalized || (normalized && 'value' in normalized && (normalized.value === undefined || normalized.value === null || normalized.value === ''))
+      if (isOnNavbarOrFooter && isClearingToNoTenant) {
+        switchTenant(undefined)
+        return
+      }
+
       if (entityType === 'global' && modified) {
         setTenantSelection(normalized)
         openModal(confirmLeaveWithoutSavingSlug)
@@ -100,12 +116,16 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
         switchTenant(normalized)
       }
     },
-    [selectedTenantID, entityType, modified, switchTenant, openModal],
+    [selectedTenantID, entityType, modified, switchTenant, openModal, isOnNavbarOrFooter],
   )
 
   // Plugin only enables clear on dashboard/list based on viewType.
   // For custom dashboard views, Payload can pass an undefined viewType—treat that as dashboard.
-  const canClear = ['dashboard', 'list'].includes(viewType ?? '') || viewType == null
+  // On Navbar/Footer we allow clear so admins can switch to "no tenant" and edit root navbar/footer.
+  const canClear =
+    ['dashboard', 'list'].includes(viewType ?? '') ||
+    viewType == null ||
+    isOnNavbarOrFooter
 
   const labelText = (() => {
     if (!label) return (t as any)('plugin-multi-tenant:nav-tenantSelector-label') as string
@@ -118,7 +138,10 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
   })()
   const readOnly =
     Boolean(disabled) ||
-    (entityType !== 'global' && viewType != null && (['document', 'version'] as ViewTypes[]).includes(viewType))
+    (!isOnNavbarOrFooter &&
+      entityType !== 'global' &&
+      viewType != null &&
+      (['document', 'version'] as ViewTypes[]).includes(viewType))
 
   return (
     <div

@@ -34,7 +34,7 @@ const labelByAction: Record<LessonScheduleState["action"], string> = {
 const classNameByAction: Record<LessonScheduleState["action"], string> = {
   book: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
   cancel: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
-  modify: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
+  modify: "w-full bg-modify hover:bg-modify/90 text-modify-foreground",
   joinWaitlist: "w-full bg-waitlist hover:bg-waitlist/90 text-waitlist-foreground",
   leaveWaitlist: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
   closed: "w-full bg-closed hover:bg-closed/90 text-closed-foreground opacity-50 cursor-not-allowed",

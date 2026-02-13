@@ -68,16 +68,37 @@ function resolveLogo(
 /**
  * Fetches navbar for the current request.
  * When tenant context exists: fetches from navbar collection for that tenant.
+ * When no tenant (root domain): fetches the root navbar (document with tenant = null) if one exists.
  * White labeling: uses tenant.logo and tenant.name as fallback when navbar has no logo.
- * When no tenant (root domain): returns minimal default for marketing page.
+ * Falls back to minimal default when no tenant and no root navbar exists.
  */
 export async function getNavbarForRequest(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<NavbarData> {
   const tenant = await getTenantContext(payload, source)
+
   if (!tenant) {
-    return DEFAULT_NAVBAR
+    const rootResult = await payload.find({
+      collection: 'navbar',
+      where: { tenant: { equals: null } },
+      limit: 1,
+      depth: 1,
+      overrideAccess: true,
+    })
+    const rootDoc = rootResult.docs[0]
+    if (!rootDoc) return DEFAULT_NAVBAR
+    const logo = resolveLogo(rootDoc?.logo, null)
+    const logoWithAlt =
+      logo && typeof logo === 'object' && logo !== null
+        ? { ...logo, alt: (logo.alt as string) || 'Logo' }
+        : logo
+    return {
+      logo: logoWithAlt,
+      logoLink: (rootDoc as { logoLink?: string }).logoLink ?? '/',
+      navItems: (rootDoc as { navItems?: NavbarData['navItems'] }).navItems ?? [],
+      styling: (rootDoc as { styling?: NavbarData['styling'] }).styling,
+    }
   }
 
   const tenantBranding = await getTenantWithBranding(payload, source)
@@ -122,16 +143,44 @@ export async function getNavbarForRequest(
 /**
  * Fetches footer for the current request.
  * When tenant context exists: fetches from footer collection for that tenant.
+ * When no tenant (root domain): fetches the root footer (document with tenant = null) if one exists.
  * White labeling: uses tenant.logo and tenant.name/description as fallback when footer has no logo/copyright.
- * When no tenant (root domain): returns minimal default for marketing page.
+ * Falls back to minimal default when no tenant and no root footer exists.
  */
 export async function getFooterForRequest(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<FooterData> {
   const tenant = await getTenantContext(payload, source)
+
   if (!tenant) {
-    return DEFAULT_FOOTER
+    const rootResult = await payload.find({
+      collection: 'footer',
+      where: { tenant: { equals: null } },
+      limit: 1,
+      depth: 1,
+      overrideAccess: true,
+    })
+    const rootDoc = rootResult.docs[0]
+    if (!rootDoc) return DEFAULT_FOOTER
+    const logo = resolveLogo(rootDoc?.logo, null)
+    const logoWithAlt =
+      logo && typeof logo === 'object' && logo !== null
+        ? { ...logo, alt: (logo.alt as string) || 'Logo' }
+        : logo
+    const rootTyped = rootDoc as {
+      logoLink?: string
+      copyrightText?: string
+      navItems?: FooterData['navItems']
+      styling?: FooterData['styling']
+    }
+    return {
+      logo: logoWithAlt,
+      logoLink: rootTyped.logoLink ?? '/',
+      copyrightText: rootTyped.copyrightText,
+      navItems: rootTyped.navItems ?? [],
+      styling: rootTyped.styling,
+    }
   }
 
   const tenantBranding = await getTenantWithBranding(payload, source)

@@ -36,7 +36,7 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
   logo,
   title,
   links,
-  disableInnerContainer,
+  disableInnerContainer: _disableInnerContainer,
 }) => {
   const bgImageUrl =
     typeof backgroundImage === 'object' && backgroundImage?.url
@@ -76,7 +76,9 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
   }
 
   return (
-    <div className={`relative w-full ${disableInnerContainer ? 'h-full' : 'h-[600px] md:h-[700px]'} flex items-center justify-center overflow-hidden`}>
+    <div
+      className={`relative w-full min-h-[600px] md:min-h-[700px] flex items-center justify-center overflow-hidden`}
+    >
       {bgImageUrl && (
         <div className="absolute inset-0 z-0">
           <Image

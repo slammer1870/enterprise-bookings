@@ -404,15 +404,11 @@ export const plugins: Plugin[] = [
     // Type assertion: multi-tenant plugin's types omit collections from @repo/bookings-payments
     collections: {
       // Standard collections
-      // Allow pages with no tenant (global/root pages, e.g. slug "root" for main domain)
       pages: {
-        tenantFieldOverrides: {
-          required: false,
-          admin: {
-            description:
-              'Leave empty for global pages (e.g. root marketing page with slug "root"). To create a global page, clear the tenant filter in the nav first, then create the page with this field empty.',
-          },
-        },
+        // Plugin's built-in tenant field is always required (it uses validate() to enforce it).
+        // We want "global" pages (no tenant) for the root domain landing page, so we provide
+        // our own optional `tenant` field in the Pages collection instead.
+        customTenantField: true,
       },
       lessons: {},
       instructors: {},
@@ -427,10 +423,10 @@ export const plugins: Plugin[] = [
       subscriptions: {}, // User subscriptions; tenant-scoped
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions
-      // Globals converted to collections (one per tenant)
-      // Using isGlobal: true enforces single document per tenant
-      navbar: { isGlobal: true },
-      footer: { isGlobal: true },
+      // Globals converted to collections (one per tenant). customTenantField so we can allow
+      // optional tenant (null = root site navbar/footer) and clear it in the admin form.
+      navbar: { isGlobal: true, customTenantField: true },
+      footer: { isGlobal: true, customTenantField: true },
       scheduler: { isGlobal: true },
       // NOTE: users collection is NOT included here to avoid automatic tenant scoping
       // The plugin will still add a 'tenants' field (array) to users automatically

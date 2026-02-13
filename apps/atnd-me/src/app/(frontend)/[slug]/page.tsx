@@ -4,7 +4,7 @@ import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { getPayload } from '@/lib/payload'
 import type { RequiredDataFromCollectionSlug, Where } from 'payload'
 import { draftMode } from 'next/headers'
-import React, { cache } from 'react'
+import React from 'react'
 import { homeStatic } from '@/endpoints/seed/home-static'
 
 import { RenderBlocks } from '@/blocks/RenderBlocks'
@@ -12,6 +12,7 @@ import { generateMeta } from '@/utilities/generateMeta'
 import { getTenantSlug, getTenantContext, getTenantWithBranding } from '@/utilities/getTenantContext'
 import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
+import { queryPageBySlug } from './queryPageBySlug'
 
 export async function generateStaticParams() {
   try {
@@ -124,32 +125,3 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
 
   return generateMeta({ doc: page, tenantBranding })
 }
-
-export const queryPageBySlug = cache(async ({ slug }: { slug: string }) => {
-  const { isEnabled: draft } = await draftMode()
-  const { cookies } = await import('next/headers')
-  const cookieStore = await cookies()
-  const payload = await getPayload()
-  const tenant = await getTenantContext(payload, { cookies: cookieStore })
-  const tenantId = tenant?.id ?? null
-
-  // Build where clause with tenant filter if tenant context exists
-  const where: Where = {
-    slug: {
-      equals: slug,
-    },
-    ...(tenantId ? { tenant: { equals: tenantId } } : {}),
-  }
-
-  const result = await payload.find({
-    collection: 'pages',
-    draft,
-    depth: 2, // Populate media relations and nested references
-    limit: 1,
-    pagination: false,
-    overrideAccess: draft,
-    where,
-  })
-
-  return result.docs?.[0] || null
-})

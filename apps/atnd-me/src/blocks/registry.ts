@@ -12,6 +12,7 @@ import { HealthBenefits } from './HealthBenefits/config'
 import { HeroSchedule } from './HeroSchedule/config'
 import { HeroScheduleSanctuary } from './HeroScheduleSanctuary/config'
 import { Schedule } from './Schedule/config'
+import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
 import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
 
@@ -22,6 +23,7 @@ const allBlocks: Block[] = [
   About,
   Location,
   Schedule,
+  TenantScopedSchedule,
   HealthBenefits,
   SectionTagline,
   Faqs,
@@ -40,6 +42,7 @@ export const defaultBlockSlugs: string[] = [
   'hero',
   'about',
   'schedule',
+  'tenantScopedSchedule', // Root home page: filter schedule by tenant
   'content',
   'cta',
 ]

@@ -354,7 +354,11 @@ export const lessonsRouter = {
 
   getByDate: publicProcedure
     .use(requireCollections("lessons"))
-    .input(z.object({ date: z.string() }))
+    .input(z.object({
+      date: z.string(),
+      /** When provided (e.g. from root home page schedule block), filter lessons to this tenant. */
+      tenantId: z.number().optional(),
+    }))
     .query(async ({ ctx, input }) => {
       try {
         // Prefer Better Auth session when configured (magic-link login uses this).
@@ -363,60 +367,55 @@ export const lessonsRouter = {
           ? (await ctx.betterAuth.api.getSession({ headers: ctx.headers }))?.user ?? null
           : (await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false }))?.user ?? null;
 
-        // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
-        // so schedule shows correct button (Modify/Check in) when cookie isn't set yet on first load
-        const cookieHeader = ctx.headers.get("cookie") || "";
-        const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-        let tenantSlug: string | null = tenantSlugMatch ? (tenantSlugMatch[1] ?? null) : null;
-        const host =
-          ctx.hostOverride ??
-          ctx.headers.get("x-forwarded-host") ??
-          ctx.headers.get("host") ??
-          "";
-        if (!tenantSlug) {
-          const hostWithoutPort = host.split(":")[0]?.trim() || "";
-          const parts = hostWithoutPort.split(".");
-          const isLocalhost = hostWithoutPort.includes("localhost");
-          if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-            tenantSlug = parts[0];
-          } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
-            tenantSlug = parts[0];
-          }
-        }
+        // Use explicit tenantId from input when provided (e.g. tenant-scoped schedule block on root page)
+        let tenantId: number | null = input.tenantId ?? null;
 
-        // Resolve tenant ID from slug if available
-        // If tenant slug is provided but tenant doesn't exist or collection doesn't exist
-        // (non-multi-tenant apps), continue without tenant filtering (backward compatible)
-        let tenantId: number | null = null;
-        if (tenantSlug) {
-          try {
-            // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-            if (!hasCollection(ctx.payload, "tenants")) {
-              // Non-multi-tenant app - ignore tenant slug and continue without filtering
-              tenantId = null;
-            } else {
-              const tenantResult = await findSafe(ctx.payload, "tenants", {
-                where: {
-                  slug: {
-                    equals: tenantSlug,
-                  },
-                },
-                limit: 1,
-                depth: 0,
-                overrideAccess: true, // Allow public lookup
-              });
-              if (tenantResult.docs[0]) {
-                tenantId = tenantResult.docs[0].id as number;
-              }
-              // If tenant slug provided but tenant doesn't exist, continue without tenant filter
-              // This allows the query to work (may return lessons from other tenants, but that's
-              // acceptable for backward compatibility - multi-tenant apps should ensure tenant exists)
+        if (tenantId == null) {
+          // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
+          // so schedule shows correct button (Modify/Check in) when cookie isn't set yet on first load
+          const cookieHeader = ctx.headers.get("cookie") || "";
+          const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+          let tenantSlug: string | null = tenantSlugMatch ? (tenantSlugMatch[1] ?? null) : null;
+          const host =
+            ctx.hostOverride ??
+            ctx.headers.get("x-forwarded-host") ??
+            ctx.headers.get("host") ??
+            "";
+          if (!tenantSlug) {
+            const hostWithoutPort = host.split(":")[0]?.trim() || "";
+            const parts = hostWithoutPort.split(".");
+            const isLocalhost = hostWithoutPort.includes("localhost");
+            if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
+              tenantSlug = parts[0];
+            } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
+              tenantSlug = parts[0];
             }
-          } catch (error) {
-            // If tenant lookup fails (e.g., collection doesn't exist in non-multi-tenant apps),
-            // continue without tenant filtering for backward compatibility
-            console.error("Error resolving tenant (continuing without tenant filter):", error);
-            tenantId = null;
+          }
+
+          // Resolve tenant ID from slug if available
+          if (tenantSlug) {
+            try {
+              if (!hasCollection(ctx.payload, "tenants")) {
+                tenantId = null;
+              } else {
+                const tenantResult = await findSafe(ctx.payload, "tenants", {
+                  where: {
+                    slug: {
+                      equals: tenantSlug,
+                    },
+                  },
+                  limit: 1,
+                  depth: 0,
+                  overrideAccess: true, // Allow public lookup
+                });
+                if (tenantResult.docs[0]) {
+                  tenantId = tenantResult.docs[0].id as number;
+                }
+              }
+            } catch (error) {
+              console.error("Error resolving tenant (continuing without tenant filter):", error);
+              tenantId = null;
+            }
           }
         }
 
