@@ -4,7 +4,7 @@ import type { ViewTypes } from 'payload'
 type Props = {
   /** Allow disabling selector (matches plugin prop surface). */
   disabled?: boolean
-  label?: string
+  label?: unknown
   enabledSlugs?: string[]
   /** Provided by Payload when rendering admin components. */
   viewType?: ViewTypes
@@ -12,9 +12,8 @@ type Props = {
 
 /**
  * RSC wrapper for ClearableTenantSelectorClient. Replaces the plugin's
- * TenantSelector so the "No tenant" (clear) option is always available,
- * including on the custom dashboard at /admin. The plugin only shows clear
- * when viewType is 'dashboard' or 'list', and custom views may not get that.
+ * TenantSelector so the clear (X) is also available on the custom dashboard
+ * at /admin (Payload may pass an undefined viewType for custom views).
  */
 export const ClearableTenantSelector: React.FC<Props> = ({ disabled, label, viewType }) => {
   return <ClearableTenantSelectorClient disabled={disabled} label={label} viewType={viewType} />

@@ -12,21 +12,21 @@
  *   so the clear option may not show on the custom /admin dashboard.
  *
  * How we differ:
- * - We always show a "No tenant" option so admins can clear the filter and see data for all
- *   tenants in aggregate on any route (including the custom analytics dashboard at /admin).
+ * - We keep Payload's clear (X) behavior, but treat an undefined viewType as "dashboard"
+ *   so clearing is available on the custom analytics dashboard at /admin too.
  * - We set the payload-tenant cookie ourselves so selection persists (plugin setTenant does
  *   not always persist the cookie when using a custom selector).
- * - We use a native <select> to avoid pulling Radix/app UI into the admin bundle (which caused
- *   a white-screen crash). We still use the plugin's useTenantSelection for options and setTenant.
+ * - We use Payload's own SelectInput so the UI matches the admin (including the clear "X"),
+ *   but we still set/clear cookie for both Path=/ and Path=/admin so clearing works on /admin.
  */
-import { ConfirmationModal, useModal, useTranslation } from '@payloadcms/ui'
+import type { ReactSelectOption } from '@payloadcms/ui'
+import { ConfirmationModal, SelectInput, useModal, useTranslation } from '@payloadcms/ui'
 import type { ViewTypes } from 'payload'
 import React from 'react'
 import { useTenantSelection } from '@payloadcms/plugin-multi-tenant/client'
 
 const confirmLeaveWithoutSavingSlug = 'confirm-leave-without-saving-clearable-tenant'
 
-const CLEAR_VALUE = ''
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
 const COOKIE_MAX_AGE_YEAR = 60 * 60 * 24 * 365
 
@@ -53,30 +53,25 @@ function setPayloadTenantCookie(tenantId: string | undefined) {
 
 type Props = {
   disabled?: boolean
-  label?: string
+  label?: unknown
   viewType?: ViewTypes
 }
 
 export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label, viewType }) => {
   const { entityType, modified, options, selectedTenantID, setTenant } = useTenantSelection()
   const { closeModal, openModal } = useModal()
-  const { t } = useTranslation()
-  /**
-   * IMPORTANT: the plugin's TenantSelectionProvider compares option.value using strict equality.
-   * Option values are often numbers, so we keep the original `id` type (number|string) and only
-   * use `value` as the string form for the native <select>.
-   */
-  type NormalizedOption = { label: string; value: string; id: number | string }
-  type TenantOption = NormalizedOption | undefined
-  const [tenantSelection, setTenantSelection] = React.useState<TenantOption>(undefined)
+  const { i18n, t } = useTranslation()
+  const [tenantSelection, setTenantSelection] = React.useState<
+    ReactSelectOption | ReactSelectOption[] | undefined
+  >(undefined)
 
   const optionsList = Array.isArray(options) ? options : []
 
   const switchTenant = React.useCallback(
-    (option: TenantOption) => {
-      if (option?.value != null && option.value !== CLEAR_VALUE) {
-        setPayloadTenantCookie(String(option.id))
-        setTenant({ id: option.id, refresh: true })
+    (option: ReactSelectOption | ReactSelectOption[] | undefined) => {
+      if (option && 'value' in option) {
+        setPayloadTenantCookie(String(option.value))
+        setTenant({ id: option.value as any, refresh: true })
       } else {
         setPayloadTenantCookie(undefined)
         setTenant({ id: undefined, refresh: true })
@@ -89,75 +84,41 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
     return null
   }
 
-  const normalizedOptions: NormalizedOption[] = React.useMemo(() => {
-    const result: NormalizedOption[] = []
-    for (const o of optionsList) {
-      const raw =
-        o && typeof o === 'object'
-          ? (o as { value?: unknown; label?: unknown; name?: unknown; id?: unknown })
-          : null
-      if (!raw) continue
-      const id = (raw.value ?? raw.id) as number | string | undefined
-      if (id == null || id === '') continue
-      const value = String(id)
-      const label =
-        ('label' in raw && raw.label != null && String(raw.label)) ||
-        ('name' in raw && raw.name != null && String(raw.name)) ||
-        value
-      result.push({ label, value, id })
-    }
-    return result
-  }, [optionsList])
-
   const handleChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const value = e.target.value
-      const isClear = value === CLEAR_VALUE
+    (option: ReactSelectOption | ReactSelectOption[] | null | undefined) => {
+      const normalized = option ?? undefined
 
       // Match plugin behavior: if selecting current tenant, no-op.
-      if (!isClear && value === String(selectedTenantID ?? '')) {
-        return
-      }
-      if (isClear && (selectedTenantID == null || String(selectedTenantID) === '')) {
+      if (normalized && 'value' in normalized && normalized.value === selectedTenantID) {
         return
       }
 
-      const option: TenantOption = isClear
-        ? undefined
-        : (normalizedOptions.find((o) => o.value === value) ?? {
-            value,
-            label: value,
-            id: value,
-          })
-      if (
-        entityType === 'global' &&
-        modified &&
-        (option?.value !== String(selectedTenantID ?? '') || isClear)
-      ) {
-        setTenantSelection(option)
+      if (entityType === 'global' && modified) {
+        setTenantSelection(normalized)
         openModal(confirmLeaveWithoutSavingSlug)
       } else {
-        switchTenant(option)
+        switchTenant(normalized)
       }
     },
-    [entityType, modified, selectedTenantID, switchTenant, openModal, normalizedOptions],
+    [selectedTenantID, entityType, modified, switchTenant, openModal],
   )
 
   // Plugin only enables clear on dashboard/list based on viewType.
   // For custom dashboard views, Payload can pass an undefined viewType—treat that as dashboard.
   const canClear = ['dashboard', 'list'].includes(viewType ?? '') || viewType == null
 
-  const selectValue =
-    selectedTenantID != null ? String(selectedTenantID) : CLEAR_VALUE
-  const labelText =
-    (label
-      ? (t as (key: string) => string)(label)
-      : (t as (key: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')) as string
+  const labelText = (() => {
+    if (!label) return (t as any)('plugin-multi-tenant:nav-tenantSelector-label') as string
+    if (typeof label === 'string') return label
+    // Defensive: if plugin passes an i18n map, prefer current language.
+    const lang = (i18n as any)?.language as string | undefined
+    if (lang && typeof (label as any)[lang] === 'string') return (label as any)[lang]
+    const first = Object.values(label as any).find((v) => typeof v === 'string') as string | undefined
+    return first ?? (t as any)('plugin-multi-tenant:nav-tenantSelector-label')
+  })()
   const readOnly =
     Boolean(disabled) ||
     (entityType !== 'global' && viewType != null && (['document', 'version'] as ViewTypes[]).includes(viewType))
-
-  const clearLabel = ((t as (key: string) => string)('general:noValue') as string) || 'No tenant'
 
   return (
     <div
@@ -165,44 +126,17 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
       data-testid="tenant-selector"
       style={{ width: '100%', marginBottom: '2rem' }}
     >
-      <label
-        htmlFor="tenant-selector-select"
-        className="payload__field-label"
-        style={{ display: 'block', marginBottom: '0.5rem' }}
-      >
-        {labelText}
-      </label>
-      <select
-        id="tenant-selector-select"
-        aria-label={labelText}
-        data-testid="tenant-selector-trigger"
-        value={selectValue}
-        onChange={handleChange}
-        disabled={readOnly}
-        style={{
-          width: '100%',
-          padding: '0.5rem 0.75rem',
-          borderRadius: '4px',
-          border: '1px solid var(--theme-elevation-150, #e5e5e5)',
-          background: 'var(--theme-elevation-0, #fff)',
-          fontSize: 'inherit',
-        }}
-      >
-        {canClear && (
-          <option value={CLEAR_VALUE} data-testid="tenant-option-clear">
-            {clearLabel}
-          </option>
-        )}
-        {normalizedOptions.map((opt) => (
-          <option
-            key={opt.value}
-            value={opt.value}
-            data-testid={`tenant-option-${opt.value}`}
-          >
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <SelectInput
+        isClearable={canClear}
+        label={labelText}
+        name="setTenant"
+        onChange={handleChange as any}
+        options={optionsList as any}
+        path="setTenant"
+        readOnly={readOnly}
+        // Keep test targeting stable: the inner control is a combobox; wrapper testid is on parent.
+        value={selectedTenantID as any}
+      />
       <ConfirmationModal
         body={t('general:changesNotSaved')}
         cancelLabel={t('general:stayOnThisPage')}

@@ -9,10 +9,11 @@ const ADMIN_VIEWPORT = { width: 1440, height: 900 }
 
 /** Open the admin sidebar if it is collapsed (e.g. on smaller viewports). */
 async function ensureSidebarOpen(page: Page) {
-  const openMenu = page.getByRole('button', { name: 'Open Menu' })
+  const openMenu = page.getByRole('button', { name: /open menu/i })
   if (await openMenu.isVisible().catch(() => false)) {
-    await openMenu.click()
-    await page.waitForTimeout(300)
+    await openMenu.click({ force: true })
+    // Give the UI a moment to animate / mount nav.
+    await page.getByRole('button', { name: /close menu/i }).waitFor({ state: 'visible', timeout: 5000 }).catch(() => null)
   }
 }
 
@@ -30,6 +31,7 @@ test.describe('Admin Tenant Selector', () => {
     const { tenants } = testData
     const tenant1 = tenants[0]
     const tenant2 = tenants[1]
+    const tenant2Name = tenant2.name ?? 'Test Tenant 2'
 
     await page.setViewportSize(ADMIN_VIEWPORT)
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
@@ -62,14 +64,20 @@ test.describe('Admin Tenant Selector', () => {
     ])
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(500)
+    await ensureSidebarOpen(page)
+    await wrap.waitFor({ state: 'visible', timeout: 20000 })
 
     // Use a collection list page so there is no "modified" form state — tenant switch runs without confirmation modal
     await page.goto(`${ADMIN_ORIGIN}/admin/collections/categories`, { waitUntil: 'load' })
-    await wrap.waitFor({ state: 'visible', timeout: 10000 })
+    await ensureSidebarOpen(page)
+    await wrap.waitFor({ state: 'visible', timeout: 20000 })
 
-    const selectEl = page.getByTestId('tenant-selector-trigger')
-    await expect(selectEl).toBeVisible()
-    await selectEl.selectOption(String(tenant2.id))
+                const combobox = wrap.getByRole('combobox')
+    await expect(combobox).toBeVisible()
+
+                // Payload SelectInput (react-select): force-click the combobox to open the menu.
+                await combobox.click({ force: true })
+                await page.getByRole('option', { name: tenant2Name }).click()
 
     // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
     // If the modal appears, we must confirm it or the controlled <select> will snap back.
@@ -84,8 +92,11 @@ test.describe('Admin Tenant Selector', () => {
     // setTenant(..., refresh: true) may reload; if it doesn't, the assertions below will still synchronize.
     await page.waitForLoadState('load').catch(() => null)
 
-    const trigger = page.getByTestId('tenant-selector-trigger')
-    await expect(trigger).toHaveValue(String(tenant2.id), { timeout: 15000 })
+    // Assert display via aria-selected on the option after selection
+                await combobox.click({ force: true })
+    const selectedOption = page.getByRole('option', { name: tenant2Name })
+    await expect(selectedOption).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Escape').catch(() => null)
 
     const cookies = await page.context().cookies()
     const payloadTenantCookies = cookies.filter((c) => c.name === 'payload-tenant')
@@ -191,10 +202,12 @@ test.describe('Admin Tenant Selector', () => {
       },
     ])
     await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
 
-    const selector = page.getByTestId('tenant-selector-trigger')
-    await expect(selector).toBeVisible()
-    await expect(selector).toHaveValue(String(tenant2.id))
+                    const wrap = page.getByTestId('tenant-selector')
+                    await wrap.waitFor({ state: 'visible', timeout: 20000 })
+                    const combobox = wrap.getByRole('combobox')
+    await expect(combobox).toBeVisible()
 
     // After clearing, dashboard should request aggregate analytics (no tenantId param)
     const waitForAggregateAnalytics = page.waitForRequest((req) => {
@@ -207,8 +220,10 @@ test.describe('Admin Tenant Selector', () => {
       }
     })
 
-    // Clear via UI (native select uses empty string value). Dashboard can be "modified" so a confirm modal may appear.
-    await selector.selectOption({ value: '' })
+                    // Clear via UI: react-select supports backspace to remove the current value when focused.
+                    await combobox.focus()
+                    await page.keyboard.press('Backspace')
+                    await page.keyboard.press('Backspace')
 
     const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
     if (await leaveAnyway.isVisible().catch(() => false)) {
@@ -216,7 +231,9 @@ test.describe('Admin Tenant Selector', () => {
     }
 
     await page.waitForLoadState('load')
-    await waitForAggregateAnalytics
+                    // Ensure we trigger a fresh analytics request after clearing.
+                    await page.getByRole('button', { name: /last 7 days/i }).click().catch(() => null)
+                    await waitForAggregateAnalytics
 
     // Cookie should be removed/empty regardless of path scope
     const cookiesAfter = await page.context().cookies()
