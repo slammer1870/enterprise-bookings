@@ -36,6 +36,7 @@ import * as migration_20260213_171100 from './20260213_171100';
 import * as migration_20260216_booking_transactions_booking_id_cascade from './20260216_booking_transactions_booking_id_cascade';
 import * as migration_20260216_class_options_tenant_scoped_name_unique from './20260216_class_options_tenant_scoped_name_unique';
 import * as migration_20260217_125426 from './20260217_125426';
+import * as migration_20260217_172716 from './20260217_172716';
 import * as migration_20260217_navbar_nav_items_icon from './20260217_navbar_nav_items_icon';
 import * as migration_20260217_pages_blocks_hero_with_location from './20260217_pages_blocks_hero_with_location';
 import * as migration_20260217_pages_blocks_tenant_scoped_schedule from './20260217_pages_blocks_tenant_scoped_schedule';
@@ -233,6 +234,11 @@ export const migrations = [
     name: '20260217_125426',
   },
   {
+    up: migration_20260217_172716.up,
+    down: migration_20260217_172716.down,
+    name: '20260217_172716',
+  },
+  {
     up: migration_20260217_navbar_nav_items_icon.up,
     down: migration_20260217_navbar_nav_items_icon.down,
     name: '20260217_navbar_nav_items_icon',
@@ -245,11 +251,11 @@ export const migrations = [
   {
     up: migration_20260217_pages_blocks_tenant_scoped_schedule.up,
     down: migration_20260217_pages_blocks_tenant_scoped_schedule.down,
-    name: '20260217_pages_blocks_tenant_scoped_schedule'
+    name: '20260217_pages_blocks_tenant_scoped_schedule',
   },
   {
     up: migration_20260217_plans_class_pass_types_deleted_at.up,
     down: migration_20260217_plans_class_pass_types_deleted_at.down,
-    name: '20260217_plans_class_pass_types_deleted_at',
+    name: '20260217_plans_class_pass_types_deleted_at'
   },
 ];

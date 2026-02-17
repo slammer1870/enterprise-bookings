@@ -3,7 +3,8 @@
  * sees Class pass tab; confirm with class pass redirects to success; booking confirmed and pass decremented.
  */
 import { test, expect } from './helpers/fixtures'
-import { loginAsRegularUser, navigateToTenant } from './helpers/subdomain-helpers'
+import { loginAsRegularUser } from './helpers/auth-helpers'
+import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestClassOption,
   createTestLesson,

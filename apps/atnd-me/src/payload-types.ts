@@ -762,6 +762,7 @@ export interface Plan {
    * Skip syncing to Stripe
    */
   skipSync?: boolean | null;
+  deletedAt?: string | null;
   'class-optionsPaymentMethods'?: {
     docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
@@ -886,6 +887,7 @@ export interface ClassPassType {
    * Skip syncing price/status from Stripe on save
    */
   skipSync?: boolean | null;
+  deletedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3306,6 +3308,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   priceJSON?: T;
   status?: T;
   skipSync?: T;
+  deletedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3376,6 +3379,7 @@ export interface PlansSelect<T extends boolean = true> {
   priceJSON?: T;
   status?: T;
   skipSync?: T;
+  deletedAt?: T;
   'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
