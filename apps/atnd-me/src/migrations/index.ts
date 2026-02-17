@@ -33,6 +33,8 @@ import * as migration_20260211_drop_pages_version_tenant_slug_unique from './202
 import * as migration_20260211_tenants_allowed_blocks from './20260211_tenants_allowed_blocks';
 import * as migration_20260211_users_stripe_customer_id from './20260211_users_stripe_customer_id';
 import * as migration_20260213_171100 from './20260213_171100';
+import * as migration_20260216_booking_transactions_booking_id_cascade from './20260216_booking_transactions_booking_id_cascade';
+import * as migration_20260216_class_options_tenant_scoped_name_unique from './20260216_class_options_tenant_scoped_name_unique';
 
 export const migrations = [
   {
@@ -208,6 +210,16 @@ export const migrations = [
   {
     up: migration_20260213_171100.up,
     down: migration_20260213_171100.down,
-    name: '20260213_171100'
+    name: '20260213_171100',
+  },
+  {
+    up: migration_20260216_booking_transactions_booking_id_cascade.up,
+    down: migration_20260216_booking_transactions_booking_id_cascade.down,
+    name: '20260216_booking_transactions_booking_id_cascade',
+  },
+  {
+    up: migration_20260216_class_options_tenant_scoped_name_unique.up,
+    down: migration_20260216_class_options_tenant_scoped_name_unique.down,
+    name: '20260216_class_options_tenant_scoped_name_unique',
   },
 ];

@@ -74,6 +74,8 @@ export function TenantSelectionProviderRootAwareClient({
   const userID = user?.id
   const prevUserID = React.useRef(userID)
   const userChanged = userID !== prevUserID.current
+  const hasSyncedForUser = React.useRef(false)
+  const hasAppliedInitialTenant = React.useRef(false)
   const [tenantOptions, setTenantOptions] = React.useState(initialTenantOptions)
 
   const isOnRootDocCollection =
@@ -133,6 +135,9 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [config.routes.api, tenantsCollectionSlug, userID])
 
+  const syncTenantsRef = React.useRef(syncTenants)
+  syncTenantsRef.current = syncTenants
+
   const updateTenants = React.useCallback(
     ({ id, label }: { id: string | number; label: string }) => {
       setTenantOptions((prev) =>
@@ -144,9 +149,18 @@ export function TenantSelectionProviderRootAwareClient({
   )
 
   React.useEffect(() => {
-    if (userChanged || (initialValue != null && String(initialValue) !== getTenantCookie())) {
+    if (userChanged) {
+      hasSyncedForUser.current = false
+      hasAppliedInitialTenant.current = false
+    }
+    const cookieMismatch =
+      initialValue != null && String(initialValue) !== getTenantCookie()
+    const shouldSync =
+      (userChanged || cookieMismatch) && !hasSyncedForUser.current
+    if (shouldSync) {
       if (userID) {
-        void syncTenants()
+        hasSyncedForUser.current = true
+        void syncTenantsRef.current()
       } else {
         setSelectedTenantID(undefined)
         deleteTenantCookie()
@@ -155,10 +169,17 @@ export function TenantSelectionProviderRootAwareClient({
       }
       prevUserID.current = userID
     }
-  }, [userID, userChanged, syncTenants, tenantOptions.length, initialValue, router])
+    // Intentionally omit syncTenants from deps: we use syncTenantsRef.current() so this
+    // effect only runs when user/cookie state changes, not when callback identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userID, userChanged, initialValue, router])
 
   React.useEffect(() => {
-    if (initialValue == null || initialValue === '') {
+    if (
+      (initialValue == null || initialValue === '') &&
+      !hasAppliedInitialTenant.current
+    ) {
+      hasAppliedInitialTenant.current = true
       setTenant({ id: undefined, refresh: true })
     }
   }, [initialValue, setTenant])

@@ -7,6 +7,10 @@ const PLUGIN_GLOBAL_VIEW_REDIRECT_PATH = '@payloadcms/plugin-multi-tenant/rsc#Gl
 const APP_GLOBAL_VIEW_REDIRECT_ROOT_AWARE_PATH =
   '@/components/admin/GlobalViewRedirectRootAware#GlobalViewRedirectRootAware'
 
+const PLUGIN_TENANT_SELECTION_PROVIDER_PATH = '@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider'
+const APP_TENANT_SELECTION_PROVIDER_ROOT_AWARE_PATH =
+  '@/components/admin/TenantSelectionProviderRootAware#TenantSelectionProviderRootAware'
+
 /**
  * Replaces the multi-tenant plugin's TenantSelector in beforeNavLinks with our
  * ClearableTenantSelector.
@@ -80,5 +84,32 @@ export const clearableTenantSelectorPlugin: Plugin = (incomingConfig: Config): C
   config.admin.components.beforeNavLinks = replaceTenantSelectorIn(
     config.admin.components.beforeNavLinks,
   )
+
+  // Replace the plugin's TenantSelectionProvider with our RootAware one (same API; fixes
+  // repeated /api/tenants/populate-tenant-options fetches by syncing only when user/cookie change).
+  const replaceProviderIn = (entries: unknown): unknown => {
+    if (!Array.isArray(entries)) return entries
+    const index = entries.findIndex(
+      (entry: unknown) =>
+        (typeof entry === 'object' && entry != null && (entry as { path?: string }).path === PLUGIN_TENANT_SELECTION_PROVIDER_PATH) ||
+        entry === PLUGIN_TENANT_SELECTION_PROVIDER_PATH,
+    )
+    if (index === -1) return entries
+    const entry = entries[index]
+    const serverProps =
+      typeof entry === 'object' && entry != null && 'serverProps' in entry
+        ? (entry as { serverProps?: unknown }).serverProps
+        : undefined
+    const newEntry =
+      serverProps != null
+        ? { path: APP_TENANT_SELECTION_PROVIDER_ROOT_AWARE_PATH, serverProps }
+        : APP_TENANT_SELECTION_PROVIDER_ROOT_AWARE_PATH
+    return entries.map((e: unknown, i: number) => (i === index ? newEntry : e))
+  }
+  const components = config.admin.components as Record<string, unknown>
+  if (components.providers != null) {
+    components.providers = replaceProviderIn(components.providers)
+  }
+
   return config
 }

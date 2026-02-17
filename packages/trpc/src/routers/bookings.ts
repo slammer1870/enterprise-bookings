@@ -4,6 +4,13 @@ import { TRPCError } from "@trpc/server";
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from "../utils/collections";
+import {
+  getTenantSlug,
+  resolveTenantId,
+  resolveTenantIdFromLessonId,
+  assertLessonBelongsToTenant,
+  getDocTenantId,
+} from "../utils/tenant";
 
 import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
@@ -20,53 +27,13 @@ export const bookingsRouter = {
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      // Resolve tenant ID from slug if available
-      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
-        } catch (error) {
-          // If tenant lookup fails, continue without tenant filter for backward compatibility
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      // Fetch lesson with full depth for business logic validation
-      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
-      // plugin filtering (which filters by user's tenants array).
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        lessonId,
-        {
-          depth: 3,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 3,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -74,20 +41,7 @@ export const bookingsRouter = {
           message: `Lesson with id ${lessonId} not found`,
         });
       }
-
-      // If we have tenant context, verify the lesson belongs to that tenant
-      if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${lessonId} not found`,
-          });
-        }
-      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Business Logic: Handle children's lessons differently
       if (lesson.classOption.type === "child") {
@@ -209,49 +163,13 @@ export const bookingsRouter = {
     .use(requireCollections("lessons", "bookings", "subscriptions", "users"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Resolve tenant ID from slug if available
-      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
-        } catch (error) {
-          // If tenant lookup fails, continue without tenant filter for backward compatibility
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        input.id,
-        {
-          depth: 3,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
+        depth: 3,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -259,20 +177,7 @@ export const bookingsRouter = {
           message: `Lesson with id ${input.id} not found`,
         });
       }
-
-      // If we have tenant context, verify the lesson belongs to that tenant
-      if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${input.id} not found`,
-          });
-        }
-      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, input.id);
 
       const booking = await createSafe<Booking>(ctx.payload, "bookings", {
         lesson: Number(input.id),
@@ -301,51 +206,13 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
       const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds } = input;
       const status = subscriptionId != null ? "confirmed" : (statusInput ?? "confirmed");
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      // Resolve tenant ID from slug if available
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Backward compatibility with non-multi-tenant apps (no tenants collection)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true, // Allow public lookup
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-        } catch (error) {
-          console.error("Error resolving tenant:", error);
-        }
-      }
-
-      // Fetch lesson to validate and check remaining capacity
-      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
-      // plugin filtering (which filters by user's tenants array). We'll verify the
-      // lesson belongs to the correct tenant manually if needed.
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        lessonId,
-        {
-          depth: 3,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 3,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -353,20 +220,7 @@ export const bookingsRouter = {
           message: `Lesson with id ${lessonId} not found`,
         });
       }
-
-      // If we have tenant context, verify the lesson belongs to that tenant
-      if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${lessonId} not found`,
-          });
-        }
-      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Validate quantity against remaining capacity
       const maxQuantity = Math.max(1, lesson.remainingCapacity || 1);
@@ -624,43 +478,8 @@ export const bookingsRouter = {
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }): Promise<Booking> => {
       const { id } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      // Resolve tenant ID from slug if available
-      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
-        } catch (error) {
-          // If tenant lookup fails, continue without tenant filter for backward compatibility
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      // First, find the booking by ID to verify it exists and belongs to the user
-      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
-      // plugin filtering (which filters by user's tenants array).
       const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           id: { equals: id },
@@ -668,7 +487,7 @@ export const bookingsRouter = {
         },
         depth: 2,
         limit: 1,
-        overrideAccess: tenantId ? true : false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
@@ -679,25 +498,9 @@ export const bookingsRouter = {
         });
       }
 
-      // If we have tenant context, verify the booking belongs to that tenant
-      if (tenantId && booking.docs[0]) {
-        const bookingDoc = booking.docs[0] as any;
-        let bookingTenantId: number | null = null;
-
-        // Check booking.tenant first
-        if (bookingDoc.tenant) {
-          bookingTenantId = typeof bookingDoc.tenant === 'object' && bookingDoc.tenant !== null
-            ? bookingDoc.tenant.id
-            : bookingDoc.tenant;
-        }
-        // Otherwise check via lesson.tenant
-        else if (typeof bookingDoc.lesson === 'object' && bookingDoc.lesson?.tenant) {
-          bookingTenantId = typeof bookingDoc.lesson.tenant === 'object' && bookingDoc.lesson.tenant !== null
-            ? bookingDoc.lesson.tenant.id
-            : bookingDoc.lesson.tenant;
-        }
-
-        if (bookingTenantId && bookingTenantId !== tenantId) {
+      if (tenantId) {
+        const docTenantId = getDocTenantId(booking.docs[0] as any);
+        if (docTenantId != null && docTenantId !== tenantId) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: `Booking with id ${input.id} not found`,
@@ -723,23 +526,7 @@ export const bookingsRouter = {
     .use(requireCollections("bookings"))
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }): Promise<{ cancelled: number }> => {
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      let tenantSlug: string | null = tenantSlugMatch?.[1] ?? null;
-      let tenantId: number | null = null;
-      if (tenantSlug && hasCollection(ctx.payload, "tenants")) {
-        try {
-          const tenantResult = await findSafe(ctx.payload, "tenants", {
-            where: { slug: { equals: tenantSlug } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-          });
-          if (tenantResult.docs[0]) tenantId = tenantResult.docs[0].id as number;
-        } catch {
-          // continue without tenant
-        }
-      }
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const pending = await findSafe(ctx.payload, "bookings", {
         where: {
@@ -1075,164 +862,29 @@ export const bookingsRouter = {
     .use(requireCollections("bookings"))
     .input(z.object({ lessonId: z.number() }))
     .query(async ({ ctx, input }) => {
-      console.log('[getUserBookingsForLesson] START lessonId:', input.lessonId, 'userId:', ctx.user.id);
-      
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      let tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      // If the cookie isn't present yet (e.g. first request on a subdomain),
-      // fall back to deriving tenant slug from the Host header or hostOverride.
-      if (!tenantSlug) {
-        const hostHeader =
-          ctx.hostOverride ?? ctx.headers.get("x-forwarded-host") ?? ctx.headers.get("host") ?? "";
-        console.log('[getUserBookingsForLesson] hostHeader:', hostHeader, 'hostOverride:', ctx.hostOverride);
-        const hostWithoutPort = hostHeader.split(":")[0] || "";
-        const parts = hostWithoutPort.split(".");
-        const isLocalhost = hostWithoutPort.includes("localhost");
-
-        if (isLocalhost) {
-          // subdomain.localhost
-          if (parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-            tenantSlug = parts[0];
-          }
-        } else {
-          // subdomain.domain.tld
-          if (parts.length >= 3 && parts[0]) {
-            tenantSlug = parts[0];
-          }
-        }
-        console.log('[getUserBookingsForLesson] Derived tenantSlug from host:', tenantSlug);
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
       }
 
-      // Resolve tenant ID from slug if available
-      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
-        } catch (error) {
-          // If tenant lookup fails, continue without tenant filter for backward compatibility
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      // If tenant ID wasn't resolved from headers/cookie, try to get it from the lesson itself
-      // This ensures we can filter correctly even when tenant context isn't available in headers
-      if (!tenantId && hasCollection(ctx.payload, "lessons")) {
-        try {
-          const lesson = await findSafe(ctx.payload, "lessons", {
-            where: { id: { equals: input.lessonId } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-          });
-          if (lesson.docs[0]?.tenant) {
-            const lessonTenant = lesson.docs[0].tenant;
-            tenantId = typeof lessonTenant === 'object' && lessonTenant !== null && 'id' in lessonTenant
-              ? lessonTenant.id as number
-              : typeof lessonTenant === 'number'
-                ? lessonTenant
-                : null;
-          }
-        } catch (error) {
-          // If lesson lookup fails, continue without tenant filter
-          console.error("Error resolving tenant from lesson (continuing without tenant filter):", error);
-        }
-      }
-
-      // Build where clause - when we have tenant context, we'll filter by tenant after fetching
-      // to ensure we get all bookings for the user, even if they don't have tenant in tenants array
-      const whereClause: any = {
-        lesson: { equals: input.lessonId },
-        user: { equals: ctx.user.id },
-        status: { not_equals: "cancelled" },
-      };
-
-      // When we have tenant context (from headers or lesson), use overrideAccess: true to bypass multi-tenant
-      // plugin filtering (which filters by user's tenants array). We'll filter by tenant
-      // manually after fetching to ensure bookings belong to the correct tenant.
-      // 
-      // Note: We use findSafe which doesn't support req parameter, so we rely on
-      // overrideAccess: true to bypass filtering, then manually filter by tenant.
       const bookings = await findSafe(ctx.payload, "bookings", {
-        where: whereClause,
-        depth: 2, // depth: 2 should populate lesson.tenant
-        overrideAccess: tenantId ? true : false,
+        where: {
+          lesson: { equals: input.lessonId },
+          user: { equals: ctx.user.id },
+          status: { not_equals: "cancelled" },
+        },
+        depth: 2,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      // Filter by tenant if tenant context is available (for multi-tenant apps)
-      // Bookings have a lesson relationship, and the lesson has the tenant field
-      // With depth: 2, the lesson should be populated, so we can check lesson.tenant
-      let filteredBookings = bookings.docs;
-      if (tenantId) {
-        filteredBookings = bookings.docs.filter((booking: any) => {
-          // First check if booking has tenant directly (some multi-tenant setups)
-          if (booking.tenant) {
-            const bookingTenantId = typeof booking.tenant === 'object' && booking.tenant !== null
-              ? booking.tenant.id
-              : booking.tenant;
-            if (bookingTenantId === tenantId) {
-              return true;
-            }
-            // If booking has a different tenant, exclude it
-            return false;
-          }
+      const filteredBookings = tenantId
+        ? bookings.docs.filter((b: any) => {
+            const docTid = getDocTenantId(b);
+            return docTid === null || docTid === tenantId;
+          })
+        : bookings.docs;
 
-          // Otherwise check via lesson.tenant (with depth: 2, lesson should be populated)
-          if (typeof booking.lesson === 'object' && booking.lesson && booking.lesson !== null) {
-            if (booking.lesson.tenant) {
-              const lessonTenantId = typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
-                ? booking.lesson.tenant.id
-                : booking.lesson.tenant;
-              if (lessonTenantId === tenantId) {
-                return true;
-              }
-              // If lesson has a different tenant, exclude it
-              return false;
-            }
-          }
-
-          // If no tenant found on booking or lesson, include it (backward compatibility)
-          // This handles cases where:
-          // 1. Lesson isn't populated (shouldn't happen with depth: 2, but handle gracefully)
-          // 2. Non-multi-tenant apps (bookings don't have tenant fields)
-          // 3. Bookings from before tenant was added
-          // We include these to avoid breaking existing functionality
-          return true;
-        });
-
-        // Debug logging to help diagnose issues
-        if (bookings.docs.length > 0 && filteredBookings.length === 0) {
-          console.warn(`[getUserBookingsForLesson] Filtered out all ${bookings.docs.length} bookings for lesson ${input.lessonId}, user ${ctx.user.id}, tenant ${tenantId}`);
-          console.warn(`[getUserBookingsForLesson] Sample booking structure:`, {
-            bookingId: bookings.docs[0]?.id,
-            hasTenant: !!bookings.docs[0]?.tenant,
-            lessonType: typeof bookings.docs[0]?.lesson,
-            lessonHasTenant: typeof bookings.docs[0]?.lesson === 'object' ? !!bookings.docs[0]?.lesson?.tenant : 'N/A',
-          });
-        }
-      }
-
-      console.log('[getUserBookingsForLesson] COMPLETE returning', filteredBookings.length, 'bookings');
       return filteredBookings.map((booking: any) => booking as Booking);
     }),
   /**
@@ -1260,85 +912,21 @@ export const bookingsRouter = {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid user ID" });
       }
 
-      // Resolve tenant context (cookie -> host -> lesson fallback)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      let tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      if (!tenantSlug) {
-        const hostHeader =
-          ctx.headers.get("x-forwarded-host") || ctx.headers.get("host") || "";
-        const hostWithoutPort = hostHeader.split(":")[0] || "";
-        const parts = hostWithoutPort.split(".");
-        const isLocalhost = hostWithoutPort.includes("localhost");
-
-        if (isLocalhost) {
-          if (parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-            tenantSlug = parts[0];
-          }
-        } else {
-          if (parts.length >= 3 && parts[0]) {
-            tenantSlug = parts[0];
-          }
-        }
-      }
-
-      let tenantId: number | null = null;
-      if (tenantSlug && hasCollection(ctx.payload, "tenants")) {
-        try {
-          const tenantResult = await findSafe(ctx.payload, "tenants", {
-            where: { slug: { equals: tenantSlug } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-          });
-          if (tenantResult.docs[0]) tenantId = tenantResult.docs[0].id as number;
-        } catch {
-          // ignore; backward compatibility
-        }
-      }
-
-      if (!tenantId && hasCollection(ctx.payload, "lessons")) {
-        try {
-          const lessonLookup = await findSafe(ctx.payload, "lessons", {
-            where: { id: { equals: lessonId } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-          });
-          const lt = (lessonLookup.docs[0] as any)?.tenant;
-          if (lt) {
-            tenantId =
-              typeof lt === "object" && lt !== null && "id" in lt
-                ? (lt as any).id
-                : typeof lt === "number"
-                  ? lt
-                  : null;
-          }
-        } catch {
-          // ignore
-        }
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
       }
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
         depth: 2,
-        overrideAccess: tenantId ? true : false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
       if (!lesson) {
         throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
       }
-
-      if (tenantId) {
-        const lessonTenantId =
-          typeof lesson.tenant === "object" && lesson.tenant !== null
-            ? lesson.tenant.id
-            : lesson.tenant;
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
-        }
-      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       const computeScheduleState = async (): Promise<LessonScheduleState> => {
         const now = new Date();
@@ -1503,53 +1091,13 @@ export const bookingsRouter = {
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      // Resolve tenant ID from slug if available
-      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
-        } catch (error) {
-          // If tenant lookup fails, continue without tenant filter for backward compatibility
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      // Fetch lesson with full depth for validation
-      // When we have tenant context, use overrideAccess: true to bypass multi-tenant
-      // plugin filtering (which filters by user's tenants array).
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        lessonId,
-        {
-          depth: 3,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 3,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -1557,20 +1105,7 @@ export const bookingsRouter = {
           message: `Lesson with id ${lessonId} not found`,
         });
       }
-
-      // If we have tenant context, verify the lesson belongs to that tenant
-      if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${lessonId} not found`,
-          });
-        }
-      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Check if lesson status allows immediate check-in
       if (!['active', 'trialable'].includes(lesson.bookingStatus || '')) {
@@ -1664,47 +1199,13 @@ export const bookingsRouter = {
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
       const { lessonId, desiredQuantity } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Extract tenant slug from cookie header (from subdomain)
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      const tenantSlug = tenantSlugMatch ? tenantSlugMatch[1] : null;
-
-      // Resolve tenant ID from slug if available
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-        } catch (error) {
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      // Fetch lesson with full depth for validation
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        lessonId,
-        {
-          depth: 3,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 3,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -1712,64 +1213,25 @@ export const bookingsRouter = {
           message: `Lesson with id ${lessonId} not found`,
         });
       }
-
-      // If we have tenant context, verify the lesson belongs to that tenant
-      if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${lessonId} not found`,
-          });
-        }
-      }
-
-      // Fetch current user's non-cancelled bookings for this lesson
-      const whereClause: any = {
-        lesson: { equals: lessonId },
-        user: { equals: ctx.user.id },
-        status: { not_equals: "cancelled" },
-      };
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       const currentBookings = await findSafe<Booking>(ctx.payload, "bookings", {
-        where: whereClause,
+        where: {
+          lesson: { equals: lessonId },
+          user: { equals: ctx.user.id },
+          status: { not_equals: "cancelled" },
+        },
         depth: 1,
-        overrideAccess: tenantId ? true : false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      // Filter by tenant if tenant context is available
-      let filteredBookings = currentBookings.docs;
-      if (tenantId) {
-        filteredBookings = currentBookings.docs.filter((booking: any) => {
-          if (booking.tenant) {
-            const bookingTenantId = typeof booking.tenant === 'object' && booking.tenant !== null
-              ? booking.tenant.id
-              : booking.tenant;
-            if (bookingTenantId === tenantId) {
-              return true;
-            }
-            return false;
-          }
-
-          if (typeof booking.lesson === 'object' && booking.lesson && booking.lesson !== null) {
-            if (booking.lesson.tenant) {
-              const lessonTenantId = typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
-                ? booking.lesson.tenant.id
-                : booking.lesson.tenant;
-              if (lessonTenantId === tenantId) {
-                return true;
-              }
-              return false;
-            }
-          }
-
-          return true; // Backward compatibility
-        });
-      }
+      const filteredBookings = tenantId
+        ? currentBookings.docs.filter((b: any) => {
+            const docTid = getDocTenantId(b);
+            return docTid === null || docTid === tenantId;
+          })
+        : currentBookings.docs;
 
       // Compute current confirmed bookings count
       const confirmedBookings = filteredBookings.filter(

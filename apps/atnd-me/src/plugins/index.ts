@@ -18,6 +18,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
 import { clearableTenantSelectorPlugin } from './clearable-tenant-selector'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
+import { validateClassOptionNameUniqueWithinTenant } from '@/hooks/validateClassOptionNameUniqueWithinTenant'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import {
   tenantScopedCreate,
@@ -183,7 +184,9 @@ export const plugins: Plugin[] = [
         delete: tenantScopedDelete,
       }),
       fields: ({ defaultFields }) => [
-        ...defaultFields,
+        ...defaultFields.map((f) =>
+          'name' in f && f.name === 'name' ? { ...f, unique: false } : f,
+        ),
         {
           name: 'paymentMethods',
           type: 'group',
@@ -204,6 +207,10 @@ export const plugins: Plugin[] = [
         const d = defaultHooks as Record<string, unknown>
         return {
           ...defaultHooks,
+          beforeValidate: [
+            validateClassOptionNameUniqueWithinTenant,
+            ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
+          ],
           beforeChange: [...(Array.isArray(d?.beforeChange) ? d.beforeChange : []), requireStripeConnectForPayments],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin HooksConfig omits beforeChange
         } as any

@@ -24,7 +24,7 @@ import { ConfirmationModal, SelectInput, useModal, useTranslation } from '@paylo
 import type { ViewTypes } from 'payload'
 import React from 'react'
 import { usePathname } from 'next/navigation'
-import { useTenantSelection } from '@payloadcms/plugin-multi-tenant/client'
+import { useTenantSelection } from '@/components/admin/TenantSelectionProviderRootAwareClient'
 
 const confirmLeaveWithoutSavingSlug = 'confirm-leave-without-saving-clearable-tenant'
 

@@ -57,8 +57,32 @@ export async function getTopCustomers(
     }
   }
 
-  return Array.from(byUser.entries())
+  const rows = Array.from(byUser.entries())
     .map(([userId, count]) => ({ userId, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
+
+  if (rows.length === 0) return rows
+
+  const userIds = rows.map((r) => r.userId)
+  const users = await payload.find({
+    collection: 'users',
+    where: { id: { in: userIds } },
+    depth: 0,
+    limit: userIds.length,
+    select: { id: true, name: true, email: true },
+    overrideAccess: true,
+  })
+
+  const userMap = new Map<number, string>()
+  for (const u of users.docs) {
+    const user = u as { id: number; name?: string | null; email?: string | null }
+    const label = user.name?.trim() || user.email || `User ${user.id}`
+    userMap.set(user.id, label)
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    userName: userMap.get(r.userId),
+  }))
 }

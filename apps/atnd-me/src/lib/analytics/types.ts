@@ -26,4 +26,6 @@ export type BookingsOverTimeRow = {
 export type TopCustomerRow = {
   userId: number
   count: number
+  /** User name (or email fallback) when available */
+  userName?: string
 }

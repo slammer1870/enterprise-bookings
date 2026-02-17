@@ -14,7 +14,7 @@ type Summary = {
 }
 
 type BookingsOverTimeRow = { date: string; count: number }
-type TopCustomerRow = { userId: number; count: number }
+type TopCustomerRow = { userId: number; count: number; userName?: string }
 
 type AnalyticsData = {
   summary: Summary
@@ -173,15 +173,15 @@ export const AnalyticsDashboardClient: React.FC<{
           </div>
 
           <section style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>Bookings over time</h2>
             <div
               style={{
                 border: '1px solid var(--theme-elevation-200, #eee)',
                 borderRadius: '6px',
                 padding: '1rem',
-                backgroundColor: 'var(--theme-elevation-50, #fafafa)',
+                backgroundColor: '#fff',
               }}
             >
+              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', marginTop: 0 }}>Bookings over time</h2>
               {data.bookingsOverTime.length === 0 && (!data.bookingsOverTimePrevious || data.bookingsOverTimePrevious.length === 0) ? (
                 <p style={{ color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
               ) : (
@@ -195,26 +195,29 @@ export const AnalyticsDashboardClient: React.FC<{
 
           {data.topCustomers.length > 0 && (
             <section style={{ marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>Top customers</h2>
               <div
                 style={{
                   border: '1px solid var(--theme-elevation-200, #eee)',
                   borderRadius: '6px',
                   overflow: 'hidden',
-                  backgroundColor: 'var(--theme-elevation-50, #fafafa)',
+                  backgroundColor: '#fff',
+                  padding: '1rem',
                 }}
               >
+                <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>User ID</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
                       <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.topCustomers.map((row) => (
                       <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                        <td style={{ padding: '0.5rem 0.75rem' }}>{row.userId}</td>
+                        <td style={{ padding: '0.5rem 0.75rem' }}>
+                          {row.userName ?? `User #${row.userId}`}
+                        </td>
                         <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
                       </tr>
                     ))}

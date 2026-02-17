@@ -9,6 +9,13 @@ import {
   requireCollections,
 } from "../trpc";
 import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
+import {
+  getTenantSlug,
+  resolveTenantId,
+  assertLessonBelongsToTenant,
+  populateLessonClassOption,
+  deriveTenantIdFromLesson,
+} from "../utils/tenant";
 
 import { ClassOption, Lesson, LessonScheduleState } from "@repo/shared-types";
 import { checkRole, getDayRange } from "@repo/shared-utils";
@@ -18,64 +25,14 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      let tenantSlug: string | null | undefined = tenantSlugMatch ? tenantSlugMatch[1] : null;
-      const host =
-        ctx.hostOverride ??
-        ctx.headers.get("x-forwarded-host") ??
-        ctx.headers.get("host") ??
-        "";
-      if (!tenantSlug) {
-        const hostWithoutPort = host.split(":")[0]?.trim() || "";
-        const parts = hostWithoutPort.split(".");
-        const isLocalhost = hostWithoutPort.includes("localhost");
-        if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-          tenantSlug = parts[0];
-        } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
-          tenantSlug = parts[0];
-        }
-      }
+      const tenantSlug = getTenantSlug(ctx);
+      const tenantId = await resolveTenantId(ctx.payload, tenantSlug);
 
-      // Resolve tenant ID from slug if available
-      // For backward compatibility with non-multi-tenant apps, check if tenants collection exists
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Check if tenants collection exists (for backward compatibility with non-multi-tenant apps)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-          // If tenants collection doesn't exist or tenant not found, continue without tenant filter
-        } catch (error) {
-          // If tenant lookup fails, continue without tenant filter for backward compatibility
-          console.error("Error resolving tenant (continuing without tenant filter):", error);
-        }
-      }
-
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        input.id,
-        {
-          depth: 3,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
+        depth: 3,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -84,38 +41,9 @@ export const lessonsRouter = {
         });
       }
 
-      // If we have tenant context, verify the lesson belongs to that tenant and populate
-      // classOption.paymentMethods so manage/checkout pages can filter plans and drop-in by quantity.
       if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${input.id} not found`,
-          });
-        }
-
-        // Populate classOption with payment methods (allowedPlans, allowedDropIn) for payment UI filtering
-        const coId = typeof lesson.classOption === "object" && lesson.classOption !== null
-          ? (lesson.classOption as { id: number }).id
-          : lesson.classOption;
-        if (coId != null && hasCollection(ctx.payload, "class-options")) {
-          try {
-            const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
-              depth: 3,
-              overrideAccess: true,
-            });
-            if (populated) {
-              (lesson as { classOption: ClassOption }).classOption =
-                JSON.parse(JSON.stringify(populated)) as ClassOption;
-            }
-          } catch (err) {
-            console.error("[getById] Failed to populate classOption with payment methods:", err);
-          }
-        }
+        assertLessonBelongsToTenant(lesson, tenantId, input.id);
+        await populateLessonClassOption(ctx.payload, lesson);
       }
 
       return lesson;
@@ -125,65 +53,13 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
-      const cookieHeader = ctx.headers.get("cookie") || "";
-      const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-      let tenantSlug: string | null | undefined = tenantSlugMatch ? tenantSlugMatch[1] : null;
-      // Use hostOverride when provided (e.g. from same request as the page), else headers
-      const host =
-        ctx.hostOverride ??
-        ctx.headers.get("x-forwarded-host") ??
-        ctx.headers.get("host") ??
-        "";
-      if (!tenantSlug) {
-        const hostWithoutPort = host.split(":")[0]?.trim() || "";
-        const parts = hostWithoutPort.split(".");
-        const isLocalhost = hostWithoutPort.includes("localhost");
-        if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-          tenantSlug = parts[0];
-        } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
-          tenantSlug = parts[0];
-        }
-      }
-      console.log('[getByIdForBooking] tenantSlug:', tenantSlug, 'host:', host);
-      
-      // Resolve tenant ID from slug if available
-      let tenantId: number | null = null;
-      if (tenantSlug) {
-        try {
-          // Backward compatibility with non-multi-tenant apps (no tenants collection)
-          if (hasCollection(ctx.payload, "tenants")) {
-            const tenantResult = await findSafe(ctx.payload, "tenants", {
-              where: {
-                slug: {
-                  equals: tenantSlug,
-                },
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true, // Allow public lookup
-            });
-            if (tenantResult.docs[0]) {
-              tenantId = tenantResult.docs[0].id as number;
-            }
-          }
-        } catch (error) {
-          console.error("Error resolving tenant:", error);
-        }
-      }
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Use overrideAccess so we always get the full lesson (tenant, classOption) and can populate
-      // classOption.paymentMethods regardless of cookie/host. Pass ctx.user so bookingStatus hook runs correctly.
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        input.id,
-        {
-          depth: 5,
-          overrideAccess: true,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
+        depth: 5,
+        overrideAccess: true,
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -192,59 +68,12 @@ export const lessonsRouter = {
         });
       }
 
-      // Fallback: when no tenant from cookie/host (e.g. first request before cookie is set, or missing Host),
-      // derive tenant from the lesson (or its classOption) so we can still populate classOption with payment methods.
       if (tenantId == null) {
-        const co = lesson.classOption != null && typeof lesson.classOption === 'object' ? (lesson.classOption as { tenant?: number | { id: number } }) : null;
-        const coTenant = co?.tenant;
-        const fromClassOption =
-          coTenant != null ? (typeof coTenant === 'object' ? coTenant.id : coTenant) : undefined;
-        const fromLesson =
-          lesson.tenant != null
-            ? typeof lesson.tenant === 'object' && lesson.tenant !== null
-              ? lesson.tenant.id
-              : (lesson.tenant as number)
-            : undefined;
-        const derivedTenantId = fromLesson ?? fromClassOption;
-        if (typeof derivedTenantId === 'number') {
-          tenantId = derivedTenantId;
-        }
+        tenantId = deriveTenantIdFromLesson(lesson);
       }
-
-      // If we have tenant context, verify the lesson belongs to that tenant
       if (tenantId) {
-        const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-          ? lesson.tenant.id
-          : lesson.tenant;
-        
-        if (lessonTenantId !== tenantId) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${input.id} not found`,
-          });
-        }
-
-        // Populate classOption with overrideAccess so paymentMethods (allowedDropIn, allowedPlans) are included.
-        // Nested Payload relation fetches may not inherit overrideAccess, so the lesson's classOption can be missing payment methods.
-        const coId = typeof lesson.classOption === 'object' && lesson.classOption !== null
-          ? (lesson.classOption as { id: number }).id
-          : lesson.classOption;
-        if (coId != null && hasCollection(ctx.payload, "class-options")) {
-          try {
-            const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
-              depth: 3,
-              overrideAccess: true,
-            });
-            if (populated) {
-              // Plain object so RSC serialization sends paymentMethods to the client
-              (lesson as { classOption: ClassOption }).classOption =
-                JSON.parse(JSON.stringify(populated)) as ClassOption;
-            }
-          } catch (err) {
-            // Don't fail the whole booking page: leave classOption as-is (payment methods may be missing)
-            console.error("[getByIdForBooking] Failed to populate classOption with payment methods:", err);
-          }
-        }
+        assertLessonBelongsToTenant(lesson, tenantId, input.id);
+        await populateLessonClassOption(ctx.payload, lesson);
       }
 
       // Validate lesson is bookable
@@ -315,41 +144,29 @@ export const lessonsRouter = {
     .use(requireCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      try {
-        const lesson = await findByIdSafe<Lesson>(
-          ctx.payload,
-          "lessons",
-          input.id,
-          {
-            depth: 2,
-            overrideAccess: false,
-            user: ctx.user,
-          }
-        );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
+        depth: 2,
+        overrideAccess: false,
+        user: ctx.user,
+      });
 
-        if (!lesson) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `Lesson with id ${input.id} not found`,
-          });
-        }
-
-        // Fetch classOption separately to avoid relationship depth issues
-        const classOption = lesson.classOption as ClassOption;
-        // Validate that the class option has type 'child'
-        if (!classOption || classOption.type !== "child") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
-          });
-        }
-
-        return lesson;
-      } catch (error) {
-        console.error("Error in getByIdForChildren:", error);
-        throw error;
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${input.id} not found`,
+        });
       }
+
+      const classOption = lesson.classOption as ClassOption;
+      if (!classOption || classOption.type !== "child") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This lesson is not available for children bookings. Only lessons with child class options are allowed.",
+        });
+      }
+
+      return lesson;
     }),
 
   getByDate: publicProcedure
@@ -367,56 +184,9 @@ export const lessonsRouter = {
           ? (await ctx.betterAuth.api.getSession({ headers: ctx.headers }))?.user ?? null
           : (await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false }))?.user ?? null;
 
-        // Use explicit tenantId from input when provided (e.g. tenant-scoped schedule block on root page)
         let tenantId: number | null = input.tenantId ?? null;
-
         if (tenantId == null) {
-          // Extract tenant slug from cookie (set by middleware on subdomain) or fallback to Host
-          // so schedule shows correct button (Modify/Check in) when cookie isn't set yet on first load
-          const cookieHeader = ctx.headers.get("cookie") || "";
-          const tenantSlugMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-          let tenantSlug: string | null = tenantSlugMatch ? (tenantSlugMatch[1] ?? null) : null;
-          const host =
-            ctx.hostOverride ??
-            ctx.headers.get("x-forwarded-host") ??
-            ctx.headers.get("host") ??
-            "";
-          if (!tenantSlug) {
-            const hostWithoutPort = host.split(":")[0]?.trim() || "";
-            const parts = hostWithoutPort.split(".");
-            const isLocalhost = hostWithoutPort.includes("localhost");
-            if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-              tenantSlug = parts[0];
-            } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
-              tenantSlug = parts[0];
-            }
-          }
-
-          // Resolve tenant ID from slug if available
-          if (tenantSlug) {
-            try {
-              if (!hasCollection(ctx.payload, "tenants")) {
-                tenantId = null;
-              } else {
-                const tenantResult = await findSafe(ctx.payload, "tenants", {
-                  where: {
-                    slug: {
-                      equals: tenantSlug,
-                    },
-                  },
-                  limit: 1,
-                  depth: 0,
-                  overrideAccess: true, // Allow public lookup
-                });
-                if (tenantResult.docs[0]) {
-                  tenantId = tenantResult.docs[0].id as number;
-                }
-              }
-            } catch (error) {
-              console.error("Error resolving tenant (continuing without tenant filter):", error);
-              tenantId = null;
-            }
-          }
+          tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
         }
 
         const startOfDay = new Date(input.date);
@@ -550,7 +320,7 @@ export const lessonsRouter = {
         };
 
         // Batch-fetch bookings for all returned lessons (for capacity + viewer state).
-        // We intentionally bypass access control here; we only return derived counts/IDs.
+        // Only confirmed and waiting - pending does not show "Modify Booking" (user goes to manage via postValidation redirect)
         const bookingsByLessonId: Map<number, any[]> = new Map();
         if (lessonIds.length > 0 && hasCollection(ctx.payload, "bookings")) {
           const bookingsResult = await ctx.payload.find({
@@ -633,7 +403,7 @@ export const lessonsRouter = {
           const remainingCapacity =
             typeof places === "number" ? Math.max(0, places - totalConfirmedCount) : lesson.remainingCapacity ?? 0;
 
-          // Viewer-specific booking lists
+          // Viewer-specific booking lists (confirmed, waiting only - pending does not affect schedule CTA)
           const viewerConfirmedIds: number[] = [];
           const viewerWaitingIds: number[] = [];
 
