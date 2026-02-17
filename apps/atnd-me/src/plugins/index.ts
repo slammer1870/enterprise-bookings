@@ -5,6 +5,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
+import type { Field } from 'payload'
 import { Plugin } from 'payload'
 import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
@@ -344,16 +345,17 @@ export const plugins: Plugin[] = [
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
         },
-        fields: ({ defaultFields }) => [
-          ...defaultFields.map((field) => {
-            const name = 'name' in field ? field.name : undefined
-            if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
-              return { ...field, access: adminOnlyFieldAccess }
-            }
-            return field
-          }),
-          { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
-        ],
+        fields: ({ defaultFields }) =>
+          [
+            ...defaultFields.map((field) => {
+              const name = 'name' in field ? field.name : undefined
+              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+                return { ...field, access: adminOnlyFieldAccess }
+              }
+              return field
+            }),
+            { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
+          ] as Field[],
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
           afterChange: [classPassTypeAfterChangeSyncToStripe],
@@ -402,16 +404,17 @@ export const plugins: Plugin[] = [
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
         },
-        fields: ({ defaultFields }) => [
-          ...defaultFields.map((field) => {
-            const name = 'name' in field ? field.name : undefined
-            if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
-              return { ...field, access: adminOnlyFieldAccess }
-            }
-            return field
-          }),
-          { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
-        ],
+        fields: ({ defaultFields }) =>
+          [
+            ...defaultFields.map((field) => {
+              const name = 'name' in field ? field.name : undefined
+              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+                return { ...field, access: adminOnlyFieldAccess }
+              }
+              return field
+            }),
+            { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
+          ] as Field[],
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
           afterChange: [planAfterChangeSyncToStripe],

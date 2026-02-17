@@ -15,13 +15,12 @@ export function createPlansProxy(membership: MembershipConfig): PayloadHandler {
     }
     try {
       const accountId = await Promise.resolve(membership.getStripeAccountIdForRequest?.(req) ?? null);
-      const listOptions: Parameters<typeof stripe.products.list>[0] = {
+      const listParams = {
         limit: 100,
         expand: ["data.default_price"],
-        ...(accountId ? { stripeAccount: accountId } : {}),
       };
       const products = await stripe.products
-        .list(listOptions)
+        .list(listParams, accountId ? { stripeAccount: accountId } : undefined)
         .autoPagingToArray({ limit: 1000 });
       if (logs) req.payload.logger?.info?.({ msg: "Stripe products fetched", count: products.length });
       const plans = products.filter(
@@ -38,4 +37,4 @@ export function createPlansProxy(membership: MembershipConfig): PayloadHandler {
 }
 
 /** Default proxy (platform Stripe); use createPlansProxy(membership) for tenant Connect. */
-export const plansProxy = createPlansProxy({});
+export const plansProxy = createPlansProxy({ enabled: true });

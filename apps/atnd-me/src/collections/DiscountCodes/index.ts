@@ -13,16 +13,19 @@ import {
   productsRequireStripeConnectAdmin,
 } from '@/access/productsRequireStripeConnect'
 import { createTenantCouponAndPromoCode, deactivateTenantPromotionCode } from '@/lib/stripe-connect/coupons'
-import { getTenantStripeContext } from '@/lib/stripe-connect/tenantStripe'
+import { getTenantStripeContext, type TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 
-async function getTenantForDoc(payload: import('payload').Payload, tenantId: number) {
+async function getTenantForDoc(
+  payload: import('payload').Payload,
+  tenantId: number,
+): Promise<(TenantStripeLike & { id: number }) | null> {
   const tenant = await payload.findByID({
     collection: 'tenants',
     id: tenantId,
     depth: 0,
     overrideAccess: true,
   })
-  return tenant as { id: number; stripeConnectAccountId?: string | null; stripeConnectOnboardingStatus?: string | null } | null
+  return tenant as (TenantStripeLike & { id: number }) | null
 }
 
 export const DiscountCodes: CollectionConfig = {
@@ -55,7 +58,7 @@ export const DiscountCodes: CollectionConfig = {
       label: 'Code',
       required: true,
       admin: { description: 'Customer-facing code (e.g. SUMMER20). Uppercase alphanumeric.' },
-      validate: (val) => {
+      validate: (val: unknown) => {
         if (!val || typeof val !== 'string') return 'Code is required'
         if (!/^[A-Z0-9]{3,24}$/i.test(val)) return 'Code must be 3–24 characters, letters and numbers only'
         return true
@@ -79,11 +82,11 @@ export const DiscountCodes: CollectionConfig = {
       admin: {
         description: 'For percentage: 1–100. For amount off: amount in cents (e.g. 500 = €5).',
       },
-      validate: (val, { siblingData }) => {
+      validate: (val: unknown, { siblingData }: { siblingData?: Record<string, unknown> }) => {
         if (val == null) return 'Value is required'
         const t = siblingData?.type
-        if (t === 'percentage_off' && (val < 1 || val > 100)) return 'Percentage must be 1–100'
-        if (t === 'amount_off' && val <= 0) return 'Amount must be positive'
+        if (t === 'percentage_off' && (typeof val !== 'number' || val < 1 || val > 100)) return 'Percentage must be 1–100'
+        if (t === 'amount_off' && (typeof val !== 'number' || val <= 0)) return 'Amount must be positive'
         return true
       },
     },
@@ -91,9 +94,9 @@ export const DiscountCodes: CollectionConfig = {
       name: 'currency',
       type: 'text',
       label: 'Currency',
-      admin: { description: 'Required for amount off (e.g. eur)', condition: (_, siblingData) => siblingData?.type === 'amount_off' },
-      validate: (val, { siblingData }) => {
-        if (siblingData?.type === 'amount_off' && (!val || val.length !== 3)) return 'Currency is required (3 letters) for amount off'
+      admin: { description: 'Required for amount off (e.g. eur)', condition: (_: unknown, siblingData: Record<string, unknown> | undefined) => siblingData?.type === 'amount_off' },
+      validate: (val: unknown, { siblingData }: { siblingData?: Record<string, unknown> }) => {
+        if (siblingData?.type === 'amount_off' && (!val || typeof val !== 'string' || val.length !== 3)) return 'Currency is required (3 letters) for amount off'
         return true
       },
     },
@@ -112,9 +115,9 @@ export const DiscountCodes: CollectionConfig = {
       name: 'durationInMonths',
       type: 'number',
       label: 'Duration (months)',
-      admin: { condition: (_, siblingData) => siblingData?.duration === 'repeating' },
-      validate: (val, { siblingData }) => {
-        if (siblingData?.duration === 'repeating' && (val == null || val < 1)) return 'Required when duration is Repeating (min 1)'
+      admin: { condition: (_: unknown, siblingData: Record<string, unknown> | undefined) => siblingData?.duration === 'repeating' },
+      validate: (val: unknown, { siblingData }: { siblingData?: Record<string, unknown> }) => {
+        if (siblingData?.duration === 'repeating' && (val == null || typeof val !== 'number' || val < 1)) return 'Required when duration is Repeating (min 1)'
         return true
       },
     },

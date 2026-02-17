@@ -3,6 +3,7 @@
  */
 import type { CollectionAfterChangeHook, CollectionBeforeDeleteHook } from 'payload'
 import { createTenantProduct, updateTenantProduct, archiveTenantProduct, createTenantPrice } from '@/lib/stripe-connect/products'
+import type { TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 import { getTenantStripeContext } from '@/lib/stripe-connect/tenantStripe'
 
 async function getTenantForPlan(payload: import('payload').Payload, tenantId: number) {
@@ -12,7 +13,7 @@ async function getTenantForPlan(payload: import('payload').Payload, tenantId: nu
     depth: 0,
     overrideAccess: true,
   })
-  return tenant as { id: number; stripeConnectAccountId?: string | null; stripeConnectOnboardingStatus?: string | null } | null
+  return tenant as (TenantStripeLike & { id: number }) | null
 }
 
 function getTenantId(doc: Record<string, unknown>): number | null {
@@ -32,12 +33,13 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
 }) => {
   if (req.context?.skipStripeSync) return
 
-  const tenantId = getTenantId(doc as Record<string, unknown>)
+  const tenantId = getTenantId(doc as unknown as Record<string, unknown>)
   if (tenantId == null) return
 
   const tenant = await getTenantForPlan(req.payload, tenantId)
   if (!tenant) return
-  const ctx = getTenantStripeContext(tenant)
+  const tenantLike = tenant as TenantStripeLike & { id?: number }
+  const ctx = getTenantStripeContext(tenantLike)
   if (!ctx.isConnected) return
 
   const data = doc as Record<string, unknown>
@@ -52,7 +54,7 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
     const interval = (priceInfo?.interval as 'day' | 'week' | 'month' | 'year') ?? 'month'
     const intervalCount = priceInfo?.intervalCount ?? 1
     const { productId, priceId } = await createTenantProduct({
-      tenant,
+      tenant: tenantLike,
       name: String(data.name ?? 'Plan'),
       defaultPriceData: {
         recurring: {
@@ -78,10 +80,10 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
   }
 
   if (operation === 'update' && stripeProductId) {
-    if (data.name !== (previousDoc as Record<string, unknown>)?.name) {
-      await updateTenantProduct({ tenant, productId: stripeProductId, name: String(data.name) })
+    if (data.name !== (previousDoc as unknown as Record<string, unknown>)?.name) {
+      await updateTenantProduct({ tenant: tenantLike, productId: stripeProductId, name: String(data.name) })
     }
-    const prevPrice = (previousDoc as Record<string, unknown>)?.priceInformation as { price?: number; interval?: string; intervalCount?: number } | undefined
+    const prevPrice = (previousDoc as unknown as Record<string, unknown>)?.priceInformation as { price?: number; interval?: string; intervalCount?: number } | undefined
     const currPrice = data.priceInformation as { price?: number; interval?: string; intervalCount?: number } | undefined
     const priceChanged =
       currPrice?.price !== prevPrice?.price ||
@@ -92,7 +94,7 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
       const interval = (currPrice.interval as 'day' | 'week' | 'month' | 'year') ?? 'month'
       const intervalCount = currPrice.intervalCount ?? 1
       await createTenantPrice({
-        tenant,
+        tenant: tenantLike,
         productId: stripeProductId,
         unit_amount: priceCents,
         currency: 'eur',
@@ -106,12 +108,13 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
 export const planBeforeDeleteArchive: CollectionBeforeDeleteHook = async ({ id, req }) => {
   const doc = await req.payload.findByID({ collection: 'plans', id, depth: 0 })
   if (!doc) return
-  const tenantId = getTenantId(doc as Record<string, unknown>)
-  const stripeProductId = (doc as Record<string, unknown>).stripeProductId as string | undefined
+  const tenantId = getTenantId(doc as unknown as Record<string, unknown>)
+  const stripeProductId = (doc as unknown as Record<string, unknown>).stripeProductId as string | undefined
   if (tenantId == null || !stripeProductId) return
   const tenant = await getTenantForPlan(req.payload, tenantId)
   if (!tenant) return
-  const ctx = getTenantStripeContext(tenant)
+  const tenantLike = tenant as TenantStripeLike & { id?: number }
+  const ctx = getTenantStripeContext(tenantLike)
   if (!ctx.isConnected) return
 
   await req.payload.update({
@@ -121,6 +124,6 @@ export const planBeforeDeleteArchive: CollectionBeforeDeleteHook = async ({ id, 
     context: { skipStripeSync: true },
     req,
   })
-  await archiveTenantProduct(tenant, stripeProductId)
+  await archiveTenantProduct(tenantLike, stripeProductId)
   throw new Error('Plan was archived instead of deleted. Refresh the list.')
 }

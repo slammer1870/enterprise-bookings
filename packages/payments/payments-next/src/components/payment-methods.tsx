@@ -47,6 +47,105 @@ type PaymentMethodsProps = {
   successUrl?: string;
 };
 
+/** Pass-like shape from getValidClassPassesForLesson */
+type ClassPassForLesson = {
+  id: number;
+  quantity?: number;
+  expirationDate?: string;
+  type?: number | { name?: string };
+};
+
+function ClassPassTabContent({
+  passes,
+  quantity,
+  pendingBookingIds: _pendingBookingIds,
+  lessonId: _lessonId,
+  onConfirm,
+}: {
+  passes: ClassPassForLesson[];
+  quantity: number;
+  pendingBookingIds?: number[];
+  lessonId: number;
+  onConfirm: (_classPassId: number) => Promise<void>;
+}) {
+  const [selectedPassId, setSelectedPassId] = useState<number | null>(
+    passes.length === 1 && passes[0] != null ? passes[0].id : null
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    if (selectedPassId == null) return;
+    setIsSubmitting(true);
+    try {
+      await onConfirm(selectedPassId);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Use a class pass to book. This will use {quantity} credit{quantity !== 1 ? "s" : ""} from your pass.
+      </p>
+      <div className="space-y-2">
+        {passes.map((pass) => {
+          const typeName =
+            typeof pass.type === "object" && pass.type != null && "name" in pass.type
+              ? (pass.type as { name?: string }).name
+              : "Class pass";
+          const exp =
+            pass.expirationDate != null
+              ? new Date(pass.expirationDate).toLocaleDateString()
+              : null;
+          return (
+            <div
+              key={pass.id}
+              className="flex items-center justify-between rounded-md border p-3"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium">{typeName}</span>
+                <span className="text-sm text-muted-foreground">
+                  {pass.quantity ?? 0} credit{(pass.quantity ?? 0) !== 1 ? "s" : ""} remaining
+                  {exp ? ` · Expires ${exp}` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="classPass"
+                  checked={selectedPassId === pass.id}
+                  onChange={() => setSelectedPassId(pass.id)}
+                  className="h-4 w-4"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPassId(pass.id);
+                    void handleConfirm();
+                  }}
+                  disabled={isSubmitting}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  Use this pass
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        onClick={handleConfirm}
+        disabled={selectedPassId == null || isSubmitting}
+        className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {isSubmitting ? "Booking…" : "Confirm with class pass"}
+      </button>
+    </div>
+  );
+}
+
 /**
  * Returns true if the drop-in allows multiple bookings per lesson.
  */
@@ -120,6 +219,13 @@ export function PaymentMethods({
     })
   );
 
+  // Get valid class passes for this lesson (Phase 4.6)
+  const { data: validClassPasses = [] } = useQuery(
+    trpc.bookings.getValidClassPassesForLesson.queryOptions({
+      lessonId: lesson.id,
+    })
+  );
+
   const subscription = subscriptionData?.subscription ?? null;
   const subscriptionLimitReached = subscriptionData?.subscriptionLimitReached ?? false;
   const remainingSessions = subscriptionData?.remainingSessions ?? null;
@@ -185,6 +291,19 @@ export function PaymentMethods({
       },
       onError: (error: { message?: string }) => {
         toast.error(error.message || "Failed to book with membership");
+      },
+    })
+  );
+
+  const { mutateAsync: createBookingsWithClassPass } = useMutation(
+    trpc.bookings.createBookings.mutationOptions({
+      onSuccess: () => {
+        onPaymentRedirectStart?.();
+        const url = successUrlProp ?? "/dashboard";
+        router.push(url.startsWith("http") ? url : `${typeof window !== "undefined" ? window.location.origin : ""}${url.startsWith("/") ? url : `/${url}`}`);
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to book with class pass");
       },
     })
   );
@@ -267,6 +386,8 @@ export function PaymentMethods({
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
   const allowedDropIn = lesson.classOption.paymentMethods?.allowedDropIn;
+  const allowedClassPasses = (lesson.classOption.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
+    ?.allowedClassPasses;
 
   let activePlans = allowedPlans?.filter((plan) => plan.status === "active") ?? [];
 
@@ -304,6 +425,20 @@ export function PaymentMethods({
     );
   }
 
+  // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
+  const classPassesWithEnoughCredits: ClassPassForLesson[] = Array.isArray(validClassPasses)
+    ? validClassPasses.filter(
+        (p: unknown): p is ClassPassForLesson =>
+          typeof p === "object" &&
+          p != null &&
+          "id" in p &&
+          typeof (p as ClassPassForLesson).quantity === "number" &&
+          (p as ClassPassForLesson).quantity! >= quantity
+      )
+    : [];
+  const hasClassPassTab =
+    Boolean(allowedClassPasses?.length) && classPassesWithEnoughCredits.length > 0;
+
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
@@ -323,7 +458,7 @@ export function PaymentMethods({
       hasDropInTab && dropInAllowsMultiple(allowedDropIn as DropIn);
   }
 
-  if (!hasMembershipTab && !hasDropInTab) {
+  if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
         <p>
@@ -335,18 +470,26 @@ export function PaymentMethods({
     );
   }
 
-  // Controlled tab so we can auto-switch to drop-in when membership is filtered out by quantity
-  const defaultTab = hasMembershipTab ? "membership" : "dropin";
+  // Controlled tab so we can auto-switch when the active tab is no longer available
+  const defaultTab = hasMembershipTab
+    ? "membership"
+    : hasClassPassTab
+      ? "classpass"
+      : "dropin";
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // When user increases quantity and membership is filtered out completely, show drop-in
+  // When user changes quantity or tab becomes unavailable, switch to a valid tab
   useEffect(() => {
-    if (activeTab === "membership" && !hasMembershipTab && hasDropInTab) {
-      setActiveTab("dropin");
-    } else if (activeTab !== "membership" && activeTab !== "dropin") {
+    if (activeTab === "membership" && !hasMembershipTab) {
+      setActiveTab(hasClassPassTab ? "classpass" : "dropin");
+    } else if (activeTab === "classpass" && !hasClassPassTab) {
+      setActiveTab(hasMembershipTab ? "membership" : "dropin");
+    } else if (activeTab === "dropin" && !hasDropInTab) {
+      setActiveTab(hasMembershipTab ? "membership" : "classpass");
+    } else if (!["membership", "dropin", "classpass"].includes(activeTab)) {
       setActiveTab(defaultTab);
     }
-  }, [hasMembershipTab, hasDropInTab, defaultTab, activeTab]);
+  }, [hasMembershipTab, hasDropInTab, hasClassPassTab, defaultTab, activeTab]);
 
   return (
     <div className="space-y-4">
@@ -363,12 +506,45 @@ export function PaymentMethods({
               Membership
             </TabsTrigger>
           )}
+          {hasClassPassTab && (
+            <TabsTrigger value="classpass" className="w-full">
+              Class pass
+            </TabsTrigger>
+          )}
           {hasDropInTab && (
             <TabsTrigger value="dropin" className="w-full">
               Drop-in
             </TabsTrigger>
           )}
         </TabsList>
+        {hasClassPassTab && (
+          <TabsContent value="classpass">
+            <ClassPassTabContent
+              passes={classPassesWithEnoughCredits}
+              quantity={quantity}
+              pendingBookingIds={
+                pendingBookings && pendingBookings.length > 0
+                  ? pendingBookings.map((b) => b.id as number)
+                  : undefined
+              }
+              lessonId={lesson.id}
+              onConfirm={async (classPassId: number) => {
+                await createBookingsWithClassPass({
+                  lessonId: lesson.id,
+                  quantity:
+                    pendingBookings && pendingBookings.length > 0
+                      ? pendingBookings.length
+                      : quantity,
+                  classPassId,
+                  pendingBookingIds:
+                    pendingBookings && pendingBookings.length > 0
+                      ? pendingBookings.map((b) => b.id as number)
+                      : undefined,
+                });
+              }}
+            />
+          </TabsContent>
+        )}
         {hasMembershipTab && (
           <TabsContent value="membership">
             <PlanView

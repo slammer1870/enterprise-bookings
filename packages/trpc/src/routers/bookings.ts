@@ -201,11 +201,14 @@ export const bookingsRouter = {
         subscriptionId: z.number().optional(),
         /** When provided with subscriptionId, these pending booking IDs are confirmed (updated) instead of creating new ones. */
         pendingBookingIds: z.array(z.number()).optional(),
+        /** When provided, bookings are created as confirmed using this class pass (no payment). */
+        classPassId: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
-      const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds } = input;
-      const status = subscriptionId != null ? "confirmed" : (statusInput ?? "confirmed");
+      const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds, classPassId } = input;
+      const status =
+        subscriptionId != null || classPassId != null ? "confirmed" : (statusInput ?? "confirmed");
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
@@ -238,7 +241,7 @@ export const bookingsRouter = {
         });
       }
 
-      let paymentMethodUsed: "subscription" | undefined;
+      let paymentMethodUsed: "subscription" | "class_pass" | undefined;
       let subscriptionIdUsed: number | undefined;
 
       if (subscriptionId != null) {
@@ -312,6 +315,108 @@ export const bookingsRouter = {
         subscriptionIdUsed = subscriptionId;
       }
 
+      let classPassIdUsed: number | undefined;
+      if (classPassId != null) {
+        if (status !== "confirmed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Booking with class pass must be confirmed.",
+          });
+        }
+        if (!hasCollection(ctx.payload, "class-passes")) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Class passes are not available in this application.",
+          });
+        }
+        const classOptionWithPasses = lesson.classOption as ClassOption & {
+          paymentMethods?: { allowedClassPasses?: (number | { id: number })[] };
+        };
+        const allowedTypeIds =
+          classOptionWithPasses?.paymentMethods?.allowedClassPasses?.map(
+            (p: { id?: number } | number) =>
+              typeof p === "object" && p != null && "id" in p ? p.id : p
+          ) ?? [];
+        if (allowedTypeIds.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This lesson does not allow class pass booking.",
+          });
+        }
+        const lessonTenantIdForPass =
+          typeof lesson.tenant === "object" && lesson.tenant != null
+            ? (lesson.tenant as { id: number }).id
+            : (lesson.tenant as number | undefined) ?? null;
+        if (lessonTenantIdForPass == null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Lesson has no tenant.",
+          });
+        }
+        const passResult = await findSafe(
+          ctx.payload,
+          "class-passes",
+          {
+            where: {
+              id: { equals: classPassId },
+              user: { equals: ctx.user.id },
+              tenant: { equals: lessonTenantIdForPass },
+              type: { in: allowedTypeIds },
+              status: { equals: "active" },
+              quantity: { greater_than: 0 },
+              expirationDate: { greater_than: new Date().toISOString() },
+            },
+            limit: 1,
+            depth: 2,
+            overrideAccess: false,
+            user: ctx.user,
+          }
+        );
+        const passDoc = passResult.docs[0] as
+          | {
+              id: number;
+              quantity: number;
+              type?: number | { id: number; allowMultipleBookingsPerLesson?: boolean };
+            }
+          | undefined;
+        if (!passDoc) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized class pass for this lesson.",
+          });
+        }
+        const passTypeId =
+          typeof passDoc.type === "object" && passDoc.type != null
+            ? (passDoc.type as { id: number }).id
+            : passDoc.type;
+        let passType: { allowMultipleBookingsPerLesson?: boolean } | null = null;
+        if (passTypeId != null && hasCollection(ctx.payload, "class-pass-types")) {
+          const typeDoc = await findByIdSafe(
+            ctx.payload,
+            "class-pass-types",
+            passTypeId,
+            { depth: 0, overrideAccess: true }
+          );
+          passType = typeDoc as { allowMultipleBookingsPerLesson?: boolean } | null;
+        }
+        const allowMultiple = passType?.allowMultipleBookingsPerLesson === true;
+        if (quantity > 1 && !allowMultiple) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This class pass allows only one slot per lesson. Reduce quantity to 1 or use a different pass.",
+          });
+        }
+        if (passDoc.quantity < quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Not enough credits on this pass. You have ${passDoc.quantity}; need ${quantity}.`,
+          });
+        }
+        paymentMethodUsed = "class_pass";
+        classPassIdUsed = classPassId;
+      }
+
       // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerLesson
       if (status === "confirmed") {
         const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
@@ -335,8 +440,15 @@ export const bookingsRouter = {
           ? (lesson.tenant as { id: number }).id
           : (lesson.tenant as number | undefined) ?? null;
 
-      // When subscriptionId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
+      // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
       const confirmedBookings: Booking[] = [];
+      const confirmPendingWithClassPass =
+        classPassId != null &&
+        pendingBookingIds != null &&
+        pendingBookingIds.length > 0 &&
+        paymentMethodUsed === "class_pass" &&
+        classPassIdUsed != null;
+
       if (
         subscriptionId != null &&
         pendingBookingIds != null &&
@@ -405,6 +517,68 @@ export const bookingsRouter = {
         }
       }
 
+      if (confirmPendingWithClassPass) {
+        if (pendingBookingIds!.length > quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "pendingBookingIds count cannot exceed quantity.",
+          });
+        }
+        const pendingResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            id: { in: pendingBookingIds! },
+            lesson: { equals: lessonId },
+            user: { equals: ctx.user.id },
+            status: { equals: "pending" },
+          },
+          limit: pendingBookingIds!.length + 1,
+          depth: 1,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+        if (pendingResult.docs.length !== pendingBookingIds!.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized pending bookings for this lesson.",
+          });
+        }
+        for (const doc of pendingResult.docs) {
+          const id = doc.id as number;
+          const updated = await updateSafe<Booking>(
+            ctx.payload,
+            "bookings",
+            id,
+            {
+              status: "confirmed",
+              paymentMethodUsed: "class_pass",
+              classPassIdUsed: classPassIdUsed!,
+            } as Partial<Booking>,
+            { overrideAccess: true }
+          );
+          confirmedBookings.push(updated as Booking);
+          if (hasCollection(ctx.payload, "transactions")) {
+            const existingTx = await ctx.payload.find({
+              collection: "transactions" as import("payload").CollectionSlug,
+              where: { booking: { equals: id } },
+              limit: 1,
+              overrideAccess: true,
+            });
+            if (existingTx.totalDocs === 0) {
+              await ctx.payload.create({
+                collection: "transactions" as import("payload").CollectionSlug,
+                data: {
+                  booking: id,
+                  paymentMethod: "class_pass",
+                  classPassId: classPassIdUsed!,
+                  ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                } as Record<string, unknown>,
+                overrideAccess: true,
+              });
+            }
+          }
+        }
+      }
+
       // Create any additional new bookings (when not confirming pending, or quantity > pendingBookingIds.length)
       const createCount =
         confirmedBookings.length > 0 ? quantity - confirmedBookings.length : quantity;
@@ -415,6 +589,7 @@ export const bookingsRouter = {
       };
       if (paymentMethodUsed) (baseData as any).paymentMethodUsed = paymentMethodUsed;
       if (subscriptionIdUsed != null) (baseData as any).subscriptionIdUsed = subscriptionIdUsed;
+      if (classPassIdUsed != null) (baseData as any).classPassIdUsed = classPassIdUsed;
 
       for (let i = 0; i < createCount; i++) {
         const booking = await createSafe<Booking>(
@@ -427,10 +602,112 @@ export const bookingsRouter = {
           }
         );
         confirmedBookings.push(booking as Booking);
+        // Create transaction for class_pass so decrement hook can find it; also decrement pass here so it runs reliably
+        if (
+          paymentMethodUsed === "class_pass" &&
+          classPassIdUsed != null &&
+          hasCollection(ctx.payload, "transactions")
+        ) {
+          const bookingId = (booking as { id: number }).id;
+          const existingTx = await ctx.payload.find({
+            collection: "transactions" as import("payload").CollectionSlug,
+            where: { booking: { equals: bookingId } },
+            limit: 1,
+            overrideAccess: true,
+          });
+          if (existingTx.totalDocs === 0) {
+            await ctx.payload.create({
+              collection: "transactions" as import("payload").CollectionSlug,
+              data: {
+                booking: bookingId,
+                paymentMethod: "class_pass",
+                classPassId: classPassIdUsed,
+                ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+              } as Record<string, unknown>,
+              overrideAccess: true,
+            });
+          }
+          const pass = (await ctx.payload.findByID({
+            collection: "class-passes" as import("payload").CollectionSlug,
+            id: classPassIdUsed,
+            depth: 0,
+          })) as { quantity?: number; status?: string } | null;
+          if (pass && typeof pass.quantity === "number") {
+            const nextQty = Math.max(0, pass.quantity - 1);
+            const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
+            await ctx.payload.update({
+              collection: "class-passes" as import("payload").CollectionSlug,
+              id: classPassIdUsed,
+              data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
+              overrideAccess: true,
+            });
+          }
+        }
       }
 
       return confirmedBookings;
     }),
+
+  /**
+   * Returns valid class passes for the current user for the given lesson.
+   * Only passes that belong to the lesson's tenant and match the class option's allowed pass types,
+   * with status active, quantity > 0, and expirationDate in the future.
+   */
+  getValidClassPassesForLesson: protectedProcedure
+    .use(requireCollections("lessons", "class-passes"))
+    .input(z.object({ lessonId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.lessonId, {
+        depth: 2,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+      if (!lesson) {
+        return [];
+      }
+      const classOption =
+        typeof lesson.classOption === "object" ? lesson.classOption : null;
+      const classOptionWithPasses = classOption as (typeof classOption) & {
+        paymentMethods?: { allowedClassPasses?: unknown[] };
+      };
+      const allowedClassPasses = classOptionWithPasses?.paymentMethods?.allowedClassPasses;
+      if (!allowedClassPasses || !Array.isArray(allowedClassPasses) || allowedClassPasses.length === 0) {
+        return [];
+      }
+      const allowedTypeIds = (allowedClassPasses as (number | { id: number })[])
+        .map((p) => (typeof p === "object" && p != null && "id" in p ? p.id : p))
+        .filter((id): id is number => typeof id === "number");
+      if (allowedTypeIds.length === 0) return [];
+
+      const tenantId =
+        typeof lesson.tenant === "object" && lesson.tenant != null
+          ? (lesson.tenant as { id: number }).id
+          : (lesson.tenant as number | undefined) ?? null;
+      if (tenantId == null) return [];
+
+      const now = new Date().toISOString();
+      const result = await findSafe(
+        ctx.payload,
+        "class-passes",
+        {
+          where: {
+            user: { equals: ctx.user.id },
+            tenant: { equals: tenantId },
+            type: { in: allowedTypeIds },
+            status: { equals: "active" },
+            quantity: { greater_than: 0 },
+            expirationDate: { greater_than: now },
+          },
+          limit: 50,
+          depth: 1,
+          sort: "expirationDate",
+          overrideAccess: false,
+          user: ctx.user,
+        }
+      );
+      return result.docs;
+    }),
+
   createOrUpdateBooking: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
     .input(

@@ -74,12 +74,16 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 
   const maxQuantity = Math.max(1, lesson.remainingCapacity || 1)
 
-  // Gate for showing "Payment Methods" block (Drop-in / Membership tabs). Only the lesson data from the server
+  // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the lesson data from the server
   // is used; there is no client-side Stripe Connect or tenant check. If the server returns a lesson without
   // classOption.paymentMethods populated (e.g. no tenant context so depth/overrideAccess omit it), this is false.
+  const paymentMethods = lesson.classOption?.paymentMethods as
+    | { allowedDropIn?: unknown; allowedPlans?: unknown[]; allowedClassPasses?: unknown[] }
+    | undefined
   const hasPaymentMethods = Boolean(
-    lesson.classOption?.paymentMethods?.allowedDropIn ||
-    (lesson.classOption?.paymentMethods?.allowedPlans?.length ?? 0) > 0
+    paymentMethods?.allowedDropIn ||
+    (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
+    (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
   )
 
   // If payment methods exist, show payment gateway (filtered by quantity when pendingBookings/quantity > 1)

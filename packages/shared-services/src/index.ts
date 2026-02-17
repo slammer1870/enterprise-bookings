@@ -1,6 +1,7 @@
 export * from "./lesson";
 export * from "./subscription";
 export * from "./user";
+export * from "./class-pass-valid-for-lesson";
 
 // Export access functions
 // Note: children booking access functions are exported separately to avoid

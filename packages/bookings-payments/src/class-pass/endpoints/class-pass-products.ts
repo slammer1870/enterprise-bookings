@@ -20,13 +20,12 @@ export function createClassPassProductsProxy(classPass: ClassPassConfig): Payloa
     }
     try {
       const accountId = await Promise.resolve(classPass.getStripeAccountIdForRequest?.(req) ?? null);
-      const listOptions: Parameters<typeof stripe.products.list>[0] = {
+      const listParams = {
         limit: 100,
         expand: ["data.default_price"],
-        ...(accountId ? { stripeAccount: accountId } : {}),
       };
       const products = await stripe.products
-        .list(listOptions)
+        .list(listParams, accountId ? { stripeAccount: accountId } : undefined)
         .autoPagingToArray({ limit: 1000 });
       if (logs) req.payload.logger?.info?.({ msg: "Stripe products fetched", count: products.length });
       const oneTimeProducts = products.filter(

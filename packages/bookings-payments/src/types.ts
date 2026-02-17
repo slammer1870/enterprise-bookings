@@ -14,7 +14,7 @@ export type CollectionOverrides = {
  */
 /** Optional: resolve Stripe Connect account ID for proxy requests (e.g. from tenant cookie). When set, plans/class-pass-products proxies list from this account. */
 export type GetStripeAccountIdForRequest = (
-  req: import("payload").PayloadRequest
+  _req: import("payload").PayloadRequest
 ) => Promise<string | null> | string | null;
 
 export type ClassPassConfig = {

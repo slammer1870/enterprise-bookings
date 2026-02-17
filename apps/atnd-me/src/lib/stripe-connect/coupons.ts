@@ -1,6 +1,7 @@
 /**
  * Phase 4.5 – Create/deactivate Stripe Coupons and Promotion Codes on tenant Connect account.
  */
+import type Stripe from 'stripe'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import {
   requireTenantConnectAccount,
@@ -48,7 +49,7 @@ export async function createTenantCouponAndPromoCode(
     throw new Error('currency is required when amount_off is set')
   }
 
-  const couponParams: Parameters<typeof stripe.coupons.create>[0] = {
+  const couponParams: Stripe.CouponCreateParams = {
     duration,
     ...(duration === 'repeating' && duration_in_months != null && { duration_in_months }),
     ...(max_redemptions != null && { max_redemptions }),
