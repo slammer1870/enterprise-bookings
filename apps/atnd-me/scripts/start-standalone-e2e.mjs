@@ -45,9 +45,11 @@ if (!fs.existsSync(serverEntrypoint)) {
   throw new Error(`Missing standalone server entrypoint: ${serverEntrypoint}. Did you run \`pnpm build\`?`)
 }
 
+// Ensure E2E env is passed so Stripe test-account mocking runs (avoids "does not have access to account" in tests).
+const env = { ...process.env, ENABLE_TEST_WEBHOOKS: 'true' }
 const child = spawn(process.execPath, [serverEntrypoint], {
   stdio: 'inherit',
-  env: process.env,
+  env,
 })
 
 child.on('exit', (code) => process.exit(code ?? 0))

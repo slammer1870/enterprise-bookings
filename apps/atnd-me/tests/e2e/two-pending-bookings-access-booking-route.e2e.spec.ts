@@ -109,16 +109,21 @@ test.describe('Two pending bookings: access booking route and make booking', () 
       }
 
       // Now on booking page: make a fresh booking (pay-at-door = confirmed directly)
-      await expect(page.getByText(/select quantity|book/i).first()).toBeVisible({ timeout: 5000 })
-      const bookBtn = page.getByRole('button', { name: /^book\b/i }).first()
-      await expect(bookBtn).toBeVisible()
+      await expect(
+        page.getByText(/select quantity|number of slots|book|payment methods/i).first()
+      ).toBeVisible({ timeout: 12000 })
+      const bookBtn = page.getByRole('button', { name: /book/i }).first()
+      await expect(bookBtn).toBeVisible({ timeout: 10000 })
       await bookBtn.click()
 
       await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
     } else {
-      // Stayed on booking page: make a booking directly
-      const bookBtn = page.getByRole('button', { name: /^book\b/i }).first()
-      await expect(bookBtn).toBeVisible()
+      // Stayed on booking page: wait for form (quantity, Book, or payment methods label) then make a booking
+      await expect(
+        page.getByText(/select quantity|number of slots|book|payment methods/i).first()
+      ).toBeVisible({ timeout: 15000 })
+      const bookBtn = page.getByRole('button', { name: /book/i }).first()
+      await expect(bookBtn).toBeVisible({ timeout: 12000 })
       await bookBtn.click()
       await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
     }

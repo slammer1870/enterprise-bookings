@@ -60,6 +60,14 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   const [quantity, setQuantity] = useState<number>(1)
   const paymentRedirectInProgressRef = useRef(false)
 
+  if (!lesson?.id) {
+    return (
+      <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+        Invalid booking data: lesson is missing. Please go back and try again.
+      </div>
+    )
+  }
+
   const { mutateAsync: cancelPendingForLesson } = useMutation(
     trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
   )

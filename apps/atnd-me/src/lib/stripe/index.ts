@@ -1,7 +1,6 @@
 'server-only'
 
-import Stripe from 'stripe'
+import { getPlatformStripe } from '@/lib/stripe/platform'
 
-export const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
-  : undefined
+/** Use the platform Stripe client (with E2E test-account mocking) so all callers share one instance. */
+export const stripe = process.env.STRIPE_SECRET_KEY ? getPlatformStripe() : undefined

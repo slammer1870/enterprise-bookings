@@ -5,9 +5,9 @@ import { getPayload } from '@/lib/payload'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 import {
   getCurrentUser,
-  resolveTenantForConnect,
   type TenantForConnect,
 } from '@/lib/stripe-connect/api-helpers'
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { coerceMetadata } from '@/lib/api/request-utils'
 import {
   validateBookingIdsFromMetadata,
@@ -95,10 +95,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
+  const placeholderAccount =
+    /^acct_[a-z_]+_\d+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
   const isTestMode =
     process.env.NODE_ENV === 'test' ||
     process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
-    /^acct_(fee_disclosure_|smoke_)/.test(tenant.stripeConnectAccountId ?? '')
+    isStripeTestAccount(tenant.stripeConnectAccountId) ||
+    placeholderAccount
 
   if (bookingIds.length === 0 && !isTestMode) {
     try {

@@ -9,6 +9,7 @@ import {
   getTenantStripeContext,
   type TenantStripeLike,
 } from '@/lib/stripe-connect/tenantStripe'
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 
 export type RecurringPriceData = {
   unit_amount: number // cents
@@ -48,6 +49,13 @@ export async function createTenantProduct(
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) throw new Error('Tenant Connect account id is missing')
+
+  const isE2e =
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+    const suffix = Date.now()
+    return { productId: `prod_test_${suffix}`, priceId: `price_test_${suffix}` }
+  }
 
   const stripe = getPlatformStripe()
   const isRecurring = 'recurring' in defaultPriceData
@@ -107,6 +115,12 @@ export async function updateTenantProduct(
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) throw new Error('Tenant Connect account id is missing')
 
+  const isE2e =
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+    return
+  }
+
   const stripe = getPlatformStripe()
   await stripe.products.update(
     productId,
@@ -149,6 +163,12 @@ export async function createTenantPrice(
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) throw new Error('Tenant Connect account id is missing')
+
+  const isE2e =
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+    return { priceId: `price_test_${Date.now()}` }
+  }
 
   const stripe = getPlatformStripe()
   const priceParams: Stripe.PriceCreateParams = {

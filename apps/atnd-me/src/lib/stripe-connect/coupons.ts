@@ -8,6 +8,7 @@ import {
   getTenantStripeContext,
   type TenantStripeLike,
 } from '@/lib/stripe-connect/tenantStripe'
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 
 export type CreateTenantCouponParams = {
   tenant: TenantStripeLike & { id?: number }
@@ -39,6 +40,13 @@ export async function createTenantCouponAndPromoCode(
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) throw new Error('Tenant Connect account id is missing')
+
+  const isE2e =
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+    const suffix = Date.now()
+    return { couponId: `coupon_test_${suffix}`, promotionCodeId: `promo_test_${suffix}` }
+  }
 
   const stripe = getPlatformStripe()
 
@@ -79,6 +87,12 @@ export async function deactivateTenantPromotionCode(
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) throw new Error('Tenant Connect account id is missing')
+
+  const isE2e =
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+    return
+  }
 
   const stripe = getPlatformStripe()
   await stripe.promotionCodes.update(

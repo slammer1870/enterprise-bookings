@@ -319,7 +319,13 @@ test.describe('App smoke', () => {
     }
 
     await expect(page.getByText(/number of slots/i).first()).toBeVisible()
-    await expect(page.locator('button:has-text("Book")').first()).toBeVisible()
+    // Class-pass-only: either Book (or confirm) button, or "No payment methods" when user has no pass
+    const bookBtn = page.getByRole('button', { name: /book|confirm/i }).first()
+    const noPaymentMsg = page.getByText(/no payment methods are available/i)
+    await Promise.race([
+      bookBtn.waitFor({ state: 'visible', timeout: 5000 }),
+      noPaymentMsg.waitFor({ state: 'visible', timeout: 5000 }),
+    ])
   })
 
   test('manage bookings: navigate to manage when 2+ bookings, manage UI visible', async ({

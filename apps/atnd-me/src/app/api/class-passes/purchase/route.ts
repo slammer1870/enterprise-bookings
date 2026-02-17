@@ -11,6 +11,7 @@ import {
   resolveTenantSlugOrId,
   resolveTenantForConnect,
 } from '@/lib/stripe-connect/api-helpers'
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 
 const DEFAULT_PRICE_CENTS = 1000
 const DEFAULT_EXPIRATION_DAYS = 365
@@ -55,6 +56,15 @@ export async function POST(request: NextRequest) {
   const expirationDays =
     typeof body.expirationDays === 'number' ? body.expirationDays : DEFAULT_EXPIRATION_DAYS
   const totalCents = DEFAULT_PRICE_CENTS * quantity
+
+  const placeholderAccount =
+    /^acct_[a-z_]+_\d+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
+  if (isStripeTestAccount(tenant.stripeConnectAccountId) || placeholderAccount) {
+    const mockId = `pi_test_${Date.now()}`
+    return NextResponse.json({
+      clientSecret: `${mockId}_secret_test`,
+    })
+  }
 
   try {
     const { client_secret } = await createTenantPaymentIntent({

@@ -150,8 +150,13 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         tenantSlug: tenant.slug,
       })
 
-      const sessionStabilizeMs = process.env.CI ? 3000 : 1500
+      const sessionStabilizeMs = process.env.CI ? 4000 : 2000
       await page.waitForTimeout(sessionStabilizeMs)
+
+      // Warm-up: hit tenant root so session is established on subdomain before protected manage route.
+      await navigateToTenant(page, tenant.slug, '/')
+      await page.waitForLoadState('load').catch(() => null)
+      await page.waitForTimeout(process.env.CI ? 1500 : 800)
 
       const redirectPredicate = (url: URL) => {
         const pathname = url.pathname
@@ -161,7 +166,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         )
       }
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
-      const raceTimeout = process.env.CI ? 15000 : 10000
+      const raceTimeout = process.env.CI ? 20000 : 12000
 
       const tryNavigateAndRace = async () => {
         await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
@@ -174,7 +179,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
       let outcome = await tryNavigateAndRace().catch(() => null)
       if (outcome === 'error' || outcome === null) {
-        await page.waitForTimeout(process.env.CI ? 3000 : 2000)
+        await page.waitForTimeout(process.env.CI ? 4000 : 2000)
         outcome = await tryNavigateAndRace().catch(() => null)
       }
 

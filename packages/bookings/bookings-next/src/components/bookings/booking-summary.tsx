@@ -43,7 +43,9 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
           <div className="flex items-center">
             <ClipboardCheck className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Booking Type:</span>
-            <span className="ml-2">{lesson.classOption.name}</span>
+            <span className="ml-2">
+              {(lesson.classOption as { name?: string } | null | undefined)?.name ?? "—"}
+            </span>
           </div>
         </div>
       </CardContent>

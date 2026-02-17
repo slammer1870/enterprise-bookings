@@ -9,6 +9,7 @@ import {
   getTenantStripeContext,
   type TenantStripeLike,
 } from '@/lib/stripe-connect/tenantStripe'
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { calculateBookingFeeAmount, type BookingFeeProductType } from '@/lib/stripe-connect/bookingFee'
 
 export type CreateTenantPaymentIntentParams = {
@@ -39,6 +40,13 @@ export async function createTenantPaymentIntent(
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) {
     throw new Error('Tenant Connect account id is missing')
+  }
+
+  const isE2eTestMode =
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (isStripeTestAccount(accountId) || (isE2eTestMode && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+    const mockId = `pi_test_${Date.now()}`
+    return { id: mockId, client_secret: `${mockId}_secret_test` }
   }
 
   const bookingFeeAmount =

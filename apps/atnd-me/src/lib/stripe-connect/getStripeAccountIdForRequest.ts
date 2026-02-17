@@ -1,8 +1,10 @@
 /**
  * Phase 4.5 – Resolve tenant Stripe Connect account ID for proxy requests (plans, class-pass-products).
  * Used by getStripeAccountIdForRequest in bookingsPaymentsPlugin membership/classPass config.
+ * Returns null for E2E/test account IDs so proxy lists platform products instead of calling Stripe with a fake account.
  */
 import type { PayloadRequest } from 'payload'
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 
 function getTenantIdFromRequest(req: PayloadRequest): number | null {
   const ctx = req?.context as { tenant?: unknown } | undefined
@@ -45,5 +47,6 @@ export async function getStripeAccountIdForRequest(req: PayloadRequest): Promise
   if (!tenant) return null
   const t = tenant as { stripeConnectAccountId?: string | null; stripeConnectOnboardingStatus?: string | null }
   if (!t.stripeConnectAccountId?.trim() || t.stripeConnectOnboardingStatus !== 'active') return null
+  if (isStripeTestAccount(t.stripeConnectAccountId)) return null
   return t.stripeConnectAccountId
 }
