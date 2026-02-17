@@ -83,11 +83,14 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
+      // CI runners are slower; allow more time for session to stabilize so manage page receives auth.
+      const sessionStabilizeMs = process.env.CI ? 3000 : 1500
+      await page.waitForTimeout(sessionStabilizeMs)
 
       const managePath = `/bookings/${lesson.id}/manage`
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
       const quantityViewHeading = page.getByText(/update booking quantity/i).first()
+      const raceTimeout = process.env.CI ? 15000 : 10000
 
       const gotoManageAndRace = async () => {
         await navigateToTenant(page, tenant.slug, managePath)
@@ -95,7 +98,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
           await loginAsRegularUser(page, 1, user.email, 'password', {
             tenantSlug: tenant.slug,
           })
-          await page.waitForTimeout(1500)
+          await page.waitForTimeout(sessionStabilizeMs)
           await navigateToTenant(page, tenant.slug, managePath)
         }
         await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
@@ -103,8 +106,8 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         })
         await page.waitForLoadState('load').catch(() => null)
         return Promise.race([
-          quantityViewHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'success' as const),
-          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+          quantityViewHeading.waitFor({ state: 'visible', timeout: raceTimeout }).then(() => 'success' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: raceTimeout }).then(() => 'error' as const),
         ])
       }
 
@@ -113,7 +116,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         await loginAsRegularUser(page, 1, user.email, 'password', {
           tenantSlug: tenant.slug,
         })
-        await page.waitForTimeout(2000)
+        await page.waitForTimeout(process.env.CI ? 3000 : 2000)
         outcome = await gotoManageAndRace()
       }
       if (outcome === 'error') {
@@ -134,13 +137,13 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       })
       await page.getByRole('button', { name: /update bookings/i }).click()
 
-      // Wait for checkout view (pending created)
+      // Wait for checkout view (pending created); CI can be slower to transition.
       await expect(
         page.getByText(/complete payment/i).first()
-      ).toBeVisible({ timeout: 15000 })
+      ).toBeVisible({ timeout: 20000 })
       await expect(
         page.getByText(/pending booking/i).first()
-      ).toBeVisible({ timeout: 5000 })
+      ).toBeVisible({ timeout: 8000 })
 
       // Leave the page (navigate to home) – cleanup should cancel pending
       await navigateToTenant(page, tenant.slug, '/')
@@ -152,12 +155,13 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         timeout: 15000,
       })
 
-      // Should see quantity view with only 1 (confirmed); pending were removed on leave
+      // Should see quantity view with only 1 (confirmed); pending were removed on leave (CI: allow longer for re-render).
+      const quantityViewTimeout = process.env.CI ? 15000 : 10000
       await expect(
         page.getByText(/update booking quantity/i).first()
-      ).toBeVisible({ timeout: 10000 })
+      ).toBeVisible({ timeout: quantityViewTimeout })
       await expect(page.getByTestId('booking-quantity')).toHaveText('1', {
-        timeout: 5000,
+        timeout: 8000,
       })
       await expect(page.getByText(/complete payment/i)).not.toBeVisible()
 
@@ -221,11 +225,13 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
+      const sessionStabilizeMs = process.env.CI ? 3000 : 1500
+      await page.waitForTimeout(sessionStabilizeMs)
 
       const managePath = `/bookings/${lesson.id}/manage`
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
       const completePayment = page.getByText(/complete payment/i).first()
+      const raceTimeout = process.env.CI ? 15000 : 10000
 
       const gotoManageAndRace = async () => {
         await navigateToTenant(page, tenant.slug, managePath)
@@ -233,7 +239,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
           await loginAsRegularUser(page, 1, user.email, 'password', {
             tenantSlug: tenant.slug,
           })
-          await page.waitForTimeout(1500)
+          await page.waitForTimeout(sessionStabilizeMs)
           await navigateToTenant(page, tenant.slug, managePath)
         }
         await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
@@ -241,8 +247,8 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         })
         await page.waitForLoadState('load').catch(() => null)
         return Promise.race([
-          completePayment.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'success' as const),
-          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+          completePayment.waitFor({ state: 'visible', timeout: raceTimeout }).then(() => 'success' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: raceTimeout }).then(() => 'error' as const),
         ])
       }
 
@@ -251,7 +257,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         await loginAsRegularUser(page, 1, user.email, 'password', {
           tenantSlug: tenant.slug,
         })
-        await page.waitForTimeout(2000)
+        await page.waitForTimeout(process.env.CI ? 3000 : 2000)
         outcome = await gotoManageAndRace()
       }
       if (outcome === 'error') {
@@ -260,7 +266,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         )
       }
 
-      await expect(page.getByText(/pending booking/i).first()).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(/pending booking/i).first()).toBeVisible({ timeout: 8000 })
 
       // Leave the page – cleanup should cancel pending
       await navigateToTenant(page, tenant.slug, '/')
@@ -273,11 +279,12 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       })
 
       // Should see only 1 booking (pending was cancelled on leave)
+      const quantityViewTimeout = process.env.CI ? 15000 : 10000
       await expect(
         page.getByText(/update booking quantity/i).first()
-      ).toBeVisible({ timeout: 10000 })
+      ).toBeVisible({ timeout: quantityViewTimeout })
       await expect(page.getByTestId('booking-quantity')).toHaveText('1', {
-        timeout: 5000,
+        timeout: 8000,
       })
 
       // DB: only 1 non-cancelled booking

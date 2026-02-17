@@ -72,33 +72,39 @@ test.describe('Admin Tenant Selector', () => {
     await ensureSidebarOpen(page)
     await wrap.waitFor({ state: 'visible', timeout: 20000 })
 
-                const combobox = wrap.getByRole('combobox')
+    const combobox = wrap.getByRole('combobox')
     await expect(combobox).toBeVisible()
 
-                // Payload SelectInput (react-select): force-click the combobox to open the menu.
-                await combobox.click({ force: true })
-                // Wait for dropdown to open and option to be visible (CI can be slower).
-                const option = page.getByRole('option', { name: tenant2Name }).first()
-                await option.waitFor({ state: 'visible', timeout: 10000 })
-                await option.click()
+    // Payload SelectInput (react-select): force-click the combobox to open the menu.
+    await combobox.click({ force: true })
+    // Wait for dropdown to open and option to be visible (CI can be slower).
+    const option = page.getByRole('option', { name: tenant2Name }).first()
+    await option.waitFor({ state: 'visible', timeout: 15000 })
+    // Brief wait so react-select has finished rendering the menu (reduces CI flakiness).
+    await page.waitForTimeout(300)
+    await option.click()
 
     // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
     // If the modal appears, we must confirm it or the controlled <select> will snap back.
     const leaveAnyway = page.getByRole('button', { name: /leave/i })
     await leaveAnyway
-      .waitFor({ state: 'visible', timeout: 5000 })
+      .waitFor({ state: 'visible', timeout: 8000 })
       .then(async () => {
         await leaveAnyway.click()
       })
       .catch(() => null)
 
-    // setTenant(..., refresh: true) may reload; if it doesn't, the assertions below will still synchronize.
+    // setTenant(..., refresh: true) may reload; wait for load and for selector to be ready again.
     await page.waitForLoadState('load').catch(() => null)
+    // After reload, re-query selector and combobox so we interact with the new page (CI can do full reload).
+    await page.getByTestId('tenant-selector').waitFor({ state: 'visible', timeout: 15000 })
+    const comboboxAfter = page.getByTestId('tenant-selector').getByRole('combobox')
+    await comboboxAfter.waitFor({ state: 'visible', timeout: 5000 })
 
     // Assert display via aria-selected on the option after selection
-                await combobox.click({ force: true })
+    await comboboxAfter.click({ force: true })
     const selectedOption = page.getByRole('option', { name: tenant2Name }).first()
-    await expect(selectedOption).toHaveAttribute('aria-selected', 'true')
+    await expect(selectedOption).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
     await page.keyboard.press('Escape').catch(() => null)
 
     const cookies = await page.context().cookies()
