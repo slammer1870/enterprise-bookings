@@ -26,16 +26,28 @@ import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
 import { useTRPC } from "@repo/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { buildUTMCallbackUrl } from "@repo/shared-utils";
+import {
+  GoogleSignInButton,
+  type SignInWithGoogle,
+} from "./google-sign-in-button";
 
-export default function RegisterForm() {
+export default function RegisterForm({
+  signInWithGoogle,
+}: {
+  signInWithGoogle?: SignInWithGoogle | null;
+} = {}) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <RegisterFormContent />
+      <RegisterFormContent signInWithGoogle={signInWithGoogle} />
     </Suspense>
   );
 }
 
-function RegisterFormContent() {
+function RegisterFormContent({
+  signInWithGoogle,
+}: {
+  signInWithGoogle?: SignInWithGoogle | null;
+}) {
   const searchParams = useSearchParams();
   const callbackUrlRaw = searchParams?.get("callbackUrl") || "/";
   const searchParamsString = searchParams?.toString() || "";
@@ -158,6 +170,17 @@ function RegisterFormContent() {
                 ? "Submitting..."
                 : "Submit"}
             </Button>
+            <div className="relative my-4 flex items-center gap-2">
+              <span className="flex-1 border-t border-border" />
+              <span className="text-muted-foreground text-xs">— or —</span>
+              <span className="flex-1 border-t border-border" />
+            </div>
+            <GoogleSignInButton
+              callbackURL={callbackUrl}
+              signInWithGoogle={signInWithGoogle}
+              variant="register"
+              className="w-full"
+            />
           </form>
         </Form>
       </CardContent>

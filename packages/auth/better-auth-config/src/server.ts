@@ -76,6 +76,16 @@ export type BetterAuthServerConfig = {
      */
     enableOtherAuthEmails?: boolean;
   };
+
+  /**
+   * Optional social providers (e.g. Google). When set, OAuth sign-in is enabled.
+   */
+  socialProviders?: {
+    google?: {
+      clientId: string;
+      clientSecret: string;
+    };
+  };
 };
 
 export function createBetterAuthPlugins({
@@ -178,6 +188,9 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
   const options: any = {
     appName: config.appName,
     baseURL,
+    ...(config.socialProviders && Object.keys(config.socialProviders).length > 0
+      ? { socialProviders: config.socialProviders }
+      : {}),
     secret:
       process.env.BETTER_AUTH_SECRET ||
       process.env.PAYLOAD_SECRET ||

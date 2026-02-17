@@ -57,11 +57,17 @@ export const currentUser = async (): Promise<TypedUser | null> => {
   return user
 }
 
+/** Same condition as options.ts: Google OAuth only when both env vars are set */
+export const googleSignInEnabled = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+)
+
 export const getContextProps = (): {
   sessionPromise: Promise<Session | null>
   userAccountsPromise: Promise<Account[]>
   deviceSessionsPromise: Promise<DeviceSession[]>
   currentUserPromise: Promise<TypedUser | null>
+  googleSignInEnabled: boolean
 } => {
   const sessionPromise = getSession()
 
@@ -78,5 +84,11 @@ export const getContextProps = (): {
   })
 
   const currentUserPromise = currentUser()
-  return { sessionPromise, userAccountsPromise, deviceSessionsPromise, currentUserPromise }
+  return {
+    sessionPromise,
+    userAccountsPromise,
+    deviceSessionsPromise,
+    currentUserPromise,
+    googleSignInEnabled,
+  }
 }

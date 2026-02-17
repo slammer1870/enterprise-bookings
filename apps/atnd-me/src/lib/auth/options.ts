@@ -43,6 +43,16 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   },
   sessionExpiresInSeconds: 60 * 60 * 24 * 365, // 1 year
   sessionUpdateAgeSeconds: 60 * 60 * 24 * 30,  // refresh every 30 days of activity
+  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        socialProviders: {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          },
+        },
+      }
+    : {}),
 })
 
 export type ConstructedBetterAuthPluginOptions = typeof betterAuthPluginOptions

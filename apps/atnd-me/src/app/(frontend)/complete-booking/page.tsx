@@ -1,4 +1,4 @@
-import { RegisterLoginTabs } from '@repo/auth-next'
+import { RegisterLoginTabsWithAuth } from '@/components/RegisterLoginTabsWithAuth'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
@@ -7,7 +7,7 @@ export default async function CompleteBooking({ searchParams }: { searchParams: 
 
   return (
     <div className="h-screen flex flex-col items-center justify-center">
-      <RegisterLoginTabs value={mode as 'login' | 'register'} />
+      <RegisterLoginTabsWithAuth value={mode as 'login' | 'register'} />
     </div>
   )
 }

@@ -2,13 +2,19 @@ import type { Payload, PayloadRequest } from 'payload'
 import type { User, Lesson, Booking } from '@repo/shared-types'
 import type { Tenant, Scheduler, ClassOption, Instructor } from '@/payload-types'
 
+const SAUNA_TENANTS = [
+  { name: 'Dundrum', slug: 'dundrum', description: 'Sauna — Dublin South' },
+  { name: 'Greystones', slug: 'greystones', description: 'Sauna — Wicklow coast' },
+  { name: 'Tallaght', slug: 'tallaght', description: 'Sauna — Dublin South-West' },
+] as const
+
 /**
  * Deletes default data created by createDefaultTenantData hook for a specific tenant
  */
 async function deleteDefaultTenantData(
   tenantId: number | string,
   payload: Payload,
-  req: PayloadRequest
+  req: PayloadRequest,
 ) {
   const tenantReq = {
     ...req,
@@ -17,7 +23,6 @@ async function deleteDefaultTenantData(
 
   payload.logger.info(`  Deleting default data for tenant ${tenantId}...`)
 
-  // Delete default lessons first (they reference class options; FK constraint)
   try {
     const lessons = await payload.find({
       collection: 'lessons',
@@ -37,13 +42,11 @@ async function deleteDefaultTenantData(
         req: tenantReq,
         overrideAccess: true,
       })
-      payload.logger.info(`    Deleted lesson: ${lesson.id}`)
     }
   } catch (error) {
     payload.logger.warn(`    Could not delete default lessons: ${error}`)
   }
 
-  // Delete default class options (created by createDefaultTenantData hook)
   const defaultClassOptionPatterns = [
     `Yoga Class ${tenantId}`,
     `Fitness Class ${tenantId}`,
@@ -70,7 +73,6 @@ async function deleteDefaultTenantData(
           req: tenantReq,
           overrideAccess: true,
         })
-        payload.logger.info(`    Deleted class option: ${pattern}`)
       }
     } catch (error) {
       payload.logger.warn(`    Could not delete class option ${pattern}: ${error}`)
@@ -79,14 +81,8 @@ async function deleteDefaultTenantData(
 }
 
 /**
- * Seeds booking-related data for manual testing with multi-tenant support
- * Creates:
- * - Test tenants (2 tenants for testing isolation)
- * - Test users (admin, tenant-admin, and regular users)
- * - Instructors (scoped to tenants)
- * - Class options (scoped to tenants)
- * - Lessons (various states: active, fully booked, upcoming, past) - scoped to tenants
- * - Bookings (various states: confirmed, pending, cancelled, waiting) - scoped to tenants
+ * Seeds booking data for sauna demo: Dundrum, Greystones, Tallaght.
+ * Creates tenants, admin user, demo users, instructors, class options, lessons, bookings.
  */
 export async function seedBookings({
   payload,
@@ -102,10 +98,8 @@ export async function seedBookings({
   lessons: Lesson[]
   bookings: Booking[]
 }> {
-  payload.logger.info('— Seeding booking data with multi-tenant support...')
+  payload.logger.info('— Seeding sauna demo (Dundrum, Greystones, Tallaght)...')
 
-  // Clear existing booking data in order to respect foreign key constraints
-  // Order: transactions -> bookings -> lessons -> class-options -> instructors
   payload.logger.info('  Clearing existing booking data...')
   try {
     await payload.db.deleteMany({ collection: 'transactions', req, where: {} })
@@ -117,13 +111,11 @@ export async function seedBookings({
   } catch (e) {
     payload.logger.warn(`  Could not delete bookings: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
-  
   try {
     await payload.db.deleteMany({ collection: 'lessons', req, where: {} })
   } catch (e) {
     payload.logger.warn(`  Could not delete lessons: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
-  
   try {
     await payload.db.deleteMany({ collection: 'class-options', req, where: {} })
   } catch (e) {
@@ -145,1035 +137,357 @@ export async function seedBookings({
     payload.logger.warn(`  Could not delete instructors: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
 
-  // Note: We don't delete existing tenants here because they may have foreign key constraints
-  // Instead, we'll update them if they exist (see tenant creation below)
-  payload.logger.info('  Checking for existing test tenants...')
-
-  // Delete existing test users if they exist (to avoid email conflicts)
-  payload.logger.info('  Cleaning up existing test users...')
-  const testUserEmails = ['admin@test.com', 'user1@test.com', 'user2@test.com', 'user3@test.com', 'tenant-admin@test.com']
-  for (const email of testUserEmails) {
+  const demoUserEmails = ['admin@test.com', 'demo1@test.com', 'demo2@test.com', 'demo3@test.com', 'demo4@test.com', 'demo5@test.com']
+  for (const email of demoUserEmails) {
     try {
-      const existingUsers = await payload.find({
+      const existing = await payload.find({
         collection: 'users',
-        where: {
-          email: {
-            equals: email.toLowerCase(),
-          },
-        },
+        where: { email: { equals: email.toLowerCase() } },
         limit: 1,
         overrideAccess: true,
       })
-      
-      const existingUser = existingUsers.docs[0]
-      if (existingUser) {
-        await payload.delete({
-          collection: 'users',
-          id: existingUser.id,
-          overrideAccess: true,
-        })
+      if (existing.docs[0]) {
+        await payload.delete({ collection: 'users', id: existing.docs[0].id, overrideAccess: true })
       }
     } catch (e) {
-      // Ignore errors if user doesn't exist or deletion fails
-      payload.logger.warn(`  Could not delete user ${email}: ${e instanceof Error ? e.message : 'Unknown error'}`)
+      payload.logger.warn(`  Could not delete user ${email}: ${e}`)
     }
   }
 
-  // Create or update test tenants (use upsert pattern to handle existing tenants)
-  payload.logger.info('  Creating test tenants...')
-  const tenant1Data = {
-    name: 'Flow Yoga & Fitness',
-    slug: 'flow-yoga-fitness',
-    description: 'Yoga and fitness studio with Stripe Connect; use for payment and class-pass testing.',
-  }
-  const tenant2Data = {
-    name: 'Pilates & Stretch Co.',
-    slug: 'pilates-stretch-co',
-    description: 'Pilates studio without Stripe; class passes and pay-at-door only for isolation testing.',
-  }
-  const croiLanSaunaData = {
-    name: 'Croí Lán Sauna',
-    slug: 'croi-lan-sauna',
-    description: 'A sauna experience in the heart of Wicklow\'s countryside',
-  }
-
-  // Find existing tenants by slug (support legacy demo slugs for upsert)
-  const existingTenant1 = await payload.find({
-    collection: 'tenants',
-    where: {
-      slug: { in: [tenant1Data.slug, 'demo-tenant-1'] },
-    },
-    limit: 1,
-    overrideAccess: true,
-  })
-  const existingTenant2 = await payload.find({
-    collection: 'tenants',
-    where: {
-      slug: { in: [tenant2Data.slug, 'demo-tenant-2'] },
-    },
-    limit: 1,
-    overrideAccess: true,
-  })
-
-  const existingCroiLanSauna = await payload.find({
-    collection: 'tenants',
-    where: {
-      slug: {
-        equals: croiLanSaunaData.slug,
-      },
-    },
-    limit: 1,
-    overrideAccess: true,
-  })
-
-  // Create or update tenants
-  const tenants = await Promise.all([
-    existingTenant1.docs[0]
-      ? payload.update({
-          collection: 'tenants',
-          id: existingTenant1.docs[0].id,
-          data: tenant1Data,
-          overrideAccess: true,
-        })
-      : payload.create({
-          collection: 'tenants',
-          data: tenant1Data,
-          overrideAccess: true,
-        }),
-    existingTenant2.docs[0]
-      ? payload.update({
-          collection: 'tenants',
-          id: existingTenant2.docs[0].id,
-          data: tenant2Data,
-          overrideAccess: true,
-        })
-      : payload.create({
-          collection: 'tenants',
-          data: tenant2Data,
-          overrideAccess: true,
-        }),
-    existingCroiLanSauna.docs[0]
-      ? payload.update({
-          collection: 'tenants',
-          id: existingCroiLanSauna.docs[0].id,
-          data: croiLanSaunaData,
-          overrideAccess: true,
-        })
-      : payload.create({
-          collection: 'tenants',
-          data: croiLanSaunaData,
-          overrideAccess: true,
-        }),
-  ])
-
-  const tenant1 = tenants[0] as Tenant
-  const tenant2 = tenants[1] as Tenant
-  const croiLanSaunaTenant = tenants[2] as Tenant
-
-  // Enable Stripe Connect for Flow Yoga & Fitness and Croí Lán Sauna (Pilates & Stretch has no Stripe)
-  payload.logger.info('  Enabling Stripe Connect (seed) for Flow Yoga & Fitness and Croí Lán Sauna...')
-  await Promise.all([
-    payload.update({
-      collection: 'tenants',
-      id: tenant1.id,
-      data: {
-        stripeConnectAccountId: 'acct_seed_demo_1',
-        stripeConnectOnboardingStatus: 'active',
-        stripeConnectConnectedAt: new Date().toISOString(),
-      },
-      overrideAccess: true,
-    }),
-    payload.update({
-      collection: 'tenants',
-      id: croiLanSaunaTenant.id,
-      data: {
-        stripeConnectAccountId: 'acct_seed_croi_lan',
-        stripeConnectOnboardingStatus: 'active',
-        stripeConnectConnectedAt: new Date().toISOString(),
-      },
-      overrideAccess: true,
-    }),
-  ])
-
-  // Wait for createDefaultTenantData hook (runs on tenant create), then remove generic default
-  // class options/lessons so we only have our payment-variety options for manual testing.
-  payload.logger.info('  Waiting for default tenant data hook, then clearing generic defaults...')
-  await new Promise((resolve) => setTimeout(resolve, 2000))
-  await deleteDefaultTenantData(tenant1.id, payload, req)
-  await deleteDefaultTenantData(tenant2.id, payload, req)
-  await deleteDefaultTenantData(croiLanSaunaTenant.id, payload, req)
-
-  // Helper function to create tenant-scoped documents with tenant context
   const createWithTenant = async <T = unknown>(
     collection: string,
     data: Record<string, unknown>,
     tenantId: number | string,
-    options?: Omit<Parameters<typeof payload.create>[0], 'collection' | 'data' | 'req'>
+    options?: Omit<Parameters<typeof payload.create>[0], 'collection' | 'data' | 'req'>,
   ): Promise<T> => {
-    const tenantReq = {
-      ...req,
-      context: { ...req.context, tenant: tenantId },
-    }
-    // Explicitly set tenant in data as well (multi-tenant plugin may need it)
-    const dataWithTenant = {
-      ...data,
-      tenant: tenantId,
-    }
+    const tenantReq = { ...req, context: { ...req.context, tenant: tenantId } }
     return payload.create({
       collection,
-      data: dataWithTenant,
+      data: { ...data, tenant: tenantId },
       req: tenantReq,
       ...options,
     } as Parameters<typeof payload.create>[0]) as Promise<T>
   }
 
-  // Create or update test users
-  payload.logger.info('  Creating test users...')
-  const testUserData = [
-    { name: 'Admin User', email: 'admin@test.com', roles: ['admin'] as ('admin' | 'user' | 'tenant-admin')[] },
-    { name: 'Test User 1', email: 'user1@test.com', roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
-    { name: 'Test User 2', email: 'user2@test.com', roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
-    { name: 'Test User 3', email: 'user3@test.com', roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[] },
+  const getId = (item: unknown): number | string => {
+    if (!item) return ''
+    return typeof item === 'object' && item !== null && 'id' in item
+      ? (item as { id: number | string }).id
+      : (item as number | string)
+  }
+
+  payload.logger.info('  Creating tenants...')
+  const tenants: Tenant[] = []
+  const defaultAllowedBlocks: NonNullable<Tenant['allowedBlocks']> = [
+    'threeColumnLayout',
+    'location',
+    'faqs',
   ]
-
-  const testUsers = await Promise.all(
-    testUserData.map(async (userData) => {
-      // Check if user already exists
-      const existingUser = await payload.find({
-        collection: 'users',
-        where: {
-          email: {
-            equals: userData.email.toLowerCase(),
-          },
-        },
-        limit: 1,
-        overrideAccess: true,
-      })
-
-      const userPayload = {
-        name: userData.name,
-        email: userData.email.toLowerCase(),
-        password: 'password',
-        emailVerified: true,
-        // `role` is an array in Payload types (Better Auth schema); keep it aligned with `roles`.
-        role: userData.roles,
-        roles: userData.roles,
-      }
-
-      return existingUser.docs[0]
-        ? await payload.update({
-            collection: 'users',
-            id: existingUser.docs[0].id,
-            data: userPayload,
-            draft: false,
-            overrideAccess: true,
-          })
-        : await payload.create({
-            collection: 'users',
-            data: userPayload,
-            draft: false,
-            overrideAccess: true,
-          })
+  const tenantDataWithBlocks = SAUNA_TENANTS.map((t) => ({
+    ...t,
+    allowedBlocks: defaultAllowedBlocks,
+  }))
+  for (const t of tenantDataWithBlocks) {
+    const existing = await payload.find({
+      collection: 'tenants',
+      where: { slug: { equals: t.slug } },
+      limit: 1,
+      overrideAccess: true,
     })
-  )
+    const tenant = existing.docs[0]
+      ? await payload.update({
+          collection: 'tenants',
+          id: existing.docs[0].id,
+          data: t,
+          overrideAccess: true,
+        })
+      : await payload.create({
+          collection: 'tenants',
+          data: t,
+          overrideAccess: true,
+        })
+    tenants.push(tenant as Tenant)
+  }
 
-  // Create or update tenant-admin user for tenant1
-  payload.logger.info('  Creating tenant-admin user...')
-  const tenantAdminEmail = 'tenant-admin@test.com'.toLowerCase()
-  
-  // Check if tenant-admin user already exists
-  const existingTenantAdmin = await payload.find({
-    collection: 'users',
-    where: {
-      email: {
-        equals: tenantAdminEmail,
+  payload.logger.info('  Enabling Stripe Connect for all tenants...')
+  for (const t of tenants) {
+    await payload.update({
+      collection: 'tenants',
+      id: t.id,
+      data: {
+        stripeConnectAccountId: `acct_seed_${(t as { slug?: string }).slug ?? t.id}`,
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectConnectedAt: new Date().toISOString(),
       },
+      overrideAccess: true,
+    })
+  }
+
+  payload.logger.info('  Waiting for createDefaultTenantData hook...')
+  await new Promise((r) => setTimeout(r, 2000))
+  for (const t of tenants) {
+    await deleteDefaultTenantData(t.id, payload, req)
+  }
+
+  payload.logger.info('  Creating admin and demo users...')
+  const adminUser = await payload.create({
+    collection: 'users',
+    data: {
+      name: 'Admin User',
+      email: 'admin@test.com',
+      password: 'password',
+      emailVerified: true,
+      role: ['admin'],
+      roles: ['admin'],
     },
-    limit: 1,
+    draft: false,
     overrideAccess: true,
   })
 
-      const tenantAdminData = {
-        name: 'Tenant Admin',
-        email: tenantAdminEmail,
+  const demoUsers: { id: number }[] = []
+  for (let i = 1; i <= 5; i++) {
+    const u = await payload.create({
+      collection: 'users',
+      data: {
+        name: `Demo User ${i}`,
+        email: `demo${i}@test.com`,
         password: 'password',
         emailVerified: true,
-        role: ['tenant-admin'] as ('admin' | 'user' | 'tenant-admin')[],
-        roles: ['tenant-admin'] as ('admin' | 'user' | 'tenant-admin')[],
-        // Assign tenant-admin to tenant1
-        tenants: [{ tenant: tenant1.id }],
-      }
+        role: ['user'],
+        roles: ['user'],
+      },
+      draft: false,
+      overrideAccess: true,
+    })
+    demoUsers.push({ id: u.id as number })
+  }
 
-  const tenantAdminUser = existingTenantAdmin.docs[0]
-    ? await payload.update({
-        collection: 'users',
-        id: existingTenantAdmin.docs[0].id,
-        data: tenantAdminData as Record<string, unknown>,
-        draft: false,
-        overrideAccess: true,
-      })
-    : await payload.create({
-        collection: 'users',
-        data: tenantAdminData,
-        draft: false,
-        overrideAccess: true,
-      })
+  const allLessons: Lesson[] = []
+  const allBookings: Booking[] = []
+  const allClassOptions: ClassOption[] = []
+  const allInstructors: Instructor[] = []
 
-  // Create instructor users first
-  payload.logger.info('  Creating instructor users...')
-  const instructorUserEmails = ['john@instructor.com', 'jane@instructor.com']
-  
-  // Delete existing instructor users if they exist
-  const allInstructorEmails = [...instructorUserEmails, 'tenant2@instructor.com']
-  for (const email of allInstructorEmails) {
-    try {
-      const existingUsers = await payload.find({
+  const now = new Date()
+
+  for (const tenant of tenants) {
+    payload.logger.info(`  Seeding tenant: ${tenant.name}...`)
+
+    const instructorEmail = `${(tenant as { slug?: string }).slug}@instructor.com`.toLowerCase()
+    let instructorUser = await payload.find({
+      collection: 'users',
+      where: { email: { equals: instructorEmail } },
+      limit: 1,
+      overrideAccess: true,
+    }).then((r) => r.docs[0])
+
+    if (!instructorUser) {
+      instructorUser = await payload.create({
         collection: 'users',
-        where: {
-          email: {
-            equals: email.toLowerCase(),
-          },
+        data: {
+          name: `${tenant.name} Instructor`,
+          email: instructorEmail,
+          password: 'password',
+          emailVerified: true,
+          role: ['user'],
+          roles: ['user'],
         },
-        limit: 1,
+        draft: false,
         overrideAccess: true,
       })
-      
-      const existingUser = existingUsers.docs[0]
-      if (existingUser) {
-        await payload.delete({
-          collection: 'users',
-          id: existingUser.id,
-          overrideAccess: true,
-        })
+    }
+
+    const instructor = await createWithTenant(
+      'instructors',
+      { user: instructorUser.id, active: true },
+      tenant.id,
+      { overrideAccess: true },
+    )
+    allInstructors.push(instructor as Instructor)
+    const instructorId = getId(instructor)
+
+    const saunaOnly = await createWithTenant(
+      'class-pass-types',
+      {
+        name: 'Sauna Only',
+        slug: `sauna-only-${tenant.id}`,
+        description: 'Valid for sauna sessions only',
+        quantity: 10,
+      },
+      tenant.id,
+      { overrideAccess: true },
+    )
+    const allAccess = await createWithTenant(
+      'class-pass-types',
+      {
+        name: 'All Access',
+        slug: `all-access-${tenant.id}`,
+        description: 'Valid for all sessions',
+        quantity: 10,
+      },
+      tenant.id,
+      { overrideAccess: true },
+    )
+    const saunaOnlyId = getId(saunaOnly)
+    const allAccessId = getId(allAccess)
+
+    const opt50 = await createWithTenant(
+      'class-options',
+      {
+        name: 'Wood fired sauna (50 min)',
+        places: 12,
+        description: '50-minute sauna. Pay by card or use Sauna Only / All Access pass.',
+        paymentMethods: { allowedClassPasses: [saunaOnlyId, allAccessId] },
+      },
+      tenant.id,
+      { draft: false, overrideAccess: true },
+    )
+    const opt30 = await createWithTenant(
+      'class-options',
+      {
+        name: 'Wood fired sauna (30 min)',
+        places: 8,
+        description: '30-minute sauna. Sauna Only or All Access pass only.',
+        paymentMethods: { allowedClassPasses: [saunaOnlyId, allAccessId] },
+      },
+      tenant.id,
+      { draft: false, overrideAccess: true },
+    )
+    allClassOptions.push(opt50 as ClassOption, opt30 as ClassOption)
+    const opt50Id = getId(opt50)
+
+    const pastLessons: { id: number }[] = []
+    for (let d = 1; d <= 21; d++) {
+      const lessonDate = new Date(now)
+      lessonDate.setDate(lessonDate.getDate() - d)
+      lessonDate.setHours(17, 0, 0, 0)
+      const endDate = new Date(lessonDate)
+      endDate.setHours(17, 50, 0, 0)
+      const lesson = await createWithTenant(
+        'lessons',
+        {
+          date: lessonDate.toISOString(),
+          startTime: lessonDate.toISOString(),
+          endTime: endDate.toISOString(),
+          classOption: opt50Id,
+          location: 'Sauna 1',
+          active: true,
+          lockOutTime: 30,
+        },
+        tenant.id,
+        { draft: false, overrideAccess: true },
+      )
+      pastLessons.push({ id: (lesson as { id: number }).id })
+      allLessons.push(lesson as Lesson)
+    }
+
+    const upcomingLessons: { id: number }[] = []
+    for (let d = 1; d <= 7; d++) {
+      const lessonDate = new Date(now)
+      lessonDate.setDate(lessonDate.getDate() + d)
+      lessonDate.setHours(17, 0, 0, 0)
+      const endDate = new Date(lessonDate)
+      endDate.setHours(17, 50, 0, 0)
+      const lesson = await createWithTenant(
+        'lessons',
+        {
+          date: lessonDate.toISOString(),
+          startTime: lessonDate.toISOString(),
+          endTime: endDate.toISOString(),
+          classOption: opt50Id,
+          location: 'Sauna 1',
+          active: true,
+          lockOutTime: 30,
+        },
+        tenant.id,
+        { draft: false, overrideAccess: true },
+      )
+      upcomingLessons.push({ id: (lesson as { id: number }).id })
+      allLessons.push(lesson as Lesson)
+    }
+
+    const bookingCount = tenant.slug === 'dundrum' ? 45 : tenant.slug === 'greystones' ? 32 : 28
+    const lessonPool = [...pastLessons, ...upcomingLessons]
+
+    // Build a weighted day distribution for realistic graph variation:
+    // - Spread over last 63 days (9 weeks) for analytics presets (7, 30, 91 days)
+    // - Weekends (Sat/Sun) get ~1.5x weight
+    // - Deterministic per-day variation (hash of day + tenant) for reproducibility
+    const daysBack = 63
+    const seedOffset = (tenant.slug === 'dundrum' ? 0 : tenant.slug === 'greystones' ? 1000 : 2000)
+    const weights: number[] = []
+    for (let d = 0; d < daysBack; d++) {
+      const date = new Date(now)
+      date.setDate(date.getDate() - d)
+      const dayOfWeek = date.getDay()
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+      const baseWeight = isWeekend ? 1.5 : 1
+      const pseudoRandom = 0.5 + 0.5 * (Math.abs(Math.sin((d + seedOffset) * 12.9898) * 43758.5453) % 1)
+      weights.push(baseWeight * pseudoRandom)
+    }
+    const totalWeight = weights.reduce((a, b) => a + b, 0)
+
+    // Allocate bookings to days proportionally, with remainder distributed to highest-weight days
+    const bookingsPerDay: number[] = new Array(daysBack).fill(0)
+    let allocated = 0
+    for (let d = 0; d < daysBack; d++) {
+      const w = weights[d]!
+      const share = (w / totalWeight) * bookingCount
+      const count = Math.floor(share)
+      bookingsPerDay[d] = count
+      allocated += count
+    }
+    const remainder = bookingCount - allocated
+    const sortedByWeight = weights
+      .map((w, i) => [i, w] as const)
+      .sort((a, b) => b[1] - a[1])
+    for (let r = 0; r < remainder; r++) {
+      const idx = sortedByWeight[r]![0]
+      const current = bookingsPerDay[idx] ?? 0
+      bookingsPerDay[idx] = current + 1
+    }
+
+    let bookingIndex = 0
+    for (let d = 0; d < daysBack && bookingIndex < bookingCount; d++) {
+      const perDay = bookingsPerDay[d] ?? 0
+      for (let c = 0; c < perDay && bookingIndex < bookingCount; c++) {
+        const lesson = lessonPool[bookingIndex % lessonPool.length]
+        const user = demoUsers[bookingIndex % demoUsers.length]
+        if (!lesson || !user) continue
+        const bookingDate = new Date(now)
+        bookingDate.setDate(bookingDate.getDate() - d)
+        const b = await createWithTenant(
+          'bookings',
+          {
+            user: user.id,
+            lesson: lesson.id,
+            status: 'confirmed',
+            createdAt: bookingDate.toISOString(),
+          },
+          tenant.id,
+          { draft: false, overrideAccess: true },
+        )
+        allBookings.push(b as Booking)
+        bookingIndex++
       }
-    } catch (_e) {
-      // Ignore errors
     }
   }
 
-  const instructorUsers = await Promise.all([
-    payload.create({
-      collection: 'users',
-      data: {
-        name: 'John Instructor',
-        email: 'john@instructor.com'.toLowerCase(),
-        password: 'password',
-        emailVerified: true,
-        role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-        roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-      },
-      draft: false,
-      overrideAccess: true,
-    }),
-    payload.create({
-      collection: 'users',
-      data: {
-        name: 'Jane Instructor',
-        email: 'jane@instructor.com'.toLowerCase(),
-        password: 'password',
-        emailVerified: true,
-        role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-        roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-      },
-      draft: false,
-      overrideAccess: true,
-    }),
-  ])
-
-  payload.logger.info('  Creating instructors for Flow Yoga & Fitness...')
-  const instructor1User = instructorUsers[0]
-  const instructor1UserId = instructor1User && typeof instructor1User === 'object' && 'id' in instructor1User 
-    ? instructor1User.id 
-    : instructor1User
-  const instructor2User = instructorUsers[1]
-  const instructor2UserId = instructor2User && typeof instructor2User === 'object' && 'id' in instructor2User 
-    ? instructor2User.id 
-    : instructor2User
-  
-  if (!instructor1UserId) throw new Error('Instructor 1 user not found')
-  if (!instructor2UserId) throw new Error('Instructor 2 user not found')
-  
-  const instructors = await Promise.all([
-    createWithTenant(
-      'instructors',
-      {
-        user: instructor1UserId,
-        active: true,
-      },
-      tenant1.id,
-      { overrideAccess: true }
-    ),
-    createWithTenant(
-      'instructors',
-      {
-        user: instructor2UserId,
-        active: true,
-      },
-      tenant1.id,
-      { overrideAccess: true }
-    ),
-  ])
-
-  // Create instructors for Pilates & Stretch Co. (tenant2) — for isolation testing
-  payload.logger.info('  Creating instructor user for Pilates & Stretch Co....')
-  const tenant2InstructorEmail = 'tenant2@instructor.com'.toLowerCase()
-  
-  // Check if tenant2 instructor user already exists
-  const existingTenant2Instructor = await payload.find({
-    collection: 'users',
-    where: {
-      email: {
-        equals: tenant2InstructorEmail,
-      },
-    },
-    limit: 1,
-    overrideAccess: true,
-  })
-
-      const tenant2InstructorData = {
-        name: 'Maya Chen',
-        email: tenant2InstructorEmail,
-        password: 'password',
-        emailVerified: true,
-        role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-        roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-      }
-
-  const tenant2InstructorUser = existingTenant2Instructor.docs[0]
-    ? await payload.update({
-        collection: 'users',
-        id: existingTenant2Instructor.docs[0].id,
-        data: tenant2InstructorData,
-        draft: false,
-        overrideAccess: true,
-      })
-    : await payload.create({
-        collection: 'users',
-        data: tenant2InstructorData,
-        draft: false,
-        overrideAccess: true,
-      })
-
-  payload.logger.info('  Creating instructors for Pilates & Stretch Co....')
-  const tenant2InstructorUserId = tenant2InstructorUser && typeof tenant2InstructorUser === 'object' && 'id' in tenant2InstructorUser 
-    ? tenant2InstructorUser.id 
-    : tenant2InstructorUser
-  if (!tenant2InstructorUserId) throw new Error('Tenant2 instructor user not found')
-  
-  const tenant2Instructors = await Promise.all([
-    createWithTenant(
-      'instructors',
-      {
-        user: tenant2InstructorUserId,
-        active: true,
-      },
-      tenant2.id,
-      { overrideAccess: true }
-    ),
-  ])
-
-  // Create class-pass-types for Flow Yoga & Fitness (tenant1)
-  payload.logger.info('  Creating class-pass-types for Flow Yoga & Fitness...')
-  const t1FitnessType = await createWithTenant(
-    'class-pass-types',
-    { name: 'Fitness Only', slug: `t1-fitness-only-${tenant1.id}`, description: 'Valid for fitness classes only', quantity: 10 },
-    tenant1.id,
-    { overrideAccess: true }
+  payload.logger.info(
+    `  Created: ${tenants.length} tenants, ${1 + demoUsers.length} users, ${allInstructors.length} instructors, ${allClassOptions.length} class options, ${allLessons.length} lessons, ${allBookings.length} bookings`,
   )
-  const t1AllAccessType = await createWithTenant(
-    'class-pass-types',
-    { name: 'All Access', slug: `t1-all-access-${tenant1.id}`, description: 'Valid for all class types', quantity: 10 },
-    tenant1.id,
-    { overrideAccess: true }
-  )
-  const t1FitnessId = t1FitnessType && typeof t1FitnessType === 'object' && 'id' in t1FitnessType ? (t1FitnessType as { id: number }).id : t1FitnessType
-  const t1AllAccessId = t1AllAccessType && typeof t1AllAccessType === 'object' && 'id' in t1AllAccessType ? (t1AllAccessType as { id: number }).id : t1AllAccessType
-  if (!t1FitnessId || !t1AllAccessId) throw new Error('Flow Yoga & Fitness class-pass-types not created')
-
-  // Create class options for Flow Yoga & Fitness — names state payment methods for manual testers
-  payload.logger.info('  Creating class options for Flow Yoga & Fitness...')
-  const classOptions = await Promise.all([
-    createWithTenant(
-      'class-options',
-      {
-        name: 'Yoga — Stripe + Class Pass',
-        places: 10,
-        description: 'Yoga, all levels. Pay by card (Stripe) or use Fitness Only / All Access pass.',
-        paymentMethods: { allowedClassPasses: [t1FitnessId, t1AllAccessId] },
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    ),
-    createWithTenant(
-      'class-options',
-      {
-        name: 'Fitness — Stripe only',
-        places: 15,
-        description: 'High-intensity fitness. Card payment only; no class passes.',
-        paymentMethods: { allowedClassPasses: [] },
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    ),
-    createWithTenant(
-      'class-options',
-      {
-        name: 'Small Group — Class Pass only',
-        places: 5,
-        description: 'Small group session. Fitness Only or All Access pass only; no drop-in payment.',
-        paymentMethods: { allowedClassPasses: [t1FitnessId, t1AllAccessId] },
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    ),
-    createWithTenant(
-      'class-options',
-      {
-        name: 'Drop-in — No payments (pay at door)',
-        places: 8,
-        description: 'Pay at the door. No Stripe, no class pass.',
-        paymentMethods: { allowedClassPasses: [] },
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    ),
-  ])
-
-  // Create lessons with various states
-  payload.logger.info('  Creating lessons...')
-  const now = new Date()
-  const lessons: Lesson[] = []
-
-  // Extract IDs from class options and instructors
-  const classOption0 = classOptions[0]
-  const classOption0Id = classOption0 && typeof classOption0 === 'object' && 'id' in classOption0 ? classOption0.id : classOption0
-  const classOption1 = classOptions[1]
-  const classOption1Id = classOption1 && typeof classOption1 === 'object' && 'id' in classOption1 ? classOption1.id : classOption1
-  const classOption2 = classOptions[2]
-  const classOption2Id = classOption2 && typeof classOption2 === 'object' && 'id' in classOption2 ? classOption2.id : classOption2
-  
-  const instructor0 = instructors[0]
-  const instructor0Id = instructor0 && typeof instructor0 === 'object' && 'id' in instructor0 ? instructor0.id : instructor0
-  const instructor1 = instructors[1]
-  const instructor1Id = instructor1 && typeof instructor1 === 'object' && 'id' in instructor1 ? instructor1.id : instructor1
-  
-  if (!classOption0Id || !classOption1Id || !classOption2Id) throw new Error('Class options not found')
-  if (!instructor0Id || !instructor1Id) throw new Error('Instructors not found')
-
-  // Past lesson (for history)
-  const pastLessonDate = new Date(now)
-  pastLessonDate.setDate(pastLessonDate.getDate() - 2)
-  pastLessonDate.setHours(10, 0, 0, 0)
-  const pastLessonEnd = new Date(pastLessonDate)
-  pastLessonEnd.setHours(11, 0, 0, 0)
-
-  const pastLesson = await createWithTenant(
-    'lessons',
-    {
-      date: pastLessonDate.toISOString(),
-      startTime: pastLessonDate.toISOString(),
-      endTime: pastLessonEnd.toISOString(),
-      classOption: classOption0Id,
-      location: 'Studio A',
-      instructor: instructor0Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(pastLesson as Lesson)
-
-  // Active lesson (available for booking)
-  const activeLessonDate = new Date(now)
-  activeLessonDate.setDate(activeLessonDate.getDate() + 1)
-  activeLessonDate.setHours(14, 0, 0, 0)
-  const activeLessonEnd = new Date(activeLessonDate)
-  activeLessonEnd.setHours(15, 0, 0, 0)
-
-  const activeLesson = await createWithTenant(
-    'lessons',
-    {
-      date: activeLessonDate.toISOString(),
-      startTime: activeLessonDate.toISOString(),
-      endTime: activeLessonEnd.toISOString(),
-      classOption: classOption0Id,
-      location: 'Studio A',
-      instructor: instructor0Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(activeLesson as Lesson)
-
-  // Lesson with some bookings (partially booked)
-  const partiallyBookedDate = new Date(now)
-  partiallyBookedDate.setDate(partiallyBookedDate.getDate() + 2)
-  partiallyBookedDate.setHours(16, 0, 0, 0)
-  const partiallyBookedEnd = new Date(partiallyBookedDate)
-  partiallyBookedEnd.setHours(17, 0, 0, 0)
-
-  const partiallyBookedLesson = await createWithTenant(
-    'lessons',
-    {
-      date: partiallyBookedDate.toISOString(),
-      startTime: partiallyBookedDate.toISOString(),
-      endTime: partiallyBookedEnd.toISOString(),
-      classOption: classOption1Id,
-      location: 'Studio B',
-      instructor: instructor1Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(partiallyBookedLesson as Lesson)
-
-  // Fully booked lesson
-  const fullyBookedDate = new Date(now)
-  fullyBookedDate.setDate(fullyBookedDate.getDate() + 3)
-  fullyBookedDate.setHours(10, 0, 0, 0)
-  const fullyBookedEnd = new Date(fullyBookedDate)
-  fullyBookedEnd.setHours(11, 0, 0, 0)
-
-  const fullyBookedLesson = await createWithTenant(
-    'lessons',
-    {
-      date: fullyBookedDate.toISOString(),
-      startTime: fullyBookedDate.toISOString(),
-      endTime: fullyBookedEnd.toISOString(),
-      classOption: classOption2Id, // Small group (5 places)
-      location: 'Studio C',
-      instructor: instructor0Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(fullyBookedLesson as Lesson)
-
-  // Upcoming lesson (for future booking)
-  const upcomingDate = new Date(now)
-  upcomingDate.setDate(upcomingDate.getDate() + 5)
-  upcomingDate.setHours(18, 0, 0, 0)
-  const upcomingEnd = new Date(upcomingDate)
-  upcomingEnd.setHours(19, 0, 0, 0)
-
-  const upcomingLesson = await createWithTenant(
-    'lessons',
-    {
-      date: upcomingDate.toISOString(),
-      startTime: upcomingDate.toISOString(),
-      endTime: upcomingEnd.toISOString(),
-      classOption: classOption0Id,
-      location: 'Studio A',
-      instructor: instructor1Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(upcomingLesson as Lesson)
-
-  // Lesson for managing bookings (user has multiple bookings)
-  const manageBookingsDate = new Date(now)
-  manageBookingsDate.setDate(manageBookingsDate.getDate() + 4)
-  manageBookingsDate.setHours(12, 0, 0, 0)
-  const manageBookingsEnd = new Date(manageBookingsDate)
-  manageBookingsEnd.setHours(13, 0, 0, 0)
-
-  const manageBookingsLesson = await createWithTenant(
-    'lessons',
-    {
-      date: manageBookingsDate.toISOString(),
-      startTime: manageBookingsDate.toISOString(),
-      endTime: manageBookingsEnd.toISOString(),
-      classOption: classOption1Id,
-      location: 'Studio B',
-      instructor: instructor0Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(manageBookingsLesson as Lesson)
-
-  payload.logger.info('  Creating class-pass-types for Pilates & Stretch Co....')
-  const t2AllAccessType = await createWithTenant(
-    'class-pass-types',
-    { name: 'All Access', slug: `t2-all-access-${tenant2.id}`, description: 'Valid for all class types', quantity: 10 },
-    tenant2.id,
-    { overrideAccess: true }
-  )
-  const t2AllAccessId = t2AllAccessType && typeof t2AllAccessType === 'object' && 'id' in t2AllAccessType ? (t2AllAccessType as { id: number }).id : t2AllAccessType
-  if (!t2AllAccessId) throw new Error('Tenant2 class-pass-type not created')
-
-  // Create class options for Pilates & Stretch Co. (tenant2) — no Stripe Connect, so no payment methods
-  payload.logger.info('  Creating class options for Pilates & Stretch Co....')
-  const tenant2ClassOptions = await Promise.all([
-    createWithTenant(
-      'class-options',
-      {
-        name: 'Pilates — No Stripe (pay at door)',
-        places: 10,
-        description: 'Pilates class. No Stripe Connect; pay at door or add Connect later for class passes.',
-        paymentMethods: { allowedClassPasses: [] },
-      },
-      tenant2.id,
-      { draft: false, overrideAccess: true }
-    ),
-    createWithTenant(
-      'class-options',
-      {
-        name: 'Stretch — No payments (pay at door)',
-        places: 8,
-        description: 'Stretch class. Pay at the door only; no Stripe, no class pass.',
-        paymentMethods: { allowedClassPasses: [] },
-      },
-      tenant2.id,
-      { draft: false, overrideAccess: true }
-    ),
-  ])
-  const tenant2ClassOption = tenant2ClassOptions[0]
-
-  payload.logger.info('  Creating lesson for Pilates & Stretch Co. (isolation testing)...')
-
-  const tenant2LessonDate = new Date(now)
-  tenant2LessonDate.setDate(tenant2LessonDate.getDate() + 1)
-  tenant2LessonDate.setHours(10, 0, 0, 0)
-  const tenant2LessonEnd = new Date(tenant2LessonDate)
-  tenant2LessonEnd.setHours(11, 0, 0, 0)
-
-  const tenant2ClassOptionId = tenant2ClassOption && typeof tenant2ClassOption === 'object' && 'id' in tenant2ClassOption 
-    ? tenant2ClassOption.id 
-    : tenant2ClassOption
-  const tenant2Instructor0 = tenant2Instructors[0]
-  const tenant2Instructor0Id = tenant2Instructor0 && typeof tenant2Instructor0 === 'object' && 'id' in tenant2Instructor0 
-    ? tenant2Instructor0.id 
-    : tenant2Instructor0
-  
-  if (!tenant2ClassOptionId) throw new Error('Tenant2 class option not found')
-  if (!tenant2Instructor0Id) throw new Error('Tenant2 instructor not found')
-
-  const tenant2Lesson = await createWithTenant(
-    'lessons',
-    {
-      date: tenant2LessonDate.toISOString(),
-      startTime: tenant2LessonDate.toISOString(),
-      endTime: tenant2LessonEnd.toISOString(),
-      classOption: tenant2ClassOptionId,
-      location: 'Main Studio',
-      instructor: tenant2Instructor0Id,
-      active: true,
-      lockOutTime: 30,
-    },
-    tenant2.id,
-    { draft: false, overrideAccess: true }
-  )
-  lessons.push(tenant2Lesson as Lesson)
-
-  // Create Croí Lán Sauna tenant data (default data already cleared above)
-  payload.logger.info('  Creating Croí Lán Sauna tenant data...')
-  
-  // Create instructor user for Croí Lán Sauna
-  const croiLanSaunaInstructorEmail = 'croi-lan-sauna@instructor.com'.toLowerCase()
-  const existingCroiLanSaunaInstructor = await payload.find({
-    collection: 'users',
-    where: {
-      email: {
-        equals: croiLanSaunaInstructorEmail,
-      },
-    },
-    limit: 1,
-    overrideAccess: true,
-  })
-
-  const croiLanSaunaInstructorUserData = {
-    name: 'Croí Lán Sauna Instructor',
-    email: croiLanSaunaInstructorEmail,
-    password: 'password',
-    emailVerified: true,
-    role: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-    roles: ['user'] as ('admin' | 'user' | 'tenant-admin')[],
-  }
-
-  const croiLanSaunaInstructorUser = existingCroiLanSaunaInstructor.docs[0]
-    ? await payload.update({
-        collection: 'users',
-        id: existingCroiLanSaunaInstructor.docs[0].id,
-        data: croiLanSaunaInstructorUserData,
-        draft: false,
-        overrideAccess: true,
-      })
-    : await payload.create({
-        collection: 'users',
-        data: croiLanSaunaInstructorUserData,
-        draft: false,
-        overrideAccess: true,
-      })
-
-  const croiLanSaunaInstructorUserId = croiLanSaunaInstructorUser && typeof croiLanSaunaInstructorUser === 'object' && 'id' in croiLanSaunaInstructorUser 
-    ? croiLanSaunaInstructorUser.id 
-    : croiLanSaunaInstructorUser
-  if (!croiLanSaunaInstructorUserId) throw new Error('Croí Lán Sauna instructor user not found')
-
-  // Create instructor for Croí Lán Sauna
-  const croiLanSaunaInstructor = await createWithTenant(
-    'instructors',
-    {
-      user: croiLanSaunaInstructorUserId,
-      active: true,
-    },
-    croiLanSaunaTenant.id,
-    { overrideAccess: true }
-  )
-
-  // Create class-pass-types for Croí Lán Sauna (Sauna Only, All Access)
-  payload.logger.info('  Creating class-pass-types for Croí Lán Sauna...')
-  const croiSaunaType = await createWithTenant(
-    'class-pass-types',
-    { name: 'Sauna Only', slug: `croi-sauna-only-${croiLanSaunaTenant.id}`, description: 'Valid for sauna sessions only', quantity: 10 },
-    croiLanSaunaTenant.id,
-    { overrideAccess: true }
-  )
-  const croiAllAccessType = await createWithTenant(
-    'class-pass-types',
-    { name: 'All Access', slug: `croi-all-access-${croiLanSaunaTenant.id}`, description: 'Valid for all sessions', quantity: 10 },
-    croiLanSaunaTenant.id,
-    { overrideAccess: true }
-  )
-  const croiSaunaId = croiSaunaType && typeof croiSaunaType === 'object' && 'id' in croiSaunaType ? (croiSaunaType as { id: number }).id : croiSaunaType
-  const croiAllAccessId = croiAllAccessType && typeof croiAllAccessType === 'object' && 'id' in croiAllAccessType ? (croiAllAccessType as { id: number }).id : croiAllAccessType
-  if (!croiSaunaId || !croiAllAccessId) throw new Error('Croí Lán class-pass-types not created')
-
-  // Create class options for Croí Lán Sauna — names state payment methods for manual testers
-  payload.logger.info('  Creating class options for Croí Lán Sauna...')
-  const croiLanSaunaClassOptions = await Promise.all([
-    createWithTenant(
-      'class-options',
-      {
-        name: '50 min session — Stripe + Class Pass',
-        places: 12,
-        description: '50-minute sauna. Pay by card (Stripe) or use Sauna Only / All Access pass.',
-        paymentMethods: { allowedClassPasses: [croiSaunaId, croiAllAccessId] },
-      },
-      croiLanSaunaTenant.id,
-      { draft: false, overrideAccess: true }
-    ),
-    createWithTenant(
-      'class-options',
-      {
-        name: '30 min session — Class Pass only',
-        places: 8,
-        description: '30-minute sauna. Sauna Only or All Access pass only; no drop-in payment.',
-        paymentMethods: { allowedClassPasses: [croiSaunaId, croiAllAccessId] },
-      },
-      croiLanSaunaTenant.id,
-      { draft: false, overrideAccess: true }
-    ),
-  ])
-  const croiLanSaunaClassOption = croiLanSaunaClassOptions[0]
-
-  const croiLanSaunaClassOptionId = croiLanSaunaClassOption && typeof croiLanSaunaClassOption === 'object' && 'id' in croiLanSaunaClassOption 
-    ? croiLanSaunaClassOption.id 
-    : croiLanSaunaClassOption
-  const croiLanSaunaInstructorId = croiLanSaunaInstructor && typeof croiLanSaunaInstructor === 'object' && 'id' in croiLanSaunaInstructor 
-    ? croiLanSaunaInstructor.id 
-    : croiLanSaunaInstructor
-  
-  if (!croiLanSaunaClassOptionId) throw new Error('Croí Lán Sauna class option not found')
-  if (!croiLanSaunaInstructorId) throw new Error('Croí Lán Sauna instructor not found')
-
-  payload.logger.info('  Creating bookings for Flow Yoga & Fitness...')
-  const bookings: Booking[] = []
-
-  // Past lesson booking (completed)
-  const user1 = testUsers[1]
-  const user1Id = user1 && typeof user1 === 'object' && 'id' in user1 ? user1.id : user1
-  const user2 = testUsers[2]
-  const user2Id = user2 && typeof user2 === 'object' && 'id' in user2 ? user2.id : user2
-  const user3 = testUsers[3]
-  const user3Id = user3 && typeof user3 === 'object' && 'id' in user3 ? user3.id : user3
-
-  if (!user1Id) throw new Error('User 1 not found')
-  if (!user2Id) throw new Error('User 2 not found')
-  if (!user3Id) throw new Error('User 3 not found')
-
-  // Extract lesson IDs
-  const pastLessonId = pastLesson && typeof pastLesson === 'object' && 'id' in pastLesson ? pastLesson.id : pastLesson
-  const activeLessonId = activeLesson && typeof activeLesson === 'object' && 'id' in activeLesson ? activeLesson.id : activeLesson
-  const partiallyBookedLessonId = partiallyBookedLesson && typeof partiallyBookedLesson === 'object' && 'id' in partiallyBookedLesson ? partiallyBookedLesson.id : partiallyBookedLesson
-  const fullyBookedLessonId = fullyBookedLesson && typeof fullyBookedLesson === 'object' && 'id' in fullyBookedLesson ? fullyBookedLesson.id : fullyBookedLesson
-  const upcomingLessonId = upcomingLesson && typeof upcomingLesson === 'object' && 'id' in upcomingLesson ? upcomingLesson.id : upcomingLesson
-  const manageBookingsLessonId = manageBookingsLesson && typeof manageBookingsLesson === 'object' && 'id' in manageBookingsLesson ? manageBookingsLesson.id : manageBookingsLesson
-  
-  if (!pastLessonId || !activeLessonId || !partiallyBookedLessonId || !fullyBookedLessonId || !upcomingLessonId || !manageBookingsLessonId) {
-    throw new Error('One or more lessons not found')
-  }
-
-  const pastBooking = await createWithTenant(
-    'bookings',
-    {
-      user: user1Id,
-      lesson: pastLessonId,
-      status: 'confirmed',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(pastBooking as Booking)
-
-  // Active lesson bookings (user1 has 1 booking, user2 has 2 bookings)
-  const activeBooking1 = await createWithTenant(
-    'bookings',
-    {
-      user: user1Id,
-      lesson: activeLessonId,
-      status: 'confirmed',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(activeBooking1 as Booking)
-
-  const activeBooking2 = await createWithTenant(
-    'bookings',
-    {
-      user: user2Id,
-      lesson: activeLessonId,
-      status: 'confirmed',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(activeBooking2 as Booking)
-
-  const activeBooking3 = await createWithTenant(
-    'bookings',
-    {
-      user: user2Id,
-      lesson: activeLessonId,
-      status: 'confirmed',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(activeBooking3 as Booking)
-
-  // Partially booked lesson (some bookings)
-  for (let i = 0; i < 3; i++) {
-    const user = testUsers[i + 1]
-    if (!user) continue
-    const userId = typeof user === 'object' && 'id' in user ? user.id : user
-    if (!userId) continue
-    const booking = await createWithTenant(
-      'bookings',
-      {
-        user: userId,
-        lesson: partiallyBookedLessonId,
-        status: 'confirmed',
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    )
-    bookings.push(booking as Booking)
-  }
-
-  // Fully booked lesson (all 5 places taken)
-  for (let i = 0; i < 5; i++) {
-    const user = testUsers[(i % 3) + 1]
-    if (!user) continue
-    const userId = typeof user === 'object' && 'id' in user ? user.id : user
-    if (!userId) continue
-    const booking = await createWithTenant(
-      'bookings',
-      {
-        user: userId,
-        lesson: fullyBookedLessonId,
-        status: 'confirmed',
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    )
-    bookings.push(booking as Booking)
-  }
-
-  // Manage bookings lesson (user1 has 3 bookings for this lesson)
-  for (let i = 0; i < 3; i++) {
-    const booking = await createWithTenant(
-      'bookings',
-      {
-        user: user1Id,
-        lesson: manageBookingsLessonId,
-        status: 'confirmed',
-      },
-      tenant1.id,
-      { draft: false, overrideAccess: true }
-    )
-    bookings.push(booking as Booking)
-  }
-
-  // Pending booking (for payment flow testing)
-  const pendingBooking = await createWithTenant(
-    'bookings',
-    {
-      user: user1Id,
-      lesson: upcomingLessonId,
-      status: 'pending',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(pendingBooking as Booking)
-
-  // Cancelled booking
-  const cancelledBooking = await createWithTenant(
-    'bookings',
-    {
-      user: user2Id,
-      lesson: upcomingLessonId,
-      status: 'cancelled',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(cancelledBooking as Booking)
-
-  // Waiting list booking
-  const waitingBooking = await createWithTenant(
-    'bookings',
-    {
-      user: user3Id,
-      lesson: fullyBookedLessonId,
-      status: 'waiting',
-    },
-    tenant1.id,
-    { draft: false, overrideAccess: true }
-  )
-  bookings.push(waitingBooking as Booking)
-
-  payload.logger.info('  Booking data seeded successfully!')
-  payload.logger.info(`  Created: ${tenants.length} tenants, ${testUsers.length + 1} users (including tenant-admin), ${instructors.length + tenant2Instructors.length + 1} instructors, ${classOptions.length + tenant2ClassOptions.length + croiLanSaunaClassOptions.length} class options (payment-method variety per tenant), ${lessons.length} lessons, ${bookings.length} bookings`)
 
   return {
-    tenants: tenants as Tenant[],
-    users: [...testUsers, tenantAdminUser] as User[],
-    instructors: [...instructors, ...tenant2Instructors, croiLanSaunaInstructor] as Instructor[],
-    classOptions: [...classOptions, ...tenant2ClassOptions, ...croiLanSaunaClassOptions] as ClassOption[],
-    lessons: lessons as Lesson[],
-    bookings: bookings as Booking[],
+    tenants,
+    users: [adminUser as User, ...(demoUsers as unknown as User[])],
+    instructors: allInstructors,
+    classOptions: allClassOptions,
+    lessons: allLessons,
+    bookings: allBookings,
   }
 }
 
 /**
- * Seeds scheduler documents for tenants
- * Creates a scheduler for each tenant with sample weekly schedule
+ * Seeds scheduler documents for each tenant (sauna schedule: daily 17:00, 18:00)
  */
 export async function seedSchedulers({
   payload,
@@ -1192,47 +506,38 @@ export async function seedSchedulers({
 
   const now = new Date()
   const startDate = new Date(now)
-  startDate.setDate(startDate.getDate() - 7) // Start 7 days ago
+  startDate.setDate(startDate.getDate() - 7)
   const endDate = new Date(now)
-  endDate.setDate(endDate.getDate() + 90) // End 90 days from now
+  endDate.setDate(endDate.getDate() + 90)
 
-  // Helper to extract ID from relationship
   const getId = (item: unknown): number | string => {
     if (!item) return ''
-    return typeof item === 'object' && item !== null && 'id' in item ? (item as { id: number | string }).id : (item as number | string)
+    return typeof item === 'object' && item !== null && 'id' in item
+      ? (item as { id: number | string }).id
+      : (item as number | string)
   }
 
-  // Helper to create tenant-scoped scheduler
-  const createSchedulerForTenant = async (
-    tenant: Tenant,
-    tenantClassOptions: ClassOption[],
-    tenantInstructors: Instructor[],
-  ) => {
-    const tenantReq = {
-      ...req,
-      context: { ...req.context, tenant: tenant.id },
-    }
+  for (const tenant of tenants) {
+    const tenantReq = { ...req, context: { ...req.context, tenant: tenant.id } }
+    const tenantClassOptions = classOptions.filter((co) => getId(co.tenant) === tenant.id)
+    const tenantInstructors = instructors.filter((inst) => getId(inst.tenant) === tenant.id)
 
-    // Get the first class option and instructor for this tenant
     const defaultClassOption = tenantClassOptions[0]
-    const defaultClassOptionIdRaw = getId(defaultClassOption)
-    if (!defaultClassOptionIdRaw) {
-      payload.logger.warn(`  No class options found for tenant ${tenant.id}, skipping scheduler`)
-      return
-    }
-    // Ensure defaultClassOptionId is a number for the relationship field
-    const defaultClassOptionId = typeof defaultClassOptionIdRaw === 'string' 
-      ? Number(defaultClassOptionIdRaw) 
-      : defaultClassOptionIdRaw
-
     const defaultInstructor = tenantInstructors[0]
-    const defaultInstructorId = getId(defaultInstructor)
+    const defaultClassOptionId =
+      typeof getId(defaultClassOption) === 'string'
+        ? Number(getId(defaultClassOption))
+        : (getId(defaultClassOption) as number)
+    const defaultInstructorIdRaw = getId(defaultInstructor)
+    const defaultInstructorId =
+      typeof defaultInstructorIdRaw === 'string' ? Number(defaultInstructorIdRaw) : defaultInstructorIdRaw
 
-    // Check if this is Croí Lán Sauna tenant
-    const isCroiLanSauna = tenant.slug === 'croi-lan-sauna'
+    if (!defaultClassOptionId || !defaultInstructorId) {
+      payload.logger.warn(`  Skipping scheduler for tenant ${tenant.id}: missing class option or instructor`)
+      continue
+    }
 
-    // Create a sample weekly schedule
-    const daysOfWeek = [
+    const weekDays = [
       'Monday',
       'Tuesday',
       'Wednesday',
@@ -1240,95 +545,53 @@ export async function seedSchedulers({
       'Friday',
       'Saturday',
       'Sunday',
-    ]
-
-    const weekDays = daysOfWeek.map((dayName, index) => {
-      const timeSlots: Array<{ startTime: string; endTime: string; classOption?: number; location?: string; [key: string]: unknown }> = []
-
-      if (isCroiLanSauna) {
-        // Croí Lán Sauna schedule: Daily sessions at 17:00 and 18:00 (50-minute sessions)
-        timeSlots.push({
-          startTime: new Date(`2000-01-01T17:00:00`).toISOString(),
-          endTime: new Date(`2000-01-01T17:50:00`).toISOString(),
+    ].map(() => ({
+      timeSlot: [
+        {
+          startTime: new Date('2000-01-01T17:00:00').toISOString(),
+          endTime: new Date('2000-01-01T17:50:00').toISOString(),
           classOption: defaultClassOptionId,
           location: 'Sauna 1',
-          instructor: defaultInstructorId || undefined,
+          instructor: defaultInstructorId as number,
           active: true,
-        })
-
-        timeSlots.push({
-          startTime: new Date(`2000-01-01T18:00:00`).toISOString(),
-          endTime: new Date(`2000-01-01T18:50:00`).toISOString(),
+        },
+        {
+          startTime: new Date('2000-01-01T18:00:00').toISOString(),
+          endTime: new Date('2000-01-01T18:50:00').toISOString(),
           classOption: defaultClassOptionId,
           location: 'Sauna 1',
-          instructor: defaultInstructorId || undefined,
+          instructor: defaultInstructorId as number,
           active: true,
-        })
-      } else {
-        // Default schedule: Monday, Wednesday, Friday with morning and afternoon slots
-        if (index === 0 || index === 2 || index === 4) {
-          // Morning slot: 9:00 AM - 10:00 AM
-          timeSlots.push({
-            startTime: new Date(`2000-01-01T09:00:00`).toISOString(),
-            endTime: new Date(`2000-01-01T10:00:00`).toISOString(),
-            classOption: defaultClassOptionId,
-            location: 'Studio A',
-            instructor: defaultInstructorId || undefined,
-            active: true,
-          })
+        },
+      ],
+    }))
 
-          // Afternoon slot: 2:00 PM - 3:00 PM
-          timeSlots.push({
-            startTime: new Date(`2000-01-01T14:00:00`).toISOString(),
-            endTime: new Date(`2000-01-01T15:00:00`).toISOString(),
-            classOption: defaultClassOptionId,
-            location: 'Studio A',
-            instructor: defaultInstructorId || undefined,
-            active: true,
-          })
-        }
-      }
-
-      return {
-        timeSlot: timeSlots,
-      }
-    })
-
-    const schedulerData: Omit<Scheduler, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Scheduler, 'id' | 'createdAt' | 'updatedAt'>> = {
+    const schedulerData = {
       tenant: tenant.id,
-      startDate: startDate.toISOString().split('T')[0] as string, // Date only format
-      endDate: endDate.toISOString().split('T')[0] as string, // Date only format
-      lockOutTime: 30, // 30 minutes before class
+      startDate: startDate.toISOString().split('T')[0] as string,
+      endDate: endDate.toISOString().split('T')[0] as string,
+      lockOutTime: 30,
       defaultClassOption: defaultClassOptionId,
-      week: {
-        days: weekDays,
-      },
+      week: { days: weekDays },
       clearExisting: false,
     }
 
-    // Check if scheduler already exists for this tenant
-    const existingScheduler = await payload.find({
+    const existing = await payload.find({
       collection: 'scheduler',
-      where: {
-        tenant: {
-          equals: tenant.id,
-        },
-      },
+      where: { tenant: { equals: tenant.id } },
       limit: 1,
       overrideAccess: true,
     })
 
-    if (existingScheduler.docs[0]) {
-      payload.logger.info(`  Updating existing scheduler for tenant ${tenant.name || tenant.id}...`)
+    if (existing.docs[0]) {
       await payload.update({
         collection: 'scheduler',
-        id: existingScheduler.docs[0].id,
+        id: existing.docs[0].id,
         data: schedulerData,
         req: tenantReq,
         overrideAccess: true,
       })
     } else {
-      payload.logger.info(`  Creating scheduler for tenant ${tenant.name || tenant.id}...`)
       await payload.create({
         collection: 'scheduler',
         data: schedulerData,
@@ -1337,22 +600,6 @@ export async function seedSchedulers({
         draft: false,
       })
     }
-  }
-
-  // Create schedulers for each tenant
-  for (const tenant of tenants) {
-    // Filter class options and instructors for this tenant
-    const tenantClassOptions = classOptions.filter((co) => {
-      const coTenantId = getId(co.tenant)
-      return coTenantId === tenant.id
-    })
-
-    const tenantInstructors = instructors.filter((inst) => {
-      const instTenantId = getId(inst.tenant)
-      return instTenantId === tenant.id
-    })
-
-    await createSchedulerForTenant(tenant, tenantClassOptions, tenantInstructors)
   }
 
   payload.logger.info('  Schedulers seeded successfully!')

@@ -33,7 +33,8 @@ function matchSlug(param: string | null, slug: string): boolean {
 function getLocationFromHash(): string | null {
   if (typeof window === 'undefined') return null
   const m = window.location.hash?.match(/[?&]location=([^&#]+)/)
-  return m ? decodeURIComponent(m[1].trim()) : null
+  const val = m?.[1]
+  return val ? decodeURIComponent(val.trim()) : null
 }
 
 export function TenantScopedScheduleClient({
@@ -96,10 +97,9 @@ export function TenantScopedScheduleClient({
         </label>
         <Select value={value} onValueChange={onValueChange}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a tenant…" />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={EMPTY_VALUE}>Select a tenant…</SelectItem>
             {tenants.map((t) => (
               <SelectItem key={t.id} value={String(t.id)}>
                 {t.name}

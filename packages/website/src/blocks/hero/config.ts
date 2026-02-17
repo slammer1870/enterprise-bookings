@@ -29,7 +29,7 @@ export const Hero: Block = {
     linkGroup({
       appearances: ['default', 'outline'],
       overrides: {
-        maxRows: 2,
+        maxRows: 3,
         label: 'Call to Action Buttons',
       },
     }),
