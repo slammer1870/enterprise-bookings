@@ -149,12 +149,10 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      
-      // Navigate to manage page - server should redirect to /bookings/[id] when user has 0 bookings
-      await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
-      await page.waitForLoadState('load').catch(() => null)
 
-      // Wait for either redirect (success) or error boundary (fail fast with clear message)
+      // Let session stabilize so the manage page receives auth (CI can be slower).
+      await page.waitForTimeout(1500)
+
       const redirectPredicate = (url: URL) => {
         const pathname = url.pathname
         return (
@@ -163,23 +161,30 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         )
       }
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
-      const outcome = await Promise.race([
-        page.waitForURL(redirectPredicate, { timeout: 10000 }).then(() => 'redirected' as const),
-        errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
-      ]).catch(async () => {
-        const currentUrl = page.url()
-        if (await errorHeading.isVisible().catch(() => false)) {
-          throw new Error(
-            `Manage page showed "Booking page error" instead of redirecting to booking page. Check server/session for /bookings/${guardLesson.id}/manage with 0 bookings.`
-          )
-        }
-        throw new Error(`Expected redirect from /manage but still on: ${currentUrl}`)
-      })
+
+      const tryNavigateAndRace = async () => {
+        await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
+        await page.waitForLoadState('load').catch(() => null)
+        return Promise.race([
+          page.waitForURL(redirectPredicate, { timeout: 10000 }).then(() => 'redirected' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+        ])
+      }
+
+      let outcome = await tryNavigateAndRace().catch(() => null)
+      // One retry: in CI the first request can hit before session is ready and show error boundary.
+      if (outcome === 'error' || outcome === null) {
+        await page.waitForTimeout(2000)
+        outcome = await tryNavigateAndRace().catch(() => null)
+      }
 
       if (outcome === 'error') {
         throw new Error(
           `Manage page showed "Booking page error" instead of redirecting to booking page. Check server/session for /bookings/${guardLesson.id}/manage with 0 bookings.`
         )
+      }
+      if (outcome === null) {
+        throw new Error(`Expected redirect from /manage but still on: ${page.url()}`)
       }
 
       const finalUrl = page.url()

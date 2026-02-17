@@ -77,8 +77,10 @@ test.describe('Admin Tenant Selector', () => {
 
                 // Payload SelectInput (react-select): force-click the combobox to open the menu.
                 await combobox.click({ force: true })
-                // Use .first() because multiple options can match (e.g. duplicate menus); we want the one in the open dropdown.
-                await page.getByRole('option', { name: tenant2Name }).first().click()
+                // Wait for dropdown to open and option to be visible (CI can be slower).
+                const option = page.getByRole('option', { name: tenant2Name }).first()
+                await option.waitFor({ state: 'visible', timeout: 10000 })
+                await option.click()
 
     // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
     // If the modal appears, we must confirm it or the controlled <select> will snap back.

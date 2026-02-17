@@ -4,10 +4,17 @@ import type { TypedUser } from 'payload'
 import { headers as requestHeaders } from 'next/headers'
 
 export const getSession = async (): Promise<Session | null> => {
-  const payload = await getPayload()
-  const headers = await requestHeaders()
-  const session = await payload.betterAuth.api.getSession({ headers })
-  return session
+  try {
+    const payload = await getPayload()
+    const headers = await requestHeaders()
+    const session = await payload.betterAuth.api.getSession({ headers })
+    return session
+  } catch (error) {
+    // Avoid error boundary on auth/session failures (e.g. cookie missing on subdomain, CI timing).
+    // Callers should treat null as unauthenticated and redirect to sign-in.
+    console.error('[getSession]', error)
+    return null
+  }
 }
 
 export const getUserAccounts = async (): Promise<Account[]> => {
