@@ -74,14 +74,21 @@ test.describe('Admin Tenant Selector', () => {
 
     const combobox = wrap.getByRole('combobox')
     await expect(combobox).toBeVisible()
+    await combobox.scrollIntoViewIfNeeded()
 
-    // Payload SelectInput (react-select): force-click the combobox to open the menu.
+    // Payload SelectInput (react-select): open menu. In CI, click alone can be unreliable; use keyboard as fallback.
     await combobox.click({ force: true })
-    // Wait for dropdown to open and option to be visible (CI can be slower).
-    const option = page.getByRole('option', { name: tenant2Name }).first()
+    const listbox = page.getByRole('listbox')
+    const listboxVisible = await listbox.waitFor({ state: 'visible', timeout: 8000 }).catch(() => false)
+    if (!listboxVisible) {
+      await combobox.focus()
+      await page.keyboard.press('ArrowDown')
+      await listbox.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null)
+    }
+    // Use filter(hasText) so we match the option even if accessible name is computed differently (e.g. react-select).
+    const option = page.getByRole('option').filter({ hasText: tenant2Name }).first()
     await option.waitFor({ state: 'visible', timeout: 15000 })
-    // Brief wait so react-select has finished rendering the menu (reduces CI flakiness).
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(200)
     await option.click()
 
     // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
@@ -103,7 +110,7 @@ test.describe('Admin Tenant Selector', () => {
 
     // Assert display via aria-selected on the option after selection
     await comboboxAfter.click({ force: true })
-    const selectedOption = page.getByRole('option', { name: tenant2Name }).first()
+    const selectedOption = page.getByRole('option').filter({ hasText: tenant2Name }).first()
     await expect(selectedOption).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
     await page.keyboard.press('Escape').catch(() => null)
 

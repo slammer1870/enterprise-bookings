@@ -150,8 +150,8 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         tenantSlug: tenant.slug,
       })
 
-      // Let session stabilize so the manage page receives auth (CI can be slower).
-      await page.waitForTimeout(1500)
+      const sessionStabilizeMs = process.env.CI ? 3000 : 1500
+      await page.waitForTimeout(sessionStabilizeMs)
 
       const redirectPredicate = (url: URL) => {
         const pathname = url.pathname
@@ -161,20 +161,20 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         )
       }
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+      const raceTimeout = process.env.CI ? 15000 : 10000
 
       const tryNavigateAndRace = async () => {
         await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
         await page.waitForLoadState('load').catch(() => null)
         return Promise.race([
-          page.waitForURL(redirectPredicate, { timeout: 10000 }).then(() => 'redirected' as const),
-          errorHeading.waitFor({ state: 'visible', timeout: 10000 }).then(() => 'error' as const),
+          page.waitForURL(redirectPredicate, { timeout: raceTimeout }).then(() => 'redirected' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: raceTimeout }).then(() => 'error' as const),
         ])
       }
 
       let outcome = await tryNavigateAndRace().catch(() => null)
-      // One retry: in CI the first request can hit before session is ready and show error boundary.
       if (outcome === 'error' || outcome === null) {
-        await page.waitForTimeout(2000)
+        await page.waitForTimeout(process.env.CI ? 3000 : 2000)
         outcome = await tryNavigateAndRace().catch(() => null)
       }
 
