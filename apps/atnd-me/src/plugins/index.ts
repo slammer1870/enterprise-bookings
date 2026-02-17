@@ -32,7 +32,16 @@ import {
   productsRequireStripeConnectUpdate,
   productsRequireStripeConnectDelete,
   productsRequireStripeConnectAdmin,
+  adminOnlyFieldAccess,
 } from '../access/productsRequireStripeConnect'
+import { plansReadWithSoftDelete } from '../access/plansWithSoftDelete'
+import { classPassTypesReadWithSoftDelete } from '../access/classPassTypesWithSoftDelete'
+import { planAfterChangeSyncToStripe, planBeforeDeleteArchive } from '@/hooks/plansStripeSync'
+import {
+  classPassTypeAfterChangeSyncToStripe,
+  classPassTypeBeforeDeleteArchive,
+} from '@/hooks/classPassTypesStripeSync'
+import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
 import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
@@ -330,12 +339,28 @@ export const plugins: Plugin[] = [
       classPassTypesOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
-          read: productsRequireStripeConnectRead,
+          read: classPassTypesReadWithSoftDelete,
           create: productsRequireStripeConnectCreate,
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
         },
+        fields: ({ defaultFields }) => [
+          ...defaultFields.map((field) => {
+            const name = 'name' in field ? field.name : undefined
+            if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+              return { ...field, access: adminOnlyFieldAccess }
+            }
+            return field
+          }),
+          { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
+        ],
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [classPassTypeAfterChangeSyncToStripe],
+          beforeDelete: [classPassTypeBeforeDeleteArchive],
+        }),
       },
+      getStripeAccountIdForRequest,
     },
     // Drop-ins: single-use payment options per class option
     dropIns: {
@@ -355,6 +380,7 @@ export const plugins: Plugin[] = [
     membership: {
       enabled: true,
       paymentMethodSlugs: ['class-options'],
+      getStripeAccountIdForRequest,
       syncStripeSubscriptions: false,
       getSubscriptionBookingFeeCents: async ({
         payload,
@@ -371,11 +397,26 @@ export const plugins: Plugin[] = [
       plansOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
-          read: productsRequireStripeConnectRead,
+          read: plansReadWithSoftDelete,
           create: productsRequireStripeConnectCreate,
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
         },
+        fields: ({ defaultFields }) => [
+          ...defaultFields.map((field) => {
+            const name = 'name' in field ? field.name : undefined
+            if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+              return { ...field, access: adminOnlyFieldAccess }
+            }
+            return field
+          }),
+          { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
+        ],
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [planAfterChangeSyncToStripe],
+          beforeDelete: [planBeforeDeleteArchive],
+        }),
       },
       subscriptionOverrides: {
         access: {
@@ -427,6 +468,7 @@ export const plugins: Plugin[] = [
       'transactions': {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
+      'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions

@@ -1,6 +1,6 @@
 import { classPassTypesCollection } from "../class-pass/collections/class-pass-types";
 import { classPassesCollection } from "../class-pass/collections/class-passes";
-import { classPassProductsProxy } from "../class-pass/endpoints/class-pass-products";
+import { createClassPassProductsProxy } from "../class-pass/endpoints/class-pass-products";
 import type { ClassPassConfig } from "../types";
 import type { PluginContext } from "./context";
 import { injectAllowedClassPassesIntoCollection } from "./inject-payment-methods";
@@ -21,7 +21,7 @@ export function applyClassPassFeature(
   ctx.endpoints.push({
     path: "/stripe/class-pass-products",
     method: "get",
-    handler: classPassProductsProxy,
+    handler: createClassPassProductsProxy(classPass),
   });
 
   ctx.collections.push(

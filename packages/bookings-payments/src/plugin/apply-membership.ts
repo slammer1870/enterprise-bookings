@@ -2,7 +2,7 @@ import { modifyUsersCollectionForPayments } from "../payments/collections/users"
 import { modifyUsersCollectionForMembership } from "../membership/collections/users";
 import { generatePlansCollection } from "../membership/collections/plans";
 import { generateSubscriptionCollection } from "../membership/collections/subscriptions";
-import { plansProxy } from "../membership/endpoints/plans";
+import { createPlansProxy } from "../membership/endpoints/plans";
 import { subscriptionsProxy } from "../membership/endpoints/subscriptions";
 import { createCheckoutSession } from "../membership/endpoints/create-checkout-session";
 import { createCustomerPortal } from "../membership/endpoints/create-customer-portal";
@@ -34,7 +34,7 @@ export function applyMembershipFeature(
   ctx.endpoints.push({
     path: "/stripe/plans",
     method: "get",
-    handler: plansProxy,
+    handler: createPlansProxy(membership),
   });
   ctx.endpoints.push({
     path: "/stripe/subscriptions",

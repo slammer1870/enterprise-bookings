@@ -73,6 +73,7 @@ export interface Config {
     media: Media;
     categories: Category;
     tenants: Tenant;
+    'discount-codes': DiscountCode;
     navbar: Navbar;
     footer: Footer;
     scheduler: Scheduler;
@@ -123,6 +124,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
+    'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
     navbar: NavbarSelect<false> | NavbarSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
@@ -1535,6 +1537,54 @@ export interface Form {
   createdAt: string;
 }
 /**
+ * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "discount-codes".
+ */
+export interface DiscountCode {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Admin label only (e.g. Summer 2025 – 20% off)
+   */
+  name: string;
+  /**
+   * Customer-facing code (e.g. SUMMER20). Uppercase alphanumeric.
+   */
+  code: string;
+  type: 'percentage_off' | 'amount_off';
+  /**
+   * For percentage: 1–100. For amount off: amount in cents (e.g. 500 = €5).
+   */
+  value: number;
+  /**
+   * Required for amount off (e.g. eur)
+   */
+  currency?: string | null;
+  duration: 'once' | 'forever' | 'repeating';
+  durationInMonths?: number | null;
+  /**
+   * Leave empty for unlimited
+   */
+  maxRedemptions?: number | null;
+  /**
+   * No redemptions after this date
+   */
+  redeemBy?: string | null;
+  /**
+   * Set after sync to Stripe
+   */
+  stripeCouponId?: string | null;
+  /**
+   * Set after sync to Stripe
+   */
+  stripePromotionCodeId?: string | null;
+  status: 'active' | 'archived';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Navigation bar per tenant. To show a navbar when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2133,6 +2183,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'tenants';
         value: number | Tenant;
+      } | null)
+    | ({
+        relationTo: 'discount-codes';
+        value: number | DiscountCode;
       } | null)
     | ({
         relationTo: 'navbar';
@@ -2790,6 +2844,27 @@ export interface TenantsSelect<T extends boolean = true> {
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;
   stripeConnectConnectedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "discount-codes_select".
+ */
+export interface DiscountCodesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  code?: T;
+  type?: T;
+  value?: T;
+  currency?: T;
+  duration?: T;
+  durationInMonths?: T;
+  maxRedemptions?: T;
+  redeemBy?: T;
+  stripeCouponId?: T;
+  stripePromotionCodeId?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }

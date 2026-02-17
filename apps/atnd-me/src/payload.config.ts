@@ -10,6 +10,7 @@ import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Users } from './collections/Users'
 import { Tenants } from './collections/Tenants'
+import { DiscountCodes } from './collections/DiscountCodes'
 import { Navbar } from './collections/Navbar'
 import { Footer } from './collections/Footer'
 import { Scheduler } from './collections/Scheduler'
@@ -99,7 +100,7 @@ export default buildConfig({
       }
       : {}),
   }),
-  collections: [Pages, Posts, Media, Categories, Users, Tenants, Navbar, Footer, Scheduler],
+  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [PlatformFees],
   plugins,

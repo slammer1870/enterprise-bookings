@@ -137,3 +137,13 @@ export const productsRequireStripeConnectAdmin: (
   if (connected === null) return true
   return connected.length > 0
 }
+
+/**
+ * Field-level access: only super-admin can read/create/update.
+ * Use for skipSync, stripeProductId, priceJSON, priceInformation so tenant-admins never see or edit these.
+ */
+export const adminOnlyFieldAccess = {
+  read: ({ req }: AccessArgs) => checkRole(['admin'], req.user as SharedUser | null),
+  create: ({ req }: AccessArgs) => checkRole(['admin'], req.user as SharedUser | null),
+  update: ({ req }: AccessArgs) => checkRole(['admin'], req.user as SharedUser | null),
+}

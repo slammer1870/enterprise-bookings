@@ -226,12 +226,14 @@ The MVP will be structured to easily add payment functionality later:
 2. **Phase 2** – Payment functionality (Stripe Connect, class passes, booking fees)
 3. **Phase 3** – Custom tenant-scoped blocks
 4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
-5. **Phase 5** – Admin bookings bulk operations & Payload UI (bulk actions, payloadcms/ui in bookings admin)
-6. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
-7. **Phase 7** – Self-onboarding with MCP-driven personalisation
-8. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
-9. **Phase 9** – Event tracking & marketing attribution (UTM)
-10. **Phase 10** – Application fee management & platform revenue (deferred)
+5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes lessons bulk actions)
+6. **Phase 4.6** – Class pass UI in bookings page (parity with drop-in and membership; show Class pass tab, valid passes for lesson, confirm booking with class pass)
+7. **Phase 5** – Admin bookings bulk operations & Payload UI (bulk actions, payloadcms/ui in bookings admin)
+8. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
+9. **Phase 7** – Self-onboarding with MCP-driven personalisation
+10. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
+11. **Phase 9** – Event tracking & marketing attribution (UTM)
+12. **Phase 10** – Application fee management & platform revenue (deferred)
 
 ## Code Organization: App vs Packages
 
@@ -1317,6 +1319,8 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 3**: `apps/atnd-me/tests/int/tenant-scoped-blocks.int.spec.ts` - Tenant allowedBlocks and Pages layout filtering
 - **Phase 3**: `apps/atnd-me/tests/e2e/tenant-blocks-admin.e2e.spec.ts` - Tenant admin sees only allowed blocks
 - **Phase 4**: `apps/atnd-me/tests/int/analytics-api.int.spec.ts`, `apps/atnd-me/tests/e2e/admin-dashboard.e2e.spec.ts` - Custom dashboard
+- **Phase 4.5**: `tests/unit/stripe-connect/products.test.ts`, `tests/unit/stripe-connect/coupons.test.ts`, `tests/int/stripe-product-sync.int.spec.ts`, `tests/int/stripe-plans-proxy.int.spec.ts`, `tests/int/stripe-class-pass-products-proxy.int.spec.ts`, `tests/int/discount-codes.int.spec.ts`, `tests/int/plans-soft-delete.int.spec.ts`, `tests/int/class-pass-types-soft-delete.int.spec.ts`, `tests/e2e/stripe-product-sync-admin.e2e.spec.ts` (optional) – Stripe product sync & discount codes (see Phase 4.5 “Tests for Phase 4.5” in plan)
+- **Phase 4.6**: `tests/unit/class-pass-booking.test.ts`, `tests/int/class-pass-booking-ui.int.spec.ts`, `tests/e2e/booking-with-class-pass.e2e.spec.ts` – Class pass UI in bookings page (getValidClassPassesForLesson, createBookings with classPassId, Class pass tab and confirm flow)
 - **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
 - **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
 - **Phase 6**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
@@ -2188,6 +2192,274 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
 | **Comparison**  | “Compare to previous period” with dual-line chart and card values         |
 | **Charts / UI** | payloadcms/ui preferred; recharts-based charts aligned with Payload admin |
 | **Look & feel** | Stripe / Plausible-inspired: cards, line charts, clean typography         |
+
+
+---
+
+## Phase 4.5: Stripe Product Sync & Discount Codes (Pre–Lessons Bulk Actions)
+
+*This phase precedes the refactor of the lessons area for bulk actions. It enables tenant-admins to create, update, and delete membership plans and class pass types with full sync to the tenant’s Stripe Connect account, and to manage discount codes (Stripe Coupons / Promotion Codes).*
+
+### Overview
+
+Today, **Plans** (memberships) and **Class Pass Types** only **link** to existing Stripe products via a CustomSelect that lists products from the **platform** Stripe account. There is no “create in Stripe when I create a plan” flow, and no tenant-scoped product creation. This phase inverts that: **Payload is the source of truth**; creating/updating/deleting a plan or class pass type in the admin **creates/updates/archives** the corresponding product (and price) on the **tenant’s Stripe Connect account**.
+
+Additionally, introduce **discount codes**: a tenant-scoped collection for Stripe **Coupons** and **Promotion Codes**, synced to the tenant’s Connect account, so tenants can offer codes at checkout (e.g. “SUMMER20” for 20% off).
+
+### Goals
+
+- **Plans (memberships):** Create → create Stripe Product + recurring Price on tenant’s Connect account; store `stripeProductId` and price info. Update → update product name/description; price changes via new Price and set as default. Delete → soft delete in Payload + archive in Stripe.
+- **Class pass types:** Create → create Stripe Product + one-time Price on tenant’s Connect account; store IDs and sync. Update/delete → same pattern as plans.
+- **Delete behaviour:** Prefer **soft delete** in Payload (`deletedAt` + list/read filters) and **archive in Stripe** (`active: false`). Stripe does not allow deleting products that have been used; archiving hides them from new sales while preserving history.
+- **Discount codes:** New collection (or global per tenant) for Coupons + Promotion Codes; create/update/archive in Stripe on the Connect account; support percentage_off and amount_off; optional expiry and usage limits.
+- **Tenant isolation:** All Stripe API calls for products, prices, and coupons use the tenant’s Connect account (`Stripe-Account` / `stripeAccount`). Proxies that list products (plans, class-pass-products) must be tenant-aware and list from the current tenant’s Connect account.
+
+### Non-goals (this phase)
+
+- Migrating existing “link-only” plans/class-pass-types to auto-created products (can be a follow-up migration).
+- Lessons bulk actions or lesson-area refactor (that remains the next phase after this).
+- Applying discount codes in checkout UI/API (can be done in this phase or immediately after; document the contract).
+
+### Current State (brief)
+
+- **Plans:** `stripeProductId` + CustomSelect calling `GET /api/stripe/plans` (platform `stripe.products.list`). `beforeProductChange` **pulls** name/price/status from Stripe when `stripeProductId` is set.
+- **Class pass types:** Same pattern; `GET /api/stripe/class-pass-products` lists one-time products from platform.
+- **atnd-me:** Uses Stripe Connect; payments go to tenant via `createTenantPaymentIntent`. Products/prices for memberships and class passes should live on the **Connect account**, not the platform.
+
+### Delete / Archive Strategy (recommendation)
+
+1. **Payload (soft delete)**
+  - Add optional `deletedAt` (date) to `plans` and `class-pass-types`.  
+  - Default list/read access (and admin list view) filter out docs where `deletedAt` is set.  
+  - “Delete” in admin sets `deletedAt = now()` and (see below) archives in Stripe; optionally show “Archived” list view for admins.
+2. **Stripe (archive)**
+  - Stripe Products: **cannot be deleted** if they have ever been used. Use **archive**: `stripe.products.update(productId, { active: false }, { stripeAccount })`.  
+  - Stripe Coupons: can be deleted if unused; for consistency and audit, **archive** is preferred where supported (e.g. set `valid: false` or use Stripe’s “delete” only when no redemptions).  
+  - Promotion codes: typically deactivated rather than deleted.
+3. **Restore (optional)**
+  - Allow “Restore” in admin: clear `deletedAt` and call `stripe.products.update(..., { active: true }, { stripeAccount })`. Only if the product is still present in Stripe.
+
+### Architecture
+
+1. **Stripe Connect for all product/price/coupon operations**
+  - Use `getPlatformStripe()` and pass `{ stripeAccount: tenant.stripeConnectAccountId }` for every create/update/archive call.  
+  - Tenant context must come from request (middleware/cookie/context), never from client-supplied tenant id for security.
+2. **Plans (memberships)**
+  - **Create:** In `afterChange` (operation === 'create'), if no `stripeProductId` and tenant has Connect: create Stripe Product with `default_price_data` (recurring: interval, interval_count, unit_amount from `priceInformation`), then update doc with `stripeProductId` and `priceJSON` (and optionally `stripePriceId` if stored). Use `context.skipStripeSync` to avoid double-create.  
+  - **Update:** On update, if `stripeProductId` present: sync name/description to Stripe; if priceInformation changed, create new Price and set as default (Stripe does not allow editing price amount).  
+  - **Delete:** `beforeDelete` or replace delete with custom “Archive” action: set `deletedAt`, then `stripe.products.update(id, { active: false }, { stripeAccount })`.  
+  - **Proxies:** `GET /api/stripe/plans` (and equivalent for atnd-me) must accept tenant context (header/cookie) and call `stripe.products.list({ stripeAccount })`, filter recurring default_price for “plan” dropdown. Existing plan creation can remain “create in Payload first, then sync to Stripe” so the dropdown can show newly created products.
+3. **Class pass types**
+  - Same pattern: **create** → create Product + one-time Price on Connect account; **update** → update product, new price if needed; **delete** → soft delete + archive product.  
+  - Proxies for class-pass-products list from Connect account with tenant context.
+4. **Discount codes**
+  - New collection (e.g. `discount-codes` or `promotion-codes`) tenant-scoped; see **Discount codes collection – MVP schema** below.
+  - **Create:** Create Stripe Coupon on Connect account, then Stripe Promotion Code; store IDs.  
+  - **Update:** Update coupon if allowed (e.g. metadata); if code or value changed, consider new coupon + new promotion code and archive old.  
+  - **Delete:** Soft delete in Payload; deactivate promotion code and optionally set coupon to no longer valid in Stripe.  
+  - Checkout/API: when creating Checkout Session or PaymentIntent, pass `discounts: [{ promotion_code: promoId }]` or apply coupon by id for the tenant’s Connect account.
+5. **Access control**
+  - Same as today: only admin and tenant-admin; tenant-admin only for their tenant. Products/plans/class-pass-types/discount-codes are tenant-scoped; Stripe operations always use that tenant’s Connect account.
+
+### Discount codes collection – MVP schema
+
+Minimal collection for Phase 4.5. Tenant-scoped (multi-tenant plugin); slug: `discount-codes`. Admin group: e.g. **Products** or **Payments**.
+
+
+| Field                     | Type   | Required    | Notes                                                                                                                               |
+| ------------------------- | ------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **name**                  | text   | yes         | Admin label only (e.g. "Summer 2025 – 20% off"). Not sent to Stripe.                                                                |
+| **code**                  | text   | yes         | Customer-facing code (e.g. `SUMMER20`). Uppercase, alphanumeric; validated unique per tenant. Becomes Stripe Promotion Code `code`. |
+| **type**                  | select | yes         | `percentage_off`                                                                                                                    |
+| **value**                 | number | yes         | For `percentage_off`: 1–100. For `amount_off`: amount in **cents** (e.g. 500 = €5).                                                 |
+| **currency**              | text   | conditional | Required when `type === 'amount_off'` (e.g. `eur`). Hidden when percentage.                                                         |
+| **duration**              | select | yes         | `once`                                                                                                                              |
+| **durationInMonths**      | number | conditional | Required when `duration === 'repeating'`; min 1. Hidden otherwise.                                                                  |
+| **maxRedemptions**        | number | no          | Max uses across all customers. Leave empty = unlimited.                                                                             |
+| **redeemBy**              | date   | no          | Expiry; no redemptions after this date (Stripe `redeem_by` timestamp).                                                              |
+| **stripeCouponId**        | text   | no          | Set by hook after Stripe create. Admin: read-only, sidebar.                                                                         |
+| **stripePromotionCodeId** | text   | no          | Set by hook after Stripe create. Admin: read-only, sidebar.                                                                         |
+| **status**                | select | yes         | `active`                                                                                                                            |
+
+
+**Validation (MVP):**
+
+- `code`: regex e.g. `^[A-Z0-9]+$`, length 3–24; unique within tenant (beforeValidate or custom validation).
+- `value`: if `percentage_off` then 1–100; if `amount_off` then &gt; 0.
+- `currency`: 3-letter ISO when `amount_off`.
+
+**Access:** Same as plans/class-pass-types: tenant-scoped read/create/update/delete; tenant-admin only for their tenant; admin for all.
+
+**Hooks:**
+
+- **afterChange (create):** Create Stripe Coupon on tenant Connect account (percent_off/amount_off, duration, duration_in_months, max_redemptions, redeem_by), then create Promotion Code with `code`; set `stripeCouponId` and `stripePromotionCodeId` on doc (patch doc or re-save with context to avoid loop).
+- **afterChange (update):** Stripe does not allow editing coupon amount/percent; if only name/metadata changed, optional metadata update. If code/value/type/duration changed, MVP can: deactivate old promotion code and create new coupon + new promotion code, then update doc IDs.
+- **beforeDelete / Archive:** Deactivate Stripe Promotion Code; optionally set coupon valid to false. Or use soft delete: add `deletedAt`, filter list/read by `deletedAt: null`, and on “archive” set `deletedAt` + deactivate in Stripe.
+
+**Deferred to post-MVP:** First-time order only, minimum amount, which products/plans the coupon applies to (Stripe supports this; keep MVP “applies to entire checkout”).
+
+### Implementation outline (TDD-friendly)
+
+- **Step 4.5.1 – Stripe product/price helpers (Connect)**  
+  - Add `apps/atnd-me/src/lib/stripe-connect/products.ts`:  
+    - `createTenantProduct(params: { tenant, name, description?, defaultPriceData, metadata? })` → create product + default price on Connect account; return `{ productId, priceId }`.  
+    - `updateTenantProduct(params: { tenant, productId, name?, description?, active? })`.  
+    - `archiveTenantProduct(tenant, productId)`.  
+    - `createTenantPrice(params: { tenant, productId, unit_amount, currency, recurring? })` for adding a new price and (if needed) setting as default.
+  - Use `getPlatformStripe()` and `{ stripeAccount: tenant.stripeConnectAccountId }`.  
+  - Tests: unit tests with mocked Stripe; integration tests with Stripe mock or test mode.
+- **Step 4.5.2 – Plans: create in Stripe on create**  
+  - In atnd-me, add `afterChange` hook for `plans`: when `operation === 'create'` and no `stripeProductId` and tenant has Connect, call `createTenantProduct` with recurring price from `priceInformation`, then update doc (with `context.skipStripeSync` to avoid re-entry).  
+  - Ensure tenant context is set (from doc.tenant or req.context.tenant).  
+  - Tests: create plan in tenant with Connect → verify product and price exist in Stripe (mock or test mode); doc has `stripeProductId`.
+- **Step 4.5.3 – Plans: update sync & soft delete + archive**  
+  - **Update:** In `beforeChange` or `afterChange`, if `stripeProductId` and priceInformation changed, create new Price via `createTenantPrice` and set as product default; sync name/description.  
+  - **Delete:** Replace or complement delete with “Archive”: add `deletedAt` to plans; default list/read filter `deletedAt: null`. Custom delete or `beforeDelete` hook: set `deletedAt`, call `archiveTenantProduct`. Optionally hide “Delete” and show “Archive” in admin.  
+  - Tests: update plan → new price when amount/interval changes; archive plan → `deletedAt` set and product archived in Stripe.
+- **Step 4.5.4 – Tenant-aware plans proxy**  
+  - Modify or add atnd-me endpoint for listing plans (products): resolve tenant from request (cookie/header), require Connect, call `stripe.products.list({ stripeAccount, expand: ['data.default_price'] })`, filter recurring for plan picker.  
+  - If “create in Stripe on create” is the primary flow, dropdown can still list existing Connect products so legacy or manually created Stripe products appear.
+- **Step 4.5.5 – Class pass types: create/update/archive in Stripe**  
+  - Same pattern as plans: `afterChange` create Product + one-time Price when creating class-pass-type without `stripeProductId`; update sync; add `deletedAt` and archive on “delete”.  
+  - Reuse `createTenantProduct` with one-time `default_price_data`.  
+  - Class-pass-products proxy: list from Connect account with tenant context.
+- **Step 4.5.6 – Discount codes collection and sync**  
+  - New tenant-scoped collection `discount-codes` (or `promotion-codes`): fields as above.  
+  - Hooks: create → create Coupon + Promotion Code on Connect; update/archive similarly.  
+  - Helpers: `apps/atnd-me/src/lib/stripe-connect/coupons.ts` for create/update/deactivate.  
+  - Tests: create discount code → coupon and promotion code exist in Stripe; archive → deactivated.
+- **Step 4.5.7 – Apply discount at checkout (optional in this phase)**  
+  - When creating Checkout Session or PaymentIntent for a tenant, accept optional `promotionCodeId` or `couponId` and pass to Stripe (`discounts` or `coupon`). Document the API contract for frontend.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/src/lib/stripe-connect/products.ts` – Create/update/archive product and price on Connect.
+- `apps/atnd-me/src/lib/stripe-connect/coupons.ts` – Create/update/deactivate coupon and promotion code on Connect.
+- `apps/atnd-me/src/collections/Plans/` or plugin overrides – Hooks for create/update/archive and `deletedAt` handling (or extend `packages/bookings-payments` plans with overrides in atnd-me).
+- `apps/atnd-me/src/collections/ClassPassTypes/` or plugin overrides – Same for class-pass-types.
+- `apps/atnd-me/src/collections/DiscountCodes/` – New collection; tenant-scoped; sync to Stripe.
+- Plans proxy (atnd-me override or new route) – Tenant-aware `GET /api/stripe/plans` using Connect account.
+- Class-pass-products proxy – Tenant-aware list from Connect account.
+- Payload config – Register `discount-codes`; add `deletedAt` to plans and class-pass-types (migration).
+- Tests (Phase 4.5): `tests/unit/stripe-connect/products.test.ts`, `tests/int/stripe-product-sync.int.spec.ts`, `tests/int/discount-codes.int.spec.ts`, See **Tests for Phase 4.5** section for full list. Optional E2E for “create plan → appears in Stripe”.
+
+### Summary
+
+
+| Aspect               | Notes                                                                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plans**            | Create in Payload → create Product + recurring Price on tenant Connect; update syncs name/price (new price if changed); delete = soft delete + archive in Stripe. |
+| **Class pass types** | Same: create/update/archive on Connect; one-time price.                                                                                                           |
+| **Delete behaviour** | Soft delete (`deletedAt`) in Payload; archive product in Stripe (`active: false`). Optional “Restore” to clear `deletedAt` and set `active: true`.                |
+| **Discount codes**   | New tenant-scoped collection; Coupon + Promotion Code on Connect; create/update/deactivate; optional application at checkout in this phase.                       |
+| **Stripe account**   | All product/price/coupon operations use tenant’s Connect account via `stripeAccount`.                                                                             |
+| **Placement**        | Before lessons bulk actions refactor; after Phase 4 (Custom Admin Dashboard) if desired, or in parallel with dashboard work.                                      |
+
+
+### Tests for Phase 4.5 (detail)
+
+Write tests first (TDD); green gate before moving to the next step. Use mocked Stripe for unit tests; Stripe test mode or mocks for integration; optional E2E with route mocking for Stripe.
+
+**Unit tests (`apps/atnd-me/tests/unit/`):**
+
+- **stripe-connect/products.test.ts** – `createTenantProduct` builds correct Stripe params and calls with `stripeAccount`; `updateTenantProduct` sends name/description/active; `archiveTenantProduct` sets `active: false`; `createTenantPrice` builds recurring vs one-time price data; all use tenant's Connect account id in options. Mock `getPlatformStripe()` and `stripe.products.create`, `stripe.products.update`, `stripe.prices.create`.
+- **stripe-connect/coupons.test.ts** – `createTenantCouponAndPromoCode` builds coupon params (percent_off/amount_off, duration, duration_in_months, max_redemptions, redeem_by) and promotion code with `code`; calls Stripe with `stripeAccount`; returns ids. `deactivateTenantPromotionCode` updates promotion code active state. Mock Stripe coupon and promotionCode APIs.
+
+**Integration tests (`apps/atnd-me/tests/int/`):**
+
+- **stripe-product-sync.int.spec.ts** – Plans: create plan (tenant with Connect) → doc has `stripeProductId`; Stripe product on Connect (mock/test). Update plan name → Stripe product name updated. Update priceInformation → new Price created and default. Archive plan → `deletedAt` set, Stripe product archived. Class pass types: same create/update/archive. Tenant without Connect → no Stripe call or graceful fail. `skipSync`/context → no Stripe create.
+- **stripe-plans-proxy.int.spec.ts** – GET plans with tenant context and Connect → products from Connect (recurring). No/invalid tenant → 400/401. Tenant without Connect → 400 or empty. Auth: admin/tenant-admin only.
+- **stripe-class-pass-products-proxy.int.spec.ts** – GET class-pass-products with tenant + Connect → one-time products from Connect. Auth and tenant checks as plans.
+- **discount-codes.int.spec.ts** – Create discount code (valid payload, tenant with Connect) → doc has `stripeCouponId` and `stripePromotionCodeId`; coupon and promo exist on Connect. Validation: code unique per tenant; value 1–100 for percent; currency for amount_off; durationInMonths when repeating. Update/archive → deactivate in Stripe. List/read tenant-scoped; tenant-admin sees only own.
+- **plans-soft-delete.int.spec.ts** – List excludes `deletedAt`; read with `deletedAt` 404/restricted; archive sets `deletedAt` and archives in Stripe. Optional: restore clears `deletedAt` and product active.
+- **class-pass-types-soft-delete.int.spec.ts** – Same: list/read respect `deletedAt`; archive sets `deletedAt` and archives in Stripe.
+
+**E2E (`apps/atnd-me/tests/e2e/`) – optional:**
+
+- **stripe-product-sync-admin.e2e.spec.ts** – Tenant-admin: create plan → save → success (optionally assert Stripe called). Create class pass type → success. Archive plan → list hides or “Archived”. Create discount code → success. Test tenant with Connect or mock Stripe.
+
+**Test data:** Reuse `tenant-test-helpers.ts` and `multi-tenant.config.ts`. Tenants: one with Connect active, one without. Stripe: test key + `stripeAccount` or mock client in unit tests.
+
+---
+
+## Phase 4.6: Class Pass UI in Bookings Page
+
+*This phase follows Phase 4.5 (Stripe product sync & discount codes). It ensures class pass is a first-class payment method in the public booking flow, with the same UI parity as drop-in and membership.*
+
+### Overview
+
+Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a class option has those payment methods. **Class pass** is validated server-side (create access and decrement hook exist), but the **UI does not** expose class pass as a selectable payment method: there is no "Class pass" tab, no way to see valid passes for the lesson, and no "Confirm with class pass" flow. This phase adds that UI and the supporting API so users can book using a class pass in the same way they use a subscription or drop-in.
+
+### Goals
+
+- **Class pass tab**: When the lesson's class option has `allowedClassPasses` (and the user has at least one valid pass for that tenant/class), show a **Class pass** tab alongside Membership and Drop-in in the booking page payment methods.
+- **Valid passes for lesson**: New tRPC procedure (or equivalent) to return the current user's **valid class passes** for a given lesson (tenant + class option's allowed pass types; active, non-expired, quantity &gt; 0).
+- **Confirm with class pass**: Extend the existing `createBookings` mutation (or add a dedicated flow) to accept `classPassId` (and optionally `pendingBookingIds` for the manage flow). Create/confirm bookings with `paymentMethodUsed: 'class_pass'` and `classPassIdUsed`; existing plugin hook will decrement the pass.
+- **Quantity and multi-slot**: Respect class pass type's `allowMultipleBookingsPerLesson` and pass `quantity`: one pass can cover multiple credits when allowed; otherwise one pass per slot. UI shows how many credits will be used.
+- **Payment-method gate**: Update the booking page client so that **class pass** is treated as a payment method: when the class option has only `allowedClassPasses` (no drop-in, no plans), the payment gateway is still shown with the Class pass tab.
+
+### Non-goals (this phase)
+
+- Class pass **purchase** flow (already exists at `/class-passes/purchase`); this phase is **consumption** (use pass to book).
+- Manage booking page (children / multi-booking) class pass support can be done in this phase or immediately after; document the contract.
+
+### Current State (brief)
+
+- **Backend**: `bookingAccess.ts` allows create when user has a valid class pass (`checkClassPass`). Booking has `paymentMethodUsed`, `classPassIdUsed`. Plugin hook decrements pass on confirm.
+- **tRPC**: `createBookings` accepts `subscriptionId` and `pendingBookingIds`; no `classPassId`. No procedure to list valid class passes for a lesson.
+- **UI**: `PaymentMethods` (packages/payments/payments-next) has only **Membership** and **Drop-in** tabs. `BookingPageClientSmart` treats "has payment methods" as `allowedDropIn || allowedPlans.length > 0`; `allowedClassPasses` is ignored.
+
+### Architecture
+
+1. **Payment-method gate (BookingPageClientSmart)**
+  - Include `allowedClassPasses` in the condition for showing the payment gateway: e.g. `hasPaymentMethods = allowedDropIn || (allowedPlans?.length ?? 0) > 0 || (allowedClassPasses?.length ?? 0) > 0`.
+2. **PaymentMethods component (payments-next)**
+  - **Class pass tab**: Shown when `lesson.classOption.paymentMethods?.allowedClassPasses` has length and the user has at least one valid pass for this lesson (from new tRPC query).
+  - **ClassPassView (or inline)**: List user's valid passes for this lesson (type name, remaining quantity, expiry). "Use this pass" (or select one if multiple). On confirm: call createBookings with `classPassId` (and quantity / pendingBookingIds as needed).
+  - **Quantity**: When quantity &gt; 1, show only passes that can cover it (e.g. pass.quantity >= quantity, or pass type allows multiple per lesson and quantity is within credits). Display e.g. "This will use 2 credits from your 10-Pack."
+3. **tRPC**
+  - **getValidClassPassesForLesson({ lessonId })**: Resolve tenant from lesson; get class option's allowed class pass type IDs; return user's class passes where tenant matches, type in allowed list, status active, quantity &gt; 0, expirationDate &gt; now. Sort e.g. by expirationDate (use soonest first).
+  - **createBookings**: Extend input with `classPassId?: number`. When provided: validate pass (user owns it, lesson's tenant and class option allow that pass type, sufficient quantity for requested slots); set `paymentMethodUsed: 'class_pass'`, `classPassIdUsed`; create booking(s); create transaction record for class_pass; plugin hook will decrement. Support `pendingBookingIds` with `classPassId` to confirm pending bookings with class pass (same pattern as subscription).
+4. **Quantity and allowMultipleBookingsPerLesson**
+  - Pass type can allow multiple bookings per lesson (use N credits for N slots) or one slot per lesson. Validate in createBookings: if pass type does not allow multiple and quantity &gt; 1, require multiple passes or reduce to 1; if allows multiple, ensure pass.quantity >= quantity.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 4.6.1 – tRPC: getValidClassPassesForLesson**
+  - Add procedure that returns list of valid class passes for the current user for the given lesson (tenant + allowed types, active, quantity &gt; 0, not expired). Unit/int tests with fixture lesson and passes.
+- **Step 4.6.2 – tRPC: createBookings with classPassId**
+  - Extend `createBookings` input with `classPassId`, `pendingBookingIds` (already exists). Implement validation (pass ownership, lesson tenant, allowed types, quantity/allowMultipleBookingsPerLesson). Set `paymentMethodUsed`, `classPassIdUsed`; create transaction. Tests: success, invalid pass, wrong tenant, insufficient quantity, allowMultipleBookingsPerLesson rules.
+- **Step 4.6.3 – PaymentMethods: Class pass tab and ClassPassView**
+  - In PaymentMethods, add query for getValidClassPassesForLesson(lessonId). Add "Class pass" tab when allowedClassPasses has length and query returns at least one pass. Build ClassPassView: list passes, select one, "Confirm with class pass" calls createBookings with classPassId (and quantity / pendingBookingIds). Handle quantity &gt; 1 (filter passes that can cover quantity; show credits used). Redirect to successUrl on success.
+- **Step 4.6.4 – BookingPageClientSmart: include allowedClassPasses in gate**
+  - Update hasPaymentMethods to include `(lesson.classOption?.paymentMethods?.allowedClassPasses?.length ?? 0) > 0`. Tests: when only class passes are allowed, payment gateway is shown with Class pass tab.
+- **Step 4.6.5 – Manage booking flow (optional)**
+  - If the manage booking page (pending bookings) uses the same PaymentMethods component, ensure class pass tab and createBookings with classPassId + pendingBookingIds work there; add E2E or int test.
+
+### Files / areas to add or modify
+
+- `packages/trpc/src/routers/` – New procedure `getValidClassPassesForLesson` (e.g. under classPasses router or bookings); extend `bookings.createBookings` with `classPassId` and class-pass validation + payload.
+- `packages/payments/payments-next/src/components/payment-methods.tsx` – Class pass tab; query valid passes; ClassPassView (or new component) to list passes and confirm with classPassId.
+- `packages/bookings/bookings-next/src/components/bookings/booking-page-client-smart.tsx` – Include `allowedClassPasses` in hasPaymentMethods.
+- Optional: `packages/payments/payments-next/src/components/class-pass-view.tsx` – Reusable ClassPassView for lesson + quantity.
+- Tests: `tests/unit/class-pass-booking.test.ts`, `tests/int/class-pass-booking-ui.int.spec.ts`, `tests/e2e/booking-with-class-pass.e2e.spec.ts` (see Phase 4.6 tests below).
+
+### Tests for Phase 4.6
+
+- **Unit**: Valid class passes query logic (given lesson + user passes, return only valid for that lesson).
+- **Integration**: createBookings with classPassId creates booking with paymentMethodUsed and classPassIdUsed; pass quantity decremented; invalid pass / wrong tenant / quantity rejected. getValidClassPassesForLesson returns only passes for lesson's tenant and allowed types.
+- **E2E**: Booking page for a lesson that allows class passes; user with valid pass sees Class pass tab; confirm with class pass redirects to success; booking is confirmed and pass decremented.
+
+### Summary
+
+
+| Aspect        | Notes                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| **Scope**     | Public booking page only (and optionally manage pending with class pass).                            |
+| **UI parity** | Class pass appears as a tab alongside Membership and Drop-in when allowed and user has valid passes. |
+| **API**       | getValidClassPassesForLesson(lessonId); createBookings(..., classPassId, pendingBookingIds?).        |
+| **Quantity**  | Respect pass type allowMultipleBookingsPerLesson and pass.quantity; show credits used.               |
+| **Placement** | After Phase 4.5 (discount codes); before Phase 5 (admin bulk operations).                            |
 
 
 ---

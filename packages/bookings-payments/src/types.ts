@@ -12,10 +12,17 @@ export type CollectionOverrides = {
  * Class-pass feature config. When enabled, adds class-pass-types, class-passes collections,
  * allowedClassPasses (relationship to types) injection into class-options, checkClassPass utility, and decrement hook.
  */
+/** Optional: resolve Stripe Connect account ID for proxy requests (e.g. from tenant cookie). When set, plans/class-pass-products proxies list from this account. */
+export type GetStripeAccountIdForRequest = (
+  req: import("payload").PayloadRequest
+) => Promise<string | null> | string | null;
+
 export type ClassPassConfig = {
   enabled: boolean;
   classOptionsSlug?: string;
   adminGroup?: string;
+  /** When set, GET /stripe/class-pass-products lists products from this Connect account (tenant-aware). */
+  getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
   /** Override access/fields/hooks for transactions (e.g. tenant-scoped access in multi-tenant apps). */
   bookingTransactionsOverrides?: CollectionOverrides;
   /** Override access/fields/hooks for class-passes (e.g. tenant-scoped access in multi-tenant apps). */
@@ -65,6 +72,8 @@ export type GetSubscriptionBookingFeeCents = (_params: {
 export type MembershipConfig = {
   enabled: boolean;
   paymentMethodSlugs?: string[];
+  /** When set, GET /stripe/plans lists products from this Connect account (tenant-aware). */
+  getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
   /**
    * When true, registers the sync-stripe-subscriptions endpoint and syncStripeSubscriptions task.
    * When false or omitted, sync is not registered (opt-in). Apps that need the sync must set this to true.
