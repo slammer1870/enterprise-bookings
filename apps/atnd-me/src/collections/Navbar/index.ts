@@ -75,6 +75,21 @@ export const Navbar: CollectionConfig = {
                     appearances: false,
                 }),
                 {
+                    name: 'icon',
+                    type: 'select',
+                    label: 'Icon',
+                    options: [
+                        { label: 'None', value: 'none' },
+                        { label: 'Instagram', value: 'instagram' },
+                        { label: 'Facebook', value: 'facebook' },
+                        { label: 'X (Twitter)', value: 'x' },
+                    ],
+                    defaultValue: 'none',
+                    admin: {
+                        description: 'Optional icon before the label (e.g. for social links).',
+                    },
+                },
+                {
                     name: 'renderAsButton',
                     type: 'checkbox',
                     label: 'Render as Button',

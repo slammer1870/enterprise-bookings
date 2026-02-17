@@ -35,6 +35,10 @@ import * as migration_20260211_users_stripe_customer_id from './20260211_users_s
 import * as migration_20260213_171100 from './20260213_171100';
 import * as migration_20260216_booking_transactions_booking_id_cascade from './20260216_booking_transactions_booking_id_cascade';
 import * as migration_20260216_class_options_tenant_scoped_name_unique from './20260216_class_options_tenant_scoped_name_unique';
+import * as migration_20260217_125426 from './20260217_125426';
+import * as migration_20260217_navbar_nav_items_icon from './20260217_navbar_nav_items_icon';
+import * as migration_20260217_pages_blocks_hero_with_location from './20260217_pages_blocks_hero_with_location';
+import * as migration_20260217_pages_blocks_tenant_scoped_schedule from './20260217_pages_blocks_tenant_scoped_schedule';
 
 export const migrations = [
   {
@@ -221,5 +225,25 @@ export const migrations = [
     up: migration_20260216_class_options_tenant_scoped_name_unique.up,
     down: migration_20260216_class_options_tenant_scoped_name_unique.down,
     name: '20260216_class_options_tenant_scoped_name_unique',
+  },
+  {
+    up: migration_20260217_125426.up,
+    down: migration_20260217_125426.down,
+    name: '20260217_125426',
+  },
+  {
+    up: migration_20260217_navbar_nav_items_icon.up,
+    down: migration_20260217_navbar_nav_items_icon.down,
+    name: '20260217_navbar_nav_items_icon',
+  },
+  {
+    up: migration_20260217_pages_blocks_hero_with_location.up,
+    down: migration_20260217_pages_blocks_hero_with_location.down,
+    name: '20260217_pages_blocks_hero_with_location',
+  },
+  {
+    up: migration_20260217_pages_blocks_tenant_scoped_schedule.up,
+    down: migration_20260217_pages_blocks_tenant_scoped_schedule.down,
+    name: '20260217_pages_blocks_tenant_scoped_schedule'
   },
 ];

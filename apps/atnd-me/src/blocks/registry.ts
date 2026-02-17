@@ -14,11 +14,13 @@ import { HeroScheduleSanctuary } from './HeroScheduleSanctuary/config'
 import { Schedule } from './Schedule/config'
 import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
+import { HeroWithLocation } from './HeroWithLocation/config'
 import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
 
 const allBlocks: Block[] = [
   HeroSchedule,
   HeroScheduleSanctuary,
+  HeroWithLocation,
   Hero,
   About,
   Location,
@@ -39,6 +41,8 @@ const ThreeColumnLayout = createThreeColumnLayout(allBlocks)
 /** Block slugs that all tenants always have access to. */
 export const defaultBlockSlugs: string[] = [
   'heroSchedule',
+  'heroScheduleSanctuary',
+  'heroWithLocation', // Croí Lán–style hero with location and social follow
   'hero',
   'about',
   'schedule',

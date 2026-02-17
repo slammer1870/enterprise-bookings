@@ -223,6 +223,7 @@ export interface Page {
   layout: (
     | HeroScheduleBlock
     | HeroScheduleSanctuaryBlock
+    | HeroWithLocationBlock
     | HeroBlock
     | ThreeColumnLayoutBlock
     | AboutBlock
@@ -282,7 +283,6 @@ export interface Tenant {
    */
   allowedBlocks?:
     | (
-        | 'heroScheduleSanctuary'
         | 'location'
         | 'healthBenefits'
         | 'sectionTagline'
@@ -936,6 +936,76 @@ export interface HeroScheduleSanctuaryBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroWithLocationBlock".
+ */
+export interface HeroWithLocationBlock {
+  /**
+   * Full-bleed background image
+   */
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  /**
+   * First line of heading (e.g. CROÍ LÁN)
+   */
+  title?: string | null;
+  /**
+   * Second line of heading (e.g. SAUNA)
+   */
+  titleLine2?: string | null;
+  /**
+   * Style first line with accent color (e.g. orange); second line stays white
+   */
+  titleLine1Accent?: boolean | null;
+  /**
+   * e.g. The Bog Meadow, Enniskerry Village
+   */
+  locationText?: string | null;
+  /**
+   * e.g. 30 minutes outside Dublin
+   */
+  locationSubtext?: string | null;
+  /**
+   * Show map pin icon before location
+   */
+  showLocationIcon?: boolean | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * e.g. Follow Us (shown with icon at bottom-left)
+   */
+  socialFollowLabel?: string | null;
+  /**
+   * URL for social follow link (e.g. Instagram)
+   */
+  socialFollowUrl?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'heroWithLocation';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "HeroBlock".
  */
 export interface HeroBlock {
@@ -979,6 +1049,7 @@ export interface ThreeColumnLayoutBlock {
     | (
         | HeroScheduleBlock
         | HeroScheduleSanctuaryBlock
+        | HeroWithLocationBlock
         | HeroBlock
         | AboutBlock
         | LocationBlock
@@ -1500,6 +1571,10 @@ export interface Navbar {
           url?: string | null;
           label: string;
         };
+        /**
+         * Optional icon before the label (e.g. for social links).
+         */
+        icon?: ('none' | 'instagram' | 'facebook' | 'x') | null;
         /**
          * If enabled, this nav item will render as a button instead of a text link.
          */
@@ -2208,6 +2283,7 @@ export interface PagesSelect<T extends boolean = true> {
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
+        heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
@@ -2305,6 +2381,39 @@ export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HeroWithLocationBlock_select".
+ */
+export interface HeroWithLocationBlockSelect<T extends boolean = true> {
+  backgroundImage?: T;
+  logo?: T;
+  title?: T;
+  titleLine2?: T;
+  titleLine1Accent?: T;
+  locationText?: T;
+  locationSubtext?: T;
+  showLocationIcon?: T;
+  links?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+            };
+        id?: T;
+      };
+  socialFollowLabel?: T;
+  socialFollowUrl?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "HeroBlock_select".
  */
 export interface HeroBlockSelect<T extends boolean = true> {
@@ -2339,6 +2448,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
+        heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
@@ -2703,6 +2813,7 @@ export interface NavbarSelect<T extends boolean = true> {
               url?: T;
               label?: T;
             };
+        icon?: T;
         renderAsButton?: T;
         buttonVariant?: T;
         id?: T;

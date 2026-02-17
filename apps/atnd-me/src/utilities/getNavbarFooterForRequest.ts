@@ -14,6 +14,7 @@ export type NavbarData = {
     link?: { type?: string; url?: string; label?: string; reference?: unknown }
     renderAsButton?: boolean
     buttonVariant?: string
+    icon?: 'none' | 'instagram' | 'facebook' | 'x' | null
   }>
   styling?: {
     backgroundColor?: string

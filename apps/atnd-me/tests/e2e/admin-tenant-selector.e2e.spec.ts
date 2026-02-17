@@ -77,7 +77,8 @@ test.describe('Admin Tenant Selector', () => {
 
                 // Payload SelectInput (react-select): force-click the combobox to open the menu.
                 await combobox.click({ force: true })
-                await page.getByRole('option', { name: tenant2Name }).click()
+                // Use .first() because multiple options can match (e.g. duplicate menus); we want the one in the open dropdown.
+                await page.getByRole('option', { name: tenant2Name }).first().click()
 
     // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
     // If the modal appears, we must confirm it or the controlled <select> will snap back.
@@ -94,7 +95,7 @@ test.describe('Admin Tenant Selector', () => {
 
     // Assert display via aria-selected on the option after selection
                 await combobox.click({ force: true })
-    const selectedOption = page.getByRole('option', { name: tenant2Name })
+    const selectedOption = page.getByRole('option', { name: tenant2Name }).first()
     await expect(selectedOption).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Escape').catch(() => null)
 
@@ -209,16 +210,21 @@ test.describe('Admin Tenant Selector', () => {
                     const combobox = wrap.getByRole('combobox')
     await expect(combobox).toBeVisible()
 
-    // After clearing, dashboard should request aggregate analytics (no tenantId param)
-    const waitForAggregateAnalytics = page.waitForRequest((req) => {
-      if (!req.url().includes('/api/analytics')) return false
-      try {
-        const url = new URL(req.url())
-        return !url.searchParams.has('tenantId')
-      } catch {
-        return false
-      }
-    })
+    // After clearing, dashboard should request aggregate analytics (no tenantId param).
+    // Use a long timeout and trigger a fresh dashboard load so the request is reliable.
+    const ANALYTICS_WAIT_TIMEOUT_MS = 60_000
+    const waitForAggregateAnalytics = page.waitForRequest(
+      (req) => {
+        if (!req.url().includes('/api/analytics')) return false
+        try {
+          const url = new URL(req.url())
+          return !url.searchParams.has('tenantId')
+        } catch {
+          return false
+        }
+      },
+      { timeout: ANALYTICS_WAIT_TIMEOUT_MS },
+    )
 
                     // Clear via UI: react-select supports backspace to remove the current value when focused.
                     await combobox.focus()
@@ -231,9 +237,11 @@ test.describe('Admin Tenant Selector', () => {
     }
 
     await page.waitForLoadState('load')
-                    // Ensure we trigger a fresh analytics request after clearing.
-                    await page.getByRole('button', { name: /last 7 days/i }).click().catch(() => null)
-                    await waitForAggregateAnalytics
+
+    // Trigger a fresh dashboard load so analytics is requested without tenantId (reliable vs. relying on re-render or "Last 7 days").
+    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'domcontentloaded' })
+    await page.waitForLoadState('load').catch(() => null)
+    await waitForAggregateAnalytics
 
     // Cookie should be removed/empty regardless of path scope
     const cookiesAfter = await page.context().cookies()

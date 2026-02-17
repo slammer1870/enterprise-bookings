@@ -24,6 +24,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   `)
 }
 
+// eslint-disable-next-line no-unused-vars -- required by MigrateDownArgs signature
 export async function down(_args: MigrateDownArgs): Promise<void> {
   // No-op: we can't recreate a constraint that was invalid
 }

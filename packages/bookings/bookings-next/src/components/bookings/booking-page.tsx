@@ -183,6 +183,13 @@ export async function createBookingPage(
 
     return content
   } catch (error: any) {
+    // Preserve Next.js redirects (e.g. from postValidation -> /bookings/[id]/manage)
+    const isNextRedirect =
+      error?.digest?.startsWith?.('NEXT_REDIRECT') ||
+      error?.message === 'NEXT_REDIRECT'
+    if (isNextRedirect) {
+      throw error
+    }
     // Redirect on known client-facing errors
     const code = error?.data?.code
     const msg = typeof error?.message === 'string' ? error.message : ''
@@ -193,10 +200,8 @@ export async function createBookingPage(
       redirect(config.errorRedirectPath)
     }
     // Log and redirect on any other error so we never show the global error boundary
-    if (error?.digest !== 'NEXT_REDIRECT') {
-      console.error('[createBookingPage] Error:', error?.message ?? error)
-      if (error?.stack) console.error('[createBookingPage] Stack:', error.stack)
-    }
+    console.error('[createBookingPage] Error:', error?.message ?? error)
+    if (error?.stack) console.error('[createBookingPage] Stack:', error.stack)
     redirect(config.errorRedirectPath)
   }
 }

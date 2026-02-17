@@ -17,6 +17,7 @@ import { MediaBlock } from '../../blocks/MediaBlock/config'
 import { HealthBenefits } from '@/blocks/HealthBenefits/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
 import { HeroScheduleSanctuary } from '@/blocks/HeroScheduleSanctuary/config'
+import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
@@ -38,6 +39,7 @@ import {
 const availableBlocks = [
   HeroSchedule,
   HeroScheduleSanctuary,
+  HeroWithLocation,
   Hero,
   About,
   Location,
@@ -177,12 +179,14 @@ export const Pages: CollectionConfig<'pages'> = {
               blocks: [
                 HeroSchedule,
                 HeroScheduleSanctuary,
+                HeroWithLocation,
                 Hero,
                 ThreeColumnLayout,
                 ...availableBlocks.filter(
                   (block) =>
                     block.slug !== 'heroSchedule' &&
                     block.slug !== 'heroScheduleSanctuary' &&
+                    block.slug !== 'heroWithLocation' &&
                     block.slug !== 'hero'
                 ),
               ],

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@repo/ui/components/ui/button";
 
-export type SignInWithGoogle = (callbackURL: string) => Promise<void>;
+export type SignInWithGoogle = (_callbackURL: string) => Promise<void>;
 
 function GoogleLogo({ className }: { className?: string }) {
   return (
