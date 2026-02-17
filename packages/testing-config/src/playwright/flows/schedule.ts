@@ -63,14 +63,14 @@ export async function goToTomorrowInSchedule(page: Page): Promise<Date> {
   // We need to wait for the query to complete and the UI to update
   
   // Wait for loading spinner to disappear (if it exists)
-  const loadingSpinner = p.locator('#schedule').getByText('Loading schedule...')
+  const loadingSpinner = p.locator('#schedule').first().getByText('Loading schedule...')
   const hasLoadingText = await loadingSpinner.count().catch(() => 0) > 0
   if (hasLoadingText) {
     await expect(loadingSpinner).not.toBeVisible({ timeout: 30000 })
   }
 
   // Also check for the animated spinner icon (Loader2 component)
-  const loaderIcon = p.locator('#schedule').locator('svg').filter({ has: p.locator('[class*="animate-spin"]') })
+  const loaderIcon = p.locator('#schedule').first().locator('svg').filter({ has: p.locator('[class*="animate-spin"]') })
   const hasLoaderIcon = await loaderIcon.count().catch(() => 0) > 0
   if (hasLoaderIcon) {
     await expect(loaderIcon).not.toBeVisible({ timeout: 30000 })

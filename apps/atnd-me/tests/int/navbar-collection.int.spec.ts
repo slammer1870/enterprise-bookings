@@ -196,20 +196,23 @@ describe('Navbar collection (converted from Header global)', () => {
   )
 
   it(
-    'requires tenant field for navbar',
+    'allows creating root navbar without tenant (tenantless base version for root domain)',
     async () => {
-      await expect(
-        payload.create({
-          collection: 'navbar',
-          data: {
-            logoLink: '/',
-            navItems: [],
-            // Missing tenant field
-          },
-          user: adminUser,
-          overrideAccess: false,
-        }),
-      ).rejects.toThrow()
+      // Tenant is optional: null = root site navbar when no tenant is assigned
+      const navbar = await payload.create({
+        collection: 'navbar',
+        data: {
+          logoLink: '/',
+          navItems: [],
+          // No tenant field - creates root site navbar
+        },
+        user: adminUser,
+        overrideAccess: false,
+      })
+
+      expect(navbar).toBeDefined()
+      expect(navbar.tenant).toBeNull()
+      expect(navbar.logoLink).toBe('/')
     },
     TEST_TIMEOUT,
   )

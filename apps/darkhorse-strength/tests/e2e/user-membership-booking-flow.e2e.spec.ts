@@ -133,7 +133,7 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
 
     await page.goto('/dashboard', { waitUntil: 'load', timeout: process.env.CI ? 120000 : 60000 })
     await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
-    await expect(page.locator('#schedule')).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
+    await expect(page.locator('#schedule').first()).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
 
     // Schedule: navigate to tomorrow and try to check in
     await goToTomorrowInSchedule(page)
@@ -197,7 +197,7 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
     // Verify dashboard shows booking
     await page.goto('/dashboard', { waitUntil: 'load', timeout: process.env.CI ? 120000 : 60000 })
     await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {})
-    await expect(page.locator('#schedule')).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
+    await expect(page.locator('#schedule').first()).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
     await goToTomorrowInSchedule(page)
     await expect(page.getByRole('button', { name: /Cancel Booking/i }).first()).toBeVisible({
       timeout: process.env.CI ? 120000 : 60000,

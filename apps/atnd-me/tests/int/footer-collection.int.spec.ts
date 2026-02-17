@@ -133,20 +133,23 @@ describe('Footer collection (converted from Footer global)', () => {
   )
 
   it(
-    'requires tenant field for footer',
+    'allows creating root footer without tenant (tenantless base version for root domain)',
     async () => {
-      await expect(
-        payload.create({
-          collection: 'footer',
-          data: {
-            logoLink: '/',
-            navItems: [],
-            // Missing tenant field
-          },
-          user: adminUser,
-          overrideAccess: false,
-        }),
-      ).rejects.toThrow()
+      // Tenant is optional: null = root site footer when no tenant is assigned
+      const footer = await payload.create({
+        collection: 'footer',
+        data: {
+          logoLink: '/',
+          navItems: [],
+          // No tenant field - creates root site footer
+        },
+        user: adminUser,
+        overrideAccess: false,
+      })
+
+      expect(footer).toBeDefined()
+      expect(footer.tenant).toBeNull()
+      expect(footer.logoLink).toBe('/')
     },
     TEST_TIMEOUT,
   )
