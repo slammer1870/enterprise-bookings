@@ -35,11 +35,29 @@ async function ensureSidebarOpen(page: Page) {
   const tenantSelector = page.getByTestId('tenant-selector')
   if (await tenantSelector.isVisible().catch(() => false)) return
 
-  // In Payload admin the menu toggle can remain visible even when the sidebar is already open,
-  // so only click it when the tenant selector isn't visible.
-  const openMenu = page.getByRole('button', { name: /open menu/i })
-  if (await openMenu.isVisible().catch(() => false)) {
+  // In CI the sidebar is often closed by default; wait for the page to settle then open it.
+  await page.waitForLoadState('domcontentloaded').catch(() => null)
+  if (isCI) await page.waitForTimeout(800)
+
+  // Payload admin menu toggle: try common labels (Payload may use "Open menu" or similar).
+  const menuSelectors = [
+    page.getByRole('button', { name: /open menu/i }),
+    page.getByRole('button', { name: /menu/i }),
+    page.getByRole('button', { name: /toggle.*nav|nav.*toggle/i }),
+    page.getByRole('button', { name: /sidebar|navigation/i }),
+    page.locator('header').getByRole('button').first(),
+  ]
+
+  const attemptWaitMs = isCI ? 6000 : 5000
+  for (const openMenu of menuSelectors) {
+    if (await tenantSelector.isVisible().catch(() => false)) break
+    const visible = await openMenu.isVisible().catch(() => false)
+    if (!visible) continue
+    await openMenu.scrollIntoViewIfNeeded().catch(() => null)
     await openMenu.click({ force: true })
+    if (isCI) await page.waitForTimeout(500)
+    await tenantSelector.waitFor({ state: 'visible', timeout: attemptWaitMs }).catch(() => null)
+    if (await tenantSelector.isVisible().catch(() => false)) break
   }
 
   // Wait for sidebar content (tenant selector) so we don't interact while still collapsed.
