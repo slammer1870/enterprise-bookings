@@ -41,7 +41,12 @@ describe('Class pass booking UI (Phase 4.6)', () => {
 
     const tenant = await payload.create({
       collection: 'tenants',
-      data: { name: 'CP UI Tenant', slug: 'cp-ui-tenant' },
+      data: {
+        name: 'CP UI Tenant',
+        slug: 'cp-ui-tenant',
+        stripeConnectAccountId: 'acct_cp_ui_1',
+        stripeConnectOnboardingStatus: 'active',
+      },
       overrideAccess: true,
     })
     testTenantId = tenant.id as number

@@ -7,6 +7,10 @@ import dotenv from 'dotenv'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '.env') })
 
+// payload-auth uses directory imports that Node ESM rejects; this loader resolves them.
+const payloadAuthLoader = path.resolve(__dirname, 'scripts/payload-auth-loader.mjs')
+const nodeOptionsWithLoader = `--no-deprecation --experimental-loader ${payloadAuthLoader}`
+
 import { defineConfig, devices } from '@playwright/test'
 
 // Ensure all Playwright workers inherit these env flags.
@@ -53,7 +57,7 @@ export default defineConfig({
         stderr: 'pipe',
         env: {
           NODE_ENV: 'production',
-          NODE_OPTIONS: '--no-deprecation',
+          NODE_OPTIONS: nodeOptionsWithLoader,
           ENABLE_TEST_WEBHOOKS: 'true', // Mock Stripe/create-payment-intent in e2e (avoid "No such destination" for placeholder accounts)
           PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
           PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
@@ -63,8 +67,8 @@ export default defineConfig({
         },
       }
     : {
-        // Dev mode fallback: `next dev` (no build required, slower)
-        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev',
+        // Dev mode fallback: `next dev` with payload-auth loader (no build required, slower)
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev:e2e',
         url: 'http://localhost:3000/admin',
         timeout: 180000,
         reuseExistingServer: !process.env.CI,
@@ -73,7 +77,7 @@ export default defineConfig({
         env: {
           NODE_ENV: 'development',
           CI: 'true',
-          NODE_OPTIONS: '--no-deprecation',
+          NODE_OPTIONS: nodeOptionsWithLoader,
           ENABLE_TEST_MAGIC_LINKS: 'true',
           ENABLE_TEST_WEBHOOKS: 'true',
           PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)

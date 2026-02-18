@@ -3,7 +3,7 @@
  * Verifies total displayed includes booking fee (class price + fee), not class price only.
  */
 import { test, expect } from './helpers/fixtures'
-import { loginAsRegularUser } from './helpers/auth-helpers'
+import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestClassOption,
@@ -16,6 +16,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
   test('checkout UI shows when payment methods are attached (Drop-in tab)', async ({
     page,
     testData,
+    request,
   }) => {
     const payload = await getPayloadInstance()
     
@@ -95,7 +96,10 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     endTime.setHours(13, 0, 0, 0)
     const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
 
-    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', {
+      request,
+      tenantSlug,
+    })
     await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 

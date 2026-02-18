@@ -5,7 +5,7 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { loginAsRegularUser } from './helpers/auth-helpers'
+import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
   createTestClassOption,
   createTestLesson,
@@ -49,10 +49,22 @@ test.describe('Two pending bookings: access booking route and make booking', () 
     await createTestBooking(user.id, lesson.id, 'pending')
     await createTestBooking(user.id, lesson.id, 'pending')
 
-    await loginAsRegularUser(page, 1, user.email, 'password', {
+    // Use API login to avoid flaky UI login / rate limiting in CI.
+    await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
-    await page.waitForTimeout(1500)
+
+    // Ensure session cookies exist on tenant host before hitting protected routes.
+    const tenantOrigin = `http://${tenant.slug}.localhost:3000`
+    await expect
+      .poll(
+        async () => {
+          const cookies = await page.context().cookies([tenantOrigin])
+          return cookies.some((c) => /^(better-auth\.|session_token|session_data|dont_remember)/.test(c.name))
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(true)
 
     // Navigate to booking page - should NOT redirect to home (the regression we're testing)
     await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)

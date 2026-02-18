@@ -50,6 +50,8 @@ function setPayloadTenantCookie(tenantId: string | undefined) {
   document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/; ${maxAgeAttrs}; ${baseAttrs}`
   // Path=/admin (covers admin specifically; matches plugin behavior)
   document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/admin; ${maxAgeAttrs}; ${baseAttrs}`
+  // Path=/admin/ (some environments/tools set this exact path; keep in sync to avoid duplicates)
+  document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/admin/; ${maxAgeAttrs}; ${baseAttrs}`
 }
 
 type Props = {
@@ -97,7 +99,11 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
       const normalized = option ?? undefined
 
       // Match plugin behavior: if selecting current tenant, no-op.
-      if (normalized && 'value' in normalized && normalized.value === selectedTenantID) {
+      if (
+        normalized &&
+        'value' in normalized &&
+        String(normalized.value) === String(selectedTenantID)
+      ) {
         return
       }
 

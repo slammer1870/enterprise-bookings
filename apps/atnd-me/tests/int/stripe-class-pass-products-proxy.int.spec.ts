@@ -1,14 +1,14 @@
 /**
  * Phase 4.5 – GET /stripe/class-pass-products: tenant-aware proxy returns one-time products from Connect.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
 
-const mockOneTimeProducts = [
+const mockOneTimeProducts = vi.hoisted(() => [
   { id: 'prod_cp_1', default_price: { type: 'one_time', id: 'price_cp_1' } },
-]
+])
 
 vi.mock('@repo/shared-utils', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>

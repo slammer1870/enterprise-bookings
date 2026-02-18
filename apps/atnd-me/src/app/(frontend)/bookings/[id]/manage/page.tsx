@@ -17,7 +17,7 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
   const { id: idParam } = await params
   const id = parseLessonId(idParam)
 
-  requireAuthForBooking(id, `/bookings/${id}/manage`)
+  await requireAuthForBooking(id, `/bookings/${id}/manage`)
 
   const caller = await createCallerForBooking()
   const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: id })

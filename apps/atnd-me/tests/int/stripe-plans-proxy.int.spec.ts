@@ -1,15 +1,15 @@
 /**
  * Phase 4.5 – GET /stripe/plans: tenant-aware proxy returns recurring products from Connect; auth required.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
 
-const mockPlans = [
+const mockPlans = vi.hoisted(() => [
   { id: 'prod_plan_1', default_price: { type: 'recurring', id: 'price_1' } },
   { id: 'prod_plan_2', default_price: { type: 'recurring', id: 'price_2' } },
-]
+])
 
 vi.mock('@repo/shared-utils', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>

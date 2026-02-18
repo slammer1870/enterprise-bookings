@@ -106,7 +106,12 @@ describe('Discount codes (Phase 4.5)', () => {
         overrideAccess: true,
         user: adminUser,
       } as Parameters<typeof payload.create>[0])
-      const doc = created as Record<string, unknown>
+      // afterChange hook sets Stripe IDs via update; re-fetch to get them
+      const doc = (await payload.findByID({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })) as Record<string, unknown>
       expect(doc.stripeCouponId).toBe('coupon_mock_dc')
       expect(doc.stripePromotionCodeId).toBe('promo_mock_dc')
       await payload.delete({

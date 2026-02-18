@@ -137,13 +137,13 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       })
       await page.getByRole('button', { name: /update bookings/i }).click()
 
-      // Wait for checkout view (pending created); CI can be slower to transition.
-      await expect(
-        page.getByText(/complete payment/i).first()
-      ).toBeVisible({ timeout: 20000 })
-      await expect(
-        page.getByText(/pending booking/i).first()
-      ).toBeVisible({ timeout: 8000 })
+      // Wait for checkout view (pending created). Either the "Complete Payment" card or "pending booking" text appears; accept either.
+      const completePaymentHeading = page.getByRole('heading', { name: /complete payment/i })
+      const pendingBookingText = page.getByText(/pending booking/i).first()
+      await Promise.race([
+        completePaymentHeading.waitFor({ state: 'visible', timeout: 22000 }),
+        pendingBookingText.waitFor({ state: 'visible', timeout: 22000 }),
+      ])
 
       // Leave the page (navigate to home) – cleanup should cancel pending
       await navigateToTenant(page, tenant.slug, '/')

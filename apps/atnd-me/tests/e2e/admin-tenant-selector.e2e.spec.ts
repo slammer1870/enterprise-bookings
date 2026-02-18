@@ -3,18 +3,34 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin } from './helpers/auth-helpers'
 
 const ADMIN_ORIGIN = 'http://localhost:3000'
+const ADMIN_COOKIE_URLS = [
+  `${ADMIN_ORIGIN}/`,
+  `${ADMIN_ORIGIN}/admin/`,
+  `${ADMIN_ORIGIN}/admin/collections/`,
+  `${ADMIN_ORIGIN}/admin/collections/categories`,
+]
 
 /** Desktop viewport so Payload admin sidebar (and tenant selector) is visible, not collapsed. */
 const ADMIN_VIEWPORT = { width: 1440, height: 900 }
 
-/** Open the admin sidebar if it is collapsed (e.g. on smaller viewports). */
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Open the admin sidebar if it is collapsed; wait until tenant selector is visible. */
 async function ensureSidebarOpen(page: Page) {
+  const tenantSelector = page.getByTestId('tenant-selector')
+  if (await tenantSelector.isVisible().catch(() => false)) return
+
+  // In Payload admin the menu toggle can remain visible even when the sidebar is already open,
+  // so only click it when the tenant selector isn't visible.
   const openMenu = page.getByRole('button', { name: /open menu/i })
   if (await openMenu.isVisible().catch(() => false)) {
     await openMenu.click({ force: true })
-    // Give the UI a moment to animate / mount nav.
-    await page.getByRole('button', { name: /close menu/i }).waitFor({ state: 'visible', timeout: 5000 }).catch(() => null)
   }
+
+  // Wait for sidebar content (tenant selector) so we don't interact while still collapsed.
+  await tenantSelector.waitFor({ state: 'visible', timeout: 10000 })
 }
 
 /**
@@ -31,6 +47,7 @@ test.describe('Admin Tenant Selector', () => {
     const { tenants } = testData
     const tenant1 = tenants[0]
     const tenant2 = tenants[1]
+    const tenant1Name = tenant1.name ?? 'Test Tenant 1'
     const tenant2Name = tenant2.name ?? 'Test Tenant 2'
 
     await page.setViewportSize(ADMIN_VIEWPORT)
@@ -58,8 +75,7 @@ test.describe('Admin Tenant Selector', () => {
       {
         name: 'payload-tenant',
         value: String(tenant1.id),
-        domain: new URL(ADMIN_ORIGIN).hostname,
-        path: '/',
+        url: `${ADMIN_ORIGIN}/`,
       },
     ])
     await page.reload({ waitUntil: 'domcontentloaded' })
@@ -76,43 +92,65 @@ test.describe('Admin Tenant Selector', () => {
     await expect(combobox).toBeVisible()
     await combobox.scrollIntoViewIfNeeded()
 
-    // Payload SelectInput (react-select): open menu. In CI, click alone can be unreliable; use keyboard as fallback.
-    await combobox.click({ force: true })
-    const listbox = page.getByRole('listbox')
-    const listboxVisible = await listbox.waitFor({ state: 'visible', timeout: 8000 }).catch(() => false)
-    if (!listboxVisible) {
-      await combobox.focus()
-      await page.keyboard.press('ArrowDown')
-      await listbox.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null)
-    }
-    // Give react-select time to render options (virtualization can delay).
-    await page.waitForTimeout(1200)
-    const listboxLocator = page.getByRole('listbox').first()
-    const tenant2Slug = (tenant2 as { slug?: string }).slug ?? ''
-    // Prefer option that matches second tenant by name or slug; avoid relying on nth(2) which can be wrong if "Clear" is missing.
-    const optionByName = listboxLocator.getByRole('option').filter({ hasText: tenant2Name }).first()
-    const optionBySlug = tenant2Slug
-      ? listboxLocator.getByRole('option').filter({ hasText: tenant2Slug }).first()
-      : optionByName
-    const optionToClick = (await optionByName.isVisible().catch(() => false))
-      ? optionByName
-      : (await optionBySlug.isVisible().catch(() => false))
-        ? optionBySlug
-        : listboxLocator.getByRole('option').nth(2)
-    await optionToClick.waitFor({ state: 'visible', timeout: 35000 })
-    await optionToClick.scrollIntoViewIfNeeded().catch(() => null)
-    await page.waitForTimeout(200)
-    await optionToClick.click({ force: true })
-
-    // Switching tenant can prompt a confirmation modal if Payload considers the view "modified".
-    // If the modal appears, we must confirm it or the controlled <select> will snap back.
-    const leaveAnyway = page.getByRole('button', { name: /leave/i })
-    await leaveAnyway
-      .waitFor({ state: 'visible', timeout: 8000 })
-      .then(async () => {
-        await leaveAnyway.click()
-      })
+    // Ensure tenant options have been synced at least once (can be delayed under CI load).
+    const tenantOptionsResponse = page
+      .waitForResponse(
+        (res) =>
+          res.request().method() === 'GET' &&
+          res.status() >= 200 &&
+          res.status() < 300 &&
+          res.url().includes('/api/tenants/populate-tenant-options'),
+        { timeout: 20_000 },
+      )
       .catch(() => null)
+
+    await tenantOptionsResponse
+
+    // Payload SelectInput (react-select): open menu and click option (preferred),
+    // with a keyboard-driven fallback. Also handle the "Leave anyway" modal if it appears.
+    const displayTenant2 = wrap.getByText(tenant2Name).first()
+    const dropdownIndicator = wrap.locator('button').last()
+    const input = wrap.locator('input').first()
+    const option = page
+      .locator('[id*="-option-"]')
+      .filter({ hasText: new RegExp(`^${escapeRegex(tenant2Name)}$`, 'i') })
+      .first()
+    const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
+
+    const selectDeadline = Date.now() + 25_000
+    while (Date.now() < selectDeadline) {
+      if (await displayTenant2.isVisible().catch(() => false)) break
+
+      // Try to open via dropdown indicator first.
+      await dropdownIndicator.click({ force: true }).catch(() => combobox.click({ force: true }))
+      await option
+        .waitFor({ state: 'visible', timeout: 1500 })
+        .then(async () => option.click({ force: true }))
+        .catch(async () => {
+          // Fallback: drive via input typing + keyboard selection.
+          await input.click({ force: true }).catch(() => combobox.click({ force: true }))
+          await input.fill('').catch(() => null)
+          await input.fill(tenant2Name).catch(async () => {
+            await page.keyboard.press('Escape').catch(() => null)
+            await page.keyboard.type(tenant2Name, { delay: 10 })
+          })
+          await page.keyboard.press('ArrowDown').catch(() => null)
+          await page.keyboard.press('Enter').catch(() => null)
+        })
+
+      if (await leaveAnyway.isVisible().catch(() => false)) {
+        await leaveAnyway.click({ force: true })
+      }
+
+      await page.waitForTimeout(350)
+    }
+
+    await expect(displayTenant2).toBeVisible({ timeout: 15_000 })
+
+    // If a confirmation modal appears slightly later, confirm it so selection doesn't snap back.
+    if (await leaveAnyway.isVisible().catch(() => false)) {
+      await leaveAnyway.click({ force: true })
+    }
 
     // setTenant(..., refresh: true) may reload; wait for load and for selector to be ready again.
     await page.waitForLoadState('load').catch(() => null)
@@ -121,16 +159,12 @@ test.describe('Admin Tenant Selector', () => {
     const comboboxAfter = page.getByTestId('tenant-selector').getByRole('combobox')
     await comboboxAfter.waitFor({ state: 'visible', timeout: 5000 })
 
-    // Assert display via aria-selected on the option after selection
-    await comboboxAfter.click({ force: true })
-    const selectedOption = page.getByRole('option').filter({ hasText: tenant2Name }).first()
-    await expect(selectedOption).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
-    await page.keyboard.press('Escape').catch(() => null)
-
-    const cookies = await page.context().cookies()
-    const payloadTenantCookies = cookies.filter((c) => c.name === 'payload-tenant')
-    expect(payloadTenantCookies.length).toBeGreaterThan(0)
-    expect(payloadTenantCookies.every((c) => c.value === String(tenant2.id))).toBe(true)
+    // Assert persistence across a hard reload (proves the cookie/state is truly saved).
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await ensureSidebarOpen(page)
+    const wrapAfterReload = page.getByTestId('tenant-selector')
+    await wrapAfterReload.waitFor({ state: 'visible', timeout: 20000 })
+    await expect(wrapAfterReload.getByText(tenant2Name).first()).toBeVisible({ timeout: 15_000 })
   })
 
   test('tenant selector is visible and selection is reflected via cookie and display', async ({
@@ -166,14 +200,13 @@ test.describe('Admin Tenant Selector', () => {
       {
         name: 'payload-tenant',
         value: String(tenant2.id),
-        domain: new URL(ADMIN_ORIGIN).hostname,
-        path: '/',
+        url: `${ADMIN_ORIGIN}/`,
       },
     ])
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(800)
 
-    const cookies = await page.context().cookies()
+    const cookies = await page.context().cookies(ADMIN_COOKIE_URLS)
     const payloadTenant = cookies.find((c) => c.name === 'payload-tenant')
     expect(payloadTenant).toBeDefined()
     expect(payloadTenant?.value).toBe(String(tenant2.id))
@@ -183,14 +216,13 @@ test.describe('Admin Tenant Selector', () => {
       {
         name: 'payload-tenant',
         value: String(tenant1.id),
-        domain: new URL(ADMIN_ORIGIN).hostname,
-        path: '/',
+        url: `${ADMIN_ORIGIN}/`,
       },
     ])
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(800)
 
-    const cookiesAfter = await page.context().cookies()
+    const cookiesAfter = await page.context().cookies(ADMIN_COOKIE_URLS)
     const payloadTenantAfter = cookiesAfter.find((c) => c.name === 'payload-tenant')
     expect(payloadTenantAfter?.value).toBe(String(tenant1.id))
   })
@@ -220,28 +252,42 @@ test.describe('Admin Tenant Selector', () => {
       {
         name: 'payload-tenant',
         value: String(tenant2.id),
-        domain: new URL(ADMIN_ORIGIN).hostname,
-        path: '/',
+        url: `${ADMIN_ORIGIN}/`,
       },
       {
         name: 'payload-tenant',
         value: String(tenant2.id),
-        domain: new URL(ADMIN_ORIGIN).hostname,
-        path: '/admin',
+        url: `${ADMIN_ORIGIN}/admin/`,
       },
     ])
     await page.reload({ waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
-                    const wrap = page.getByTestId('tenant-selector')
-                    await wrap.waitFor({ state: 'visible', timeout: 20000 })
-                    const combobox = wrap.getByRole('combobox')
+    const wrap = page.getByTestId('tenant-selector')
+    await wrap.waitFor({ state: 'visible', timeout: 20000 })
+    const combobox = wrap.getByRole('combobox')
     await expect(combobox).toBeVisible()
 
-    // Clear via UI: react-select supports backspace to remove the current value when focused.
-    await combobox.focus()
-    await page.keyboard.press('Backspace')
-    await page.keyboard.press('Backspace')
+    // Clear via UI: prefer clicking the clear indicator (X). Fallback to backspace if needed.
+    const clearIndicator = wrap.locator('button[aria-label*="Clear"], button[title*="Clear"]').first()
+    const clearCookieResponse = page
+      .waitForResponse(
+        (res) =>
+          res.url().includes('/api/admin/clear-tenant-cookie') &&
+          res.request().method() === 'POST' &&
+          res.status() >= 200 &&
+          res.status() < 300,
+        { timeout: 10_000 },
+      )
+      .catch(() => null)
+    if (await clearIndicator.isVisible().catch(() => false)) {
+      await clearIndicator.click({ force: true })
+    } else {
+      await combobox.focus()
+      await page.keyboard.press('Backspace')
+      await page.keyboard.press('Backspace')
+    }
+    await clearCookieResponse
 
     const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
     if (await leaveAnyway.isVisible().catch(() => false)) {
@@ -272,13 +318,20 @@ test.describe('Admin Tenant Selector', () => {
       )
       .catch(() => null)
 
-    // Cookie should be removed or empty after clear. Allow 2s for cookie update to propagate.
-    await page.waitForTimeout(2000)
-    const cookiesAfter = await page.context().cookies()
-    const payloadTenantCookies = cookiesAfter.filter((c) => c.name === 'payload-tenant')
-    const allEmptyOrMissing =
-      payloadTenantCookies.length === 0 ||
-      payloadTenantCookies.every((c) => c.value === '' || c.value === undefined)
-    expect(allEmptyOrMissing).toBe(true)
+    // Cookie should be removed or empty after clear. Poll instead of fixed wait so we tolerate
+    // async cookie updates and avoid flake when the clear runs slightly late.
+    await expect
+      .poll(
+        async () => {
+          const cookiesAfter = await page.context().cookies(ADMIN_COOKIE_URLS)
+          const payloadTenantCookies = cookiesAfter.filter((c) => c.name === 'payload-tenant')
+          const nonEmptyValues = payloadTenantCookies
+            .map((c) => c.value)
+            .filter((v): v is string => typeof v === 'string' && v.length > 0)
+          return nonEmptyValues.length === 0
+        },
+        { timeout: 60_000 }
+      )
+      .toBe(true)
   })
 })

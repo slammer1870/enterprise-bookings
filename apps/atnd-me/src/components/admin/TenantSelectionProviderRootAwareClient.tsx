@@ -41,11 +41,13 @@ function setTenantCookie(value: string) {
   const maxAge = 60 * 60 * 24 * 365
   document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`
   document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/admin; Max-Age=${maxAge}; SameSite=Lax`
+  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/admin/; Max-Age=${maxAge}; SameSite=Lax`
 }
 
 function deleteTenantCookie() {
   document.cookie = `${COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`
   document.cookie = `${COOKIE_NAME}=; Path=/admin; Max-Age=0; SameSite=Lax`
+  document.cookie = `${COOKIE_NAME}=; Path=/admin/; Max-Age=0; SameSite=Lax`
 }
 
 function getTenantCookie(): string | undefined {
@@ -78,14 +80,28 @@ export function TenantSelectionProviderRootAwareClient({
   const hasAppliedInitialTenant = React.useRef(false)
   const [tenantOptions, setTenantOptions] = React.useState(initialTenantOptions)
 
+  const findTenantOption = React.useCallback(
+    (id: string | number | undefined) => {
+      if (id === undefined || id === null || id === '') return undefined
+      return tenantOptions.find((o) => String(o.value) === String(id))
+    },
+    [tenantOptions],
+  )
+
   const isOnRootDocCollection =
     typeof pathname === 'string' && ROOT_DOC_PATHS.some((p) => pathname.includes(p))
 
+  const isOnDashboard =
+    typeof pathname === 'string' && (pathname === '/admin' || pathname === '/admin/')
+
   const setTenantAndCookie = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
-      setSelectedTenantID(id)
-      if (id !== undefined && id !== null && id !== '') {
-        setTenantCookie(String(id))
+      const matched = findTenantOption(id)
+      const canonicalId = matched?.value ?? id
+      setSelectedTenantID(canonicalId)
+
+      if (canonicalId !== undefined && canonicalId !== null && canonicalId !== '') {
+        setTenantCookie(String(canonicalId))
       } else {
         deleteTenantCookie()
       }
@@ -93,7 +109,7 @@ export function TenantSelectionProviderRootAwareClient({
         router.refresh()
       }
     },
-    [router],
+    [router, findTenantOption],
   )
 
   const setTenant = React.useCallback(
@@ -104,7 +120,7 @@ export function TenantSelectionProviderRootAwareClient({
         } else if (tenantOptions[0]) {
           setTenantAndCookie({ id: tenantOptions[0].value, refresh: true })
         }
-      } else if (!tenantOptions.find((o) => o.value === id)) {
+      } else if (!tenantOptions.find((o) => String(o.value) === String(id))) {
         setTenantAndCookie({ id: tenantOptions[0]?.value, refresh })
       } else {
         setTenantAndCookie({ id, refresh })
@@ -187,11 +203,12 @@ export function TenantSelectionProviderRootAwareClient({
   // Only auto-set first tenant when global if we're NOT on navbar/footer (root doc collections)
   React.useEffect(() => {
     if (!selectedTenantID && tenantOptions.length > 0 && entityType === 'global') {
-      if (!isOnRootDocCollection) {
+      // Allow "All tenants" on dashboard; only auto-select on other global views.
+      if (!isOnRootDocCollection && !isOnDashboard) {
         setTenant({ id: tenantOptions[0]?.value, refresh: true })
       }
     }
-  }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, setTenant])
+  }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, isOnDashboard, setTenant])
 
   return (
     <Context.Provider

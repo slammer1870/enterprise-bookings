@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     // Clear for both path=/ and path=/admin so the cookie is gone regardless of how the plugin set it
     res.headers.append('Set-Cookie', clearCookieHeader('/'))
     res.headers.append('Set-Cookie', clearCookieHeader('/admin'))
+    res.headers.append('Set-Cookie', clearCookieHeader('/admin/'))
 
     return res
   } catch (err) {

@@ -99,13 +99,21 @@ describe('Stripe product sync (Phase 4.5)', () => {
         overrideAccess: true,
         user: adminUser,
       } as Parameters<typeof payload.create>[0])
-      const doc = plan as Record<string, unknown>
-      expect(doc.stripeProductId).toBe('prod_sync_1')
-      await payload.delete({
+      // afterChange hook sets stripeProductId via update; re-fetch to get it
+      const doc = (await payload.findByID({
         collection: 'plans',
         id: plan.id,
         overrideAccess: true,
-      })
+      })) as Record<string, unknown>
+      expect(doc.stripeProductId).toBe('prod_sync_1')
+      // Cleanup: delete triggers soft-delete hook and throws; expect that and skip actual delete (tenant cleanup in afterAll)
+      await expect(
+        payload.delete({
+          collection: 'plans',
+          id: plan.id,
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow(/archived instead of deleted/i)
     },
     TEST_TIMEOUT,
   )
@@ -125,13 +133,21 @@ describe('Stripe product sync (Phase 4.5)', () => {
         overrideAccess: true,
         user: adminUser,
       } as Parameters<typeof payload.create>[0])
-      const doc = cpt as Record<string, unknown>
-      expect(doc.stripeProductId).toBe('prod_sync_1')
-      await payload.delete({
+      // afterChange hook sets stripeProductId via update; re-fetch to get it
+      const doc = (await payload.findByID({
         collection: 'class-pass-types',
         id: cpt.id,
         overrideAccess: true,
-      })
+      })) as Record<string, unknown>
+      expect(doc.stripeProductId).toBe('prod_sync_1')
+      // Cleanup: delete triggers soft-delete hook and throws; expect that and skip actual delete (tenant cleanup in afterAll)
+      await expect(
+        payload.delete({
+          collection: 'class-pass-types',
+          id: cpt.id,
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow(/archived instead of deleted/i)
     },
     TEST_TIMEOUT,
   )

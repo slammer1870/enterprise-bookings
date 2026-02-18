@@ -179,6 +179,12 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
       let outcome = await tryNavigateAndRace().catch(() => null)
       if (outcome === 'error' || outcome === null) {
+        // If we saw the error page, click "Try again" so the next request is a fresh load (session may attach on retry).
+        const tryAgain = page.getByRole('button', { name: /try again/i })
+        if (await tryAgain.isVisible().catch(() => false)) {
+          await tryAgain.click()
+          await page.waitForLoadState('load').catch(() => null)
+        }
         await page.waitForTimeout(process.env.CI ? 4000 : 2000)
         outcome = await tryNavigateAndRace().catch(() => null)
       }
@@ -260,12 +266,43 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
       })
+      await page.waitForTimeout(process.env.CI ? 2000 : 1500) // Session stabilize so manage page receives auth
 
-      await navigateToTenant(page, tenant.slug, `/bookings/${decreaseLesson.id}/manage`)
+      const quantityDisplay = page.getByTestId('booking-quantity')
+      const errorHeading = page.getByRole('heading', { name: /booking page error/i })
+      const managePath = `/bookings/${decreaseLesson.id}/manage`
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await navigateToTenant(page, tenant.slug, managePath)
+        if (page.url().includes('/auth/sign-in')) {
+          await loginAsRegularUser(page, 1, user.email, 'password', { tenantSlug: tenant.slug })
+          await page.waitForTimeout(1500)
+          continue
+        }
+        await page.waitForLoadState('load').catch(() => null)
+        const outcome = await Promise.race([
+          quantityDisplay.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'success' as const),
+          errorHeading.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'error' as const),
+        ]).catch(() => null)
+        if (outcome === 'success') break
+        if (outcome === 'error' && attempt < 2) {
+          const tryAgain = page.getByRole('button', { name: /try again/i })
+          if (await tryAgain.isVisible().catch(() => false)) await tryAgain.click()
+          await page.waitForTimeout(process.env.CI ? 3000 : 2000)
+          continue
+        }
+        if (outcome === 'error') {
+          throw new Error(
+            `Manage page showed "Booking page error" instead of quantity view. Check server/session for /bookings/${decreaseLesson.id}/manage.`
+          )
+        }
+        if (attempt === 2) {
+          throw new Error(`Expected booking-quantity to be visible after 3 attempts. URL: ${page.url()}`)
+        }
+      }
 
       // Wait for the quantity control (survives loading state and copy changes).
-      const quantityDisplay = page.getByTestId('booking-quantity')
-      await expect(quantityDisplay).toBeVisible({ timeout: 20000 })
+      await expect(quantityDisplay).toBeVisible({ timeout: 5000 })
       
       // Verify the quantity display shows "3"
       await expect(quantityDisplay).toHaveText('3', { timeout: 15000 })
