@@ -33,35 +33,42 @@ function escapeRegex(input: string): string {
 /** Open the admin sidebar if it is collapsed; wait until tenant selector is visible. */
 async function ensureSidebarOpen(page: Page) {
   const tenantSelector = page.getByTestId('tenant-selector')
+  const sidebarContent = page.getByText('Filter by Tenant', { exact: false })
   // In CI don't trust early return — sidebar can appear "visible" in DOM but be off-screen when closed.
   if (!isCI && (await tenantSelector.isVisible().catch(() => false))) return
 
   await page.waitForLoadState('domcontentloaded').catch(() => null)
-  if (isCI) await page.waitForTimeout(800)
+  if (isCI) await page.waitForTimeout(1000)
 
-  // Payload admin uses button "Open Menu" (capital M) per accessibility tree; wait for it in CI so the header is ready.
+  // In CI the hamburger is top-left; try multiple ways to find it (built bundle may change labels).
   const openMenuButton = page.getByRole('button', { name: /open\s+menu/i })
-  if (isCI) {
-    await openMenuButton.waitFor({ state: 'visible', timeout: 15_000 })
-    await openMenuButton.scrollIntoViewIfNeeded()
-  }
+  const headerFirstButton = page.locator('header').getByRole('button').first()
+  const bannerFirstButton = page.getByRole('banner').getByRole('button').first()
+  const menuSelectors = isCI
+    ? [openMenuButton, headerFirstButton, bannerFirstButton, page.getByRole('button', { name: /menu/i })]
+    : [openMenuButton, page.getByRole('button', { name: /menu/i }), page.locator('header').getByRole('button').first()]
 
-  const menuSelectors = [
-    openMenuButton,
-    page.getByRole('button', { name: /menu/i }),
-    page.getByRole('button', { name: /toggle.*nav|nav.*toggle/i }),
-    page.locator('header').getByRole('button').first(),
-  ]
-
-  const attemptWaitMs = isCI ? 6000 : 5000
+  const attemptWaitMs = isCI ? 8000 : 5000
   for (const openMenu of menuSelectors) {
     if (await tenantSelector.isVisible().catch(() => false)) break
     const visible = await openMenu.isVisible().catch(() => false)
     if (!visible) continue
     await openMenu.scrollIntoViewIfNeeded().catch(() => null)
-    await openMenu.click({ force: true })
-    if (isCI) await page.waitForTimeout(1000)
+    if (isCI) await page.waitForTimeout(300)
+    await openMenu.click({ force: true, timeout: 10_000 })
+    if (isCI) await page.waitForTimeout(1500)
+    const sawSidebar =
+      (await tenantSelector.isVisible().catch(() => false)) ||
+      (await sidebarContent.isVisible().catch(() => false))
+    if (sawSidebar) break
     await tenantSelector.waitFor({ state: 'visible', timeout: attemptWaitMs }).catch(() => null)
+    if (await tenantSelector.isVisible().catch(() => false)) break
+    // One retry: click again in case first click didn't register (e.g. headless)
+    if (isCI && (await openMenu.isVisible().catch(() => false))) {
+      await openMenu.click({ force: true, timeout: 10_000 })
+      if (isCI) await page.waitForTimeout(1500)
+      await tenantSelector.waitFor({ state: 'visible', timeout: attemptWaitMs }).catch(() => null)
+    }
     if (await tenantSelector.isVisible().catch(() => false)) break
   }
 
