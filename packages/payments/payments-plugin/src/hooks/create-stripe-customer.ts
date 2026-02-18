@@ -7,9 +7,12 @@ export const createStripeCustomer: CollectionBeforeChangeHook = async ({
   operation,
   req,
 }) => {
-  const isE2e =
-    process.env.ENABLE_TEST_WEBHOOKS === "true" || process.env.NODE_ENV === "test";
-  if (isE2e && operation === "create" && !data.stripeCustomerId) {
+  // Only skip in E2E (webServer sets ENABLE_TEST_WEBHOOKS). Unit tests use Stripe mocks.
+  if (
+    process.env.ENABLE_TEST_WEBHOOKS === "true" &&
+    operation === "create" &&
+    !data.stripeCustomerId
+  ) {
     return { ...data, stripeCustomerId: `cus_test_${Date.now()}` };
   }
 
