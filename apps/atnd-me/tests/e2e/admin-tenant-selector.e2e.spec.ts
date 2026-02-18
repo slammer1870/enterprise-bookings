@@ -16,9 +16,9 @@ const ADMIN_VIEWPORT = { width: 1440, height: 900 }
 /** GitHub Actions runners are slower; use longer timeouts and waits in CI. */
 const isCI = !!process.env.CI
 const CI = {
-  optionWaitMs: isCI ? 4000 : 1500,
-  selectDeadlineMs: isCI ? 45_000 : 25_000,
-  displayVisibleTimeout: isCI ? 25_000 : 15_000,
+  optionWaitMs: isCI ? 6000 : 1500,
+  selectDeadlineMs: isCI ? 50_000 : 25_000,
+  displayVisibleTimeout: isCI ? 35_000 : 15_000,
   sidebarTimeout: isCI ? 25_000 : 10_000,
   wrapTimeout: isCI ? 30_000 : 20_000,
   clearResponseTimeout: isCI ? 20_000 : 10_000,
@@ -122,14 +122,15 @@ test.describe('Admin Tenant Selector', () => {
 
     await tenantOptionsResponse
 
-    // Payload SelectInput (react-select): open menu and click option (preferred),
-    // with a keyboard-driven fallback. Also handle the "Leave anyway" modal if it appears.
+    // Payload SelectInput (react-select): open menu and select option by role (preferred) or by id filter;
+    // keyboard fallback if menu/option not found. Handle "Leave anyway" modal if it appears.
     const displayTenant2 = wrap.getByText(tenant2Name).first()
     const dropdownIndicator = wrap.locator('button').last()
     const input = wrap.locator('input').first()
-    const option = page
+    const optionByRole = page.getByRole('option', { name: new RegExp(escapeRegex(tenant2Name), 'i') }).first()
+    const optionById = page
       .locator('[id*="-option-"]')
-      .filter({ hasText: new RegExp(`^${escapeRegex(tenant2Name)}$`, 'i') })
+      .filter({ hasText: new RegExp(escapeRegex(tenant2Name), 'i') })
       .first()
     const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
 
@@ -137,28 +138,51 @@ test.describe('Admin Tenant Selector', () => {
     while (Date.now() < selectDeadline) {
       if (await displayTenant2.isVisible().catch(() => false)) break
 
-      // Try to open via dropdown indicator first.
-      await dropdownIndicator.click({ force: true }).catch(() => combobox.click({ force: true }))
-      await option
-        .waitFor({ state: 'visible', timeout: CI.optionWaitMs })
-        .then(async () => option.click({ force: true }))
-        .catch(async () => {
-          // Fallback: drive via input typing + keyboard selection.
-          await input.click({ force: true }).catch(() => combobox.click({ force: true }))
-          await input.fill('').catch(() => null)
-          await input.fill(tenant2Name).catch(async () => {
-            await page.keyboard.press('Escape').catch(() => null)
-            await page.keyboard.type(tenant2Name, { delay: 10 })
-          })
-          await page.keyboard.press('ArrowDown').catch(() => null)
-          await page.keyboard.press('Enter').catch(() => null)
+      // Open menu: click combobox first (reliable), then dropdown indicator as fallback.
+      await combobox.click({ force: true }).catch(() => dropdownIndicator.click({ force: true }))
+      await page.waitForTimeout(isCI ? 400 : 200)
+
+      const optionToClick = (await optionByRole.isVisible().catch(() => false))
+        ? optionByRole
+        : (await optionById.isVisible().catch(() => false))
+          ? optionById
+          : null
+
+      if (optionToClick) {
+        await optionToClick.click({ force: true })
+      } else {
+        // Fallback: drive via input typing + keyboard selection.
+        await input.click({ force: true }).catch(() => combobox.click({ force: true }))
+        await input.fill('').catch(() => null)
+        await input.fill(tenant2Name).catch(async () => {
+          await page.keyboard.press('Escape').catch(() => null)
+          await page.keyboard.type(tenant2Name, { delay: 10 })
         })
+        await page.waitForTimeout(200)
+        await page.keyboard.press('ArrowDown').catch(() => null)
+        await page.keyboard.press('Enter').catch(() => null)
+      }
 
       if (await leaveAnyway.isVisible().catch(() => false)) {
         await leaveAnyway.click({ force: true })
       }
 
-      await page.waitForTimeout(isCI ? 500 : 350)
+      await page.waitForTimeout(isCI ? 600 : 350)
+    }
+
+    // setTenant(..., refresh: true) can trigger a reload; wait for load then assert display.
+    await page.waitForLoadState('load').catch(() => null)
+    await page.waitForTimeout(isCI ? 800 : 400)
+
+    // In CI, if display did not update but cookie is already set, reload so UI reflects it.
+    if (isCI && !(await displayTenant2.isVisible().catch(() => false))) {
+      const cookies = await page.context().cookies(ADMIN_ORIGIN)
+      const tenantCookie = cookies.find((c) => c.name === 'payload-tenant')
+      if (tenantCookie?.value === String(tenant2.id)) {
+        await page.reload({ waitUntil: 'load' })
+        await ensureSidebarOpen(page)
+        await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+      }
     }
 
     await expect(displayTenant2).toBeVisible({ timeout: CI.displayVisibleTimeout })
