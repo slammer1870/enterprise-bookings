@@ -35,16 +35,20 @@ async function ensureSidebarOpen(page: Page) {
   const tenantSelector = page.getByTestId('tenant-selector')
   if (await tenantSelector.isVisible().catch(() => false)) return
 
-  // In CI the sidebar is often closed by default; wait for the page to settle then open it.
   await page.waitForLoadState('domcontentloaded').catch(() => null)
   if (isCI) await page.waitForTimeout(800)
 
-  // Payload admin menu toggle: try common labels (Payload may use "Open menu" or similar).
+  // Payload admin uses button "Open Menu" (capital M) per accessibility tree; wait for it in CI so the header is ready.
+  const openMenuButton = page.getByRole('button', { name: /open\s+menu/i })
+  if (isCI) {
+    await openMenuButton.waitFor({ state: 'visible', timeout: 15_000 })
+    await openMenuButton.scrollIntoViewIfNeeded()
+  }
+
   const menuSelectors = [
-    page.getByRole('button', { name: /open menu/i }),
+    openMenuButton,
     page.getByRole('button', { name: /menu/i }),
     page.getByRole('button', { name: /toggle.*nav|nav.*toggle/i }),
-    page.getByRole('button', { name: /sidebar|navigation/i }),
     page.locator('header').getByRole('button').first(),
   ]
 
@@ -55,13 +59,13 @@ async function ensureSidebarOpen(page: Page) {
     if (!visible) continue
     await openMenu.scrollIntoViewIfNeeded().catch(() => null)
     await openMenu.click({ force: true })
-    if (isCI) await page.waitForTimeout(500)
+    if (isCI) await page.waitForTimeout(1000)
     await tenantSelector.waitFor({ state: 'visible', timeout: attemptWaitMs }).catch(() => null)
     if (await tenantSelector.isVisible().catch(() => false)) break
   }
 
-  // Wait for sidebar content (tenant selector) so we don't interact while still collapsed.
   await tenantSelector.waitFor({ state: 'visible', timeout: CI.sidebarTimeout })
+  if (isCI) await tenantSelector.scrollIntoViewIfNeeded().catch(() => null)
 }
 
 /**
