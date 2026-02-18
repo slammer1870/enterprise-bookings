@@ -33,7 +33,8 @@ function escapeRegex(input: string): string {
 /** Open the admin sidebar if it is collapsed; wait until tenant selector is visible. */
 async function ensureSidebarOpen(page: Page) {
   const tenantSelector = page.getByTestId('tenant-selector')
-  if (await tenantSelector.isVisible().catch(() => false)) return
+  // In CI don't trust early return — sidebar can appear "visible" in DOM but be off-screen when closed.
+  if (!isCI && (await tenantSelector.isVisible().catch(() => false))) return
 
   await page.waitForLoadState('domcontentloaded').catch(() => null)
   if (isCI) await page.waitForTimeout(800)
@@ -207,6 +208,8 @@ test.describe('Admin Tenant Selector', () => {
       }
     }
 
+    // Ensure sidebar is open before asserting (it can be closed after reload or navigation).
+    await ensureSidebarOpen(page)
     await expect(displayTenant2).toBeVisible({ timeout: CI.displayVisibleTimeout })
 
     // If a confirmation modal appears slightly later, confirm it so selection doesn't snap back.
