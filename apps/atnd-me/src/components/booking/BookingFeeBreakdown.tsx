@@ -17,6 +17,7 @@ export type BookingFeeBreakdownProps = {
 
 export function BookingFeeBreakdown({ classPriceCents, bookingFeeCents }: BookingFeeBreakdownProps) {
   const totalCents = classPriceCents + bookingFeeCents
+  const hasBookingFee = bookingFeeCents > 0
   return (
     <Card data-testid="booking-fee-breakdown">
       <CardHeader>
@@ -27,10 +28,12 @@ export function BookingFeeBreakdown({ classPriceCents, bookingFeeCents }: Bookin
           <span>Class price</span>
           <span data-testid="class-price">{formatCentsToCurrency(classPriceCents)}</span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span>Booking fee</span>
-          <span data-testid="booking-fee">{formatCentsToCurrency(bookingFeeCents)}</span>
-        </div>
+        {hasBookingFee && (
+          <div className="flex justify-between text-sm">
+            <span>Booking fee</span>
+            <span data-testid="booking-fee">{formatCentsToCurrency(bookingFeeCents)}</span>
+          </div>
+        )}
         <div className="flex justify-between font-medium border-t pt-2 mt-2">
           <span>Total</span>
           <span data-testid="total">{formatCentsToCurrency(totalCents)}</span>
