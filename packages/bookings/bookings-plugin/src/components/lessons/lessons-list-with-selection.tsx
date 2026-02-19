@@ -66,7 +66,7 @@ function LessonsBulkBar() {
 function LessonTableContent({ lessons }: { lessons: Lesson[] }) {
   if (!lessons?.length) {
     return (
-      <TableRow>
+      <TableRow className="[&_td]:py-1.5">
         <TableCell colSpan={6} className="text-center">
           No classes for today
         </TableCell>
@@ -106,7 +106,7 @@ export const LessonsListWithSelection: React.FC<{
       <LessonsBulkBar />
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow className="[&_th]:py-1.5 [&_th]:h-auto">
             <TableHead className="w-10">
               <SelectAll />
             </TableHead>

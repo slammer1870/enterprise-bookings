@@ -60,6 +60,8 @@ import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-aut
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
+import { s3Storage } from '@payloadcms/storage-s3'
+import { getR2StorageConfig } from '@/lib/storage/config'
 
 import { Page, Post } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -493,4 +495,16 @@ export const plugins: Plugin[] = [
   clearableTenantSelectorPlugin,
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,
+  // Phase 5.5: Cloudflare R2 (S3-compatible) storage for Media when env is set; otherwise local staticDir is used
+  ...((): Plugin[] => {
+    const r2 = getR2StorageConfig()
+    if (!r2) return []
+    return [
+      s3Storage({
+        bucket: r2.bucket,
+        config: r2.config,
+        collections: r2.collections,
+      }),
+    ]
+  })(),
 ]

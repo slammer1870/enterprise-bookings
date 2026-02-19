@@ -5,6 +5,7 @@ import { Lesson, Booking, ClassOption } from "@repo/shared-types";
 import { ManageLesson } from "./manage-lesson";
 import { Button, SelectRow } from "@payloadcms/ui";
 import { TableRow, TableCell } from "@repo/ui/components/ui/table";
+import { cn } from "@repo/ui/lib/utils";
 import { format } from "date-fns";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
@@ -41,7 +42,10 @@ export const LessonDetail = ({
     <>
       <TableRow
         key={lesson.id}
-        className={!isActive ? "opacity-50 hover:opacity-70" : undefined}
+        className={cn(
+          "[&_td]:py-1.5",
+          !isActive && "opacity-50 hover:opacity-70"
+        )}
       >
         <TableCell className="w-10">
           {onToggleSelection != null ? (

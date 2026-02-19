@@ -229,11 +229,12 @@ The MVP will be structured to easily add payment functionality later:
 5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes lessons bulk actions)
 6. **Phase 4.6** – Class pass UI in bookings page (parity with drop-in and membership; show Class pass tab, valid passes for lesson, confirm booking with class pass)
 7. **Phase 5** – Admin bulk operations & Lessons admin UI (bulk actions for bookings/lessons; replace shadcn with payloadcms/ui at admin/collections/lessons)
-8. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
-9. **Phase 7** – Self-onboarding with MCP-driven personalisation
-10. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
-11. **Phase 9** – Event tracking & marketing attribution (UTM)
-12. **Phase 10** – Application fee management & platform revenue (deferred)
+8. **Phase 5.5** – Image storage (S3/Cloudflare R2) – configure Media uploads to use Cloudflare R2 via S3-compatible API
+9. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
+10. **Phase 7** – Self-onboarding with MCP-driven personalisation
+11. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
+12. **Phase 9** – Event tracking & marketing attribution (UTM)
+13. **Phase 10** – Application fee management & platform revenue (deferred)
 
 ## Code Organization: App vs Packages
 
@@ -2001,7 +2002,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–10):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 6 (Multi-Location Architecture) → Phase 7 (Self-Onboarding) → Phase 8 (Analytics) → Phase 9 (UTM) → Phase 10 (Application Fees, deferred).
+**Roadmap order (Phases 3–10):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Multi-Location Architecture) → Phase 7 (Self-Onboarding) → Phase 8 (Analytics) → Phase 9 (UTM) → Phase 10 (Application Fees, deferred).
 
 ---
 
@@ -2528,6 +2529,86 @@ This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bo
 | **Bookings admin**   | Keep default list + bulk actions; no requirement to replace shadcn in bookings admin here. |
 | **Tenant scope**     | All bulk actions respect tenant context and access control.                                |
 | **Green gates**      | Int tests for bulk actions; E2E smoke for lessons admin after UI swap.                     |
+
+
+---
+
+## Phase 5.5: Image Storage (S3 / Cloudflare R2)
+
+*This phase follows Phase 5 (Admin Bulk Operations & Lessons Admin UI). It configures the Media collection to store uploads in **Cloudflare R2** (or any S3-compatible storage) instead of the local filesystem, so media is durable, scalable, and suitable for production and multi-tenant usage.*
+
+### Overview
+
+Today, the **Media** collection uses `staticDir` (local `public/media`). For production and to support multiple instances or serverless, media should be stored in object storage. **Cloudflare R2** is S3-compatible and has no egress fees; this phase configures Payload to use R2 (or generic S3) for the Media collection.
+
+### Goals
+
+- **Cloudflare R2 (or S3) for Media**: Store all Media uploads in an R2 bucket (or S3 bucket) via the S3-compatible API.
+- **Env-based configuration**: Bucket name, region/endpoint, and credentials from environment variables; no secrets in code.
+- **Preserve existing behaviour**: Keep `imageSizes`, `adminThumbnail`, `focalPoint`, and access control; only change the storage backend.
+- **Optional local fallback**: In development or when R2/S3 env vars are unset, optionally keep using `staticDir` so local dev and tests work without an R2 bucket.
+- **Public URL**: Serve media via R2 public bucket URL or Cloudflare custom domain (or signed URLs if private); document how to set a custom domain for media.
+
+### Non-goals (for this phase)
+
+- Per-tenant buckets (all tenants share the same Media bucket; tenant isolation is by Payload access and `tenant` on collections if Media becomes tenant-scoped later).
+- Image transformation at the CDN (e.g. Cloudflare Images); only storage and URL generation.
+- Migrating existing local media files into R2 (can be a one-off script in a follow-up).
+
+### Architecture
+
+1. **Payload storage adapter**
+  - Use **@payloadcms/storage-r2** (Cloudflare R2) or **@payloadcms/storage-s3** with R2 endpoint. The R2 plugin is the preferred choice when using Cloudflare; S3 plugin with custom endpoint works for any S3-compatible API.
+  - Configure in `payload.config.ts` (or `plugins/index.ts`): enable the adapter for the `media` collection only.
+2. **Environment variables**
+  - **R2**: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, optional `R2_PUBLIC_URL` (custom domain for public access).
+  - **S3 (if using generic S3)**: `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, optional `S3_ENDPOINT` (for R2: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`).
+  - When these are unset, fall back to existing `staticDir` for Media (dev/test).
+3. **Media collection**
+  - Remove or conditionally omit `upload.staticDir` when R2/S3 is configured; the plugin provides the upload handler and URL generation.
+  - Keep `upload.imageSizes`, `adminThumbnail`, `focalPoint`; the adapter works with Payload’s image sizing.
+4. **Multi-tenant**
+  - Media may remain global (no tenant field) or be tenant-scoped later; this phase does not change tenant semantics. If Media is tenant-scoped, access control and listing already filter by tenant; storage is still one bucket with object keys unchanged unless a future phase adds tenant prefixing.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 5.5.1 – Add R2 (or S3) storage plugin**
+  - Install `@payloadcms/storage-r2` (or `@payloadcms/storage-s3` for generic S3).
+  - Add the plugin to `apps/atnd-me/src/plugins/index.ts` (or payload.config) with config from env: bucket, credentials, optional custom `endpoint` for R2, optional `publicUrl` for generated URLs.
+  - Docs: [Payload R2 storage](https://payloadcms.com/docs/upload/cloud-storage#r2) / [Payload S3 storage](https://payloadcms.com/docs/upload/cloud-storage#s3).
+- **Step 5.5.2 – Env and optional fallback**
+  - Document required env vars in `.env.example` (e.g. `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`).
+  - When R2/S3 env vars are missing (e.g. local dev or CI), do not register the cloud storage plugin for Media; keep existing `staticDir` so uploads still work.
+  - Optional: unit test or small helper that validates R2/S3 config when present (e.g. `getStorageConfig()` returns adapter config or null).
+- **Step 5.5.3 – Media collection**
+  - In `apps/atnd-me/src/collections/Media.ts`: when cloud storage is enabled, omit `upload.staticDir` (plugin provides storage); when disabled, keep current `staticDir`. Preserve all other `upload` options (imageSizes, adminThumbnail, focalPoint).
+  - Ensure generated URLs point to R2 public URL or custom domain when configured.
+- **Step 5.5.4 – Tests**
+  - **Unit**: Config helper returns correct adapter options from env; missing env yields local/staticDir behaviour.
+  - **Integration**: With mocked R2/S3 or test bucket, upload a file to Media and assert URL format and that no file is written to `staticDir` when cloud is enabled. Optional: download from generated URL and check content type/size.
+  - **E2E (optional)**: Admin: upload image in Media, confirm it appears in list and preview uses R2 URL (or stub in CI).
+- **Step 5.5.5 – Documentation**
+  - README or docs: how to create an R2 bucket, create API tokens, set env vars, and optionally set a custom domain for public media URLs.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/package.json` – Add `@payloadcms/storage-r2` (or `@payloadcms/storage-s3`).
+- `apps/atnd-me/src/plugins/index.ts` – Register R2 (or S3) storage plugin for `media` when env is set; pass bucket, credentials, endpoint (R2), publicUrl.
+- `apps/atnd-me/src/collections/Media.ts` – Use cloud storage when configured; otherwise keep `staticDir`; keep imageSizes, adminThumbnail, focalPoint.
+- `apps/atnd-me/.env.example` – Document `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (or S3 equivalents).
+- Optional: `apps/atnd-me/src/lib/storage/config.ts` – Centralise storage config (env → adapter options or null for fallback).
+- Tests: `tests/unit/storage-config.test.ts`, `tests/int/media-r2-upload.int.spec.ts` (or media-s3); optional E2E for admin upload.
+
+### Summary
+
+
+| Aspect           | Notes                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| **Storage**      | Cloudflare R2 (or S3) for Media uploads; S3-compatible API.                                |
+| **Config**       | Env-based: bucket, credentials, optional endpoint and public URL.                          |
+| **Fallback**     | When R2/S3 env unset, keep local `staticDir` for dev/test.                                 |
+| **Media fields** | imageSizes, adminThumbnail, focalPoint unchanged; only storage backend and URL generation. |
+| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Lessons Admin UI); before Phase 6.      |
 
 
 ---

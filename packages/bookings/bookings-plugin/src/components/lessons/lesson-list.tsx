@@ -95,7 +95,7 @@ export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
         </div>
       )}
 
-      <table className="table w-full">
+      <table className="table w-full [&_thead_tr_th]:py-1.5">
         <thead>
           <tr>
             <th className="w-10">
@@ -125,7 +125,7 @@ export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
               />
             ))
           ) : (
-            <tr>
+            <tr className="[&_td]:py-1.5">
               <td colSpan={6} className="text-center">
                 No classes for today
               </td>
