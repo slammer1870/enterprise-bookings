@@ -17,7 +17,7 @@ export const LessonDetail = ({
 }: {
   lesson: Lesson;
   isSelected?: boolean;
-  onToggleSelection?: (checked: boolean) => void;
+  onToggleSelection?: (_checked: boolean) => void;
 }) => {
   const bookings = lesson.bookings.docs as Booking[];
   const classOption = lesson.classOption as ClassOption;

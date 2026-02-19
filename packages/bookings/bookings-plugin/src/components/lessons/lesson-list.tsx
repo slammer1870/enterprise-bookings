@@ -59,7 +59,7 @@ export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
       setSelectedIds(new Set());
       closeModal("lessons-bulk-delete");
       router.refresh();
-    } catch (err) {
+    } catch {
       toast.error("Failed to delete lessons");
     } finally {
       setBulkDeleting(false);
