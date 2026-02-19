@@ -1,184 +1,149 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-
 import { useEffect, useState } from "react";
-
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@repo/ui/components/ui/form";
-
-import { Button } from "@repo/ui/components/ui/button";
-
-import { User } from "@repo/shared-types";
-
-import { toast } from "sonner";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-
 import { useRouter } from "next/navigation";
-import { cn } from "@repo/ui/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@repo/ui/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@repo/ui/components/ui/command";
+import { toast } from "sonner";
+import type { User } from "@repo/shared-types";
+import { Button, SelectInput } from "@payloadcms/ui";
+
+const statusOptions = [
+  { label: "Pending", value: "pending" },
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Waiting List", value: "waiting" },
+  { label: "Cancelled", value: "cancelled" },
+] as { label: string; value: string }[];
 
 export const AddBooking = ({ lessonId }: { lessonId: number }) => {
   const [users, setUsers] = useState<User[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [status, setStatus] = useState<string>("pending");
   const [isLoading, setIsLoading] = useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUsers = async (): Promise<User[]> => {
+    const fetchUsers = async () => {
       try {
         setIsLoading(true);
-        const usersResponse = await fetch(`/api/users?limit=10000`, {
+        const res = await fetch(`/api/users?limit=10000`, {
           credentials: "include",
         });
-        const usersData = await usersResponse.json();
-        setUsers(usersData.docs);
+        const data = await res.json();
+        setUsers(data.docs ?? []);
+      } catch (e) {
+        console.error(e);
+        toast.error("Failed to load users");
+      } finally {
         setIsLoading(false);
-        return usersData;
-      } catch (error) {
-        console.error(error);
-        setIsLoading(false);
-        return [];
       }
     };
     fetchUsers();
   }, []);
 
-  const FormData = z.object({
-    user: z.string(),
-  });
+  const userOptions = [
+    { label: "Select user", value: "" },
+    ...(users.map((user) => ({
+      label: `${user.name ?? user.email} – ${user.email}`,
+      value: String(user.id),
+    })) ?? []),
+  ] as { label: string; value: string }[];
 
-  type FormSchema = z.infer<typeof FormData>;
-
-  const form = useForm<FormSchema>({
-    resolver: zodResolver(FormData),
-    defaultValues: {
-      user: "",
-    },
-  });
-
-  const onSubmit = async (data: FormSchema) => {
-    const response = await fetch(`/api/bookings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        user: Number(data.user),
-        lesson: lessonId,
-        status: "pending",
-      }),
-      credentials: "include",
-    });
-
-    const { errors } = await response.json();
-
-    if (errors) {
-      return toast.error(errors[0].message || "An error occurred");
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserId) {
+      toast.error("Please select a user");
+      return;
     }
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: Number(selectedUserId),
+          lesson: lessonId,
+          status,
+        }),
+        credentials: "include",
+      });
 
-    toast.success("Booking added successfully");
-    form.reset();
-    router.refresh();
+      const data = await response.json();
+
+      if (data.errors?.length) {
+        toast.error(data.errors[0].message ?? "An error occurred");
+        return;
+      }
+
+      toast.success("Booking added successfully");
+      setSelectedUserId("");
+      setStatus("pending");
+      router.refresh();
+    } catch {
+      toast.error("An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="flex flex-col gap-2 my-4">
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-4 flex items-end justify-between"
-        >
-          <FormField
-            control={form.control}
-            name="user"
-            render={({ field }) => (
-              <FormItem className="flex flex-col mb-0">
-                <FormLabel>Select User</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          "w-full justify-between text-xs",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value
-                          ? users?.find(
-                            (user) => user.id.toString() === field.value
-                          )?.email
-                          : "Select user"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="Search user..."
-                        className="border-none"
-                      />
-                      <CommandList>
-                        <CommandEmpty>No user found.</CommandEmpty>
-                        <CommandGroup>
-                          {users?.map((user) => (
-                            <CommandItem
-                              value={`${user.name} - ${user.email}`}
-                              key={user.id}
-                              onSelect={() => {
-                                form.setValue("user", user.id.toString());
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  user.id.toString() === field.value
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                              {user.name} - {user.email}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="flex justify-end space-x-2">
-            <Button type="submit" size="sm" disabled={isLoading} className="border-0 shadow-none">
-              Add Booking
-            </Button>
+    <div className="my-4 text-sm add-booking-form min-w-0 max-w-full">
+      <form
+        onSubmit={onSubmit}
+        className="flex flex-wrap items-end gap-4 text-sm min-w-0"
+      >
+        <div className="min-w-0 w-full flex-1 flex flex-col justify-end sm:min-w-[180px] sm:flex-initial sm:max-w-[220px]">
+          <label className="text-xs mb-1 block font-medium text-foreground">
+            User
+          </label>
+          <div className="add-booking-input-wrapper flex min-w-0 max-w-full flex-col gap-1 [&_.field-label]:!hidden [&_.input]:!min-h-7 [&_.input]:!py-0.5 [&_input]:!min-h-7 [&_[role=combobox]]:!min-h-7 [&_[role=combobox]]:!py-0.5 [&_[role=combobox]]:!max-w-full [&_.input]:!min-w-0">
+            <SelectInput
+              path="add-booking-user"
+              name="add-booking-user"
+              value={selectedUserId}
+              onChange={(opt) => {
+              const o = Array.isArray(opt) ? opt[0] : opt;
+              setSelectedUserId(
+                o && typeof o === "object" && "value" in o ? String(o.value) : ""
+              );
+            }}
+              options={userOptions}
+              readOnly={isLoading}
+            />
           </div>
-        </form>
-      </Form>
+        </div>
+        <div className="min-w-0 w-full flex-1 flex flex-col justify-end sm:min-w-[120px] sm:flex-initial sm:max-w-[160px]">
+          <label className="text-xs mb-1 block font-medium text-foreground">
+            Status
+          </label>
+          <div className="add-booking-input-wrapper flex min-w-0 max-w-full flex-col gap-1 [&_.field-label]:!hidden [&_.input]:!min-h-7 [&_.input]:!py-0.5 [&_input]:!min-h-7 [&_[role=combobox]]:!min-h-7 [&_[role=combobox]]:!py-0.5 [&_[role=combobox]]:!max-w-full [&_.input]:!min-w-0">
+            <SelectInput
+              path="add-booking-status"
+              name="add-booking-status"
+              value={status}
+              isClearable={false}
+              onChange={(opt) => {
+                const o = Array.isArray(opt) ? opt[0] : opt;
+                setStatus(
+                  o && typeof o === "object" && "value" in o
+                    ? String(o.value)
+                    : "pending"
+                );
+              }}
+              options={statusOptions}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col justify-end w-full sm:w-auto sm:ml-auto shrink-0">
+          <Button
+            type="submit"
+            size="small"
+            disabled={isLoading || submitting}
+            className="shrink-0 my-0"
+          >
+            Add Booking
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };

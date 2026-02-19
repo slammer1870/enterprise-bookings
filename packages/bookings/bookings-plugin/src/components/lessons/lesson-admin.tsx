@@ -5,7 +5,6 @@ import Link from "next/link";
 import { DatePicker } from "./date-picker";
 
 import { Button, Gutter } from "@payloadcms/ui";
-
 import { Toaster } from "sonner";
 
 import type { BasePayload, CollectionSlug } from "payload";
@@ -69,7 +68,7 @@ export const LessonAdmin: React.FC<{
   }
 
   return (
-    <Gutter>
+    <Gutter className="!pt-0">
       <div className="flex flex-row justify-start items-center mb-4 gap-3">
         <h1>Lessons</h1>
         <Link
@@ -81,7 +80,11 @@ export const LessonAdmin: React.FC<{
             Create New
           </Button>
         </Link>
-        <span className="w-full text-center font-medium text-lg hidden md:block"></span>
+        <span className="flex-1" />
+        <div
+          id="lessons-bulk-bar-portal"
+          className="flex items-center justify-end min-h-[2.5rem]"
+        />
       </div>
       <div className="flex flex-col md:flex-row">
         <div className="mb-8 md:mb-0 md:mr-8">

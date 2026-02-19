@@ -1,37 +1,27 @@
 "use client";
 
 import { BookingList } from "../bookings/booking-list";
-
 import { Lesson, Booking, ClassOption } from "@repo/shared-types";
-
 import { ManageLesson } from "./manage-lesson";
-
-import { Button } from "@repo/ui/components/ui/button";
-
-import {
-  TableRow,
-  TableCell,
-} from "@repo/ui/components/ui/table";
-
+import { Button, SelectRow } from "@payloadcms/ui";
+import { TableRow, TableCell } from "@repo/ui/components/ui/table";
 import { format } from "date-fns";
-
-import { ChevronDown } from "lucide-react";
-
-import { ChevronUp } from "lucide-react";
-
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
-
 import { AddBooking } from "../bookings/add-booking";
 
-/* eslint-disable-next-line */
-
-export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
+export const LessonDetail = ({
+  lesson,
+  isSelected,
+  onToggleSelection,
+}: {
+  lesson: Lesson;
+  isSelected?: boolean;
+  onToggleSelection?: (checked: boolean) => void;
+}) => {
   const bookings = lesson.bookings.docs as Booking[];
   const classOption = lesson.classOption as ClassOption;
-
-  const [expandedLessons, setExpandedLessons] = useState<Set<number>>(
-    new Set()
-  );
+  const [expandedLessons, setExpandedLessons] = useState<Set<number>>(new Set());
 
   const toggleBookings = (lessonId: number) => {
     setExpandedLessons((prev) => {
@@ -45,27 +35,36 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
     });
   };
 
-  const _handleEdit = (lessonId: number) => {
-    console.log("Edit lesson", lessonId);
-  };
-
-  const _handleDelete = (lessonId: number) => {
-    console.log("Delete lesson", lessonId);
-  };
-
   return (
     <>
       <TableRow key={lesson.id}>
+        <TableCell className="w-10">
+          {onToggleSelection != null ? (
+            <input
+              type="checkbox"
+              aria-label={`Select lesson ${lesson.id}`}
+              checked={isSelected ?? false}
+              onChange={(e) => onToggleSelection(e.target.checked)}
+            />
+          ) : (
+            <SelectRow
+              rowData={
+                {
+                  id: String(lesson.id),
+                  _isLocked: false,
+                } as Parameters<typeof SelectRow>[0]["rowData"]
+              }
+            />
+          )}
+        </TableCell>
         <TableCell>{format(lesson.startTime, "HH:mm")}</TableCell>
         <TableCell>{format(lesson.endTime, "HH:mm")}</TableCell>
         <TableCell>{classOption.name}</TableCell>
         <TableCell>
           <Button
-            variant="secondary"
-            size="sm"
+            size="small"
+            buttonStyle="secondary"
             onClick={() => toggleBookings(lesson.id)}
-            className="flex items-center border border-gray-700 dark:border-gray-300 bg-transparent shadow-none"
-            style={{ borderWidth: '1px', borderStyle: 'solid' }}
           >
             {lesson.bookings.docs.length}
             {expandedLessons.has(lesson.id) ? (
@@ -82,8 +81,8 @@ export const LessonDetail = ({ lesson }: { lesson: Lesson }) => {
         </TableCell>
       </TableRow>
       {expandedLessons.has(lesson.id) && (
-        <TableRow className="bg-gray-100 dark:bg-gray-800">
-          <TableCell colSpan={5}>
+        <TableRow className="bg-muted/50 hover:bg-muted/50">
+          <TableCell colSpan={6}>
             <div className="rounded-md p-2">
               <BookingList bookings={bookings} />
               <AddBooking lessonId={lesson.id} />

@@ -228,7 +228,7 @@ The MVP will be structured to easily add payment functionality later:
 4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
 5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes lessons bulk actions)
 6. **Phase 4.6** – Class pass UI in bookings page (parity with drop-in and membership; show Class pass tab, valid passes for lesson, confirm booking with class pass)
-7. **Phase 5** – Admin bookings bulk operations & Payload UI (bulk actions, payloadcms/ui in bookings admin)
+7. **Phase 5** – Admin bulk operations & Lessons admin UI (bulk actions for bookings/lessons; replace shadcn with payloadcms/ui at admin/collections/lessons)
 8. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
 9. **Phase 7** – Self-onboarding with MCP-driven personalisation
 10. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
@@ -1249,7 +1249,7 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 35. **Phase 3**: `apps/atnd-me/src/blocks/registry.ts` - Block registry for tenant-scoped blocks
 36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
 37. **Phase 4**: `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard (payloadcms/ui)
-38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; replace shadcn with payloadcms/ui in bookings admin
+38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; **Lessons admin** (`admin/collections/lessons`): replace shadcn with payloadcms/ui
 39. **Phase 6**: `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection (tenant-scoped; slug unique per tenant)
 40. **Phase 6**: `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path or cookie for current tenant
 41. **Phase 6**: `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`
@@ -1323,6 +1323,7 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 4.6**: `tests/unit/class-pass-booking.test.ts`, `tests/int/class-pass-booking-ui.int.spec.ts`, `tests/e2e/booking-with-class-pass.e2e.spec.ts` – Class pass UI in bookings page (getValidClassPassesForLesson, createBookings with classPassId, Class pass tab and confirm flow)
 - **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
 - **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
+- **Phase 5**: `apps/atnd-me/tests/e2e/lessons-admin-payload-ui.e2e.spec.ts` - Lessons admin route uses payloadcms/ui (optional smoke)
 - **Phase 6**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
 - **Phase 6**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
 - **Phase 6**: `apps/atnd-me/tests/unit/getLocationContext.test.ts` - Location context unit tests
@@ -2000,7 +2001,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–10):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bookings Bulk Operations & Payload UI) → Phase 6 (Multi-Location Architecture) → Phase 7 (Self-Onboarding) → Phase 8 (Analytics) → Phase 9 (UTM) → Phase 10 (Application Fees, deferred).
+**Roadmap order (Phases 3–10):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 6 (Multi-Location Architecture) → Phase 7 (Self-Onboarding) → Phase 8 (Analytics) → Phase 9 (UTM) → Phase 10 (Application Fees, deferred).
 
 ---
 
@@ -2464,73 +2465,69 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 
 ---
 
-## Phase 5: Admin Bookings Bulk Operations & Payload UI
+## Phase 5: Admin Bulk Operations & Lessons Admin UI (payloadcms/ui)
 
 ### Overview
 
-Refactor the **admin area for the Bookings collection** so it supports **bulk operations** in line with other collections in the Payload admin (e.g. select multiple rows, bulk update status, bulk delete). Where the bookings admin uses custom UI, **prefer payloadcms/ui components** over shadcn so the admin experience is consistent and maintainable.
+This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bookings—and optionally Lessons—with multi-select, bulk update status, bulk delete); (2) **replace shadcn with payloadcms/ui** at the **Lessons** admin route (`admin/collections/lessons`) so the lessons collection admin uses Payload’s UI stack and matches the rest of the admin.
 
 ### Goals
 
-- **Bulk operations**: Bookings list view supports multi-select and bulk actions (e.g. bulk status change to confirmed/cancelled/waiting, bulk delete) similar to Pages, Users, Lessons, etc.
-- **Consistent list UX**: Use Payload’s default list view patterns for bookings where possible (table, checkboxes, bulk action bar), or extend them without replacing the whole list.
-- **Payload UI over shadcn**: In the bookings admin (list, detail, and any custom components), use **payloadcms/ui** components instead of shadcn so styling and behaviour match the rest of the admin.
-- **Tenant-scoped**: Bulk actions respect tenant context (tenant-admin only affects their tenant’s bookings; super-admin can operate across tenants if the UI allows).
+- **Bulk operations**: Support multi-select and bulk actions (e.g. bulk status update, bulk delete) for relevant admin collections (Bookings; optionally Lessons). Tenant-scoped: tenant-admin only affects their tenant’s data.
+- **Lessons admin UI**: At the **admin/collections/lessons** route, replace any shadcn / `@repo/ui` usage with **payloadcms/ui** (buttons, modals, dropdowns, tables, etc.) so styling and behaviour match the rest of the Payload admin.
+- **Consistent list UX**: Use Payload’s default list view patterns (table, checkboxes, bulk action bar) where possible; or extend without replacing the whole list.
+- **Tenant-scoped**: All bulk actions respect tenant context and access control.
+- **Lessons custom list + bulk**: The lessons admin keeps its custom UX (day picker, per-day table) and adds bulk operations (row checkboxes, select-all, bulk action bar) so behaviour matches other collections while preserving the custom component.
 
 ### Non-goals (for this phase)
 
-- Changing booking access control rules (already defined in Phase 1/2).
-- New booking-specific analytics (covered by Phase 4 dashboard and Phase 8 analytics).
-- Public-facing booking UI changes.
+- Changing access control rules already defined in Phase 1/2.
+- Replacing shadcn in the **Bookings** admin (focus is lessons admin route).
+- New analytics (covered by Phase 4 / Phase 8).
+- Public-facing UI changes.
 
 ### Architecture
 
-1. **List view**
-  - Ensure the Bookings collection uses (or is aligned with) Payload’s default collection list view so that row selection and bulk action toolbar appear.
-  - If the bookings plugin currently injects a custom list component that lacks bulk behaviour, refactor to use the default list with optional custom columns or add bulk actions to the existing view.
-2. **Bulk actions**
-  - **Bulk update status**: Allow selecting multiple bookings and setting status to e.g. `confirmed`, `cancelled`, `waiting`, `pending` in one action.
-  - **Bulk delete**: Allow selecting multiple bookings and deleting (with confirmation).
-  - Optional: bulk export (e.g. CSV) for selected bookings.
-  - All bulk operations must run with tenant context set so the multi-tenant plugin (and access control) only touch the correct tenant’s data.
-3. **Payload UI**
-  - Replace any shadcn usage in bookings admin (e.g. in `packages/bookings/bookings-plugin` or atnd-me overrides) with payloadcms/ui equivalents (buttons, modals, dropdowns, tables, etc.).
-  - If payloadcms/ui does not provide a component (e.g. a specific chart), use a minimal recharts-based or other component that matches Payload admin styling; avoid introducing new shadcn dependencies in the admin.
+1. **Bulk operations**
+  - Bookings: list view with default Payload list (checkboxes, bulk bar); bulk update status and bulk delete with tenant-scoped access (see existing `bookings-bulk-actions.int.spec.ts`).
+  - Optional: Lessons collection bulk actions (bulk delete, bulk update) with tenant scope.
+2. **Lessons admin route (`admin/collections/lessons`)**
+  - Identify all custom components used on the lessons collection admin (list, detail, edit view, lesson picker, date picker, modals, etc.).
+  - Replace shadcn / `@repo/ui` imports with **payloadcms/ui** equivalents in those components (e.g. in `packages/bookings/bookings-plugin` or atnd-me overrides for lessons).
+  - If payloadcms/ui does not provide a component, use a minimal alternative that matches Payload admin styling; avoid new shadcn in the lessons admin.
+3. **Tenant scope**
+  - All bulk operations run with tenant context set so the multi-tenant plugin and access control only touch the correct tenant’s data.
 
 ### Implementation outline (TDD-friendly)
 
-- **Step 5.1 – List view and selection**
-  - Confirm or refactor Bookings collection list view so it uses Payload’s default list (or a compatible custom list) with checkboxes and select-all.
-  - Tests: integration test that list renders and selection state works; tenant-admin only sees their tenant’s bookings.
-- **Step 5.2 – Bulk update status**
-  - Add bulk action “Update status” that accepts a status value and applies it to all selected booking IDs. Enforce tenant scope and access (tenant-admin only their tenant; super-admin as per policy).
-  - Tests: integration tests for bulk status update with tenant scope and access control.
-- **Step 5.3 – Bulk delete**
-  - Add bulk action “Delete” with confirmation. Enforce tenant scope and access.
-  - Tests: integration tests for bulk delete; ensure no cross-tenant deletion.
-- **Step 5.4 – Replace shadcn with payloadcms/ui in bookings admin**
-  - Audit bookings-related admin components (list, detail, edit view, modals). Replace shadcn imports with payloadcms/ui where available.
-  - Tests: visual or E2E smoke test that bookings admin still works; no regressions.
-- **Step 5.5 – Documentation and polish**
-  - Document any remaining custom list/bulk behaviour. Ensure keyboard and screen-reader behaviour is consistent with other collections.
+- **Step 5.1 – Bookings list view and bulk actions**
+  - Ensure Bookings collection uses Payload’s default list with checkboxes and bulk action toolbar; defaultColumns and access (tenant-scoped update/delete) as needed.
+  - Tests: integration tests for bulk status update and bulk delete with tenant scope (e.g. `bookings-bulk-actions.int.spec.ts`).
+- **Step 5.2 – Optional: Lessons bulk actions**
+  - If adding bulk operations for Lessons, add tenant-scoped bulk update/delete and integration tests.
+- **Step 5.3 – Replace shadcn with payloadcms/ui at admin/collections/lessons**
+  - Audit components used on the **lessons** admin route (e.g. `packages/bookings/bookings-plugin` lesson list, lesson detail, date picker, manage-lesson, add-booking, edit-booking when used from lessons context, etc.).
+  - Replace shadcn/`@repo/ui` with payloadcms/ui in those components so the lessons collection admin is fully on payloadcms/ui.
+  - Tests: visual or E2E smoke test that `admin/collections/lessons` (list, create, edit, delete) still works; no regressions.
+- **Step 5.4 – Documentation and polish**
+  - Document any custom list/bulk behaviour. Ensure keyboard and screen-reader behaviour is consistent with other collections.
 
 ### Files / areas to add or modify
 
-- `packages/bookings/bookings-plugin` – Bookings collection config (list view, bulk actions); any custom list/detail components.
-- `apps/atnd-me/src/plugins/index.ts` – If bookings plugin is extended with overrides for list or bulk actions.
-- Bookings admin components – Replace shadcn with payloadcms/ui (e.g. in `packages/bookings/bookings-plugin/src/components/` or atnd-me overrides).
-- Tests: `tests/int/bookings-bulk-actions.int.spec.ts`, optional `tests/e2e/bookings-admin-bulk.e2e.spec.ts`.
+- `packages/bookings/bookings-plugin` – Bookings collection (list view, bulk actions); **Lessons admin** components used at `admin/collections/lessons`: replace shadcn with payloadcms/ui (e.g. `src/components/lessons/`, `src/components/schedule/`, lesson-related UI in `src/components/bookings/` when used from lessons).
+- `apps/atnd-me/src/plugins/index.ts` – Bookings admin overrides (e.g. defaultColumns, access); optional lessons overrides for custom components.
+- Tests: `tests/int/bookings-bulk-actions.int.spec.ts`; optional `tests/e2e/bookings-admin-bulk.e2e.spec.ts`, `tests/e2e/lessons-admin-payload-ui.e2e.spec.ts`.
 
 ### Summary
 
 
-| Aspect              | Notes                                                                 |
-| ------------------- | --------------------------------------------------------------------- |
-| **Bulk operations** | Multi-select + bulk status update, bulk delete (and optional export). |
-| **List UX**         | Align with default Payload collection list (checkboxes, bulk bar).    |
-| **UI stack**        | payloadcms/ui in bookings admin; avoid new shadcn in admin.           |
-| **Tenant scope**    | All bulk actions respect tenant context and access control.           |
-| **Green gates**     | Int tests for bulk actions and tenant scope; E2E for admin flows.     |
+| Aspect               | Notes                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| **Bulk operations**  | Bookings (and optionally Lessons): multi-select, bulk status update, bulk delete.          |
+| **Lessons admin UI** | Replace shadcn with payloadcms/ui at **admin/collections/lessons** only.                   |
+| **Bookings admin**   | Keep default list + bulk actions; no requirement to replace shadcn in bookings admin here. |
+| **Tenant scope**     | All bulk actions respect tenant context and access control.                                |
+| **Green gates**      | Int tests for bulk actions; E2E smoke for lessons admin after UI swap.                     |
 
 
 ---
@@ -2650,7 +2647,7 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ## Phase 10: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bookings Bulk Operations (Phase 5), Multi-Location Architecture (Phase 6), Self-Onboarding (Phase 7), Analytics (Phase 8), and UTM (Phase 9).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Lessons Admin UI (Phase 5), Multi-Location Architecture (Phase 6), Self-Onboarding (Phase 7), Analytics (Phase 8), and UTM (Phase 9).*
 
 When implementing flexible application fees:
 

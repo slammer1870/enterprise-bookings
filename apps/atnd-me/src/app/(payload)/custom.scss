@@ -13,3 +13,24 @@
   position: relative;
   z-index: 2;
 }
+
+/* Prevent select/combobox from overflowing on mobile */
+.add-booking-form [role="combobox"],
+.add-booking-input-wrapper .input {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.add-booking-input-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Prevent first option from being cut off at top of dropdown */
+.add-booking-form [role="listbox"],
+.add-booking-form [data-radix-popper-content-wrapper] [role="listbox"] {
+  padding-top: 0.375rem;
+}
+/* When dropdown is portaled, listbox may be outside form; add top padding for select menus in admin */
+.template-default [role="listbox"] {
+  padding-top: 0.375rem;
+}
