@@ -4,7 +4,32 @@
  * Cloudflare Workers only; for Next.js/Node we use S3 adapter per docs).
  * When all required env vars are set, returns config for the plugin; when any
  * are missing, returns null and the app uses local staticDir for Media (dev/test).
+ *
+ * Uses a custom HTTPS agent with minVersion 'TLSv1.2' to avoid EPROTO/SSL handshake
+ * failures in production (e.g. older Node/OpenSSL vs Cloudflare R2 TLS requirements).
  */
+
+import http from 'node:http'
+import https from 'node:https'
+
+import { NodeHttpHandler } from '@smithy/node-http-handler'
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 100,
+  minVersion: 'TLSv1.2',
+})
+
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  maxSockets: 100,
+})
+
+/** Request handler for S3/R2 client that enforces TLS 1.2 to fix handshake failures. */
+const r2RequestHandler = new NodeHttpHandler({
+  httpsAgent,
+  httpAgent,
+})
 
 export interface R2StorageConfig {
   enabled: true
@@ -17,6 +42,7 @@ export interface R2StorageConfig {
       accessKeyId: string
       secretAccessKey: string
     }
+    requestHandler?: typeof r2RequestHandler
   }
   collections: {
     media: {
@@ -70,6 +96,7 @@ export function getR2StorageConfig(): R2StorageConfig | null {
         accessKeyId,
         secretAccessKey,
       },
+      requestHandler: r2RequestHandler,
     },
     collections,
   }
