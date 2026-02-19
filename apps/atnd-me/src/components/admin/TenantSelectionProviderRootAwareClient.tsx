@@ -5,6 +5,11 @@
  * except we do NOT auto-set the first tenant when entityType === 'global' when the user is
  * on the navbar or footer collection (so they can edit the root navbar/footer without
  * being switched to the first tenant's doc and losing the form).
+ *
+ * When the user is on a create page for a collection that requires a tenant (see
+ * COLLECTIONS_REQUIRE_TENANT_ON_CREATE) with no tenant selected, we redirect to the list
+ * and show a toast. Collections where tenant is optional (e.g. pages for root domain)
+ * are excluded so you can still create base pages without selecting a tenant.
  */
 import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
@@ -12,6 +17,30 @@ import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
 
 const ROOT_DOC_PATHS = ['/collections/navbar', '/collections/footer']
+
+/**
+ * Collection slugs where a tenant is required when creating a new document.
+ * The redirect (and toast) only runs for these collections, so we preserve:
+ * - pages: create base/root domain pages without selecting a tenant (tenant optional).
+ * - navbar, footer: create root globals (handled as globals, not collection create routes).
+ * Only collections that truly require a tenant for create are listed here.
+ */
+const COLLECTIONS_REQUIRE_TENANT_ON_CREATE = new Set([
+  'lessons',
+  'instructors',
+  'class-options',
+  'bookings',
+  'class-pass-types',
+  'class-passes',
+  'transactions',
+  'drop-ins',
+  'plans',
+  'discount-codes',
+  'subscriptions',
+  'forms',
+  'form-submissions',
+  'scheduler',
+])
 
 const Context = createContext<{
   entityType?: 'document' | 'global'
@@ -209,6 +238,29 @@ export function TenantSelectionProviderRootAwareClient({
       }
     }
   }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, isOnDashboard, setTenant])
+
+  // Redirect from create page when no tenant selected for tenant-scoped collections.
+  // Prevents the admin from becoming unclickable when create form loads without tenant context.
+  const createRedirectApplied = React.useRef(false)
+  React.useEffect(() => {
+    if (typeof pathname !== 'string') return
+    const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
+    const collectionSlug = createMatch?.[1]
+    if (
+      collectionSlug &&
+      COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlug) &&
+      (selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === '')
+    ) {
+      if (!createRedirectApplied.current) {
+        createRedirectApplied.current = true
+        const listPath = pathname.replace(/\/create$/, '')
+        router.replace(listPath)
+        toast.error('Please select a tenant first, then create a new document.')
+      }
+    } else {
+      createRedirectApplied.current = false
+    }
+  }, [pathname, selectedTenantID, router])
 
   return (
     <Context.Provider
