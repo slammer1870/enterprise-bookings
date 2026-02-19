@@ -5,7 +5,6 @@
  * without a tenant selected. Lets them pick a tenant to assign the new document to instead of
  * redirecting back to the list with a toast.
  */
-import type { ReactSelectOption } from '@payloadcms/ui'
 import { Button, SelectInput, useTranslation } from '@payloadcms/ui'
 import React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
@@ -29,9 +28,8 @@ export function SelectTenantForCreateModal({
   const pathname = usePathname()
   const { options, setTenant } = useTenantSelection()
   const { t } = useTranslation()
-  const [selectedOption, setSelectedOption] = React.useState<
-    ReactSelectOption | ReactSelectOption[] | null
-  >(null)
+  // Store the selected value as primitive (id); SelectInput expects value to be the id, not the full option object.
+  const [selectedValue, setSelectedValue] = React.useState<string | number | undefined>(undefined)
 
   const optionsList = Array.isArray(options) ? options : []
   const listPath = typeof pathname === 'string' ? pathname.replace(/\/create$/, '') : '/admin'
@@ -42,19 +40,13 @@ export function SelectTenantForCreateModal({
   }, [router, listPath, onClose])
 
   const handleConfirm = React.useCallback(() => {
-    const option = selectedOption && !Array.isArray(selectedOption) ? selectedOption : null
-    if (option && 'value' in option && option.value != null && option.value !== '') {
-      setTenant({ id: option.value as string | number, refresh: false })
+    if (selectedValue != null && selectedValue !== '') {
+      setTenant({ id: selectedValue, refresh: false })
     }
     onClose()
-  }, [selectedOption, setTenant, onClose])
+  }, [selectedValue, setTenant, onClose])
 
-  const confirmDisabled =
-    !selectedOption ||
-    Array.isArray(selectedOption) ||
-    !('value' in selectedOption) ||
-    selectedOption.value == null ||
-    selectedOption.value === ''
+  const confirmDisabled = selectedValue == null || selectedValue === ''
 
   React.useEffect(() => {
     if (!isOpen) return
@@ -97,8 +89,11 @@ export function SelectTenantForCreateModal({
             name="select-tenant-create"
             path="select-tenant-create"
             options={optionsList as any}
-            value={selectedOption as any}
-            onChange={(opt) => setSelectedOption(opt ?? null)}
+            value={selectedValue as any}
+            onChange={(opt) => {
+              const o = opt && !Array.isArray(opt) ? opt : null
+              setSelectedValue(o && 'value' in o ? (o.value as string | number) : undefined)
+            }}
             isClearable={false}
           />
         </div>
