@@ -166,7 +166,21 @@ test.describe('App smoke', () => {
       throw new Error(`Test setup: lesson ${lesson.id} tenant ${lessonTenantId} !== navigation tenant ${tenantId}. Use same testData.tenants[0].`)
     }
 
-    await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
+    // API login + tenant-scoped cookies so session is reliably sent on tenant subdomain (same as class-pass test).
+    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
+
+    // Warm-up: hit tenant root so the app resolves the tenant and session is accepted before the booking page.
+    await navigateToTenant(page, tenantSlug, '/')
+    await page.waitForLoadState('domcontentloaded').catch(() => null)
+    const tenantNotFound = await page.getByText(/tenant not found/i).isVisible().catch(() => false)
+    if (tenantNotFound) {
+      throw new Error(
+        `Tenant "${tenantSlug}" not found when loading tenant root. Lesson ${lesson.id}. ` +
+          `App and test must use the same DB.`
+      )
+    }
+    await page.waitForURL((u) => u.pathname === '/home' || u.pathname === '/', { timeout: 10000 }).catch(() => null)
+
     await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 

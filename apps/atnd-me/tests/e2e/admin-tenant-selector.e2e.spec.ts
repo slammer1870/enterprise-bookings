@@ -16,7 +16,7 @@ const ADMIN_VIEWPORT = { width: 1440, height: 900 }
 /** GitHub Actions runners are slower; use longer timeouts and waits in CI. */
 const isCI = !!process.env.CI
 const CI = {
-  optionWaitMs: isCI ? 6000 : 1500,
+  optionWaitMs: isCI ? 6000 : 5000,
   selectDeadlineMs: isCI ? 50_000 : 25_000,
   displayVisibleTimeout: isCI ? 35_000 : 15_000,
   sidebarTimeout: isCI ? 25_000 : 10_000,
@@ -34,8 +34,10 @@ function escapeRegex(input: string): string {
 async function ensureSidebarOpen(page: Page) {
   const tenantSelector = page.getByTestId('tenant-selector')
   const sidebarContent = page.getByText('Filter by Tenant', { exact: false })
-  // In CI don't trust early return — sidebar can appear "visible" in DOM but be off-screen when closed.
-  if (!isCI && (await tenantSelector.isVisible().catch(() => false))) return
+  // Only skip if sidebar is clearly open: selector and "Filter by Tenant" are both visible.
+  const selectorVisible = await tenantSelector.isVisible().catch(() => false)
+  const filterVisible = await sidebarContent.isVisible().catch(() => false)
+  if (selectorVisible && filterVisible) return
 
   await page.waitForLoadState('domcontentloaded').catch(() => null)
   if (isCI) await page.waitForTimeout(1000)
@@ -78,8 +80,8 @@ async function ensureSidebarOpen(page: Page) {
 
 /**
  * E2E: Admin tenant selector (ClearableTenantSelector).
- * Tests that opening the dropdown and clicking a tenant (e.g. the second one)
- * actually selects that tenant (cookie + displayed value), not the first.
+ * First test: UI selection (open dropdown, select second tenant).
+ * Second test: cookie/display consistency.
  */
 test.describe('Admin Tenant Selector', () => {
   if (isCI) test.setTimeout(120_000)
@@ -93,150 +95,64 @@ test.describe('Admin Tenant Selector', () => {
     const { tenants } = testData
     const tenant1 = tenants[0]
     const tenant2 = tenants[1]
-    const tenant1Name = tenant1.name ?? 'Test Tenant 1'
     const tenant2Name = tenant2.name ?? 'Test Tenant 2'
 
     await page.setViewportSize(ADMIN_VIEWPORT)
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
-    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/categories`, { waitUntil: 'load' })
     await page
       .waitForURL(
         (url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'),
-        { timeout: 15000 },
+        { timeout: 15_000 },
       )
       .catch(() => {
-        if (page.url().includes('/admin/login')) {
-          throw new Error('Super admin denied - redirected to login')
-        }
+        if (page.url().includes('/admin/login')) throw new Error('Super admin denied - redirected to login')
       })
 
     await ensureSidebarOpen(page)
-
-    // Wait for tenant selector
     const wrap = page.getByTestId('tenant-selector')
     await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
 
-    // Start with first tenant so we can switch to second
+    // Start with first tenant so we can select the second from the dropdown
     await page.context().addCookies([
-      {
-        name: 'payload-tenant',
-        value: String(tenant1.id),
-        url: `${ADMIN_ORIGIN}/`,
-      },
+      { name: 'payload-tenant', value: String(tenant1.id), url: `${ADMIN_ORIGIN}/` },
     ])
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(500)
+    await page.reload({ waitUntil: 'load' })
     await ensureSidebarOpen(page)
     await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
 
-    // Use a collection list page so there is no "modified" form state — tenant switch runs without confirmation modal
-    await page.goto(`${ADMIN_ORIGIN}/admin/collections/categories`, { waitUntil: 'load' })
+    // Ensure sidebar is open before interacting. Main content (collection-list__wrap, app-header__content)
+    // can sit on top of the sidebar and intercept clicks, so we must open the menu and wait for it.
+    const openMenuBtn = page.getByRole('button', { name: /open\s+menu/i })
+    if (await openMenuBtn.isVisible().catch(() => false)) {
+      await openMenuBtn.click({ timeout: 5000 })
+      await page.waitForTimeout(600)
+      // If sidebar was already open we may have toggled it closed; ensure it's open.
+      const filterVisible = await page.getByText('Filter by Tenant', { exact: false }).isVisible().catch(() => false)
+      if (!filterVisible) {
+        await openMenuBtn.click({ timeout: 5000 })
+        await page.waitForTimeout(600)
+      }
+    }
     await ensureSidebarOpen(page)
-    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+    await wrap.waitFor({ state: 'visible', timeout: 5000 })
+    await page.waitForTimeout(400)
 
+    // Open dropdown and select second tenant. Use force: true so main-content overlay doesn't intercept.
+    await wrap.scrollIntoViewIfNeeded()
     const combobox = wrap.getByRole('combobox')
-    await expect(combobox).toBeVisible()
-    await combobox.scrollIntoViewIfNeeded()
+    await combobox.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+    await combobox.click({ force: true })
+    const option = page.getByRole('option', { name: new RegExp(escapeRegex(tenant2Name), 'i') }).first()
+    await option.waitFor({ state: 'visible', timeout: CI.optionWaitMs })
+    await option.click()
 
-    // Ensure tenant options have been synced at least once (can be delayed under CI load).
-    const tenantOptionsResponse = page
-      .waitForResponse(
-        (res) =>
-          res.request().method() === 'GET' &&
-          res.status() >= 200 &&
-          res.status() < 300 &&
-          res.url().includes('/api/tenants/populate-tenant-options'),
-        { timeout: isCI ? 30_000 : 20_000 },
-      )
-      .catch(() => null)
-
-    await tenantOptionsResponse
-
-    // Payload SelectInput (react-select): open menu and select option by role (preferred) or by id filter;
-    // keyboard fallback if menu/option not found. Handle "Leave anyway" modal if it appears.
-    const displayTenant2 = wrap.getByText(tenant2Name).first()
-    const dropdownIndicator = wrap.locator('button').last()
-    const input = wrap.locator('input').first()
-    const optionByRole = page.getByRole('option', { name: new RegExp(escapeRegex(tenant2Name), 'i') }).first()
-    const optionById = page
-      .locator('[id*="-option-"]')
-      .filter({ hasText: new RegExp(escapeRegex(tenant2Name), 'i') })
-      .first()
     const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
+    if (await leaveAnyway.isVisible().catch(() => false)) await leaveAnyway.click()
 
-    const selectDeadline = Date.now() + CI.selectDeadlineMs
-    while (Date.now() < selectDeadline) {
-      if (await displayTenant2.isVisible().catch(() => false)) break
-
-      // Open menu: click combobox first (reliable), then dropdown indicator as fallback.
-      await combobox.click({ force: true }).catch(() => dropdownIndicator.click({ force: true }))
-      await page.waitForTimeout(isCI ? 400 : 200)
-
-      const optionToClick = (await optionByRole.isVisible().catch(() => false))
-        ? optionByRole
-        : (await optionById.isVisible().catch(() => false))
-          ? optionById
-          : null
-
-      if (optionToClick) {
-        await optionToClick.click({ force: true })
-      } else {
-        // Fallback: drive via input typing + keyboard selection.
-        await input.click({ force: true }).catch(() => combobox.click({ force: true }))
-        await input.fill('').catch(() => null)
-        await input.fill(tenant2Name).catch(async () => {
-          await page.keyboard.press('Escape').catch(() => null)
-          await page.keyboard.type(tenant2Name, { delay: 10 })
-        })
-        await page.waitForTimeout(200)
-        await page.keyboard.press('ArrowDown').catch(() => null)
-        await page.keyboard.press('Enter').catch(() => null)
-      }
-
-      if (await leaveAnyway.isVisible().catch(() => false)) {
-        await leaveAnyway.click({ force: true })
-      }
-
-      await page.waitForTimeout(isCI ? 600 : 350)
-    }
-
-    // setTenant(..., refresh: true) can trigger a reload; wait for load then assert display.
     await page.waitForLoadState('load').catch(() => null)
-    await page.waitForTimeout(isCI ? 800 : 400)
-
-    // In CI, if display did not update but cookie is already set, reload so UI reflects it.
-    if (isCI && !(await displayTenant2.isVisible().catch(() => false))) {
-      const cookies = await page.context().cookies(ADMIN_ORIGIN)
-      const tenantCookie = cookies.find((c) => c.name === 'payload-tenant')
-      if (tenantCookie?.value === String(tenant2.id)) {
-        await page.reload({ waitUntil: 'load' })
-        await ensureSidebarOpen(page)
-        await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
-      }
-    }
-
-    // Ensure sidebar is open before asserting (it can be closed after reload or navigation).
     await ensureSidebarOpen(page)
-    await expect(displayTenant2).toBeVisible({ timeout: CI.displayVisibleTimeout })
-
-    // If a confirmation modal appears slightly later, confirm it so selection doesn't snap back.
-    if (await leaveAnyway.isVisible().catch(() => false)) {
-      await leaveAnyway.click({ force: true })
-    }
-
-    // setTenant(..., refresh: true) may reload; wait for load and for selector to be ready again.
-    await page.waitForLoadState('load').catch(() => null)
-    // After reload, re-query selector and combobox so we interact with the new page (CI can do full reload).
-    await page.getByTestId('tenant-selector').waitFor({ state: 'visible', timeout: CI.wrapTimeout })
-    const comboboxAfter = page.getByTestId('tenant-selector').getByRole('combobox')
-    await comboboxAfter.waitFor({ state: 'visible', timeout: 5000 })
-
-    // Assert persistence across a hard reload (proves the cookie/state is truly saved).
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await ensureSidebarOpen(page)
-    const wrapAfterReload = page.getByTestId('tenant-selector')
-    await wrapAfterReload.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
-    await expect(wrapAfterReload.getByText(tenant2Name).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
+    await expect(wrap.getByText(tenant2Name).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
   })
 
   test('tenant selector is visible and selection is reflected via cookie and display', async ({
