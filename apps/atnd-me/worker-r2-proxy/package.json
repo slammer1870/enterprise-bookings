@@ -1,0 +1,12 @@
+{
+  "name": "atnd-me-r2-proxy",
+  "private": true,
+  "scripts": {
+    "deploy": "pnpm exec wrangler deploy",
+    "dev": "pnpm exec wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+name = "atnd-me-r2-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "atnd-media"
