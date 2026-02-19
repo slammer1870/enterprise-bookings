@@ -461,7 +461,9 @@ export const plugins: Plugin[] = [
         // our own optional `tenant` field in the Pages collection instead.
         customTenantField: true,
       },
-      lessons: {},
+      lessons: {
+        tenantFieldOverrides: { admin: { disableBulkEdit: true } },
+      },
       instructors: {},
       'class-options': {},
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
