@@ -7,14 +7,16 @@
  * being switched to the first tenant's doc and losing the form).
  *
  * When the user is on a create page for a collection that requires a tenant (see
- * COLLECTIONS_REQUIRE_TENANT_ON_CREATE) with no tenant selected, we redirect to the list
- * and show a toast. Collections where tenant is optional (e.g. pages for root domain)
- * are excluded so you can still create base pages without selecting a tenant.
+ * COLLECTIONS_REQUIRE_TENANT_ON_CREATE) with no tenant selected, we show a modal to
+ * select a tenant instead of redirecting. Collections where tenant is optional
+ * (e.g. pages for root domain) are excluded so you can still create base pages without
+ * selecting a tenant.
  */
 import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
+import { SelectTenantForCreateModal } from '@/components/admin/SelectTenantForCreateModal'
 
 const ROOT_DOC_PATHS = ['/collections/navbar', '/collections/footer']
 
@@ -123,6 +125,15 @@ export function TenantSelectionProviderRootAwareClient({
   const isOnDashboard =
     typeof pathname === 'string' && (pathname === '/admin' || pathname === '/admin/')
 
+  // Skip router.refresh() only on create pages for collections that require a tenant
+  // (lessons, instructors, etc.) so the form is not cleared when the provider re-runs on mobile.
+  // On create pages where tenant can be cleared (e.g. pages), we allow refresh so the UI
+  // updates when the user clears the tenant.
+  const createMatch = typeof pathname === 'string' ? pathname.match(/\/collections\/([^/]+)\/create$/) : null
+  const collectionSlugFromPath = createMatch?.[1]
+  const isOnTenantRequiredCreatePage =
+    collectionSlugFromPath != null && COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlugFromPath)
+
   const setTenantAndCookie = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
       const matched = findTenantOption(id)
@@ -134,11 +145,11 @@ export function TenantSelectionProviderRootAwareClient({
       } else {
         deleteTenantCookie()
       }
-      if (refresh) {
+      if (refresh && !isOnTenantRequiredCreatePage) {
         router.refresh()
       }
     },
-    [router, findTenantOption],
+    [router, findTenantOption, isOnTenantRequiredCreatePage],
   )
 
   const setTenant = React.useCallback(
@@ -239,28 +250,50 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, isOnDashboard, setTenant])
 
-  // Redirect from create page when no tenant selected for tenant-scoped collections.
-  // Prevents the admin from becoming unclickable when create form loads without tenant context.
-  const createRedirectApplied = React.useRef(false)
+  // Show tenant-selection modal on create page when no tenant selected (instead of redirecting).
+  const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
+  const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(
+    null,
+  )
+  const createModalShownForPath = React.useRef<string | null>(null)
+
   React.useEffect(() => {
     if (typeof pathname !== 'string') return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
     const collectionSlug = createMatch?.[1]
+    const noTenant =
+      selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
+
     if (
       collectionSlug &&
       COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlug) &&
-      (selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === '')
+      noTenant
     ) {
-      if (!createRedirectApplied.current) {
-        createRedirectApplied.current = true
+      // If we have tenant options, show the modal so the user can pick a tenant.
+      if (tenantOptions.length > 0) {
+        if (createModalShownForPath.current !== pathname) {
+          createModalShownForPath.current = pathname
+          setCreateModalCollectionSlug(collectionSlug)
+          setShowSelectTenantModal(true)
+        }
+      } else {
+        // No tenants available: redirect and toast (same as before).
         const listPath = pathname.replace(/\/create$/, '')
         router.replace(listPath)
         toast.error('Please select a tenant first, then create a new document.')
       }
     } else {
-      createRedirectApplied.current = false
+      createModalShownForPath.current = null
+      setShowSelectTenantModal(false)
+      setCreateModalCollectionSlug(null)
     }
-  }, [pathname, selectedTenantID, router])
+  }, [pathname, selectedTenantID, tenantOptions.length, router])
+
+  const closeSelectTenantModal = React.useCallback(() => {
+    setShowSelectTenantModal(false)
+    setCreateModalCollectionSlug(null)
+    createModalShownForPath.current = null
+  }, [])
 
   return (
     <Context.Provider
@@ -277,6 +310,11 @@ export function TenantSelectionProviderRootAwareClient({
       }}
     >
       {children}
+      <SelectTenantForCreateModal
+        collectionSlug={createModalCollectionSlug ?? ''}
+        isOpen={showSelectTenantModal}
+        onClose={closeSelectTenantModal}
+      />
     </Context.Provider>
   )
 }
