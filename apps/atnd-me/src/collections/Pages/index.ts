@@ -72,9 +72,9 @@ const availableBlocks = [
 // Create the three column layout block - automatically uses all blocks from the pages config
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 
-/** Extract allowed block slugs for a tenant (from form data or req context). Sync version when tenant has allowedBlocks. */
-function _getAllowedBlockSlugs(data: { tenant?: unknown }, req?: { context?: { tenant?: unknown } }): string[] {
-  const tenant = data?.tenant ?? req?.context?.tenant
+/** Extract allowed block slugs from the document's tenant only (not navbar context). Base pages get default blocks. */
+function _getAllowedBlockSlugs(data: { tenant?: unknown }, _req?: { context?: { tenant?: unknown } }): string[] {
+  const tenant = data?.tenant
   if (!tenant) return defaultBlockSlugs
   const allowed = typeof tenant === 'object' && tenant !== null && 'allowedBlocks' in tenant
     ? (tenant as { allowedBlocks?: string[] }).allowedBlocks
@@ -83,14 +83,14 @@ function _getAllowedBlockSlugs(data: { tenant?: unknown }, req?: { context?: { t
 }
 
 /**
- * Resolve allowed block slugs for a tenant, fetching the tenant doc when context only has an ID.
- * Use this for admin UI (e.g. filterOptions) so tenant-admins see their assigned allowedBlocks when creating a page.
+ * Resolve allowed block slugs from the document's tenant only (not navbar context).
+ * Base pages (no tenant) get defaultBlockSlugs; pages with a tenant get that tenant's allowedBlocks.
  */
 async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unknown): Promise<string[]> {
   const r = req as
-    | { context?: { tenant?: unknown }; payload?: { findByID: (opts: { collection: 'tenants'; id: number | string; depth: number }) => Promise<{ allowedBlocks?: string[] }> } }
+    | { payload?: { findByID: (opts: { collection: 'tenants'; id: number | string; depth: number }) => Promise<{ allowedBlocks?: string[] }> } }
     | undefined
-  const tenant = data?.tenant ?? r?.context?.tenant
+  const tenant = data?.tenant
   if (!tenant) return defaultBlockSlugs
 
   let allowed: string[] | undefined
