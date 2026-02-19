@@ -2,9 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
-import { cn } from '@/utilities/ui'
+import { Button } from '@repo/ui/components/ui/button'
+import { cn } from '@repo/ui/lib/utils'
 
 type Props = {
   children: React.ReactNode
@@ -20,11 +19,9 @@ export const Carousel: React.FC<Props> = ({ children, className, viewportClassNa
   const updateScrollState = useCallback(() => {
     const el = viewportRef.current
     if (!el) return
-
     const { scrollLeft, scrollWidth, clientWidth } = el
     const maxScrollLeft = Math.max(0, scrollWidth - clientWidth)
     const epsilon = 2
-
     setCanScrollPrev(scrollLeft > epsilon)
     setCanScrollNext(scrollLeft < maxScrollLeft - epsilon)
   }, [])
@@ -32,15 +29,11 @@ export const Carousel: React.FC<Props> = ({ children, className, viewportClassNa
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
-
     updateScrollState()
-
     const onScroll = () => updateScrollState()
     el.addEventListener('scroll', onScroll, { passive: true })
-
     const ro = new ResizeObserver(() => updateScrollState())
     ro.observe(el)
-
     return () => {
       el.removeEventListener('scroll', onScroll)
       ro.disconnect()
@@ -50,15 +43,14 @@ export const Carousel: React.FC<Props> = ({ children, className, viewportClassNa
   const scrollByPage = useCallback((direction: -1 | 1) => {
     const el = viewportRef.current
     if (!el) return
-
     const amount = Math.max(240, Math.floor(el.clientWidth * 0.9))
     el.scrollBy({ left: direction * amount, behavior: 'smooth' })
   }, [])
 
-  const hasMultipleSlides = useMemo(() => {
-    // This only needs to be good-enough to hide arrows when there is 0/1 child.
-    return React.Children.count(children) > 1
-  }, [children])
+  const hasMultipleSlides = useMemo(
+    () => React.Children.count(children) > 1,
+    [children],
+  )
 
   return (
     <div className={cn('relative', className)}>
@@ -88,7 +80,6 @@ export const Carousel: React.FC<Props> = ({ children, className, viewportClassNa
           </Button>
         </div>
       )}
-
       <div
         ref={viewportRef}
         className={cn(
@@ -102,5 +93,3 @@ export const Carousel: React.FC<Props> = ({ children, className, viewportClassNa
     </div>
   )
 }
-
-

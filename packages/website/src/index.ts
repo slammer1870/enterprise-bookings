@@ -19,6 +19,10 @@ export { Location } from "./blocks/location/config";
 export { linkGroup } from "./blocks/linkGroup";
 export { ThreeColumnLayoutBlock } from "./blocks/threeColumnLayout";
 export { createThreeColumnLayout } from "./blocks/threeColumnLayout";
+export { MarketingHero } from "./blocks/marketingHero/config";
+export { Features } from "./blocks/features/config";
+export { CaseStudies } from "./blocks/caseStudies/config";
+export { MarketingCta } from "./blocks/marketingCta/config";
 
 // Export hooks
 export { revalidatePage, revalidateDelete } from "./hooks/revalidate-page"; 

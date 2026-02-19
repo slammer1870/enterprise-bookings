@@ -15,13 +15,24 @@ import { Schedule } from './Schedule/config'
 import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
 import { HeroWithLocation } from './HeroWithLocation/config'
-import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
+import {
+  Hero,
+  About,
+  Location,
+  Faqs,
+  createThreeColumnLayout,
+  MarketingHero,
+  Features,
+  CaseStudies,
+  MarketingCta,
+} from '@repo/website'
 
 const allBlocks: Block[] = [
   HeroSchedule,
   HeroScheduleSanctuary,
   HeroWithLocation,
   Hero,
+  MarketingHero,
   About,
   Location,
   Schedule,
@@ -29,7 +40,10 @@ const allBlocks: Block[] = [
   HealthBenefits,
   SectionTagline,
   Faqs,
+  Features,
+  CaseStudies,
   CallToAction,
+  MarketingCta,
   Content,
   MediaBlock,
   Archive,

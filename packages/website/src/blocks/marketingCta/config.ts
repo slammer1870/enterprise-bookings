@@ -9,12 +9,12 @@ import {
 
 import { linkGroup } from '../../fields/linkGroup'
 
-export const SaaSCallToAction: Block = {
-  slug: 'saasCta',
-  interfaceName: 'SaaSCallToActionBlock',
+export const MarketingCta: Block = {
+  slug: 'marketingCta',
+  interfaceName: 'MarketingCtaBlock',
   labels: {
-    singular: 'SaaS Call to Action',
-    plural: 'SaaS Calls to Action',
+    singular: 'Marketing Call to Action',
+    plural: 'Marketing Calls to Action',
   },
   fields: [
     {
@@ -78,4 +78,3 @@ export const SaaSCallToAction: Block = {
     },
   ],
 }
-

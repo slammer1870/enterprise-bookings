@@ -76,7 +76,7 @@ export const homepageGlobalData = ({ contactForm }: Args): Partial<Homepage> => 
   },
   layout: [
     {
-      blockType: 'saasHero',
+      blockType: 'marketingHero',
       blockName: 'Hero',
       headline: 'Booking Software that actually works',
       subheadline: rootRichText([

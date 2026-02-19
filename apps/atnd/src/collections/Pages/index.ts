@@ -7,10 +7,7 @@ import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
 import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
-import { SaaSHero } from '../../blocks/SaaSHero/config'
-import { Features } from '../../blocks/Features/config'
-import { CaseStudies } from '../../blocks/CaseStudies/config'
-import { SaaSCallToAction } from '../../blocks/SaaSCallToAction/config'
+import { MarketingHero, Features, CaseStudies, MarketingCta } from '@repo/website'
 import { hero } from '@/heros/config'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -83,10 +80,10 @@ export const Pages: CollectionConfig<'pages'> = {
                 MediaBlock,
                 Archive,
                 FormBlock,
-                SaaSHero,
+                MarketingHero,
                 Features,
                 CaseStudies,
-                SaaSCallToAction,
+                MarketingCta,
               ],
               required: true,
               admin: {

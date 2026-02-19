@@ -208,10 +208,10 @@ export interface Page {
     | MediaBlock
     | ArchiveBlock
     | FormBlock
-    | SaaSHeroBlock
+    | MarketingHeroBlock
     | FeaturesBlock
     | CaseStudiesBlock
-    | SaaSCallToActionBlock
+    | MarketingCtaBlock
   )[];
   meta?: {
     title?: string | null;
@@ -781,9 +781,9 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSHeroBlock".
+ * via the `definition` "MarketingHeroBlock".
  */
-export interface SaaSHeroBlock {
+export interface MarketingHeroBlock {
   headline: string;
   subheadline?: {
     root: {
@@ -836,7 +836,7 @@ export interface SaaSHeroBlock {
   backgroundColor?: ('default' | 'subtle' | 'muted') | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'saasHero';
+  blockType: 'marketingHero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -958,9 +958,9 @@ export interface CaseStudiesBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSCallToActionBlock".
+ * via the `definition` "MarketingCtaBlock".
  */
-export interface SaaSCallToActionBlock {
+export interface MarketingCtaBlock {
   heading: string;
   description?: {
     root: {
@@ -1009,7 +1009,7 @@ export interface SaaSCallToActionBlock {
   alignment?: ('left' | 'center' | 'right') | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'saasCta';
+  blockType: 'marketingCta';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1319,10 +1319,10 @@ export interface PagesSelect<T extends boolean = true> {
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
-        saasHero?: T | SaaSHeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
         features?: T | FeaturesBlockSelect<T>;
         caseStudies?: T | CaseStudiesBlockSelect<T>;
-        saasCta?: T | SaaSCallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
       };
   meta?:
     | T
@@ -1423,9 +1423,9 @@ export interface FormBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSHeroBlock_select".
+ * via the `definition` "MarketingHeroBlock_select".
  */
-export interface SaaSHeroBlockSelect<T extends boolean = true> {
+export interface MarketingHeroBlockSelect<T extends boolean = true> {
   headline?: T;
   subheadline?: T;
   links?:
@@ -1524,9 +1524,9 @@ export interface CaseStudiesBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSCallToActionBlock_select".
+ * via the `definition` "MarketingCtaBlock_select".
  */
-export interface SaaSCallToActionBlockSelect<T extends boolean = true> {
+export interface MarketingCtaBlockSelect<T extends boolean = true> {
   heading?: T;
   description?: T;
   links?:
@@ -2106,10 +2106,10 @@ export interface Homepage {
     | MediaBlock
     | ArchiveBlock
     | FormBlock
-    | SaaSHeroBlock
+    | MarketingHeroBlock
     | FeaturesBlock
     | CaseStudiesBlock
-    | SaaSCallToActionBlock
+    | MarketingCtaBlock
   )[];
   meta?: {
     /**
@@ -2206,10 +2206,10 @@ export interface HomepageSelect<T extends boolean = true> {
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
-        saasHero?: T | SaaSHeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
         features?: T | FeaturesBlockSelect<T>;
         caseStudies?: T | CaseStudiesBlockSelect<T>;
-        saasCta?: T | SaaSCallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
       };
   meta?:
     | T

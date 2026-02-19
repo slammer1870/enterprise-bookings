@@ -8,7 +8,17 @@ import {
 } from '../../access/tenant-scoped'
 import { defaultBlockSlugs } from '../../blocks/registry'
 import { getBlocksForTenant } from '../../utilities/getBlocksForTenant'
-import { Hero, About, Location, Faqs, createThreeColumnLayout } from '@repo/website'
+import {
+  Hero,
+  About,
+  Location,
+  Faqs,
+  createThreeColumnLayout,
+  MarketingHero,
+  Features,
+  CaseStudies,
+  MarketingCta,
+} from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
@@ -41,6 +51,7 @@ const availableBlocks = [
   HeroScheduleSanctuary,
   HeroWithLocation,
   Hero,
+  MarketingHero,
   About,
   Location,
   Schedule,
@@ -48,7 +59,10 @@ const availableBlocks = [
   HealthBenefits,
   SectionTagline,
   Faqs,
+  Features,
+  CaseStudies,
   CallToAction,
+  MarketingCta,
   Content,
   MediaBlock,
   Archive,
@@ -181,13 +195,15 @@ export const Pages: CollectionConfig<'pages'> = {
                 HeroScheduleSanctuary,
                 HeroWithLocation,
                 Hero,
+                MarketingHero,
                 ThreeColumnLayout,
                 ...availableBlocks.filter(
                   (block) =>
                     block.slug !== 'heroSchedule' &&
                     block.slug !== 'heroScheduleSanctuary' &&
                     block.slug !== 'heroWithLocation' &&
-                    block.slug !== 'hero'
+                    block.slug !== 'hero' &&
+                    block.slug !== 'marketingHero'
                 ),
               ],
               filterOptions: async ({ data, req }) => {

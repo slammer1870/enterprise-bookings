@@ -7,10 +7,10 @@ import { CallToActionBlock } from '@/blocks/CallToAction/Component'
 import { ContentBlock } from '@/blocks/Content/Component'
 import { FormBlock } from '@/blocks/Form/Component'
 import { MediaBlock } from '@/blocks/MediaBlock/Component'
-import { SaaSHeroBlock } from '@/blocks/SaaSHero/Component'
-import { FeaturesBlock } from '@/blocks/Features/Component'
-import { CaseStudiesBlock } from '@/blocks/CaseStudies/Component'
-import { SaaSCallToActionBlock } from '@/blocks/SaaSCallToAction/Component'
+import { MarketingHeroBlock } from '@repo/website/src/blocks/marketingHero'
+import { FeaturesBlock } from '@repo/website/src/blocks/features'
+import { CaseStudiesBlock } from '@repo/website/src/blocks/caseStudies'
+import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
 
 const blockComponents = {
   archive: ArchiveBlock,
@@ -18,10 +18,10 @@ const blockComponents = {
   cta: CallToActionBlock,
   formBlock: FormBlock,
   mediaBlock: MediaBlock,
-  saasHero: SaaSHeroBlock,
+  marketingHero: MarketingHeroBlock,
   features: FeaturesBlock,
   caseStudies: CaseStudiesBlock,
-  saasCta: SaaSCallToActionBlock,
+  marketingCta: MarketingCtaBlock,
 }
 
 export const RenderBlocks: React.FC<{

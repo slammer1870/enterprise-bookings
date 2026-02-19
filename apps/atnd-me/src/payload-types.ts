@@ -227,6 +227,7 @@ export interface Page {
     | HeroScheduleSanctuaryBlock
     | HeroWithLocationBlock
     | HeroBlock
+    | MarketingHeroBlock
     | ThreeColumnLayoutBlock
     | AboutBlock
     | LocationBlock
@@ -250,7 +251,10 @@ export interface Page {
         blockName?: string | null;
         blockType: 'faqs';
       }
+    | FeaturesBlock
+    | CaseStudiesBlock
     | CallToActionBlock
+    | MarketingCtaBlock
     | ContentBlock
     | MediaBlock
     | ArchiveBlock
@@ -285,10 +289,14 @@ export interface Tenant {
    */
   allowedBlocks?:
     | (
+        | 'marketingHero'
         | 'location'
         | 'healthBenefits'
         | 'sectionTagline'
         | 'faqs'
+        | 'features'
+        | 'caseStudies'
+        | 'marketingCta'
         | 'mediaBlock'
         | 'archive'
         | 'formBlock'
@@ -1046,6 +1054,65 @@ export interface HeroBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MarketingHeroBlock".
+ */
+export interface MarketingHeroBlock {
+  headline: string;
+  subheadline?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Optional background media for the hero section
+   */
+  backgroundMedia?: (number | null) | Media;
+  /**
+   * Optional foreground media (e.g., product screenshot)
+   */
+  foregroundMedia?: (number | null) | Media;
+  alignment?: ('left' | 'center' | 'right') | null;
+  backgroundColor?: ('default' | 'subtle' | 'muted') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'marketingHero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ThreeColumnLayoutBlock".
  */
 export interface ThreeColumnLayoutBlock {
@@ -1055,6 +1122,7 @@ export interface ThreeColumnLayoutBlock {
         | HeroScheduleSanctuaryBlock
         | HeroWithLocationBlock
         | HeroBlock
+        | MarketingHeroBlock
         | AboutBlock
         | LocationBlock
         | ScheduleBlock
@@ -1077,7 +1145,10 @@ export interface ThreeColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'faqs';
           }
+        | FeaturesBlock
+        | CaseStudiesBlock
         | CallToActionBlock
+        | MarketingCtaBlock
         | ContentBlock
         | MediaBlock
         | ArchiveBlock
@@ -1197,6 +1268,124 @@ export interface SectionTaglineBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FeaturesBlock".
+ */
+export interface FeaturesBlock {
+  heading?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  features?:
+    | {
+        title: string;
+        description: string;
+        /**
+         * Optional icon for this feature
+         */
+        icon?: (number | null) | Media;
+        link?: {
+          type?: ('reference' | 'custom') | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label?: string | null;
+          newTab?: boolean | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  columns?: ('2' | '3' | '4') | null;
+  backgroundColor?: ('default' | 'subtle' | 'muted') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'features';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CaseStudiesBlock".
+ */
+export interface CaseStudiesBlock {
+  heading?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  caseStudies?:
+    | {
+        companyName: string;
+        /**
+         * Logo of the company/client
+         */
+        companyLogo?: (number | null) | Media;
+        quote: string;
+        author: {
+          name: string;
+          title?: string | null;
+          avatar?: (number | null) | Media;
+        };
+        results?:
+          | {
+              metric: string;
+              description: string;
+              id?: string | null;
+            }[]
+          | null;
+        link?: {
+          type?: ('reference' | 'custom') | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label?: string | null;
+          newTab?: boolean | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  layout?: ('grid' | 'carousel') | null;
+  backgroundColor?: ('default' | 'subtle' | 'muted') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'caseStudies';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CallToActionBlock".
  */
 export interface CallToActionBlock {
@@ -1242,6 +1431,61 @@ export interface CallToActionBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'cta';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MarketingCtaBlock".
+ */
+export interface MarketingCtaBlock {
+  heading: string;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Optional background image
+   */
+  backgroundMedia?: (number | null) | Media;
+  variant?: ('default' | 'highlighted' | 'bordered') | null;
+  alignment?: ('left' | 'center' | 'right') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'marketingCta';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2341,6 +2585,7 @@ export interface PagesSelect<T extends boolean = true> {
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
@@ -2362,7 +2607,10 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
         cta?: T | CallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
         content?: T | ContentBlockSelect<T>;
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
@@ -2496,6 +2744,35 @@ export interface HeroBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MarketingHeroBlock_select".
+ */
+export interface MarketingHeroBlockSelect<T extends boolean = true> {
+  headline?: T;
+  subheadline?: T;
+  links?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+            };
+        id?: T;
+      };
+  backgroundMedia?: T;
+  foregroundMedia?: T;
+  alignment?: T;
+  backgroundColor?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ThreeColumnLayoutBlock_select".
  */
 export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
@@ -2506,6 +2783,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
@@ -2526,7 +2804,10 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
         cta?: T | CallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
         content?: T | ContentBlockSelect<T>;
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
@@ -2605,6 +2886,78 @@ export interface SectionTaglineBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "FeaturesBlock_select".
+ */
+export interface FeaturesBlockSelect<T extends boolean = true> {
+  heading?: T;
+  description?: T;
+  features?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        icon?: T;
+        link?:
+          | T
+          | {
+              type?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              newTab?: T;
+            };
+        id?: T;
+      };
+  columns?: T;
+  backgroundColor?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CaseStudiesBlock_select".
+ */
+export interface CaseStudiesBlockSelect<T extends boolean = true> {
+  heading?: T;
+  description?: T;
+  caseStudies?:
+    | T
+    | {
+        companyName?: T;
+        companyLogo?: T;
+        quote?: T;
+        author?:
+          | T
+          | {
+              name?: T;
+              title?: T;
+              avatar?: T;
+            };
+        results?:
+          | T
+          | {
+              metric?: T;
+              description?: T;
+              id?: T;
+            };
+        link?:
+          | T
+          | {
+              type?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              newTab?: T;
+            };
+        id?: T;
+      };
+  layout?: T;
+  backgroundColor?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CallToActionBlock_select".
  */
 export interface CallToActionBlockSelect<T extends boolean = true> {
@@ -2624,6 +2977,34 @@ export interface CallToActionBlockSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MarketingCtaBlock_select".
+ */
+export interface MarketingCtaBlockSelect<T extends boolean = true> {
+  heading?: T;
+  description?: T;
+  links?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+            };
+        id?: T;
+      };
+  backgroundMedia?: T;
+  variant?: T;
+  alignment?: T;
   id?: T;
   blockName?: T;
 }

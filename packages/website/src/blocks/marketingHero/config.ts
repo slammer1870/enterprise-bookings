@@ -9,12 +9,12 @@ import {
 
 import { linkGroup } from '../../fields/linkGroup'
 
-export const SaaSHero: Block = {
-  slug: 'saasHero',
-  interfaceName: 'SaaSHeroBlock',
+export const MarketingHero: Block = {
+  slug: 'marketingHero',
+  interfaceName: 'MarketingHeroBlock',
   labels: {
-    singular: 'SaaS Hero',
-    plural: 'SaaS Heroes',
+    singular: 'Marketing Hero',
+    plural: 'Marketing Heroes',
   },
   fields: [
     {
@@ -87,4 +87,3 @@ export const SaaSHero: Block = {
     },
   ],
 }
-
