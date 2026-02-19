@@ -43,6 +43,7 @@ import * as migration_20260217_pages_blocks_tenant_scoped_schedule from './20260
 import * as migration_20260217_plans_class_pass_types_deleted_at from './20260217_plans_class_pass_types_deleted_at';
 import * as migration_20260219_145944 from './20260219_145944';
 import * as migration_20260219_145952 from './20260219_145952';
+import * as migration_20260219_180812 from './20260219_180812';
 
 export const migrations = [
   {
@@ -268,6 +269,11 @@ export const migrations = [
   {
     up: migration_20260219_145952.up,
     down: migration_20260219_145952.down,
-    name: '20260219_145952'
+    name: '20260219_145952',
+  },
+  {
+    up: migration_20260219_180812.up,
+    down: migration_20260219_180812.down,
+    name: '20260219_180812'
   },
 ];
