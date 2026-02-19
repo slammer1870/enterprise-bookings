@@ -24,5 +24,5 @@
     "next-sitemap.config.cjs",
     "src/app/(payload)/admin/importMap.ts"
   ],
-  "exclude": ["node_modules", "tests"]
+  "exclude": ["node_modules", "tests", "worker-r2-proxy"]
 }
