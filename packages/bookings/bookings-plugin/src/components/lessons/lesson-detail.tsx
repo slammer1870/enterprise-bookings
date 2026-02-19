@@ -23,6 +23,8 @@ export const LessonDetail = ({
   const classOption = lesson.classOption as ClassOption;
   const [expandedLessons, setExpandedLessons] = useState<Set<number>>(new Set());
 
+  const isActive = (lesson as Lesson & { active?: boolean }).active !== false;
+
   const toggleBookings = (lessonId: number) => {
     setExpandedLessons((prev) => {
       const newSet = new Set(prev);
@@ -37,7 +39,10 @@ export const LessonDetail = ({
 
   return (
     <>
-      <TableRow key={lesson.id}>
+      <TableRow
+        key={lesson.id}
+        className={!isActive ? "opacity-50 hover:opacity-70" : undefined}
+      >
         <TableCell className="w-10">
           {onToggleSelection != null ? (
             <input
