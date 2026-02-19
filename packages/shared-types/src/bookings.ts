@@ -39,8 +39,8 @@ export type Lesson = {
     | "childrenBooked"
     | "multipleBooked";
   originalLockOutTime?: number;
-  /** Present in multi-tenant apps; ID or populated { id }. */
-  tenant?: number | { id: number } | null;
+  /** Present in multi-tenant apps; ID or populated { id, slug? }. */
+  tenant?: number | { id: number; slug?: string } | null;
   /**
    * Schedule-specific view model computed server-side (tRPC).
    * When present, UI should render buttons from this instead of `bookingStatus`.

@@ -76,7 +76,16 @@ export const LessonDetail = ({
         </TableCell>
         <TableCell className="text-right">
           <div className="flex justify-end">
-            <ManageLesson lessonId={lesson.id} />
+            <ManageLesson
+              lessonId={lesson.id}
+              tenantSlug={
+                lesson.tenant &&
+                typeof lesson.tenant === "object" &&
+                "slug" in lesson.tenant
+                  ? (lesson.tenant as { slug?: string }).slug ?? null
+                  : undefined
+              }
+            />
           </div>
         </TableCell>
       </TableRow>
