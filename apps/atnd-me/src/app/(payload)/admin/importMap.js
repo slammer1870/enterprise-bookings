@@ -42,6 +42,7 @@ import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/component
 import { default as default_a0c6963fc097478f091f16c56a6cb951 } from '@/components/admin/ClearableTenantSelector'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
 import { TenantSelectionProviderRootAware as TenantSelectionProviderRootAware_aa454c6c2646c363873a6b4e72946bf7 } from '@/components/admin/TenantSelectionProviderRootAware'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_0ad30854e46ef600f02c2ce4c97aa864 } from '@/components/admin/dashboard/AnalyticsDashboard'
 import { CollectionCards as CollectionCards_ab83ff7e88da8d3530831f296ec4756a } from '@payloadcms/ui/rsc'
 
@@ -90,6 +91,7 @@ export const importMap = {
   "@/components/admin/ClearableTenantSelector#default": default_a0c6963fc097478f091f16c56a6cb951,
   "@payloadcms/plugin-sentry/client#AdminErrorBoundary": AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688,
   "@/components/admin/TenantSelectionProviderRootAware#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_aa454c6c2646c363873a6b4e72946bf7,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/components/admin/dashboard/AnalyticsDashboard#default": default_0ad30854e46ef600f02c2ce4c97aa864,
   "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a
 }
