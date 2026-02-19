@@ -41,6 +41,8 @@ import * as migration_20260217_navbar_nav_items_icon from './20260217_navbar_nav
 import * as migration_20260217_pages_blocks_hero_with_location from './20260217_pages_blocks_hero_with_location';
 import * as migration_20260217_pages_blocks_tenant_scoped_schedule from './20260217_pages_blocks_tenant_scoped_schedule';
 import * as migration_20260217_plans_class_pass_types_deleted_at from './20260217_plans_class_pass_types_deleted_at';
+import * as migration_20260219_145944 from './20260219_145944';
+import * as migration_20260219_145952 from './20260219_145952';
 
 export const migrations = [
   {
@@ -256,6 +258,16 @@ export const migrations = [
   {
     up: migration_20260217_plans_class_pass_types_deleted_at.up,
     down: migration_20260217_plans_class_pass_types_deleted_at.down,
-    name: '20260217_plans_class_pass_types_deleted_at'
+    name: '20260217_plans_class_pass_types_deleted_at',
+  },
+  {
+    up: migration_20260219_145944.up,
+    down: migration_20260219_145944.down,
+    name: '20260219_145944',
+  },
+  {
+    up: migration_20260219_145952.up,
+    down: migration_20260219_145952.down,
+    name: '20260219_145952'
   },
 ];
