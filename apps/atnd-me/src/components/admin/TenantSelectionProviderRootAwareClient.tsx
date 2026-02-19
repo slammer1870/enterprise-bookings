@@ -16,33 +16,14 @@ import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
+import { PreventEnterSubmitOnCreatePage } from '@/components/admin/PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from '@/components/admin/SelectTenantForCreateModal'
+import {
+  COLLECTIONS_REQUIRE_TENANT_ON_CREATE,
+  isTenantRequiredCreatePath,
+} from '@/components/admin/prevent-create-page-reload'
 
 const ROOT_DOC_PATHS = ['/collections/navbar', '/collections/footer']
-
-/**
- * Collection slugs where a tenant is required when creating a new document.
- * The redirect (and toast) only runs for these collections, so we preserve:
- * - pages: create base/root domain pages without selecting a tenant (tenant optional).
- * - navbar, footer: create root globals (handled as globals, not collection create routes).
- * Only collections that truly require a tenant for create are listed here.
- */
-const COLLECTIONS_REQUIRE_TENANT_ON_CREATE = new Set([
-  'lessons',
-  'instructors',
-  'class-options',
-  'bookings',
-  'class-pass-types',
-  'class-passes',
-  'transactions',
-  'drop-ins',
-  'plans',
-  'discount-codes',
-  'subscriptions',
-  'forms',
-  'form-submissions',
-  'scheduler',
-])
 
 const Context = createContext<{
   entityType?: 'document' | 'global'
@@ -129,10 +110,7 @@ export function TenantSelectionProviderRootAwareClient({
   // (lessons, instructors, etc.) so the form is not cleared when the provider re-runs on mobile.
   // On create pages where tenant can be cleared (e.g. pages), we allow refresh so the UI
   // updates when the user clears the tenant.
-  const createMatch = typeof pathname === 'string' ? pathname.match(/\/collections\/([^/]+)\/create$/) : null
-  const collectionSlugFromPath = createMatch?.[1]
-  const isOnTenantRequiredCreatePage =
-    collectionSlugFromPath != null && COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlugFromPath)
+  const isOnTenantRequiredCreatePage = isTenantRequiredCreatePath(pathname)
 
   const setTenantAndCookie = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
@@ -309,6 +287,7 @@ export function TenantSelectionProviderRootAwareClient({
         updateTenants,
       }}
     >
+      <PreventEnterSubmitOnCreatePage />
       {children}
       <SelectTenantForCreateModal
         collectionSlug={createModalCollectionSlug ?? ''}
