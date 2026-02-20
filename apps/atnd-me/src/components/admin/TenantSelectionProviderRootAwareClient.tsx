@@ -18,6 +18,11 @@ import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
 import { PreventEnterSubmitOnCreatePage } from '@/components/admin/PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from '@/components/admin/SelectTenantForCreateModal'
+import {
+  getAdminURLForTenantSlug,
+  getCurrentSubdomain,
+  isOnAdminSubdomain,
+} from '@/components/admin/admin-subdomain-redirect'
 import { getPayloadTenantCookieDomain } from '@/components/admin/payload-tenant-cookie-domain'
 import {
   COLLECTIONS_REQUIRE_TENANT_ON_CREATE,
@@ -26,10 +31,12 @@ import {
 
 const ROOT_DOC_PATHS = ['/collections/navbar', '/collections/footer']
 
+export type TenantOption = { label: string; value: number | string; slug?: string }
+
 const Context = createContext<{
   entityType?: 'document' | 'global'
   modified?: boolean
-  options: { label: string; value: number | string }[]
+  options: TenantOption[]
   selectedTenantID: string | number | undefined
   setEntityType: React.Dispatch<React.SetStateAction<'document' | 'global' | undefined>>
   setModified: (value: boolean) => void
@@ -84,7 +91,7 @@ export function TenantSelectionProviderRootAwareClient({
   tenantsCollectionSlug,
 }: {
   children: React.ReactNode
-  initialTenantOptions: { label: string; value: number | string }[]
+  initialTenantOptions: TenantOption[]
   initialValue: string | number | undefined
   tenantsCollectionSlug: string
 }) {
@@ -133,11 +140,30 @@ export function TenantSelectionProviderRootAwareClient({
       } else {
         deleteTenantCookie()
       }
+
+      // On subdomain, keep URL in sync with selected tenant so tenant-slug and payload-tenant match.
+      // Redirect to the selected tenant's subdomain (or root when clearing) to avoid a broken dashboard.
+      if (isOnAdminSubdomain()) {
+        const desiredSlug =
+          canonicalId == null || canonicalId === ''
+            ? null
+            : (tenantOptions.find((o) => String(o.value) === String(canonicalId))?.slug ?? undefined)
+        const currentSubdomain = getCurrentSubdomain()
+        const slugMismatch =
+          desiredSlug === undefined
+            ? false
+            : (desiredSlug ?? null) !== (currentSubdomain ?? null)
+        if (slugMismatch) {
+          window.location.href = getAdminURLForTenantSlug(desiredSlug ?? null)
+          return
+        }
+      }
+
       if (refresh && !isOnTenantRequiredCreatePage) {
         router.refresh()
       }
     },
-    [router, findTenantOption, isOnTenantRequiredCreatePage],
+    [router, findTenantOption, isOnTenantRequiredCreatePage, tenantOptions],
   )
 
   const setTenant = React.useCallback(

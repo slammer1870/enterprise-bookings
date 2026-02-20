@@ -30,7 +30,7 @@ async function getTenantOptions({
   useAsTitle: string
   user: unknown
   userHasAccessToAllTenants: (u: unknown) => boolean | Promise<boolean>
-}): Promise<{ label: string; value: number | string }[]> {
+}): Promise<{ label: string; value: number | string; slug?: string }[]> {
   if (!user) return []
   const coll = payload.collections[tenantsCollectionSlug as keyof typeof payload.collections]
   const isOrderable = coll?.config?.orderable ?? false
@@ -51,16 +51,20 @@ async function getTenantOptions({
     depth: 0,
     limit: 0,
     overrideAccess: false,
-    select: { [useAsTitle]: true } as Parameters<Payload['find']>[0]['select'],
+    select: { [useAsTitle]: true, slug: true } as Parameters<Payload['find']>[0]['select'],
     sort: isOrderable ? '_order' : useAsTitle,
     user: user as Parameters<Payload['find']>[0]['user'],
     ...(userTenantIds?.length ? { where: { id: { in: userTenantIds } } } : {}),
   })
 
-  return result.docs.map((doc) => ({
-    label: String((doc as unknown as Record<string, unknown>)[useAsTitle]),
-    value: (doc as { id: number | string }).id,
-  }))
+  return result.docs.map((doc) => {
+    const d = doc as unknown as Record<string, unknown>
+    return {
+      label: String(d[useAsTitle]),
+      value: (doc as { id: number | string }).id,
+      slug: typeof d.slug === 'string' ? d.slug : undefined,
+    }
+  })
 }
 
 /** Defaults matching apps/atnd-me multiTenantPlugin({ tenantsSlug: 'tenants' }) and Tenants collection. */
