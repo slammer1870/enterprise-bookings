@@ -955,6 +955,14 @@ export interface HeroWithLocationBlock {
    * Full-bleed background image
    */
   backgroundImage?: (number | null) | Media;
+  /**
+   * Hex code for overlay over the background image (e.g. #000000). Default: black.
+   */
+  imageOverlayHex?: string | null;
+  /**
+   * Overlay opacity (0–100). Default: 70.
+   */
+  imageOverlayOpacity?: number | null;
   logo?: (number | null) | Media;
   /**
    * First line of heading (e.g. CROÍ LÁN)
@@ -2689,6 +2697,8 @@ export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
  */
 export interface HeroWithLocationBlockSelect<T extends boolean = true> {
   backgroundImage?: T;
+  imageOverlayHex?: T;
+  imageOverlayOpacity?: T;
   logo?: T;
   title?: T;
   titleLine2?: T;

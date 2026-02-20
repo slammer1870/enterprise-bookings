@@ -24,6 +24,8 @@ type LinkItem = {
 
 interface HeroWithLocationBlockProps {
   backgroundImage?: number | Media | { url?: string; alt?: string } | string | null
+  imageOverlayHex?: string | null
+  imageOverlayOpacity?: number | null
   logo?: (number | null) | Media | { url?: string; alt?: string } | string | null
   title?: string | null
   titleLine2?: string | null
@@ -110,8 +112,13 @@ function InstagramIcon({ className }: { className?: string }) {
   )
 }
 
+const DEFAULT_OVERLAY_HEX = '#000000'
+const DEFAULT_OVERLAY_OPACITY = 70
+
 export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   backgroundImage,
+  imageOverlayHex,
+  imageOverlayOpacity,
   logo,
   title,
   titleLine2,
@@ -127,6 +134,8 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   const logoUrl = resolveMediaUrl(logo)
   const hasSocialFollow = Boolean(socialFollowLabel && socialFollowUrl)
   const isInstagram = socialFollowUrl?.toLowerCase().includes('instagram')
+  const overlayColor = imageOverlayHex?.trim() || DEFAULT_OVERLAY_HEX
+  const overlayOpacity = (imageOverlayOpacity ?? DEFAULT_OVERLAY_OPACITY) / 100
 
   return (
     <div className="flex flex-col md:flex-row w-full">
@@ -146,7 +155,14 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-black/40" aria-hidden />
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundColor: overlayColor,
+                opacity: overlayOpacity,
+              }}
+              aria-hidden
+            />
           </>
         )}
 

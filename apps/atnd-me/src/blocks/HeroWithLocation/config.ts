@@ -22,6 +22,25 @@ export const HeroWithLocation: Block = {
       admin: { description: 'Full-bleed background image' },
     },
     {
+      name: 'imageOverlayHex',
+      type: 'text',
+      required: false,
+      admin: {
+        description: 'Hex code for overlay over the background image (e.g. #000000). Default: black.',
+      },
+    },
+    {
+      name: 'imageOverlayOpacity',
+      type: 'number',
+      required: false,
+      min: 0,
+      max: 100,
+      defaultValue: 70,
+      admin: {
+        description: 'Overlay opacity (0–100). Default: 70.',
+      },
+    },
+    {
       name: 'logo',
       type: 'upload',
       relationTo: 'media',
