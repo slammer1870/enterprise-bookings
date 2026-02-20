@@ -18,6 +18,7 @@ import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
 import { PreventEnterSubmitOnCreatePage } from '@/components/admin/PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from '@/components/admin/SelectTenantForCreateModal'
+import { getPayloadTenantCookieDomain } from '@/components/admin/payload-tenant-cookie-domain'
 import {
   COLLECTIONS_REQUIRE_TENANT_ON_CREATE,
   isTenantRequiredCreatePath,
@@ -48,18 +49,27 @@ const Context = createContext<{
 })
 
 const COOKIE_NAME = 'payload-tenant'
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+function getCookieDomainAttr(): string {
+  const domain = getPayloadTenantCookieDomain()
+  return domain ? `; Domain=${domain}` : ''
+}
 
 function setTenantCookie(value: string) {
-  const maxAge = 60 * 60 * 24 * 365
-  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`
-  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/admin; Max-Age=${maxAge}; SameSite=Lax`
-  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/admin/; Max-Age=${maxAge}; SameSite=Lax`
+  const domainAttr = getCookieDomainAttr()
+  const base = `${COOKIE_NAME}=${encodeURIComponent(value)}; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${domainAttr}`
+  document.cookie = `${base}; Path=/`
+  document.cookie = `${base}; Path=/admin`
+  document.cookie = `${base}; Path=/admin/`
 }
 
 function deleteTenantCookie() {
-  document.cookie = `${COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`
-  document.cookie = `${COOKIE_NAME}=; Path=/admin; Max-Age=0; SameSite=Lax`
-  document.cookie = `${COOKIE_NAME}=; Path=/admin/; Max-Age=0; SameSite=Lax`
+  const domainAttr = getCookieDomainAttr()
+  const base = `${COOKIE_NAME}=; Max-Age=0; SameSite=Lax${domainAttr}`
+  document.cookie = `${base}; Path=/`
+  document.cookie = `${base}; Path=/admin`
+  document.cookie = `${base}; Path=/admin/`
 }
 
 function getTenantCookie(): string | undefined {

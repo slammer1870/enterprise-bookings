@@ -24,6 +24,7 @@ import { ConfirmationModal, SelectInput, useModal, useTranslation } from '@paylo
 import type { ViewTypes } from 'payload'
 import React from 'react'
 import { usePathname } from 'next/navigation'
+import { getPayloadTenantCookieDomain } from '@/components/admin/payload-tenant-cookie-domain'
 import { useTenantSelection } from '@/components/admin/TenantSelectionProviderRootAwareClient'
 
 const confirmLeaveWithoutSavingSlug = 'confirm-leave-without-saving-clearable-tenant'
@@ -37,13 +38,17 @@ const COOKIE_MAX_AGE_YEAR = 60 * 60 * 24 * 365
  * /admin-scoped cookie and stay filtered.
  *
  * Set/clear BOTH Path=/ and Path=/admin to avoid stale cookies.
+ * On subdomain, set Domain=.rootHostname so the cookie is shared and RSC/server
+ * always sees the same tenant (avoids admin create form reload on subdomain).
  */
 function setPayloadTenantCookie(tenantId: string | undefined) {
   if (typeof document === 'undefined') return
   const encoded = tenantId != null && tenantId !== '' ? encodeURIComponent(tenantId) : ''
   const isSet = encoded !== ''
 
-  const baseAttrs = `SameSite=Lax`
+  const domain = getPayloadTenantCookieDomain()
+  const domainAttr = domain ? `; Domain=${domain}` : ''
+  const baseAttrs = `SameSite=Lax${domainAttr}`
   const maxAgeAttrs = isSet ? `Max-Age=${COOKIE_MAX_AGE_YEAR}` : `Max-Age=0`
 
   // Path=/ (covers most app routes)
