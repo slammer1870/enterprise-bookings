@@ -44,6 +44,7 @@ import * as migration_20260217_plans_class_pass_types_deleted_at from './2026021
 import * as migration_20260219_145944 from './20260219_145944';
 import * as migration_20260219_145952 from './20260219_145952';
 import * as migration_20260219_180812 from './20260219_180812';
+import * as migration_20260220_145540 from './20260220_145540';
 
 export const migrations = [
   {
@@ -274,6 +275,11 @@ export const migrations = [
   {
     up: migration_20260219_180812.up,
     down: migration_20260219_180812.down,
-    name: '20260219_180812'
+    name: '20260219_180812',
+  },
+  {
+    up: migration_20260220_145540.up,
+    down: migration_20260220_145540.down,
+    name: '20260220_145540'
   },
 ];
