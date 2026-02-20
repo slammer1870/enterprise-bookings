@@ -1,6 +1,13 @@
 /**
  * Helpers to avoid reloads/clearing on tenant-required collection create pages (e.g. lessons, instructors).
  * Used to skip router.refresh() and prevent Enter-from-submit on those routes.
+ *
+ * Note: On mobile, the form can also clear when *any* input is typed (not just Enter). That is often
+ * caused by Payload's server function running on field change (e.g. to fetch relationship filter
+ * options) and returning an RSC payload with form state; when the client applies that payload it
+ * can overwrite in-progress input. That behaviour is inside Payload/Next.js; if it persists after
+ * the guards here, consider reporting to Payload or checking for a config to reduce server round-trips
+ * on create (e.g. disabling live preview or form-state sync for create routes).
  */
 
 export const COLLECTIONS_REQUIRE_TENANT_ON_CREATE = new Set([
