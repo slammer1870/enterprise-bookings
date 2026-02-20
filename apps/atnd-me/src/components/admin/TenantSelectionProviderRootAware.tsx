@@ -127,7 +127,16 @@ export async function TenantSelectionProviderRootAware(props: Props) {
     const match = tenantOptions.find((o) => String(o.value) === tenantCookie)
     initialValue = match?.value
   } else {
-    initialValue = undefined
+    // On subdomain, payload-tenant may not be sent yet (e.g. first load or cookie scope).
+    // Use tenant-slug (set by middleware) so server and client agree and we avoid a
+    // refresh that clears the form (e.g. when editing navbar).
+    const tenantSlug = cookieStore.get('tenant-slug')?.value
+    if (tenantSlug) {
+      const matchBySlug = tenantOptions.find((o) => o.slug === tenantSlug)
+      initialValue = matchBySlug?.value
+    } else {
+      initialValue = undefined
+    }
   }
   if (initialValue == null) {
     initialValue = tenantOptions.length > 1 ? undefined : tenantOptions[0]?.value

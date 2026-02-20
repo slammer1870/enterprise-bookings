@@ -159,11 +159,14 @@ export function TenantSelectionProviderRootAwareClient({
         }
       }
 
-      if (refresh && !isOnTenantRequiredCreatePage) {
+      // Skip refresh on tenant-required create pages and on root doc (navbar/footer) to avoid
+      // clearing the form when editing navbar/footer, especially on subdomain where initialValue
+      // can be temporarily out of sync with the cookie.
+      if (refresh && !isOnTenantRequiredCreatePage && !isOnRootDocCollection) {
         router.refresh()
       }
     },
-    [router, findTenantOption, isOnTenantRequiredCreatePage, tenantOptions],
+    [router, findTenantOption, isOnTenantRequiredCreatePage, isOnRootDocCollection, tenantOptions],
   )
 
   const setTenant = React.useCallback(
