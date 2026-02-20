@@ -23,9 +23,12 @@ vi.mock('@/lib/stripe/platform', () => ({
   getPlatformStripe: () => mockStripe,
 }))
 
+// Use an accountId that does not trigger the test bypass (isE2e && /^acct_[a-z_]+_\d+$/)
+// so the implementation calls getPlatformStripe() and our mock is used.
+const MOCK_ACCOUNT_ID = 'acct_prod_xyz'
 vi.mock('@/lib/stripe-connect/tenantStripe', () => ({
   requireTenantConnectAccount: vi.fn(),
-  getTenantStripeContext: vi.fn(() => ({ accountId: 'acct_test_123' })),
+  getTenantStripeContext: vi.fn(() => ({ accountId: MOCK_ACCOUNT_ID })),
 }))
 
 const tenant = {
@@ -69,7 +72,7 @@ describe('stripe-connect/products', () => {
             recurring: { interval: 'month', interval_count: 1 },
           },
         },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(result).toEqual({ productId: 'prod_123', priceId: 'price_123' })
     })
@@ -96,7 +99,7 @@ describe('stripe-connect/products', () => {
             unit_amount: 5000,
           },
         },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(result.productId).toBe('prod_cp')
       expect(result.priceId).toBe('price_cp')
@@ -118,7 +121,7 @@ describe('stripe-connect/products', () => {
           description: 'Pro plan',
           metadata: { planId: '1' },
         }),
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
   })
@@ -134,7 +137,7 @@ describe('stripe-connect/products', () => {
       expect(mockStripe.products.update).toHaveBeenCalledWith(
         'prod_123',
         { name: 'Updated Plan' },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
 
@@ -150,7 +153,7 @@ describe('stripe-connect/products', () => {
       expect(mockStripe.products.update).toHaveBeenCalledWith(
         'prod_123',
         { name: 'X', description: 'Desc', active: false },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
   })
@@ -162,7 +165,7 @@ describe('stripe-connect/products', () => {
       expect(mockStripe.products.update).toHaveBeenCalledWith(
         'prod_123',
         { active: false },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
   })
@@ -184,12 +187,12 @@ describe('stripe-connect/products', () => {
           unit_amount: 2500,
           recurring: { interval: 'month', interval_count: 1 },
         },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(mockStripe.products.update).toHaveBeenCalledWith(
         'prod_123',
         { default_price: 'price_new' },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(result).toEqual({ priceId: 'price_new' })
     })
@@ -208,7 +211,7 @@ describe('stripe-connect/products', () => {
           currency: 'eur',
           unit_amount: 5000,
         },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(mockStripe.products.update).not.toHaveBeenCalled()
     })

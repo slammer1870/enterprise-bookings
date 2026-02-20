@@ -230,11 +230,12 @@ The MVP will be structured to easily add payment functionality later:
 6. **Phase 4.6** – Class pass UI in bookings page (parity with drop-in and membership; show Class pass tab, valid passes for lesson, confirm booking with class pass)
 7. **Phase 5** – Admin bulk operations & Lessons admin UI (bulk actions for bookings/lessons; replace shadcn with payloadcms/ui at admin/collections/lessons)
 8. **Phase 5.5** – Image storage (S3/Cloudflare R2) – configure Media uploads to use Cloudflare R2 via S3-compatible API
-9. **Phase 6** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
-10. **Phase 7** – Self-onboarding with MCP-driven personalisation
-11. **Phase 8** – Dashboard analytics (date-filtered, tenant-scoped metrics)
-12. **Phase 9** – Event tracking & marketing attribution (UTM)
-13. **Phase 10** – Application fee management & platform revenue (deferred)
+9. **Phase 6** – Authentication across subdomains and custom domains (same user on tenant subdomain + custom domain; cross-tenant login; trusted origins; session propagation)
+10. **Phase 7** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
+11. **Phase 8** – Self-onboarding with MCP-driven personalisation
+12. **Phase 9** – Dashboard analytics (date-filtered, tenant-scoped metrics)
+13. **Phase 10** – Event tracking & marketing attribution (UTM)
+14. **Phase 11** – Application fee management & platform revenue (deferred)
 
 ## Code Organization: App vs Packages
 
@@ -490,7 +491,7 @@ Create `apps/atnd-me/src/collections/Tenants/index.ts`:
     - `enabled` (checkbox) - Enable class passes
     - `defaultExpirationDays` (number) - Default expiration period
     - `pricing` (array) - Available pass packages
-  - **Phase 10 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
+  - **Phase 11 (Application Fees)**: `applicationFeeOverrides` (group, optional) - Per-tenant fee overrides
     - `dropInFee` (number, optional) - Override default drop-in fee (percentage or fixed amount)
     - `subscriptionFee` (number, optional) - Override default subscription fee (percentage or fixed amount)
     - `feeType` (select, optional) - Override fee type (percentage or fixed) - if not set, uses global default
@@ -1228,8 +1229,8 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 13. **Phase 2**: `apps/atnd-me/src/app/(frontend)/class-passes/purchase/page.tsx` - Class pass purchase UI
 14. **Phase 2**: `apps/atnd-me/src/utilities/checkClassPass.ts` - Utility to validate class pass for booking
 15. **Phase 2**: `apps/atnd-me/src/hooks/useClassPassForBooking.ts` - Hook to decrement pass on booking confirmation
-16. **Phase 9**: `apps/atnd-me/src/globals/ApplicationFees/index.ts` - Global configuration for default application fees
-17. **Phase 9**: `apps/atnd-me/src/utilities/calculateApplicationFee.ts` - Utility to calculate application fees with tenant overrides
+16. **Phase 11**: `apps/atnd-me/src/globals/ApplicationFees/index.ts` - Global configuration for default application fees
+17. **Phase 11**: `apps/atnd-me/src/utilities/calculateApplicationFee.ts` - Utility to calculate application fees with tenant overrides
 18. `apps/atnd-me/src/collections/Navbar/index.ts` - New collection (from Header global)
 19. `apps/atnd-me/src/collections/Footer/index.ts` - New collection (from Footer global)
 20. `apps/atnd-me/src/collections/Scheduler/index.ts` - New collection (from scheduler global)
@@ -1251,25 +1252,26 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
 37. **Phase 4**: `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard (payloadcms/ui)
 38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; **Lessons admin** (`admin/collections/lessons`): replace shadcn with payloadcms/ui
-39. **Phase 6**: `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection (tenant-scoped; slug unique per tenant)
-40. **Phase 6**: `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path or cookie for current tenant
-41. **Phase 6**: `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`
-42. **Phase 6**: `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (location-manager assignment)
-43. **Phase 6**: Lessons (and optionally bookings, instructors, class-options) – Add `location` relationship; access/listing filter by location
-44. **Phase 7**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
-45. **Phase 7**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
-46. **Phase 7**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
-47. **Phase 7**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
-48. **Phase 7**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
-49. **Phase 8**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
-50. **Phase 8**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
-51. **Phase 8**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
-52. **Phase 9**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
-53. **Phase 9**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
-54. **Phase 9**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
-55. **Phase 9**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
-56. **Phase 9**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
-57. **Phase 9**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
+39. **Phase 6**: `apps/atnd-me/src/middleware.ts`, `getTenantContext.ts`, `lib/auth/options.ts` – Custom domain tenant resolution; trusted origins; session handoff (see Phase 6 section).
+40. **Phase 7**: `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection (tenant-scoped; slug unique per tenant)
+41. **Phase 7**: `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path or cookie for current tenant
+42. **Phase 7**: `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`
+43. **Phase 7**: `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (location-manager assignment)
+44. **Phase 7**: Lessons (and optionally bookings, instructors, class-options) – Add `location` relationship; access/listing filter by location
+45. **Phase 8**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
+46. **Phase 8**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
+47. **Phase 8**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
+48. **Phase 8**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
+49. **Phase 8**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
+50. **Phase 9**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
+51. **Phase 9**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
+52. **Phase 9**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
+53. **Phase 10**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
+54. **Phase 10**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
+55. **Phase 10**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
+56. **Phase 10**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
+57. **Phase 10**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
+58. **Phase 10**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
 
 ## Test Files to Create
 
@@ -1325,24 +1327,25 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
 - **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
 - **Phase 5**: `apps/atnd-me/tests/e2e/lessons-admin-payload-ui.e2e.spec.ts` - Lessons admin route uses payloadcms/ui (optional smoke)
-- **Phase 6**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
-- **Phase 6**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
-- **Phase 6**: `apps/atnd-me/tests/unit/getLocationContext.test.ts` - Location context unit tests
-- **Phase 6**: `apps/atnd-me/tests/e2e/multi-location.e2e.spec.ts` - tenant subdomain + path or selector, tenant + location context, location-manager scope
-- **Phase 7**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
-- **Phase 7**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
-- **Phase 7**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
-- **Phase 7**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
-- **Phase 8**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
-- **Phase 8**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
-- **Phase 8**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
-- **Phase 8**: `apps/atnd-me/tests/int/analytics-access.int.spec.ts` - Tenant-admin can only query own tenant; super-admin can query any/all
-- **Phase 8**: `apps/atnd-me/tests/e2e/analytics-dashboard.e2e.spec.ts` - Analytics dashboard date filter + tenant scoping
-- **Phase 9**: `apps/atnd-me/tests/unit/utm/parse-utm.test.ts` - UTM parsing from URL/query
-- **Phase 9**: `apps/atnd-me/tests/unit/utm/first-touch.test.ts` - First-touch persistence and idempotency
-- **Phase 9**: `apps/atnd-me/tests/int/marketing-events.int.spec.ts` - Event ingest, tenant scoping, validation
-- **Phase 9**: `apps/atnd-me/tests/int/attribution-reports.int.spec.ts` - Conversions and funnel by UTM dimension
-- **Phase 9**: `apps/atnd-me/tests/e2e/utm-tracking.e2e.spec.ts` - UTM capture on landing + event emission + dashboard filter
+- **Phase 6**: `tests/unit/validateCustomDomain.test.ts` (format, normalization, not-platform), `tests/int/tenant-custom-domain-validation.int.spec.ts` (save with invalid/duplicate domain fails), `tests/unit/getTenantSlugFromHost.test.ts`, `tests/int/tenant-resolution-custom-domain.int.spec.ts`, `tests/int/auth-trusted-origins.int.spec.ts`, `tests/e2e/auth-cross-domain-same-tenant.e2e.spec.ts`, `tests/e2e/auth-multi-tenant.e2e.spec.ts`, `tests/e2e/auth-admin-custom-domain.e2e.spec.ts` (optional) – Authentication and custom domain validation
+- **Phase 7**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
+- **Phase 7**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
+- **Phase 7**: `apps/atnd-me/tests/unit/getLocationContext.test.ts` - Location context unit tests
+- **Phase 7**: `apps/atnd-me/tests/e2e/multi-location.e2e.spec.ts` - tenant subdomain + path or selector, tenant + location context, location-manager scope
+- **Phase 8**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
+- **Phase 8**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
+- **Phase 8**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
+- **Phase 8**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
+- **Phase 9**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
+- **Phase 9**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
+- **Phase 9**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
+- **Phase 9**: `apps/atnd-me/tests/int/analytics-access.int.spec.ts` - Tenant-admin can only query own tenant; super-admin can query any/all
+- **Phase 9**: `apps/atnd-me/tests/e2e/analytics-dashboard.e2e.spec.ts` - Analytics dashboard date filter + tenant scoping
+- **Phase 10**: `apps/atnd-me/tests/unit/utm/parse-utm.test.ts` - UTM parsing from URL/query
+- **Phase 10**: `apps/atnd-me/tests/unit/utm/first-touch.test.ts` - First-touch persistence and idempotency
+- **Phase 10**: `apps/atnd-me/tests/int/marketing-events.int.spec.ts` - Event ingest, tenant scoping, validation
+- **Phase 10**: `apps/atnd-me/tests/int/attribution-reports.int.spec.ts` - Conversions and funnel by UTM dimension
+- **Phase 10**: `apps/atnd-me/tests/e2e/utm-tracking.e2e.spec.ts` - UTM capture on landing + event emission + dashboard filter
 
 ## Testing Strategy (TDD)
 
@@ -1477,11 +1480,11 @@ When adding payment functionality:
 - **Tenant-scoped payment routing**: payments for Tenant A go to Tenant A’s Connect account
 - **User-paid software fee**: the booking user pays an extra “booking fee” so tenants perceive the software as free
 - **Admin UX**: tenant-admin can connect/disconnect and see connection status
-- **Foundation for Phase 10 fees**: design supports adding `application_fee_amount` later
+- **Foundation for Phase 11 fees**: design supports adding `application_fee_amount` later
 
 ### Non-goals (Phase 2)
 
-- Application fees / platform take rate (Phase 10)
+- Application fees / platform take rate (Phase 11)
 - Complex reconciliation / payouts reporting dashboards (can be added later)
 
 ### Booking fee model (important)
@@ -2002,7 +2005,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–10):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Multi-Location Architecture) → Phase 7 (Self-Onboarding) → Phase 8 (Analytics) → Phase 9 (UTM) → Phase 10 (Application Fees, deferred).
+**Roadmap order (Phases 3–11):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
 
 ---
 
@@ -2484,7 +2487,7 @@ This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bo
 
 - Changing access control rules already defined in Phase 1/2.
 - Replacing shadcn in the **Bookings** admin (focus is lessons admin route).
-- New analytics (covered by Phase 4 / Phase 8).
+- New analytics (covered by Phase 4 / Phase 9).
 - Public-facing UI changes.
 
 ### Architecture
@@ -2608,16 +2611,163 @@ Today, the **Media** collection uses `staticDir` (local `public/media`). For pro
 | **Config**       | Env-based: bucket, credentials, optional endpoint and public URL.                          |
 | **Fallback**     | When R2/S3 env unset, keep local `staticDir` for dev/test.                                 |
 | **Media fields** | imageSizes, adminThumbnail, focalPoint unchanged; only storage backend and URL generation. |
-| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Lessons Admin UI); before Phase 6.      |
+| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Lessons Admin UI); before Phase 6 (Authentication).      |
 
 
 ---
 
-## Phase 6: Multi-Location Architecture
+## Phase 6: Authentication Across Subdomains and Custom Domains
 
 ### Overview
 
-Enable **multi-location** for a single tenant (business): one tenant with multiple physical locations; **subdomain resolution stays one segment only** (e.g. `saunabusiness.atnd.me` = tenant). Location is **not** in the host; customers choose or land on a location via **path** (e.g. `saunabusiness.atnd.me/locations/dublin`) or a **location selector** on the site (cookie/state). **Location-managers** get a location-scoped admin; **pages** stay tenant-wide and are managed only by tenant-admin (no location field on Pages). This phase does **not** introduce organisations or sub-subdomains. See `apps/atnd-me/docs/subdomain-hierarchy-design.md` for an optional future extension (sub-subdomain = location); Phase 6 implements the **one-subdomain** approach only.
+Ensure that **authentication works consistently** whether a user accesses a tenant via the platform subdomain (e.g. `subdomain1.atnd.me`) or that tenant’s **custom domain** (e.g. `subdomain1.com`), and that the **same user** can log in to **multiple tenants** (e.g. `subdomain2.atnd.me` and `subdomain2.com`) while preserving full functionality (bookings, admin, profile). This phase covers tenant resolution by custom domain, trusted origins for Better Auth, and session propagation or central-auth flows so that a user logged in on one host for a tenant is recognised on that tenant’s other host(s).
+
+### Goals
+
+- **Same tenant, multiple hosts**: A user logged in on `subdomain1.atnd.me` is also considered logged in (or can complete login without re-entering credentials) on `subdomain1.com` when that domain is configured as the tenant’s custom domain.
+- **Same user, multiple tenants**: The same user can log in to `subdomain2.atnd.me` and `subdomain2.com` (and any other tenant) with full functionality preserved (bookings, admin if permitted, profile).
+- **Tenant resolution by custom domain**: Middleware and tenant context resolve the current tenant when the request host matches a tenant’s `domain` (custom domain) as well as when it matches the subdomain pattern (`slug.atnd.me`).
+- **Trusted origins**: Better Auth `trustedOrigins` include both the platform subdomains and each tenant’s configured custom domain(s) so that OAuth/callback and session flows work on custom domains.
+- **Session handling**: Define and implement either (a) session propagation (e.g. token handoff from a central auth domain or from subdomain to custom domain) or (b) per-host sessions with a single sign-in flow that establishes session on the requesting host—so that “logged in on subdomain1.atnd.me” implies “logged in on subdomain1.com” as required.
+
+### Non-goals (for this phase)
+
+- Changing role or access rules (admin, tenant-admin, user) already defined in Phase 1/2.
+- Adding new social or magic-link providers; only ensuring existing auth works across subdomain + custom domain and across tenants.
+- Custom domain DNS or TLS (assume custom domains are already pointed at the app and TLS is handled at the edge).
+
+### Test Cases (write first – TDD)
+
+Relevant test cases to implement **before** or alongside implementation.
+
+#### 6.0 Custom domain validation (tenant field)
+
+- **Unit**
+  - `validateCustomDomainFormat`: accepts valid hostnames (e.g. `studio.example.com`); rejects protocol/path (`https://x.com`, `x.com/path`), single label (`studio`), invalid characters, localhost, empty labels, hostname over 253 chars; accepts empty (optional field).
+  - `normalizeCustomDomain`: trims, lowercases, strips port (e.g. `Studio.Example.COM:443` → `studio.example.com`).
+  - `validateCustomDomainNotPlatform`: rejects when value equals or is subdomain of platform root hostname (from `NEXT_PUBLIC_SERVER_URL`); accepts when different.
+- **Integration**
+  - Saving a tenant with `domain: 'https://evil.com'` or `'studio..com'` or `'localhost'` fails with a clear validation error.
+  - Saving two tenants with the same (normalized) custom domain fails on the second with a uniqueness error.
+  - Saving a tenant with `domain` equal to the platform root hostname (e.g. `atnd.me`) fails with "Cannot use the platform domain".
+
+#### 6.1 Tenant resolution by host
+
+- **Unit**
+  - `getTenantSlugFromHost(hostname, rootHostname)` (or equivalent): given `subdomain1.atnd.me` returns `subdomain1`; given root hostname returns `null`; given a hostname that matches a tenant’s `domain` (e.g. `studio.example.com`) returns that tenant’s slug (requires DB or fixture; may live in integration).
+- **Integration**
+  - Tenant A has `slug: 'tenant-a'`, `domain: 'studio-a.com'`. Request with `Host: studio-a.com` (and no cookie) results in tenant context resolving to Tenant A (e.g. middleware or getTenantContext sets/uses tenant-slug for tenant-a).
+  - Request with `Host: tenant-a.atnd.me` results in tenant context for Tenant A (existing behaviour).
+  - Request with `Host: unknown.com` (no tenant with that domain) results in no tenant (or root); no tenant-slug set for a wrong tenant.
+  - **Security**: Request with `Host: evil.com` must not resolve to a tenant unless `evil.com` is explicitly stored as a tenant’s `domain`; no trusting Host for arbitrary values without DB lookup.
+
+#### 6.2 Middleware and cookies on custom domain
+
+- **Integration**
+  - When request host is a tenant’s custom domain, middleware sets `tenant-slug` cookie so that subsequent requests (and RSC/API) see the same tenant. Cookie domain for custom domain should be appropriate (e.g. `.studio-a.com` or host-only) so that only that custom domain sends it.
+  - When request host is platform subdomain, existing behaviour: `tenant-slug` set with domain `.atnd.me` (or `.localhost` in dev).
+
+#### 6.3 Trusted origins (Better Auth)
+
+- **Unit**
+  - `getTrustedOrigins()` (or equivalent) includes the app base URL, `*.atnd.me` (or `*.localhost` in dev), and for each tenant with a `domain` set, the origin(s) for that domain (e.g. `https://studio-a.com`). Optional: only add custom domain origins when env allows (e.g. list of allowed custom domains or dynamic from DB in server startup).
+- **Integration**
+  - Login or callback request from a tenant’s custom domain origin is accepted by Better Auth (not rejected as untrusted). OAuth redirect to custom domain and callback from custom domain succeed when that origin is in trustedOrigins.
+
+#### 6.4 Session: same tenant, subdomain vs custom domain
+
+- **E2E**
+  - User logs in on `subdomain1.atnd.me` (e.g. email/password or magic link). Then user visits `subdomain1.com` (custom domain for same tenant). **Expected**: User is either (a) already recognised as logged in (session propagated or shared), or (b) redirected through a flow that establishes session on `subdomain1.com` without asking for password again (e.g. redirect to auth hub, then back with token/session).
+  - User logs in on `subdomain1.com`. Then user visits `subdomain1.atnd.me`. **Expected**: Same as above—user is recognised as logged in or gets a seamless re-auth.
+- **E2E**
+  - On `subdomain1.com`, user can access a protected route (e.g. “My bookings” or manage page) after having logged in on `subdomain1.atnd.me` (following the chosen propagation flow). On `subdomain1.com`, user can create/cancel a booking and see correct tenant data.
+
+#### 6.5 Session: same user, multiple tenants
+
+- **E2E**
+  - User logs in on `subdomain1.atnd.me`. User navigates to `subdomain2.atnd.me`. **Expected**: User can log in again (or is prompted to “use this account” or switch tenant) and then has a valid session in tenant 2 context; tenant 2’s data (lessons, bookings) is shown; no cross-tenant data leak.
+  - Same user visits `subdomain2.com` (custom domain for tenant 2). **Expected**: After any required session establishment on that host, user sees tenant 2’s data and can book/manage as in 6.4.
+- **Integration**
+  - API/tRPC requests that require tenant context (e.g. lessons, bookings) use the tenant derived from the current request host (and/or cookie), not from the user’s “registration” tenant only; so the same user can perform actions in tenant 2 when on tenant 2’s subdomain or custom domain.
+
+#### 6.6 Admin on custom domain
+
+- **E2E (optional)**
+  - Tenant-admin accesses admin at `https://subdomain1.com/admin` (if supported). Tenant context is tenant 1; admin sees only tenant 1’s data; Stripe Connect status and other tenant-scoped UI behave correctly.
+- **Integration**
+  - When admin is loaded on a custom domain host, `payload-tenant` cookie and tenant context resolve to the same tenant as the host; no mismatch between URL and selected tenant.
+
+#### 6.7 Security and isolation
+
+- **Integration**
+  - Cannot force another tenant’s context by sending a forged `Host` header that matches another tenant’s custom domain if the request is not actually for that domain (e.g. in server-to-server or server-side resolution, tenant is derived from host that is validated or from cookie set by middleware on that host).
+  - Session or token handoff from subdomain to custom domain uses a short-lived, single-use token or signed redirect so that it cannot be replayed to impersonate a user on another tenant’s domain.
+
+#### 6.8 Existing behaviour preserved
+
+- **E2E**
+  - Existing E2E that use subdomain-only (e.g. `tenant.localhost`) still pass: login, bookings, manage, admin, with no regression.
+  - Root domain (no tenant) still shows marketing/tenants listing; no tenant cookie set.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 6.0 – Custom domain validation (tenant field)** *(implemented)*
+  - **Validation**: Tenant `domain` field is validated before save:
+    - **Format**: Hostname only (no protocol/path/port); valid DNS labels (letters, numbers, hyphens); at least two parts; max 253 chars; no leading/trailing dots; no `localhost` or `*.localhost`.
+    - **Not platform**: Cannot be the platform root hostname (from `NEXT_PUBLIC_SERVER_URL`) or a subdomain of it.
+    - **Uniqueness**: No two tenants can share the same custom domain (enforced in `beforeValidate` and via unique index).
+  - **Normalization**: Before save, domain is normalized (trim, lowercase, strip port) so resolution and trusted origins use a consistent value.
+  - **Files**: `apps/atnd-me/src/utilities/validateCustomDomain.ts` (format, normalization, not-platform checks); Tenants collection `domain` field `validate` + `beforeValidate` hook + `unique: true`, `index: true`.
+  - **Tests**: Unit tests for `validateCustomDomainFormat`, `normalizeCustomDomain`, `validateCustomDomainNotPlatform`; integration test that saving a tenant with invalid or duplicate domain fails with a clear error.
+- **Step 6.1 – Tenant resolution by custom domain**
+  - Add lookup by host: when host is not a subdomain of root (e.g. not `*.atnd.me`), query tenants where `domain` equals hostname (or normalized hostname via `normalizeCustomDomain`). Use in middleware and/or in `getTenantContext` when slug is not from cookie. Uniqueness and format are already enforced by Step 6.0.
+  - **Tests**: 6.1 (unit/int).
+- **Step 6.2 – Middleware: set tenant-slug for custom domain**
+  - In middleware, when host matches a tenant’s `domain`, set `tenant-slug` to that tenant’s slug (and set cookie with domain appropriate for the custom host so it is sent only on that host). When host is platform subdomain, keep current behaviour.
+  - **Tests**: 6.2.
+- **Step 6.3 – Trusted origins**
+  - Extend `getTrustedOrigins()` (or server-side equivalent) to include origins for each tenant’s custom domain (e.g. `https://{domain}` for each tenant with `domain` set). Consider caching or building once at startup if tenant list is stable. Ensure Better Auth config uses this list.
+  - **Tests**: 6.3.
+- **Step 6.4 – Session propagation (same tenant, subdomain ↔ custom domain)**
+  - Choose and implement one approach: (a) Central auth domain (e.g. `auth.atnd.me`): login always happens there; redirect back to request origin with a one-time token; request origin exchanges token for a session cookie on that origin. (b) Token handoff: when user lands on custom domain without session, redirect to subdomain (or auth domain) with return_url; if already logged in, redirect back with signed token; custom domain endpoint exchanges token for session. (c) Per-host sessions only: no propagation; user must log in separately on each host (simplest but does not meet “logged in on subdomain1.atnd.me implies logged in on subdomain1.com” unless we add propagation). Implement the chosen flow and ensure callback/redirect URLs use trusted origins.
+  - **Tests**: 6.4, 6.7 (security of token/handoff).
+- **Step 6.5 – Cross-tenant login**
+  - Ensure that when the same user visits another tenant’s subdomain or custom domain, they can sign in (same credentials) and receive a session scoped to that host/tenant. No change to user model required if sessions are per-host; ensure tenant context is always derived from request host/cookie, not from user’s registration tenant.
+  - **Tests**: 6.5, 6.6 (admin on custom domain if supported).
+- **Step 6.6 – Regression and docs**
+  - Run existing E2E (subdomain-only, root domain); fix any regressions. Document custom domain setup (DNS, env, tenant `domain` field) and any central-auth or token-handoff flow for support.
+  - **Tests**: 6.8.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/src/middleware.ts` – Resolve tenant from custom domain (lookup by host); set `tenant-slug` cookie for custom domain with appropriate cookie domain.
+- `apps/atnd-me/src/utilities/getTenantContext.ts` (or new helper) – Resolve tenant by slug (from cookie) or by hostname when host matches a tenant’s `domain`; ensure getTenantContext can receive host and use it when slug is missing.
+- `apps/atnd-me/src/lib/auth/options.ts` – `getTrustedOrigins()` to include custom domain origins (from Tenants or from env/config).
+- `apps/atnd-me/src/collections/Tenants/index.ts` – Ensure `domain` is unique and validated (e.g. no two tenants with same domain); optional: normalize domain (lowercase, no port).
+- New: `apps/atnd-me/src/app/api/auth/session-handoff/route.ts` (or similar) – If using token handoff: endpoint that accepts a signed token and return_url, validates token, creates session for current host, redirects to return_url. Called when user returns from subdomain/auth domain to custom domain.
+- `apps/atnd-me/src/utilities/validateCustomDomain.ts` – Format validation, normalization, and "not platform domain" check for tenant custom domains (Step 6.0).
+- New: `apps/atnd-me/src/utilities/getTenantSlugFromHost.ts` (or equivalent) – Unit-testable function: given hostname and root hostname, return tenant slug from subdomain pattern or from DB lookup by domain.
+- Tests: `tests/unit/validateCustomDomain.test.ts`, `tests/int/tenant-custom-domain-validation.int.spec.ts`, `tests/unit/getTenantSlugFromHost.test.ts`, `tests/int/tenant-resolution-custom-domain.int.spec.ts`, `tests/int/auth-trusted-origins.int.spec.ts`, `tests/e2e/auth-cross-domain-same-tenant.e2e.spec.ts`, `tests/e2e/auth-multi-tenant.e2e.spec.ts`, `tests/e2e/auth-admin-custom-domain.e2e.spec.ts` (optional).
+
+### Summary
+
+| Aspect | Notes |
+|--------|--------|
+| **Same tenant, multiple hosts** | User logged in on subdomain1.atnd.me is recognised (or can seamlessly get session) on subdomain1.com. |
+| **Same user, multiple tenants** | User can log in to subdomain2.atnd.me and subdomain2.com with full functionality; tenant context always from request host/cookie. |
+| **Tenant resolution** | Middleware and getTenantContext resolve tenant by subdomain (existing) or by custom domain (tenant.domain). |
+| **Trusted origins** | Better Auth trustedOrigins include platform subdomains and each tenant’s custom domain(s). |
+| **Session propagation** | Implement central-auth redirect or token handoff so custom domain gets a session without re-entering password. |
+| **Security** | No trusting arbitrary Host for tenant; custom domain must be in DB. Token handoff short-lived and non-replayable. |
+| **Placement** | After Phase 5.5 (Image Storage); before Phase 7 (Multi-Location Architecture). |
+
+---
+
+## Phase 7: Multi-Location Architecture
+
+### Overview
+
+Enable **multi-location** for a single tenant (business): one tenant with multiple physical locations; **subdomain resolution stays one segment only** (e.g. `saunabusiness.atnd.me` = tenant). Location is **not** in the host; customers choose or land on a location via **path** (e.g. `saunabusiness.atnd.me/locations/dublin`) or a **location selector** on the site (cookie/state). **Location-managers** get a location-scoped admin; **pages** stay tenant-wide and are managed only by tenant-admin (no location field on Pages). This phase does **not** introduce organisations or sub-subdomains. See `apps/atnd-me/docs/subdomain-hierarchy-design.md` for an optional future extension (sub-subdomain = location); Phase 7 implements the **one-subdomain** approach only.
 
 ### Goals
 
@@ -2632,7 +2782,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 ### Non-goals (for this phase)
 
 - Organisations collection and tenant.org (Phase 2 of subdomain-hierarchy design = a later phase).
-- **Sub-subdomains for location** (e.g. `dublin.saunabusiness.atnd.me`) — deferred; Phase 6 resolves to **one subdomain** only.
+- **Sub-subdomains for location** (e.g. `dublin.saunabusiness.atnd.me`) — deferred; Phase 7 resolves to **one subdomain** only.
 - Location-level pages or different page sets per location (pages stay tenant-wide).
 
 ### Architecture
@@ -2642,7 +2792,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
   - **Lessons**: add `location` (relationship to locations, optional). Optionally bookings, instructors, class-options.
   - **Pages / Navbar / Footer**: do **not** add location; stay tenant-scoped only.
 2. **Middleware**
-  - No change in Phase 6: **one subdomain** = tenant only (current behaviour: 1 segment → `tenant-slug`; 0 segments clear). No `subdomain-prefix` or 2-segment handling.
+  - No change in Phase 7: **one subdomain** = tenant only (current behaviour: 1 segment → `tenant-slug`; 0 segments clear). No `subdomain-prefix` or 2-segment handling.
 3. **Location context (server-side)**
   - **Admin**: From `payload-location` cookie (location ID or slug) when present; resolve to location doc for current tenant.
   - **Frontend**: From **path** (e.g. route `/locations/[locationSlug]/...`) and/or a **location cookie/header** (e.g. `location-slug`) set when user picks a location. Helper **getLocationContext(payload, source)** returns `{ location }` when path or cookie has a valid location slug for the current tenant; otherwise null. **getTenantContext** unchanged (tenant from `tenant-slug` only).
@@ -2653,23 +2803,23 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 
 ### Implementation outline (TDD-friendly)
 
-- **Step 6.1 – Locations collection**
+- **Step 7.1 – Locations collection**
   - Create Locations collection (slug, tenant, name, address?, timezone?; slug unique per tenant; tenant-scoped). Add to payload.config and multi-tenant plugin if applicable.
   - Tests: int tests for Locations CRUD, slug uniqueness per tenant, access (tenant-admin their tenant; location-manager their locations).
-- **Step 6.2 – Location on lessons (and optionally bookings)**
+- **Step 7.2 – Location on lessons (and optionally bookings)**
   - Add `location` relationship to lessons; optionally to bookings, instructors, class-options. Migration.
   - Tests: lessons can be scoped to location; list/filter by location.
-- **Step 6.3 – Location context (path / cookie)**
+- **Step 7.3 – Location context (path / cookie)**
   - Add **getLocationContext(payload, source)** that resolves location from path (e.g. `locations/[locationSlug]`) or cookie/header (e.g. `location-slug`) for the current tenant; returns `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
   - Frontend: route(s) for `/locations/[locationSlug]` (or equivalent) that set location context (cookie or state) and render location-scoped content (e.g. lessons, booking).
-  - Tests: unit/int for getLocationContext (path, cookie, invalid slug); no 2-segment subdomain tests in Phase 6.
-- **Step 6.4 – Location-manager role and access**
+  - Tests: unit/int for getLocationContext (path, cookie, invalid slug); no 2-segment subdomain tests in Phase 7.
+- **Step 7.4 – Location-manager role and access**
   - Add `location-manager` to roles (and `user.locations` relationship); add to `adminRoles` in auth options. Access helpers for location-scoped collections. Pages (and Navbar, Footer): deny create/update/delete for location-manager (or read-only); optionally hide in nav.
   - Tests: location-manager can log in; sees only their location(s); cannot manage Pages.
-- **Step 6.5 – Admin: location selector and URL preview**
+- **Step 7.5 – Admin: location selector and URL preview**
   - Location selector in sidebar/header when tenant has locations; persist `payload-location`; filter lists by location when set. URL preview on Tenant and Location edit views (tenant URL + `/locations/{location.slug}`).
   - Tests: E2E or int that selector and preview work.
-- **Step 6.6 – Frontend**
+- **Step 7.6 – Frontend**
   - When loading page by slug, use **tenant** only (no location) for Pages query. Use location context (from path or cookie) for “Book at this location”, lessons filter, contact info. E2E: navigate to tenant subdomain + `/locations/dublin` (or location selector), verify tenant + location context and location-manager scope.
 
 ### Files / areas to add or modify
@@ -2726,9 +2876,9 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ---
 
-## Phase 10: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
+## Phase 11: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Lessons Admin UI (Phase 5), Multi-Location Architecture (Phase 6), Self-Onboarding (Phase 7), Analytics (Phase 8), and UTM (Phase 9).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Lessons Admin UI (Phase 5), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
 
 When implementing flexible application fees:
 
@@ -2856,7 +3006,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 ---
 
-## Phase 7: Self-Onboarding with MCP-Driven Personalisation
+## Phase 8: Self-Onboarding with MCP-Driven Personalisation
 
 ### Overview
 
@@ -2961,7 +3111,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ---
 
-## Phase 8: Dashboard Analytics (Future)
+## Phase 9: Dashboard Analytics (Future)
 
 ### Overview
 
@@ -3072,7 +3222,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 ---
 
-## Phase 9: Event Tracking & Marketing Attribution (UTM) (Future)
+## Phase 10: Event Tracking & Marketing Attribution (UTM) (Future)
 
 ### Overview
 

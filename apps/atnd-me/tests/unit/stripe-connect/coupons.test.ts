@@ -16,9 +16,12 @@ vi.mock('@/lib/stripe/platform', () => ({
   getPlatformStripe: () => mockStripe,
 }))
 
+// Use an accountId that does not trigger the test bypass (isE2e && /^acct_[a-z_]+_\d+$/)
+// so the implementation calls getPlatformStripe() and our mock is used.
+const MOCK_ACCOUNT_ID = 'acct_prod_xyz'
 vi.mock('@/lib/stripe-connect/tenantStripe', () => ({
   requireTenantConnectAccount: vi.fn(),
-  getTenantStripeContext: vi.fn(() => ({ accountId: 'acct_test_123' })),
+  getTenantStripeContext: vi.fn(() => ({ accountId: MOCK_ACCOUNT_ID })),
 }))
 
 const tenant = {
@@ -46,11 +49,11 @@ describe('stripe-connect/coupons', () => {
 
       expect(mockStripe.coupons.create).toHaveBeenCalledWith(
         { percent_off: 20, duration: 'forever' },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(mockStripe.promotionCodes.create).toHaveBeenCalledWith(
         { coupon: 'coupon_123', code: 'SUMMER20' },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(result).toEqual({ couponId: 'coupon_123', promotionCodeId: 'promo_123' })
     })
@@ -66,7 +69,7 @@ describe('stripe-connect/coupons', () => {
 
       expect(mockStripe.coupons.create).toHaveBeenCalledWith(
         { amount_off: 500, currency: 'eur', duration: 'once' },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
 
@@ -89,7 +92,7 @@ describe('stripe-connect/coupons', () => {
           max_redemptions: 100,
           redeem_by: 1234567890,
         },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
 
@@ -123,7 +126,7 @@ describe('stripe-connect/coupons', () => {
       expect(mockStripe.promotionCodes.update).toHaveBeenCalledWith(
         'promo_123',
         { active: false },
-        { stripeAccount: 'acct_test_123' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
   })

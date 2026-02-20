@@ -138,9 +138,9 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   const overlayOpacity = (imageOverlayOpacity ?? DEFAULT_OVERLAY_OPACITY) / 100
 
   return (
-    <div className="flex flex-col md:flex-row w-full">
+    <div className="flex w-full">
       {/* Hero Section - Full width on mobile, half width on desktop (same layout as Hero with Schedule) */}
-      <div className="relative w-full md:w-1/2 lg:w-2/3 flex-shrink-0 min-h-[600px] md:min-h-[750px] flex items-center justify-start overflow-hidden">
+      <div className="relative w-full flex-shrink-0 min-h-[600px] md:min-h-[750px] flex flex-col md:flex-row items-start md:items-center justify-center md:justify-between overflow-hidden p-8">
         {bgUrl && (
           <>
             <Image
@@ -166,7 +166,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
           </>
         )}
 
-        <div className="relative z-10 flex flex-col justify-center gap-4 px-6 py-16 md:px-12 lg:px-16 max-w-2xl">
+        <div className="relative z-10 flex flex-col justify-center gap-4 px-6 py-16 md:px-12 lg:px-16 max-w-3xl">
           {logoUrl && (
             <div className="flex-shrink-0 mb-2">
               <Image
@@ -277,13 +277,11 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
             </Link>
           </div>
         )}
-      </div>
 
-      {/* Schedule Section - Card inside container width */}
-      <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-8 lg:p-12 bg-white">
-        <div className="w-full max-w-lg">
-          <div className="rounded-xl bg-stone-200/80 shadow-md p-6 md:p-8 w-full">
-            <h2 className="text-3xl font-bold mb-6 text-center text-stone-900">Schedule</h2>
+        {/* Schedule Section - Card inside container width */}
+        <div className="w-full max-w-2xl z-20">
+          <div className="rounded-sm bg-stone-200/80 shadow-md p-6 md:p-8 w-full">
+            <h2 className="text-3xl font-medium mb-6 text-center text-stone-900 uppercase">Schedule</h2>
             <Schedule />
           </div>
         </div>

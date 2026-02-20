@@ -30,7 +30,10 @@ const disableSchemaPush =
   process.env.CI === 'true' ||
   // Playwright webServer sets PW_E2E_PROFILE even when NODE_ENV=development.
   // Disable schema pushing during E2E runs to avoid flaky/duplicate DDL (constraints already exist).
-  Boolean(process.env.PW_E2E_PROFILE)
+  Boolean(process.env.PW_E2E_PROFILE) ||
+  // Disable in development to avoid Payload/Drizzle constraint name mismatches (truncation, duplicate ADD).
+  // Run `payload migrate run` for schema changes. Set PAYLOAD_PUSH_SCHEMA=1 to re-enable push in dev.
+  (process.env.NODE_ENV === 'development' && process.env.PAYLOAD_PUSH_SCHEMA !== '1')
 
 export default buildConfig({
   admin: {

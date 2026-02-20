@@ -37,10 +37,10 @@ describe('Middleware', () => {
       expect(setCookie).toContain('tenant-slug=tenant1')
     })
 
-    it('skips middleware for admin and api routes', async () => {
+    it('sets tenant cookie for admin (tenant context) and skips setting cookie for api', async () => {
       const adminRes = await middleware(createMockRequest('tenant1.localhost:3000', '/admin'))
       const apiRes = await middleware(createMockRequest('tenant1.localhost:3000', '/api/foo'))
-      expect(adminRes.headers.get('set-cookie')).toBeFalsy()
+      expect(adminRes.headers.get('set-cookie')).toContain('tenant-slug=tenant1')
       expect(apiRes.headers.get('set-cookie')).toBeFalsy()
     })
   })

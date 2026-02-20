@@ -45,6 +45,11 @@ import * as migration_20260219_145944 from './20260219_145944';
 import * as migration_20260219_145952 from './20260219_145952';
 import * as migration_20260219_180812 from './20260219_180812';
 import * as migration_20260220_145540 from './20260220_145540';
+import * as migration_20260220_182834 from './20260220_182834';
+import * as migration_20260220_drop_case_studies_company_logo_fk from './20260220_drop_case_studies_company_logo_fk';
+import * as migration_20260220_fix_case_studies_company_logo_fk from './20260220_fix_case_studies_company_logo_fk';
+import * as migration_20260220_fix_case_studies_push_v2 from './20260220_fix_case_studies_push_v2';
+import * as migration_20260220_fix_schema_push_constraints from './20260220_fix_schema_push_constraints';
 
 export const migrations = [
   {
@@ -280,6 +285,31 @@ export const migrations = [
   {
     up: migration_20260220_145540.up,
     down: migration_20260220_145540.down,
-    name: '20260220_145540'
+    name: '20260220_145540',
+  },
+  {
+    up: migration_20260220_182834.up,
+    down: migration_20260220_182834.down,
+    name: '20260220_182834',
+  },
+  {
+    up: migration_20260220_drop_case_studies_company_logo_fk.up,
+    down: migration_20260220_drop_case_studies_company_logo_fk.down,
+    name: '20260220_drop_case_studies_company_logo_fk',
+  },
+  {
+    up: migration_20260220_fix_case_studies_company_logo_fk.up,
+    down: migration_20260220_fix_case_studies_company_logo_fk.down,
+    name: '20260220_fix_case_studies_company_logo_fk',
+  },
+  {
+    up: migration_20260220_fix_case_studies_push_v2.up,
+    down: migration_20260220_fix_case_studies_push_v2.down,
+    name: '20260220_fix_case_studies_push_v2',
+  },
+  {
+    up: migration_20260220_fix_schema_push_constraints.up,
+    down: migration_20260220_fix_schema_push_constraints.down,
+    name: '20260220_fix_schema_push_constraints'
   },
 ];

@@ -3,6 +3,13 @@ import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { extraBlockSlugs } from '../../blocks/registry'
+import {
+  isCustomDomainDnsValidationEnabled,
+  normalizeCustomDomain,
+  validateCustomDomainDns,
+  validateCustomDomainFormat,
+  validateCustomDomainNotPlatform,
+} from '@/utilities/validateCustomDomain'
 
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
@@ -104,6 +111,21 @@ export const Tenants: CollectionConfig = {
       name: 'domain',
       type: 'text',
       required: false,
+      unique: true,
+      index: true,
+      admin: {
+        description:
+          'Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. When VALIDATE_TENANT_CUSTOM_DOMAIN_DNS=true, the domain must have DNS records (A, AAAA, or CNAME) before saving.',
+      },
+      validate: (value: unknown) => {
+        const str = value == null ? '' : String(value).trim()
+        const formatResult = validateCustomDomainFormat(str || null)
+        if (formatResult !== true) return formatResult
+        if (str === '') return true
+        const normalized = normalizeCustomDomain(str)
+        const notPlatformResult = validateCustomDomainNotPlatform(normalized)
+        return notPlatformResult
+      },
     },
     {
       name: 'description',
@@ -167,5 +189,42 @@ export const Tenants: CollectionConfig = {
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
   ],
+  hooks: {
+    beforeValidate: [
+      async ({ data, operation, req, originalDoc }) => {
+        if (!data?.domain || typeof data.domain !== 'string') return data
+        const normalized = normalizeCustomDomain(data.domain)
+        data.domain = normalized === '' ? undefined : normalized
+        if (!data.domain) return data
+
+        const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
+        const existing = await req.payload.find({
+          collection: 'tenants',
+          where: {
+            domain: { equals: data.domain },
+            ...(currentId != null ? { id: { not_equals: currentId } } : {}),
+          },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+        })
+
+        if (existing.docs.length > 0) {
+          throw new Error(
+            `Another tenant already uses the custom domain "${data.domain}". Custom domains must be unique.`
+          )
+        }
+
+        if (isCustomDomainDnsValidationEnabled()) {
+          const dnsResult = await validateCustomDomainDns(data.domain)
+          if (dnsResult !== true) {
+            throw new Error(dnsResult)
+          }
+        }
+
+        return data
+      },
+    ],
+  },
 }
 
