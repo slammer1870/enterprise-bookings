@@ -263,11 +263,13 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
         )}
       </div>
 
-      {/* Schedule Section - Full width on mobile, half width on desktop (same as Hero with Schedule) */}
+      {/* Schedule Section - Card inside container width */}
       <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-8 lg:p-12 bg-white">
         <div className="w-full max-w-lg">
-          <h2 className="text-3xl font-bold mb-8 text-center">Schedule</h2>
-          <Schedule />
+          <div className="rounded-xl bg-stone-200/80 shadow-md p-6 md:p-8 w-full">
+            <h2 className="text-3xl font-bold mb-6 text-center text-stone-900">Schedule</h2>
+            <Schedule />
+          </div>
         </div>
       </div>
     </div>
