@@ -48,6 +48,16 @@ export function SelectTenantForCreateModal({
 
   const confirmDisabled = selectedValue == null || selectedValue === ''
 
+  // When the modal opens with only one tenant, default to it so the admin can just click Continue.
+  React.useEffect(() => {
+    if (isOpen && optionsList.length === 1 && optionsList[0]?.value != null) {
+      setSelectedValue(optionsList[0].value)
+    }
+    if (!isOpen) {
+      setSelectedValue(undefined)
+    }
+  }, [isOpen, optionsList])
+
   React.useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (e: KeyboardEvent) => {

@@ -19,8 +19,10 @@
  * - We use Payload's own SelectInput so the UI matches the admin (including the clear "X"),
  *   but we still set/clear cookie for both Path=/ and Path=/admin so clearing works on /admin.
  */
+import { checkRole } from '@repo/shared-utils'
+import type { User as SharedUser } from '@repo/shared-types'
 import type { ReactSelectOption } from '@payloadcms/ui'
-import { ConfirmationModal, SelectInput, useModal, useTranslation } from '@payloadcms/ui'
+import { ConfirmationModal, SelectInput, useAuth, useModal, useTranslation } from '@payloadcms/ui'
 import type { ViewTypes } from 'payload'
 import React from 'react'
 import { usePathname } from 'next/navigation'
@@ -69,6 +71,7 @@ const ROOT_NAVBAR_FOOTER_COLLECTIONS = ['/collections/navbar', '/collections/foo
 
 export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label, viewType }) => {
   const pathname = usePathname()
+  const { user } = useAuth()
   const { entityType, modified, options, selectedTenantID, setTenant } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
@@ -81,6 +84,16 @@ export const ClearableTenantSelectorClient: React.FC<Props> = ({ disabled, label
     ROOT_NAVBAR_FOOTER_COLLECTIONS.some((seg) => pathname.includes(seg))
 
   const optionsList = Array.isArray(options) ? options : []
+
+  // Hide the selector for tenant-admins when they have only one (or zero) tenants—they're defaulted to that tenant.
+  // Tenant-admins with multiple assigned tenants still see the selector so they can switch between them.
+  const isTenantAdminOnly =
+    Boolean(user) &&
+    checkRole(['tenant-admin'], user as unknown as SharedUser) &&
+    !checkRole(['admin'], user as unknown as SharedUser)
+  if (isTenantAdminOnly && optionsList.length <= 1) {
+    return null
+  }
 
   const switchTenant = React.useCallback(
     (option: ReactSelectOption | ReactSelectOption[] | undefined) => {

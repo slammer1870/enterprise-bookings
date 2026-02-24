@@ -12,6 +12,8 @@
  * (e.g. pages for root domain) are excluded so you can still create base pages without
  * selecting a tenant.
  */
+import { checkRole } from '@repo/shared-utils'
+import type { User as SharedUser } from '@repo/shared-types'
 import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
@@ -271,6 +273,24 @@ export function TenantSelectionProviderRootAwareClient({
   )
   const createModalShownForPath = React.useRef<string | null>(null)
 
+  // Only admins need the "filter by tenant" modal; tenant-admins have their tenant(s) assigned and should not see it.
+  const isAdminUser = Boolean(user && checkRole(['admin'], user as unknown as SharedUser))
+  const isTenantAdminUser =
+    Boolean(user) &&
+    checkRole(['tenant-admin'], user as unknown as SharedUser) &&
+    !checkRole(['admin'], user as unknown as SharedUser)
+
+  // When tenant-admin has only one tenant, default to it so they never see an empty tenant state.
+  React.useEffect(() => {
+    if (!isTenantAdminUser || tenantOptions.length !== 1) return
+    const singleTenantId = tenantOptions[0]?.value
+    if (singleTenantId == null) return
+    const current = selectedTenantID
+    if (current === undefined || current === null || current === '' || String(current) !== String(singleTenantId)) {
+      setTenant({ id: singleTenantId, refresh: false })
+    }
+  }, [isTenantAdminUser, tenantOptions, selectedTenantID, setTenant])
+
   React.useEffect(() => {
     if (typeof pathname !== 'string') return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
@@ -281,9 +301,10 @@ export function TenantSelectionProviderRootAwareClient({
     if (
       collectionSlug &&
       COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlug) &&
-      noTenant
+      noTenant &&
+      isAdminUser
     ) {
-      // If we have tenant options, show the modal so the user can pick a tenant.
+      // If we have tenant options, show the modal so the admin can pick a tenant (tenant-admins never see this).
       if (tenantOptions.length > 0) {
         if (createModalShownForPath.current !== pathname) {
           createModalShownForPath.current = pathname
@@ -301,7 +322,7 @@ export function TenantSelectionProviderRootAwareClient({
       setShowSelectTenantModal(false)
       setCreateModalCollectionSlug(null)
     }
-  }, [pathname, selectedTenantID, tenantOptions.length, router])
+  }, [pathname, selectedTenantID, tenantOptions.length, router, isAdminUser])
 
   const closeSelectTenantModal = React.useCallback(() => {
     setShowSelectTenantModal(false)

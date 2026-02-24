@@ -321,4 +321,84 @@ test.describe('Admin Tenant Selector', () => {
       )
       .toBe(true)
   })
+
+  /**
+   * Regression: with two tenants, root admin clearing the tenant selector must clear the
+   * selection (no tenant), not set it to the first tenant. Verifies the fix without
+   * calling the clear-tenant-cookie API so we assert the UI clear actually clears.
+   */
+  test('root admin clearing tenant with two tenants clears to no tenant (not first tenant)', async ({
+    page,
+    testData,
+    request,
+  }) => {
+    const { tenants } = testData
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+    const tenant2 = tenants[1]
+    const tenant1Name = tenant1.name ?? 'Test Tenant 1'
+
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
+    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
+    await page
+      .waitForURL(
+        (url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'),
+        { timeout: 15000 },
+      )
+      .catch(() => null)
+
+    await ensureSidebarOpen(page)
+
+    // Set cookie to second tenant so we start with a non-empty selection
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: String(tenant2.id), url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: String(tenant2.id), url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    const wrap = page.getByTestId('tenant-selector')
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+    const combobox = wrap.getByRole('combobox')
+    await expect(combobox).toBeVisible()
+
+    // Clear via UI only (do not call clear-tenant-cookie API)
+    const clearIndicator = wrap
+      .locator('button[aria-label*="Clear"], button[title*="Clear"]')
+      .or(wrap.getByRole('button', { name: /clear/i }))
+      .first()
+    await clearIndicator.waitFor({ state: 'visible', timeout: isCI ? 15_000 : 5000 }).catch(() => null)
+    if (await clearIndicator.isVisible().catch(() => false)) {
+      await clearIndicator.click({ force: true })
+    } else {
+      await combobox.focus()
+      await page.keyboard.press('Backspace')
+      await page.keyboard.press('Backspace')
+    }
+
+    const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
+    if (await leaveAnyway.isVisible().catch(() => false)) {
+      await leaveAnyway.click()
+    }
+
+    await page.waitForLoadState('load')
+    await page.waitForTimeout(800)
+
+    // 1) Cookie must be cleared by the UI (no API call) – proves clear action actually clears
+    await expect
+      .poll(
+        async () => {
+          const cookieStr = await page.evaluate(() => document.cookie).catch(() => '')
+          const match = cookieStr.match(/(?:^|;\s*)payload-tenant=([^;]*)/)
+          const value = match?.[1] ? decodeURIComponent(match[1]).trim() : ''
+          return value === ''
+        },
+        { timeout: CI.cookiePollTimeout }
+      )
+      .toBe(true)
+
+    // 2) Selector must not show the first tenant's name (regression: clear must not set to first tenant)
+    await expect(wrap.getByText(tenant1Name)).not.toBeVisible()
+  })
 })
