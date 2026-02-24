@@ -1,9 +1,7 @@
 /**
- * Cookie domain for payload-tenant when admin is accessed via subdomain.
- * Setting Domain=.rootHostname makes the cookie shared across subdomains and root,
- * so RSC/server requests always see the same tenant selection and the create form
- * doesn't "reload" on every input (caused by server seeing no cookie and returning
- * different initialValue, which overwrites client form state).
+ * Cookie domain for payload-tenant when admin is accessed via subdomain or custom domain.
+ * - Platform subdomain (e.g. acme.atnd-me.com): Domain=.rootHostname so cookie is shared.
+ * - Custom domain (e.g. studio.example.com): return undefined so cookie is host-only and works on that domain.
  */
 export function getPayloadTenantCookieDomain(): string | undefined {
   if (typeof window === 'undefined') return undefined
@@ -19,6 +17,7 @@ export function getPayloadTenantCookieDomain(): string | undefined {
       return undefined
     }
     if (current.endsWith('.' + rootHostname)) return `.${rootHostname}`
+    // Custom domain: no domain attribute so cookie is scoped to current host only
     return undefined
   } catch {
     return undefined

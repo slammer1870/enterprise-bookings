@@ -25,6 +25,30 @@ export function getTrustedOrigins(): string[] {
   return origins
 }
 
+/**
+ * Platform origins plus https:// for each tenant custom domain.
+ * Use when building trusted origins that include custom domains (e.g. from DB or env).
+ */
+export function getTrustedOriginsWithCustomDomains(
+  customDomains: string[]
+): string[] {
+  const base = getTrustedOrigins()
+  const extra = customDomains
+    .filter((d) => d && typeof d === 'string' && d.trim() !== '')
+    .map((d) => `https://${d.trim().toLowerCase()}`)
+  return [...base, ...extra]
+}
+
+/** Extra trusted origins (e.g. tenant custom domains). Comma-separated hostnames. */
+function getExtraTrustedOriginHosts(): string[] {
+  const raw = process.env.BETTER_AUTH_TRUSTED_ORIGINS_EXTRA
+  if (!raw || typeof raw !== 'string') return []
+  return raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+}
+
 export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   appName: 'ATND ME',
   adminUserIds: ['1'],
@@ -33,7 +57,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   includeMagicLinkOptionConfig: true,
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
-  trustedOrigins: getTrustedOrigins(),
+  trustedOrigins: getTrustedOriginsWithCustomDomains(getExtraTrustedOriginHosts()),
   roles: {
     adminRoles: ['admin', 'tenant-admin'],
     defaultRole: 'user',

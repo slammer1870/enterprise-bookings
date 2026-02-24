@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { getTrustedOrigins } from '../../src/lib/auth/options'
+import {
+  getTrustedOrigins,
+  getTrustedOriginsWithCustomDomains,
+} from '../../src/lib/auth/options'
 
 /**
  * Unit tests for auth trusted origins (Better Auth wildcard for subdomain multi-tenancy).
@@ -45,5 +48,34 @@ describe('getTrustedOrigins', () => {
       expect(origins).toContain('http://localhost:3000')
       expect(origins).toContain('http://*.localhost:3000')
     })
+  })
+})
+
+describe('getTrustedOriginsWithCustomDomains', () => {
+  const originalServerUrl = process.env.NEXT_PUBLIC_SERVER_URL
+  const originalVercel = process.env.VERCEL_PROJECT_PRODUCTION_URL
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_SERVER_URL = originalServerUrl
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = originalVercel
+  })
+
+  it('includes platform origins plus https:// for each custom domain', () => {
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+    const origins = getTrustedOriginsWithCustomDomains([
+      'studio.example.com',
+      'book.yoga.co',
+    ])
+    expect(origins).toContain('https://atnd-me.com')
+    expect(origins).toContain('https://*.atnd-me.com')
+    expect(origins).toContain('https://studio.example.com')
+    expect(origins).toContain('https://book.yoga.co')
+  })
+
+  it('returns only platform origins when customDomains is empty', () => {
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    const origins = getTrustedOriginsWithCustomDomains([])
+    expect(origins).toEqual(getTrustedOrigins())
   })
 })

@@ -86,4 +86,50 @@ describe('Middleware', () => {
       expect(setCookie).toContain('tenant-slug=mytenant')
     })
   })
+
+  describe('custom domain (tenant resolved by host lookup)', () => {
+    const originalFetch = globalThis.fetch
+
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    })
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    it('sets tenant-slug from API when host is custom domain and API returns slug', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host') && String(url).includes('host=studio.example.com')) {
+          return new Response(JSON.stringify({ slug: 'acme' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+      const res = await middleware(createMockRequest('studio.example.com', '/'))
+      const setCookie = res.headers.get('set-cookie')
+      expect(setCookie).toBeTruthy()
+      expect(setCookie).toContain('tenant-slug=acme')
+      // Custom domain: cookie must not be scoped to platform (no Domain=.atnd-me.com)
+      expect(setCookie).not.toContain('Domain=.atnd-me.com')
+    })
+
+    it('does not set tenant cookie when host is custom domain but API returns 404', async () => {
+      globalThis.fetch = async () => new Response(null, { status: 404 })
+      const res = await middleware(createMockRequest('unknown.example.com', '/'))
+      const setCookie = res.headers.get('set-cookie')
+      // No tenant slug value: may send delete (tenant-slug=;) but must not set a slug value
+      expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
+    })
+
+    it('does not set tenant cookie when host is custom domain but API errors', async () => {
+      globalThis.fetch = async () => new Response(null, { status: 500 })
+      const res = await middleware(createMockRequest('studio.example.com', '/'))
+      const setCookie = res.headers.get('set-cookie')
+      expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
+    })
+  })
 })

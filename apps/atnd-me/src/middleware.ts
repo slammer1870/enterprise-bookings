@@ -58,6 +58,31 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Custom domain: host is not platform root and not a subdomain of it; resolve tenant by domain lookup.
+  let isCustomDomain = false
+  if (
+    !subdomain &&
+    !isLocalhost &&
+    rootHostname &&
+    hostname !== rootHostname &&
+    !hostname.endsWith('.' + rootHostname)
+  ) {
+    try {
+      const origin = request.nextUrl.origin
+      const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
+      const res = await fetch(url, { cache: 'no-store' })
+      if (res.ok) {
+        const data = (await res.json()) as { slug?: string }
+        if (data?.slug && typeof data.slug === 'string') {
+          subdomain = data.slug
+          isCustomDomain = true
+        }
+      }
+    } catch {
+      // Leave subdomain null on fetch error
+    }
+  }
+
   // When returning from Stripe (or other external redirect), cancel/success URLs may land on root
   // and lose tenant context. If ?tenant=slug is present, redirect to tenant subdomain so middleware
   // sets the cookie and the app has correct tenant context (fixes continuous redirect to home).
@@ -110,10 +135,13 @@ export async function middleware(request: NextRequest) {
     sameSite: 'lax',
     path: '/',
   }
-  if (!isLocalhost && rootHostname) {
-    cookieOptions.domain = `.${rootHostname}`
-  } else if (!isLocalhost) {
-    cookieOptions.domain = `.${parts.slice(-2).join('.')}`
+  // Custom domain: do not set cookie domain so the cookie is scoped to the current host only.
+  if (!isCustomDomain) {
+    if (!isLocalhost && rootHostname) {
+      cookieOptions.domain = `.${rootHostname}`
+    } else if (!isLocalhost) {
+      cookieOptions.domain = `.${parts.slice(-2).join('.')}`
+    }
   }
   response.cookies.set('tenant-slug', subdomain, cookieOptions)
   return response
