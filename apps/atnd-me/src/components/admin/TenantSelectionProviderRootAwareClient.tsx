@@ -172,11 +172,8 @@ export function TenantSelectionProviderRootAwareClient({
   const setTenant = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
       if (id === undefined || id === null || id === '') {
-        if (tenantOptions.length > 1 || tenantOptions.length === 0) {
-          setTenantAndCookie({ id: undefined, refresh })
-        } else if (tenantOptions[0]) {
-          setTenantAndCookie({ id: tenantOptions[0].value, refresh: true })
-        }
+        // Always clear when user explicitly clears; do not fall back to first tenant.
+        setTenantAndCookie({ id: undefined, refresh })
       } else if (!tenantOptions.find((o) => String(o.value) === String(id))) {
         setTenantAndCookie({ id: tenantOptions[0]?.value, refresh })
       } else {
