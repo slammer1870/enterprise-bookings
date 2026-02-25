@@ -42,9 +42,14 @@ export function SelectTenantForCreateModal({
   const handleConfirm = React.useCallback(() => {
     if (selectedValue != null && selectedValue !== '') {
       setTenant({ id: selectedValue, refresh: false })
+      onClose()
+      // Force a refresh so the create form loads for the selected tenant. Without this,
+      // we skip router.refresh() on tenant-required create pages and the form never loads.
+      router.refresh()
+    } else {
+      onClose()
     }
-    onClose()
-  }, [selectedValue, setTenant, onClose])
+  }, [selectedValue, setTenant, onClose, router])
 
   const confirmDisabled = selectedValue == null || selectedValue === ''
 
@@ -83,7 +88,7 @@ export function SelectTenantForCreateModal({
         aria-hidden
       />
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-md rounded-lg bg-elevation-50 p-6 shadow-lg border border-elevation-100">
+      <div className="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-lg border border-elevation-100">
         <h2
           id="select-tenant-for-create-heading"
           className="text-lg font-semibold text-elevation-800 mb-2"

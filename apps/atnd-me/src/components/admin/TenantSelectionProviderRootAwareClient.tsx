@@ -273,6 +273,18 @@ export function TenantSelectionProviderRootAwareClient({
   )
   const createModalShownForPath = React.useRef<string | null>(null)
 
+  // When on a tenant-required create page with no tenant in state, sync from cookie so we don't
+  // show the modal when the user just switched tenant (cookie is set but server sent stale initialValue).
+  React.useEffect(() => {
+    if (typeof pathname !== 'string') return
+    if (!isTenantRequiredCreatePath(pathname)) return
+    if (selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== '') return
+    const cookie = getTenantCookie()
+    if (!cookie) return
+    const match = tenantOptions.find((o) => String(o.value) === cookie)
+    if (match) setSelectedTenantID(match.value)
+  }, [pathname, selectedTenantID, tenantOptions])
+
   // Only admins need the "filter by tenant" modal; tenant-admins have their tenant(s) assigned and should not see it.
   const isAdminUser = Boolean(user && checkRole(['admin'], user as unknown as SharedUser))
   const isTenantAdminUser =
