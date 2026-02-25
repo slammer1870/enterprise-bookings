@@ -79,7 +79,7 @@ export function SelectTenantForCreateModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="select-tenant-for-create-heading"
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
     >
       {/* Backdrop */}
       <div

@@ -277,6 +277,8 @@ export function TenantSelectionProviderRootAwareClient({
 
   // When on a tenant-required create page with no tenant in state, sync from cookie so we don't
   // show the modal when the user just switched tenant (cookie is set but server sent stale initialValue).
+  // When we do sync, we must refresh so the create form loads for that tenant; otherwise the page
+  // stays in the no-tenant (uninteractable) state and the modal never shows.
   React.useEffect(() => {
     if (typeof pathname !== 'string') return
     if (!isTenantRequiredCreatePath(pathname)) return
@@ -284,8 +286,11 @@ export function TenantSelectionProviderRootAwareClient({
     const cookie = getTenantCookie()
     if (!cookie) return
     const match = tenantOptions.find((o) => String(o.value) === cookie)
-    if (match) setSelectedTenantID(match.value)
-  }, [pathname, selectedTenantID, tenantOptions])
+    if (match) {
+      setSelectedTenantID(match.value)
+      router.refresh()
+    }
+  }, [pathname, selectedTenantID, tenantOptions, router])
 
   // Only admins need the "filter by tenant" modal; tenant-admins have their tenant(s) assigned and should not see it.
   const isAdminUser = Boolean(user && checkRole(['admin'], user as unknown as SharedUser))
@@ -337,7 +342,9 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [pathname, isTenantAdminUser, selectedTenantID, tenantOptions.length, router])
 
-  React.useEffect(() => {
+  // useLayoutEffect so we open the modal before paint; otherwise the create page can render in a
+  // blocked/uninteractable state and the modal never appears on top.
+  React.useLayoutEffect(() => {
     if (typeof pathname !== 'string') return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
     const collectionSlug = createMatch?.[1]
