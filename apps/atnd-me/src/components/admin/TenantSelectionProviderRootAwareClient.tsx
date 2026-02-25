@@ -27,7 +27,9 @@ import {
 } from '@/components/admin/admin-subdomain-redirect'
 import { getPayloadTenantCookieDomain } from '@/components/admin/payload-tenant-cookie-domain'
 import {
+  COLLECTIONS_CREATE_REQUIRE_TENANT_FOR_TENANT_ADMIN,
   COLLECTIONS_REQUIRE_TENANT_ON_CREATE,
+  isCreateRequireTenantForTenantAdminPath,
   isTenantRequiredCreatePath,
 } from '@/components/admin/prevent-create-page-reload'
 
@@ -303,6 +305,38 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [isTenantAdminUser, tenantOptions, selectedTenantID, setTenant])
 
+  // Pages, navbar, footer (and similar) allow create with no tenant for admin only.
+  // Tenant-admins must have a tenant selected. Show the select-tenant modal (or redirect if
+  // no options) so they can pick a tenant and stay on create, avoiding the plugin redirect to doc 1.
+  // useLayoutEffect so we run before paint and before the plugin can redirect to doc 1.
+  React.useLayoutEffect(() => {
+    if (typeof pathname !== 'string') return
+    if (!isCreateRequireTenantForTenantAdminPath(pathname)) return
+    if (!isTenantAdminUser) return
+    const noTenant =
+      selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
+    if (!noTenant) return
+    // If they have exactly one tenant, the effect above will set it; do nothing.
+    if (tenantOptions.length === 1) return
+    const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
+    const collectionSlug = createMatch?.[1]
+    if (!collectionSlug) return
+    if (tenantOptions.length > 1) {
+      if (createModalShownForPath.current !== pathname) {
+        createModalShownForPath.current = pathname
+        setCreateModalCollectionSlug(collectionSlug)
+        setShowSelectTenantModal(true)
+      }
+    } else {
+      // No tenants available: redirect and toast.
+      const listPath = pathname.replace(/\/create$/, '')
+      router.replace(listPath)
+      toast.error(
+        'You must select a tenant to create a document. Base/root documents (no tenant) are only available to administrators.',
+      )
+    }
+  }, [pathname, isTenantAdminUser, selectedTenantID, tenantOptions.length, router])
+
   React.useEffect(() => {
     if (typeof pathname !== 'string') return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
@@ -310,17 +344,24 @@ export function TenantSelectionProviderRootAwareClient({
     const noTenant =
       selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
 
-    if (
+    const isTenantRequiredCreate =
       collectionSlug &&
       COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlug) &&
       noTenant &&
-      isAdminUser
-    ) {
-      // If we have tenant options, show the modal so the admin can pick a tenant (tenant-admins never see this).
+      (isAdminUser || isTenantAdminUser)
+    const isCreateRequireTenantForTenantAdmin =
+      collectionSlug &&
+      COLLECTIONS_CREATE_REQUIRE_TENANT_FOR_TENANT_ADMIN.has(collectionSlug) &&
+      isTenantAdminUser &&
+      noTenant &&
+      tenantOptions.length > 1
+
+    if (isTenantRequiredCreate) {
+      // If we have tenant options, show the modal so the user can pick a tenant (avoids redirect to doc 1).
       if (tenantOptions.length > 0) {
         if (createModalShownForPath.current !== pathname) {
           createModalShownForPath.current = pathname
-          setCreateModalCollectionSlug(collectionSlug)
+          setCreateModalCollectionSlug(collectionSlug!)
           setShowSelectTenantModal(true)
         }
       } else {
@@ -329,12 +370,19 @@ export function TenantSelectionProviderRootAwareClient({
         router.replace(listPath)
         toast.error('Please select a tenant first, then create a new document.')
       }
+    } else if (isCreateRequireTenantForTenantAdmin) {
+      // Modal already opened in useLayoutEffect; keep it open (don't clear).
+      if (createModalShownForPath.current !== pathname) {
+        createModalShownForPath.current = pathname
+        setCreateModalCollectionSlug(collectionSlug!)
+        setShowSelectTenantModal(true)
+      }
     } else {
       createModalShownForPath.current = null
       setShowSelectTenantModal(false)
       setCreateModalCollectionSlug(null)
     }
-  }, [pathname, selectedTenantID, tenantOptions.length, router, isAdminUser])
+  }, [pathname, selectedTenantID, tenantOptions.length, router, isAdminUser, isTenantAdminUser])
 
   const closeSelectTenantModal = React.useCallback(() => {
     setShowSelectTenantModal(false)

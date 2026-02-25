@@ -27,9 +27,28 @@ export const COLLECTIONS_REQUIRE_TENANT_ON_CREATE = new Set([
   'scheduler',
 ])
 
+/**
+ * Collections where create is allowed with no tenant for admin only (e.g. base/root pages,
+ * root navbar/footer). Tenant-admins must have a tenant selected to create; if they hit
+ * the create route with no tenant, we redirect them to the list to avoid the multi-tenant
+ * plugin redirecting to document ID 1 (which they may not have access to).
+ */
+export const COLLECTIONS_CREATE_REQUIRE_TENANT_FOR_TENANT_ADMIN = new Set([
+  'pages',
+  'navbar',
+  'footer',
+])
+
 export function isTenantRequiredCreatePath(pathname: string | null): boolean {
   if (typeof pathname !== 'string') return false
   const match = pathname.match(/\/collections\/([^/]+)\/create$/)
   const slug = match?.[1]
   return slug != null && COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(slug)
+}
+
+export function isCreateRequireTenantForTenantAdminPath(pathname: string | null): boolean {
+  if (typeof pathname !== 'string') return false
+  const match = pathname.match(/\/collections\/([^/]+)\/create$/)
+  const slug = match?.[1]
+  return slug != null && COLLECTIONS_CREATE_REQUIRE_TENANT_FOR_TENANT_ADMIN.has(slug)
 }
