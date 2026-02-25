@@ -50,6 +50,7 @@ import * as migration_20260220_drop_case_studies_company_logo_fk from './2026022
 import * as migration_20260220_fix_case_studies_company_logo_fk from './20260220_fix_case_studies_company_logo_fk';
 import * as migration_20260220_fix_case_studies_push_v2 from './20260220_fix_case_studies_push_v2';
 import * as migration_20260220_fix_schema_push_constraints from './20260220_fix_schema_push_constraints';
+import * as migration_20260225_forms_tenant_id from './20260225_forms_tenant_id';
 
 export const migrations = [
   {
@@ -311,5 +312,10 @@ export const migrations = [
     up: migration_20260220_fix_schema_push_constraints.up,
     down: migration_20260220_fix_schema_push_constraints.down,
     name: '20260220_fix_schema_push_constraints'
+  },
+  {
+    up: migration_20260225_forms_tenant_id.up,
+    down: migration_20260225_forms_tenant_id.down,
+    name: '20260225_forms_tenant_id',
   },
 ];
