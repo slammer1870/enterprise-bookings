@@ -203,8 +203,9 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     await loginAsSuperAdmin(page, 'admin@test.com', { request })
     await ensureSidebarOpen(page)
     const tenants = await fetchTenantOptionsFromAPI(page)
-    expect(tenants.length).toBeGreaterThanOrEqual(2)
-    const tenant2 = tenants[1]
+    const uniqueTenants = Array.from(new Map(tenants.map((t) => [t.id, t])).values())
+    expect(uniqueTenants.length).toBeGreaterThanOrEqual(2)
+    const tenant2 = uniqueTenants[1]
 
     await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
     await page
@@ -431,5 +432,79 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     // Close any open menu (react-select) so we assert on the control's displayed value, not the option list.
     await page.keyboard.press('Escape').catch(() => null)
     await expect(wrap.getByText(/select a value/i).first()).toBeVisible()
+  })
+
+  test('create route requiring tenant shows modal and blocks until tenant selected', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+
+    await page.goto(`${ADMIN_ORIGIN}/admin`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    // Ensure we start from "no tenant" (empty cookie + placeholder displayed).
+    const origin = new URL(page.url()).origin
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: '', url: `${origin}/` },
+      { name: 'payload-tenant', value: '', url: `${origin}/admin/` },
+    ])
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    const wrap = getTenantSelectorLocator(page)
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible()
+
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant2 = tenants[1]
+
+    // "posts" is configured in dev config as collectionsRequireTenantOnCreate.
+    await page.goto(`${origin}/admin/collections/posts/create`, { waitUntil: 'domcontentloaded' })
+    await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/posts/create'), {
+      timeout: 15_000,
+    })
+
+    const dialog = page.getByRole('dialog', { name: /select tenant/i })
+    await expect(dialog).toBeVisible({ timeout: CI.wrapTimeout })
+
+    const continueBtn = dialog.getByRole('button', { name: /continue/i })
+    await expect(continueBtn).toBeDisabled()
+
+    // Select a tenant from the modal's select input.
+    const modalCombo = dialog.getByRole('combobox').first()
+    await modalCombo.click({ timeout: 5000 }).catch(() => null)
+    await modalCombo.focus()
+    // Prefer keyboard selection to avoid pointer-event overlays interfering with option clicks.
+    await page.keyboard.type(tenant2.name)
+    await page
+      .getByRole('option', { name: new RegExp(escapeRegex(tenant2.name), 'i') })
+      .first()
+      .waitFor({ state: 'visible', timeout: CI.optionWaitMs })
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Tab')
+
+    await expect(continueBtn).toBeEnabled()
+    await continueBtn.click()
+
+    // Modal closes and we remain on create route.
+    await expect(dialog).toBeHidden({ timeout: CI.wrapTimeout })
+    await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/posts/create'), {
+      timeout: 15_000,
+    })
+
+    // Cookie reflects the chosen tenant.
+    const cookieURLs = [`${origin}/`, `${origin}/admin/`, `${origin}/admin/collections/`]
+    await expect
+      .poll(
+        async () => {
+          const cookies = await page.context().cookies(cookieURLs)
+          return cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
+        },
+        { timeout: CI.cookiePollTimeout },
+      )
+      .toBe(tenant2.id)
   })
 })

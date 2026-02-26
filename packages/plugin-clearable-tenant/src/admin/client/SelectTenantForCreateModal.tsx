@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, SelectInput, useTranslation } from '@payloadcms/ui'
+import { Button, Modal, SelectInput, useModal, useTranslation } from '@payloadcms/ui'
 import React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTenantSelection } from './TenantSelectionProviderRootAwareClient'
@@ -11,6 +11,8 @@ export type SelectTenantForCreateModalProps = {
   onClose: () => void
 }
 
+const selectTenantForCreateModalSlug = 'select-tenant-for-create-clearable-tenant'
+
 export function SelectTenantForCreateModal({
   isOpen,
   collectionSlug: _collectionSlug,
@@ -20,25 +22,34 @@ export function SelectTenantForCreateModal({
   const pathname = usePathname()
   const { options, setTenant } = useTenantSelection()
   const { t } = useTranslation()
+  const { closeModal, isModalOpen, openModal } = useModal()
   const [selectedValue, setSelectedValue] = React.useState<string | number | undefined>(undefined)
 
   const optionsList = Array.isArray(options) ? options : []
   const listPath = typeof pathname === 'string' ? pathname.replace(/\/create$/, '') : '/admin'
 
+  React.useEffect(() => {
+    if (isOpen) openModal(selectTenantForCreateModalSlug)
+    else closeModal(selectTenantForCreateModalSlug)
+  }, [isOpen, openModal, closeModal])
+
   const handleCancel = React.useCallback(() => {
     router.replace(listPath)
+    closeModal(selectTenantForCreateModalSlug)
     onClose()
-  }, [router, listPath, onClose])
+  }, [router, listPath, onClose, closeModal])
 
   const handleConfirm = React.useCallback(() => {
     if (selectedValue != null && selectedValue !== '') {
       setTenant({ id: selectedValue, refresh: false })
+      closeModal(selectTenantForCreateModalSlug)
       onClose()
       router.refresh()
     } else {
+      closeModal(selectTenantForCreateModalSlug)
       onClose()
     }
-  }, [selectedValue, setTenant, onClose, router])
+  }, [selectedValue, setTenant, onClose, router, closeModal])
 
   const confirmDisabled = selectedValue == null || selectedValue === ''
 
@@ -60,25 +71,37 @@ export function SelectTenantForCreateModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [isOpen, handleCancel])
 
-  if (!isOpen) return null
+  if (!isModalOpen(selectTenantForCreateModalSlug)) return null
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="select-tenant-for-create-heading"
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
-    >
-      <div className="absolute inset-0 bg-black/50" onClick={handleCancel} aria-hidden />
-      <div className="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-lg border border-elevation-100">
+    <Modal closeOnBlur={false} slug={selectTenantForCreateModalSlug}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="select-tenant-for-create-heading"
+        style={{
+          width: 'min(560px, 92vw)',
+          background: 'var(--theme-elevation-0)',
+          border: '1px solid var(--theme-elevation-100)',
+          borderRadius: 8,
+          padding: 24,
+        }}
+      >
         <h2
           id="select-tenant-for-create-heading"
-          className="text-lg font-semibold text-elevation-800 mb-2"
+          style={{
+            margin: 0,
+            marginBottom: 8,
+            fontSize: 18,
+            fontWeight: 600,
+          }}
         >
           Select tenant
         </h2>
-        <p className="text-sm text-elevation-600 mb-4">Choose which tenant this new document will belong to.</p>
-        <div className="mb-6">
+        <p style={{ margin: 0, marginBottom: 16 }}>
+          Choose which tenant this new document will belong to.
+        </p>
+        <div style={{ marginBottom: 24 }}>
           <SelectInput
             label={(t as (k: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')}
             name="select-tenant-create"
@@ -86,24 +109,46 @@ export function SelectTenantForCreateModal({
             options={optionsList as Parameters<typeof SelectInput>[0]['options']}
             value={selectedValue as Parameters<typeof SelectInput>[0]['value']}
             onChange={(opt) => {
-              const o = opt && !Array.isArray(opt) ? opt : null
-              setSelectedValue(
-                o && typeof o === 'object' && 'value' in o ? (o.value as string | number) : undefined,
-              )
+              if (opt == null) {
+                setSelectedValue(undefined)
+                return
+              }
+
+              if (typeof opt === 'string' || typeof opt === 'number') {
+                setSelectedValue(opt)
+                return
+              }
+
+              if (Array.isArray(opt)) {
+                setSelectedValue(undefined)
+                return
+              }
+
+              if (typeof opt === 'object' && 'value' in opt) {
+                setSelectedValue((opt as { value?: string | number }).value)
+                return
+              }
+
+              setSelectedValue(undefined)
             }}
             isClearable={false}
           />
         </div>
-        <div className="flex justify-end gap-2">
-          <Button buttonStyle="secondary" onClick={handleCancel}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button buttonStyle="secondary" onClick={handleCancel} type="button">
             {(t as (k: string) => string)('general:cancel')}
           </Button>
-          <Button buttonStyle="primary" onClick={handleConfirm} disabled={confirmDisabled}>
+          <Button
+            buttonStyle="primary"
+            disabled={confirmDisabled}
+            onClick={handleConfirm}
+            type="button"
+          >
             Continue
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
