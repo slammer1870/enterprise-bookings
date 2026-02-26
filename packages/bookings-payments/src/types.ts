@@ -77,6 +77,13 @@ export type MembershipConfig = {
   /** When set, GET /stripe/plans lists products from this Connect account (tenant-aware). */
   getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
   /**
+   * Membership billing account scope (Option A: Connect as source-of-truth).
+   * - platform: create checkout + portal sessions on the platform Stripe account (default)
+   * - auto: if getStripeAccountIdForRequest resolves, use that Connect account; otherwise platform
+   * - connect: always use the resolved Connect account (400 if none)
+   */
+  scope?: "platform" | "auto" | "connect";
+  /**
    * Controls which Stripe account GET /stripe/subscriptions uses for CustomSelect.
    * - platform: always list from the platform Stripe account (default; backwards compatible)
    * - auto: if getStripeAccountIdForRequest returns an accountId, list from that Connect account; otherwise platform

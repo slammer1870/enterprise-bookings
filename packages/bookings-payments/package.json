@@ -5,7 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "vitest run --hook-timeout=180000"
+    "test": "vitest run --hook-timeout=180000",
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   },
   "dependencies": {
     "next": "15.4.8",
@@ -42,9 +44,5 @@
     "react-dom": "*",
     "stripe": "*"
   },
-  "types": "./src/index.ts",
-  "scripts": {
-    "check-types": "tsc --noEmit",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
-  }
+  "types": "./src/index.ts"
 }

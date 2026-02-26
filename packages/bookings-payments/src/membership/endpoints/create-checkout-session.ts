@@ -6,9 +6,23 @@ import { APIError, type PayloadHandler } from "payload";
 import type Stripe from "stripe";
 import type { User } from "@repo/shared-types";
 import type { GetSubscriptionBookingFeeCents } from "../../types.js";
+import type { GetStripeAccountIdForRequest } from "../../types.js";
+import { ensureStripeCustomerIdForAccount } from "../../payments/lib/ensure-stripe-customer.js";
 
 type CreateCheckoutSessionOptions = {
   getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
+  /**
+   * When provided, allows creating Checkout sessions on a tenant's connected account.
+   * Used for "Option A" migrations where tenant Connect is source-of-truth for memberships.
+   */
+  getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
+  /** Which Stripe account to create the session on. Defaults to "platform". */
+  scope?: "platform" | "auto" | "connect";
+  /**
+   * Unit tests default to short-circuiting Stripe network calls.
+   * When true, forces the handler to execute Stripe logic even in test mode.
+   */
+  disableTestShortCircuit?: boolean;
 };
 
 /**
@@ -31,7 +45,10 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
     const successUrl = `${origin}/dashboard`;
     const cancelUrl = `${origin}/dashboard`;
 
-    if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+    if (
+      (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") &&
+      options?.disableTestShortCircuit !== true
+    ) {
       return new Response(
         JSON.stringify({ client_secret: "", url: "/dashboard" }),
         { status: 200 }
@@ -42,6 +59,16 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
       { quantity, price },
     ];
 
+    const scope = options?.scope ?? "platform";
+    const resolvedAccountId =
+      scope === "platform"
+        ? null
+        : await Promise.resolve(options?.getStripeAccountIdForRequest?.(req) ?? null);
+
+    if (scope === "connect" && !resolvedAccountId) {
+      throw new APIError("No connected Stripe account resolved for this request", 400);
+    }
+
     const getFee = options?.getSubscriptionBookingFeeCents;
     const meta = metadata ?? {};
     const tenantIdRaw = meta.tenantId;
@@ -49,7 +76,11 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
       const tenantId = parseInt(tenantIdRaw, 10);
       if (Number.isFinite(tenantId)) {
         try {
-          const priceObj = await stripe.prices.retrieve(price, { expand: [] });
+          const priceObj = await stripe.prices.retrieve(
+            price,
+            { expand: [] },
+            resolvedAccountId ? { stripeAccount: resolvedAccountId } : undefined
+          );
           const unitAmount = priceObj.unit_amount ?? 0;
           const classPriceAmountCents = unitAmount * quantity;
           const feeCents = await getFee({
@@ -60,6 +91,10 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
           });
           if (typeof feeCents === "number" && feeCents > 0) {
             const currency = (priceObj.currency ?? "eur").toLowerCase();
+            const recurring = priceObj.recurring;
+            if (!recurring) {
+              throw new Error("Subscription booking fee requires a recurring plan price");
+            }
             lineItems.push({
               quantity: 1,
               price_data: {
@@ -69,6 +104,10 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
                   description: "Platform booking fee",
                 },
                 unit_amount: feeCents,
+                recurring: {
+                  interval: recurring.interval,
+                  interval_count: recurring.interval_count ?? 1,
+                },
               },
             });
           }
@@ -79,15 +118,23 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
     }
 
     try {
+      const { stripeCustomerId } = await ensureStripeCustomerIdForAccount({
+        payload: req.payload,
+        userId: userAsUser.id as unknown as number,
+        email: userAsUser.email,
+        name: (userAsUser as any).name ?? null,
+        stripeAccountId: resolvedAccountId,
+      });
+
       const checkoutSession: Stripe.Checkout.Session =
         await stripe.checkout.sessions.create({
           mode: "subscription",
           line_items: lineItems,
-          customer: userAsUser.stripeCustomerId || undefined,
+          customer: stripeCustomerId || undefined,
           success_url: successUrl,
           cancel_url: cancelUrl,
           subscription_data: { metadata: meta },
-        });
+        }, resolvedAccountId ? { stripeAccount: resolvedAccountId } : undefined);
       return new Response(
         JSON.stringify({
           client_secret: checkoutSession.client_secret,

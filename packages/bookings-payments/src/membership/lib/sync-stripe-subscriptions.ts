@@ -9,10 +9,19 @@ import type { Plan, User } from "@repo/shared-types";
 // Plugin-added collection slugs; app Payload types may not include them when building.
 const asCollection = (s: string): any => s;
 
-export async function syncStripeSubscriptions(payload: Payload) {
+export async function syncStripeSubscriptions(
+  payload: Payload,
+  options?: { stripeAccountId?: string | null }
+) {
   try {
+    const stripeAccountId =
+      typeof options?.stripeAccountId === "string" && options.stripeAccountId.trim()
+        ? options.stripeAccountId.trim()
+        : null;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
+
     const stripeSubscriptions = await stripe.subscriptions
-      .list({ limit: 100, expand: ["data.customer"] })
+      .list({ limit: 100, expand: ["data.customer"] }, stripeOpts as any)
       .autoPagingToArray({ limit: 10000 });
 
     const payloadSubscriptions = await payload.find({
@@ -67,7 +76,13 @@ export async function syncStripeSubscriptions(payload: Payload) {
           data: {
             name: customer.name,
             email: customer.email,
-            stripeCustomerId: customer.id,
+            ...(stripeAccountId
+              ? {
+                  stripeCustomers: [
+                    { stripeAccountId, stripeCustomerId: customer.id },
+                  ],
+                }
+              : { stripeCustomerId: customer.id }),
             password: hash,
             salt,
             ...(hasEmailVerified && { emailVerified: true }),
@@ -78,13 +93,38 @@ export async function syncStripeSubscriptions(payload: Payload) {
         user = newUser as User;
       } else {
         user = userQuery.docs[0] as User;
+        // Ensure connect mapping exists when syncing from a connected account.
+        if (stripeAccountId) {
+          const existing = (user as any)?.stripeCustomers;
+          const arr = Array.isArray(existing) ? existing : [];
+          const has = arr.some(
+            (x: any) =>
+              x &&
+              typeof x === "object" &&
+              x.stripeAccountId === stripeAccountId &&
+              x.stripeCustomerId === customer.id
+          );
+          if (!has) {
+            await payload.update({
+              collection: asCollection("users"),
+              id: user.id as number,
+              data: {
+                stripeCustomers: [
+                  ...arr.filter((x: any) => x?.stripeAccountId !== stripeAccountId),
+                  { stripeAccountId, stripeCustomerId: customer.id },
+                ],
+              } as Record<string, unknown>,
+            });
+          }
+        }
       }
 
       const stripeProductInSubscription =
         stripeSubscription.items.data[0]?.plan?.product;
       const stripeProduct = await stripe.products.retrieve(
         stripeProductInSubscription as string,
-        { expand: ["default_price"] }
+        { expand: ["default_price"] },
+        stripeOpts as any
       );
       const price = stripeProduct.default_price as Stripe.Price | null;
       if (!price) continue;

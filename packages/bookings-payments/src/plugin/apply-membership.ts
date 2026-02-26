@@ -5,7 +5,7 @@ import { generateSubscriptionCollection } from "../membership/collections/subscr
 import { createPlansProxy } from "../membership/endpoints/plans";
 import { createSubscriptionsProxy } from "../membership/endpoints/subscriptions";
 import { createCheckoutSession } from "../membership/endpoints/create-checkout-session";
-import { createCustomerPortal } from "../membership/endpoints/create-customer-portal";
+import { createCustomerPortalFactory } from "../membership/endpoints/create-customer-portal";
 import { syncStripeSubscriptionsEndpoint } from "../membership/endpoints/sync-stripe-subscriptions";
 import { syncStripeSubscriptionsTask } from "../membership/tasks/sync-stripe-subscriptions";
 import type { MembershipConfig } from "../types";
@@ -46,14 +46,24 @@ export function applyMembershipFeature(
     method: "post",
     handler: createCheckoutSession(
       membership.getSubscriptionBookingFeeCents
-        ? { getSubscriptionBookingFeeCents: membership.getSubscriptionBookingFeeCents }
-        : undefined,
+        ? {
+            getSubscriptionBookingFeeCents: membership.getSubscriptionBookingFeeCents,
+            getStripeAccountIdForRequest: membership.getStripeAccountIdForRequest,
+            scope: membership.scope,
+          }
+        : {
+            getStripeAccountIdForRequest: membership.getStripeAccountIdForRequest,
+            scope: membership.scope,
+          },
     ),
   });
   ctx.endpoints.push({
     path: "/stripe/create-customer-portal",
     method: "post",
-    handler: createCustomerPortal,
+    handler: createCustomerPortalFactory({
+      getStripeAccountIdForRequest: membership.getStripeAccountIdForRequest,
+      scope: membership.scope,
+    }),
   });
 
   if (membership.syncStripeSubscriptions === true) {

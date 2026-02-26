@@ -2,6 +2,17 @@ import type { CollectionConfig } from "payload";
 import { stripeCustomerId } from "../fields/stripe-customer-id";
 import { createStripeCustomer } from "../hooks/create-stripe-customer";
 
+const stripeCustomersMappingField = {
+  name: "stripeCustomers",
+  type: "array",
+  label: "Stripe Customers (per account)",
+  admin: { hidden: true },
+  fields: [
+    { name: "stripeAccountId", type: "text", required: true },
+    { name: "stripeCustomerId", type: "text", required: true },
+  ],
+} as const;
+
 export function modifyUsersCollectionForPayments(
   existingCollectionConfig: CollectionConfig
 ): CollectionConfig {
@@ -11,6 +22,13 @@ export function modifyUsersCollectionForPayments(
   );
   if (!hasStripeCustomerId) {
     fields.push(stripeCustomerId);
+  }
+
+  const hasStripeCustomers = fields.some(
+    (f) => "name" in f && (f as any).name === "stripeCustomers"
+  );
+  if (!hasStripeCustomers) {
+    fields.push(stripeCustomersMappingField as any);
   }
 
   const hooks = { ...existingCollectionConfig.hooks };
