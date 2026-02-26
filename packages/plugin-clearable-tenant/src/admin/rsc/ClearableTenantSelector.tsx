@@ -1,6 +1,6 @@
 import React from 'react'
 import type { ViewTypes } from 'payload'
-import { ClearableTenantSelectorClient } from './ClearableTenantSelectorClient'
+import { ClearableTenantSelectorClient } from '../client/ClearableTenantSelectorClient'
 
 type Props = {
   disabled?: boolean
@@ -19,3 +19,4 @@ export function ClearableTenantSelector({ disabled, label, viewType }: Props) {
 }
 
 export default ClearableTenantSelector
+

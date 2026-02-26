@@ -10,3 +10,4 @@ export function getEffectiveTenantIdWhenClearing(
   if (id === undefined || id === null || id === '') return undefined
   return id as string | number
 }
+

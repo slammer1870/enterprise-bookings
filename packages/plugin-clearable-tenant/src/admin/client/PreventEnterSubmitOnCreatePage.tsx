@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import React from 'react'
-import { isTenantRequiredCreatePath } from '../lib/pathHelpers'
+import { isTenantRequiredCreatePath } from '../../shared/pathHelpers'
 import { useTenantSelection } from './TenantSelectionProviderRootAwareClient'
 
 export function PreventEnterSubmitOnCreatePage() {
@@ -18,8 +18,7 @@ export function PreventEnterSubmitOnCreatePage() {
       const el = document.activeElement
       if (!el || !(el instanceof HTMLElement)) return
       const tagName = el.tagName.toLowerCase()
-      const isInputLike =
-        tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+      const isInputLike = tagName === 'input' || tagName === 'textarea' || tagName === 'select'
       if (!isInputLike) return
       e.preventDefault()
       e.stopPropagation()
@@ -43,3 +42,4 @@ export function PreventEnterSubmitOnCreatePage() {
 
   return null
 }
+

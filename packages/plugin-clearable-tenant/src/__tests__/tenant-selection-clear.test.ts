@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getEffectiveTenantIdWhenClearing } from '../lib/clearBehavior'
+import { getEffectiveTenantIdWhenClearing } from '../shared/clearBehavior'
 
 /**
  * Regression: When the root admin clears the tenant selector, the selection must be

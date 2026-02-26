@@ -3,7 +3,7 @@ import {
   createPathHelpers,
   isTenantRequiredCreatePath,
   isCreateRequireTenantForTenantAdminPath,
-} from '../lib/pathHelpers'
+} from '../shared/pathHelpers'
 
 describe('path helpers', () => {
   describe('isTenantRequiredCreatePath', () => {

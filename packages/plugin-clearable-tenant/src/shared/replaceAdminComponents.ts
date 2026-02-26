@@ -34,3 +34,4 @@ export function replaceInEntries(
         : toPath
   return entries.map((e: unknown, i: number) => (i === index ? newEntry : e))
 }
+

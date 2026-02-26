@@ -1,20 +1,20 @@
 import type { CollectionConfig, Config, Plugin } from 'payload'
-import { createPopulateTenantOptionsHandler } from './endpoints/populate-tenant-options'
-import { replaceInEntries } from './lib/replaceAdminComponents'
+import { createPopulateTenantOptionsHandler } from './server/endpoints/populate-tenant-options'
+import { replaceInEntries } from './shared/replaceAdminComponents'
 
-export { getEffectiveTenantIdWhenClearing } from './lib/clearBehavior'
+export { getEffectiveTenantIdWhenClearing } from './shared/clearBehavior'
 export {
   getPayloadTenantCookieDomainDefault,
   setPayloadTenantCookie,
   deleteTenantCookie,
   getTenantCookie,
-} from './lib/cookieHelpers'
+} from './shared/cookieHelpers'
 export {
   createPathHelpers,
   isTenantRequiredCreatePath,
   isCreateRequireTenantForTenantAdminPath,
-} from './lib/pathHelpers'
-export type { PathHelpersOptions } from './lib/pathHelpers'
+} from './shared/pathHelpers'
+export type { PathHelpersOptions } from './shared/pathHelpers'
 
 export type ClearableTenantPluginOptions = {
   rootDocCollections?: string[]

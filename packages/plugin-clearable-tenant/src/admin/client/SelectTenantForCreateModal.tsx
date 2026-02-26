@@ -69,11 +69,7 @@ export function SelectTenantForCreateModal({
       aria-labelledby="select-tenant-for-create-heading"
       className="fixed inset-0 z-[9999] flex items-center justify-center"
     >
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={handleCancel}
-        aria-hidden
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={handleCancel} aria-hidden />
       <div className="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-lg border border-elevation-100">
         <h2
           id="select-tenant-for-create-heading"
@@ -81,9 +77,7 @@ export function SelectTenantForCreateModal({
         >
           Select tenant
         </h2>
-        <p className="text-sm text-elevation-600 mb-4">
-          Choose which tenant this new document will belong to.
-        </p>
+        <p className="text-sm text-elevation-600 mb-4">Choose which tenant this new document will belong to.</p>
         <div className="mb-6">
           <SelectInput
             label={(t as (k: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')}
@@ -104,11 +98,7 @@ export function SelectTenantForCreateModal({
           <Button buttonStyle="secondary" onClick={handleCancel}>
             {(t as (k: string) => string)('general:cancel')}
           </Button>
-          <Button
-            buttonStyle="primary"
-            onClick={handleConfirm}
-            disabled={confirmDisabled}
-          >
+          <Button buttonStyle="primary" onClick={handleConfirm} disabled={confirmDisabled}>
             Continue
           </Button>
         </div>
@@ -116,3 +106,4 @@ export function SelectTenantForCreateModal({
     </div>
   )
 }
+

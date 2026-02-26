@@ -1,3 +1,3 @@
-export { ClearableTenantSelector, ClearableTenantSelector as default } from '../components/ClearableTenantSelector'
-export { TenantSelectionProviderRootAware } from '../components/TenantSelectionProviderRootAware'
-export { GlobalViewRedirectRootAware } from '../components/GlobalViewRedirectRootAware'
+export { ClearableTenantSelector, ClearableTenantSelector as default } from '../admin/rsc/ClearableTenantSelector'
+export { TenantSelectionProviderRootAware } from '../admin/rsc/TenantSelectionProviderRootAware'
+export { GlobalViewRedirectRootAware } from '../admin/rsc/GlobalViewRedirectRootAware'

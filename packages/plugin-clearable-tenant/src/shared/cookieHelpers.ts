@@ -56,3 +56,4 @@ export function getTenantCookie(): string | undefined {
   const match = document.cookie.match(new RegExp(`(?:^|; )${PAYLOAD_TENANT_COOKIE}=([^;]*)`))
   return match?.[1] != null ? decodeURIComponent(match[1]) : undefined
 }
+

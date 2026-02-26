@@ -1,9 +1,9 @@
 import { cookies as getCookies } from 'next/headers'
 import React from 'react'
 import type { Payload } from 'payload'
-import { TenantSelectionProviderRootAwareClient } from './TenantSelectionProviderRootAwareClient'
+import { TenantSelectionProviderRootAwareClient } from '../client/TenantSelectionProviderRootAwareClient'
 
-type TenantOption = { label: string; value: number | string; slug?: string }
+import type { TenantOption } from '../../types'
 
 function defaultUserHasAccessToAllTenants(user: unknown): boolean {
   if (!user) return false
@@ -35,13 +35,14 @@ async function getTenantOptions({
   const userTenantIds = hasAccess
     ? undefined
     : (user as Record<string, unknown>)[tenantsArrayFieldName] != null
-      ? ((user as Record<string, unknown>)[tenantsArrayFieldName] as unknown[]).map((row) => {
-          const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
-          if (typeof field === 'string' || typeof field === 'number') return field
-          if (field && typeof field === 'object' && 'id' in field)
-            return (field as { id: number }).id
-          return undefined
-        }).filter((id): id is number | string => id !== undefined)
+      ? ((user as Record<string, unknown>)[tenantsArrayFieldName] as unknown[])
+          .map((row) => {
+            const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
+            if (typeof field === 'string' || typeof field === 'number') return field
+            if (field && typeof field === 'object' && 'id' in field) return (field as { id: number }).id
+            return undefined
+          })
+          .filter((id): id is number | string => id !== undefined)
       : undefined
 
   const result = await payload.find({
@@ -98,6 +99,7 @@ export async function TenantSelectionProviderRootAware(props: Props) {
     rootDocCollections = ['navbar', 'footer'],
     collectionsRequireTenantOnCreate = [],
     collectionsCreateRequireTenantForTenantAdmin = ['pages', 'navbar', 'footer'],
+    getCookieDomain,
   } = props
 
   const userHasAccessToAllTenants =
@@ -136,7 +138,7 @@ export async function TenantSelectionProviderRootAware(props: Props) {
     if (initialValue == null && tenantOptions.length > 1) initialValue = undefined
   } else {
     initialValue = undefined
-    // When payload/user not passed (e.g. Payload admin not passing serverProps), still mount client provider so it can fetch options via populate-tenant-options.
+    // When payload/user not passed (e.g. Payload admin not passing serverProps), still mount client provider so it can fetch options.
   }
 
   return (
@@ -147,8 +149,10 @@ export async function TenantSelectionProviderRootAware(props: Props) {
       rootDocCollections={rootDocCollections}
       collectionsRequireTenantOnCreate={collectionsRequireTenantOnCreate}
       collectionsCreateRequireTenantForTenantAdmin={collectionsCreateRequireTenantForTenantAdmin}
+      getCookieDomain={getCookieDomain}
     >
       {children}
     </TenantSelectionProviderRootAwareClient>
   )
 }
+

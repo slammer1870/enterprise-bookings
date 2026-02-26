@@ -38,3 +38,4 @@ export function isCreateRequireTenantForTenantAdminPath(
   const slug = match?.[1]
   return slug != null && toSet(options.collectionsCreateRequireTenantForTenantAdmin).has(slug)
 }
+

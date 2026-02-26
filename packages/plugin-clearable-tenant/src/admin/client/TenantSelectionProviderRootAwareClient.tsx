@@ -4,16 +4,12 @@ import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
-import { createPathHelpers } from '../lib/pathHelpers'
-import {
-  getTenantCookie,
-  deleteTenantCookie,
-  setPayloadTenantCookie,
-} from '../lib/cookieHelpers'
+import { createPathHelpers } from '../../shared/pathHelpers'
+import { deleteTenantCookie, getTenantCookie, setPayloadTenantCookie } from '../../shared/cookieHelpers'
 import { PreventEnterSubmitOnCreatePage } from './PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from './SelectTenantForCreateModal'
 
-import type { TenantOption } from '../types'
+import type { TenantOption } from '../../types'
 
 type ContextValue = {
   entityType?: 'document' | 'global'
@@ -133,7 +129,7 @@ export function TenantSelectionProviderRootAwareClient({
         router.refresh()
       }
     },
-    [router, findTenantOption, isOnTenantRequiredCreatePage, isOnRootDocCollection, tenantOptions],
+    [router, findTenantOption, isOnTenantRequiredCreatePage, isOnRootDocCollection, tenantOptions, getCookieDomain],
   )
 
   const setTenant = React.useCallback(
@@ -176,9 +172,7 @@ export function TenantSelectionProviderRootAwareClient({
 
   const updateTenants = React.useCallback(
     ({ id, label }: { id: string | number; label: string }) => {
-      setTenantOptions((prev) =>
-        prev.map((o) => (o.value === id ? { ...o, label } : o)),
-      )
+      setTenantOptions((prev) => prev.map((o) => (o.value === id ? { ...o, label } : o)))
       void syncTenants()
     },
     [syncTenants],
@@ -189,10 +183,8 @@ export function TenantSelectionProviderRootAwareClient({
       hasSyncedForUser.current = false
       hasAppliedInitialTenant.current = false
     }
-    const cookieMismatch =
-      initialValue != null && String(initialValue) !== getTenantCookie()
-    const shouldSync =
-      (userChanged || cookieMismatch) && !hasSyncedForUser.current
+    const cookieMismatch = initialValue != null && String(initialValue) !== getTenantCookie()
+    const shouldSync = (userChanged || cookieMismatch) && !hasSyncedForUser.current
     if (shouldSync) {
       if (userID) {
         hasSyncedForUser.current = true
@@ -205,13 +197,10 @@ export function TenantSelectionProviderRootAwareClient({
       }
       prevUserID.current = userID
     }
-  }, [userID, userChanged, initialValue, router])
+  }, [userID, userChanged, initialValue, router, getCookieDomain, tenantOptions.length])
 
   React.useEffect(() => {
-    if (
-      (initialValue == null || initialValue === '') &&
-      !hasAppliedInitialTenant.current
-    ) {
+    if ((initialValue == null || initialValue === '') && !hasAppliedInitialTenant.current) {
       hasAppliedInitialTenant.current = true
       setTenant({ id: undefined, refresh: true })
     }
@@ -226,9 +215,7 @@ export function TenantSelectionProviderRootAwareClient({
   }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, isOnDashboard, setTenant])
 
   const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
-  const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(
-    null,
-  )
+  const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(null)
   const createModalShownForPath = React.useRef<string | null>(null)
 
   React.useEffect(() => {
@@ -244,9 +231,7 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [pathname, selectedTenantID, tenantOptions, router, isTenantRequiredCreatePath])
 
-  const isAdminUser = Boolean(
-    user && (user as { roles?: string[] })?.roles?.includes?.('admin'),
-  )
+  const isAdminUser = Boolean(user && (user as { roles?: string[] })?.roles?.includes?.('admin'))
   const isTenantAdminUser =
     Boolean(user) &&
     (user as { roles?: string[] })?.roles?.includes?.('tenant-admin') === true &&
@@ -271,8 +256,7 @@ export function TenantSelectionProviderRootAwareClient({
     if (typeof pathname !== 'string') return
     if (!isCreateRequireTenantForTenantAdminPath(pathname)) return
     if (!isTenantAdminUser) return
-    const noTenant =
-      selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
+    const noTenant = selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
     if (!noTenant) return
     if (tenantOptions.length === 1) return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
@@ -291,22 +275,18 @@ export function TenantSelectionProviderRootAwareClient({
         'You must select a tenant to create a document. Base/root documents (no tenant) are only available to administrators.',
       )
     }
-  }, [pathname, isTenantAdminUser, selectedTenantID, tenantOptions.length, router])
+  }, [pathname, isTenantAdminUser, selectedTenantID, tenantOptions.length, router, isCreateRequireTenantForTenantAdminPath])
 
   React.useLayoutEffect(() => {
     if (typeof pathname !== 'string') return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
     const collectionSlug = createMatch?.[1]
-    const noTenant =
-      selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
+    const noTenant = selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
 
     const requireSet = new Set(collectionsRequireTenantOnCreate)
     const requireTenantAdminSet = new Set(collectionsCreateRequireTenantForTenantAdmin)
     const isTenantRequiredCreate =
-      collectionSlug &&
-      requireSet.has(collectionSlug) &&
-      noTenant &&
-      (isAdminUser || isTenantAdminUser)
+      collectionSlug && requireSet.has(collectionSlug) && noTenant && (isAdminUser || isTenantAdminUser)
     const isCreateRequireTenantForTenantAdmin =
       collectionSlug &&
       requireTenantAdminSet.has(collectionSlug) &&
@@ -382,3 +362,4 @@ export function TenantSelectionProviderRootAwareClient({
     </Context.Provider>
   )
 }
+

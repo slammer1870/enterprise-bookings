@@ -56,9 +56,18 @@ export async function GlobalViewRedirectRootAware(args: Args): Promise<void> {
   const headers = await getHeaders()
 
   if (rootDocCollections.includes(collectionSlug) && docID && payload) {
-    const p = payload as { collections: Record<string, { config?: { customIDType?: string }; customIDType?: string }>; db: { defaultIDType?: string }; findByID: (opts: unknown) => Promise<unknown> }
+    const p = payload as {
+      collections: Record<
+        string,
+        { config?: { customIDType?: string }; customIDType?: string }
+      >
+      db: { defaultIDType?: string }
+      findByID: (opts: unknown) => Promise<unknown>
+    }
     const tenantsColl = p.collections?.[tenantsCollectionSlug]
-    const idType = (tenantsColl?.config?.customIDType ?? tenantsColl?.customIDType ?? p.db?.defaultIDType) as 'number' | 'text' | undefined
+    const idType = (tenantsColl?.config?.customIDType ??
+      tenantsColl?.customIDType ??
+      p.db?.defaultIDType) as 'number' | 'text' | undefined
     const tenantFromCookie = idType ? getTenantFromCookie(headers, idType) : null
 
     if (tenantFromCookie == null || tenantFromCookie === '') {
@@ -106,3 +115,4 @@ export async function GlobalViewRedirectRootAware(args: Args): Promise<void> {
     redirect(redirectRoute)
   }
 }
+

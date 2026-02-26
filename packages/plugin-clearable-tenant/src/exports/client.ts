@@ -1,6 +1,6 @@
-export { ClearableTenantSelectorClient } from '../components/ClearableTenantSelectorClient'
+export { ClearableTenantSelectorClient } from '../admin/client/ClearableTenantSelectorClient'
 export {
   TenantSelectionProviderRootAwareClient,
   useTenantSelection,
-} from '../components/TenantSelectionProviderRootAwareClient'
+} from '../admin/client/TenantSelectionProviderRootAwareClient'
 export type { TenantOption } from '../types'

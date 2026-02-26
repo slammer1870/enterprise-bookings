@@ -29,11 +29,7 @@ function defaultIsTenantAdminOnly(user: unknown): boolean {
   return roles.includes('tenant-admin') && !roles.includes('admin')
 }
 
-export function ClearableTenantSelectorClient({
-  disabled,
-  label,
-  viewType,
-}: Props) {
+export function ClearableTenantSelectorClient({ disabled, label, viewType }: Props) {
   const pathname = usePathname()
   const { user } = useAuth()
   const {
@@ -92,9 +88,7 @@ export function ClearableTenantSelectorClient({
         (normalized &&
           typeof normalized === 'object' &&
           'value' in normalized &&
-          (normalized.value === undefined ||
-            normalized.value === null ||
-            normalized.value === ''))
+          (normalized.value === undefined || normalized.value === null || normalized.value === ''))
       if (isOnNavbarOrFooter && isClearingToNoTenant) {
         switchTenant(undefined)
         return
@@ -106,20 +100,11 @@ export function ClearableTenantSelectorClient({
         switchTenant(normalized)
       }
     },
-    [
-      selectedTenantID,
-      entityType,
-      modified,
-      switchTenant,
-      openModal,
-      isOnNavbarOrFooter,
-    ],
+    [selectedTenantID, entityType, modified, switchTenant, openModal, isOnNavbarOrFooter],
   )
 
   const canClear =
-    ['dashboard', 'list'].includes(viewType ?? '') ||
-    viewType == null ||
-    isOnNavbarOrFooter
+    ['dashboard', 'list'].includes(viewType ?? '') || viewType == null || isOnNavbarOrFooter
 
   const labelText = (() => {
     if (!label) return (t as (k: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')
@@ -168,3 +153,4 @@ export function ClearableTenantSelectorClient({
 }
 
 export default ClearableTenantSelectorClient
+

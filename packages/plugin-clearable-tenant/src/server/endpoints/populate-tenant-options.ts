@@ -1,6 +1,6 @@
 import type { PayloadRequest } from 'payload'
 
-import type { TenantOption } from '../types'
+import type { TenantOption } from '../../types'
 
 const DEFAULT_TENANTS_ARRAY_FIELD_NAME = 'tenants'
 const DEFAULT_TENANTS_ARRAY_TENANT_FIELD_NAME = 'tenant'
@@ -58,13 +58,15 @@ export function createPopulateTenantOptionsHandler(
     const userTenantIds = hasAccess
       ? undefined
       : userRecord[tenantsArrayFieldName] != null
-        ? (userRecord[tenantsArrayFieldName] as unknown[]).map((row) => {
-            const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
-            if (typeof field === 'string' || typeof field === 'number') return field
-            if (field && typeof field === 'object' && 'id' in field)
-              return (field as { id: number }).id
-            return undefined
-          }).filter((id): id is number | string => id !== undefined)
+        ? (userRecord[tenantsArrayFieldName] as unknown[])
+            .map((row) => {
+              const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
+              if (typeof field === 'string' || typeof field === 'number') return field
+              if (field && typeof field === 'object' && 'id' in field)
+                return (field as { id: number }).id
+              return undefined
+            })
+            .filter((id): id is number | string => id !== undefined)
         : undefined
 
     const select: Record<string, boolean> = { [useAsTitle]: true }
@@ -94,3 +96,4 @@ export function createPopulateTenantOptionsHandler(
     return Response.json({ tenantOptions })
   }
 }
+
