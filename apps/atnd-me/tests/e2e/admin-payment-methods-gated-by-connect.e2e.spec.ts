@@ -24,8 +24,14 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
       .waitForResponse((resp) => resp.url().includes('/api/stripe/connect/status'), { timeout: 15000 })
       .catch(() => null)
 
-    // Ensure document form is ready and scroll main so below-fold Payment Methods section can render
-    await page.getByRole('heading', { name: new RegExp(co.name, 'i') }).waitFor({ state: 'visible', timeout: 10000 })
+    // Ensure we're in the class-option edit view (CI can be slower; don't couple to doc title markup)
+    await page
+      .waitForURL((url) => url.pathname.includes(`/admin/collections/class-options/${co.id}`), {
+        timeout: 30000,
+      })
+      .catch(() => null)
+
+    // Scroll main so below-fold Payment Methods section can render (Payload admin can virtualize fields)
     await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
 
     // Wait for the gated field to render (either not-connected or connected state)
@@ -80,7 +86,11 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
       .waitForResponse((resp) => resp.url().includes('/api/stripe/connect/status'), { timeout: 15000 })
       .catch(() => null)
 
-    await page.getByRole('heading', { name: new RegExp(co.name, 'i') }).waitFor({ state: 'visible', timeout: 10000 })
+    await page
+      .waitForURL((url) => url.pathname.includes(`/admin/collections/class-options/${co.id}`), {
+        timeout: 30000,
+      })
+      .catch(() => null)
     await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })

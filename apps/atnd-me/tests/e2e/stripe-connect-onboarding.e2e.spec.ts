@@ -32,6 +32,9 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       { timeout: 15000 }
     ).catch(() => null)
 
+    // Payload admin can virtualize fields; scroll to ensure the Payment Methods group mounts.
+    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     await expect(
       page.getByRole('link', { name: /connect stripe/i }).or(page.locator('a:has-text("Connect Stripe")'))
@@ -59,6 +62,8 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       (resp) => resp.url().includes('/api/stripe/connect/status') && resp.status() === 200,
       { timeout: 15000 }
     ).catch(() => null)
+
+    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     const connectLink = page
@@ -105,6 +110,8 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       (resp) => resp.url().includes('/api/stripe/connect/status') && resp.status() === 200,
       { timeout: 15000 }
     ).catch(() => null)
+
+    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     await expect(
