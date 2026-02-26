@@ -4,7 +4,6 @@ import type { ReactSelectOption } from '@payloadcms/ui'
 import {
   ConfirmationModal,
   SelectInput,
-  useAuth,
   useModal,
   useTranslation,
 } from '@payloadcms/ui'
@@ -21,17 +20,8 @@ type Props = {
   viewType?: ViewTypes
 }
 
-/** Heuristic: treat as tenant-admin when user has roles array with tenant-admin and not admin. */
-function defaultIsTenantAdminOnly(user: unknown): boolean {
-  const u = user as { roles?: string[] } | null | undefined
-  const roles = u?.roles
-  if (!Array.isArray(roles)) return false
-  return roles.includes('tenant-admin') && !roles.includes('admin')
-}
-
 export function ClearableTenantSelectorClient({ disabled, label, viewType }: Props) {
   const pathname = usePathname()
-  const { user } = useAuth()
   const {
     entityType,
     modified,
@@ -39,7 +29,6 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     selectedTenantID,
     setTenant,
     rootDocCollections = ['navbar', 'footer'],
-    isTenantAdminOnly = defaultIsTenantAdminOnly,
   } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
