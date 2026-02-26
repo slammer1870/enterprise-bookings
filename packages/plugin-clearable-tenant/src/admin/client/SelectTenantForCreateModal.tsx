@@ -1,7 +1,8 @@
 'use client'
 
-import { Button, Modal, SelectInput, useModal, useTranslation } from '@payloadcms/ui'
+import { Button, SelectInput, useTranslation } from '@payloadcms/ui'
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTenantSelection } from './TenantSelectionProviderRootAwareClient'
 
@@ -10,8 +11,6 @@ export type SelectTenantForCreateModalProps = {
   collectionSlug: string
   onClose: () => void
 }
-
-const selectTenantForCreateModalSlug = 'select-tenant-for-create-clearable-tenant'
 
 export function SelectTenantForCreateModal({
   isOpen,
@@ -22,34 +21,43 @@ export function SelectTenantForCreateModal({
   const pathname = usePathname()
   const { options, setTenant } = useTenantSelection()
   const { t } = useTranslation()
-  const { closeModal, isModalOpen, openModal } = useModal()
   const [selectedValue, setSelectedValue] = React.useState<string | number | undefined>(undefined)
+  const [portalEl, setPortalEl] = React.useState<HTMLElement | null>(null)
 
   const optionsList = Array.isArray(options) ? options : []
   const listPath = typeof pathname === 'string' ? pathname.replace(/\/create$/, '') : '/admin'
 
   React.useEffect(() => {
-    if (isOpen) openModal(selectTenantForCreateModalSlug)
-    else closeModal(selectTenantForCreateModalSlug)
-  }, [isOpen, openModal, closeModal])
+    if (typeof document === 'undefined') return
+    const el =
+      (document.querySelector('.payload__modal-container') as HTMLElement | null) ?? document.body
+    setPortalEl(el)
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (!isOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [isOpen])
 
   const handleCancel = React.useCallback(() => {
     router.replace(listPath)
-    closeModal(selectTenantForCreateModalSlug)
     onClose()
-  }, [router, listPath, onClose, closeModal])
+  }, [router, listPath, onClose])
 
   const handleConfirm = React.useCallback(() => {
     if (selectedValue != null && selectedValue !== '') {
       setTenant({ id: selectedValue, refresh: false })
-      closeModal(selectTenantForCreateModalSlug)
       onClose()
       router.refresh()
     } else {
-      closeModal(selectTenantForCreateModalSlug)
       onClose()
     }
-  }, [selectedValue, setTenant, onClose, router, closeModal])
+  }, [selectedValue, setTenant, onClose, router])
 
   const confirmDisabled = selectedValue == null || selectedValue === ''
 
@@ -71,20 +79,43 @@ export function SelectTenantForCreateModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [isOpen, handleCancel])
 
-  if (!isModalOpen(selectTenantForCreateModalSlug)) return null
+  if (!isOpen) return null
+  if (!portalEl) return null
 
-  return (
-    <Modal closeOnBlur={false} slug={selectTenantForCreateModalSlug}>
+  return createPortal(
+    <div
+      role="presentation"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2147483647,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+    >
+      <div
+        aria-hidden
+        onMouseDown={handleCancel}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.55)',
+        }}
+      />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="select-tenant-for-create-heading"
         style={{
+          position: 'relative',
           width: 'min(560px, 92vw)',
           background: 'var(--theme-elevation-0)',
           border: '1px solid var(--theme-elevation-100)',
           borderRadius: 8,
           padding: 24,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
         }}
       >
         <h2
@@ -148,7 +179,8 @@ export function SelectTenantForCreateModal({
           </Button>
         </div>
       </div>
-    </Modal>
+    </div>,
+    portalEl,
   )
 }
 
