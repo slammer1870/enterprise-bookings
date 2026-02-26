@@ -588,6 +588,13 @@ export interface User {
   };
   roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
   stripeCustomerId?: string | null;
+  stripeCustomers?:
+    | {
+        stripeAccountId: string;
+        stripeCustomerId: string;
+        id?: string | null;
+      }[]
+    | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
     hasNextPage?: boolean;
@@ -3819,6 +3826,13 @@ export interface UsersSelect<T extends boolean = true> {
   session?: T;
   roles?: T;
   stripeCustomerId?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
   userSubscription?: T;
   tenants?:
     | T

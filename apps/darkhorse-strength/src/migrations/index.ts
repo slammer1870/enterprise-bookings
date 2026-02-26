@@ -23,6 +23,7 @@ import * as migration_20260123_071019 from './20260123_071019';
 import * as migration_20260127_190008 from './20260127_190008';
 import * as migration_20260203_000001_plans_allow_multiple_bookings_per_lesson from './20260203_000001_plans_allow_multiple_bookings_per_lesson';
 import * as migration_20260211_200934 from './20260211_200934';
+import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
 
 export const migrations = [
   {
@@ -149,5 +150,10 @@ export const migrations = [
     up: migration_20260211_200934.up,
     down: migration_20260211_200934.down,
     name: '20260211_200934'
+  },
+  {
+    up: migration_20260226_users_stripe_customers_table.up,
+    down: migration_20260226_users_stripe_customers_table.down,
+    name: '20260226_users_stripe_customers_table',
   },
 ];

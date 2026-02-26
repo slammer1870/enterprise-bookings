@@ -51,6 +51,7 @@ import * as migration_20260220_fix_case_studies_company_logo_fk from './20260220
 import * as migration_20260220_fix_case_studies_push_v2 from './20260220_fix_case_studies_push_v2';
 import * as migration_20260220_fix_schema_push_constraints from './20260220_fix_schema_push_constraints';
 import * as migration_20260225_forms_tenant_id from './20260225_forms_tenant_id';
+import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
 
 export const migrations = [
   {
@@ -317,5 +318,10 @@ export const migrations = [
     up: migration_20260225_forms_tenant_id.up,
     down: migration_20260225_forms_tenant_id.down,
     name: '20260225_forms_tenant_id',
+  },
+  {
+    up: migration_20260226_users_stripe_customers_table.up,
+    down: migration_20260226_users_stripe_customers_table.down,
+    name: '20260226_users_stripe_customers_table',
   },
 ];

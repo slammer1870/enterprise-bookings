@@ -97,6 +97,8 @@ export default buildConfig({
         ? { max: 5 }
         : {}),
     },
+    // Ensure CLI migrations (migrate / migrate:fresh) use our repo migrations.
+    migrations: _migrations,
     ...(disableSchemaPush
       ? {
         push: false, // Disable automatic schema pushing in test/CI/E2E after first push
