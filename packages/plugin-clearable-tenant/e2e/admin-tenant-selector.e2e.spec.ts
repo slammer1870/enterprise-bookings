@@ -438,6 +438,7 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     page,
     request,
   }) => {
+    test.setTimeout(120_000)
     await page.setViewportSize(ADMIN_VIEWPORT)
     await loginAsSuperAdmin(page, 'admin@test.com', { request })
 
@@ -458,8 +459,9 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     await expect(wrap.getByText(/select a value/i).first()).toBeVisible()
 
     const tenants = await fetchTenantOptionsFromAPI(page)
-    expect(tenants.length).toBeGreaterThanOrEqual(2)
-    const tenant2 = tenants[1]
+    const uniqueTenants = Array.from(new Map(tenants.map((t) => [t.id, t])).values())
+    expect(uniqueTenants.length).toBeGreaterThanOrEqual(2)
+    const tenant2 = uniqueTenants[1]
 
     // "posts" is configured in dev config as collectionsRequireTenantOnCreate.
     await page.goto(`${origin}/admin/collections/posts/create`, { waitUntil: 'domcontentloaded' })
@@ -472,6 +474,17 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
 
     const continueBtn = dialog.getByRole('button', { name: /continue/i })
     await expect(continueBtn).toBeDisabled()
+
+    // Regression guard: modal must stay visible (not just "appear briefly") before we select a tenant.
+    // This catches production failures where the create route becomes unclickable and the modal disappears.
+    const start = Date.now()
+    const durationMs = 10_000
+    while (Date.now() - start < durationMs) {
+      const visible = await dialog.isVisible().catch(() => false)
+      expect(visible).toBe(true)
+      await expect(continueBtn).toBeDisabled()
+      await page.waitForTimeout(250)
+    }
 
     // Select a tenant from the modal's select input.
     const modalCombo = dialog.getByRole('combobox').first()
