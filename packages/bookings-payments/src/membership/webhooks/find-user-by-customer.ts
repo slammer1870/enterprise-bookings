@@ -5,19 +5,26 @@ import type { User } from "@repo/shared-types";
 
 export async function findUserByCustomer(
   payload: Payload,
-  customerId: string | Stripe.Customer
+  customerId: string | Stripe.Customer,
+  options?: { stripeAccountId?: string | null }
 ): Promise<User | null> {
   const customerIdString =
     typeof customerId === "string" ? customerId : customerId.id;
+  const stripeAccountId =
+    typeof options?.stripeAccountId === "string" && options.stripeAccountId.trim()
+      ? options.stripeAccountId.trim()
+      : null;
 
-  const userByCustomerId = await payload.find({
-    collection: "users" as const,
-    where: { stripeCustomerId: { equals: customerIdString } },
-    limit: 1,
-  });
-
-  if (userByCustomerId.totalDocs > 0) {
-    return userByCustomerId.docs[0] as User;
+  // 1) Fast path: platform customer id match
+  if (!stripeAccountId) {
+    const userByCustomerId = await payload.find({
+      collection: "users" as const,
+      where: { stripeCustomerId: { equals: customerIdString } },
+      limit: 1,
+    });
+    if (userByCustomerId.totalDocs > 0) {
+      return userByCustomerId.docs[0] as User;
+    }
   }
 
   let customerEmail: string | null = null;
@@ -25,7 +32,10 @@ export async function findUserByCustomer(
     if (typeof customerId === "object" && customerId.email) {
       customerEmail = customerId.email;
     } else {
-      const customer = await stripe.customers.retrieve(customerIdString);
+      const customer = await stripe.customers.retrieve(
+        customerIdString,
+        stripeAccountId ? ({ stripeAccount: stripeAccountId } as any) : undefined
+      );
       if (typeof customer !== "string" && !customer.deleted) {
         customerEmail = customer.email;
       }
@@ -45,17 +55,30 @@ export async function findUserByCustomer(
 
   if (userByEmail.totalDocs > 0) {
     const user = userByEmail.docs[0] as User;
-    if (!user.stripeCustomerId) {
-      try {
-        // stripeCustomerId is added by the plugin; app User type may not include it when building.
+    try {
+      if (stripeAccountId) {
+        // Store per-account mapping to avoid poisoning platform stripeCustomerId
+        const existing = (user as any)?.stripeCustomers;
+        const arr = Array.isArray(existing) ? existing : [];
+        const next = [
+          ...arr.filter((x: any) => x?.stripeAccountId !== stripeAccountId),
+          { stripeAccountId, stripeCustomerId: customerIdString },
+        ];
+        await payload.update({
+          collection: "users" as const,
+          id: user.id as number,
+          data: { stripeCustomers: next } as Record<string, unknown>,
+        });
+      } else if (!(user as any).stripeCustomerId) {
+        // Backwards-compatible: platform stripe customer id
         await payload.update({
           collection: "users" as const,
           id: user.id as number,
           data: { stripeCustomerId: customerIdString } as Record<string, unknown>,
         });
-      } catch (error) {
-        payload.logger?.error?.(`Error updating user stripeCustomerId: ${error}`);
       }
+    } catch (error) {
+      payload.logger?.error?.(`Error updating user Stripe customer mapping: ${error}`);
     }
     return user;
   }

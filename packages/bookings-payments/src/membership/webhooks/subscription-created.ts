@@ -35,7 +35,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
     event.data.object.current_period_end ?? firstItem?.current_period_end;
 
   try {
-    const user = await findUserByCustomer(payload, customer as string);
+    const stripeAccountId = (event as unknown as { account?: string | null }).account ?? null;
+    const user = await findUserByCustomer(payload, customer as string, { stripeAccountId });
 
     if (!user) {
       payload.logger.info("Skipping subscription creation: User not found");

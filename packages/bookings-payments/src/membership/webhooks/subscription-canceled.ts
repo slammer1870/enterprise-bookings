@@ -16,7 +16,8 @@ export const subscriptionCanceled: StripeWebhookHandler<{
   const planId = event.data.object.items.data[0]?.plan?.product;
 
   try {
-    const user = await findUserByCustomer(payload, customer as string);
+    const stripeAccountId = (event as unknown as { account?: string | null }).account ?? null;
+    const user = await findUserByCustomer(payload, customer as string, { stripeAccountId });
 
     if (!user) {
       payload.logger.info("Skipping subscription cancellation: User not found");

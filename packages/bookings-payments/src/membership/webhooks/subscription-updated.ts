@@ -24,7 +24,8 @@ export const subscriptionUpdated: StripeWebhookHandler<{
     event.data.object.metadata.lessonId || event.data.object.metadata.lesson_id;
 
   try {
-    const user = await findUserByCustomer(payload, customer as string);
+    const stripeAccountId = (event as unknown as { account?: string | null }).account ?? null;
+    const user = await findUserByCustomer(payload, customer as string, { stripeAccountId });
 
     if (!user) {
       payload.logger.info("Skipping subscription update: User not found");

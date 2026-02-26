@@ -14,7 +14,8 @@ export const subscriptionResumed: StripeWebhookHandler<{
   const { customer } = event.data.object;
 
   try {
-    const user = await findUserByCustomer(payload, customer as string);
+    const stripeAccountId = (event as unknown as { account?: string | null }).account ?? null;
+    const user = await findUserByCustomer(payload, customer as string, { stripeAccountId });
 
     if (!user) {
       payload.logger.info("Skipping subscription resume: User not found");
