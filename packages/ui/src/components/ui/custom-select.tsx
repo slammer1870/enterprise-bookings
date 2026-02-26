@@ -32,6 +32,9 @@ export const CustomSelect: React.FC<
       value: string;
     }[]
   >([]);
+  const [stripeAccountId, setStripeAccountId] = React.useState<string | null>(
+    null
+  );
 
   // Use local state to track value, initialized from props
   // SelectInput will handle form updates via the path prop
@@ -51,6 +54,12 @@ export const CustomSelect: React.FC<
         const res = await optionsFetch.json();
 
         if (res?.data) {
+          const acct =
+            typeof res?.meta?.stripeAccountId === "string" &&
+            res.meta.stripeAccountId.trim().length > 0
+              ? res.meta.stripeAccountId.trim()
+              : null;
+          setStripeAccountId(acct);
           const fetchedOptions = res.data.reduce(
             (
               acc: { label: any; value: any }[],
@@ -112,8 +121,13 @@ export const CustomSelect: React.FC<
 
   const normalizedValue = typeof value === "string" ? value : "";
 
-  const href = `https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-    }${dataLabel}/${normalizedValue}`;
+  const dashboardBase = `https://dashboard.stripe.com/${
+    process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+  }`;
+  const stripeAccountQuery = stripeAccountId
+    ? `?stripe_account=${encodeURIComponent(stripeAccountId)}`
+    : "";
+  const href = `${dashboardBase}${dataLabel}/${normalizedValue}${stripeAccountQuery}`;
 
   return (
     <div className="mb-4">
@@ -128,8 +142,7 @@ export const CustomSelect: React.FC<
       >
         {`Select the related Stripe data or `}
         <a
-          href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-            }${dataLabel}/create`}
+          href={`${dashboardBase}${dataLabel}/create${stripeAccountQuery}`}
           rel="noopener noreferrer"
           style={{ color: "var(--theme-text)" }}
           target="_blank"
@@ -176,8 +189,7 @@ export const CustomSelect: React.FC<
             }}
           >
             <a
-              href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-                }${dataLabel}/${normalizedValue}`}
+              href={href}
               rel="noreferrer noopener"
               target="_blank"
             >

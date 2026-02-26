@@ -35,7 +35,10 @@ export function createClassPassProductsProxy(classPass: ClassPassConfig): Payloa
           "type" in p.default_price &&
           p.default_price.type === "one_time"
       );
-      return new Response(JSON.stringify({ data: oneTimeProducts }), { status: 200 });
+      return new Response(
+        JSON.stringify({ data: oneTimeProducts, meta: { stripeAccountId: accountId ?? null } }),
+        { status: 200 }
+      );
     } catch (error: unknown) {
       if (logs) req.payload.logger?.error?.({ err: `Error using Stripe API: ${error}` });
       return new Response(JSON.stringify(`Error using Stripe API: ${error}`), { status: 500 });

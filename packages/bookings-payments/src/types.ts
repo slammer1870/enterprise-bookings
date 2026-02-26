@@ -38,6 +38,8 @@ export type ClassPassConfig = {
 export type DropInsConfig = {
   enabled: boolean;
   paymentMethodSlugs?: string[];
+  /** Optional: resolve Stripe Connect account ID for proxy requests (e.g. from tenant cookie). When set, customer proxies can be tenant-aware. */
+  getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
   /** Override access/fields/hooks for drop-ins (e.g. tenant-scoped in multi-tenant apps). */
   dropInsOverrides?: CollectionOverrides;
   /** Override access/fields/hooks for transactions (e.g. tenant-scoped in multi-tenant apps). */
@@ -74,6 +76,13 @@ export type MembershipConfig = {
   paymentMethodSlugs?: string[];
   /** When set, GET /stripe/plans lists products from this Connect account (tenant-aware). */
   getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
+  /**
+   * Controls which Stripe account GET /stripe/subscriptions uses for CustomSelect.
+   * - platform: always list from the platform Stripe account (default; backwards compatible)
+   * - auto: if getStripeAccountIdForRequest returns an accountId, list from that Connect account; otherwise platform
+   * - connect: always list from the resolved Connect account (400 if none)
+   */
+  subscriptionsProxyScope?: "platform" | "auto" | "connect";
   /**
    * When true, registers the sync-stripe-subscriptions endpoint and syncStripeSubscriptions task.
    * When false or omitted, sync is not registered (opt-in). Apps that need the sync must set this to true.

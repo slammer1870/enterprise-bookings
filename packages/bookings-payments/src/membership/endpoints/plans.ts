@@ -28,7 +28,10 @@ export function createPlansProxy(membership: MembershipConfig): PayloadHandler {
           typeof p.default_price === "object" &&
           p.default_price?.type === "recurring"
       );
-      return new Response(JSON.stringify({ data: plans }), { status: 200 });
+      return new Response(
+        JSON.stringify({ data: plans, meta: { stripeAccountId: accountId ?? null } }),
+        { status: 200 }
+      );
     } catch (error: unknown) {
       if (logs) req.payload.logger?.error?.({ err: `Error using Stripe API: ${error}` });
       return new Response(JSON.stringify(`Error using Stripe API: ${error}`), { status: 500 });

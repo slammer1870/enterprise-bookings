@@ -8,7 +8,7 @@ import { applyPaymentsFeature } from "./apply-payments";
 import { applyMembershipFeature } from "./apply-membership";
 import { injectTransactionsIntoBookings } from "./inject-transactions";
 import { modifyUsersCollectionForPayments } from "../payments/collections/users";
-import { customersProxy } from "../payments/endpoints/customers";
+import { createCustomersProxy, customersProxy } from "../payments/endpoints/customers";
 
 /** Normalize feature option: true → default config; false → undefined; object → use as-is (ensure enabled). */
 function normalizeFeatureOption<T extends { enabled?: boolean }>(
@@ -122,10 +122,18 @@ export const bookingsPaymentsPlugin =
         (e) => typeof e === "object" && e !== null && "path" in e && e.path === "/stripe/customers"
       );
       if (!hasCustomersEndpoint) {
+        const getStripeAccountIdForRequest =
+          membership?.getStripeAccountIdForRequest ?? dropIns?.getStripeAccountIdForRequest ?? undefined;
+        // Default to platform for backwards compatibility; apps can change to 'auto'/'connect' by
+        // overriding this endpoint or adjusting the plugin in the future.
+        const handler =
+          getStripeAccountIdForRequest
+            ? createCustomersProxy({ getStripeAccountIdForRequest, scope: "platform" })
+            : customersProxy;
         ctx.endpoints.push({
           path: "/stripe/customers",
           method: "get",
-          handler: customersProxy,
+          handler,
         });
       }
     }
