@@ -50,10 +50,12 @@ export function applyMembershipFeature(
             getSubscriptionBookingFeeCents: membership.getSubscriptionBookingFeeCents,
             getStripeAccountIdForRequest: membership.getStripeAccountIdForRequest,
             scope: membership.scope,
+            subscriptionApplicationFeePercent: membership.subscriptionApplicationFeePercent,
           }
         : {
             getStripeAccountIdForRequest: membership.getStripeAccountIdForRequest,
             scope: membership.scope,
+            subscriptionApplicationFeePercent: membership.subscriptionApplicationFeePercent,
           },
     ),
   });

@@ -84,6 +84,11 @@ export type MembershipConfig = {
    */
   scope?: "platform" | "auto" | "connect";
   /**
+   * Optional Connect application fee taken from each subscription invoice total.
+   * Only applies when scope is "auto" or "connect" and the subscription is created for a connected account.
+   */
+  subscriptionApplicationFeePercent?: number;
+  /**
    * Controls which Stripe account GET /stripe/subscriptions uses for CustomSelect.
    * - platform: always list from the platform Stripe account (default; backwards compatible)
    * - auto: if getStripeAccountIdForRequest returns an accountId, list from that Connect account; otherwise platform

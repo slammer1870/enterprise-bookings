@@ -19,6 +19,11 @@ type CreateCheckoutSessionOptions = {
   /** Which Stripe account to create the session on. Defaults to "platform". */
   scope?: "platform" | "auto" | "connect";
   /**
+   * Optional Connect application fee taken from each subscription invoice total.
+   * Only applied when the subscription is created on a connected account (scope=auto/connect).
+   */
+  subscriptionApplicationFeePercent?: number;
+  /**
    * Unit tests default to short-circuiting Stripe network calls.
    * When true, forces the handler to execute Stripe logic even in test mode.
    */
@@ -133,7 +138,14 @@ function createCheckoutSessionImpl(options?: CreateCheckoutSessionOptions): Payl
           customer: stripeCustomerId || undefined,
           success_url: successUrl,
           cancel_url: cancelUrl,
-          subscription_data: { metadata: meta },
+          subscription_data: {
+            metadata: meta,
+            ...(resolvedAccountId &&
+            typeof options?.subscriptionApplicationFeePercent === "number" &&
+            options.subscriptionApplicationFeePercent > 0
+              ? { application_fee_percent: options.subscriptionApplicationFeePercent }
+              : {}),
+          },
         }, resolvedAccountId ? { stripeAccount: resolvedAccountId } : undefined);
       return new Response(
         JSON.stringify({
