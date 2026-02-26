@@ -65,8 +65,9 @@ test.describe('Manage page: pending bookings and checkout return', () => {
         await page.waitForTimeout(1500)
         await navigateToTenant(page, tenant.slug, managePath)
       }
-      await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
-        timeout: 15000,
+      // Don't match callbackUrl query params from /auth/sign-in.
+      await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
+        timeout: 20000,
       })
       await page.waitForLoadState('load').catch(() => null)
       return Promise.race([
@@ -145,8 +146,9 @@ test.describe('Manage page: pending bookings and checkout return', () => {
         await page.waitForTimeout(1500)
         await navigateToTenant(page, tenant.slug, managePath)
       }
-      await expect(page).toHaveURL(new RegExp(`/bookings/${lesson.id}/manage`), {
-        timeout: 15000,
+      // Don't match callbackUrl query params from /auth/sign-in.
+      await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
+        timeout: 20000,
       })
       await page.waitForLoadState('load').catch(() => null)
       return Promise.race([

@@ -31,8 +31,24 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
       })
       .catch(() => null)
 
-    // Scroll main so below-fold Payment Methods section can render (Payload admin can virtualize fields)
-    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    // Scroll so below-fold Payment Methods section can render (Payload admin can virtualize fields).
+    // Do this via page-level evaluate so we don't hang if <main> is temporarily missing during navigation/hydration.
+    await page
+      .evaluate(() => {
+        const main = document.querySelector('main') as HTMLElement | null
+        const el = main ?? (document.scrollingElement as HTMLElement | null) ?? document.body
+        try {
+          el?.scrollTo?.(0, el.scrollHeight)
+        } catch {
+          // ignore
+        }
+        try {
+          window.scrollTo(0, document.body.scrollHeight)
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => null)
 
     // Wait for the gated field to render (either not-connected or connected state)
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
@@ -91,7 +107,22 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
         timeout: 30000,
       })
       .catch(() => null)
-    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    await page
+      .evaluate(() => {
+        const main = document.querySelector('main') as HTMLElement | null
+        const el = main ?? (document.scrollingElement as HTMLElement | null) ?? document.body
+        try {
+          el?.scrollTo?.(0, el.scrollHeight)
+        } catch {
+          // ignore
+        }
+        try {
+          window.scrollTo(0, document.body.scrollHeight)
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
 

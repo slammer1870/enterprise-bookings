@@ -268,20 +268,36 @@ export async function loginAsRegularUser(
 ): Promise<void> {
   const userEmail = email || `user${userNumber}@test.com`
 
-  // For tenant-scoped tests, login directly on the tenant host so session cookies are host-scoped correctly.
+  // Prefer API-based login for stability (avoids UI flake + avoids accessing cookies on a closing context).
   const authBaseURL = opts?.tenantSlug ? tenantBaseUrl(opts.tenantSlug) : BASE_URL
+  try {
+    await loginAsRegularUserViaApi(page, userEmail, password, {
+      baseURL: authBaseURL,
+      tenantSlug: opts?.tenantSlug,
+    })
+    return
+  } catch {
+    // Fall back to UI-based login if the auth API changes.
+  }
+
   await loginAsUser(page, userEmail, password, { baseURL: authBaseURL })
 
   if (opts?.tenantSlug) {
-    const tenantDomain = `${opts.tenantSlug}.localhost`
-    const cookies = await page.context().cookies()
-    const tenantSessionCookies = copySessionCookiesToTenantDomain(cookies, opts.tenantSlug)
-    if (tenantSessionCookies.length) {
-      await page.context().addCookies(tenantSessionCookies)
+    try {
+      const tenantDomain = `${opts.tenantSlug}.localhost`
+      const cookies = await page.context().cookies()
+      const tenantSessionCookies = copySessionCookiesToTenantDomain(cookies, opts.tenantSlug)
+      if (tenantSessionCookies.length) {
+        await page.context().addCookies(tenantSessionCookies)
+      }
+      await page.context().addCookies([
+        { name: 'tenant-slug', value: opts.tenantSlug, domain: tenantDomain, path: '/' },
+      ])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('Target page, context or browser has been closed')) return
+      throw err
     }
-    await page.context().addCookies([
-      { name: 'tenant-slug', value: opts.tenantSlug, domain: tenantDomain, path: '/' },
-    ])
   }
 }
 

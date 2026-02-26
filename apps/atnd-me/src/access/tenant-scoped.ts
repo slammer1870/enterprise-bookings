@@ -19,7 +19,13 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
   // Tenant-admin can access their assigned tenants
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
     const tenants = (user as unknown as Record<string, unknown>).tenants as Array<{ tenant?: number | { id: number }; id?: number } | number> | undefined
-    if (!tenants) return []
+    // Auth/session payloads often omit the `tenants` relationship. Fall back to `registrationTenant`
+    // so tenant-admins still have access to their primary tenant.
+    if (!tenants || tenants.length === 0) {
+      const reg = (user as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
+      const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
+      return typeof tid === 'number' ? [tid] : []
+    }
     
     // tenants can be an array of IDs, an array of tenant objects with 'id', or an array of objects with 'tenant' / 'tenant_id' (join table)
     return tenants.map((tenant: { tenant?: number | { id: number }; tenant_id?: number; id?: number } | number) => {
@@ -47,6 +53,34 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
   return []
 }
 
+async function resolveTenantAdminTenantIds(args: {
+  user: unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload: any
+}): Promise<number[]> {
+  const { user, payload } = args
+  const direct = getUserTenantIds(user as SharedUser)
+  if (direct === null) return []
+  if (direct.length > 0) return direct
+
+  // Session/JWT user often lacks relationships like `tenants` — fetch full user and retry.
+  const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
+  const id = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
+  if (!Number.isFinite(id)) return []
+
+  const fullUser = await payload
+    .findByID({
+      collection: 'users',
+      id,
+      depth: 2,
+      overrideAccess: true,
+    })
+    .catch(() => null)
+
+  const fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
+  return fromDb === null ? [] : fromDb
+}
+
 /**
  * Access control for reading tenant-scoped documents
  * - Admin: can read all documents
@@ -69,7 +103,7 @@ export const tenantScopedRead: Access = ({ req: { user: _user } }) => {
  * accessing the create page. The beforeValidate hook will set it from req.context.tenant.
  * So we allow tenant-admin to create if they have any tenants assigned.
  */
-export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => {
+export const tenantScopedCreate: Access = async ({ req: { user, context, payload }, data }) => {
   if (!user) return false
   
   // Admin can create for any tenant
@@ -79,8 +113,8 @@ export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => 
   
   // Tenant-admin can only create for their assigned tenants
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null || tenantIds.length === 0) return false
+    const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    if (tenantIds.length === 0) return false
     
     // If data.tenant is set, validate it's in the user's tenants
     const dataTenant = data?.tenant
@@ -123,7 +157,7 @@ export const tenantScopedCreate: Access = ({ req: { user, context }, data }) => 
  * - Tenant-admin: can only update documents from their assigned tenants
  * - Regular users: cannot update configuration documents
  */
-export const tenantScopedUpdate: Access = ({ req: { user }, id: _id }) => {
+export const tenantScopedUpdate: Access = async ({ req: { user, payload }, id: _id }) => {
   if (!user) return false
   
   // Admin can update any document
@@ -135,15 +169,11 @@ export const tenantScopedUpdate: Access = ({ req: { user }, id: _id }) => {
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
     // We need to check the document's tenant
     // This will be handled by query constraints in the access control
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null || tenantIds.length === 0) return false
-    
+    const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    if (tenantIds.length === 0) return false
+
     // Return query constraint to filter by tenant
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+    return { tenant: { in: tenantIds } }
   }
   
   // Regular users cannot update configuration documents
@@ -156,7 +186,7 @@ export const tenantScopedUpdate: Access = ({ req: { user }, id: _id }) => {
  * - Tenant-admin: can only delete documents from their assigned tenants
  * - Regular users: cannot delete configuration documents
  */
-export const tenantScopedDelete: Access = ({ req: { user } }) => {
+export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => {
   if (!user) return false
   
   // Admin can delete any document
@@ -167,14 +197,9 @@ export const tenantScopedDelete: Access = ({ req: { user } }) => {
   // Tenant-admin can delete documents from their assigned tenants
   // (query constraint will be applied automatically by update access)
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null || tenantIds.length === 0) return false
-    
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+    const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    if (tenantIds.length === 0) return false
+    return { tenant: { in: tenantIds } }
   }
   
   // Regular users cannot delete configuration documents

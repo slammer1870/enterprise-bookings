@@ -33,7 +33,22 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
     ).catch(() => null)
 
     // Payload admin can virtualize fields; scroll to ensure the Payment Methods group mounts.
-    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    await page
+      .evaluate(() => {
+        const main = document.querySelector('main') as HTMLElement | null
+        const el = main ?? (document.scrollingElement as HTMLElement | null) ?? document.body
+        try {
+          el?.scrollTo?.(0, el.scrollHeight)
+        } catch {
+          // ignore
+        }
+        try {
+          window.scrollTo(0, document.body.scrollHeight)
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     await expect(
@@ -63,7 +78,22 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       { timeout: 15000 }
     ).catch(() => null)
 
-    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    await page
+      .evaluate(() => {
+        const main = document.querySelector('main') as HTMLElement | null
+        const el = main ?? (document.scrollingElement as HTMLElement | null) ?? document.body
+        try {
+          el?.scrollTo?.(0, el.scrollHeight)
+        } catch {
+          // ignore
+        }
+        try {
+          window.scrollTo(0, document.body.scrollHeight)
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     const connectLink = page
@@ -111,7 +141,22 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       { timeout: 15000 }
     ).catch(() => null)
 
-    await page.locator('main').evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    await page
+      .evaluate(() => {
+        const main = document.querySelector('main') as HTMLElement | null
+        const el = main ?? (document.scrollingElement as HTMLElement | null) ?? document.body
+        try {
+          el?.scrollTo?.(0, el.scrollHeight)
+        } catch {
+          // ignore
+        }
+        try {
+          window.scrollTo(0, document.body.scrollHeight)
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     await expect(

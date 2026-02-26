@@ -52,11 +52,6 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
 
   const optionsList = Array.isArray(options) ? options : []
 
-  const tenantAdminOnly = Boolean(user && isTenantAdminOnly(user))
-  if (tenantAdminOnly && optionsList.length <= 1) {
-    return null
-  }
-
   const switchTenant = React.useCallback(
     (option: ReactSelectOption | ReactSelectOption[] | undefined) => {
       if (option && typeof option === 'object' && 'value' in option) {
@@ -67,10 +62,6 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     },
     [setTenant],
   )
-
-  if (optionsList.length <= 1) {
-    return null
-  }
 
   const handleChange = React.useCallback(
     (option: ReactSelectOption | ReactSelectOption[] | null | undefined) => {
@@ -102,6 +93,12 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     },
     [selectedTenantID, entityType, modified, switchTenant, openModal, isOnNavbarOrFooter],
   )
+
+  // Only render when there is something to select. Keep hooks above this check to
+  // avoid breaking the Rules of Hooks when options hydrate asynchronously.
+  if (optionsList.length <= 1) {
+    return null
+  }
 
   const canClear =
     ['dashboard', 'list'].includes(viewType ?? '') || viewType == null || isOnNavbarOrFooter
