@@ -5,7 +5,7 @@ import { getGlobalViewRedirect } from '@payloadcms/plugin-multi-tenant/rsc'
 import { parseCookies } from 'payload'
 import { isNumber } from 'payload/shared'
 
-const ROOT_DOC_COLLECTIONS_DEFAULT: CollectionSlug[] = ['footer', 'navbar']
+const ROOT_DOC_COLLECTIONS_DEFAULT: string[] = ['footer', 'navbar']
 
 function getTenantFromCookie(headers: Headers, idType: 'number' | 'text'): string | number | null {
   const cookies = parseCookies(headers)

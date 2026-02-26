@@ -1,4 +1,4 @@
-import type { Config, Plugin } from 'payload'
+import type { CollectionConfig, Config, Plugin } from 'payload'
 import { createPopulateTenantOptionsHandler } from './endpoints/populate-tenant-options'
 import { replaceInEntries } from './lib/replaceAdminComponents'
 
@@ -136,7 +136,7 @@ export const clearableTenantPlugin =
     // Add GET /tenants/populate-tenant-options so the client provider can fetch tenant options when server did not pass them
     const tenantsSlug = _options.tenantsCollectionSlug ?? 'tenants'
     const collections = Array.isArray(config.collections) ? config.collections : []
-    config.collections = collections.map((col: Record<string, unknown>) => {
+    config.collections = collections.map((col: CollectionConfig) => {
       if (col.slug !== tenantsSlug) return col
       if (col.endpoints === false) return col
       const existingEndpoints = Array.isArray(col.endpoints) ? col.endpoints : []
@@ -156,7 +156,7 @@ export const clearableTenantPlugin =
           ...existingEndpoints,
           { path: '/populate-tenant-options', method: 'get' as const, handler },
         ],
-      }
+      } as CollectionConfig
     })
 
     return config

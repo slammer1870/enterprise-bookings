@@ -1,6 +1,6 @@
 import type { PayloadRequest } from 'payload'
 
-export type TenantOption = { label: string; value: number | string; slug?: string }
+import type { TenantOption } from '../types'
 
 const DEFAULT_TENANTS_ARRAY_FIELD_NAME = 'tenants'
 const DEFAULT_TENANTS_ARRAY_TENANT_FIELD_NAME = 'tenant'

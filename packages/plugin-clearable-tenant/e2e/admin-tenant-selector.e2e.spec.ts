@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from '@playwright/test'
 import { ensureAtLeastTwoTenants, loginAsSuperAdmin, BASE_URL } from './helpers/auth-helpers'
-import { fetchTenantOptionsFromAPI, discoverTenantOptionsFromPage, getTenantSelectorLocator } from './helpers/tenant-helpers'
+import { fetchTenantOptionsFromAPI, getTenantSelectorLocator } from './helpers/tenant-helpers'
 
 const ADMIN_ORIGIN = BASE_URL
 const ADMIN_COOKIE_URLS = [
@@ -11,7 +11,10 @@ const ADMIN_COOKIE_URLS = [
 ]
 
 const ADMIN_VIEWPORT = { width: 1440, height: 900 }
-const isCI = !!process.env.CI
+const isCI = Boolean(
+  (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
+    ?.env?.CI,
+)
 const CI = {
   optionWaitMs: isCI ? 6000 : 5000,
   selectDeadlineMs: isCI ? 50_000 : 25_000,

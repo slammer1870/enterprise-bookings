@@ -8,12 +8,12 @@ import { createPathHelpers } from '../lib/pathHelpers'
 import {
   getTenantCookie,
   deleteTenantCookie,
-  getPayloadTenantCookieDomainDefault,
+  setPayloadTenantCookie,
 } from '../lib/cookieHelpers'
 import { PreventEnterSubmitOnCreatePage } from './PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from './SelectTenantForCreateModal'
 
-export type TenantOption = { label: string; value: number | string; slug?: string }
+import type { TenantOption } from '../types'
 
 type ContextValue = {
   entityType?: 'document' | 'global'
@@ -52,22 +52,6 @@ export function useTenantSelection() {
   return React.useContext(Context)
 }
 
-const COOKIE_NAME = 'payload-tenant'
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
-
-function setTenantCookieValue(value: string) {
-  const domain = getPayloadTenantCookieDomainDefault()
-  const domainAttr = domain ? `; Domain=${domain}` : ''
-  const base = `${COOKIE_NAME}=${encodeURIComponent(value)}; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${domainAttr}`
-  document.cookie = `${base}; Path=/`
-  document.cookie = `${base}; Path=/admin`
-  document.cookie = `${base}; Path=/admin/`
-}
-
-function deleteTenantCookieValue() {
-  deleteTenantCookie(getPayloadTenantCookieDomainDefault)
-}
-
 type Props = {
   children: React.ReactNode
   initialTenantOptions: TenantOption[]
@@ -88,6 +72,7 @@ export function TenantSelectionProviderRootAwareClient({
   rootDocCollections = ['navbar', 'footer'],
   collectionsRequireTenantOnCreate = [],
   collectionsCreateRequireTenantForTenantAdmin = ['pages', 'navbar', 'footer'],
+  getCookieDomain,
 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
@@ -139,9 +124,9 @@ export function TenantSelectionProviderRootAwareClient({
       setSelectedTenantID(canonicalId)
 
       if (canonicalId !== undefined && canonicalId !== null && canonicalId !== '') {
-        setTenantCookieValue(String(canonicalId))
+        setPayloadTenantCookie(String(canonicalId), getCookieDomain)
       } else {
-        deleteTenantCookieValue()
+        deleteTenantCookie(getCookieDomain)
       }
 
       if (refresh && !isOnTenantRequiredCreatePage && !isOnRootDocCollection) {
@@ -178,13 +163,13 @@ export function TenantSelectionProviderRootAwareClient({
         setTenantOptions(result.tenantOptions)
         if (result.tenantOptions.length === 1) {
           setSelectedTenantID(result.tenantOptions[0].value)
-          setTenantCookieValue(String(result.tenantOptions[0].value))
+          setPayloadTenantCookie(String(result.tenantOptions[0].value), getCookieDomain)
         }
       }
     } catch {
       toast.error('Error fetching tenants')
     }
-  }, [config.routes.api, tenantsCollectionSlug, userID])
+  }, [config.routes.api, tenantsCollectionSlug, userID, getCookieDomain])
 
   const syncTenantsRef = React.useRef(syncTenants)
   syncTenantsRef.current = syncTenants
@@ -214,7 +199,7 @@ export function TenantSelectionProviderRootAwareClient({
         void syncTenantsRef.current()
       } else {
         setSelectedTenantID(undefined)
-        deleteTenantCookieValue()
+        deleteTenantCookie(getCookieDomain)
         if (tenantOptions.length > 0) setTenantOptions([])
         router.refresh()
       }

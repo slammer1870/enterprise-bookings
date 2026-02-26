@@ -12,10 +12,6 @@ import type { ViewTypes } from 'payload'
 import React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTenantSelection } from './TenantSelectionProviderRootAwareClient'
-import {
-  setPayloadTenantCookie,
-  getPayloadTenantCookieDomainDefault,
-} from '../lib/cookieHelpers'
 
 const confirmLeaveWithoutSavingSlug = 'confirm-leave-without-saving-clearable-tenant'
 
@@ -54,8 +50,6 @@ export function ClearableTenantSelectorClient({
   const [tenantSelection, setTenantSelection] = React.useState<
     ReactSelectOption | ReactSelectOption[] | undefined
   >(undefined)
-
-  const getCookieDomain = React.useCallback(getPayloadTenantCookieDomainDefault, [])
   const isOnNavbarOrFooter =
     typeof pathname === 'string' &&
     rootDocCollections.some((slug) => pathname.includes(`/collections/${slug}`))
@@ -70,14 +64,12 @@ export function ClearableTenantSelectorClient({
   const switchTenant = React.useCallback(
     (option: ReactSelectOption | ReactSelectOption[] | undefined) => {
       if (option && typeof option === 'object' && 'value' in option) {
-        setPayloadTenantCookie(String(option.value), getCookieDomain)
         setTenant({ id: option.value as string | number, refresh: true })
       } else {
-        setPayloadTenantCookie(undefined, getCookieDomain)
         setTenant({ id: undefined, refresh: true })
       }
     },
-    [setTenant, getCookieDomain],
+    [setTenant],
   )
 
   if (optionsList.length <= 1) {
