@@ -46,3 +46,6 @@ yarn-error.log*
 .DS_Store
 *.pem
 node_modules
+
+# Local SQLite dev DBs (generated)
+**/dev.db
