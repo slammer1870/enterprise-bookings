@@ -500,10 +500,12 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     await page.keyboard.press('Tab')
 
     await expect(continueBtn).toBeEnabled()
-    await continueBtn.click()
+    await Promise.all([
+      page.waitForLoadState('load').catch(() => null),
+      continueBtn.click(),
+    ])
 
-    // Modal closes and we remain on create route.
-    await expect(dialog).toBeHidden({ timeout: CI.wrapTimeout })
+    // Modal triggers a hard reload; ensure we land back on the create route.
     await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/posts/create'), {
       timeout: 15_000,
     })
@@ -519,5 +521,11 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
         { timeout: CI.cookiePollTimeout },
       )
       .toBe(tenant2.id)
+
+    // Critical: after tenant selection + reload, the create UI must be usable.
+    const titleInput = page.getByRole('textbox', { name: /^title$/i }).first()
+    await expect(titleInput).toBeEnabled({ timeout: 15_000 })
+    await titleInput.fill(`e2e ${Date.now()}`)
+    await expect(titleInput).not.toHaveValue('')
   })
 })

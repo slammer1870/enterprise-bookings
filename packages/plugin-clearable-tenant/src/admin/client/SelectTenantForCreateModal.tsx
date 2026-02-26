@@ -23,6 +23,7 @@ export function SelectTenantForCreateModal({
   const { t } = useTranslation()
   const [selectedValue, setSelectedValue] = React.useState<string | number | undefined>(undefined)
   const [portalEl, setPortalEl] = React.useState<HTMLElement | null>(null)
+  const [isReloading, setIsReloading] = React.useState(false)
 
   const optionsList = Array.isArray(options) ? options : []
   const listPath = typeof pathname === 'string' ? pathname.replace(/\/create$/, '') : '/admin'
@@ -51,8 +52,16 @@ export function SelectTenantForCreateModal({
 
   const handleConfirm = React.useCallback(() => {
     if (selectedValue != null && selectedValue !== '') {
+      setIsReloading(true)
       setTenant({ id: selectedValue, refresh: false })
       onClose()
+      // In production, we've seen the create UI remain un-interactable after tenant selection
+      // until a manual reload. Force a reload to ensure the admin app re-hydrates with the
+      // correct tenant context.
+      if (typeof window !== 'undefined') {
+        window.location.reload()
+        return
+      }
       router.refresh()
     } else {
       onClose()
@@ -67,6 +76,7 @@ export function SelectTenantForCreateModal({
     }
     if (!isOpen) {
       setSelectedValue(undefined)
+      setIsReloading(false)
     }
   }, [isOpen, optionsList])
 
@@ -166,12 +176,12 @@ export function SelectTenantForCreateModal({
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button buttonStyle="secondary" onClick={handleCancel} type="button">
+          <Button buttonStyle="secondary" onClick={handleCancel} type="button" disabled={isReloading}>
             {(t as (k: string) => string)('general:cancel')}
           </Button>
           <Button
             buttonStyle="primary"
-            disabled={confirmDisabled}
+            disabled={confirmDisabled || isReloading}
             onClick={handleConfirm}
             type="button"
           >
