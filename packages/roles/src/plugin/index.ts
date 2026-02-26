@@ -56,6 +56,12 @@ export const rolesPlugin =
           depth: 0,
           limit: 1,
           sort: "createdAt", // Sort by creation date to get the oldest user
+          // Be defensive: selecting the full doc can join optional plugin-backed tables.
+          // During rolling deploys / partial migrations, those tables may not exist yet.
+          select: {
+            id: true,
+            roles: true,
+          },
         });
 
         // If at least one user exists, assign admin role to the first created user
