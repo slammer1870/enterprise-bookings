@@ -35,13 +35,13 @@ import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'p
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
 import { default as default_d500ae2ad98a0a33d640ae0ac1a3417c } from '@/components/admin/AdminIcon'
 import { default as default_b80a86fce1072afc84cd6a430a965697 } from '@/components/admin/AdminLogo'
-import { GlobalViewRedirectRootAware as GlobalViewRedirectRootAware_b4eb1ca059fe4fd85cb215f2b3e3ca81 } from '@/components/admin/GlobalViewRedirectRootAware'
+import { GlobalViewRedirectRootAware as GlobalViewRedirectRootAware_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { default as default_1a7510af427896d367a49dbf838d2de6 } from '@/components/BeforeDashboard'
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
 import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/components/admin/NavHomeLink'
-import { default as default_a0c6963fc097478f091f16c56a6cb951 } from '@/components/admin/ClearableTenantSelector'
+import { ClearableTenantSelector as ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
-import { TenantSelectionProviderRootAware as TenantSelectionProviderRootAware_aa454c6c2646c363873a6b4e72946bf7 } from '@/components/admin/TenantSelectionProviderRootAware'
+import { TenantSelectionProviderRootAware as TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { default as default_0ad30854e46ef600f02c2ce4c97aa864 } from '@/components/admin/dashboard/AnalyticsDashboard'
 import { CollectionCards as CollectionCards_ab83ff7e88da8d3530831f296ec4756a } from '@payloadcms/ui/rsc'
@@ -84,13 +84,13 @@ export const importMap = {
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,
   "@/components/admin/AdminIcon#default": default_d500ae2ad98a0a33d640ae0ac1a3417c,
   "@/components/admin/AdminLogo#default": default_b80a86fce1072afc84cd6a430a965697,
-  "@/components/admin/GlobalViewRedirectRootAware#GlobalViewRedirectRootAware": GlobalViewRedirectRootAware_b4eb1ca059fe4fd85cb215f2b3e3ca81,
+  "@repo/plugin-clearable-tenant/rsc#GlobalViewRedirectRootAware": GlobalViewRedirectRootAware_66a9b6a7ced13ce82cb8472204808637,
   "@/components/BeforeDashboard#default": default_1a7510af427896d367a49dbf838d2de6,
   "@/components/BeforeLogin#default": default_8a7ab0eb7ab5c511aba12e68480bfe5e,
   "@/components/admin/NavHomeLink#default": default_03c174bc83c57c8b0eee299d05fde10d,
-  "@/components/admin/ClearableTenantSelector#default": default_a0c6963fc097478f091f16c56a6cb951,
+  "@repo/plugin-clearable-tenant/rsc#ClearableTenantSelector": ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637,
   "@payloadcms/plugin-sentry/client#AdminErrorBoundary": AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688,
-  "@/components/admin/TenantSelectionProviderRootAware#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_aa454c6c2646c363873a6b4e72946bf7,
+  "@repo/plugin-clearable-tenant/rsc#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/components/admin/dashboard/AnalyticsDashboard#default": default_0ad30854e46ef600f02c2ce4c97aa864,
   "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a

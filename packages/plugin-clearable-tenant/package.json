@@ -1,0 +1,101 @@
+{
+  "name": "@repo/plugin-clearable-tenant",
+  "version": "0.0.1",
+  "description": "Payload plugin: clearable tenant selector (mimics multi-tenant with clear on dashboard/navbar/footer, modal when tenant required on create)",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "import": "./src/exports/client.ts",
+      "types": "./src/exports/client.ts",
+      "default": "./src/exports/client.ts"
+    },
+    "./rsc": {
+      "import": "./src/exports/rsc.ts",
+      "types": "./src/exports/rsc.ts",
+      "default": "./src/exports/rsc.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm clean && pnpm copyfiles && pnpm build:types && pnpm build:swc",
+    "build:swc": "swc ./src -d ./dist --config-file .swcrc --strip-leading-paths --ignore \"**/__tests__/**\"",
+    "build:types": "tsc -p tsconfig.build.json",
+    "check": "pnpm run lint && pnpm run check-types",
+    "check-types": "tsc --noEmit",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "copyfiles": "copyfiles -u 1 \"src/**/*.{html,css,scss,ttf,woff,woff2,eot,svg,jpg,png,json}\" dist/",
+    "dev": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts pnpm exec next dev",
+    "dev:generate-importmap": "pnpm dev:payload generate:importmap",
+    "dev:generate-types": "pnpm dev:payload generate:types",
+    "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
+    "generate:importmap": "pnpm dev:generate-importmap",
+    "generate:types": "pnpm dev:generate-types",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint ./src --fix",
+    "test": "vitest run",
+    "test:e2e": "playwright test --config=playwright.config.ts",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.3",
+    "@payloadcms/db-sqlite": "3.70.0",
+    "@payloadcms/next": "3.70.0",
+    "@playwright/test": "1.56.1",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@swc/cli": "^0.6.0",
+    "@types/react": "19.2.8",
+    "copyfiles": "^2.4.1",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.39.1",
+    "next": "15.4.8",
+    "rimraf": "^6.0.0",
+    "sharp": "0.33.5",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.12"
+  },
+  "peerDependencies": {
+    "@payloadcms/plugin-multi-tenant": "*",
+    "@payloadcms/ui": "*",
+    "next": "*",
+    "payload": "*",
+    "react": "*",
+    "react-dom": "*"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./client": {
+        "import": "./dist/exports/client.js",
+        "types": "./dist/exports/client.d.ts",
+        "default": "./dist/exports/client.js"
+      },
+      "./rsc": {
+        "import": "./dist/exports/rsc.js",
+        "types": "./dist/exports/rsc.d.ts",
+        "default": "./dist/exports/rsc.js"
+      }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts"
+  },
+  "engines": {
+    "node": "^18.20.2 || >=20.9.0",
+    "pnpm": "^9 || ^10"
+  }
+}

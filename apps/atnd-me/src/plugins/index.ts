@@ -17,7 +17,7 @@ import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
-import { clearableTenantSelectorPlugin } from './clearable-tenant-selector'
+import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { validateClassOptionNameUniqueWithinTenant } from '@/hooks/validateClassOptionNameUniqueWithinTenant'
 import { bookingsPlugin } from '@repo/bookings-plugin'
@@ -491,8 +491,28 @@ export const plugins: Plugin[] = [
       // - tenants (plugin-managed, plural): tenants user has access to
     } as Parameters<typeof multiTenantPlugin>[0]['collections'],
   }),
-  // Replace plugin TenantSelector with our ClearableTenantSelector so the X appears on dashboard too
-  clearableTenantSelectorPlugin,
+  // Clearable tenant selector: clear on dashboard/navbar/footer, modal when tenant required on create
+  clearableTenantPlugin({
+    rootDocCollections: ['navbar', 'footer'],
+    collectionsRequireTenantOnCreate: [
+      'lessons',
+      'instructors',
+      'class-options',
+      'bookings',
+      'class-pass-types',
+      'class-passes',
+      'transactions',
+      'drop-ins',
+      'plans',
+      'discount-codes',
+      'subscriptions',
+      'forms',
+      'form-submissions',
+      'scheduler',
+    ],
+    collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
+    userHasAccessToAllTenants: (user) => checkRole(['admin'], user as SharedUser),
+  }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,
   // Phase 5.5: R2 storage for Media — via Worker (R2_WORKER_*) or direct S3 API when env is set

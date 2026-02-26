@@ -37,6 +37,7 @@
     "@payloadcms/plugin-form-builder": "workspace:*",
     "@payloadcms/plugin-multi-tenant": "workspace:*",
     "@payloadcms/plugin-nested-docs": "workspace:*",
+    "@repo/plugin-clearable-tenant": "workspace:*",
     "@payloadcms/plugin-redirects": "workspace:*",
     "@payloadcms/plugin-search": "workspace:*",
     "@payloadcms/plugin-sentry": "workspace:*",

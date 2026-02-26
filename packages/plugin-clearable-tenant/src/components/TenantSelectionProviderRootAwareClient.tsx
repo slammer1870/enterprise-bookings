@@ -1,43 +1,21 @@
 'use client'
 
-/**
- * Root-aware tenant selection provider. Same as the plugin's TenantSelectionProviderClient
- * except we do NOT auto-set the first tenant when entityType === 'global' when the user is
- * on the navbar or footer collection (so they can edit the root navbar/footer without
- * being switched to the first tenant's doc and losing the form).
- *
- * When the user is on a create page for a collection that requires a tenant (see
- * COLLECTIONS_REQUIRE_TENANT_ON_CREATE) with no tenant selected, we show a modal to
- * select a tenant instead of redirecting. Collections where tenant is optional
- * (e.g. pages for root domain) are excluded so you can still create base pages without
- * selecting a tenant.
- */
-import { checkRole } from '@repo/shared-utils'
-import type { User as SharedUser } from '@repo/shared-types'
 import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
-import { PreventEnterSubmitOnCreatePage } from '@/components/admin/PreventEnterSubmitOnCreatePage'
-import { SelectTenantForCreateModal } from '@/components/admin/SelectTenantForCreateModal'
+import { createPathHelpers } from '../lib/pathHelpers'
 import {
-  getAdminURLForTenantSlug,
-  getCurrentSubdomain,
-  isOnAdminSubdomain,
-} from '@/components/admin/admin-subdomain-redirect'
-import { getPayloadTenantCookieDomain } from '@/components/admin/payload-tenant-cookie-domain'
-import {
-  COLLECTIONS_CREATE_REQUIRE_TENANT_FOR_TENANT_ADMIN,
-  COLLECTIONS_REQUIRE_TENANT_ON_CREATE,
-  isCreateRequireTenantForTenantAdminPath,
-  isTenantRequiredCreatePath,
-} from '@/components/admin/prevent-create-page-reload'
-
-const ROOT_DOC_PATHS = ['/collections/navbar', '/collections/footer']
+  getTenantCookie,
+  deleteTenantCookie,
+  getPayloadTenantCookieDomainDefault,
+} from '../lib/cookieHelpers'
+import { PreventEnterSubmitOnCreatePage } from './PreventEnterSubmitOnCreatePage'
+import { SelectTenantForCreateModal } from './SelectTenantForCreateModal'
 
 export type TenantOption = { label: string; value: number | string; slug?: string }
 
-const Context = createContext<{
+type ContextValue = {
   entityType?: 'document' | 'global'
   modified?: boolean
   options: TenantOption[]
@@ -47,7 +25,13 @@ const Context = createContext<{
   setTenant: (args: { id?: string | number; refresh?: boolean }) => void
   syncTenants: () => Promise<void>
   updateTenants: (args: { id: string | number; label: string }) => void
-}>({
+  rootDocCollections: string[]
+  collectionsRequireTenantOnCreate: string[]
+  collectionsCreateRequireTenantForTenantAdmin: string[]
+  isTenantAdminOnly?: (user: unknown) => boolean
+}
+
+const DefaultContext: ContextValue = {
   entityType: undefined,
   modified: false,
   options: [],
@@ -57,35 +41,43 @@ const Context = createContext<{
   setTenant: () => undefined,
   syncTenants: () => Promise.resolve(),
   updateTenants: () => undefined,
-})
+  rootDocCollections: ['navbar', 'footer'],
+  collectionsRequireTenantOnCreate: [],
+  collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
+}
+
+const Context = createContext<ContextValue>(DefaultContext)
+
+export function useTenantSelection() {
+  return React.useContext(Context)
+}
 
 const COOKIE_NAME = 'payload-tenant'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-function getCookieDomainAttr(): string {
-  const domain = getPayloadTenantCookieDomain()
-  return domain ? `; Domain=${domain}` : ''
-}
-
-function setTenantCookie(value: string) {
-  const domainAttr = getCookieDomainAttr()
+function setTenantCookieValue(value: string) {
+  const domain = getPayloadTenantCookieDomainDefault()
+  const domainAttr = domain ? `; Domain=${domain}` : ''
   const base = `${COOKIE_NAME}=${encodeURIComponent(value)}; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${domainAttr}`
   document.cookie = `${base}; Path=/`
   document.cookie = `${base}; Path=/admin`
   document.cookie = `${base}; Path=/admin/`
 }
 
-function deleteTenantCookie() {
-  const domainAttr = getCookieDomainAttr()
-  const base = `${COOKIE_NAME}=; Max-Age=0; SameSite=Lax${domainAttr}`
-  document.cookie = `${base}; Path=/`
-  document.cookie = `${base}; Path=/admin`
-  document.cookie = `${base}; Path=/admin/`
+function deleteTenantCookieValue() {
+  deleteTenantCookie(getPayloadTenantCookieDomainDefault)
 }
 
-function getTenantCookie(): string | undefined {
-  const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`))
-  return match?.[1] != null ? decodeURIComponent(match[1]) : undefined
+type Props = {
+  children: React.ReactNode
+  initialTenantOptions: TenantOption[]
+  initialValue: string | number | undefined
+  tenantsCollectionSlug: string
+  rootDocCollections?: string[]
+  collectionsRequireTenantOnCreate?: string[]
+  collectionsCreateRequireTenantForTenantAdmin?: string[]
+  getCookieDomain?: () => string | undefined
+  userHasAccessToAllTenants?: (user: unknown) => boolean | Promise<boolean>
 }
 
 export function TenantSelectionProviderRootAwareClient({
@@ -93,12 +85,10 @@ export function TenantSelectionProviderRootAwareClient({
   initialTenantOptions,
   initialValue,
   tenantsCollectionSlug,
-}: {
-  children: React.ReactNode
-  initialTenantOptions: TenantOption[]
-  initialValue: string | number | undefined
-  tenantsCollectionSlug: string
-}) {
+  rootDocCollections = ['navbar', 'footer'],
+  collectionsRequireTenantOnCreate = [],
+  collectionsCreateRequireTenantForTenantAdmin = ['pages', 'navbar', 'footer'],
+}: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [selectedTenantID, setSelectedTenantID] = React.useState(initialValue)
@@ -113,6 +103,27 @@ export function TenantSelectionProviderRootAwareClient({
   const hasAppliedInitialTenant = React.useRef(false)
   const [tenantOptions, setTenantOptions] = React.useState(initialTenantOptions)
 
+  const pathHelpers = React.useMemo(
+    () =>
+      createPathHelpers({
+        collectionsRequireTenantOnCreate,
+        collectionsCreateRequireTenantForTenantAdmin,
+      }),
+    [collectionsRequireTenantOnCreate, collectionsCreateRequireTenantForTenantAdmin],
+  )
+  const isTenantRequiredCreatePath = pathHelpers.isTenantRequiredCreatePath
+  const isCreateRequireTenantForTenantAdminPath = pathHelpers.isCreateRequireTenantForTenantAdminPath
+
+  const rootDocPaths = React.useMemo(
+    () => rootDocCollections.map((slug) => `/collections/${slug}`),
+    [rootDocCollections],
+  )
+  const isOnRootDocCollection =
+    typeof pathname === 'string' && rootDocPaths.some((p) => pathname.includes(p))
+  const isOnDashboard =
+    typeof pathname === 'string' && (pathname === '/admin' || pathname === '/admin/')
+  const isOnTenantRequiredCreatePage = isTenantRequiredCreatePath(pathname)
+
   const findTenantOption = React.useCallback(
     (id: string | number | undefined) => {
       if (id === undefined || id === null || id === '') return undefined
@@ -121,18 +132,6 @@ export function TenantSelectionProviderRootAwareClient({
     [tenantOptions],
   )
 
-  const isOnRootDocCollection =
-    typeof pathname === 'string' && ROOT_DOC_PATHS.some((p) => pathname.includes(p))
-
-  const isOnDashboard =
-    typeof pathname === 'string' && (pathname === '/admin' || pathname === '/admin/')
-
-  // Skip router.refresh() only on create pages for collections that require a tenant
-  // (lessons, instructors, etc.) so the form is not cleared when the provider re-runs on mobile.
-  // On create pages where tenant can be cleared (e.g. pages), we allow refresh so the UI
-  // updates when the user clears the tenant.
-  const isOnTenantRequiredCreatePage = isTenantRequiredCreatePath(pathname)
-
   const setTenantAndCookie = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
       const matched = findTenantOption(id)
@@ -140,32 +139,11 @@ export function TenantSelectionProviderRootAwareClient({
       setSelectedTenantID(canonicalId)
 
       if (canonicalId !== undefined && canonicalId !== null && canonicalId !== '') {
-        setTenantCookie(String(canonicalId))
+        setTenantCookieValue(String(canonicalId))
       } else {
-        deleteTenantCookie()
+        deleteTenantCookieValue()
       }
 
-      // On subdomain, keep URL in sync with selected tenant so tenant-slug and payload-tenant match.
-      // Redirect to the selected tenant's subdomain (or root when clearing) to avoid a broken dashboard.
-      if (isOnAdminSubdomain()) {
-        const desiredSlug =
-          canonicalId == null || canonicalId === ''
-            ? null
-            : (tenantOptions.find((o) => String(o.value) === String(canonicalId))?.slug ?? undefined)
-        const currentSubdomain = getCurrentSubdomain()
-        const slugMismatch =
-          desiredSlug === undefined
-            ? false
-            : (desiredSlug ?? null) !== (currentSubdomain ?? null)
-        if (slugMismatch) {
-          window.location.href = getAdminURLForTenantSlug(desiredSlug ?? null)
-          return
-        }
-      }
-
-      // Skip refresh on tenant-required create pages and on root doc (navbar/footer) to avoid
-      // clearing the form when editing navbar/footer, especially on subdomain where initialValue
-      // can be temporarily out of sync with the cookie.
       if (refresh && !isOnTenantRequiredCreatePage && !isOnRootDocCollection) {
         router.refresh()
       }
@@ -176,7 +154,6 @@ export function TenantSelectionProviderRootAwareClient({
   const setTenant = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
       if (id === undefined || id === null || id === '') {
-        // Always clear when user explicitly clears; do not fall back to first tenant.
         setTenantAndCookie({ id: undefined, refresh })
       } else if (!tenantOptions.find((o) => String(o.value) === String(id))) {
         setTenantAndCookie({ id: tenantOptions[0]?.value, refresh })
@@ -201,7 +178,7 @@ export function TenantSelectionProviderRootAwareClient({
         setTenantOptions(result.tenantOptions)
         if (result.tenantOptions.length === 1) {
           setSelectedTenantID(result.tenantOptions[0].value)
-          setTenantCookie(String(result.tenantOptions[0].value))
+          setTenantCookieValue(String(result.tenantOptions[0].value))
         }
       }
     } catch {
@@ -237,15 +214,12 @@ export function TenantSelectionProviderRootAwareClient({
         void syncTenantsRef.current()
       } else {
         setSelectedTenantID(undefined)
-        deleteTenantCookie()
+        deleteTenantCookieValue()
         if (tenantOptions.length > 0) setTenantOptions([])
         router.refresh()
       }
       prevUserID.current = userID
     }
-    // Intentionally omit syncTenants from deps: we use syncTenantsRef.current() so this
-    // effect only runs when user/cookie state changes, not when callback identity changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userID, userChanged, initialValue, router])
 
   React.useEffect(() => {
@@ -258,27 +232,20 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [initialValue, setTenant])
 
-  // Only auto-set first tenant when global if we're NOT on navbar/footer (root doc collections)
   React.useEffect(() => {
     if (!selectedTenantID && tenantOptions.length > 0 && entityType === 'global') {
-      // Allow "All tenants" on dashboard; only auto-select on other global views.
       if (!isOnRootDocCollection && !isOnDashboard) {
         setTenant({ id: tenantOptions[0]?.value, refresh: true })
       }
     }
   }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, isOnDashboard, setTenant])
 
-  // Show tenant-selection modal on create page when no tenant selected (instead of redirecting).
   const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
   const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(
     null,
   )
   const createModalShownForPath = React.useRef<string | null>(null)
 
-  // When on a tenant-required create page with no tenant in state, sync from cookie so we don't
-  // show the modal when the user just switched tenant (cookie is set but server sent stale initialValue).
-  // When we do sync, we must refresh so the create form loads for that tenant; otherwise the page
-  // stays in the no-tenant (uninteractable) state and the modal never shows.
   React.useEffect(() => {
     if (typeof pathname !== 'string') return
     if (!isTenantRequiredCreatePath(pathname)) return
@@ -290,30 +257,31 @@ export function TenantSelectionProviderRootAwareClient({
       setSelectedTenantID(match.value)
       router.refresh()
     }
-  }, [pathname, selectedTenantID, tenantOptions, router])
+  }, [pathname, selectedTenantID, tenantOptions, router, isTenantRequiredCreatePath])
 
-  // Only admins need the "filter by tenant" modal; tenant-admins have their tenant(s) assigned and should not see it.
-  const isAdminUser = Boolean(user && checkRole(['admin'], user as unknown as SharedUser))
+  const isAdminUser = Boolean(
+    user && (user as { roles?: string[] })?.roles?.includes?.('admin'),
+  )
   const isTenantAdminUser =
     Boolean(user) &&
-    checkRole(['tenant-admin'], user as unknown as SharedUser) &&
-    !checkRole(['admin'], user as unknown as SharedUser)
+    (user as { roles?: string[] })?.roles?.includes?.('tenant-admin') === true &&
+    !(user as { roles?: string[] })?.roles?.includes?.('admin')
 
-  // When tenant-admin has only one tenant, default to it so they never see an empty tenant state.
   React.useEffect(() => {
     if (!isTenantAdminUser || tenantOptions.length !== 1) return
     const singleTenantId = tenantOptions[0]?.value
     if (singleTenantId == null) return
     const current = selectedTenantID
-    if (current === undefined || current === null || current === '' || String(current) !== String(singleTenantId)) {
+    if (
+      current === undefined ||
+      current === null ||
+      current === '' ||
+      String(current) !== String(singleTenantId)
+    ) {
       setTenant({ id: singleTenantId, refresh: false })
     }
   }, [isTenantAdminUser, tenantOptions, selectedTenantID, setTenant])
 
-  // Pages, navbar, footer (and similar) allow create with no tenant for admin only.
-  // Tenant-admins must have a tenant selected. Show the select-tenant modal (or redirect if
-  // no options) so they can pick a tenant and stay on create, avoiding the plugin redirect to doc 1.
-  // useLayoutEffect so we run before paint and before the plugin can redirect to doc 1.
   React.useLayoutEffect(() => {
     if (typeof pathname !== 'string') return
     if (!isCreateRequireTenantForTenantAdminPath(pathname)) return
@@ -321,7 +289,6 @@ export function TenantSelectionProviderRootAwareClient({
     const noTenant =
       selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
     if (!noTenant) return
-    // If they have exactly one tenant, the effect above will set it; do nothing.
     if (tenantOptions.length === 1) return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
     const collectionSlug = createMatch?.[1]
@@ -333,7 +300,6 @@ export function TenantSelectionProviderRootAwareClient({
         setShowSelectTenantModal(true)
       }
     } else {
-      // No tenants available: redirect and toast.
       const listPath = pathname.replace(/\/create$/, '')
       router.replace(listPath)
       toast.error(
@@ -342,8 +308,6 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [pathname, isTenantAdminUser, selectedTenantID, tenantOptions.length, router])
 
-  // useLayoutEffect so we open the modal before paint; otherwise the create page can render in a
-  // blocked/uninteractable state and the modal never appears on top.
   React.useLayoutEffect(() => {
     if (typeof pathname !== 'string') return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
@@ -351,20 +315,21 @@ export function TenantSelectionProviderRootAwareClient({
     const noTenant =
       selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
 
+    const requireSet = new Set(collectionsRequireTenantOnCreate)
+    const requireTenantAdminSet = new Set(collectionsCreateRequireTenantForTenantAdmin)
     const isTenantRequiredCreate =
       collectionSlug &&
-      COLLECTIONS_REQUIRE_TENANT_ON_CREATE.has(collectionSlug) &&
+      requireSet.has(collectionSlug) &&
       noTenant &&
       (isAdminUser || isTenantAdminUser)
     const isCreateRequireTenantForTenantAdmin =
       collectionSlug &&
-      COLLECTIONS_CREATE_REQUIRE_TENANT_FOR_TENANT_ADMIN.has(collectionSlug) &&
+      requireTenantAdminSet.has(collectionSlug) &&
       isTenantAdminUser &&
       noTenant &&
       tenantOptions.length > 1
 
     if (isTenantRequiredCreate) {
-      // If we have tenant options, show the modal so the user can pick a tenant (avoids redirect to doc 1).
       if (tenantOptions.length > 0) {
         if (createModalShownForPath.current !== pathname) {
           createModalShownForPath.current = pathname
@@ -372,13 +337,11 @@ export function TenantSelectionProviderRootAwareClient({
           setShowSelectTenantModal(true)
         }
       } else {
-        // No tenants available: redirect and toast (same as before).
         const listPath = pathname.replace(/\/create$/, '')
         router.replace(listPath)
         toast.error('Please select a tenant first, then create a new document.')
       }
     } else if (isCreateRequireTenantForTenantAdmin) {
-      // Modal already opened in useLayoutEffect; keep it open (don't clear).
       if (createModalShownForPath.current !== pathname) {
         createModalShownForPath.current = pathname
         setCreateModalCollectionSlug(collectionSlug!)
@@ -389,7 +352,16 @@ export function TenantSelectionProviderRootAwareClient({
       setShowSelectTenantModal(false)
       setCreateModalCollectionSlug(null)
     }
-  }, [pathname, selectedTenantID, tenantOptions.length, router, isAdminUser, isTenantAdminUser])
+  }, [
+    pathname,
+    selectedTenantID,
+    tenantOptions.length,
+    router,
+    isAdminUser,
+    isTenantAdminUser,
+    collectionsRequireTenantOnCreate,
+    collectionsCreateRequireTenantForTenantAdmin,
+  ])
 
   const closeSelectTenantModal = React.useCallback(() => {
     setShowSelectTenantModal(false)
@@ -397,20 +369,24 @@ export function TenantSelectionProviderRootAwareClient({
     createModalShownForPath.current = null
   }, [])
 
+  const value: ContextValue = {
+    ...DefaultContext,
+    entityType,
+    modified,
+    options: tenantOptions,
+    selectedTenantID,
+    setEntityType,
+    setModified,
+    setTenant,
+    syncTenants,
+    updateTenants,
+    rootDocCollections,
+    collectionsRequireTenantOnCreate,
+    collectionsCreateRequireTenantForTenantAdmin,
+  }
+
   return (
-    <Context.Provider
-      value={{
-        entityType,
-        modified,
-        options: tenantOptions,
-        selectedTenantID,
-        setEntityType,
-        setModified,
-        setTenant,
-        syncTenants,
-        updateTenants,
-      }}
-    >
+    <Context.Provider value={value}>
       <PreventEnterSubmitOnCreatePage />
       {children}
       <SelectTenantForCreateModal
@@ -421,6 +397,3 @@ export function TenantSelectionProviderRootAwareClient({
     </Context.Provider>
   )
 }
-
-/** Drop-in replacement for plugin's useTenantSelection when using TenantSelectionProviderRootAware */
-export const useTenantSelection = () => React.use(Context)

@@ -38,6 +38,7 @@ Streamlined suite (~23 tests) covering critical user flows. **Turborepo-optimize
 
 **Removed/Moved:**
 - Admin UI navigation tests → integration tests (faster via API)
+- Admin tenant selector E2E → `@repo/plugin-clearable-tenant` package (`pnpm test:e2e` in that package; run against an app that uses the plugin)
 - Duplicate subdomain tests → consolidated
 - Cross-tenant booking spec → covered by app-smoke and multi-booking tests
 

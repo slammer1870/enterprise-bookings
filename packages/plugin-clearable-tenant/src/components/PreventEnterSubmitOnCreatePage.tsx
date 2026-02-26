@@ -1,25 +1,17 @@
 'use client'
 
-/**
- * Prevents accidental form submit on tenant-required collection create pages
- * (e.g. lessons, instructors) so the form is not cleared on mobile.
- *
- * 1. Enter key: capture-phase keydown prevents Enter in input/textarea/select
- *    from submitting (e.g. mobile keyboard "Go").
- * 2. Submit event: when submitter is null (Enter or programmatic submit),
- *    we prevent default so the form does not POST and reload.
- *
- * User must tap the Save button to submit; that has a non-null submitter.
- */
 import { usePathname } from 'next/navigation'
 import React from 'react'
-import { isTenantRequiredCreatePath } from '@/components/admin/prevent-create-page-reload'
+import { isTenantRequiredCreatePath } from '../lib/pathHelpers'
+import { useTenantSelection } from './TenantSelectionProviderRootAwareClient'
 
 export function PreventEnterSubmitOnCreatePage() {
   const pathname = usePathname()
+  const { collectionsRequireTenantOnCreate = [] } = useTenantSelection()
 
   React.useEffect(() => {
-    if (!isTenantRequiredCreatePath(pathname)) return
+    const options = { collectionsRequireTenantOnCreate }
+    if (!isTenantRequiredCreatePath(pathname, options)) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return
@@ -35,8 +27,6 @@ export function PreventEnterSubmitOnCreatePage() {
 
     const handleSubmit = (e: Event) => {
       const ev = e as SubmitEvent
-      // When form is submitted via Enter (or programmatic submit), submitter is null.
-      // Allow only when user explicitly clicked a submit button (submitter set).
       if (ev.submitter == null) {
         e.preventDefault()
         e.stopPropagation()
@@ -49,7 +39,7 @@ export function PreventEnterSubmitOnCreatePage() {
       document.removeEventListener('keydown', handleKeyDown, true)
       document.removeEventListener('submit', handleSubmit, true)
     }
-  }, [pathname])
+  }, [pathname, collectionsRequireTenantOnCreate])
 
   return null
 }
