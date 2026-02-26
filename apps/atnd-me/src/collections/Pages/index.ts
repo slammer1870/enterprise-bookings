@@ -72,6 +72,25 @@ const availableBlocks = [
 // Create the three column layout block - automatically uses all blocks from the pages config
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 
+const pageBlocks = [
+  HeroSchedule,
+  HeroScheduleSanctuary,
+  HeroWithLocation,
+  Hero,
+  MarketingHero,
+  ThreeColumnLayout,
+  ...availableBlocks.filter(
+    (block) =>
+      block.slug !== 'heroSchedule' &&
+      block.slug !== 'heroScheduleSanctuary' &&
+      block.slug !== 'heroWithLocation' &&
+      block.slug !== 'hero' &&
+      block.slug !== 'marketingHero'
+  ),
+]
+
+const allPageBlockSlugs: string[] = pageBlocks.map((b) => b.slug!).filter(Boolean)
+
 /** Extract allowed block slugs from the document's tenant only (not navbar context). Base pages get default blocks. */
 function _getAllowedBlockSlugs(data: { tenant?: unknown }, _req?: { context?: { tenant?: unknown } }): string[] {
   const tenant = data?.tenant
@@ -88,10 +107,23 @@ function _getAllowedBlockSlugs(data: { tenant?: unknown }, _req?: { context?: { 
  */
 async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unknown): Promise<string[]> {
   const r = req as
-    | { payload?: { findByID: (opts: { collection: 'tenants'; id: number | string; depth: number }) => Promise<{ allowedBlocks?: string[] }> } }
+    | {
+        user?: unknown
+        payload?: {
+          findByID: (opts: {
+            collection: 'tenants'
+            id: number | string
+            depth: number
+          }) => Promise<{ allowedBlocks?: string[] }>
+        }
+      }
     | undefined
   const tenant = data?.tenant
-  if (!tenant) return defaultBlockSlugs
+  if (!tenant) {
+    const tenantIds = getUserTenantIds(((r?.user as any) ?? null) as any)
+    if (tenantIds === null) return allPageBlockSlugs
+    return defaultBlockSlugs
+  }
 
   let allowed: string[] | undefined
   if (typeof tenant === 'object' && tenant !== null && 'allowedBlocks' in tenant) {
@@ -190,22 +222,7 @@ export const Pages: CollectionConfig<'pages'> = {
             {
               name: 'layout',
               type: 'blocks',
-              blocks: [
-                HeroSchedule,
-                HeroScheduleSanctuary,
-                HeroWithLocation,
-                Hero,
-                MarketingHero,
-                ThreeColumnLayout,
-                ...availableBlocks.filter(
-                  (block) =>
-                    block.slug !== 'heroSchedule' &&
-                    block.slug !== 'heroScheduleSanctuary' &&
-                    block.slug !== 'heroWithLocation' &&
-                    block.slug !== 'hero' &&
-                    block.slug !== 'marketingHero'
-                ),
-              ],
+              blocks: pageBlocks,
               filterOptions: async ({ data, req }) => {
                 return getAllowedBlockSlugsAsync(data ?? {}, req)
               },
