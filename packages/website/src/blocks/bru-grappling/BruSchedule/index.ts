@@ -1,0 +1,2 @@
+export { BruScheduleBlock } from './Component'
+

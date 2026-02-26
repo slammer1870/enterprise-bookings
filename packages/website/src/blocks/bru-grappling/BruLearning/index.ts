@@ -1,0 +1,2 @@
+export { BruLearningBlock } from './Component'
+

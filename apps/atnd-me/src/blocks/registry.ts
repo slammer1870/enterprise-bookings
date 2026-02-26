@@ -25,6 +25,14 @@ import {
   Features,
   CaseStudies,
   MarketingCta,
+  BruHero,
+  BruAbout,
+  BruSchedule,
+  BruLearning,
+  BruMeetTheTeam,
+  BruTestimonials,
+  BruContact,
+  BruHeroWaitlist,
 } from '@repo/website'
 
 const allBlocks: Block[] = [
@@ -48,6 +56,15 @@ const allBlocks: Block[] = [
   MediaBlock,
   Archive,
   FormBlock,
+  // Bru Grappling (tenant-scoped extras)
+  BruHero,
+  BruAbout,
+  BruSchedule,
+  BruLearning,
+  BruMeetTheTeam,
+  BruTestimonials,
+  BruContact,
+  BruHeroWaitlist,
 ]
 
 const ThreeColumnLayout = createThreeColumnLayout(allBlocks)

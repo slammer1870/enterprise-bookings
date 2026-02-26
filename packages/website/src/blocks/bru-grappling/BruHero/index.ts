@@ -1,0 +1,2 @@
+export { BruHeroBlock } from './Component'
+

@@ -1,0 +1,2 @@
+export { BruTestimonialsBlock } from './Component'
+

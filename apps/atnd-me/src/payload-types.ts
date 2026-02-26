@@ -303,6 +303,14 @@ export interface Tenant {
         | 'mediaBlock'
         | 'archive'
         | 'formBlock'
+        | 'bruHero'
+        | 'bruAbout'
+        | 'bruSchedule'
+        | 'bruLearning'
+        | 'bruMeetTheTeam'
+        | 'bruTestimonials'
+        | 'bruContact'
+        | 'bruHeroWaitlist'
         | 'threeColumnLayout'
       )[]
     | null;

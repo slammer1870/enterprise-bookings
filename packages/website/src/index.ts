@@ -23,6 +23,16 @@ export { MarketingHero } from "./blocks/marketingHero/config";
 export { Features } from "./blocks/features/config";
 export { CaseStudies } from "./blocks/caseStudies/config";
 export { MarketingCta } from "./blocks/marketingCta/config";
+export {
+  BruHero,
+  BruAbout,
+  BruSchedule,
+  BruLearning,
+  BruMeetTheTeam,
+  BruTestimonials,
+  BruContact,
+  BruHeroWaitlist,
+} from "./blocks/bru-grappling";
 
 // Export hooks
 export { revalidatePage, revalidateDelete } from "./hooks/revalidate-page"; 

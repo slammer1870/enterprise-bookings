@@ -22,6 +22,14 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   archive: 'Archive',
   formBlock: 'Form Block',
   threeColumnLayout: 'Three Column Layout',
+  bruHero: 'Hero (Brú)',
+  bruAbout: 'About (Brú)',
+  bruSchedule: 'Schedule (Brú)',
+  bruLearning: 'Learning (Brú)',
+  bruMeetTheTeam: 'Meet The Team (Brú)',
+  bruTestimonials: 'Testimonials (Brú)',
+  bruContact: 'Contact (Brú)',
+  bruHeroWaitlist: 'Hero Waitlist (Brú)',
 }
 
 /** Stripe Connect onboarding status (step 2.1). */

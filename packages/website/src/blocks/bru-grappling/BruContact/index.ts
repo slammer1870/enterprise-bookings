@@ -1,0 +1,2 @@
+export { BruContactBlock } from './Component'
+

@@ -20,6 +20,14 @@ import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Compo
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { ThreeColumnLayoutBlock } from '@repo/website/src/blocks/threeColumnLayout'
+import { BruHeroBlock } from '@repo/website/src/blocks/bru-grappling/BruHero'
+import { BruAboutBlock } from '@repo/website/src/blocks/bru-grappling/BruAbout'
+import { BruScheduleBlock } from '@repo/website/src/blocks/bru-grappling/BruSchedule'
+import { BruLearningBlock } from '@repo/website/src/blocks/bru-grappling/BruLearning'
+import { BruMeetTheTeamBlock } from '@repo/website/src/blocks/bru-grappling/BruMeetTheTeam'
+import { BruTestimonialsBlock } from '@repo/website/src/blocks/bru-grappling/BruTestimonials'
+import { BruContactBlock } from '@repo/website/src/blocks/bru-grappling/BruContact'
+import { BruHeroWaitlistBlock } from '@repo/website/src/blocks/bru-grappling/BruHeroWaitlist'
 
 // Export the block components registry — heterogeneous block props, so typed loosely
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,4 +53,12 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   healthBenefits: HealthBenefitsBlock,
   sectionTagline: SectionTaglineBlock,
   threeColumnLayout: ThreeColumnLayoutBlock,
+  bruHero: BruHeroBlock,
+  bruAbout: BruAboutBlock,
+  bruSchedule: BruScheduleBlock,
+  bruLearning: BruLearningBlock,
+  bruMeetTheTeam: BruMeetTheTeamBlock,
+  bruTestimonials: BruTestimonialsBlock,
+  bruContact: BruContactBlock,
+  bruHeroWaitlist: BruHeroWaitlistBlock,
 }
