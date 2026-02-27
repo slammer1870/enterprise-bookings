@@ -59,7 +59,6 @@ export const rolesPlugin =
           // Be defensive: selecting the full doc can join optional plugin-backed tables.
           // During rolling deploys / partial migrations, those tables may not exist yet.
           select: {
-            id: true,
             roles: true,
           },
         });

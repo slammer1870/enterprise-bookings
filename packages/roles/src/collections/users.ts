@@ -45,7 +45,7 @@ export const modifyUsersCollection = (
               // (which can join plugin-backed tables that may not exist yet).
               limit: 1,
               select: {
-                id: true,
+                email: true,
               },
             });
             if (users.totalDocs === 0) {

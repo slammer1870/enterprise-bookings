@@ -1,11 +1,9 @@
-"use server";
-
 import { stripe } from "@repo/shared-utils";
-import { headers } from "next/headers.js";
+import { headers } from "next/headers";
 import { APIError, type PayloadHandler } from "payload";
 import type { User } from "@repo/shared-types";
 import type { GetStripeAccountIdForRequest } from "../../types.js";
-import { ensureStripeCustomerIdForAccount } from "../../payments/lib/ensure-stripe-customer.js";
+import { ensureStripeCustomerIdForAccount } from "../../payments/lib/ensure-stripe-customer";
 
 export type CreateCustomerPortalOptions = {
   getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
