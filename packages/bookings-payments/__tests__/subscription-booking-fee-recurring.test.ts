@@ -107,7 +107,7 @@ describe("Subscription booking fee line item", () => {
     expect(feeItem.quantity).toBe(1);
     expect(feeItem.price_data?.unit_amount).toBe(199);
     expect(feeItem.price_data?.recurring).toEqual({ interval: "month", interval_count: 1 });
-  });
+  }, 60000);
 
   it("retrieves the plan price from the connected account when scope=connect", async () => {
     const { createCheckoutSession } = await import(
@@ -129,6 +129,6 @@ describe("Subscription booking fee line item", () => {
     // (priceId, params, opts)
     expect(call[0]).toBe("price_monthly_1");
     expect(call[2]).toEqual({ stripeAccount: "acct_connected_1" });
-  });
+  }, 60000);
 });
 

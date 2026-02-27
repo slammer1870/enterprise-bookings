@@ -19,7 +19,18 @@ export function createClassPassProductsProxy(classPass: ClassPassConfig): Payloa
       });
     }
     try {
-      const accountId = await Promise.resolve(classPass.getStripeAccountIdForRequest?.(req) ?? null);
+      const scope = classPass.productsProxyScope ?? "auto";
+      const accountId =
+        scope === "platform"
+          ? null
+          : await Promise.resolve(classPass.getStripeAccountIdForRequest?.(req) ?? null);
+
+      if (scope === "connect" && !accountId) {
+        return new Response(JSON.stringify("No connected Stripe account resolved for this request"), {
+          status: 400,
+        });
+      }
+
       const listParams = {
         limit: 100,
         expand: ["data.default_price"],

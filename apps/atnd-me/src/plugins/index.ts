@@ -321,6 +321,8 @@ export const plugins: Plugin[] = [
     classPass: {
       enabled: true,
       classOptionsSlug: 'class-options',
+      // Ensure admin product pickers (Stripe product dropdown) are tenant-scoped (no platform fallback)
+      productsProxyScope: 'connect',
       bookingTransactionsOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,

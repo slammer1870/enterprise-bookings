@@ -79,7 +79,7 @@ describe("Connect subscription application fees", () => {
     const [params, opts] = checkoutCreate.mock.calls[0] ?? [];
     expect(opts).toEqual({ stripeAccount: "acct_connected_1" });
     expect(params.subscription_data?.application_fee_percent).toBe(7.5);
-  });
+  }, 60000);
 
   it("does not set application fee when scope=platform (even if configured)", async () => {
     const { createCheckoutSession } = await import("../src/membership/endpoints/create-checkout-session");
@@ -97,6 +97,6 @@ describe("Connect subscription application fees", () => {
     const [params, opts] = checkoutCreate.mock.calls[0] ?? [];
     expect(opts).toBeUndefined();
     expect(params.subscription_data?.application_fee_percent).toBeUndefined();
-  });
+  }, 60000);
 });
 

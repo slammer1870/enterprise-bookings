@@ -90,6 +90,19 @@ describe("Stripe proxy endpoints scoping + meta", () => {
     expect(body.data.map((p: any) => p.id)).toEqual(["prod_recurring"]);
   });
 
+  it("GET /stripe/plans returns 400 when scope=connect but no account resolved", async () => {
+    const { createPlansProxy } = await import("../src/membership/endpoints/plans");
+
+    const handler = createPlansProxy({
+      enabled: true,
+      scope: "connect",
+      getStripeAccountIdForRequest: () => null,
+    } as any);
+
+    const res = await handler(makeReq() as any);
+    expect(res.status).toBe(400);
+  });
+
   it("GET /stripe/plans returns meta.stripeAccountId=null when no account is resolved", async () => {
     const { createPlansProxy } = await import("../src/membership/endpoints/plans");
 
@@ -124,6 +137,21 @@ describe("Stripe proxy endpoints scoping + meta", () => {
     expect(stripeOpts).toEqual({ stripeAccount: "acct_connected_2" });
 
     expect(body.data.map((p: any) => p.id)).toEqual(["prod_one_time"]);
+  });
+
+  it("GET /stripe/class-pass-products returns 400 when scope=connect but no account resolved", async () => {
+    const { createClassPassProductsProxy } = await import(
+      "../src/class-pass/endpoints/class-pass-products"
+    );
+
+    const handler = createClassPassProductsProxy({
+      enabled: true,
+      productsProxyScope: "connect",
+      getStripeAccountIdForRequest: () => null,
+    } as any);
+
+    const res = await handler(makeReq() as any);
+    expect(res.status).toBe(400);
   });
 
   it("GET /stripe/subscriptions supports connect scope and returns meta.stripeAccountId", async () => {

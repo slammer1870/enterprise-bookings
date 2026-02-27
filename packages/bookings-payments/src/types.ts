@@ -21,6 +21,13 @@ export type ClassPassConfig = {
   enabled: boolean;
   classOptionsSlug?: string;
   adminGroup?: string;
+  /**
+   * Controls which Stripe account GET /stripe/class-pass-products uses for CustomSelect.
+   * - auto: if getStripeAccountIdForRequest returns an accountId, list from that Connect account; otherwise platform (default)
+   * - connect: always list from the resolved Connect account (400 if none)
+   * - platform: always list from platform
+   */
+  productsProxyScope?: "platform" | "auto" | "connect";
   /** When set, GET /stripe/class-pass-products lists products from this Connect account (tenant-aware). */
   getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
   /** Override access/fields/hooks for transactions (e.g. tenant-scoped access in multi-tenant apps). */

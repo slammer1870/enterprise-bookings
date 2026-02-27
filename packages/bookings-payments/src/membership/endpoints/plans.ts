@@ -14,7 +14,24 @@ export function createPlansProxy(membership: MembershipConfig): PayloadHandler {
       });
     }
     try {
-      const accountId = await Promise.resolve(membership.getStripeAccountIdForRequest?.(req) ?? null);
+      // Backwards compatibility:
+      // - Historically, if getStripeAccountIdForRequest was provided and returned an acct, we listed from Connect.
+      // - If no resolver is provided, list from platform.
+      // Connect-first apps can set membership.scope to "connect" to require tenant context.
+      const scope =
+        membership.scope ??
+        (membership.getStripeAccountIdForRequest ? "auto" : "platform");
+      const accountId =
+        scope === "platform"
+          ? null
+          : await Promise.resolve(membership.getStripeAccountIdForRequest?.(req) ?? null);
+
+      if (scope === "connect" && !accountId) {
+        return new Response(JSON.stringify("No connected Stripe account resolved for this request"), {
+          status: 400,
+        });
+      }
+
       const listParams = {
         limit: 100,
         expand: ["data.default_price"],

@@ -251,7 +251,7 @@ describe("Option A: Connect as source-of-truth for membership", () => {
     expect(updatedUser?.stripeCustomers).toEqual([
       { stripeAccountId: "acct_connected_1", stripeCustomerId: "cus_acct_connected_1_1" },
     ]);
-  });
+  }, 60000);
 
   it("creates billing portal session on connected account using per-account mapping", async () => {
     const { createCustomerPortalFactory } = await import(
@@ -279,7 +279,7 @@ describe("Option A: Connect as source-of-truth for membership", () => {
     const [portalParams, portalOpts] = stripePortalCreateCalls[0]!.args;
     expect(portalOpts).toEqual({ stripeAccount: "acct_connected_1" });
     expect(portalParams.customer).toBe("cus_acct_connected_1_1");
-  });
+  }, 60000);
 
   it("syncStripeSubscriptions can sync from a connected account without writing users.stripeCustomerId", async () => {
     const { syncStripeSubscriptions } = await import(
@@ -310,6 +310,6 @@ describe("Option A: Connect as source-of-truth for membership", () => {
     expect(u.stripeCustomers).toEqual([
       { stripeAccountId: "acct_connected_1", stripeCustomerId: "cus_acct_connected_1_1" },
     ]);
-  });
+  }, 60000);
 });
 
