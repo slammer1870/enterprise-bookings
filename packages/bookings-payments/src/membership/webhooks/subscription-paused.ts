@@ -55,11 +55,8 @@ export const subscriptionPaused: StripeWebhookHandler<{
       id: foundSubscription.id as number,
       data: {
         status: "paused",
-        ...(typeof stripeAccountId === "string" && stripeAccountId.trim()
-          ? { stripeAccountId: stripeAccountId.trim() }
-          : {}),
-        ...(typeof stripeCustomerId === "string" && stripeCustomerId.trim()
-          ? { stripeCustomerId: stripeCustomerId.trim() }
+        ...(typeof stripeAccountId === "string" && stripeAccountId.trim() && typeof stripeCustomerId === "string" && stripeCustomerId.trim()
+          ? { stripeAccountId: stripeAccountId.trim(), stripeCustomerId: stripeCustomerId.trim() }
           : {}),
         endDate: currentPeriodEnd
           ? new Date(currentPeriodEnd * 1000).toISOString()

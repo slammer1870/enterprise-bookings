@@ -11,6 +11,10 @@ import { isAdminOrOwner } from "@repo/shared-services";
 import { createBeforeSubscriptionChange } from "../hooks/before-subscription-change";
 import type { MembershipBranchConfig } from "../types";
 
+function isConnectLikeScope(scope: unknown): boolean {
+  return scope === "connect" || scope === "auto";
+}
+
 const defaultFields: Field[] = [
   {
     name: "user",
@@ -87,38 +91,6 @@ const defaultFields: Field[] = [
     hooks: {},
   },
   {
-    name: "stripeAccountId",
-    type: "text",
-    label: "Stripe Account ID (Connect)",
-    access: {
-      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-    },
-    required: false,
-    admin: {
-      position: "sidebar",
-      readOnly: true,
-      condition: (_, siblingData) => Boolean((siblingData as any)?.stripeAccountId),
-    },
-  },
-  {
-    name: "stripeCustomerId",
-    type: "text",
-    label: "Stripe Customer ID (Connect)",
-    access: {
-      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-    },
-    required: false,
-    admin: {
-      position: "sidebar",
-      readOnly: true,
-      condition: (_, siblingData) => Boolean((siblingData as any)?.stripeCustomerId),
-    },
-  },
-  {
     name: "skipSync",
     type: "checkbox",
     defaultValue: false,
@@ -162,6 +134,40 @@ export function generateSubscriptionCollection(
   config: MembershipBranchConfig
 ): CollectionConfig {
   const overrides = config?.subscriptionOverrides;
+  const connectAuditFields: Field[] = [
+    {
+      name: "stripeAccountId",
+      type: "text",
+      label: "Stripe Account ID (Connect)",
+      access: {
+        read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+        create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+        update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      },
+      required: false,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        condition: (_, siblingData) => Boolean((siblingData as any)?.stripeAccountId),
+      },
+    },
+    {
+      name: "stripeCustomerId",
+      type: "text",
+      label: "Stripe Customer ID (Connect)",
+      access: {
+        read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+        create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+        update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      },
+      required: false,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        condition: (_, siblingData) => Boolean((siblingData as any)?.stripeCustomerId),
+      },
+    },
+  ];
   const defaultHooks: HooksConfig = {
     beforeChange: [
       createBeforeSubscriptionChange({
@@ -190,7 +196,13 @@ export function generateSubscriptionCollection(
     },
     fields:
       overrides?.fields && typeof overrides.fields === "function"
-        ? overrides.fields({ defaultFields })
-        : defaultFields,
+        ? overrides.fields({
+            defaultFields: isConnectLikeScope(config.scope)
+              ? [...defaultFields, ...connectAuditFields]
+              : defaultFields,
+          })
+        : isConnectLikeScope(config.scope)
+          ? [...defaultFields, ...connectAuditFields]
+          : defaultFields,
   };
 }

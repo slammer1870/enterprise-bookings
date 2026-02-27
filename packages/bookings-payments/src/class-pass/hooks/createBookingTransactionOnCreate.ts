@@ -45,24 +45,22 @@ export function createBookingTransactionOnCreate(): CollectionAfterChangeHook {
       txData.subscriptionId = d.subscriptionIdUsed;
     }
 
-    setImmediate(async () => {
-      try {
-        const r = req as { context?: Record<string, unknown> };
-        if (r.context == null || typeof r.context !== "object") r.context = {};
-        if (tenantId != null) r.context.tenant = tenantId;
-        r.context.skipBookingValidationForId = bookingId;
+    try {
+      const r = req as { context?: Record<string, unknown> };
+      if (r.context == null || typeof r.context !== "object") r.context = {};
+      if (tenantId != null) r.context.tenant = tenantId;
+      r.context.skipBookingValidationForId = bookingId;
 
-        await payload.create({
-          collection: "transactions" as import("payload").CollectionSlug,
-          data: txData,
-          overrideAccess: true,
-          req: r as Parameters<typeof payload.create>[0]["req"],
-        });
-      } catch (err) {
-        payload.logger?.error?.(
-          `createBookingTransactionOnCreate: failed to create booking-transaction for booking ${bookingId}: ${err}`,
-        );
-      }
-    });
+      await payload.create({
+        collection: "transactions" as import("payload").CollectionSlug,
+        data: txData,
+        overrideAccess: true,
+        req: r as Parameters<typeof payload.create>[0]["req"],
+      });
+    } catch (err) {
+      payload.logger?.error?.(
+        `createBookingTransactionOnCreate: failed to create booking-transaction for booking ${bookingId}: ${err}`,
+      );
+    }
   };
 }

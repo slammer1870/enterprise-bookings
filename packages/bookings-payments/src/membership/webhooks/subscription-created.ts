@@ -62,11 +62,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
         plan: plan.docs[0]?.id as number,
         status: "active",
         stripeSubscriptionId: event.data.object.id as string,
-        ...(typeof stripeAccountId === "string" && stripeAccountId.trim()
-          ? { stripeAccountId: stripeAccountId.trim() }
-          : {}),
-        ...(typeof stripeCustomerId === "string" && stripeCustomerId.trim()
-          ? { stripeCustomerId: stripeCustomerId.trim() }
+        ...(typeof stripeAccountId === "string" && stripeAccountId.trim() && typeof stripeCustomerId === "string" && stripeCustomerId.trim()
+          ? { stripeAccountId: stripeAccountId.trim(), stripeCustomerId: stripeCustomerId.trim() }
           : {}),
         startDate: currentPeriodStart
           ? new Date(currentPeriodStart * 1000).toISOString()
