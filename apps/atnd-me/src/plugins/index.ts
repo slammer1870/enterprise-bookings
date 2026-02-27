@@ -385,6 +385,10 @@ export const plugins: Plugin[] = [
       enabled: true,
       paymentMethodSlugs: ['class-options'],
       getStripeAccountIdForRequest,
+      // Ensure the tenant's connected account is the merchant of record (no platform fallback)
+      scope: 'connect',
+      // Ensure the admin Stripe subscription picker lists from the tenant's connected account
+      subscriptionsProxyScope: 'connect',
       syncStripeSubscriptions: false,
       getSubscriptionBookingFeeCents: async ({
         payload,

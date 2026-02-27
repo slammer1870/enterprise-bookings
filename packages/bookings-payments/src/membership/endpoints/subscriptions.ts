@@ -29,8 +29,12 @@ export function createSubscriptionsProxy(membership: MembershipConfig): PayloadH
       const subscriptions = await stripe.subscriptions
         .list({ limit: 100, expand: ["data.customer"] }, accountId ? { stripeAccount: accountId } : undefined)
         .autoPagingToArray({ limit: 1000 });
+      // Default to “active-ish” subscriptions for admin pickers; IDs can still be pasted manually.
+      const filtered = subscriptions.filter((s: any) =>
+        ["active", "trialing", "past_due"].includes(String(s?.status ?? ""))
+      );
       return new Response(
-        JSON.stringify({ data: subscriptions, meta: { stripeAccountId: accountId ?? null } }),
+        JSON.stringify({ data: filtered, meta: { stripeAccountId: accountId ?? null } }),
         { status: 200 }
       );
     } catch (error: unknown) {

@@ -8,7 +8,7 @@ import type {
 import { checkRole } from "@repo/shared-utils";
 import type { User, HooksConfig, AccessControls } from "@repo/shared-types";
 import { isAdminOrOwner } from "@repo/shared-services";
-import { beforeSubscriptionChange } from "../hooks/before-subscription-change";
+import { createBeforeSubscriptionChange } from "../hooks/before-subscription-change";
 import type { MembershipBranchConfig } from "../types";
 
 const defaultFields: Field[] = [
@@ -87,6 +87,38 @@ const defaultFields: Field[] = [
     hooks: {},
   },
   {
+    name: "stripeAccountId",
+    type: "text",
+    label: "Stripe Account ID (Connect)",
+    access: {
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    },
+    required: false,
+    admin: {
+      position: "sidebar",
+      readOnly: true,
+      condition: (_, siblingData) => Boolean((siblingData as any)?.stripeAccountId),
+    },
+  },
+  {
+    name: "stripeCustomerId",
+    type: "text",
+    label: "Stripe Customer ID (Connect)",
+    access: {
+      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+    },
+    required: false,
+    admin: {
+      position: "sidebar",
+      readOnly: true,
+      condition: (_, siblingData) => Boolean((siblingData as any)?.stripeCustomerId),
+    },
+  },
+  {
     name: "skipSync",
     type: "checkbox",
     defaultValue: false,
@@ -126,14 +158,18 @@ function getDefaultAdmin(config: MembershipBranchConfig): CollectionAdminOptions
   };
 }
 
-const defaultHooks: HooksConfig = {
-  beforeChange: [beforeSubscriptionChange],
-};
-
 export function generateSubscriptionCollection(
   config: MembershipBranchConfig
 ): CollectionConfig {
   const overrides = config?.subscriptionOverrides;
+  const defaultHooks: HooksConfig = {
+    beforeChange: [
+      createBeforeSubscriptionChange({
+        getStripeAccountIdForRequest: config.getStripeAccountIdForRequest,
+        scope: config.scope,
+      }),
+    ],
+  };
   return {
     ...(overrides ?? {}),
     slug: "subscriptions",

@@ -42,14 +42,29 @@ export const CustomSelect: React.FC<
 
   React.useEffect(() => {
     const getStripeOptions = async () => {
+      let optionsFetch: Response | null = null;
       try {
         setLoading(true);
-        const optionsFetch = await fetch(apiUrl, {
+        optionsFetch = await fetch(apiUrl, {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
         });
+
+        if (!optionsFetch.ok) {
+          const text = await optionsFetch.text().catch(() => "");
+          const message =
+            text && text.trim().length > 0 ? text : `Failed to load ${dataLabel}`;
+          setOptions([
+            {
+              label: message,
+              value: "",
+            },
+          ]);
+          toast.error(message);
+          return;
+        }
 
         const res = await optionsFetch.json();
 
@@ -96,7 +111,7 @@ export const CustomSelect: React.FC<
           } else {
             setOptions(fetchedOptions);
           }
-          setLoading(false);
+          return;
         }
       } catch (error) {
         console.error(error); // eslint-disable-line no-console
@@ -105,6 +120,7 @@ export const CustomSelect: React.FC<
           value: "",
         },]);
         toast.error("Error fetching options: " + (error as Error).message);
+      } finally {
         setLoading(false);
       }
     };

@@ -37,6 +37,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
   try {
     const stripeAccountId = (event as unknown as { account?: string | null }).account ?? null;
     const user = await findUserByCustomer(payload, customer as string, { stripeAccountId });
+    const stripeCustomerId =
+      typeof customer === "string" ? customer : (customer as any)?.id;
 
     if (!user) {
       payload.logger.info("Skipping subscription creation: User not found");
@@ -60,6 +62,12 @@ export const subscriptionCreated: StripeWebhookHandler<{
         plan: plan.docs[0]?.id as number,
         status: "active",
         stripeSubscriptionId: event.data.object.id as string,
+        ...(typeof stripeAccountId === "string" && stripeAccountId.trim()
+          ? { stripeAccountId: stripeAccountId.trim() }
+          : {}),
+        ...(typeof stripeCustomerId === "string" && stripeCustomerId.trim()
+          ? { stripeCustomerId: stripeCustomerId.trim() }
+          : {}),
         startDate: currentPeriodStart
           ? new Date(currentPeriodStart * 1000).toISOString()
           : null,

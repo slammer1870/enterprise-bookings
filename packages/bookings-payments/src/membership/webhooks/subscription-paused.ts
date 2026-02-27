@@ -16,6 +16,8 @@ export const subscriptionPaused: StripeWebhookHandler<{
   try {
     const stripeAccountId = (event as unknown as { account?: string | null }).account ?? null;
     const user = await findUserByCustomer(payload, customer as string, { stripeAccountId });
+    const stripeCustomerId =
+      typeof customer === "string" ? customer : (customer as any)?.id;
 
     if (!user) {
       payload.logger.info("Skipping subscription pause: User not found");
@@ -53,6 +55,12 @@ export const subscriptionPaused: StripeWebhookHandler<{
       id: foundSubscription.id as number,
       data: {
         status: "paused",
+        ...(typeof stripeAccountId === "string" && stripeAccountId.trim()
+          ? { stripeAccountId: stripeAccountId.trim() }
+          : {}),
+        ...(typeof stripeCustomerId === "string" && stripeCustomerId.trim()
+          ? { stripeCustomerId: stripeCustomerId.trim() }
+          : {}),
         endDate: currentPeriodEnd
           ? new Date(currentPeriodEnd * 1000).toISOString()
           : undefined,
