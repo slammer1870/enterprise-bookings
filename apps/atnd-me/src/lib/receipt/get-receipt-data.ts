@@ -1,6 +1,5 @@
 'server-only'
 
-import { getPayload } from '@/lib/payload'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import type { Payload } from 'payload'
 

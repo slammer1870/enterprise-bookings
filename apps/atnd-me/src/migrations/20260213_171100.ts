@@ -1,6 +1,6 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   // Drop constraints and indexes that reference payload_folders BEFORE dropping the tables
   // (otherwise DROP TABLE ... CASCADE removes them and explicit DROP CONSTRAINT fails)
   await db.execute(sql`
@@ -18,7 +18,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   DROP TYPE IF EXISTS "public"."enum_payload_folders_folder_type";`)
 }
 
-export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+export async function down({ db }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
    CREATE TYPE "public"."enum_payload_folders_folder_type" AS ENUM('media');
   CREATE TABLE "payload_folders_folder_type" (

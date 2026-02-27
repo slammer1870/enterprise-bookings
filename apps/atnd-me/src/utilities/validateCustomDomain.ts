@@ -161,7 +161,7 @@ export async function validateCustomDomainDns(
 
   try {
     return await Promise.race([lookup(), timeout])
-  } catch (e) {
+  } catch (_e) {
     return `Domain "${hostname}" could not be verified: DNS lookup timed out. Check DNS and try again.`
   }
 }

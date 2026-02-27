@@ -20,8 +20,6 @@ import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
 
-import { migrations as _migrations } from './migrations'
-
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
@@ -98,7 +96,7 @@ export default buildConfig({
         : {}),
     },
     // Ensure CLI migrations (migrate / migrate:fresh) use our repo migrations.
-    migrations: _migrations,
+    migrationDir: path.resolve(dirname, 'migrations'),
     ...(disableSchemaPush
       ? {
         push: false, // Disable automatic schema pushing in test/CI/E2E after first push

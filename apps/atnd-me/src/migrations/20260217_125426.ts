@@ -1,6 +1,6 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   // Create enum types idempotently (ignore if already exist from prior migrations)
   await db.execute(sql`
     DO $$ BEGIN CREATE TYPE "public"."enum_pages_blocks_hero_with_location_links_link_type" AS ENUM('reference', 'custom'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -152,7 +152,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   `)
 }
 
-export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+export async function down({ db }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
    ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'heroScheduleSanctuary' BEFORE 'location';
   ALTER TABLE "pages_blocks_hero_with_location_links" DISABLE ROW LEVEL SECURITY;

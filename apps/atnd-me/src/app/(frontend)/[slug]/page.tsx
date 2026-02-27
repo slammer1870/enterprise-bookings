@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { getPayload } from '@/lib/payload'
-import type { RequiredDataFromCollectionSlug, Where } from 'payload'
+import type { RequiredDataFromCollectionSlug } from 'payload'
 import { draftMode } from 'next/headers'
 import React from 'react'
 import { homeStatic } from '@/endpoints/seed/home-static'

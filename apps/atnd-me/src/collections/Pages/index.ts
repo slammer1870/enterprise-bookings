@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
+import type { User as SharedUser } from '@repo/shared-types'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -120,7 +121,7 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
     | undefined
   const tenant = data?.tenant
   if (!tenant) {
-    const tenantIds = getUserTenantIds(((r?.user as any) ?? null) as any)
+    const tenantIds = getUserTenantIds((r?.user ?? null) as unknown as SharedUser | null)
     if (tenantIds === null) return allPageBlockSlugs
     return defaultBlockSlugs
   }
@@ -206,7 +207,7 @@ export const Pages: CollectionConfig<'pages'> = {
           'Optional. Leave empty for global pages (e.g. root landing page on the main domain).',
       },
       filterOptions: ({ req }) => {
-        const tenantIds = getUserTenantIds((req as any)?.user ?? null)
+        const tenantIds = getUserTenantIds((req.user ?? null) as unknown as SharedUser | null)
         if (tenantIds === null) return true // admin: all tenants
         if (Array.isArray(tenantIds) && tenantIds.length > 0) {
           return { id: { in: tenantIds } }

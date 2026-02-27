@@ -1,6 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
 import type { User, Lesson, Booking } from '@repo/shared-types'
-import type { Tenant, Scheduler, ClassOption, Instructor } from '@/payload-types'
+import type { Tenant, ClassOption, Instructor } from '@/payload-types'
 
 const SAUNA_TENANTS = [
   { name: 'Dundrum', slug: 'dundrum', description: 'Sauna — Dublin South' },
@@ -303,7 +303,6 @@ export async function seedBookings({
       { overrideAccess: true },
     )
     allInstructors.push(instructor as Instructor)
-    const instructorId = getId(instructor)
 
     const saunaOnly = await createWithTenant(
       'class-pass-types',

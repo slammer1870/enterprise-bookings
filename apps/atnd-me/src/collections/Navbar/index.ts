@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { link } from '@/fields/link'
+import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { revalidateNavbar } from './hooks/revalidateNavbar'
 import {
@@ -38,7 +39,7 @@ export const Navbar: CollectionConfig = {
                     'Optional. Leave empty for the root site navbar (when no tenant is assigned, e.g. root domain).',
             },
             filterOptions: ({ req }) => {
-                const tenantIds = getUserTenantIds((req as any)?.user ?? null)
+                const tenantIds = getUserTenantIds((req.user ?? null) as unknown as SharedUser | null)
                 if (tenantIds === null) return true
                 if (Array.isArray(tenantIds) && tenantIds.length > 0) {
                     return { id: { in: tenantIds } }

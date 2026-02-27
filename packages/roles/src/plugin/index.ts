@@ -13,6 +13,8 @@ export const rolesPlugin =
       return config;
     }
 
+    type UserForOnInit = { id: string; roles?: string[] };
+
     let collections = config.collections || [];
 
     const usersCollection = collections.find(
@@ -38,17 +40,20 @@ export const rolesPlugin =
       if (existingOnInit) {
         await existingOnInit(payload);
       }
-      
+
       // Skip database operations during build time to avoid schema mismatch errors
       // Next.js build process may initialize Payload but database schema might not be ready
-      const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
-                         (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URI);
-      
+      const isBuildTime =
+        process.env.NEXT_PHASE === "phase-production-build" ||
+        (process.env.NODE_ENV === "production" && !process.env.DATABASE_URI);
+
       if (isBuildTime) {
-        payload.logger.info('Skipping rolesPlugin onInit during build time');
+        payload.logger.info("Skipping rolesPlugin onInit during build time");
         return;
       }
-      
+
+      const firstUserRole = pluginOptions.firstUserRole || "admin";
+
       try {
         // Check if there are any users
         const users = await payload.find({
@@ -65,20 +70,29 @@ export const rolesPlugin =
 
         // If at least one user exists, assign admin role to the first created user
         if (users.totalDocs > 0) {
-          const firstUser = users.docs[0];
+          const firstUser = users.docs[0] as unknown as UserForOnInit | undefined;
 
           if (!firstUser) {
             throw new Error("No users found");
           }
 
+          const userRoles = Array.isArray(firstUser.roles) ? firstUser.roles : [];
+
           // Check if the user doesn't have the admin role
-          if (!firstUser?.roles?.includes("admin")) {
+          if (!userRoles.includes(firstUserRole)) {
             // Add the admin role to the first user
-            await payload.update({
+            const updateUsers =
+              payload.update as unknown as (_options: {
+                collection: "users";
+                id: string;
+                data: { roles: string[] };
+              }) => Promise<unknown>;
+
+            await updateUsers({
               collection: "users",
               id: firstUser.id,
               data: {
-                roles: [...(firstUser?.roles || []), "admin"],
+                roles: [...userRoles, firstUserRole],
               },
             });
 
@@ -90,9 +104,11 @@ export const rolesPlugin =
       } catch (error) {
         // During build, database errors are expected - log but don't fail
         // The error is likely due to schema mismatch (e.g., users_role table doesn't exist)
-        if (isBuildTime || process.env.NODE_ENV === 'production') {
+        if (isBuildTime || process.env.NODE_ENV === "production") {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          payload.logger.warn(`rolesPlugin onInit skipped due to build-time database error: ${errorMessage}`);
+          payload.logger.warn(
+            `rolesPlugin onInit skipped due to build-time database error: ${errorMessage}`
+          );
         } else {
           payload.logger.error(error);
         }

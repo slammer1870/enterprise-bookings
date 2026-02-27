@@ -1,6 +1,6 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   // Create enums idempotently (ignore if already exist from partial run)
   const enumTypes = [
     ['enum_pages_blocks_marketing_hero_links_link_type', "('reference', 'custom')"],
@@ -380,7 +380,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "_pages_v_blocks_marketing_cta_background_media_idx" ON "_pages_v_blocks_marketing_cta" USING btree ("background_media_id");`)
 }
 
-export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
+export async function down({ db }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
    ALTER TABLE "pages_blocks_marketing_hero_links" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "pages_blocks_marketing_hero" DISABLE ROW LEVEL SECURITY;
