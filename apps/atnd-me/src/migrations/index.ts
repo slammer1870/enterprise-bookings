@@ -52,6 +52,7 @@ import * as migration_20260220_fix_case_studies_push_v2 from './20260220_fix_cas
 import * as migration_20260220_fix_schema_push_constraints from './20260220_fix_schema_push_constraints';
 import * as migration_20260225_forms_tenant_id from './20260225_forms_tenant_id';
 import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
+import * as migration_20260227_111125 from './20260227_111125';
 import * as migration_20260227_subscriptions_connect_fields from './20260227_subscriptions_connect_fields';
 
 export const migrations = [
@@ -313,7 +314,7 @@ export const migrations = [
   {
     up: migration_20260220_fix_schema_push_constraints.up,
     down: migration_20260220_fix_schema_push_constraints.down,
-    name: '20260220_fix_schema_push_constraints'
+    name: '20260220_fix_schema_push_constraints',
   },
   {
     up: migration_20260225_forms_tenant_id.up,
@@ -326,8 +327,13 @@ export const migrations = [
     name: '20260226_users_stripe_customers_table',
   },
   {
+    up: migration_20260227_111125.up,
+    down: migration_20260227_111125.down,
+    name: '20260227_111125',
+  },
+  {
     up: migration_20260227_subscriptions_connect_fields.up,
     down: migration_20260227_subscriptions_connect_fields.down,
-    name: '20260227_subscriptions_connect_fields',
+    name: '20260227_subscriptions_connect_fields'
   },
 ];
