@@ -39,3 +39,18 @@ export function isCreateRequireTenantForTenantAdminPath(
   return slug != null && toSet(options.collectionsCreateRequireTenantForTenantAdmin).has(slug)
 }
 
+/**
+ * Returns collection slug and document id when pathname is a collection edit page
+ * (e.g. /admin/collections/pages/123). Returns null for create or non-edit paths.
+ */
+export function getCollectionEditParams(
+  pathname: string | null,
+): { collectionSlug: string; docId: string } | null {
+  if (typeof pathname !== 'string') return null
+  const match = pathname.match(/^\/?admin\/collections\/([^/]+)\/([^/]+)$/)
+  if (!match) return null
+  const [, collectionSlug, docId] = match
+  if (!collectionSlug || !docId || docId === 'create') return null
+  return { collectionSlug, docId }
+}
+

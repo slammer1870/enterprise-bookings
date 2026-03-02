@@ -4,7 +4,7 @@ import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
-import { createPathHelpers } from '../../shared/pathHelpers'
+import { createPathHelpers, getCollectionEditParams } from '../../shared/pathHelpers'
 import { deleteTenantCookie, getTenantCookie, setPayloadTenantCookie } from '../../shared/cookieHelpers'
 import { PreventEnterSubmitOnCreatePage } from './PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from './SelectTenantForCreateModal'
@@ -56,6 +56,8 @@ type Props = {
   rootDocCollections?: string[]
   collectionsRequireTenantOnCreate?: string[]
   collectionsCreateRequireTenantForTenantAdmin?: string[]
+  collectionsWithTenantField?: string[]
+  documentTenantFieldName?: string
   getCookieDomain?: () => string | undefined
   userHasAccessToAllTenants?: (user: unknown) => boolean | Promise<boolean>
 }
@@ -68,6 +70,8 @@ export function TenantSelectionProviderRootAwareClient({
   rootDocCollections = ['navbar', 'footer'],
   collectionsRequireTenantOnCreate = [],
   collectionsCreateRequireTenantForTenantAdmin = ['pages', 'navbar', 'footer'],
+  collectionsWithTenantField = [],
+  documentTenantFieldName = 'tenant',
   getCookieDomain,
 }: Props) {
   const pathname = usePathname()
@@ -104,6 +108,11 @@ export function TenantSelectionProviderRootAwareClient({
   const isOnDashboard =
     typeof pathname === 'string' && (pathname === '/admin' || pathname === '/admin/')
   const isOnTenantRequiredCreatePage = isTenantRequiredCreatePath(pathname)
+  const isAdminUser = Boolean(user && (user as { roles?: string[] })?.roles?.includes?.('admin'))
+  const isTenantAdminUser =
+    Boolean(user) &&
+    (user as { roles?: string[] })?.roles?.includes?.('tenant-admin') === true &&
+    !(user as { roles?: string[] })?.roles?.includes?.('admin')
 
   const findTenantOption = React.useCallback(
     (id: string | number | undefined) => {
@@ -217,6 +226,72 @@ export function TenantSelectionProviderRootAwareClient({
   const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
   const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(null)
   const createModalShownForPath = React.useRef<string | null>(null)
+  const appliedDocumentTenantKey = React.useRef<string | null>(null)
+
+  // On collection edit page: if user has access to all tenants and document has an assigned tenant,
+  // fill the tenant selector and set the cookie so list filters and context match the document.
+  React.useEffect(() => {
+    const editParams = getCollectionEditParams(pathname)
+    if (!editParams) {
+      appliedDocumentTenantKey.current = null
+      return
+    }
+    const { collectionSlug, docId } = editParams
+    const withTenantSet = new Set(collectionsWithTenantField)
+    if (!withTenantSet.has(collectionSlug)) return
+    if (!isAdminUser || tenantOptions.length === 0) return
+
+    const key = `${collectionSlug}-${docId}`
+    if (appliedDocumentTenantKey.current === key) return
+
+    const url = formatAdminURL({
+      apiRoute: config.routes.api,
+      path: `/${collectionSlug}/${docId}`,
+    })
+    fetch(url, { credentials: 'include', method: 'GET' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((doc: Record<string, unknown> | null) => {
+        if (!doc) return
+        appliedDocumentTenantKey.current = key
+        const raw = doc[documentTenantFieldName]
+        const tenantId =
+          raw == null
+            ? undefined
+            : typeof raw === 'object' && raw !== null && 'id' in raw
+              ? (raw as { id: string | number }).id
+              : typeof raw === 'string' || typeof raw === 'number'
+                ? raw
+                : undefined
+        const hasNoTenant =
+          tenantId === undefined || tenantId === null || tenantId === ''
+        if (hasNoTenant) {
+          // Optional tenant field with no tenant (e.g. base page): keep selector and cookie clear.
+          if (
+            selectedTenantID !== undefined &&
+            selectedTenantID !== null &&
+            selectedTenantID !== ''
+          ) {
+            setTenant({ id: undefined, refresh: false })
+          }
+          return
+        }
+        const match = tenantOptions.find((o) => String(o.value) === String(tenantId))
+        if (!match) return
+        if (String(selectedTenantID) !== String(tenantId)) {
+          setTenant({ id: match.value, refresh: false })
+        }
+      })
+      .catch(() => {})
+  }, [
+    pathname,
+    collectionsWithTenantField,
+    documentTenantFieldName,
+    isAdminUser,
+    tenantOptions,
+    config.routes.api,
+    selectedTenantID,
+    setTenant,
+  ])
 
   React.useEffect(() => {
     if (typeof pathname !== 'string') return
@@ -230,12 +305,6 @@ export function TenantSelectionProviderRootAwareClient({
       router.refresh()
     }
   }, [pathname, selectedTenantID, tenantOptions, router, isTenantRequiredCreatePath])
-
-  const isAdminUser = Boolean(user && (user as { roles?: string[] })?.roles?.includes?.('admin'))
-  const isTenantAdminUser =
-    Boolean(user) &&
-    (user as { roles?: string[] })?.roles?.includes?.('tenant-admin') === true &&
-    !(user as { roles?: string[] })?.roles?.includes?.('admin')
 
   React.useEffect(() => {
     if (!isTenantAdminUser || tenantOptions.length !== 1) return

@@ -517,6 +517,8 @@ export const plugins: Plugin[] = [
       'scheduler',
     ],
     collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
+    collectionsWithTenantField: ['pages', 'navbar', 'footer'],
+    documentTenantFieldName: 'tenant',
     userHasAccessToAllTenants: (user) => checkRole(['admin'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)

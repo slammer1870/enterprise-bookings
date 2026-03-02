@@ -13,6 +13,7 @@ export {
   createPathHelpers,
   isTenantRequiredCreatePath,
   isCreateRequireTenantForTenantAdminPath,
+  getCollectionEditParams,
 } from './shared/pathHelpers'
 export type { PathHelpersOptions } from './shared/pathHelpers'
 
@@ -20,6 +21,10 @@ export type ClearableTenantPluginOptions = {
   rootDocCollections?: string[]
   collectionsRequireTenantOnCreate?: string[] | Set<string>
   collectionsCreateRequireTenantForTenantAdmin?: string[] | Set<string>
+  /** Collection slugs that have an assigned tenant field; on edit, selector is synced from doc. */
+  collectionsWithTenantField?: string[]
+  /** Name of the tenant field on documents (default 'tenant'). */
+  documentTenantFieldName?: string
   getCookieDomain?: () => string | undefined
   userHasAccessToAllTenants?: (user: unknown) => boolean | Promise<boolean>
   tenantsCollectionSlug?: string
@@ -89,6 +94,8 @@ export const clearableTenantPlugin =
                   : _options.collectionsCreateRequireTenantForTenantAdmin,
               )
             : ['pages', 'navbar', 'footer'],
+        collectionsWithTenantField: _options.collectionsWithTenantField ?? [],
+        documentTenantFieldName: _options.documentTenantFieldName ?? 'tenant',
         getCookieDomain: _options.getCookieDomain,
         userHasAccessToAllTenants: _options.userHasAccessToAllTenants,
       }

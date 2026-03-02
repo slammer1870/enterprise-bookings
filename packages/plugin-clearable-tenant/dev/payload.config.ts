@@ -64,6 +64,8 @@ export default buildConfig({
       rootDocCollections: [],
       collectionsRequireTenantOnCreate: ['posts'],
       collectionsCreateRequireTenantForTenantAdmin: [],
+      collectionsWithTenantField: ['posts'],
+      documentTenantFieldName: 'tenant',
       // Dev/e2e: seed user has roles: ['admin']. Override so any logged-in user gets all tenants (covers other test users).
       userHasAccessToAllTenants: () => true,
     }),

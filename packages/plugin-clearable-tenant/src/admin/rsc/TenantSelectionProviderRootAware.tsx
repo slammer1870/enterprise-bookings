@@ -83,6 +83,8 @@ type Props = {
   rootDocCollections?: string[]
   collectionsRequireTenantOnCreate?: string[]
   collectionsCreateRequireTenantForTenantAdmin?: string[]
+  collectionsWithTenantField?: string[]
+  documentTenantFieldName?: string
   getCookieDomain?: () => string | undefined
 }
 
@@ -99,6 +101,8 @@ export async function TenantSelectionProviderRootAware(props: Props) {
     rootDocCollections = ['navbar', 'footer'],
     collectionsRequireTenantOnCreate = [],
     collectionsCreateRequireTenantForTenantAdmin = ['pages', 'navbar', 'footer'],
+    collectionsWithTenantField = [],
+    documentTenantFieldName = 'tenant',
     getCookieDomain,
   } = props
 
@@ -149,6 +153,8 @@ export async function TenantSelectionProviderRootAware(props: Props) {
       rootDocCollections={rootDocCollections}
       collectionsRequireTenantOnCreate={collectionsRequireTenantOnCreate}
       collectionsCreateRequireTenantForTenantAdmin={collectionsCreateRequireTenantForTenantAdmin}
+      collectionsWithTenantField={collectionsWithTenantField}
+      documentTenantFieldName={documentTenantFieldName}
       getCookieDomain={getCookieDomain}
     >
       {children}

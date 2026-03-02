@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   createPathHelpers,
+  getCollectionEditParams,
   isTenantRequiredCreatePath,
   isCreateRequireTenantForTenantAdminPath,
 } from '../shared/pathHelpers'
@@ -61,6 +62,36 @@ describe('path helpers', () => {
         collectionsCreateRequireTenantForTenantAdmin: ['pages'],
       })
       expect(helpers.isCreateRequireTenantForTenantAdminPath(null)).toBe(false)
+    })
+  })
+
+  describe('getCollectionEditParams', () => {
+    it('returns collection slug and doc id for edit path', () => {
+      expect(getCollectionEditParams('/admin/collections/pages/123')).toEqual({
+        collectionSlug: 'pages',
+        docId: '123',
+      })
+      expect(getCollectionEditParams('/admin/collections/posts/42')).toEqual({
+        collectionSlug: 'posts',
+        docId: '42',
+      })
+    })
+
+    it('returns null for create path', () => {
+      expect(getCollectionEditParams('/admin/collections/pages/create')).toBeNull()
+    })
+
+    it('returns null for list path or invalid paths', () => {
+      expect(getCollectionEditParams('/admin/collections/pages')).toBeNull()
+      expect(getCollectionEditParams(null)).toBeNull()
+      expect(getCollectionEditParams('/admin')).toBeNull()
+    })
+
+    it('accepts pathname without leading slash', () => {
+      expect(getCollectionEditParams('admin/collections/posts/1')).toEqual({
+        collectionSlug: 'posts',
+        docId: '1',
+      })
     })
   })
 

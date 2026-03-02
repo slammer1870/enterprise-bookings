@@ -528,4 +528,114 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     await titleInput.fill(`e2e ${Date.now()}`)
     await expect(titleInput).not.toHaveValue('')
   })
+
+  test('collection edit page autofills tenant selector and sets cookie from document tenant', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+    await ensureSidebarOpen(page)
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+    const tenant2 = tenants[1]
+
+    // Create a post with tenant2 assigned via API (dev app: posts collection has tenant field).
+    const createRes = await request.post(`${ADMIN_ORIGIN}/api/posts`, {
+      data: { title: `Edit-page tenant sync e2e ${Date.now()}`, tenant: tenant2.id },
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(createRes.ok()).toBe(true)
+    const createBody = (await createRes.json()) as { doc?: { id: string | number } }
+    const postId = createBody.doc?.id
+    expect(postId).toBeDefined()
+
+    // Start with tenant1 selected so we can assert the edit page switches to tenant2.
+    const cookieURLs = [`${ADMIN_ORIGIN}/`, `${ADMIN_ORIGIN}/admin/`, `${ADMIN_ORIGIN}/admin/collections/`]
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/posts/${postId}`, { waitUntil: 'load' })
+    await page
+      .waitForURL(
+        (url) => url.pathname === `/admin/collections/posts/${postId}`,
+        { timeout: 15_000 },
+      )
+      .catch(() => null)
+
+    await ensureSidebarOpen(page)
+    const wrap = getTenantSelectorLocator(page)
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+
+    // Tenant selector should show the document's tenant (tenant2), not tenant1.
+    await expect(wrap.getByText(tenant2.name).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
+
+    // Cookie should be set to the document's tenant.
+    await expect
+      .poll(
+        async () => {
+          const cookies = await page.context().cookies(cookieURLs)
+          return cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
+        },
+        { timeout: CI.cookiePollTimeout },
+      )
+      .toBe(tenant2.id)
+  })
+
+  test('collection edit page with no tenant (optional field) keeps tenant selector and cookie clear', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+    await ensureSidebarOpen(page)
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+
+    // Create a post with no tenant (base document; dev app posts have optional tenant field).
+    const createRes = await request.post(`${ADMIN_ORIGIN}/api/posts`, {
+      data: { title: `Base page no-tenant e2e ${Date.now()}` },
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(createRes.ok()).toBe(true)
+    const createBody = (await createRes.json()) as { doc?: { id: string | number } }
+    const postId = createBody.doc?.id
+    expect(postId).toBeDefined()
+
+    // Start with tenant1 selected so we can assert the edit page clears to no tenant.
+    const cookieURLs = [`${ADMIN_ORIGIN}/`, `${ADMIN_ORIGIN}/admin/`, `${ADMIN_ORIGIN}/admin/collections/`]
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/posts/${postId}`, { waitUntil: 'load' })
+    await page
+      .waitForURL(
+        (url) => url.pathname === `/admin/collections/posts/${postId}`,
+        { timeout: 15_000 },
+      )
+      .catch(() => null)
+
+    await ensureSidebarOpen(page)
+    const wrap = getTenantSelectorLocator(page)
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+
+    // Document has no tenant: selector should show clear/placeholder, not tenant1.
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
+
+    // Cookie should be cleared (no tenant).
+    await expect
+      .poll(
+        async () => {
+          const cookies = await page.context().cookies(cookieURLs)
+          const val = cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
+          return val === '' || val === undefined
+        },
+        { timeout: CI.cookiePollTimeout },
+      )
+      .toBe(true)
+  })
 })
