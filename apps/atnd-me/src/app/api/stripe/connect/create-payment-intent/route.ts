@@ -9,6 +9,7 @@ import {
 } from '@/lib/stripe-connect/api-helpers'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { coerceMetadata } from '@/lib/api/request-utils'
+import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 import {
   validateBookingIdsFromMetadata,
   reservePendingBookings,
@@ -127,6 +128,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { stripeCustomerId } = await ensureStripeCustomerIdForAccount({
+      payload,
+      userId: user.id,
+      email: user.email,
+      name: (user as any)?.name ?? null,
+      stripeAccountId: tenant.stripeConnectAccountId,
+    })
+
     const { client_secret } = await createTenantPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -137,6 +146,7 @@ export async function POST(request: NextRequest) {
       currency: 'eur',
       productType: 'drop-in',
       payload,
+      customerId: stripeCustomerId,
       metadata: {
         ...(metadata ?? {}),
         lessonId: String(lessonId),
@@ -146,7 +156,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ clientSecret: client_secret, amount: price }, { status: 200 })
+    return NextResponse.json(
+      { clientSecret: client_secret, amount: price, stripeAccountId: tenant.stripeConnectAccountId },
+      { status: 200 }
+    )
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Payment intent failed'
     return NextResponse.json({ error: message }, { status: 500 })

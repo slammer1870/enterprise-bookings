@@ -19,6 +19,8 @@ import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
+import { createCustomersProxy } from '@repo/bookings-payments'
+import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -106,6 +108,17 @@ export default buildConfig({
   collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [PlatformFees],
+  endpoints: [
+    // Tenant-scoped Stripe customers for Connect mapping UI.
+    {
+      path: '/stripe/tenant-customers',
+      method: 'get',
+      handler: createCustomersProxy({
+        scope: 'connect',
+        getStripeAccountIdForRequest,
+      }),
+    },
+  ],
   plugins,
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),
   sharp: sharp as unknown as SharpDependency,

@@ -12,6 +12,7 @@ import {
   resolveTenantForConnect,
 } from '@/lib/stripe-connect/api-helpers'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
+import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 
 const DEFAULT_PRICE_CENTS = 1000
 const DEFAULT_EXPIRATION_DAYS = 365
@@ -63,10 +64,19 @@ export async function POST(request: NextRequest) {
     const mockId = `pi_test_${Date.now()}`
     return NextResponse.json({
       clientSecret: `${mockId}_secret_test`,
+      stripeAccountId: tenant.stripeConnectAccountId,
     })
   }
 
   try {
+    const { stripeCustomerId } = await ensureStripeCustomerIdForAccount({
+      payload,
+      userId: user.id,
+      email: user.email,
+      name: (user as any)?.name ?? null,
+      stripeAccountId: tenant.stripeConnectAccountId,
+    })
+
     const { client_secret } = await createTenantPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -77,6 +87,7 @@ export async function POST(request: NextRequest) {
       currency: 'eur',
       productType: 'class-pass',
       payload,
+      customerId: stripeCustomerId,
       metadata: {
         type: 'class_pass_purchase',
         userId: String(user.id),
@@ -86,7 +97,7 @@ export async function POST(request: NextRequest) {
         totalCents: String(totalCents),
       },
     })
-    return NextResponse.json({ clientSecret: client_secret })
+    return NextResponse.json({ clientSecret: client_secret, stripeAccountId: tenant.stripeConnectAccountId })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Payment intent failed'
     return NextResponse.json({ error: message }, { status: 500 })

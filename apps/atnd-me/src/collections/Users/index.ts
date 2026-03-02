@@ -136,6 +136,16 @@ export const Users: CollectionConfig = {
     },
     // Note: 'tenants' field is automatically added by @payloadcms/plugin-multi-tenant
     // This field tracks which tenants the user has access to (for tenant-admins or cross-tenant users)
+    {
+      name: 'tenantStripeCustomerMapping',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: '@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField',
+        },
+      },
+    },
   ],
   timestamps: true,
 }

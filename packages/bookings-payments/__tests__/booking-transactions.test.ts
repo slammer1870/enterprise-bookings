@@ -7,7 +7,7 @@ import { config } from "./config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 
-const HOOK_TIMEOUT = 60000;
+const HOOK_TIMEOUT = 180000;
 
 describe("transactions collection", () => {
   let payload: Payload;

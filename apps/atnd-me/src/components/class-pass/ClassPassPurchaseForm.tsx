@@ -16,9 +16,23 @@ import { Button } from '@repo/ui/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import { Label } from '@repo/ui/components/ui/label'
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
-)
+const stripePromiseByAccount = new Map<string, ReturnType<typeof loadStripe>>()
+let stripePromise: ReturnType<typeof loadStripe> | null = null
+function getStripePromise(stripeAccountId?: string | null) {
+  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  if (!key) return null
+  const acct = typeof stripeAccountId === 'string' && stripeAccountId.trim() ? stripeAccountId.trim() : null
+  if (!acct) {
+    if (stripePromise) return stripePromise
+    stripePromise = loadStripe(key)
+    return stripePromise
+  }
+  const existing = stripePromiseByAccount.get(acct)
+  if (existing) return existing
+  const created = loadStripe(key, { stripeAccount: acct })
+  stripePromiseByAccount.set(acct, created)
+  return created
+}
 
 type ClassPassPurchaseFormProps = {
   tenantSlug: string
@@ -78,6 +92,7 @@ export function ClassPassPurchaseForm({
 }: ClassPassPurchaseFormProps) {
   const [quantity, setQuantity] = useState(defaultQuantity)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
 
@@ -98,6 +113,11 @@ export function ClassPassPurchaseForm({
       }
       if (data.clientSecret) {
         setClientSecret(data.clientSecret)
+        setStripeAccountId(
+          typeof data.stripeAccountId === 'string' && data.stripeAccountId.trim()
+            ? data.stripeAccountId.trim()
+            : null
+        )
       } else {
         setError('Missing payment details')
       }
@@ -109,9 +129,31 @@ export function ClassPassPurchaseForm({
   }
 
   if (clientSecret) {
+    const isTestClientSecret =
+      typeof clientSecret === 'string' && /^pi_test_.*_secret_test$/.test(clientSecret)
+    const stripe = getStripePromise(stripeAccountId)
+    if (!stripe || isTestClientSecret) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Complete payment</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="text-sm text-muted-foreground" data-testid="stripe-not-configured">
+              {isTestClientSecret
+                ? 'Payment form not available in test mode.'
+                : 'Payments are not available in this environment.'}
+            </div>
+            <Button type="button" variant="outline" onClick={() => setClientSecret(null)}>
+              Back
+            </Button>
+          </CardContent>
+        </Card>
+      )
+    }
     return (
       <Elements
-        stripe={stripePromise}
+        stripe={stripe}
         options={{
           clientSecret,
           appearance: { theme: 'stripe' },

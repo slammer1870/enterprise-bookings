@@ -16,6 +16,11 @@ export type CreateTenantPaymentIntentParams = {
   tenant: TenantStripeLike & { id?: number }
   classPriceAmount: number
   currency: string
+  /**
+   * Customer ID in the tenant's connected Stripe account.
+   * When provided, the PaymentIntent will be created on the connected account and attached to this customer.
+   */
+  customerId?: string | null
   metadata: Record<string, string> & {
     tenantId?: string
     bookingId?: string
@@ -35,7 +40,7 @@ export type CreateTenantPaymentIntentParams = {
 export async function createTenantPaymentIntent(
   params: CreateTenantPaymentIntentParams,
 ): Promise<{ id: string; client_secret: string | null }> {
-  const { tenant, classPriceAmount, currency, metadata } = params
+  const { tenant, classPriceAmount, currency, metadata, customerId } = params
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) {
@@ -71,14 +76,19 @@ export async function createTenantPaymentIntent(
     meta.tenantId = String(tenant.id)
   }
 
-  const pi = await stripe.paymentIntents.create({
-    amount,
-    currency,
-    application_fee_amount: bookingFeeAmount,
-    on_behalf_of: accountId,
-    transfer_data: { destination: accountId },
-    metadata: meta,
-  })
+  // When we have a tenant-scoped customer id, create the PI on the connected account (direct charge)
+  // so the PI can be attached to that customer. Platform still collects booking fee via application_fee_amount.
+  const pi = await stripe.paymentIntents.create(
+    {
+      amount,
+      currency,
+      automatic_payment_methods: { enabled: true },
+      application_fee_amount: bookingFeeAmount,
+      ...(typeof customerId === 'string' && customerId.trim() ? { customer: customerId.trim() } : {}),
+      metadata: meta,
+    },
+    { stripeAccount: accountId },
+  )
 
   return {
     id: pi.id,

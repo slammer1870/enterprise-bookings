@@ -21,12 +21,25 @@ import CardSkeleton from "./card-skeleton";
 import { useAnalyticsTracker } from "@repo/analytics";
 
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
-function getStripePromise() {
-  if (stripePromise) return stripePromise;
+const stripePromiseByAccount = new Map<string, ReturnType<typeof loadStripe>>();
+
+function getStripePromise(stripeAccountId?: string | null) {
+  const account = typeof stripeAccountId === "string" && stripeAccountId.trim() ? stripeAccountId.trim() : null;
+  if (!account) {
+    if (stripePromise) return stripePromise;
+  } else {
+    const existing = stripePromiseByAccount.get(account);
+    if (existing) return existing;
+  }
   const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
   if (!key) return null;
-  stripePromise = loadStripe(key);
-  return stripePromise;
+  const created = account ? loadStripe(key, { stripeAccount: account }) : loadStripe(key);
+  if (!account) {
+    stripePromise = created;
+    return stripePromise;
+  }
+  stripePromiseByAccount.set(account, created);
+  return created;
 }
 
 function PaymentForm({
@@ -156,6 +169,7 @@ export default function CheckoutForm({
   } as Appearance;
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -214,6 +228,11 @@ export default function CheckoutForm({
 
         console.log("Payment intent created successfully");
         setClientSecret(data.clientSecret);
+        setStripeAccountId(
+          typeof data.stripeAccountId === "string" && data.stripeAccountId.trim()
+            ? data.stripeAccountId.trim()
+            : null
+        );
       } catch (err) {
         console.error("Error creating payment intent:", err);
         setError("Network error - please check your connection and try again");
@@ -248,7 +267,7 @@ export default function CheckoutForm({
     );
   }
 
-  const stripe = getStripePromise();
+  const stripe = getStripePromise(stripeAccountId);
   // E2E/test mock secret (from create-payment-intent when ENABLE_TEST_WEBHOOKS or placeholder account).
   // Don't pass to Elements or Stripe.js will throw loading the invalid PI.
   const isTestClientSecret =

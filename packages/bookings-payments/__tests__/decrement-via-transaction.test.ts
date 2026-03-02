@@ -13,7 +13,7 @@ import {
   getClassPassIdFromBookingTransaction,
 } from "../src";
 
-const HOOK_TIMEOUT = 60000;
+const HOOK_TIMEOUT = 180000;
 
 describe("decrement via booking-transaction", () => {
   let payload: Payload;

@@ -72,10 +72,17 @@ describe('Middleware', () => {
     })
 
     it('ignores host that does not match root (no subdomain set)', async () => {
-      const res = await middleware(createMockRequest('other-domain.com', '/'))
-      const setCookie = res.headers.get('set-cookie')
-      expect(setCookie).not.toContain('tenant-slug=other')
-    })
+      // Middleware may attempt custom-domain lookup; mock fetch to avoid real network.
+      const originalFetch = globalThis.fetch
+      globalThis.fetch = async () => new Response(null, { status: 404 })
+      try {
+        const res = await middleware(createMockRequest('other-domain.com', '/'))
+        const setCookie = res.headers.get('set-cookie')
+        expect(setCookie).not.toContain('tenant-slug=other')
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    }, 10000)
   })
 
   describe('localhost with NEXT_PUBLIC_SERVER_URL', () => {

@@ -16,6 +16,9 @@ export { createBookingTransactionOnCreate } from "./class-pass/hooks/createBooki
 export { getClassPassIdFromBookingTransaction } from "./class-pass/utilities/getClassPassIdFromBookingTransaction";
 export { paymentIntentSucceeded } from "./payments/webhooks/payment-intent-succeeded";
 export type { PaymentIntentSucceededArgs } from "./payments/webhooks/payment-intent-succeeded";
+// Payments endpoints
+export { createCustomersProxy } from "./payments/endpoints/customers";
+export { ensureStripeCustomerIdForAccount } from "./payments/lib/ensure-stripe-customer";
 // Membership webhooks (in-tree)
 export { subscriptionCreated } from "./membership/webhooks/subscription-created";
 export { subscriptionUpdated } from "./membership/webhooks/subscription-updated";
