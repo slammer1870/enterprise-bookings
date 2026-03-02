@@ -42,6 +42,10 @@ export default buildConfig({
       slug: 'posts',
       fields: [{ name: 'title', type: 'text' }],
     },
+    {
+      slug: 'pages',
+      fields: [{ name: 'title', type: 'text' }],
+    },
   ],
   db: sqliteAdapter({
     client: {
@@ -55,7 +59,7 @@ export default buildConfig({
   plugins: [
     multiTenantPlugin({
       tenantsSlug: 'tenants',
-      collections: { posts: {} },
+      collections: { posts: {}, pages: {} },
       // Dev/e2e: treat any logged-in user as having access to all tenants
       // so tenant list + populate-tenant-options return 2+ options immediately.
       userHasAccessToAllTenants: () => true,
@@ -64,7 +68,7 @@ export default buildConfig({
       rootDocCollections: [],
       collectionsRequireTenantOnCreate: ['posts'],
       collectionsCreateRequireTenantForTenantAdmin: [],
-      collectionsWithTenantField: ['posts'],
+      collectionsWithTenantField: ['posts', 'pages'],
       documentTenantFieldName: 'tenant',
       // Dev/e2e: seed user has roles: ['admin']. Override so any logged-in user gets all tenants (covers other test users).
       userHasAccessToAllTenants: () => true,

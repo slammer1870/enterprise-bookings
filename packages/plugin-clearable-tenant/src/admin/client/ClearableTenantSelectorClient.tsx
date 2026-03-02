@@ -29,6 +29,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     selectedTenantID,
     setTenant,
     rootDocCollections = ['navbar', 'footer'],
+    canClearTenantOnCurrentRoute = true,
   } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
@@ -69,7 +70,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
           typeof normalized === 'object' &&
           'value' in normalized &&
           (normalized.value === undefined || normalized.value === null || normalized.value === ''))
-      if (isOnNavbarOrFooter && isClearingToNoTenant) {
+      if ((isOnNavbarOrFooter || canClearTenantOnCurrentRoute) && isClearingToNoTenant) {
         switchTenant(undefined)
         return
       }
@@ -80,7 +81,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
         switchTenant(normalized)
       }
     },
-    [selectedTenantID, entityType, modified, switchTenant, openModal, isOnNavbarOrFooter],
+    [selectedTenantID, entityType, modified, switchTenant, openModal, isOnNavbarOrFooter, canClearTenantOnCurrentRoute],
   )
 
   // Only render when there is something to select. Keep hooks above this check to
@@ -90,7 +91,10 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
   }
 
   const canClear =
-    ['dashboard', 'list'].includes(viewType ?? '') || viewType == null || isOnNavbarOrFooter
+    ['dashboard', 'list'].includes(viewType ?? '') ||
+    viewType == null ||
+    isOnNavbarOrFooter ||
+    canClearTenantOnCurrentRoute
 
   const labelText = (() => {
     if (!label) return (t as (k: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')

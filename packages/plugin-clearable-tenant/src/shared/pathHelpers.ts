@@ -54,3 +54,45 @@ export function getCollectionEditParams(
   return { collectionSlug, docId }
 }
 
+export type OptionalTenantRouteOptions = {
+  collectionsWithTenantField?: string[] | Set<string>
+  collectionsRequireTenantOnCreate?: string[] | Set<string>
+  rootDocCollections?: string[] | Set<string>
+}
+
+function toSetOptional<T extends string>(value: string[] | Set<string> | undefined): Set<string> {
+  if (value == null) return new Set()
+  return value instanceof Set ? (value as Set<string>) : new Set(value)
+}
+
+/**
+ * True when the current path is a collection create or edit route where the tenant
+ * field is optional (user can clear the tenant). False when tenant is required.
+ */
+export function isOptionalTenantCollectionRoute(
+  pathname: string | null,
+  options: OptionalTenantRouteOptions = {},
+): boolean {
+  if (typeof pathname !== 'string') return true
+  const { rootDocCollections = [], collectionsWithTenantField = [], collectionsRequireTenantOnCreate = [] } = options
+  const rootSet = toSetOptional(rootDocCollections as string[] | Set<string>)
+  const withTenantSet = toSetOptional(collectionsWithTenantField as string[] | Set<string>)
+  const requireSet = toSetOptional(collectionsRequireTenantOnCreate as string[] | Set<string>)
+
+  const rootPaths = Array.from(rootSet).map((slug) => `/collections/${slug}`)
+  if (rootPaths.some((p) => pathname.includes(p))) return true
+
+  const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
+  if (createMatch) {
+    const slug = createMatch[1]
+    if (slug && withTenantSet.has(slug) && requireSet.has(slug)) return false
+    return true
+  }
+  const editParams = getCollectionEditParams(pathname)
+  if (editParams?.collectionSlug) {
+    if (withTenantSet.has(editParams.collectionSlug) && requireSet.has(editParams.collectionSlug)) return false
+    return true
+  }
+  return true
+}
+

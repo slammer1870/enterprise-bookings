@@ -14,8 +14,9 @@ export {
   isTenantRequiredCreatePath,
   isCreateRequireTenantForTenantAdminPath,
   getCollectionEditParams,
+  isOptionalTenantCollectionRoute,
 } from './shared/pathHelpers'
-export type { PathHelpersOptions } from './shared/pathHelpers'
+export type { PathHelpersOptions, OptionalTenantRouteOptions } from './shared/pathHelpers'
 
 export type ClearableTenantPluginOptions = {
   rootDocCollections?: string[]

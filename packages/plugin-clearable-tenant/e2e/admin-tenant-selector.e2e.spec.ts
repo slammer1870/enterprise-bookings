@@ -638,4 +638,88 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
       )
       .toBe(true)
   })
+
+  test('optional tenant route (pages): user can clear tenant on create page', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+    await ensureSidebarOpen(page)
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+
+    const cookieURLs = [`${ADMIN_ORIGIN}/`, `${ADMIN_ORIGIN}/admin/`, `${ADMIN_ORIGIN}/admin/collections/`]
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/pages/create`, { waitUntil: 'load' })
+    await page
+      .waitForURL(
+        (url) => url.pathname.endsWith('/admin/collections/pages/create'),
+        { timeout: 15_000 },
+      )
+      .catch(() => null)
+
+    await ensureSidebarOpen(page)
+    const wrap = getTenantSelectorLocator(page)
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+
+    // Optional tenant route: clear button should be present; clear the tenant.
+    const clearBtn = wrap.locator('button[aria-label*="Clear"], button[title*="Clear"]').first()
+    await expect(clearBtn).toBeVisible({ timeout: 5000 })
+    await clearBtn.click()
+    await page.waitForTimeout(500)
+
+    // Selector should show placeholder and cookie should be cleared.
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
+    await expect
+      .poll(
+        async () => {
+          const cookies = await page.context().cookies(cookieURLs)
+          const val = cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
+          return val === '' || val === undefined
+        },
+        { timeout: CI.cookiePollTimeout },
+      )
+      .toBe(true)
+  })
+
+  test('required tenant route (posts): clear button not available on create page', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+    await ensureSidebarOpen(page)
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+
+    const cookieURLs = [`${ADMIN_ORIGIN}/`, `${ADMIN_ORIGIN}/admin/`, `${ADMIN_ORIGIN}/admin/collections/`]
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/posts/create`, { waitUntil: 'load' })
+    // Modal may appear: select tenant to continue to create page.
+    const dialog = page.getByRole('dialog', { name: /select tenant/i })
+    if (await dialog.isVisible().catch(() => false)) {
+      const modalCombo = dialog.getByRole('combobox').first()
+      await modalCombo.click().catch(() => null)
+      await page.getByRole('option', { name: new RegExp(escapeRegex(tenant1.name), 'i') }).first().click()
+      await dialog.getByRole('button', { name: /continue/i }).click()
+      await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/posts/create'), { timeout: 15_000 })
+    }
+
+    await ensureSidebarOpen(page)
+    const wrap = getTenantSelectorLocator(page)
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+
+    // Required tenant route: clear button must not be present.
+    const clearBtn = wrap.locator('button[aria-label*="Clear"], button[title*="Clear"]').first()
+    await expect(clearBtn).not.toBeVisible()
+  })
 })

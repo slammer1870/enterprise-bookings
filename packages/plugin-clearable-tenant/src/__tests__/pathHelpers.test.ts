@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createPathHelpers,
   getCollectionEditParams,
+  isOptionalTenantCollectionRoute,
   isTenantRequiredCreatePath,
   isCreateRequireTenantForTenantAdminPath,
 } from '../shared/pathHelpers'
@@ -92,6 +93,59 @@ describe('path helpers', () => {
         collectionSlug: 'posts',
         docId: '1',
       })
+    })
+  })
+
+  describe('isOptionalTenantCollectionRoute', () => {
+    it('returns true for pages create (optional tenant)', () => {
+      expect(
+        isOptionalTenantCollectionRoute('/admin/collections/pages/create', {
+          collectionsWithTenantField: ['posts', 'pages'],
+          collectionsRequireTenantOnCreate: ['posts'],
+        }),
+      ).toBe(true)
+    })
+
+    it('returns false for posts create (required tenant)', () => {
+      expect(
+        isOptionalTenantCollectionRoute('/admin/collections/posts/create', {
+          collectionsWithTenantField: ['posts', 'pages'],
+          collectionsRequireTenantOnCreate: ['posts'],
+        }),
+      ).toBe(false)
+    })
+
+    it('returns true for pages edit (optional tenant)', () => {
+      expect(
+        isOptionalTenantCollectionRoute('/admin/collections/pages/123', {
+          collectionsWithTenantField: ['posts', 'pages'],
+          collectionsRequireTenantOnCreate: ['posts'],
+        }),
+      ).toBe(true)
+    })
+
+    it('returns false for posts edit (required tenant)', () => {
+      expect(
+        isOptionalTenantCollectionRoute('/admin/collections/posts/456', {
+          collectionsWithTenantField: ['posts', 'pages'],
+          collectionsRequireTenantOnCreate: ['posts'],
+        }),
+      ).toBe(false)
+    })
+
+    it('returns true for root doc collection path', () => {
+      expect(
+        isOptionalTenantCollectionRoute('/admin/collections/navbar/1', {
+          rootDocCollections: ['navbar', 'footer'],
+          collectionsWithTenantField: ['pages'],
+          collectionsRequireTenantOnCreate: ['posts'],
+        }),
+      ).toBe(true)
+    })
+
+    it('returns true for pathname null or non-collection path', () => {
+      expect(isOptionalTenantCollectionRoute(null, {})).toBe(true)
+      expect(isOptionalTenantCollectionRoute('/admin', {})).toBe(true)
     })
   })
 

@@ -4,7 +4,7 @@ import { toast, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
-import { createPathHelpers, getCollectionEditParams } from '../../shared/pathHelpers'
+import { createPathHelpers, getCollectionEditParams, isOptionalTenantCollectionRoute } from '../../shared/pathHelpers'
 import { deleteTenantCookie, getTenantCookie, setPayloadTenantCookie } from '../../shared/cookieHelpers'
 import { PreventEnterSubmitOnCreatePage } from './PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from './SelectTenantForCreateModal'
@@ -24,6 +24,8 @@ type ContextValue = {
   rootDocCollections: string[]
   collectionsRequireTenantOnCreate: string[]
   collectionsCreateRequireTenantForTenantAdmin: string[]
+  /** True when current route has optional tenant (user can clear selector); false when tenant is required. */
+  canClearTenantOnCurrentRoute: boolean
   isTenantAdminOnly?: (user: unknown) => boolean
 }
 
@@ -40,6 +42,7 @@ const DefaultContext: ContextValue = {
   rootDocCollections: ['navbar', 'footer'],
   collectionsRequireTenantOnCreate: [],
   collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
+  canClearTenantOnCurrentRoute: true,
 }
 
 const Context = createContext<ContextValue>(DefaultContext)
@@ -108,6 +111,15 @@ export function TenantSelectionProviderRootAwareClient({
   const isOnDashboard =
     typeof pathname === 'string' && (pathname === '/admin' || pathname === '/admin/')
   const isOnTenantRequiredCreatePage = isTenantRequiredCreatePath(pathname)
+  const canClearTenantOnCurrentRoute = React.useMemo(
+    () =>
+      isOptionalTenantCollectionRoute(pathname, {
+        rootDocCollections,
+        collectionsWithTenantField,
+        collectionsRequireTenantOnCreate,
+      }),
+    [pathname, rootDocCollections, collectionsWithTenantField, collectionsRequireTenantOnCreate],
+  )
   const isAdminUser = Boolean(user && (user as { roles?: string[] })?.roles?.includes?.('admin'))
   const isTenantAdminUser =
     Boolean(user) &&
@@ -417,6 +429,7 @@ export function TenantSelectionProviderRootAwareClient({
     rootDocCollections,
     collectionsRequireTenantOnCreate,
     collectionsCreateRequireTenantForTenantAdmin,
+    canClearTenantOnCurrentRoute,
   }
 
   return (
