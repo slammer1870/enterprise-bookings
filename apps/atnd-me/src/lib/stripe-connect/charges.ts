@@ -76,19 +76,35 @@ export async function createTenantPaymentIntent(
     meta.tenantId = String(tenant.id)
   }
 
-  // When we have a tenant-scoped customer id, create the PI on the connected account (direct charge)
-  // so the PI can be attached to that customer. Platform still collects booking fee via application_fee_amount.
-  const pi = await stripe.paymentIntents.create(
-    {
-      amount,
-      currency,
-      automatic_payment_methods: { enabled: true },
-      application_fee_amount: bookingFeeAmount,
-      ...(typeof customerId === 'string' && customerId.trim() ? { customer: customerId.trim() } : {}),
-      metadata: meta,
-    },
-    { stripeAccount: accountId },
-  )
+  const hasCustomer = typeof customerId === 'string' && customerId.trim().length > 0
+
+  if (hasCustomer) {
+    // Direct charge on the connected account so the PI can be attached to the tenant's customer.
+    // Platform still collects booking fee via application_fee_amount.
+    const pi = await stripe.paymentIntents.create(
+      {
+        amount,
+        currency,
+        automatic_payment_methods: { enabled: true },
+        application_fee_amount: bookingFeeAmount,
+        customer: customerId!.trim(),
+        metadata: meta,
+      },
+      { stripeAccount: accountId },
+    )
+    return { id: pi.id, client_secret: pi.client_secret }
+  }
+
+  // Destination charge on the platform account: funds go to platform, then transfer to connected account.
+  const pi = await stripe.paymentIntents.create({
+    amount,
+    currency,
+    automatic_payment_methods: { enabled: true },
+    application_fee_amount: bookingFeeAmount,
+    on_behalf_of: accountId,
+    transfer_data: { destination: accountId },
+    metadata: meta,
+  })
 
   return {
     id: pi.id,
