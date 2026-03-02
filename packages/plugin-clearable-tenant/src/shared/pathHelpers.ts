@@ -60,7 +60,7 @@ export type OptionalTenantRouteOptions = {
   rootDocCollections?: string[] | Set<string>
 }
 
-function toSetOptional<T extends string>(value: string[] | Set<string> | undefined): Set<string> {
+function toSetOptional(value: string[] | Set<string> | undefined): Set<string> {
   if (value == null) return new Set()
   return value instanceof Set ? (value as Set<string>) : new Set(value)
 }

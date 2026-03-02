@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 import { buildConfig } from 'payload'
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
+import type { MultiTenantPluginConfig } from '@payloadcms/plugin-multi-tenant/types'
 import sharp from 'sharp'
 import { clearableTenantPlugin } from '../src/index'
 import { testEmailAdapter } from './helpers/testEmailAdapter'
@@ -59,7 +60,7 @@ export default buildConfig({
   plugins: [
     multiTenantPlugin({
       tenantsSlug: 'tenants',
-      collections: { posts: {}, pages: {} },
+      collections: { posts: {}, pages: {} } as MultiTenantPluginConfig['collections'],
       // Dev/e2e: treat any logged-in user as having access to all tenants
       // so tenant list + populate-tenant-options return 2+ options immediately.
       userHasAccessToAllTenants: () => true,
