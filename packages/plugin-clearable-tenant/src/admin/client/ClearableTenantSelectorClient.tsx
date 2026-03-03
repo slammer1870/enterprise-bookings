@@ -109,6 +109,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
   const readOnly =
     Boolean(disabled) ||
     (!isOnNavbarOrFooter &&
+      !canClearTenantOnCurrentRoute &&
       entityType !== 'global' &&
       viewType != null &&
       (['document', 'version'] as ViewTypes[]).includes(viewType))
