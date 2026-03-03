@@ -24,6 +24,10 @@ type ContextValue = {
   rootDocCollections: string[]
   collectionsRequireTenantOnCreate: string[]
   collectionsCreateRequireTenantForTenantAdmin: string[]
+  /** Slugs of collections that have a tenant field (for syncing selector → form). */
+  collectionsWithTenantField: string[]
+  /** Field name used for tenant on document collections (default 'tenant'). */
+  documentTenantFieldName: string
   /** True when current route has optional tenant (user can clear selector); false when tenant is required. */
   canClearTenantOnCurrentRoute: boolean
   isTenantAdminOnly?: (user: unknown) => boolean
@@ -42,6 +46,8 @@ const DefaultContext: ContextValue = {
   rootDocCollections: ['navbar', 'footer'],
   collectionsRequireTenantOnCreate: [],
   collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
+  collectionsWithTenantField: [],
+  documentTenantFieldName: 'tenant',
   canClearTenantOnCurrentRoute: true,
 }
 
@@ -429,6 +435,8 @@ export function TenantSelectionProviderRootAwareClient({
     rootDocCollections,
     collectionsRequireTenantOnCreate,
     collectionsCreateRequireTenantForTenantAdmin,
+    collectionsWithTenantField,
+    documentTenantFieldName,
     canClearTenantOnCurrentRoute,
   }
 

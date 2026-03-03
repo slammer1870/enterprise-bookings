@@ -48,6 +48,16 @@ export const Navbar: CollectionConfig = {
             },
         },
         {
+            name: '_tenantSelectorSync',
+            type: 'ui',
+            admin: {
+                position: 'sidebar',
+                components: {
+                    Field: '@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField',
+                },
+            },
+        },
+        {
             name: 'logo',
             type: 'upload',
             relationTo: 'media',
