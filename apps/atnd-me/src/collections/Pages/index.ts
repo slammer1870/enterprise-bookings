@@ -216,6 +216,16 @@ export const Pages: CollectionConfig<'pages'> = {
       },
     },
     {
+      name: '_tenantSelectorSync',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: '@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField',
+        },
+      },
+    },
+    {
       type: 'tabs',
       tabs: [
         {
