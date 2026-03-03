@@ -1,4 +1,4 @@
-import type { CollectionConfig, PayloadRequest } from 'payload'
+import type { CollectionBeforeChangeHook, PayloadRequest } from 'payload'
 
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
 
@@ -25,14 +25,14 @@ function getTenantIdFromRequest(req: PayloadRequest): string | number | undefine
  */
 export function createSyncTenantFromSelectorHook(
   options: SyncTenantFromSelectorOptions = {},
-): NonNullable<CollectionConfig['hooks']>['beforeChange'][number] {
+): CollectionBeforeChangeHook {
   const documentTenantFieldName = options.documentTenantFieldName ?? 'tenant'
   const userHasAccessToAllTenants =
     typeof options.userHasAccessToAllTenants === 'function'
       ? options.userHasAccessToAllTenants
       : () => false
 
-  return async function syncTenantFromSelector({ data, operation, req }) {
+  const syncTenantFromSelector: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
     if (operation !== 'create' && operation !== 'update') return data
     const user = req.user
     if (!user) return data
@@ -48,4 +48,5 @@ export function createSyncTenantFromSelectorHook(
     dataRecord[documentTenantFieldName] = tenantId
     return data
   }
+  return syncTenantFromSelector
 }
