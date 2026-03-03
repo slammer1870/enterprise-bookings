@@ -722,4 +722,80 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     const clearBtn = wrap.locator('button[aria-label*="Clear"], button[title*="Clear"]').first()
     await expect(clearBtn).not.toBeVisible()
   })
+
+  test('saving document after changing tenant selector persists selected tenant on the document', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+    await ensureSidebarOpen(page)
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+    const tenant2 = tenants[1]
+
+    // Create a page with tenant1 (dev app: pages collection has tenant field).
+    const createRes = await request.post(`${ADMIN_ORIGIN}/api/pages`, {
+      data: { title: `Selector-sync e2e ${Date.now()}`, tenant: tenant1.id },
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(createRes.ok()).toBe(true)
+    const createBody = (await createRes.json()) as { doc?: { id: string | number } }
+    const pageId = createBody.doc?.id
+    expect(pageId).toBeDefined()
+
+    const cookieURLs = [`${ADMIN_ORIGIN}/`, `${ADMIN_ORIGIN}/admin/`, `${ADMIN_ORIGIN}/admin/collections/`]
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: tenant1.id, url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/pages/${pageId}`, { waitUntil: 'load' })
+    await page
+      .waitForURL(
+        (url) => url.pathname === `/admin/collections/pages/${pageId}`,
+        { timeout: 15_000 },
+      )
+      .catch(() => null)
+
+    await ensureSidebarOpen(page)
+    const wrap = getTenantSelectorLocator(page)
+    await wrap.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+    await expect(wrap.getByText(tenant1.name).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
+
+    // Change selector to tenant2.
+    const combobox = wrap.getByRole('combobox').or(wrap).first()
+    await combobox.waitFor({ state: 'visible', timeout: CI.wrapTimeout })
+    await wrap.getByRole('button').last().click({ timeout: 5000 }).catch(() => null)
+    await combobox.click({ timeout: 5000 }).catch(() => null)
+    await combobox.focus()
+    await page.keyboard.press('ArrowDown')
+    const option = page.getByRole('option', { name: new RegExp(escapeRegex(tenant2.name), 'i') }).first()
+    await option.waitFor({ state: 'visible', timeout: CI.optionWaitMs })
+    await option.click()
+    const leaveAnyway = page.getByRole('button', { name: /leave anyway/i })
+    if (await leaveAnyway.isVisible().catch(() => false)) await leaveAnyway.click()
+
+    await expect(wrap.getByText(tenant2.name).first()).toBeVisible({ timeout: CI.displayVisibleTimeout })
+
+    // Save the document (cookie is now tenant2; hook should write it to the document).
+    const saveBtn = page.getByRole('button', { name: /save/i }).first()
+    await saveBtn.waitFor({ state: 'visible', timeout: 10_000 })
+    await saveBtn.click()
+    await page.waitForTimeout(CI.settleAfterGotoMs)
+
+    // Fetch the document via API; hook should have written selector (tenant2) to the document on save.
+    const getRes = await page.request.get(`${ADMIN_ORIGIN}/api/pages/${pageId}`)
+    expect(getRes.ok()).toBe(true)
+    const getBody = (await getRes.json()) as { doc?: { tenant?: string | number | { id: string | number } } }
+    const doc = getBody.doc ?? getBody
+    const tenantValue = doc && typeof doc === 'object' && 'tenant' in doc ? (doc as { tenant?: unknown }).tenant : undefined
+    const savedTenantId =
+      tenantValue == null
+        ? undefined
+        : typeof tenantValue === 'object' && tenantValue !== null && 'id' in (tenantValue as object)
+          ? (tenantValue as { id: string | number }).id
+          : tenantValue
+    expect(String(savedTenantId)).toBe(String(tenant2.id))
+  })
 })

@@ -1,4 +1,5 @@
 import type { CollectionConfig, Config, Plugin } from 'payload'
+import { createSyncTenantFromSelectorHook } from './server/hooks/syncTenantFromSelector'
 import { createPopulateTenantOptionsHandler } from './server/endpoints/populate-tenant-options'
 import { replaceInEntries } from './shared/replaceAdminComponents'
 
@@ -141,10 +142,26 @@ export const clearableTenantPlugin =
       )
     }
 
-    // Add GET /tenants/populate-tenant-options so the client provider can fetch tenant options when server did not pass them
     const tenantsSlug = _options.tenantsCollectionSlug ?? 'tenants'
+    const collectionsWithTenantFieldSet = new Set(_options.collectionsWithTenantField ?? [])
+    const documentTenantFieldName = _options.documentTenantFieldName ?? 'tenant'
+    const syncTenantHook = createSyncTenantFromSelectorHook({
+      documentTenantFieldName,
+      userHasAccessToAllTenants: _options.userHasAccessToAllTenants,
+    })
+
     const collections = Array.isArray(config.collections) ? config.collections : []
     config.collections = collections.map((col: CollectionConfig) => {
+      if (collectionsWithTenantFieldSet.has(col.slug)) {
+        const existingBeforeChange = Array.isArray(col.hooks?.beforeChange) ? col.hooks.beforeChange : []
+        return {
+          ...col,
+          hooks: {
+            ...col.hooks,
+            beforeChange: [...existingBeforeChange, syncTenantHook],
+          },
+        } as CollectionConfig
+      }
       if (col.slug !== tenantsSlug) return col
       if (col.endpoints === false) return col
       const existingEndpoints = Array.isArray(col.endpoints) ? col.endpoints : []
