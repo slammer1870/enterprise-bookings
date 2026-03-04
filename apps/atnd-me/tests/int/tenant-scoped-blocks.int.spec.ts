@@ -44,7 +44,10 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
         const pages = await payload.find({
           collection: 'pages',
           where: {
-            tenant: { in: [tenantDefaultOnly.id, tenantWithExtras.id] },
+            or: [
+              { tenant: { in: [tenantDefaultOnly.id, tenantWithExtras.id] } },
+              { slug: { contains: 'global-location' } },
+            ],
           },
           limit: 1000,
           overrideAccess: true,
@@ -163,6 +166,33 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
           overrideAccess: true,
         }),
       ).rejects.toThrow(/not enabled for this tenant/)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'should allow admin to create global page (no tenant) with any block including extras',
+    async () => {
+      // Global pages (no tenant) for admin should allow all blocks (filterOptions returns allPageBlockSlugs)
+      const page = (await payload.create({
+        collection: 'pages',
+        data: {
+          title: 'Global Page With Location',
+          slug: `global-location-${Date.now()}`,
+          tenant: null,
+          layout: [
+            { blockType: 'heroSchedule', blockName: 'Hero' },
+            { blockType: 'location', blockName: 'Location', address: '123 Global St' },
+          ],
+          _status: 'published',
+        },
+        overrideAccess: true,
+      })) as Page
+
+      expect(page.tenant).toBeNull()
+      expect(page.layout).toHaveLength(2)
+      expect(page.layout?.[0]?.blockType).toBe('heroSchedule')
+      expect(page.layout?.[1]?.blockType).toBe('location')
     },
     TEST_TIMEOUT,
   )

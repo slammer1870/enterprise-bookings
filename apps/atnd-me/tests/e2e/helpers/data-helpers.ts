@@ -31,11 +31,13 @@ export async function getPayloadInstance(): Promise<Payload> {
  * @param name - Tenant name
  * @param slug - Tenant slug (subdomain)
  * @param domain - Optional domain
+ * @param allowedBlocks - Optional block slugs to enable for this tenant (pages layout). Empty = default blocks only.
  */
 export async function createTestTenant(
   name: string,
   slug: string,
-  domain?: string
+  domain?: string,
+  allowedBlocks?: string[]
 ): Promise<Tenant> {
   const payload = await getPayloadInstance()
 
@@ -71,6 +73,7 @@ export async function createTestTenant(
       name,
       slug,
       ...(domain && { domain }),
+      ...(allowedBlocks !== undefined && { allowedBlocks }),
     },
     overrideAccess: true,
   })) as Tenant
