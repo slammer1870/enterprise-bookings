@@ -259,6 +259,14 @@ export interface Page {
     | MediaBlock
     | ArchiveBlock
     | FormBlock
+    | BruHeroBlock
+    | BruAboutBlock
+    | BruScheduleBlock
+    | BruLearningBlock
+    | BruMeetTheTeamBlock
+    | BruTestimonialsBlock
+    | BruContactBlock
+    | BruHeroWaitlistBlock
   )[];
   meta?: {
     title?: string | null;
@@ -1181,6 +1189,14 @@ export interface ThreeColumnLayoutBlock {
         | MediaBlock
         | ArchiveBlock
         | FormBlock
+        | BruHeroBlock
+        | BruAboutBlock
+        | BruScheduleBlock
+        | BruLearningBlock
+        | BruMeetTheTeamBlock
+        | BruTestimonialsBlock
+        | BruContactBlock
+        | BruHeroWaitlistBlock
       )[]
     | null;
   id?: string | null;
@@ -1809,6 +1825,203 @@ export interface Form {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruHeroBlock".
+ */
+export interface BruHeroBlock {
+  backgroundImage: number | Media;
+  logo: number | Media;
+  title: string;
+  subtitle: string;
+  description: string;
+  primaryButton: {
+    text: string;
+    link: string;
+  };
+  secondaryButton?: {
+    text?: string | null;
+    link?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruHero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruAboutBlock".
+ */
+export interface BruAboutBlock {
+  sections?:
+    | {
+        title: string;
+        content: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        image: number | Media;
+        imagePosition?: ('left' | 'right') | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruAbout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruScheduleBlock".
+ */
+export interface BruScheduleBlock {
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruSchedule';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruLearningBlock".
+ */
+export interface BruLearningBlock {
+  title: string;
+  content: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  image: number | Media;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruLearning';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruMeetTheTeamBlock".
+ */
+export interface BruMeetTheTeamBlock {
+  teamMembers?:
+    | {
+        image: number | Media;
+        name: string;
+        role: string;
+        bio: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruMeetTheTeam';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruTestimonialsBlock".
+ */
+export interface BruTestimonialsBlock {
+  title: string;
+  testimonials?:
+    | {
+        image: number | Media;
+        name: string;
+        role: string;
+        testimonial: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruTestimonials';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruContactBlock".
+ */
+export interface BruContactBlock {
+  title: string;
+  description: string;
+  form: number | Form;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruContact';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruHeroWaitlistBlock".
+ */
+export interface BruHeroWaitlistBlock {
+  backgroundImage: number | Media;
+  logo: number | Media;
+  title: string;
+  subtitle: string;
+  description: string;
+  form: number | Form;
+  enableIntro?: boolean | null;
+  introContent?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'bruHeroWaitlist';
 }
 /**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
@@ -2643,6 +2856,14 @@ export interface PagesSelect<T extends boolean = true> {
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
+        bruHero?: T | BruHeroBlockSelect<T>;
+        bruAbout?: T | BruAboutBlockSelect<T>;
+        bruSchedule?: T | BruScheduleBlockSelect<T>;
+        bruLearning?: T | BruLearningBlockSelect<T>;
+        bruMeetTheTeam?: T | BruMeetTheTeamBlockSelect<T>;
+        bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
+        bruContact?: T | BruContactBlockSelect<T>;
+        bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
       };
   meta?:
     | T
@@ -2842,6 +3063,14 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
+        bruHero?: T | BruHeroBlockSelect<T>;
+        bruAbout?: T | BruAboutBlockSelect<T>;
+        bruSchedule?: T | BruScheduleBlockSelect<T>;
+        bruLearning?: T | BruLearningBlockSelect<T>;
+        bruMeetTheTeam?: T | BruMeetTheTeamBlockSelect<T>;
+        bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
+        bruContact?: T | BruContactBlockSelect<T>;
+        bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
       };
   id?: T;
   blockName?: T;
@@ -3092,6 +3321,129 @@ export interface ArchiveBlockSelect<T extends boolean = true> {
  * via the `definition` "FormBlock_select".
  */
 export interface FormBlockSelect<T extends boolean = true> {
+  form?: T;
+  enableIntro?: T;
+  introContent?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruHeroBlock_select".
+ */
+export interface BruHeroBlockSelect<T extends boolean = true> {
+  backgroundImage?: T;
+  logo?: T;
+  title?: T;
+  subtitle?: T;
+  description?: T;
+  primaryButton?:
+    | T
+    | {
+        text?: T;
+        link?: T;
+      };
+  secondaryButton?:
+    | T
+    | {
+        text?: T;
+        link?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruAboutBlock_select".
+ */
+export interface BruAboutBlockSelect<T extends boolean = true> {
+  sections?:
+    | T
+    | {
+        title?: T;
+        content?: T;
+        image?: T;
+        imagePosition?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruScheduleBlock_select".
+ */
+export interface BruScheduleBlockSelect<T extends boolean = true> {
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruLearningBlock_select".
+ */
+export interface BruLearningBlockSelect<T extends boolean = true> {
+  title?: T;
+  content?: T;
+  image?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruMeetTheTeamBlock_select".
+ */
+export interface BruMeetTheTeamBlockSelect<T extends boolean = true> {
+  teamMembers?:
+    | T
+    | {
+        image?: T;
+        name?: T;
+        role?: T;
+        bio?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruTestimonialsBlock_select".
+ */
+export interface BruTestimonialsBlockSelect<T extends boolean = true> {
+  title?: T;
+  testimonials?:
+    | T
+    | {
+        image?: T;
+        name?: T;
+        role?: T;
+        testimonial?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruContactBlock_select".
+ */
+export interface BruContactBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  form?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "BruHeroWaitlistBlock_select".
+ */
+export interface BruHeroWaitlistBlockSelect<T extends boolean = true> {
+  backgroundImage?: T;
+  logo?: T;
+  title?: T;
+  subtitle?: T;
+  description?: T;
   form?: T;
   enableIntro?: T;
   introContent?: T;

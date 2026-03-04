@@ -20,6 +20,14 @@ import {
   Features,
   CaseStudies,
   MarketingCta,
+  BruHero,
+  BruAbout,
+  BruSchedule,
+  BruLearning,
+  BruMeetTheTeam,
+  BruTestimonials,
+  BruContact,
+  BruHeroWaitlist,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
@@ -69,6 +77,15 @@ const availableBlocks = [
   MediaBlock,
   Archive,
   FormBlock,
+  // Bru Grappling (tenant-scoped extras)
+  BruHero,
+  BruAbout,
+  BruSchedule,
+  BruLearning,
+  BruMeetTheTeam,
+  BruTestimonials,
+  BruContact,
+  BruHeroWaitlist,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
@@ -372,9 +389,27 @@ export const Pages: CollectionConfig<'pages'> = {
         const allowed = getBlocksForTenant(
           (tenant as { allowedBlocks?: string[] })?.allowedBlocks
         ).map((b) => b.slug)
-        const disallowed = data.layout
-          .map((b: { blockType?: string }) => b?.blockType)
-          .filter((slug: string | undefined) => slug && !allowed.includes(slug))
+
+        const collectBlockTypes = (blocks: unknown): string[] => {
+          if (!Array.isArray(blocks)) return []
+          const out: string[] = []
+          for (const b of blocks) {
+            const blockType =
+              typeof b === 'object' && b !== null && 'blockType' in b ? (b as { blockType?: unknown }).blockType : undefined
+            if (typeof blockType === 'string' && blockType) out.push(blockType)
+
+            // `threeColumnLayout` contains a nested `blocks` field with additional blocks.
+            if (blockType === 'threeColumnLayout') {
+              const nested =
+                typeof b === 'object' && b !== null && 'blocks' in b ? (b as { blocks?: unknown }).blocks : undefined
+              out.push(...collectBlockTypes(nested))
+            }
+          }
+          return out
+        }
+
+        const usedBlockTypes = collectBlockTypes(data.layout)
+        const disallowed = usedBlockTypes.filter((slug) => slug && !allowed.includes(slug))
         if (disallowed.length > 0) {
           throw new Error(
             `The following blocks are not enabled for this tenant: ${disallowed.join(', ')}. Contact your administrator to enable them.`
