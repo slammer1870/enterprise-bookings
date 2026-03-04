@@ -122,7 +122,12 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
     | undefined
   const tenant = data?.tenant
   if (!tenant) {
-    const tenantIds = getUserTenantIds((r?.user ?? null) as unknown as SharedUser | null)
+    // When running server-side code paths (migrations, seeds, tests) we often use overrideAccess
+    // and the request may have no user. In that case, allow all blocks for global pages.
+    // Access control still prevents unauthenticated users from creating/updating pages.
+    if (!r?.user) return allPageBlockSlugs
+
+    const tenantIds = getUserTenantIds((r.user ?? null) as unknown as SharedUser | null)
     if (tenantIds === null) return allPageBlockSlugs
     return defaultBlockSlugs
   }
