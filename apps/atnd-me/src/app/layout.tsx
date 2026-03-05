@@ -21,29 +21,43 @@ const ADMIN_HEADER = 'x-next-payload-admin'
  * Nested layouts (e.g. `(frontend)/layout.tsx`) must NOT render `<html>`/`<body>`.
  */
 export async function generateMetadata(): Promise<Metadata> {
+  const fallbackAppName = 'ATND ME'
   try {
     const cookieStore = await cookies()
     const payload = await getPayload()
     const tenant = await getTenantWithBranding(payload, { cookies: cookieStore })
     const logo = tenant?.logo
+    const appName = tenant?.name?.trim() || tenant?.slug?.trim() || fallbackAppName
     const logoUrl =
       logo && typeof logo === 'object' && logo !== null && typeof logo.url === 'string'
         ? logo.url
         : null
 
-    if (logoUrl) {
-      return {
-        icons: {
-          icon: logoUrl,
-          shortcut: logoUrl,
-          apple: logoUrl,
-        },
-      }
+    return {
+      title: {
+        default: appName,
+        template: `%s | ${appName}`,
+      },
+      icons: logoUrl
+        ? {
+            icon: logoUrl,
+            shortcut: logoUrl,
+            apple: logoUrl,
+          }
+        : {
+            icon: '/favicon.ico',
+            shortcut: '/favicon.ico',
+            apple: '/favicon.svg',
+          },
     }
   } catch {
     // Fall through to default favicon
   }
   return {
+    title: {
+      default: fallbackAppName,
+      template: `%s | ${fallbackAppName}`,
+    },
     icons: {
       icon: '/favicon.ico',
       shortcut: '/favicon.ico',
