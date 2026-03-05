@@ -18,8 +18,6 @@ jobs:
             db: darkhorse_strength
           - name: bru-grappling
             db: bru_grappling
-          - name: kyuzo
-            db: kyuzo
           - name: mindful-yard
             db: mindful_yard
           - name: web
@@ -238,9 +236,6 @@ jobs:
     strategy:
       matrix:
         app:
-          - name: kyuzo
-            db: e2e_kyuzo
-            app_path: apps/kyuzo
           - name: boatyard-sauna
             db: e2e_boatyard_sauna
             app_path: apps/boatyard-sauna
