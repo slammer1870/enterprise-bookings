@@ -29,18 +29,18 @@ export async function Footer() {
   const logoAlt = typeof logo === 'object' && logo?.alt ? logo.alt : 'Logo'
 
   return (
-    <footer 
-      className={`mt-auto border-t border-border ${backgroundColor} ${textColor}`}
+    <footer
+      className={`mt-auto ${backgroundColor} ${textColor}`}
       style={{
-        ...(styling?.backgroundColor && !backgroundColor.startsWith('bg-') 
-          ? { backgroundColor: styling.backgroundColor } 
+        ...(styling?.backgroundColor && !backgroundColor.startsWith('bg-')
+          ? { backgroundColor: styling.backgroundColor }
           : {}),
-        ...(styling?.textColor && !textColor.startsWith('text-') 
-          ? { color: styling.textColor } 
+        ...(styling?.textColor && !textColor.startsWith('text-')
+          ? { color: styling.textColor }
           : {}),
       }}
     >
-      <div className="container py-8 gap-8 flex flex-col md:flex-row md:justify-between">
+      <div className="container py-8 gap-8 flex flex-col md:flex-row md:justify-between mx-auto">
         <Link className="flex items-center" href={logoLink}>
           {logoUrl ? (
             <Image
@@ -51,18 +51,18 @@ export async function Footer() {
               className="object-contain"
             />
           ) : (
-          <Logo />
+            <Logo />
           )}
         </Link>
 
         <div className="flex flex-col-reverse items-start md:flex-row gap-4 md:items-center">
           {showThemeSelector && <ThemeSelector />}
           {navItems.length > 0 && (
-          <nav className="flex flex-col md:flex-row gap-4">
-            {navItems.map(({ link }, i) => {
+            <nav className="flex flex-col md:flex-row gap-4">
+              {navItems.map(({ link }, i) => {
                 return <CMSLink className={textColor} key={i} {...(link as React.ComponentProps<typeof CMSLink>)} />
-            })}
-          </nav>
+              })}
+            </nav>
           )}
         </div>
       </div>
