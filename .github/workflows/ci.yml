@@ -15,6 +15,21 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app:
+          - name: darkhorse-strength
+            db: darkhorse_strength
+          - name: bru-grappling
+            db: bru_grappling
+          - name: mindful-yard
+            db: mindful_yard
+          - name: web
+            db: dummy_web
+          - name: docs
+            db: dummy_docs
+          - name: atnd
+            db: atnd
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
@@ -168,9 +183,6 @@ jobs:
       fail-fast: false
       matrix:
         app:
-          - name: kyuzo
-            db: e2e_kyuzo
-            app_path: apps/kyuzo
           - name: boatyard-sauna
             db: e2e_boatyard_sauna
             app_path: apps/boatyard-sauna
