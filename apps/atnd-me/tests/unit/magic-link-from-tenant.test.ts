@@ -87,5 +87,41 @@ describe('Magic-link email tenant From header', () => {
     expect(payload.subject).toBe('Sign in to Acme Gym')
     expect(payload.from).toBe('Acme Gym <auth@atnd.me>')
   })
+
+  it('falls back to DEFAULT_FROM_ADDRESS when Resend rejects unverified from domain', async () => {
+    const findImpl = vi.fn(async ({ collection, where }: any) => {
+      expect(collection).toBe('tenants')
+      expect(where).toEqual({ slug: { equals: 'acme' } })
+      return { docs: [{ name: 'Acme Gym', domain: null }] }
+    })
+
+    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+    process.env.DEFAULT_FROM_NAME = 'ATND ME'
+    process.env.DEFAULT_FROM_ADDRESS = 'auth@atnd-me.com'
+
+    fetchMock.mockImplementationOnce(async () => ({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      text: async () =>
+        '{"statusCode":403,"message":"The atnd.me domain is not verified.","name":"validation_error"}',
+    }))
+
+    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
+      email: 'person@example.com',
+      token: 'tok',
+      url: 'https://acme.atnd-me.com/api/auth/magic-link?token=tok',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    const [_url1, init1] = fetchMock.mock.calls[0] as any[]
+    const payload1 = JSON.parse(init1.body)
+    expect(payload1.from).toBe('Acme Gym <auth@atnd.me>')
+
+    const [_url2, init2] = fetchMock.mock.calls[1] as any[]
+    const payload2 = JSON.parse(init2.body)
+    expect(payload2.from).toBe('ATND ME <auth@atnd-me.com>')
+  })
 })
 
