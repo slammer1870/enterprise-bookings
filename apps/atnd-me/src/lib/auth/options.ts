@@ -1,5 +1,6 @@
 import { createBetterAuthPluginOptions } from '@repo/better-auth-config/server'
 import { getServerSideURL } from '@/utilities/getURL'
+import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 /**
  * Generate trusted origins for Better Auth, including wildcard patterns for tenant subdomains.
@@ -49,6 +50,78 @@ function getExtraTrustedOriginHosts(): string[] {
     .filter(Boolean)
 }
 
+async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ name: string; domain?: string | null } | null> {
+  let hostname = ''
+  try {
+    hostname = new URL(magicLinkUrl).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+
+  if (!hostname) return null
+
+  async function findTenantBySlug(slug: string): Promise<{ name: string; domain?: string | null } | null> {
+    if (!slug) return null
+    const { getPayload } = await import('@/lib/payload')
+    const payload = await getPayload()
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { slug: { equals: slug } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const tenant = result.docs[0] as { name?: unknown; domain?: unknown } | undefined
+    const name = tenant?.name != null ? String(tenant.name).trim() : ''
+    const domain = tenant?.domain != null ? String(tenant.domain).trim() : null
+    return name ? { name, domain: domain || null } : null
+  }
+
+  async function findTenantByDomain(domain: string): Promise<{ name: string; domain?: string | null } | null> {
+    const { getPayload } = await import('@/lib/payload')
+    const payload = await getPayload()
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { domain: { equals: domain } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const tenant = result.docs[0] as { name?: unknown; domain?: unknown } | undefined
+    const name = tenant?.name != null ? String(tenant.name).trim() : ''
+    const storedDomain = tenant?.domain != null ? String(tenant.domain).trim() : ''
+    return name ? { name, domain: storedDomain || domain } : null
+  }
+
+  // Local dev: support tenant.localhost
+  if (hostname.endsWith('.localhost')) {
+    const first = hostname.split('.')[0]
+    if (first && first !== 'localhost') {
+      return await findTenantBySlug(first)
+    }
+    return null
+  }
+
+  // Platform subdomain: {tenantSlug}.{platformHost}
+  try {
+    const platformHost = new URL(getServerSideURL()).hostname.toLowerCase()
+    if (platformHost && hostname !== platformHost && hostname.endsWith('.' + platformHost)) {
+      const first = hostname.split('.')[0]
+      if (first) {
+        return await findTenantBySlug(first)
+      }
+    }
+  } catch {
+    // Ignore and fall through to custom-domain lookup
+  }
+
+  // Custom domain: match tenants.domain
+  const normalized = normalizeCustomDomain(hostname)
+  if (!normalized) return null
+
+  return await findTenantByDomain(normalized)
+}
+
 export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   appName: 'ATND ME',
   adminUserIds: ['1'],
@@ -58,6 +131,13 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
   trustedOrigins: getTrustedOriginsWithCustomDomains(getExtraTrustedOriginHosts()),
+  resolveMagicLinkAppName: async ({ url }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
+  resolveMagicLinkFrom: async ({ url }) => {
+    const tenant = await resolveTenantForMagicLinkUrl(url)
+    const fromName = tenant?.name || 'ATND ME'
+    const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
+    return { fromName, fromAddress }
+  },
   roles: {
     adminRoles: ['admin', 'tenant-admin'],
     defaultRole: 'user',

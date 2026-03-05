@@ -9,8 +9,9 @@ import { hashPassword, verifyPassword } from "@repo/auth-next/server";
 
 import { buildMagicLinkEmailHtml } from "./emails/magic-link";
 import { resolveBetterAuthEmailConfig } from "./emails/config";
-import { sendEmail } from "./emails/send-email";
+import * as emailSender from "./emails/send-email";
 import { buildBasicAuthEmailHtml } from "./emails/templates";
+import { formatFrom } from "./emails/config";
 import {
   isTestMagicLinkStoreEnabled,
   saveTestMagicLink,
@@ -55,6 +56,31 @@ export type BetterAuthServerConfig = {
   enableMagicLink: boolean;
   magicLinkDisableSignUp?: boolean;
   includeMagicLinkOptionConfig?: boolean;
+  /**
+   * Optional per-magic-link email app name resolver.
+   * Useful for multi-tenant apps where the magic-link URL hostname maps to a tenant brand name.
+   *
+   * If it returns a non-empty string, that value is used for the magic-link email subject and template
+   * (e.g. "Sign in to {tenant name}"). Otherwise it falls back to `appName`.
+   */
+  resolveMagicLinkAppName?: (args: {
+    email: string;
+    token: string;
+    url: string;
+  }) => Promise<string | null> | string | null;
+  /**
+   * Optional per-magic-link email "From" resolver.
+   * If it returns a non-empty `fromAddress`, it will be used for the magic-link email's From header.
+   * `fromName` defaults to the resolved magic-link app name when omitted.
+   */
+  resolveMagicLinkFrom?: (args: {
+    email: string;
+    token: string;
+    url: string;
+  }) =>
+    | Promise<{ fromName?: string | null; fromAddress?: string | null } | null>
+    | { fromName?: string | null; fromAddress?: string | null }
+    | null;
   sessionCookieCache?: { enabled: boolean; maxAge?: number };
   /** Session expires after this many seconds (Better Auth default ~7 days). */
   sessionExpiresInSeconds?: number;
@@ -183,16 +209,52 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
       return;
     }
 
+    let magicLinkAppName = config.appName;
+    if (typeof config.resolveMagicLinkAppName === "function") {
+      try {
+        const resolved = await config.resolveMagicLinkAppName({ email, token, url });
+        if (typeof resolved === "string" && resolved.trim()) {
+          magicLinkAppName = resolved.trim();
+        }
+      } catch (err) {
+        console.warn("[better-auth-config] resolveMagicLinkAppName failed; using default appName.", err);
+      }
+    }
+
+    // Optional per-tenant From header override
+    let from: string | undefined = undefined;
+    if (typeof config.resolveMagicLinkFrom === "function") {
+      try {
+        const resolved = await config.resolveMagicLinkFrom({ email, token, url });
+        const fromNameRaw = resolved && typeof resolved === "object" ? resolved.fromName : null;
+        const fromAddressRaw = resolved && typeof resolved === "object" ? resolved.fromAddress : null;
+        const fromAddress =
+          typeof fromAddressRaw === "string" && fromAddressRaw.trim()
+            ? fromAddressRaw.trim()
+            : "";
+        if (fromAddress) {
+          const fromName =
+            typeof fromNameRaw === "string" && fromNameRaw.trim()
+              ? fromNameRaw.trim()
+              : magicLinkAppName;
+          from = formatFrom(fromName, fromAddress);
+        }
+      } catch (err) {
+        console.warn("[better-auth-config] resolveMagicLinkFrom failed; using default From.", err);
+      }
+    }
+
     const html = buildMagicLinkEmailHtml({
       magicLink: url,
-      appName: config.appName,
+      appName: magicLinkAppName,
       expiryTime: "15 minutes",
     });
 
-    await sendEmail({
+    await emailSender.sendEmail({
       to: email.toLowerCase(),
-      subject: `Sign in to ${config.appName}`,
+      subject: `Sign in to ${magicLinkAppName}`,
       html,
+      ...(from ? { from } : {}),
     });
   };
 
@@ -268,7 +330,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
           ctaUrl: url,
           footer: `If you did not request this, you can ignore this email.`,
         });
-        await sendEmail({
+        await emailSender.sendEmail({
           to: String(user?.email || "").toLowerCase(),
           subject: `Reset your ${config.appName} password`,
           html,
@@ -290,7 +352,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
         // Best-effort: Better Auth passes `_user` in some contexts; keep safe.
         const to = String((_user as any)?.email || "").toLowerCase();
         if (!to) return;
-        await sendEmail({
+        await emailSender.sendEmail({
           to,
           subject: `Verify your email for ${config.appName}`,
           html,
@@ -320,7 +382,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
             ctaText: "Confirm email change",
             ctaUrl: url,
           });
-          await sendEmail({
+          await emailSender.sendEmail({
             to: newEmail.toLowerCase(),
             subject: `Confirm your new email for ${config.appName}`,
             html,
@@ -351,7 +413,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
             ctaUrl: url,
             footer: `If you did not request this, contact support immediately.`,
           });
-          await sendEmail({
+          await emailSender.sendEmail({
             to,
             subject: `Confirm deletion of your ${config.appName} account`,
             html,
