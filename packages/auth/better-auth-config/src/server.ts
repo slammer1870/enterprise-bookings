@@ -88,6 +88,23 @@ export type BetterAuthServerConfig = {
   };
 };
 
+function deriveCookieDomainFromBaseURL(baseURL: string): string | undefined {
+  try {
+    const { hostname } = new URL(baseURL)
+
+    // Host-only cookies are fine for localhost / IPs, and many browsers reject
+    // `Domain=localhost` anyway.
+    if (!hostname) return undefined
+    if (hostname.includes("localhost")) return undefined
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return undefined
+    if (!hostname.includes(".")) return undefined
+
+    return `.${hostname}`
+  } catch {
+    return undefined
+  }
+}
+
 export function createBetterAuthPlugins({
   enableMagicLink,
   magicLinkDisableSignUp,
@@ -141,6 +158,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     config.baseURL ||
     process.env.NEXT_PUBLIC_SERVER_URL ||
     "http://localhost:3000";
+  const cookieDomain = deriveCookieDomainFromBaseURL(baseURL)
   const _emailCfg = resolveBetterAuthEmailConfig({
     enabled: Boolean(config.email?.enabled),
     fromAddress: config.email?.fromAddress,
@@ -210,71 +228,25 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     advanced: {
       defaultCookieAttributes: {
         path: "/",
-        // Note: domain is intentionally omitted for localhost to allow subdomain sharing
-        // In production, set domain: '.yourdomain.com' via environment variable
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
       },
       cookies: {
         session_token: {
           attributes: {
             path: "/",
-            // For multi-tenant subdomain support:
-            // - localhost: omit domain (allows cross-subdomain sharing in most browsers)
-            // - production: set domain via config (e.g., '.atnd-me.com')
-            ...(config.baseURL && !config.baseURL.includes('localhost')
-              ? (() => {
-                  try {
-                    const url = new URL(config.baseURL)
-                  const parts = url.hostname.split('.')
-                  if (parts.length >= 2) {
-                    const rootDomain = parts.slice(-2).join('.')
-                    return { domain: `.${rootDomain}` }
-                  }
-                } catch {
-                  // Invalid URL, skip domain setting
-                }
-                  return {}
-                })()
-              : {}),
+            ...(cookieDomain ? { domain: cookieDomain } : {}),
           },
         },
         session_data: {
           attributes: {
             path: "/",
-            ...(config.baseURL && !config.baseURL.includes('localhost')
-              ? (() => {
-                  try {
-                    const url = new URL(config.baseURL)
-                    const parts = url.hostname.split('.')
-                    if (parts.length >= 2) {
-                      const rootDomain = parts.slice(-2).join('.')
-                      return { domain: `.${rootDomain}` }
-                    }
-                  } catch {
-                    return {}
-                  }
-                  return {}
-                })()
-              : {}),
+            ...(cookieDomain ? { domain: cookieDomain } : {}),
           },
         },
         dont_remember: {
           attributes: {
             path: "/",
-            ...(config.baseURL && !config.baseURL.includes('localhost')
-              ? (() => {
-                  try {
-                    const url = new URL(config.baseURL)
-                    const parts = url.hostname.split('.')
-                    if (parts.length >= 2) {
-                      const rootDomain = parts.slice(-2).join('.')
-                      return { domain: `.${rootDomain}` }
-                    }
-                  } catch {
-                    return {}
-                  }
-                  return {}
-                })()
-              : {}),
+            ...(cookieDomain ? { domain: cookieDomain } : {}),
           },
         },
       },
