@@ -121,7 +121,7 @@ describe('Magic-link email tenant From header', () => {
 
     const [_url2, init2] = fetchMock.mock.calls[1] as any[]
     const payload2 = JSON.parse(init2.body)
-    expect(payload2.from).toBe('ATND ME <auth@atnd-me.com>')
+    expect(payload2.from).toBe('Acme Gym <auth@atnd-me.com>')
   })
 })
 
