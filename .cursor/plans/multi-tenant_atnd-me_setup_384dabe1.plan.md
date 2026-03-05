@@ -224,6 +224,7 @@ The MVP will be structured to easily add payment functionality later:
 
 1. **Phase 1** – Multi-tenant MVP (tenant collections, roles, frontend, onboarding)
 2. **Phase 2** – Payment functionality (Stripe Connect, class passes, booking fees)
+2.5 **Phase 2.5** – Stripe sync for Stripe-backed collections (admin as source of truth; create/update/archive in Stripe for plans/memberships, class pass types, discount codes, etc.)
 3. **Phase 3** – Custom tenant-scoped blocks
 4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
 5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes lessons bulk actions)
@@ -232,10 +233,11 @@ The MVP will be structured to easily add payment functionality later:
 8. **Phase 5.5** – Image storage (S3/Cloudflare R2) – configure Media uploads to use Cloudflare R2 via S3-compatible API
 9. **Phase 6** – Authentication across subdomains and custom domains (same user on tenant subdomain + custom domain; cross-tenant login; trusted origins; session propagation)
 10. **Phase 7** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
-11. **Phase 8** – Self-onboarding with MCP-driven personalisation
-12. **Phase 9** – Dashboard analytics (date-filtered, tenant-scoped metrics)
-13. **Phase 10** – Event tracking & marketing attribution (UTM)
-14. **Phase 11** – Application fee management & platform revenue (deferred)
+11. **Phase 7.5** – Organisation (brand) above tenants (Organisations collection; org domain e.g. sauna.com; combined schedule/homepage for unauthenticated users)
+12. **Phase 8** – Self-onboarding with MCP-driven personalisation
+13. **Phase 9** – Dashboard analytics (date-filtered, tenant-scoped metrics)
+14. **Phase 10** – Event tracking & marketing attribution (UTM)
+15. **Phase 11** – Application fee management & platform revenue (deferred)
 
 ## Code Organization: App vs Packages
 
@@ -2005,7 +2007,71 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (Phases 3–11):** Next = Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
+**Roadmap order (next phases):** Next = Phase 2.5 (Stripe sync for Stripe-backed collections) → Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 7.5 (Organisation / brand above tenants) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
+
+---
+
+## Phase 2.5: Stripe Sync for Stripe-Backed Collections (Next)
+
+### Overview
+
+Make the Payload admin the **source of truth** for any collection that represents (or depends on) Stripe objects. When a tenant-admin creates/updates/archives a doc in the dashboard, we **create/update/archive the corresponding object in the tenant’s Stripe Connect account** automatically (and store the Stripe IDs back onto the doc).
+
+This covers cases like:
+
+- Creating a **membership option** (plan) in the admin creates a **Stripe Product + Price** on the tenant Connect account.
+- Updating it updates Stripe (and uses Stripe-safe patterns like “new Price” for price changes).
+- Archiving/deleting it archives in Stripe (Stripe products are usually archived, not deleted).
+
+### Goals
+
+- **Create / Update / Archive sync** for all Stripe-backed collections.
+- **Tenant-aware routing**: every Stripe API call uses the current tenant’s Connect account (`stripeAccount`) and is derived from tenant context (not user input).
+- **Safe Stripe semantics**: price updates create new Prices; deletes become “archive” where Stripe disallows deletion.
+- **Idempotent + loop-safe**: prevent infinite hook loops and tolerate retries/replays.
+
+### Scope (collections to cover)
+
+This phase applies to any collection that interacts with Stripe, typically:
+
+- **Plans / Memberships**: create/update/archive Product + recurring Price.
+- **Class pass types / products**: create/update/archive Product + one-time Price.
+- **Discount codes**: create/update/archive Coupon + Promotion Code (tenant-scoped).
+- Any other future Stripe-backed collections (e.g. add-ons) should follow the same pattern.
+
+### Architecture
+
+- **Stripe helpers (Connect-aware)**:
+  - Centralize: create/update/archive Product, create Price, create/deactivate Coupon + Promotion Code.
+  - All calls use `getPlatformStripe()` with `stripeAccount: tenant.stripeConnectAccountId`.
+- **Collection hooks**:
+  - `afterChange (create)`: if doc has no Stripe IDs, create Stripe objects and patch doc with the IDs.
+  - `afterChange (update)`: sync name/description; if pricing changed, create a new Price and set as default.
+  - “Delete” becomes **soft delete** + **archive in Stripe** (or replace delete with an “Archive” admin action).
+- **Loop prevention**:
+  - When patching the doc with Stripe IDs, set a context flag (e.g. `req.context.skipStripeSync`) and early-return in hooks when present.
+- **Access control + enforcement**:
+  - Tenant-admin can operate only within their tenant (tenant-scoped collections + tenant context).
+  - Server must never accept `tenantId` from the client for Stripe operations—always resolve tenant from request context / doc tenant.
+
+### Stripe delete strategy (recommended)
+
+- **Payload**: soft delete (`deletedAt`) + default list/read filters hide archived docs.
+- **Stripe**: set Product `active: false` (archive). Deactivate Promotion Codes. Avoid “hard deletes” for auditability.
+
+### Tests (TDD)
+
+- **Unit**: Stripe helper functions build correct params and always pass `stripeAccount`.
+- **Integration**:
+  - Creating a plan/class pass type/discount code in a connected tenant persists Stripe IDs.
+  - Updating name/description syncs to Stripe.
+  - Updating price creates a new Stripe Price and updates defaults.
+  - Archiving sets `deletedAt` and archives/deactivates in Stripe.
+  - Tenant without Connect: operations are blocked or fail with a clear error (depending on UX choice).
+
+### Notes
+
+- The detailed “Stripe product sync & discount codes” design that used to be placed later in the roadmap (see the existing “Phase 4.5” section) is now considered part of this Phase 2.5, since it directly supports the Stripe-backed admin experience immediately after payments/connect are in place.
 
 ---
 
@@ -2605,13 +2671,13 @@ Today, the **Media** collection uses `staticDir` (local `public/media`). For pro
 ### Summary
 
 
-| Aspect           | Notes                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| **Storage**      | Cloudflare R2 (or S3) for Media uploads; S3-compatible API.                                |
-| **Config**       | Env-based: bucket, credentials, optional endpoint and public URL.                          |
-| **Fallback**     | When R2/S3 env unset, keep local `staticDir` for dev/test.                                 |
-| **Media fields** | imageSizes, adminThumbnail, focalPoint unchanged; only storage backend and URL generation. |
-| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Lessons Admin UI); before Phase 6 (Authentication).      |
+| Aspect           | Notes                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| **Storage**      | Cloudflare R2 (or S3) for Media uploads; S3-compatible API.                                            |
+| **Config**       | Env-based: bucket, credentials, optional endpoint and public URL.                                      |
+| **Fallback**     | When R2/S3 env unset, keep local `staticDir` for dev/test.                                             |
+| **Media fields** | imageSizes, adminThumbnail, focalPoint unchanged; only storage backend and URL generation.             |
+| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Lessons Admin UI); before Phase 6 (Authentication). |
 
 
 ---
@@ -2751,15 +2817,17 @@ Relevant test cases to implement **before** or alongside implementation.
 
 ### Summary
 
-| Aspect | Notes |
-|--------|--------|
-| **Same tenant, multiple hosts** | User logged in on subdomain1.atnd.me is recognised (or can seamlessly get session) on subdomain1.com. |
+
+| Aspect                          | Notes                                                                                                                             |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Same tenant, multiple hosts** | User logged in on subdomain1.atnd.me is recognised (or can seamlessly get session) on subdomain1.com.                             |
 | **Same user, multiple tenants** | User can log in to subdomain2.atnd.me and subdomain2.com with full functionality; tenant context always from request host/cookie. |
-| **Tenant resolution** | Middleware and getTenantContext resolve tenant by subdomain (existing) or by custom domain (tenant.domain). |
-| **Trusted origins** | Better Auth trustedOrigins include platform subdomains and each tenant’s custom domain(s). |
-| **Session propagation** | Implement central-auth redirect or token handoff so custom domain gets a session without re-entering password. |
-| **Security** | No trusting arbitrary Host for tenant; custom domain must be in DB. Token handoff short-lived and non-replayable. |
-| **Placement** | After Phase 5.5 (Image Storage); before Phase 7 (Multi-Location Architecture). |
+| **Tenant resolution**           | Middleware and getTenantContext resolve tenant by subdomain (existing) or by custom domain (tenant.domain).                       |
+| **Trusted origins**             | Better Auth trustedOrigins include platform subdomains and each tenant’s custom domain(s).                                        |
+| **Session propagation**         | Implement central-auth redirect or token handoff so custom domain gets a session without re-entering password.                    |
+| **Security**                    | No trusting arbitrary Host for tenant; custom domain must be in DB. Token handoff short-lived and non-replayable.                 |
+| **Placement**                   | After Phase 5.5 (Image Storage); before Phase 7 (Multi-Location Architecture).                                                    |
+
 
 ---
 
@@ -2781,7 +2849,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 
 ### Non-goals (for this phase)
 
-- Organisations collection and tenant.org (Phase 2 of subdomain-hierarchy design = a later phase).
+- Organisations collection and tenant.org → **Phase 7.5** (Organisation / brand above tenants).
 - **Sub-subdomains for location** (e.g. `dublin.saunabusiness.atnd.me`) — deferred; Phase 7 resolves to **one subdomain** only.
 - Location-level pages or different page sets per location (pages stay tenant-wide).
 
@@ -2850,6 +2918,88 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 
 ---
 
+## Phase 7.5: Organisation (Brand) Above Tenants (Future)
+
+### Overview
+
+Introduce an **Organisation** (brand) entity that sits **above** tenants. One organisation can own a main domain (e.g. `sauna.com`) and have many tenants (e.g. sauna1, sauna2 = locations/branches). The organisation domain shows a **brand homepage** (e.g. combined schedule across all tenants, or org-level content). Unauthenticated users can view this; no login required.
+
+**Use case:** A sauna company with multiple locations: `sauna.com` is the brand homepage; tenants sauna1, sauna2 are branches; the homepage combines schedules or lists locations.
+
+### Goals
+
+- **Organisations collection**: New collection (name, slug, domain). Domain is unique and used for “brand” homepage resolution (e.g. `sauna.com` → organisation).
+- **Tenants**: Add `organisation` relationship (required or optional). Tenants keep their own `domain` for branch-specific domains (e.g. `downtown.sauna.com`).
+- **Domain resolution**: Extend resolution so host can map to **organisation** or **tenant**. If host matches `organisation.domain` → org context (no single tenant); if host matches `tenant.domain` → tenant context as today.
+- **Content on org domain**: Choose one of: (C1) no org-level pages—homepage is routing + blocks that aggregate all org tenants’ data; (C2) org-level pages collection (e.g. `organisation-pages` with `organisation` relationship); (C3) one global per organisation for brand homepage.
+- **Combined schedule (and similar) on org domain**: When request is for organisation, resolve all tenants where `tenant.organisation === org.id`, fetch each tenant’s Scheduler, merge slots, render combined list (same list UX as TenantScopedSchedule). Public; no auth.
+- **Access control**: Optional org-level roles (e.g. “org admin” sees all tenants of that org). Either derive from user’s tenants (org = tenant.organisation) or add explicit organisations/roles on user; extend access so org admin can manage all tenants in that org.
+
+### Non-goals (for this phase)
+
+- Sub-subdomains for organisation (e.g. `sauna1.sauna.com` as tenant); tenant domains remain explicit on Tenant or via separate config.
+- Changing multi-tenant plugin core; Organisation is an additional layer; plugin stays tenant-centric.
+
+### Data model
+
+
+| Entity            | Change                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| **Organisations** | New collection: name, slug, domain (unique), optional logo/description.                          |
+| **Tenants**       | Add `organisation` → relationship to `organisations`. Keep `domain` for branch-specific domains. |
+
+
+### Domain resolution
+
+- **Current:** Host → lookup tenant by domain/subdomain → that tenant’s pages.
+- **With Phase 7.5:** Resolve host to **organisation** or **tenant**:
+  - If host matches **organisation.domain** (e.g. `sauna.com`) → set **organisation context** (no single tenant; “all tenants of this org”).
+  - If host matches **tenant.domain** (e.g. `downtown.sauna.com`) → set **tenant context** as today.
+- Implementation: resolution layer (e.g. in middleware or `getTenantContext` / new `getOrganisationContext`) that checks organisation domains first, then tenant domains; set `req.organisation` and/or `req.tenant` accordingly.
+
+### Content and blocks on organisation domain
+
+- **Option C1 (no org-level content):** Homepage is a fixed template; blocks pull data from all tenants of the current org (e.g. combined schedule block). No pages stored on Organisation.
+- **Option C2 (org-level pages):** New collection e.g. `organisation-pages` with `organisation` relationship; when request is org domain, load pages by organisation. Two “page trees”: one per tenant (existing), one per organisation.
+- **Option C3 (global per org):** One global per organisation for “brand homepage” content; resolve org and load that global when on org domain.
+
+### Combined schedule block (org domain)
+
+- When request is for **organisation**: resolve org from host → get all tenants with `tenant.organisation === org.id` → for each tenant fetch Scheduler doc → merge slots (by day/time), tag by tenant/location → render merged list (same list UX as current tenant-scoped schedule). Unauthenticated users can view.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 7.5.1 – Organisations collection:** Create Organisations collection (name, slug, domain unique). Add to payload.config. Migration for new table. Tests: CRUD, domain uniqueness.
+- **Step 7.5.2 – Tenant.organisation:** Add `organisation` relationship to Tenants. Migration. Tests: tenant must/can belong to org; access control respects org.
+- **Step 7.5.3 – Domain resolution:** Extend middleware (or getTenantContext/getOrganisationContext) to resolve host to organisation or tenant; set context. Tests: host → org vs tenant; fallback behaviour.
+- **Step 7.5.4 – Content for org domain:** Implement chosen option (C1, C2, or C3) for serving homepage/content when context is organisation. Tests: org domain returns correct content.
+- **Step 7.5.5 – Combined schedule block:** When context is organisation, fetch all org tenants’ Scheduler docs, merge slots, pass to block component. Optional: group by tenant or location in UI. Tests: merged schedule contains slots from all org tenants; unauthenticated access.
+- **Step 7.5.6 – Access (optional):** Org-level admin role or “user.organisations”; extend access so org admin can manage all tenants in that org. Tests: org admin sees only their org’s tenants.
+
+### Files / areas to add or modify
+
+- `apps/atnd-me/src/collections/Organisations/index.ts` – New Organisations collection.
+- `apps/atnd-me/src/collections/Tenants/index.ts` – Add `organisation` relationship.
+- Middleware or `getTenantContext` / new `getOrganisationContext` – Resolve host to organisation or tenant; set `req.organisation` / `req.tenant`.
+- Blocks used on org homepage – Combined schedule (and any other org-aggregate blocks); accept org context and fetch/merge data from all org tenants.
+- Optional: `organisation-pages` collection or org-level global; access control for org-level roles.
+- Tests: Organisations CRUD, domain resolution (org vs tenant), combined schedule (merged data, unauthenticated), org admin access.
+
+### Summary
+
+
+| Aspect                | Notes                                                               |
+| --------------------- | ------------------------------------------------------------------- |
+| **Organisation**      | New collection; owns domain (e.g. sauna.com); has many tenants.     |
+| **Tenants**           | Belong to one organisation; keep own domain for branch URLs.        |
+| **Resolution**        | Host → organisation (if org.domain) or tenant (if tenant.domain).   |
+| **Org homepage**      | C1: aggregate blocks only; C2: org-level pages; C3: global per org. |
+| **Combined schedule** | On org domain: merge all org tenants’ Scheduler slots; public.      |
+| **Placement**         | After Phase 7 (Multi-Location); before Phase 8 (Self-Onboarding).   |
+
+
+---
+
 ## Phase 2 Completion Status (vs codebase)
 
 *Updated from a scan of the atnd-me app.*
@@ -2874,11 +3024,13 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 
 Phase 2 core is complete. Remaining work is mostly verification and test stability.
 
+**Next to implement:** Phase 2.5 (Stripe Sync for Stripe-Backed Collections).
+
 ---
 
 ## Phase 11: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Lessons Admin UI (Phase 5), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Lessons Admin UI (Phase 5), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
 
 When implementing flexible application fees:
 
