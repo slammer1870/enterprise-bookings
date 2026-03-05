@@ -304,6 +304,7 @@ export interface Tenant {
         | 'location'
         | 'healthBenefits'
         | 'sectionTagline'
+        | 'missionElements'
         | 'faqs'
         | 'features'
         | 'caseStudies'
@@ -1831,14 +1832,14 @@ export interface Form {
  * via the `definition` "BruHeroBlock".
  */
 export interface BruHeroBlock {
-  backgroundImage: number | Media;
-  logo: number | Media;
-  title: string;
-  subtitle: string;
-  description: string;
-  primaryButton: {
-    text: string;
-    link: string;
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  title?: string | null;
+  subtitle?: string | null;
+  description?: string | null;
+  primaryButton?: {
+    text?: string | null;
+    link?: string | null;
   };
   secondaryButton?: {
     text?: string | null;
@@ -1855,8 +1856,8 @@ export interface BruHeroBlock {
 export interface BruAboutBlock {
   sections?:
     | {
-        title: string;
-        content: {
+        title?: string | null;
+        content?: {
           root: {
             type: string;
             children: {
@@ -1870,8 +1871,8 @@ export interface BruAboutBlock {
             version: number;
           };
           [k: string]: unknown;
-        };
-        image: number | Media;
+        } | null;
+        image?: (number | null) | Media;
         imagePosition?: ('left' | 'right') | null;
         id?: string | null;
       }[]
@@ -1894,8 +1895,8 @@ export interface BruScheduleBlock {
  * via the `definition` "BruLearningBlock".
  */
 export interface BruLearningBlock {
-  title: string;
-  content: {
+  title?: string | null;
+  content?: {
     root: {
       type: string;
       children: {
@@ -1909,8 +1910,8 @@ export interface BruLearningBlock {
       version: number;
     };
     [k: string]: unknown;
-  };
-  image: number | Media;
+  } | null;
+  image?: (number | null) | Media;
   id?: string | null;
   blockName?: string | null;
   blockType: 'bruLearning';
@@ -1922,10 +1923,10 @@ export interface BruLearningBlock {
 export interface BruMeetTheTeamBlock {
   teamMembers?:
     | {
-        image: number | Media;
-        name: string;
-        role: string;
-        bio: {
+        image?: (number | null) | Media;
+        name?: string | null;
+        role?: string | null;
+        bio?: {
           root: {
             type: string;
             children: {
@@ -1939,7 +1940,7 @@ export interface BruMeetTheTeamBlock {
             version: number;
           };
           [k: string]: unknown;
-        };
+        } | null;
         id?: string | null;
       }[]
     | null;
@@ -1952,13 +1953,13 @@ export interface BruMeetTheTeamBlock {
  * via the `definition` "BruTestimonialsBlock".
  */
 export interface BruTestimonialsBlock {
-  title: string;
+  title?: string | null;
   testimonials?:
     | {
-        image: number | Media;
-        name: string;
-        role: string;
-        testimonial: {
+        image?: (number | null) | Media;
+        name?: string | null;
+        role?: string | null;
+        testimonial?: {
           root: {
             type: string;
             children: {
@@ -1972,7 +1973,7 @@ export interface BruTestimonialsBlock {
             version: number;
           };
           [k: string]: unknown;
-        };
+        } | null;
         id?: string | null;
       }[]
     | null;
@@ -1997,12 +1998,12 @@ export interface BruContactBlock {
  * via the `definition` "BruHeroWaitlistBlock".
  */
 export interface BruHeroWaitlistBlock {
-  backgroundImage: number | Media;
-  logo: number | Media;
-  title: string;
-  subtitle: string;
-  description: string;
-  form: number | Form;
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  title?: string | null;
+  subtitle?: string | null;
+  description?: string | null;
+  form?: (number | null) | Form;
   enableIntro?: boolean | null;
   introContent?: {
     root: {

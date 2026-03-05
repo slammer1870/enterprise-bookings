@@ -34,6 +34,7 @@ export type FooterData = {
   copyrightText?: string
   navItems: Array<{
     link?: { type?: string; url?: string; label?: string; reference?: unknown }
+    icon?: 'none' | 'instagram' | 'facebook' | 'x' | null
   }>
   styling?: {
     backgroundColor?: string
