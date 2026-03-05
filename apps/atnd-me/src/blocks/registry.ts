@@ -15,6 +15,7 @@ import { Schedule } from './Schedule/config'
 import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
 import { HeroWithLocation } from './HeroWithLocation/config'
+import { MissionElements } from './MissionElements/config'
 import {
   Hero,
   About,
@@ -47,6 +48,7 @@ const allBlocks: Block[] = [
   TenantScopedSchedule,
   HealthBenefits,
   SectionTagline,
+  MissionElements,
   Faqs,
   Features,
   CaseStudies,

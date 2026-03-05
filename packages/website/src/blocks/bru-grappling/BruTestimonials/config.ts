@@ -11,7 +11,7 @@ export const BruTestimonials: Block = {
     {
       name: 'title',
       type: 'text',
-      required: true,
+      required: false,
       label: 'Section Title',
     },
     {
@@ -25,25 +25,25 @@ export const BruTestimonials: Block = {
           name: 'image',
           type: 'upload',
           relationTo: 'media',
-          required: true,
+          required: false,
           label: 'Profile Image',
         },
         {
           name: 'name',
           type: 'text',
-          required: true,
+          required: false,
           label: 'Name',
         },
         {
           name: 'role',
           type: 'text',
-          required: true,
+          required: false,
           label: 'Role/Occupation',
         },
         {
           name: 'testimonial',
           type: 'richText',
-          required: true,
+          required: false,
           label: 'Testimonial Text',
         },
       ],

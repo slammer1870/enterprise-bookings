@@ -19,6 +19,7 @@ import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
 import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Component'
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
+import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
 import { ThreeColumnLayoutBlock } from '@repo/website/src/blocks/threeColumnLayout'
 import { BruHeroBlock } from '@repo/website/src/blocks/bru-grappling/BruHero'
 import { BruAboutBlock } from '@repo/website/src/blocks/bru-grappling/BruAbout'
@@ -52,6 +53,7 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   heroWithLocation: HeroWithLocationBlock,
   healthBenefits: HealthBenefitsBlock,
   sectionTagline: SectionTaglineBlock,
+  missionElements: MissionElementsBlock,
   threeColumnLayout: ThreeColumnLayoutBlock,
   bruHero: BruHeroBlock,
   bruAbout: BruAboutBlock,

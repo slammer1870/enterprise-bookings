@@ -16,18 +16,18 @@ export const BruAbout: Block = {
         {
           name: 'title',
           type: 'text',
-          required: true,
+          required: false,
         },
         {
           name: 'content',
           type: 'richText',
-          required: true,
+          required: false,
         },
         {
           name: 'image',
           type: 'upload',
           relationTo: 'media',
-          required: true,
+          required: false,
         },
         {
           name: 'imagePosition',
