@@ -128,6 +128,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   enableMagicLink: true,
   magicLinkDisableSignUp: true,
   includeMagicLinkOptionConfig: true,
+  cookieDomainStrategy: 'host',
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
   trustedOrigins: getTrustedOriginsWithCustomDomains(getExtraTrustedOriginHosts()),

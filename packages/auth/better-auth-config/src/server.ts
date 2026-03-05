@@ -57,6 +57,12 @@ export type BetterAuthServerConfig = {
   magicLinkDisableSignUp?: boolean;
   includeMagicLinkOptionConfig?: boolean;
   /**
+   * Cookie domain strategy.
+   * - "derived" (default): derive a cookie domain from `baseURL` (e.g. ".atnd-me.com") for subdomain sharing.
+   * - "host": omit the Domain attribute (host-only cookies), required for tenant custom domains.
+   */
+  cookieDomainStrategy?: "derived" | "host";
+  /**
    * Optional per-magic-link email app name resolver.
    * Useful for multi-tenant apps where the magic-link URL hostname maps to a tenant brand name.
    *
@@ -179,12 +185,34 @@ export function createBetterAuthPlugins({
   return plugins;
 }
 
+function scopeMagicLinkUrlToCallbackOrigin(magicLinkUrl: string): string {
+  try {
+    const url = new URL(magicLinkUrl)
+    const callback = url.searchParams.get("callbackURL")
+    if (!callback) return magicLinkUrl
+
+    // callbackURL is usually URL-encoded; URLSearchParams returns it decoded.
+    // Only scope when it's an absolute http(s) URL.
+    const cbUrl = new URL(callback)
+    if (cbUrl.protocol !== "http:" && cbUrl.protocol !== "https:") return magicLinkUrl
+
+    url.protocol = cbUrl.protocol
+    url.host = cbUrl.host
+    return url.toString()
+  } catch {
+    return magicLinkUrl
+  }
+}
+
 export function createBetterAuthOptions(config: BetterAuthServerConfig) {
   const baseURL =
     config.baseURL ||
     process.env.NEXT_PUBLIC_SERVER_URL ||
     "http://localhost:3000";
-  const cookieDomain = deriveCookieDomainFromBaseURL(baseURL)
+  const cookieDomain =
+    config.cookieDomainStrategy === "host"
+      ? undefined
+      : deriveCookieDomainFromBaseURL(baseURL)
   const _emailCfg = resolveBetterAuthEmailConfig({
     enabled: Boolean(config.email?.enabled),
     fromAddress: config.email?.fromAddress,
@@ -201,18 +229,20 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     token: string;
     url: string;
   }) => {
+    const scopedUrl = scopeMagicLinkUrlToCallbackOrigin(url)
+
     // test harness capture
-    saveTestMagicLink({ email, token, url });
+    saveTestMagicLink({ email, token, url: scopedUrl });
 
     if (isTestMagicLinkStoreEnabled() || process.env.CI) {
-      console.log("Magic link captured (test/CI):", email, token, url);
+      console.log("Magic link captured (test/CI):", email, token, scopedUrl);
       return;
     }
 
     let magicLinkAppName = config.appName;
     if (typeof config.resolveMagicLinkAppName === "function") {
       try {
-        const resolved = await config.resolveMagicLinkAppName({ email, token, url });
+        const resolved = await config.resolveMagicLinkAppName({ email, token, url: scopedUrl });
         if (typeof resolved === "string" && resolved.trim()) {
           magicLinkAppName = resolved.trim();
         }
@@ -225,7 +255,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     let from: string | undefined = undefined;
     if (typeof config.resolveMagicLinkFrom === "function") {
       try {
-        const resolved = await config.resolveMagicLinkFrom({ email, token, url });
+        const resolved = await config.resolveMagicLinkFrom({ email, token, url: scopedUrl });
         const fromNameRaw = resolved && typeof resolved === "object" ? resolved.fromName : null;
         const fromAddressRaw = resolved && typeof resolved === "object" ? resolved.fromAddress : null;
         const fromAddress =
@@ -245,7 +275,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     }
 
     const html = buildMagicLinkEmailHtml({
-      magicLink: url,
+      magicLink: scopedUrl,
       appName: magicLinkAppName,
       expiryTime: "15 minutes",
     });
