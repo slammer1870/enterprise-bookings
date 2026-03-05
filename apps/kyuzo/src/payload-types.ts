@@ -127,6 +127,7 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
+  fallbackLocale: null;
   globals: {
     navbar: Navbar;
     footer: Footer;
