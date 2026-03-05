@@ -18,6 +18,7 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   heroScheduleSanctuary: 'Hero & Schedule (Sanctuary)',
   healthBenefits: 'Health Benefits',
   sectionTagline: 'Section Tagline',
+  missionElements: 'Mission Elements',
   mediaBlock: 'Media Block',
   archive: 'Archive',
   formBlock: 'Form Block',
