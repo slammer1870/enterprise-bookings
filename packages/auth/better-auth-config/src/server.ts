@@ -69,7 +69,7 @@ export type BetterAuthServerConfig = {
    * If it returns a non-empty string, that value is used for the magic-link email subject and template
    * (e.g. "Sign in to {tenant name}"). Otherwise it falls back to `appName`.
    */
-  resolveMagicLinkAppName?: (args: {
+  resolveMagicLinkAppName?: (_args: {
     email: string;
     token: string;
     url: string;
@@ -79,7 +79,7 @@ export type BetterAuthServerConfig = {
    * If it returns a non-empty `fromAddress`, it will be used for the magic-link email's From header.
    * `fromName` defaults to the resolved magic-link app name when omitted.
    */
-  resolveMagicLinkFrom?: (args: {
+  resolveMagicLinkFrom?: (_args: {
     email: string;
     token: string;
     url: string;
