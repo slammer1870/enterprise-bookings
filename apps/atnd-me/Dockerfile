@@ -29,7 +29,7 @@ COPY turbo.json ./
 ARG DATABASE_URI
 ENV DATABASE_URI=${DATABASE_URI}
 RUN corepack enable pnpm && \
-  pnpm --filter atnd-me exec payload migrate --force-accept-warning
+  printf 'y\n' | pnpm --filter atnd-me exec payload migrate --force-accept-warning
 # Skip migrations during next build (DB already migrated above; avoids duplicate-key errors).
 ENV SKIP_PAYLOAD_MIGRATIONS=1
 # Create .next in the writable layer so Next.js build can write (avoids EROFS)
