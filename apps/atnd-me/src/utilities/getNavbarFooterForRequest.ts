@@ -40,6 +40,7 @@ export type FooterData = {
     backgroundColor?: string
     textColor?: string
     showThemeSelector?: boolean
+    padding?: string
   }
 }
 

@@ -148,6 +148,20 @@ export const Footer: CollectionConfig = {
             description: 'Display theme selector in footer',
           },
         },
+        {
+          name: 'padding',
+          type: 'select',
+          label: 'Padding',
+          options: [
+            { label: 'Small', value: 'small' },
+            { label: 'Medium', value: 'medium' },
+            { label: 'Large', value: 'large' },
+          ],
+          defaultValue: 'medium',
+          admin: {
+            description: 'Match navbar padding so edges align',
+          },
+        },
       ],
     },
   ],

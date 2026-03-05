@@ -20,7 +20,7 @@ const getImageURL = (image?: Media | Config['db']['defaultIDType'] | null) => {
   return url
 }
 
-const DEFAULT_SITE_NAME = 'Payload Website Template'
+const DEFAULT_SITE_NAME = 'ATND ME'
 
 export const generateMeta = async (args: {
   doc: Partial<Page> | Partial<Post> | null
@@ -31,9 +31,8 @@ export const generateMeta = async (args: {
   const ogImage = getImageURL(doc?.meta?.image)
 
   const siteName = tenantBranding?.name || DEFAULT_SITE_NAME
-  const title = doc?.meta?.title
-    ? `${doc.meta.title} | ${siteName}`
-    : siteName
+  const docTitle = typeof doc?.meta?.title === 'string' ? doc.meta.title.trim() : ''
+  const title = docTitle || undefined
 
   const description = doc?.meta?.description || tenantBranding?.description || undefined
 
@@ -48,7 +47,7 @@ export const generateMeta = async (args: {
             },
           ]
         : undefined,
-      title,
+      title: docTitle ? `${docTitle} | ${siteName}` : siteName,
       url: Array.isArray(doc?.slug) ? doc?.slug.join('/') : '/',
     }),
     title,

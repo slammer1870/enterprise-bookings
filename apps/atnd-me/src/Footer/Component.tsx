@@ -85,6 +85,7 @@ export async function Footer() {
   const copyrightText = footerData?.copyrightText
   const styling = footerData?.styling
   const showThemeSelector = styling?.showThemeSelector !== false
+  const padding = styling?.padding || 'medium'
 
   // Get styling values
   const backgroundColor = styling?.backgroundColor || 'bg-black dark:bg-card'
@@ -92,6 +93,13 @@ export async function Footer() {
 
   const logoUrl = typeof logo === 'object' && logo?.url ? logo.url : null
   const logoAlt = typeof logo === 'object' && logo?.alt ? logo.alt : 'Logo'
+
+  // Match navbar horizontal padding so edges align
+  const paddingXClasses = {
+    small: 'px-4',
+    medium: 'px-8',
+    large: 'px-8 lg:px-12',
+  }[padding]
 
   return (
     <footer
@@ -105,60 +113,64 @@ export async function Footer() {
           : {}),
       }}
     >
-      <div className="container py-8 gap-8 flex flex-col md:flex-row md:justify-between mx-auto">
-        <Link className="flex items-center" href={logoLink}>
+      <div className="mx-auto">
+        <div
+          className={`${paddingXClasses} py-8 gap-8 flex flex-col md:flex-row md:justify-between`}
+        >
+          <Link className="flex items-center" href={logoLink}>
           {logoUrl ? (
             <Image
               src={logoUrl}
               alt={logoAlt}
-              width={120}
-              height={40}
-              className="object-contain"
+                width={96}
+                height={32}
+                className="object-contain h-8 w-auto"
             />
           ) : (
-            <Logo />
+              <Logo className="h-8 w-auto" />
           )}
-        </Link>
+          </Link>
 
-        <div className="flex flex-col-reverse items-start md:flex-row gap-4 md:items-center">
-          {showThemeSelector && <ThemeSelector />}
-          {navItems.length > 0 && (
-            <nav className="flex flex-col md:flex-row gap-4">
-              {navItems.map(({ link, icon }, i) => {
-                const displayIcon =
-                  icon === 'instagram' || icon === 'facebook' || icon === 'x'
-                    ? icon
-                    : null
-                const linkProps = link as React.ComponentProps<typeof CMSLink>
+          <div className="flex flex-col-reverse items-start md:flex-row gap-4 md:items-center">
+            {showThemeSelector && <ThemeSelector />}
+            {navItems.length > 0 && (
+              <nav className="flex flex-col md:flex-row gap-4">
+                {navItems.map(({ link, icon }, i) => {
+                  const displayIcon =
+                    icon === 'instagram' || icon === 'facebook' || icon === 'x'
+                      ? icon
+                      : null
+                  const linkProps = link as React.ComponentProps<typeof CMSLink>
 
-                return (
-                  <CMSLink
-                    className={textColor}
-                    key={i}
-                    {...linkProps}
-                    {...(displayIcon != null
-                      ? {
-                          label: undefined,
-                          children: (
-                            <span className="inline-flex items-center">
-                              <FooterIcon icon={displayIcon} />
-                              <span className="ml-1.5">{linkProps.label ?? ''}</span>
-                            </span>
-                          ),
-                        }
-                      : {})}
-                  />
-                )
-              })}
-            </nav>
-          )}
+                  return (
+                    <CMSLink
+                      className={textColor}
+                      key={i}
+                      {...linkProps}
+                      {...(displayIcon != null
+                        ? {
+                            label: undefined,
+                            children: (
+                              <span className="inline-flex items-center">
+                                <FooterIcon icon={displayIcon} />
+                                <span className="ml-1.5">{linkProps.label ?? ''}</span>
+                              </span>
+                            ),
+                          }
+                        : {})}
+                    />
+                  )
+                })}
+              </nav>
+            )}
+          </div>
         </div>
       </div>
       {copyrightText && (
-        <div className="container py-4 border-t border-border/50">
-          <p className={`text-sm text-center ${textColor} opacity-75`}>
-            {copyrightText}
-          </p>
+        <div className="mx-auto border-t border-border/50">
+          <div className={`${paddingXClasses} py-4`}>
+            <p className={`text-sm text-center ${textColor} opacity-75`}>{copyrightText}</p>
+          </div>
         </div>
       )}
     </footer>

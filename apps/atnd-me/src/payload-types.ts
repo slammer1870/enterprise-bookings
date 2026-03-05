@@ -2183,6 +2183,10 @@ export interface Footer {
           url?: string | null;
           label: string;
         };
+        /**
+         * Optional icon before the label (e.g. for social links).
+         */
+        icon?: ('none' | 'instagram' | 'facebook' | 'x') | null;
         id?: string | null;
       }[]
     | null;
@@ -2199,6 +2203,10 @@ export interface Footer {
      * Display theme selector in footer
      */
     showThemeSelector?: boolean | null;
+    /**
+     * Match navbar padding so edges align
+     */
+    padding?: ('small' | 'medium' | 'large') | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -3691,6 +3699,7 @@ export interface FooterSelect<T extends boolean = true> {
               url?: T;
               label?: T;
             };
+        icon?: T;
         id?: T;
       };
   styling?:
@@ -3699,6 +3708,7 @@ export interface FooterSelect<T extends boolean = true> {
         backgroundColor?: T;
         textColor?: T;
         showThemeSelector?: T;
+        padding?: T;
       };
   updatedAt?: T;
   createdAt?: T;
