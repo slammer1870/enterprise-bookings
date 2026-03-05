@@ -55,6 +55,8 @@ import * as migration_20260226_users_stripe_customers_table from './20260226_use
 import * as migration_20260227_111125 from './20260227_111125';
 import * as migration_20260227_subscriptions_connect_fields from './20260227_subscriptions_connect_fields';
 import * as migration_20260304_pages_blocks_bru_grappling from './20260304_pages_blocks_bru_grappling';
+import * as migration_20260305_footer_nav_items_icon from './20260305_footer_nav_items_icon';
+import * as migration_20260305_footer_styling_padding from './20260305_footer_styling_padding';
 
 export const migrations = [
   {
@@ -341,5 +343,15 @@ export const migrations = [
     up: migration_20260304_pages_blocks_bru_grappling.up,
     down: migration_20260304_pages_blocks_bru_grappling.down,
     name: '20260304_pages_blocks_bru_grappling',
+  },
+  {
+    up: migration_20260305_footer_nav_items_icon.up,
+    down: migration_20260305_footer_nav_items_icon.down,
+    name: '20260305_footer_nav_items_icon',
+  },
+  {
+    up: migration_20260305_footer_styling_padding.up,
+    down: migration_20260305_footer_styling_padding.down,
+    name: '20260305_footer_styling_padding',
   },
 ];
