@@ -256,7 +256,12 @@ export function TenantSelectionProviderRootAwareClient({
     }
     const { collectionSlug, docId } = editParams
     const withTenantSet = new Set(collectionsWithTenantField)
-    if (!withTenantSet.has(collectionSlug)) return
+    const requiredSet = new Set(collectionsRequireTenantOnCreate)
+    // Sync tenant context on edit pages for:
+    // - collections we explicitly sync selector → form field for (collectionsWithTenantField)
+    // - collections that are configured as tenant-required (collectionsRequireTenantOnCreate)
+    // This covers tenant-required collections like `subscriptions` where we don't mount the form-field sync component.
+    if (!withTenantSet.has(collectionSlug) && !requiredSet.has(collectionSlug)) return
     if (!isAdminUser || tenantOptions.length === 0) return
 
     const key = `${collectionSlug}-${docId}`
@@ -299,10 +304,11 @@ export function TenantSelectionProviderRootAwareClient({
           setTenant({ id: match.value, refresh: false })
         }
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [
     pathname,
     collectionsWithTenantField,
+    collectionsRequireTenantOnCreate,
     documentTenantFieldName,
     isAdminUser,
     tenantOptions,

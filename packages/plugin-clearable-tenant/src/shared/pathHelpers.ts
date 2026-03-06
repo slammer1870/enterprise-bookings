@@ -85,12 +85,14 @@ export function isOptionalTenantCollectionRoute(
   const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
   if (createMatch) {
     const slug = createMatch[1]
-    if (slug && withTenantSet.has(slug) && requireSet.has(slug)) return false
+    // If the collection is configured as tenant-required, the selector must be non-clearable
+    // regardless of whether we sync selector → form field for that collection.
+    if (slug && requireSet.has(slug)) return false
     return true
   }
   const editParams = getCollectionEditParams(pathname)
   if (editParams?.collectionSlug) {
-    if (withTenantSet.has(editParams.collectionSlug) && requireSet.has(editParams.collectionSlug)) return false
+    if (requireSet.has(editParams.collectionSlug)) return false
     return true
   }
   return true

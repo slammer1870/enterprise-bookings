@@ -106,6 +106,15 @@ describe('path helpers', () => {
       ).toBe(true)
     })
 
+    it('returns false for required collection even when not in collectionsWithTenantField', () => {
+      expect(
+        isOptionalTenantCollectionRoute('/admin/collections/subscriptions/1', {
+          collectionsWithTenantField: ['pages'],
+          collectionsRequireTenantOnCreate: ['subscriptions'],
+        }),
+      ).toBe(false)
+    })
+
     it('returns false for posts create (required tenant)', () => {
       expect(
         isOptionalTenantCollectionRoute('/admin/collections/posts/create', {
