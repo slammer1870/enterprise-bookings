@@ -41,6 +41,7 @@ export function HeaderAuthMenu({ className }: { className?: string }) {
       <summary
         className={cn(
           'list-none cursor-pointer select-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          '[&::-webkit-details-marker]:hidden [&::marker]:content-none',
         )}
         aria-label="Open account menu"
       >
