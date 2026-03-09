@@ -35,17 +35,29 @@ export const BruHeroBlock: React.FC<{
   description: string
   primaryButton: {
     text: string
-    link: string
+    /**
+     * Can be null/empty when coming from CMS content.
+     * Never pass null to `next/link` (it will crash server render).
+     */
+    link?: string | null
   }
   secondaryButton?: {
     text?: string
-    link?: string
+    link?: string | null
   }
 }> = ({ backgroundImage, logo, title, subtitle, description, primaryButton, secondaryButton }) => {
   const { trackEvent } = useAnalyticsTracker()
 
   const bgUrl = getImageUrl(backgroundImage)
   const logoUrl = getImageUrl(logo)
+  const primaryHref =
+    typeof primaryButton?.link === 'string' && primaryButton.link.trim()
+      ? primaryButton.link
+      : null
+  const secondaryHref =
+    typeof secondaryButton?.link === 'string' && secondaryButton.link.trim()
+      ? secondaryButton.link
+      : null
 
   return (
     <section className="relative min-h-screen z-10">
@@ -86,20 +98,22 @@ export const BruHeroBlock: React.FC<{
               <h3 className="mb-8 text-xl text-gray-700">{description}</h3>
             </div>
             <div className="flex w-full flex-col lg:flex-row gap-4">
-              <Button
-                asChild
-                variant="default"
-                size="lg"
-                className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium"
-                onClick={() => {
-                  trackEvent('Bru Trial Button Clicked')
-                }}
-              >
-                <Link href={primaryButton.link}>{primaryButton.text}</Link>
-              </Button>
-              {secondaryButton?.link && secondaryButton.text && (
+              {primaryHref ? (
+                <Button
+                  asChild
+                  variant="default"
+                  size="lg"
+                  className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium"
+                  onClick={() => {
+                    trackEvent('Bru Trial Button Clicked')
+                  }}
+                >
+                  <Link href={primaryHref}>{primaryButton.text}</Link>
+                </Button>
+              ) : null}
+              {secondaryHref && secondaryButton?.text && (
                 <Button asChild variant="secondary" size="lg" className="w-full font-medium">
-                  <Link href={secondaryButton.link}>{secondaryButton.text}</Link>
+                  <Link href={secondaryHref}>{secondaryButton.text}</Link>
                 </Button>
               )}
             </div>
