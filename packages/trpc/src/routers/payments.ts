@@ -577,24 +577,135 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
     .use(requireCollections("plans"))
     .input(
       z.object({
-        productId: z.string(),
+        /**
+         * Back-compat: historically clients passed Stripe Product ID (plan.stripeProductId).
+         * Some apps restrict querying `stripeProductId` via field-level access, so we also accept
+         * `planId` (Payload doc id) to avoid querying by protected fields.
+         */
+        productId: z.string().optional(),
+        planId: z.union([z.number(), z.string()]).optional(),
         returnUrl: z.string().optional(),
+      })
+      .refine((v) => Boolean(v.productId || v.planId), {
+        message: "Either productId or planId is required",
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const product = await findSafe(ctx.payload, "plans", {
-        where: {
-          stripeProductId: { equals: input.productId },
-        },
-        overrideAccess: false,
-        user: ctx.user,
-      });
+      const parsePriceId = (plan: any): string => {
+        const raw = plan?.priceJSON;
+        const parsed =
+          typeof raw === "string"
+            ? JSON.parse(raw || "{}")
+            : raw && typeof raw === "object"
+              ? raw
+              : {};
+        const id = (parsed as any)?.id;
+        if (typeof id !== "string" || !id.trim()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Plan is missing Stripe price configuration",
+          });
+        }
+        return id;
+      };
 
-      if (product.docs.length === 0) {
-        throw new Error("Product not found");
+      const resolvePlanId = (raw: unknown): number | string | null => {
+        const n = coerceNumericId(raw);
+        if (n != null) return n;
+        if (typeof raw === "string" && raw.trim()) return raw.trim();
+        return null;
+      };
+
+      let plan: any | null = null;
+
+      // Preferred: resolve by Payload plan id (avoids querying protected fields).
+      if (input.planId != null) {
+        const id = resolvePlanId(input.planId);
+        if (id == null) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid planId" });
+        }
+
+        // Enforce doc-level access for the caller.
+        try {
+          await ctx.payload.findByID({
+            collection: "plans",
+            id,
+            depth: 0,
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        } catch (err: any) {
+          const status = err?.statusCode;
+          if (status === 403) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Not allowed" });
+          }
+          if (status === 404 || err?.message?.includes("not found")) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
+          }
+          throw err;
+        }
+
+        // Privileged read for protected fields (stripeProductId / priceJSON).
+        plan = await ctx.payload
+          .findByID({
+            collection: "plans",
+            id,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null);
+      } else if (input.productId) {
+        // Back-compat: resolve plan by Stripe product id using privileged query, then verify doc-level access.
+        const productId = input.productId;
+        const found = await findSafe(ctx.payload, "plans", {
+          where: { stripeProductId: { equals: productId } },
+          depth: 0,
+          limit: 1,
+          overrideAccess: true,
+        });
+
+        plan = found?.docs?.[0] ?? null;
+
+        if (plan?.id != null) {
+          try {
+            await ctx.payload.findByID({
+              collection: "plans",
+              id: plan.id,
+              depth: 0,
+              overrideAccess: false,
+              user: ctx.user,
+            });
+          } catch (err: any) {
+            const status = err?.statusCode;
+            if (status === 403) {
+              throw new TRPCError({ code: "FORBIDDEN", message: "Not allowed" });
+            }
+            // If access is denied for other reasons, don't leak existence.
+            if (status === 404 || err?.message?.includes("not found")) {
+              throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
+            }
+            throw err;
+          }
+        }
       }
 
-      const priceId = JSON.parse(product?.docs[0]?.priceJSON as string)?.id;
+      if (!plan) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
+      }
+
+      const stripeProductId =
+        typeof plan?.stripeProductId === "string" && plan.stripeProductId.trim()
+          ? plan.stripeProductId.trim()
+          : null;
+
+      if (!stripeProductId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Plan is missing Stripe product configuration",
+        });
+      }
+
+      const priceId = parsePriceId(plan);
 
       const payloadUser = await resolvePayloadUser({
         payload: ctx.payload,
@@ -634,7 +745,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             proration_behavior: "create_prorations",
             products: [
               {
-                product: input.productId,
+                product: stripeProductId,
                 prices: [priceId],
               },
             ],
