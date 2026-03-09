@@ -574,7 +574,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       return session;
     }),
   createCustomerUpgradePortal: stripeProtectedProcedure
-    .use(requireCollections("plans"))
+    .use(requireCollections("plans", "subscriptions"))
     .input(
       z.object({
         /**
@@ -711,69 +711,172 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         payload: ctx.payload,
         sessionUser: ctx.user,
       });
-      const { stripeCustomerId: customerId } =
-        await ensureStripeCustomerIdForAccount({
-          payload: ctx.payload,
-          stripe: ctx.stripe,
-          userId: payloadUser.id,
-          email: payloadUser.email ?? null,
-          name: payloadUser.name ?? null,
-          stripeAccountId: null,
-        });
-
-      const subscription = await ctx.stripe.subscriptions.list({
-        customer: customerId,
+      // Resolve the user's current subscription via Payload (works across Connect + platform),
+      // then use Stripe only to open the billing portal session.
+      const activeOrTrialing = await findSafe<any>(ctx.payload, "subscriptions", {
+        where: {
+          user: { equals: payloadUser.id },
+          status: { in: ["active", "trialing"] },
+        },
         limit: 1,
-        status: "active",
+        depth: 0,
+        overrideAccess: false,
+        user: ctx.user,
+        sort: "-createdAt",
       });
 
-      if (subscription.data.length === 0) {
-        throw new Error("No active subscription found");
+      const fallbackPastDue = async () => {
+        const past = await findSafe<any>(ctx.payload, "subscriptions", {
+          where: {
+            user: { equals: payloadUser.id },
+            status: { in: ["past_due", "unpaid"] },
+          },
+          limit: 1,
+          depth: 0,
+          overrideAccess: false,
+          user: ctx.user,
+          sort: "-createdAt",
+        });
+        return past?.docs?.[0] ?? null;
+      };
+
+      const subscriptionId =
+        activeOrTrialing?.docs?.[0]?.id ?? (await fallbackPastDue())?.id ?? null;
+
+      if (subscriptionId == null) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No subscription found",
+        });
+      }
+
+      // Privileged read to access Stripe IDs (field-level access is admin-only).
+      const subscriptionDoc = await ctx.payload
+        .findByID({
+          collection: "subscriptions",
+          id: subscriptionId,
+          depth: 0,
+          overrideAccess: true,
+        })
+        .catch(() => null);
+
+      if (!subscriptionDoc) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No subscription found",
+        });
+      }
+
+      const stripeAccountId =
+        typeof (subscriptionDoc as any)?.stripeAccountId === "string" &&
+        (subscriptionDoc as any).stripeAccountId.trim()
+          ? (subscriptionDoc as any).stripeAccountId.trim()
+          : null;
+
+      const stripeOpts = stripeAccountId
+        ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
+
+      // Prefer customer id captured on Connect subscription docs; otherwise resolve/create on the right scope.
+      const directCustomerId =
+        stripeAccountId &&
+        typeof (subscriptionDoc as any)?.stripeCustomerId === "string" &&
+        (subscriptionDoc as any).stripeCustomerId.trim()
+          ? (subscriptionDoc as any).stripeCustomerId.trim()
+          : null;
+
+      const customerId =
+        directCustomerId ??
+        (
+          await ensureStripeCustomerIdForAccount({
+            payload: ctx.payload,
+            stripe: ctx.stripe,
+            userId: payloadUser.id,
+            email: payloadUser.email ?? null,
+            name: payloadUser.name ?? null,
+            stripeAccountId,
+          })
+        ).stripeCustomerId;
+
+      // Prefer Stripe subscription id captured in Payload; fall back to Stripe list.
+      let stripeSubscriptionId =
+        typeof (subscriptionDoc as any)?.stripeSubscriptionId === "string" &&
+        (subscriptionDoc as any).stripeSubscriptionId.trim()
+          ? (subscriptionDoc as any).stripeSubscriptionId.trim()
+          : null;
+
+      if (!stripeSubscriptionId) {
+        const list = await ctx.stripe.subscriptions.list(
+          {
+            customer: customerId,
+            limit: 5,
+            status: "all",
+          },
+          stripeOpts
+        );
+        const candidate =
+          list.data.find((s) => s.status === "active" || s.status === "trialing") ??
+          list.data[0] ??
+          null;
+        stripeSubscriptionId = candidate?.id ?? null;
+      }
+
+      if (!stripeSubscriptionId) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No active subscription found",
+        });
       }
 
       let configId: string | undefined;
 
       // Create a new configuration if none exist
-      const newConfig = await ctx.stripe.billingPortal.configurations.create({
-        business_profile: {
-          headline: "Manage your subscription",
-        },
-        features: {
-          subscription_update: {
-            enabled: true,
-            default_allowed_updates: ["price"],
-            proration_behavior: "create_prorations",
-            products: [
-              {
-                product: stripeProductId,
-                prices: [priceId],
-              },
-            ],
+      const newConfig = await ctx.stripe.billingPortal.configurations.create(
+        {
+          business_profile: {
+            headline: "Manage your subscription",
           },
-          customer_update: {
-            enabled: true,
-            allowed_updates: ["email", "address"],
+          features: {
+            subscription_update: {
+              enabled: true,
+              default_allowed_updates: ["price"],
+              proration_behavior: "create_prorations",
+              products: [
+                {
+                  product: stripeProductId,
+                  prices: [priceId],
+                },
+              ],
+            },
+            customer_update: {
+              enabled: true,
+              allowed_updates: ["email", "address"],
+            },
+            invoice_history: { enabled: true },
           },
-          invoice_history: { enabled: true },
         },
-      });
+        stripeOpts
+      );
 
       configId = newConfig.id;
       console.log(`Created new configuration: ${configId}`);
 
       const returnUrl =
         input.returnUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
-      const session = await ctx.stripe.billingPortal.sessions.create({
-        customer: customerId,
-        configuration: configId,
-        return_url: returnUrl,
-        flow_data: {
-          type: "subscription_update",
-          subscription_update: {
-            subscription: subscription.data[0]?.id as string,
+      const session = await ctx.stripe.billingPortal.sessions.create(
+        {
+          customer: customerId,
+          configuration: configId,
+          return_url: returnUrl,
+          flow_data: {
+            type: "subscription_update",
+            subscription_update: {
+              subscription: stripeSubscriptionId,
+            },
           },
         },
-      });
+        stripeOpts
+      );
 
       return session;
     }),
