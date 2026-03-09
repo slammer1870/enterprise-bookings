@@ -522,18 +522,6 @@ export function PaymentMethods({
       hasDropInTab && dropInAllowsMultiple(allowedDropIn as DropIn);
   }
 
-  if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
-    return (
-      <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
-        <p>
-          {quantity > 1
-            ? "No payment methods are available for multiple bookings. Try reducing the quantity or use a different payment method."
-            : "No payment methods are available for this lesson."}
-        </p>
-      </div>
-    );
-  }
-
   // Controlled tab so we can auto-switch when the active tab is no longer available
   const defaultTab = hasMembershipTab
     ? "membership"
@@ -554,6 +542,19 @@ export function PaymentMethods({
       setActiveTab(defaultTab);
     }
   }, [hasMembershipTab, hasDropInTab, hasClassPassTab, defaultTab, activeTab]);
+
+  // Important: keep this after hooks so changing quantity doesn't break hook order.
+  if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
+    return (
+      <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
+        <p>
+          {quantity > 1
+            ? "No payment methods are available for multiple bookings. Try reducing the quantity or use a different payment method."
+            : "No payment methods are available for this lesson."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
