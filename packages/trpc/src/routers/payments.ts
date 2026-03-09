@@ -381,8 +381,9 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       ];
 
       // When getFee is configured, compute booking fee.
-      // - Platform-scoped Checkout: add a visible "Booking fee" line item.
-      // - Connect-scoped Checkout: set application_fee_percent so the platform receives the fee.
+      // - Platform-scoped Checkout: add a visible "Booking fee" line item (platform charges customer directly).
+      // - Connect-scoped Checkout: add the same visible line item so the customer sees/pays it,
+      //   then set application_fee_percent so the platform receives that amount from the connected account.
       let connectApplicationFeePercent: number | undefined;
       if (
         input.mode === "subscription" &&
@@ -421,11 +422,34 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
               }
 
               if (stripeAccountId) {
-                // Stripe application fee percent supports up to 2 decimal places.
-                const pctRaw = (feeCents / classPriceAmountCents) * 100;
-                const pct = Math.round(pctRaw * 100) / 100;
-                if (Number.isFinite(pct) && pct > 0) {
-                  connectApplicationFeePercent = pct;
+                // 1) Add visible booking fee line item so customer sees/pays it in Stripe Checkout.
+                lineItems.push({
+                  quantity: 1,
+                  price_data: {
+                    currency,
+                    product_data: {
+                      name: "Booking fee",
+                      description: "Platform booking fee",
+                    },
+                    unit_amount: feeCents,
+                    recurring: {
+                      interval: recurring.interval,
+                      interval_count: recurring.interval_count ?? 1,
+                    },
+                  },
+                });
+
+                // 2) Set application_fee_percent so the platform receives (approximately) the booking fee
+                // from the connected account's charge. Percent is based on the *total* invoice amount
+                // (base + booking fee) so the connected account nets the base amount.
+                const totalCents = classPriceAmountCents + feeCents;
+                if (totalCents > 0) {
+                  // Stripe supports up to 2 decimal places.
+                  const pctRaw = (feeCents / totalCents) * 100;
+                  const pct = Math.round(pctRaw * 100) / 100;
+                  if (Number.isFinite(pct) && pct > 0) {
+                    connectApplicationFeePercent = pct;
+                  }
                 }
               } else {
                 lineItems.push({
