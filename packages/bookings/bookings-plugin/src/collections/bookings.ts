@@ -68,20 +68,73 @@ const defaultAdmin: CollectionAdminOptions = {
 
 const defaultHooks: HooksConfig = {
   beforeValidate: [
-    async ({ req, data }) => {
-      const lesson = (await req.payload.findByID({
-        collection: "lessons",
-        id: data?.lesson,
-        depth: 3,
-      })) as Lesson;
+    async ({ req, data, operation, originalDoc }) => {
+      const lessonIdRaw = data?.lesson;
+      const lessonId =
+        typeof lessonIdRaw === "object" && lessonIdRaw !== null
+          ? (lessonIdRaw as { id?: unknown }).id
+          : lessonIdRaw;
+      if (lessonId == null) return data;
 
-      const closed =
-        lesson.bookings.docs.filter(
-          (booking: Booking) => booking.status === "confirmed"
-        ).length >= lesson.classOption.places;
+      const lesson = (await req.payload
+        .findByID({
+          collection: "lessons",
+          id: lessonId as any,
+          depth: 0,
+          context: { triggerAfterChange: false },
+        })
+        .catch(() => null)) as Lesson | null;
+      if (!lesson) return data;
 
-      //Prevent booking if the lesson is fully booked
-      if (closed && data?.status === "confirmed") {
+      // Resolve places without deep-populating joins.
+      let places: number | null = null;
+      const classOptionRaw = (lesson as any).classOption;
+      if (typeof classOptionRaw === "object" && classOptionRaw !== null) {
+        const maybePlaces = (classOptionRaw as any).places;
+        places = typeof maybePlaces === "number" ? maybePlaces : null;
+      } else if (classOptionRaw != null) {
+        const classOption = await req.payload
+          .findByID({
+            collection: "class-options",
+            id: classOptionRaw as any,
+            depth: 0,
+            context: { triggerAfterChange: false },
+          })
+          .catch(() => null);
+        const maybePlaces = (classOption as any)?.places;
+        places = typeof maybePlaces === "number" ? maybePlaces : null;
+      }
+
+      if (places == null) return data;
+
+      const confirmedCount = await req.payload
+        .find({
+          collection: "bookings",
+          where: {
+            and: [
+              { lesson: { equals: lessonId } },
+              { status: { equals: "confirmed" } },
+            ],
+          },
+          depth: 0,
+          limit: 0,
+          overrideAccess: true,
+          context: { triggerAfterChange: false },
+        })
+        .then((res) => res.totalDocs)
+        .catch(() => 0);
+
+      const isBecomingConfirmed =
+        data?.status === "confirmed" &&
+        !(
+          operation === "update" &&
+          (originalDoc as any)?.status === "confirmed"
+        );
+
+      const closed = confirmedCount >= places;
+
+      // Prevent booking if the lesson is fully booked.
+      if (closed && isBecomingConfirmed) {
         throw new APIError("This lesson is fully booked", 403);
       }
 
@@ -103,19 +156,71 @@ const defaultHooks: HooksConfig = {
       }
 
       try {
-        const lesson = (await req.payload.findByID({
-          collection: "lessons",
-          id: lessonId,
-          depth: 3,
-        })) as Lesson;
+        const lesson = (await req.payload
+          .findByID({
+            collection: "lessons",
+            id: lessonId,
+            depth: 0,
+            context: { triggerAfterChange: false },
+          })
+          .catch(() => null)) as Lesson | null;
+        if (!lesson) return;
 
-        if (!lesson) {
-          return;
-        }
+        const classOptionRaw = (lesson as any).classOption;
+        const classOptionId =
+          typeof classOptionRaw === "object" && classOptionRaw !== null
+            ? (classOptionRaw as any).id
+            : classOptionRaw;
+        const classOption = await req.payload
+          .findByID({
+            collection: "class-options",
+            id: classOptionId as any,
+            depth: 1,
+            context: { triggerAfterChange: false },
+          })
+          .catch(() => null);
+        const places =
+          typeof (classOption as any)?.places === "number"
+            ? (classOption as any).places
+            : null;
+        if (places == null) return;
+
+        const confirmedAndRecentPending = await req.payload
+          .find({
+            collection: "bookings",
+            depth: 0,
+            where: {
+              and: [
+                { lesson: { equals: lessonId } },
+                {
+                  or: [
+                    { status: { equals: "confirmed" } },
+                    {
+                      and: [
+                        { status: { equals: "pending" } },
+                        {
+                          createdAt: {
+                            greater_than: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            limit: 0,
+            overrideAccess: true,
+            context: { triggerAfterChange: false },
+          })
+          .then((res) => res.totalDocs)
+          .catch(() => 0);
+
+        const remainingCapacity = places - confirmedAndRecentPending;
 
         if (
           doc.status === "cancelled" &&
-          lesson.remainingCapacity === 0 &&
+          remainingCapacity === 0 &&
           previousDoc.status === "confirmed"
         ) {
           const bookingsQuery = await req.payload.find({
@@ -124,14 +229,14 @@ const defaultHooks: HooksConfig = {
               lesson: { equals: lesson.id },
               status: { equals: "waiting" },
             },
-            depth: 3,
+            depth: 1,
           });
 
           const bookings = bookingsQuery.docs as Booking[];
 
           const emailTemplate = await render(
             WaitlistNotificationEmail({
-              lesson: lesson,
+              lesson: { ...(lesson as any), classOption } as Lesson,
               dashboardUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/bookings/${lesson.id}`,
             })
           );
@@ -172,24 +277,35 @@ const defaultHooks: HooksConfig = {
       }
 
       try {
-        const lessonQuery = await req.payload.findByID({
-          collection: "lessons",
-          id: lessonId,
-          depth: 2,
-        });
+        const lesson = (await req.payload
+          .findByID({
+            collection: "lessons",
+            id: lessonId,
+            depth: 0,
+            context: { triggerAfterChange: false },
+          })
+          .catch(() => null)) as Lesson | null;
+        if (!lesson) return doc;
 
-        const lesson = lessonQuery as Lesson;
+        const confirmedCount = await req.payload
+          .find({
+            collection: "bookings",
+            where: {
+              and: [
+                { lesson: { equals: lessonId } },
+                { status: { equals: "confirmed" } },
+              ],
+            },
+            depth: 0,
+            limit: 0,
+            overrideAccess: true,
+            context: { triggerAfterChange: false },
+          })
+          .then((res) => res.totalDocs)
+          .catch(() => 0);
 
-        if (!lesson) {
-          return doc;
-        }
-
-        // Check if current booking is confirmed OR if any existing bookings are confirmed
-        const hasConfirmedBooking =
-          doc.status === "confirmed" ||
-          lesson?.bookings?.docs?.some(
-            (booking: Booking) => booking.status === "confirmed"
-          );
+        // Check if current booking is confirmed OR if any existing bookings are confirmed.
+        const hasConfirmedBooking = doc.status === "confirmed" || confirmedCount > 0;
 
         if (hasConfirmedBooking) {
           await req.payload.update({
@@ -205,7 +321,7 @@ const defaultHooks: HooksConfig = {
           await req.payload.update({
             collection: "lessons",
             id: lessonId,
-            data: { lockOutTime: lesson.originalLockOutTime },
+            data: { lockOutTime: (lesson as any).originalLockOutTime },
             // Prevent recursion / side-effects in downstream hooks
             context: { triggerAfterChange: false },
           });

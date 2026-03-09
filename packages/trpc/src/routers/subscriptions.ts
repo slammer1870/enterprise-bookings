@@ -9,6 +9,7 @@ import {
   getRemainingSessionsInPeriod,
   subscriptionNeedsCustomerPortal,
   getSubscriptionUpgradeOptions,
+  getRemainingSessionsInPeriodForPlan,
 } from "@repo/shared-services";
 
 export const subscriptionsRouter = {
@@ -170,6 +171,8 @@ export const subscriptionsRouter = {
     .input(
       z.object({
         lessonId: z.number(),
+        /** Selected booking quantity on the booking page (used to filter eligible upgrade plans). */
+        quantity: z.number().min(1).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -183,6 +186,7 @@ export const subscriptionsRouter = {
           remainingSessions: null,
           needsCustomerPortal: false,
           upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
@@ -201,12 +205,16 @@ export const subscriptionsRouter = {
           remainingSessions: null,
           needsCustomerPortal: false,
           upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
       const classOption =
         typeof lesson.classOption === "object" ? lesson.classOption : null;
       const allowedPlans = classOption?.paymentMethods?.allowedPlans || [];
+      const allowedPlanDocs = (allowedPlans as unknown[]).filter(
+        (p): p is Plan => typeof p === "object" && p != null && "id" in p
+      );
 
       if (allowedPlans.length === 0) {
         return {
@@ -215,6 +223,7 @@ export const subscriptionsRouter = {
           remainingSessions: null,
           needsCustomerPortal: false,
           upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
@@ -254,6 +263,7 @@ export const subscriptionsRouter = {
           remainingSessions: null,
           needsCustomerPortal: false,
           upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
@@ -274,11 +284,42 @@ export const subscriptionsRouter = {
         new Date(lesson.startTime)
       );
 
+      const selectedQuantity = input.quantity ?? 1;
+      const lessonDate = new Date(lesson.startTime);
+
+      const eligiblePlansForQuantity =
+        selectedQuantity > 1
+          ? await (async () => {
+              const candidates = allowedPlanDocs.filter((p) => p.status === "active");
+              const eligible: Plan[] = [];
+              for (const plan of candidates) {
+                const allowsMultiple =
+                  plan.sessionsInformation?.allowMultipleBookingsPerLesson ===
+                  true;
+                if (!allowsMultiple) continue;
+
+                const remainingForPlan = await getRemainingSessionsInPeriodForPlan(
+                  subscription as Subscription,
+                  plan,
+                  payload,
+                  lessonDate
+                );
+
+                if (remainingForPlan != null && remainingForPlan < selectedQuantity) {
+                  continue;
+                }
+
+                eligible.push(plan);
+              }
+              return eligible;
+            })()
+          : null;
+
       const upgradeOptions =
         limitReached && allowedPlans.length > 0
           ? await getSubscriptionUpgradeOptions(
               subscription as Subscription,
-              allowedPlans as Plan[],
+              (eligiblePlansForQuantity ?? allowedPlanDocs) as Plan[],
               payload,
               new Date(lesson.startTime)
             )
@@ -290,6 +331,7 @@ export const subscriptionsRouter = {
         remainingSessions,
         needsCustomerPortal,
         upgradeOptions,
+        eligiblePlansForQuantity,
       };
     }),
 };

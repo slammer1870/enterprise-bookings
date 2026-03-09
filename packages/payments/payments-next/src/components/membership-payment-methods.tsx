@@ -178,10 +178,15 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
   };
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
-  const activePlans = allowedPlans?.filter((plan) => plan.status === "active");
+  const allowedPlanDocs: Plan[] = Array.isArray(allowedPlans)
+    ? (allowedPlans.filter(
+        (p: unknown): p is Plan => typeof p === "object" && p != null && "id" in p
+      ) as Plan[])
+    : [];
+  const activePlans = allowedPlanDocs.filter((plan) => plan.status === "active");
 
   const hasSubscriptionWithPlan =
-    subscription && allowedPlans?.some((plan) => plan.id === subscription?.plan?.id);
+    subscription && allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
 
   const hasMembership = Boolean(activePlans && activePlans.length > 0) || hasSubscriptionWithPlan;
 

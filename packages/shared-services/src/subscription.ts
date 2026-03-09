@@ -10,11 +10,20 @@ function getPlanCollectionSlug(payload: Payload): CollectionSlug {
     : ("plans" as CollectionSlug);
 }
 
-/** Returns true if plan allows multiple bookings per lesson. Plans without sessions info allow unlimited. */
+/**
+ * Returns true if plan explicitly allows multiple bookings per lesson.
+ *
+ * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
+ * Multi-booking is controlled only by the explicit flag.
+ */
 function planAllowsMultipleBookingsPerLesson(plan: Plan): boolean {
-  const si = plan?.sessionsInformation;
-  if (!si || si.sessions == null || si.sessions <= 0) return true;
-  return (si as { allowMultipleBookingsPerLesson?: boolean }).allowMultipleBookingsPerLesson === true;
+  const si = plan?.sessionsInformation as
+    | (NonNullable<Plan["sessionsInformation"]> & {
+        allowMultipleBookingsPerLesson?: boolean;
+      })
+    | null
+    | undefined;
+  return si?.allowMultipleBookingsPerLesson === true;
 }
 
 function getSubscriptionPeriodStartAndEndDate(opts: {
@@ -225,6 +234,24 @@ export const getRemainingSessionsInPeriod = async (
     }
   }
 
+  return await getRemainingSessionsInPeriodForPlan(
+    subscription,
+    plan as Plan,
+    payload,
+    lessonDate
+  );
+};
+
+/**
+ * Returns remaining sessions in the current billing period for the given plan, using the subscription's period anchor.
+ * Returns null if the plan has no session limit (unlimited) or plan/session info is missing.
+ */
+export const getRemainingSessionsInPeriodForPlan = async (
+  subscription: Subscription,
+  plan: Plan,
+  payload: Payload,
+  lessonDate: Date
+): Promise<number | null> => {
   if (
     !plan ||
     !plan.sessionsInformation ||
@@ -268,7 +295,7 @@ export const getRemainingSessionsInPeriod = async (
  * Returns the maximum additional booking quantity the user can create for this lesson
  * when booking via subscription. Returns null if user has no subscription for this lesson
  * (caller may allow any quantity if they are paying).
- * When plan has sessionsInformation and allowMultipleBookingsPerLesson is false, max is 1 per lesson.
+ * When allowMultipleBookingsPerLesson is false, max is 1 per lesson.
  */
 export const getMaxSubscriptionQuantityPerLesson = async (
   userId: number,

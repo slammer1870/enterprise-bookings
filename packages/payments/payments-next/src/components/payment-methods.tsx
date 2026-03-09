@@ -157,8 +157,8 @@ function dropInAllowsMultiple(dropIn: unknown): boolean {
 
 /**
  * Returns true if the plan allows multiple bookings per lesson.
- * Plans without sessionsInformation (unlimited) always allow multiple.
- * Plans with sessionsInformation allow multiple only when allowMultipleBookingsPerLesson is true.
+ * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
+ * Multi-booking is controlled only by the explicit flag.
  */
 function planAllowsMultipleBookingsPerLesson(plan: unknown): boolean {
   if (!plan || typeof plan !== "object") return false;
@@ -168,9 +168,7 @@ function planAllowsMultipleBookingsPerLesson(plan: unknown): boolean {
       allowMultipleBookingsPerLesson?: boolean;
     };
   };
-  const si = p.sessionsInformation;
-  if (!si || si.sessions == null || si.sessions <= 0) return true; // Unlimited
-  return si.allowMultipleBookingsPerLesson === true;
+  return p.sessionsInformation?.allowMultipleBookingsPerLesson === true;
 }
 
 /**
@@ -269,6 +267,7 @@ export function PaymentMethods({
   const { data: subscriptionData } = useQuery(
     trpc.subscriptions.getSubscriptionForLesson.queryOptions({
       lessonId: lesson.id,
+      quantity,
     })
   );
 
@@ -284,6 +283,7 @@ export function PaymentMethods({
   const remainingSessions = subscriptionData?.remainingSessions ?? null;
   const needsCustomerPortal = subscriptionData?.needsCustomerPortal ?? false;
   const upgradeOptions = subscriptionData?.upgradeOptions ?? [];
+  const eligiblePlansForQuantity = subscriptionData?.eligiblePlansForQuantity ?? null;
 
   // Create checkout session mutation for plans
   const { mutateAsync: createCheckoutSession } = useMutation(
@@ -438,21 +438,32 @@ export function PaymentMethods({
   };
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
+  const allowedPlanDocs: Plan[] = Array.isArray(allowedPlans)
+    ? (allowedPlans.filter(
+        (p: unknown): p is Plan => typeof p === "object" && p != null && "id" in p
+      ) as Plan[])
+    : [];
   const allowedDropIn = lesson.classOption.paymentMethods?.allowedDropIn;
   const allowedClassPasses = (lesson.classOption.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
     ?.allowedClassPasses;
 
-  let activePlans = allowedPlans?.filter((plan) => plan.status === "active") ?? [];
+  const activeAllowedPlans = allowedPlanDocs.filter((plan) => plan.status === "active");
+  let activePlans = activeAllowedPlans;
 
-  // Filter plan list by plan capacity only (not by user's usage): show only plans whose
-  // per-period session limit can cover the selected quantity (sessions >= quantity or unlimited).
-  activePlans = activePlans.filter((plan) =>
-    planCanCoverQuantity(plan, quantity)
-  );
+  // When quantity > 1, the server can return an eligibility-filtered plan list that accounts for:
+  // - explicit multi-booking flag
+  // - remaining sessions in the user's current period (used + selectedQuantity <= limit)
+  if (quantity > 1 && Array.isArray(eligiblePlansForQuantity)) {
+    activePlans = eligiblePlansForQuantity.filter((p) => p.status === "active");
+  } else {
+    // Fallback: filter by plan capacity only (not by user's usage): show only plans whose
+    // per-period session limit can cover the selected quantity (sessions >= quantity or unlimited).
+    activePlans = activePlans.filter((plan) => planCanCoverQuantity(plan, quantity));
+  }
 
   const hasSubscriptionWithPlan =
     subscription &&
-    allowedPlans?.some((plan) => plan.id === subscription?.plan?.id);
+    allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
 
   const userPlanAllowsMultiple =
     subscription?.plan &&

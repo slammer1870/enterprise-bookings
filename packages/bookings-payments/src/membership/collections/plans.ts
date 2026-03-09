@@ -74,8 +74,6 @@ const defaultFields: Field[] = [
         admin: {
           description:
             "When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.",
-          condition: (_, siblingData) =>
-            siblingData?.sessions != null && siblingData.sessions > 0,
         },
       },
     ],

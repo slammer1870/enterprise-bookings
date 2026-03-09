@@ -36,7 +36,7 @@ export interface Plan {
     sessions?: number;
     intervalCount?: number;
     interval?: "day" | "week" | "month" | "quarter" | "year";
-    /** When true (and sessions defined), subscribers can use multiple credits on the same lesson. */
+    /** When true, subscribers can use multiple credits on the same lesson. */
     allowMultipleBookingsPerLesson?: boolean;
   } | null;
   priceInformation?: {
