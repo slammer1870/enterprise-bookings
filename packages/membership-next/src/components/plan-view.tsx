@@ -16,6 +16,7 @@ export type PlanViewProps = {
   subscription: Subscription | null;
   lessonDate: Date;
   subscriptionLimitReached: boolean;
+  PlanPriceSummary?: React.ComponentType<{ plan: Plan }>;
   /** Remaining sessions in current period (null = unlimited). */
   remainingSessions?: number | null;
   /** Number of bookings selected on the page. */
@@ -47,6 +48,7 @@ export function PlanView({
   subscription,
   lessonDate,
   subscriptionLimitReached,
+  PlanPriceSummary,
   remainingSessions = null,
   selectedQuantity = 1,
   canUseSubscriptionForQuantity = true,
@@ -71,6 +73,7 @@ export function PlanView({
       <PlanList
         plans={allowedPlans}
         actionLabel="Subscribe"
+        PlanPriceSummary={PlanPriceSummary}
         onAction={onCreateCheckoutSession}
       />
     );
@@ -116,6 +119,7 @@ export function PlanView({
           <PlanList
             plans={allowedPlans.filter((plan) => plan.id !== subscription.plan.id)}
             actionLabel="Upgrade"
+            PlanPriceSummary={PlanPriceSummary}
             onAction={onCreateCheckoutSession}
           />
         )}
@@ -231,6 +235,7 @@ export function PlanView({
         plan={subscription.plan}
         actionLabel={showPastDueMessage ? "Update payment" : "Manage Subscription"}
         actionRequiresPriceId={false}
+        PlanPriceSummary={PlanPriceSummary}
         onAction={onCreateCustomerPortal}
       />
     </>

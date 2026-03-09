@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Lesson, Booking, DropIn } from "@repo/shared-types";
+import { useEffect, useMemo, useState } from "react";
+import { Lesson, Booking, DropIn, type Plan } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -211,6 +211,59 @@ export function PaymentMethods({
   const router = useRouter();
 
   const quantity = pendingBookings?.length ?? quantityProp ?? 1;
+
+  const tenantId =
+    lesson.tenant != null
+      ? typeof lesson.tenant === "object" && "id" in lesson.tenant
+        ? lesson.tenant.id
+        : lesson.tenant
+      : null;
+
+  const PlanPriceSummary = useMemo(() => {
+    return function PlanPriceSummaryImpl({ plan }: { plan: Plan }) {
+      const priceJson = plan?.priceJSON;
+      const priceId =
+        typeof priceJson === "string"
+          ? JSON.parse(priceJson || "{}")?.id
+          : (priceJson as any)?.id;
+
+      const qty = 1;
+      const enabled = typeof priceId === "string" && priceId.length > 0;
+      const queryOpts = trpc.payments.getSubscriptionFeeBreakdown.queryOptions({
+        priceId: priceId || "",
+        quantity: qty,
+        metadata: tenantId != null ? { tenantId: String(tenantId) } : {},
+      });
+      const { data, isLoading } = useQuery({ ...queryOpts, enabled });
+
+      if (!enabled) return null;
+      if (isLoading) {
+        return <div className="text-sm text-muted-foreground">Calculating fees…</div>;
+      }
+      if (!data) return null;
+      if ((data.bookingFeeCents ?? 0) <= 0) return null;
+
+      const fmt = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: (data.currency || "eur").toUpperCase(),
+      });
+      const fee = (data.bookingFeeCents ?? 0) / 100;
+      const total = (data.totalCents ?? 0) / 100;
+
+      return (
+        <div className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <span>Booking fee</span>
+            <span>{fmt.format(fee)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span>Total (est.)</span>
+            <span>{fmt.format(total)}</span>
+          </div>
+        </div>
+      );
+    };
+  }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
   // Get subscription data for this lesson using tRPC
   const { data: subscriptionData } = useQuery(
@@ -558,6 +611,7 @@ export function PaymentMethods({
               subscriptionAllowsMultiplePerLesson={Boolean(userPlanAllowsMultiple)}
               needsCustomerPortal={needsCustomerPortal}
               upgradeOptions={upgradeOptions}
+              PlanPriceSummary={PlanPriceSummary}
               onCreateCheckoutSession={handleCreateCheckoutSession}
               onCreateCustomerPortal={handleCreateCustomerPortal}
               onCreateCustomerUpgradePortal={handleCreateCustomerUpgradePortal}

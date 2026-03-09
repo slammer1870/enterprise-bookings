@@ -21,18 +21,144 @@ export type CreatePaymentsRouterDeps = {
   getDropInFeeBreakdown?: GetDropInFeeBreakdown;
 };
 
-// Helper function to safely get stripeCustomerId
-const getStripeCustomerId = (user: object): string => {
-  const customerId = (user as { stripeCustomerId?: string })?.stripeCustomerId;
-  if (!customerId || typeof customerId !== "string") {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message:
-        "Stripe customer ID not found. Please ensure the payments plugin is configured.",
+async function resolveStripeAccountIdFromMetadata(params: {
+  payload: any;
+  metadata?: Record<string, string>;
+}): Promise<string | null> {
+  const { payload, metadata } = params;
+  const tenantIdRaw = metadata?.tenantId;
+  if (!payload || typeof tenantIdRaw !== "string") return null;
+  const tenantId = parseInt(tenantIdRaw, 10);
+  if (!Number.isFinite(tenantId)) return null;
+
+  const tenant = await payload
+    .findByID({
+      collection: "tenants",
+      id: tenantId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    .catch(() => null);
+
+  const t = tenant as
+    | {
+        stripeConnectAccountId?: string | null;
+        stripeConnectOnboardingStatus?: string | null;
+      }
+    | null;
+
+  const accountId =
+    typeof t?.stripeConnectAccountId === "string"
+      ? t.stripeConnectAccountId.trim()
+      : "";
+  if (!accountId) return null;
+  if (t?.stripeConnectOnboardingStatus !== "active") return null;
+  return accountId;
+}
+
+function normalizeStripeAccountId(accountId: string | null | undefined): string | null {
+  const a = typeof accountId === "string" ? accountId.trim() : "";
+  return a ? a : null;
+}
+
+function getPlatformStripeCustomerId(userDoc: any): string | null {
+  const id =
+    typeof userDoc?.stripeCustomerId === "string"
+      ? userDoc.stripeCustomerId.trim()
+      : "";
+  return id ? id : null;
+}
+
+function getConnectStripeCustomerId(userDoc: any, stripeAccountId: string): string | null {
+  const arr = Array.isArray(userDoc?.stripeCustomers) ? userDoc.stripeCustomers : [];
+  const found = arr.find(
+    (x: any) =>
+      x &&
+      typeof x === "object" &&
+      x.stripeAccountId === stripeAccountId &&
+      typeof x.stripeCustomerId === "string" &&
+      x.stripeCustomerId.trim()
+  );
+  return found ? String(found.stripeCustomerId).trim() : null;
+}
+
+async function ensureStripeCustomerIdForAccount(params: {
+  payload: any;
+  stripe: Stripe;
+  userId: number;
+  email?: string | null;
+  name?: string | null;
+  stripeAccountId?: string | null;
+}): Promise<{ stripeCustomerId: string; stripeAccountId: string | null }> {
+  const { payload, stripe, userId } = params;
+  const stripeAccountId = normalizeStripeAccountId(params.stripeAccountId);
+
+  const userDoc = await payload.findByID({
+    collection: "users",
+    id: userId,
+    depth: 1,
+    overrideAccess: true,
+  });
+  if (!userDoc) throw new Error("User not found");
+
+  const email = (params.email ?? userDoc?.email ?? null) as string | null;
+  if (!email) throw new Error("User email is required to resolve Stripe customer");
+
+  if (stripeAccountId) {
+    const existing = getConnectStripeCustomerId(userDoc, stripeAccountId);
+    if (existing) return { stripeCustomerId: existing, stripeAccountId };
+  } else {
+    const existing = getPlatformStripeCustomerId(userDoc);
+    if (existing) return { stripeCustomerId: existing, stripeAccountId: null };
+  }
+
+  const stripeOpts = stripeAccountId
+    ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
+    : undefined;
+  const existingCustomer = await stripe.customers.list(
+    { email, limit: 1 },
+    stripeOpts
+  );
+  const foundId = existingCustomer?.data?.[0]?.id
+    ? String(existingCustomer.data[0].id)
+    : null;
+  const customerId =
+    foundId ??
+    (
+      await stripe.customers.create(
+        { name: (params.name ?? userDoc?.name ?? "") || undefined, email },
+        stripeOpts
+      )
+    ).id;
+
+  if (stripeAccountId) {
+    const existing = Array.isArray(userDoc?.stripeCustomers)
+      ? userDoc.stripeCustomers
+      : [];
+    const next = [
+      ...existing.filter((x: any) => x?.stripeAccountId !== stripeAccountId),
+      { stripeAccountId, stripeCustomerId: customerId },
+    ];
+    await payload.update({
+      collection: "users",
+      id: userId,
+      data: { stripeCustomers: next } as Record<string, unknown>,
+      overrideAccess: true,
+    });
+    return { stripeCustomerId: customerId, stripeAccountId };
+  }
+
+  if (!getPlatformStripeCustomerId(userDoc)) {
+    await payload.update({
+      collection: "users",
+      id: userId,
+      data: { stripeCustomerId: customerId } as Record<string, unknown>,
+      overrideAccess: true,
     });
   }
-  return customerId;
-};
+
+  return { stripeCustomerId: customerId, stripeAccountId: null };
+}
 
 export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
   const getFee = deps?.getSubscriptionBookingFeeCents;
@@ -59,6 +185,65 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           })
         ),
     }),
+    /**
+     * Returns fee breakdown for subscription checkout (plan price, booking fee, total).
+     * Mirrors the same fee calculation used by createCustomerCheckoutSession.
+     */
+    getSubscriptionFeeBreakdown: stripeProtectedProcedure
+      .input(
+        z.object({
+          priceId: z.string(),
+          quantity: z.number().optional(),
+          metadata: z.record(z.string(), z.string()).optional(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const meta = input.metadata ?? {};
+        const stripeAccountId = await resolveStripeAccountIdFromMetadata({
+          payload: ctx.payload,
+          metadata: meta,
+        });
+        const stripeOpts = stripeAccountId
+          ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
+          : undefined;
+
+        const priceObj = await ctx.stripe.prices.retrieve(
+          input.priceId,
+          { expand: [] },
+          stripeOpts
+        );
+
+        const unitAmount = priceObj.unit_amount ?? 0;
+        const quantity = input.quantity || 1;
+        const classPriceCents = unitAmount * quantity;
+
+        let bookingFeeCents = 0;
+        if (getFee && ctx.payload && typeof meta.tenantId === "string") {
+          const tenantId = parseInt(meta.tenantId, 10);
+          if (Number.isFinite(tenantId)) {
+            try {
+              const feeCents = await getFee({
+                payload: ctx.payload,
+                tenantId,
+                classPriceAmountCents: classPriceCents,
+                metadata: meta,
+              });
+              if (typeof feeCents === "number" && feeCents > 0) {
+                bookingFeeCents = feeCents;
+              }
+            } catch (e) {
+              console.warn("Subscription booking fee lookup failed", e);
+            }
+          }
+        }
+
+        return {
+          classPriceCents,
+          bookingFeeCents,
+          totalCents: classPriceCents + bookingFeeCents,
+          currency: (priceObj.currency ?? "eur").toLowerCase(),
+        };
+      }),
     /**
      * Create Stripe Checkout session (subscription or one-time).
      * When getSubscriptionBookingFeeCents was passed to createPaymentsRouter and mode is "subscription",
@@ -101,26 +286,55 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         } as unknown) as Stripe.Response<Stripe.Checkout.Session>;
       }
 
-      const customerId = getStripeCustomerId(ctx.user);
+      const meta = input.metadata ?? {};
+      const stripeAccountId = await resolveStripeAccountIdFromMetadata({
+        payload: ctx.payload,
+        metadata: meta,
+      });
+      const stripeOpts = stripeAccountId
+        ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
+
+      const userId = (ctx.user as { id?: unknown })?.id;
+      if (typeof userId !== "number") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "User not found",
+        });
+      }
+
+      const { stripeCustomerId: customerId } =
+        await ensureStripeCustomerIdForAccount({
+          payload: ctx.payload,
+          stripe: ctx.stripe,
+          userId,
+          email: (ctx.user as { email?: string | null })?.email ?? null,
+          name: (ctx.user as { name?: string | null })?.name ?? null,
+          stripeAccountId,
+        });
 
       const lineItems: Stripe.Checkout.SessionCreateParams["line_items"] = [
         { price: input.priceId, quantity: input.quantity || 1 },
       ];
 
-      const meta = input.metadata ?? {};
-      const tenantIdRaw = meta.tenantId;
+      // When getFee is configured, compute booking fee.
+      // - Platform-scoped Checkout: add a visible "Booking fee" line item.
+      // - Connect-scoped Checkout: set application_fee_percent so the platform receives the fee.
+      let connectApplicationFeePercent: number | undefined;
       if (
         input.mode === "subscription" &&
         getFee &&
         ctx.payload &&
-        typeof tenantIdRaw === "string"
+        typeof meta.tenantId === "string"
       ) {
-        const tenantId = parseInt(tenantIdRaw, 10);
+        const tenantId = parseInt(meta.tenantId, 10);
         if (Number.isFinite(tenantId)) {
           try {
-            const priceObj = await ctx.stripe.prices.retrieve(input.priceId, {
-              expand: [],
-            });
+            const priceObj = await ctx.stripe.prices.retrieve(
+              input.priceId,
+              { expand: [] },
+              stripeOpts
+            );
             const unitAmount = priceObj.unit_amount ?? 0;
             const quantity = input.quantity || 1;
             const classPriceAmountCents = unitAmount * quantity;
@@ -130,19 +344,43 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
               classPriceAmountCents,
               metadata: meta,
             });
-            if (typeof feeCents === "number" && feeCents > 0) {
+            if (
+              typeof feeCents === "number" &&
+              feeCents > 0 &&
+              classPriceAmountCents > 0
+            ) {
               const currency = (priceObj.currency ?? "eur").toLowerCase();
-              lineItems.push({
-                quantity: 1,
-                price_data: {
-                  currency,
-                  product_data: {
-                    name: "Booking fee",
-                    description: "Platform booking fee",
+              const recurring = priceObj.recurring;
+              if (!recurring) {
+                throw new Error(
+                  "Subscription booking fee requires a recurring plan price"
+                );
+              }
+
+              if (stripeAccountId) {
+                // Stripe application fee percent supports up to 2 decimal places.
+                const pctRaw = (feeCents / classPriceAmountCents) * 100;
+                const pct = Math.round(pctRaw * 100) / 100;
+                if (Number.isFinite(pct) && pct > 0) {
+                  connectApplicationFeePercent = pct;
+                }
+              } else {
+                lineItems.push({
+                  quantity: 1,
+                  price_data: {
+                    currency,
+                    product_data: {
+                      name: "Booking fee",
+                      description: "Platform booking fee",
+                    },
+                    unit_amount: feeCents,
+                    recurring: {
+                      interval: recurring.interval,
+                      interval_count: recurring.interval_count ?? 1,
+                    },
                   },
-                  unit_amount: feeCents,
-                },
-              });
+                });
+              }
             }
           } catch (e) {
             console.warn("Subscription booking fee lookup failed", e);
@@ -161,10 +399,16 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           input.cancelUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
       };
       if (input.mode === "subscription") {
-        sessionParams.subscription_data = { metadata: meta };
+        sessionParams.subscription_data = {
+          metadata: meta,
+          ...(stripeAccountId && connectApplicationFeePercent != null
+            ? { application_fee_percent: connectApplicationFeePercent }
+            : {}),
+        };
       }
       const session = await ctx.stripe.checkout.sessions.create(
-        sessionParams
+        sessionParams,
+        stripeOpts
       );
 
       return session;
@@ -172,7 +416,15 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
   createCustomerPortal: stripeProtectedProcedure
     .input(z.object({ returnUrl: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
-      const customerId = getStripeCustomerId(ctx.user);
+      const { stripeCustomerId: customerId } =
+        await ensureStripeCustomerIdForAccount({
+          payload: ctx.payload,
+          stripe: ctx.stripe,
+          userId: (ctx.user as { id: number }).id,
+          email: (ctx.user as { email?: string | null })?.email ?? null,
+          name: (ctx.user as { name?: string | null })?.name ?? null,
+          stripeAccountId: null,
+        });
       const returnUrl =
         input?.returnUrl ||
         `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
@@ -207,7 +459,15 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
 
       const priceId = JSON.parse(product?.docs[0]?.priceJSON as string)?.id;
 
-      const customerId = getStripeCustomerId(ctx.user);
+      const { stripeCustomerId: customerId } =
+        await ensureStripeCustomerIdForAccount({
+          payload: ctx.payload,
+          stripe: ctx.stripe,
+          userId: (ctx.user as { id: number }).id,
+          email: (ctx.user as { email?: string | null })?.email ?? null,
+          name: (ctx.user as { name?: string | null })?.name ?? null,
+          stripeAccountId: null,
+        });
 
       const subscription = await ctx.stripe.subscriptions.list({
         customer: customerId,

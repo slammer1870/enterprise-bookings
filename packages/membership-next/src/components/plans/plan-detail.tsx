@@ -25,6 +25,7 @@ import { toast } from "sonner";
 type PlanDetailProps = {
   plan: Plan;
   actionLabel: string;
+  PlanPriceSummary?: React.ComponentType<{ plan: Plan }>;
   /** When false, the action does not require a price ID (e.g. Manage Subscription / customer portal). Default true. */
   actionRequiresPriceId?: boolean;
   onAction: (
@@ -36,6 +37,7 @@ type PlanDetailProps = {
 export const PlanDetail = ({
   plan,
   actionLabel,
+  PlanPriceSummary,
   actionRequiresPriceId = true,
   onAction,
 }: PlanDetailProps) => {
@@ -78,6 +80,7 @@ export const PlanDetail = ({
         <CardTitle className="flex flex-col gap-2">
           <span className="font-light">{plan.name}</span>
           <Price product={plan} />
+          {PlanPriceSummary ? <PlanPriceSummary plan={plan} /> : null}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">

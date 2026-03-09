@@ -2,10 +2,12 @@
 
 import { Lesson } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PlanView } from "@repo/membership-next";
+import type { Plan } from "@repo/shared-types";
+import { useMemo } from "react";
 
 type MembershipPaymentMethodsProps = {
   lesson: Lesson;
@@ -26,6 +28,59 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
   );
 
   const { subscription, subscriptionLimitReached } = subscriptionData;
+
+  const tenantId =
+    lesson.tenant != null
+      ? typeof lesson.tenant === "object" && "id" in lesson.tenant
+        ? lesson.tenant.id
+        : lesson.tenant
+      : null;
+
+  const PlanPriceSummary = useMemo(() => {
+    return function PlanPriceSummaryImpl({ plan }: { plan: Plan }) {
+      const priceJson = plan?.priceJSON;
+      const priceId =
+        typeof priceJson === "string"
+          ? JSON.parse(priceJson || "{}")?.id
+          : (priceJson as any)?.id;
+
+      const qty = 1;
+      const enabled = typeof priceId === "string" && priceId.length > 0;
+      const queryOpts = trpc.payments.getSubscriptionFeeBreakdown.queryOptions({
+        priceId: priceId || "",
+        quantity: qty,
+        metadata: tenantId != null ? { tenantId: String(tenantId) } : {},
+      });
+      const { data, isLoading } = useQuery({ ...queryOpts, enabled });
+
+      if (!enabled) return null;
+      if (isLoading) {
+        return <div className="text-sm text-muted-foreground">Calculating fees…</div>;
+      }
+      if (!data) return null;
+      if ((data.bookingFeeCents ?? 0) <= 0) return null;
+
+      const fmt = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: (data.currency || "eur").toUpperCase(),
+      });
+      const fee = (data.bookingFeeCents ?? 0) / 100;
+      const total = (data.totalCents ?? 0) / 100;
+
+      return (
+        <div className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <span>Booking fee</span>
+            <span>{fmt.format(fee)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span>Total (est.)</span>
+            <span>{fmt.format(total)}</span>
+          </div>
+        </div>
+      );
+    };
+  }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
   const { mutateAsync: createCheckoutSession } = useMutation(
     trpc.payments.createCustomerCheckoutSession.mutationOptions({
@@ -144,6 +199,7 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
       subscription={subscription}
       lessonDate={new Date(lesson.startTime)}
       subscriptionLimitReached={subscriptionLimitReached}
+      PlanPriceSummary={PlanPriceSummary}
       onCreateCheckoutSession={handleCreateCheckoutSession}
       onCreateCustomerPortal={async () => {
         const returnUrl =
