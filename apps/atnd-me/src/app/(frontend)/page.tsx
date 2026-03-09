@@ -28,6 +28,7 @@ export default async function RootPage() {
     const payload = await getPayload()
 
     // Validate that the tenant exists
+    let tenantExists = false
     try {
       const tenantResult = await payload.find({
         collection: 'tenants',
@@ -41,14 +42,13 @@ export default async function RootPage() {
         overrideAccess: true,
       })
 
-      // If tenant doesn't exist, show 404
-      if (!tenantResult.docs[0]) {
-        const { notFound } = await import('next/navigation')
-        notFound()
-      }
+      tenantExists = Boolean(tenantResult.docs[0])
     } catch (error) {
       // If lookup fails, show 404
       console.error('Error validating tenant:', error)
+    }
+    // If tenant doesn't exist, show 404
+    if (!tenantExists) {
       const { notFound } = await import('next/navigation')
       notFound()
     }

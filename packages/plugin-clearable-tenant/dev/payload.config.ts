@@ -5,6 +5,7 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { buildConfig } from 'payload'
+import type { Config } from 'payload'
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import type { MultiTenantPluginConfig } from '@payloadcms/plugin-multi-tenant/types'
@@ -76,6 +77,9 @@ export default buildConfig({
     }),
   ],
   secret: process.env.PAYLOAD_SECRET || 'dev-secret',
-  sharp,
+  // Wrap `sharp` to match Payload's expected SharpDependency signature.
+  // (The `sharp` package has multiple overloads, including `sharp(options?)`,
+  // which can fail assignment against Payload's stricter `(input?, options?)` type.)
+  sharp: ((input, options) => sharp(input as any, options)) as Config['sharp'],
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
 })

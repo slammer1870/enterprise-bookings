@@ -74,9 +74,8 @@ export function isOptionalTenantCollectionRoute(
   options: OptionalTenantRouteOptions = {},
 ): boolean {
   if (typeof pathname !== 'string') return true
-  const { rootDocCollections = [], collectionsWithTenantField = [], collectionsRequireTenantOnCreate = [] } = options
+  const { rootDocCollections = [], collectionsRequireTenantOnCreate = [] } = options
   const rootSet = toSetOptional(rootDocCollections as string[] | Set<string>)
-  const withTenantSet = toSetOptional(collectionsWithTenantField as string[] | Set<string>)
   const requireSet = toSetOptional(collectionsRequireTenantOnCreate as string[] | Set<string>)
 
   const rootPaths = Array.from(rootSet).map((slug) => `/collections/${slug}`)
