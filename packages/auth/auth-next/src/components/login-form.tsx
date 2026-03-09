@@ -145,17 +145,19 @@ function LoginFormContent({
                 ? "Sending..."
                 : "Submit"}
             </Button>
-            <div className="relative my-4 flex items-center gap-2">
-              <span className="flex-1 border-t border-border" />
-              <span className="text-muted-foreground text-xs">— or —</span>
-              <span className="flex-1 border-t border-border" />
-            </div>
-            <GoogleSignInButton
-              callbackURL={callbackUrl}
-              signInWithGoogle={signInWithGoogle}
-              variant="login"
-              className="w-full"
-            />
+            {signInWithGoogle ? (
+              <>
+                <div className="relative my-4 flex items-center gap-2">
+                  <span className="text-muted-foreground text-xs">— or —</span>
+                </div>
+                <GoogleSignInButton
+                  callbackURL={callbackUrl}
+                  signInWithGoogle={signInWithGoogle}
+                  variant="login"
+                  className="w-full"
+                />
+              </>
+            ) : null}
           </form>
         </Form>
       </CardContent>
