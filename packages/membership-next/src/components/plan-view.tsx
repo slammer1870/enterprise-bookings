@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Plan, Subscription } from "@repo/shared-types";
 import { PlanList } from "./plans/plan-list";
 import { PlanDetail } from "./plans/plan-detail";
@@ -60,6 +61,8 @@ export function PlanView({
   onCreateCustomerUpgradePortal,
   onConfirmBookingWithSubscription,
 }: PlanViewProps) {
+  const [isUsingMembership, setIsUsingMembership] = React.useState(false);
+
   if (!allowedPlans) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -225,9 +228,19 @@ export function PlanView({
         <div className="mb-4">
           <Button
             className="w-full"
-            onClick={() => onConfirmBookingWithSubscription(subscription.id as number)}
+            disabled={isUsingMembership}
+            aria-busy={isUsingMembership}
+            onClick={async () => {
+              if (isUsingMembership) return;
+              setIsUsingMembership(true);
+              try {
+                await onConfirmBookingWithSubscription(subscription.id as number);
+              } finally {
+                setIsUsingMembership(false);
+              }
+            }}
           >
-            Use my membership
+            {isUsingMembership ? "Loading..." : "Use my membership"}
           </Button>
         </div>
       )}
