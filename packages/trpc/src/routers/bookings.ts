@@ -212,7 +212,7 @@ export const bookingsRouter = {
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
-        depth: 3,
+        depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
@@ -224,6 +224,27 @@ export const bookingsRouter = {
         });
       }
       if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      // Only load a fully populated classOption if we need its payment method config.
+      if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, "class-options")) {
+        const co = lesson.classOption as any;
+        const coId = typeof co === "object" && co != null ? co.id : co;
+        const needsFetch =
+          typeof co !== "object" ||
+          co == null ||
+          (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
+
+        if (coId != null && needsFetch) {
+          const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+            depth: 2,
+            overrideAccess: Boolean(tenantId),
+            user: ctx.user,
+          });
+          if (populated) {
+            (lesson as any).classOption = populated as any;
+          }
+        }
+      }
 
       // Validate quantity against remaining capacity
       const maxQuantity = Math.max(1, lesson.remainingCapacity || 1);
@@ -1195,7 +1216,7 @@ export const bookingsRouter = {
       }
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
-        depth: 2,
+        depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
@@ -1204,6 +1225,27 @@ export const bookingsRouter = {
         throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
       }
       if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      const classOptionId =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any).id
+          : (lesson.classOption as any);
+      const classOption =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any)
+          : classOptionId != null && hasCollection(ctx.payload, "class-options")
+            ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+                depth: 0,
+                overrideAccess: Boolean(tenantId),
+                user: ctx.user,
+              })
+            : null;
+
+      const places =
+        classOption && typeof (classOption as any).places === "number"
+          ? (classOption as any).places
+          : null;
+      const isChildClass = classOption && (classOption as any).type === "child";
 
       const computeScheduleState = async (): Promise<LessonScheduleState> => {
         const now = new Date();
@@ -1216,45 +1258,40 @@ export const bookingsRouter = {
           (now.getTime() >= startMs ||
             (lockOutTime > 0 && now.getTime() >= startMs - lockOutTime * 60_000));
 
-        const bookingsResult = await findSafe<Booking>(ctx.payload, "bookings", {
+        const confirmedCountResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            and: [{ lesson: { equals: lessonId } }, { status: { equals: "confirmed" } }],
+          },
+          depth: 0,
+          limit: 0,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        });
+        const totalConfirmedCount = confirmedCountResult.totalDocs;
+        const isFull = typeof places === "number" ? totalConfirmedCount >= places : false;
+
+        const viewerBookingsResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
             and: [
               { lesson: { equals: lessonId } },
               { status: { in: ["confirmed", "waiting"] } },
+              isChildClass ? { "user.parentUser": { equals: viewerId } } : { user: { equals: viewerId } },
             ],
           },
-          depth: 2,
+          depth: 0,
           limit: 0,
           overrideAccess: tenantId ? true : false,
           user: ctx.user,
         });
 
-        const bookings = bookingsResult.docs as any[];
-        const totalConfirmedCount = bookings.filter((b) => b.status === "confirmed").length;
-        const places = typeof (lesson.classOption as any)?.places === "number" ? (lesson.classOption as any).places : null;
-        const isFull = typeof places === "number" ? totalConfirmedCount >= places : false;
-
-        const viewerConfirmedIds: number[] = [];
-        const viewerWaitingIds: number[] = [];
-        const isChildClass = (lesson.classOption as any)?.type === "child";
-
-        for (const b of bookings) {
-          const bookingUser = b.user;
-          const bookingUserId =
-            typeof bookingUser === "object" && bookingUser !== null ? bookingUser.id : bookingUser;
-          const bookingParentId =
-            typeof bookingUser === "object" && bookingUser !== null
-              ? typeof bookingUser.parentUser === "object" && bookingUser.parentUser !== null
-                ? bookingUser.parentUser.id
-                : bookingUser.parentUser
-              : null;
-
-          const matchesViewer = isChildClass ? bookingParentId === viewerId : bookingUserId === viewerId;
-          if (!matchesViewer) continue;
-
-          if (b.status === "confirmed") viewerConfirmedIds.push(Number(b.id));
-          if (b.status === "waiting") viewerWaitingIds.push(Number(b.id));
-        }
+        const viewerConfirmedIds = (viewerBookingsResult.docs as any[])
+          .filter((b) => b.status === "confirmed")
+          .map((b) => Number(b.id))
+          .filter((n) => Number.isFinite(n));
+        const viewerWaitingIds = (viewerBookingsResult.docs as any[])
+          .filter((b) => b.status === "waiting")
+          .map((b) => Number(b.id))
+          .filter((n) => Number.isFinite(n));
 
         const availability: LessonScheduleState["availability"] = closed ? "closed" : isFull ? "full" : "open";
 
@@ -1292,7 +1329,7 @@ export const bookingsRouter = {
       };
 
       // Child lessons are handled on the dedicated children booking page.
-      if ((lesson.classOption as any)?.type === "child") {
+      if (isChildClass) {
         return {
           scheduleState: await computeScheduleState(),
           redirectUrl: `/bookings/children/${lessonId}`,
@@ -1371,7 +1408,7 @@ export const bookingsRouter = {
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
-        depth: 3,
+        depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
@@ -1398,7 +1435,22 @@ export const bookingsRouter = {
       // Attempt check-in by calling the existing checkIn procedure logic
       try {
         // Business Logic: Handle children's lessons differently
-        if (lesson.classOption.type === "child") {
+        const classOptionId =
+          typeof lesson.classOption === "object" && lesson.classOption !== null
+            ? (lesson.classOption as any).id
+            : (lesson.classOption as any);
+        const classOption =
+          typeof lesson.classOption === "object" && lesson.classOption !== null
+            ? (lesson.classOption as any)
+            : classOptionId != null && hasCollection(ctx.payload, "class-options")
+              ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+                  depth: 0,
+                  overrideAccess: Boolean(tenantId),
+                  user: ctx.user,
+                })
+              : null;
+
+        if ((classOption as any)?.type === "child") {
           return {
             shouldRedirect: false,
             error: "REDIRECT_TO_CHILDREN_BOOKING",
@@ -1479,7 +1531,7 @@ export const bookingsRouter = {
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
-        depth: 3,
+        depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
@@ -1491,6 +1543,26 @@ export const bookingsRouter = {
         });
       }
       if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      // Ensure classOption has paymentMethods if we need subscription-based quantity rules.
+      if (hasCollection(ctx.payload, "class-options")) {
+        const co = lesson.classOption as any;
+        const coId = typeof co === "object" && co != null ? co.id : co;
+        const needsFetch =
+          typeof co !== "object" ||
+          co == null ||
+          (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
+        if (coId != null && needsFetch) {
+          const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+            depth: 2,
+            overrideAccess: Boolean(tenantId),
+            user: ctx.user,
+          });
+          if (populated) {
+            (lesson as any).classOption = populated as any;
+          }
+        }
+      }
 
       const currentBookings = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
