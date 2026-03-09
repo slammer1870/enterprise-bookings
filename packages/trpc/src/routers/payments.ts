@@ -127,6 +127,44 @@ function normalizeStripeAccountId(accountId: string | null | undefined): string 
   return a ? a : null;
 }
 
+/**
+ * Stripe Checkout for subscriptions only accepts application_fee_percent (2 decimal places).
+ * We can still get *exact cents* by picking basis points that round to the desired amount for a known total.
+ *
+ * Returns percent with 2dp (e.g. 1.25) or null if no exact value exists.
+ */
+function findExactApplicationFeePercent(params: {
+  feeCents: number;
+  totalCents: number;
+}): number | null {
+  const { feeCents, totalCents } = params;
+  if (!Number.isFinite(feeCents) || !Number.isFinite(totalCents)) return null;
+  if (feeCents <= 0 || totalCents <= 0) return null;
+
+  // basis points (2dp): 1bp = 0.01%
+  // Want: round(totalCents * bp / 10000) == feeCents
+  // Use integer math with strict upper bound to avoid float issues:
+  // (2*feeCents - 1)*10000 <= 2*totalCents*bp < (2*feeCents + 1)*10000
+  const twoT = 2 * totalCents;
+  const lower = (2 * feeCents - 1) * 10000;
+  const upperExclusive = (2 * feeCents + 1) * 10000;
+
+  const bpMin = Math.ceil(lower / twoT);
+  const bpMax = Math.floor((upperExclusive - 1) / twoT);
+
+  const min = Math.max(0, bpMin);
+  const max = Math.min(10000, bpMax);
+  if (min > max) return null;
+
+  const target = Math.round((feeCents / totalCents) * 10000);
+  const bp = Math.min(max, Math.max(min, target));
+
+  // Final sanity check (match Math.round used by Stripe for currency rounding).
+  const computed = Math.round((totalCents * bp) / 10000);
+  if (computed !== feeCents) return null;
+  return bp / 100;
+}
+
 function getPlatformStripeCustomerId(userDoc: any): string | null {
   const id =
     typeof userDoc?.stripeCustomerId === "string"
@@ -444,11 +482,19 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
                 // (base + booking fee) so the connected account nets the base amount.
                 const totalCents = classPriceAmountCents + feeCents;
                 if (totalCents > 0) {
-                  // Stripe supports up to 2 decimal places.
-                  const pctRaw = (feeCents / totalCents) * 100;
-                  const pct = Math.round(pctRaw * 100) / 100;
-                  if (Number.isFinite(pct) && pct > 0) {
-                    connectApplicationFeePercent = pct;
+                  const exact = findExactApplicationFeePercent({
+                    feeCents,
+                    totalCents,
+                  });
+                  if (exact != null && exact > 0) {
+                    connectApplicationFeePercent = exact;
+                  } else {
+                    // Fallback (should be rare): closest 2dp percent.
+                    const pctRaw = (feeCents / totalCents) * 100;
+                    const pct = Math.round(pctRaw * 100) / 100;
+                    if (Number.isFinite(pct) && pct > 0) {
+                      connectApplicationFeePercent = pct;
+                    }
                   }
                 }
               } else {
