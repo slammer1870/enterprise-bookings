@@ -143,7 +143,12 @@ export async function middleware(request: NextRequest) {
       cookieOptions.domain = `.${parts.slice(-2).join('.')}`
     }
   }
-  response.cookies.set('tenant-slug', subdomain, cookieOptions)
+  // Avoid sending Set-Cookie on every request. Payload admin makes frequent background requests
+  // during editing; re-issuing cookies there can trigger route refreshes and clear form state.
+  const existingTenantSlug = request.cookies.get('tenant-slug')?.value
+  if (existingTenantSlug !== subdomain) {
+    response.cookies.set('tenant-slug', subdomain, cookieOptions)
+  }
   return response
 }
 
