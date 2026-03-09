@@ -5,13 +5,11 @@ import type { Metadata } from 'next'
 export const dynamic = 'force-dynamic'
 import React from 'react'
 
-import { AdminBar } from '@/components/AdminBar'
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
 import { Providers } from '@/providers'
 import { InitTheme } from '@/providers/Theme/InitTheme'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
-import { draftMode } from 'next/headers'
 
 import '@repo/ui/globals.css'
 
@@ -26,19 +24,12 @@ export default async function RootLayout({
   children: React.ReactNode
   unauthenticated: React.ReactNode
 }) {
-  const { isEnabled } = await draftMode()
 
   return (
     <>
       {/* Must not render <html>/<head>/<body> here; root layout owns those tags. */}
       <InitTheme />
       <Providers>
-        <AdminBar
-          adminBarProps={{
-            preview: isEnabled,
-          }}
-        />
-
         <Header />
         {children}
         {unauthenticated}
