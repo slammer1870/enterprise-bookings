@@ -56,6 +56,72 @@ async function resolveStripeAccountIdFromMetadata(params: {
   return accountId;
 }
 
+function coerceNumericId(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
+    const n = parseInt(raw.trim(), 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+async function resolvePayloadUser(params: {
+  payload: any;
+  sessionUser: any;
+}): Promise<{ id: number; email?: string | null; name?: string | null }> {
+  const { payload, sessionUser } = params;
+  const directId = coerceNumericId(sessionUser?.id);
+  if (directId != null) {
+    const doc = await payload
+      .findByID({
+        collection: "users",
+        id: directId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null);
+    if (doc) {
+      return {
+        id: directId,
+        email: (doc as any)?.email ?? sessionUser?.email ?? null,
+        name: (doc as any)?.name ?? sessionUser?.name ?? null,
+      };
+    }
+  }
+
+  const email =
+    typeof sessionUser?.email === "string" ? sessionUser.email.trim() : "";
+  if (!email) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "User not found" });
+  }
+
+  const res = await payload
+    .find({
+      collection: "users",
+      where: { email: { equals: email } },
+      depth: 0,
+      limit: 1,
+      overrideAccess: true,
+    })
+    .catch(() => null);
+
+  const found = (res as any)?.docs?.[0] as any | undefined;
+  const id = coerceNumericId(found?.id);
+  if (id == null) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "User not found" });
+  }
+  return {
+    id,
+    email,
+    name:
+      typeof found?.name === "string"
+        ? found.name
+        : typeof sessionUser?.name === "string"
+          ? sessionUser.name
+          : null,
+  };
+}
+
 function normalizeStripeAccountId(accountId: string | null | undefined): string | null {
   const a = typeof accountId === "string" ? accountId.trim() : "";
   return a ? a : null;
@@ -295,21 +361,18 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
         : undefined;
 
-      const userId = (ctx.user as { id?: unknown })?.id;
-      if (typeof userId !== "number") {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "User not found",
-        });
-      }
+      const payloadUser = await resolvePayloadUser({
+        payload: ctx.payload,
+        sessionUser: ctx.user,
+      });
 
       const { stripeCustomerId: customerId } =
         await ensureStripeCustomerIdForAccount({
           payload: ctx.payload,
           stripe: ctx.stripe,
-          userId,
-          email: (ctx.user as { email?: string | null })?.email ?? null,
-          name: (ctx.user as { name?: string | null })?.name ?? null,
+          userId: payloadUser.id,
+          email: payloadUser.email ?? null,
+          name: payloadUser.name ?? null,
           stripeAccountId,
         });
 
@@ -416,13 +479,17 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
   createCustomerPortal: stripeProtectedProcedure
     .input(z.object({ returnUrl: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
+      const payloadUser = await resolvePayloadUser({
+        payload: ctx.payload,
+        sessionUser: ctx.user,
+      });
       const { stripeCustomerId: customerId } =
         await ensureStripeCustomerIdForAccount({
           payload: ctx.payload,
           stripe: ctx.stripe,
-          userId: (ctx.user as { id: number }).id,
-          email: (ctx.user as { email?: string | null })?.email ?? null,
-          name: (ctx.user as { name?: string | null })?.name ?? null,
+          userId: payloadUser.id,
+          email: payloadUser.email ?? null,
+          name: payloadUser.name ?? null,
           stripeAccountId: null,
         });
       const returnUrl =
@@ -459,13 +526,17 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
 
       const priceId = JSON.parse(product?.docs[0]?.priceJSON as string)?.id;
 
+      const payloadUser = await resolvePayloadUser({
+        payload: ctx.payload,
+        sessionUser: ctx.user,
+      });
       const { stripeCustomerId: customerId } =
         await ensureStripeCustomerIdForAccount({
           payload: ctx.payload,
           stripe: ctx.stripe,
-          userId: (ctx.user as { id: number }).id,
-          email: (ctx.user as { email?: string | null })?.email ?? null,
-          name: (ctx.user as { name?: string | null })?.name ?? null,
+          userId: payloadUser.id,
+          email: payloadUser.email ?? null,
+          name: payloadUser.name ?? null,
           stripeAccountId: null,
         });
 
