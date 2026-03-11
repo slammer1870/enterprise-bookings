@@ -73,6 +73,17 @@ describe('getTrustedOriginsWithCustomDomains', () => {
     expect(origins).toContain('https://book.yoga.co')
   })
 
+  it('accepts fully-qualified http(s) origins in customDomains', () => {
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+    const origins = getTrustedOriginsWithCustomDomains([
+      'http://new.brugrappling.ie',
+      'https://new.brugrappling.ie',
+    ])
+    expect(origins).toContain('http://new.brugrappling.ie')
+    expect(origins).toContain('https://new.brugrappling.ie')
+  })
+
   it('returns only platform origins when customDomains is empty', () => {
     process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
     const origins = getTrustedOriginsWithCustomDomains([])

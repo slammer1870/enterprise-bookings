@@ -36,7 +36,22 @@ export function getTrustedOriginsWithCustomDomains(
   const base = getTrustedOrigins()
   const extra = customDomains
     .filter((d) => d && typeof d === 'string' && d.trim() !== '')
-    .map((d) => `https://${d.trim().toLowerCase()}`)
+    .map((d) => d.trim())
+    .map((value) => {
+      const lower = value.toLowerCase()
+      // Support either:
+      // - hostnames (e.g. "studio.example.com") -> "https://studio.example.com"
+      // - full origins (e.g. "http://new.brugrappling.ie") -> "http://new.brugrappling.ie"
+      if (lower.startsWith('http://') || lower.startsWith('https://')) {
+        try {
+          const u = new URL(lower)
+          if (u.protocol === 'http:' || u.protocol === 'https:') return u.origin
+        } catch {
+          // fall through
+        }
+      }
+      return `https://${lower}`
+    })
   return [...base, ...extra]
 }
 
