@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
-import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 
@@ -17,46 +16,44 @@ function isInternalResolveAuthorized(request: NextRequest): boolean {
 }
 
 /**
- * Resolves tenant slug by hostname (custom domain).
- * Used by middleware when the request host is not a platform subdomain.
- * GET /api/tenant-by-host?host=studio.example.com → { slug: 'acme', id: '...' } or 404.
+ * Resolves tenant ID by tenant slug.
+ * Used by middleware so server-rendered Payload admin routes have `payload-tenant` set on first load.
+ * GET /api/tenant-by-slug?slug=acme → { id: '...', slug: 'acme' } or 404.
  */
 export async function GET(request: NextRequest) {
   if (!isInternalResolveAuthorized(request)) {
     return NextResponse.json(null, { status: 404 })
   }
 
-  const host = request.nextUrl.searchParams.get('host')
-  if (!host || typeof host !== 'string') {
-    return NextResponse.json({ error: 'Missing host' }, { status: 400 })
+  const slug = request.nextUrl.searchParams.get('slug')
+  if (!slug || typeof slug !== 'string') {
+    return NextResponse.json({ error: 'Missing slug' }, { status: 400 })
   }
 
-  const normalized = normalizeCustomDomain(host)
-  if (!normalized) {
-    return NextResponse.json({ error: 'Invalid host' }, { status: 400 })
+  const normalized = slug.trim().toLowerCase()
+  if (!/^[a-z0-9-]+$/.test(normalized)) {
+    return NextResponse.json({ error: 'Invalid slug' }, { status: 400 })
   }
 
   try {
     const payload = await getPayload()
     const result = await payload.find({
       collection: 'tenants',
-      where: { domain: { equals: normalized } },
+      where: { slug: { equals: normalized } },
       limit: 1,
       depth: 0,
       overrideAccess: true,
     })
 
-    const tenant = result.docs[0]
-    if (!tenant || !tenant.slug) {
+    const tenant = result.docs[0] as { id?: unknown; slug?: unknown } | undefined
+    if (!tenant || !tenant.id) {
       return NextResponse.json(null, { status: 404 })
     }
 
-    return NextResponse.json({ slug: tenant.slug as string, id: (tenant as { id?: unknown }).id })
+    return NextResponse.json({ id: tenant.id, slug: normalized })
   } catch (err) {
-    console.error('[api/tenant-by-host]', err)
-    return NextResponse.json(
-      { error: 'Failed to resolve tenant' },
-      { status: 500 }
-    )
+    console.error('[api/tenant-by-slug]', err)
+    return NextResponse.json({ error: 'Failed to resolve tenant' }, { status: 500 })
   }
 }
+

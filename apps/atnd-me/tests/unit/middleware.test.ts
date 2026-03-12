@@ -106,7 +106,7 @@ describe('Middleware', () => {
     })
 
     it('sets tenant-slug from API when host is custom domain and API returns slug', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL) => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         if (String(url).includes('/api/tenant-by-host') && String(url).includes('host=studio.example.com')) {
           return new Response(JSON.stringify({ slug: 'acme' }), {
