@@ -80,8 +80,6 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     }
   }, [lesson.id, cancelPendingForLesson])
 
-  const maxQuantity = Math.max(1, lesson.remainingCapacity || 1)
-
   // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the lesson data from the server
   // is used; there is no client-side Stripe Connect or tenant check. If the server returns a lesson without
   // classOption.paymentMethods populated (e.g. no tenant context so depth/overrideAccess omit it), this is false.
@@ -93,6 +91,23 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
     (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
   )
+
+  const capacityMaxQuantity = Math.max(1, lesson.remainingCapacity || 1)
+  const dropInAllowsMultiple =
+    (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerLesson === true
+  const planAllowsMultiple = Array.isArray((paymentMethods as any)?.allowedPlans)
+    ? (paymentMethods as any).allowedPlans.some(
+        (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerLesson === true
+      )
+    : false
+  // Match server-side gating: if payment methods exist, only allow multi-quantity when at least one method supports it.
+  const allowsMultipleBookingsForViewer =
+    !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple
+  const maxQuantity = allowsMultipleBookingsForViewer ? capacityMaxQuantity : 1
+
+  useEffect(() => {
+    setQuantity((q) => Math.min(Math.max(1, q), maxQuantity))
+  }, [maxQuantity])
 
   // If payment methods exist, show payment gateway (filtered by quantity when pendingBookings/quantity > 1)
   if (hasPaymentMethods) {
@@ -112,6 +127,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
                 lesson={lesson}
                 quantity={quantity}
                 onQuantityChange={setQuantity}
+                maxQuantity={maxQuantity}
               />
             </CardContent>
           </Card>
@@ -160,6 +176,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
             lesson={lesson}
             quantity={quantity}
             onQuantityChange={setQuantity}
+            maxQuantity={maxQuantity}
           />
 
           {quantity >= 1 && quantity <= maxQuantity && (
