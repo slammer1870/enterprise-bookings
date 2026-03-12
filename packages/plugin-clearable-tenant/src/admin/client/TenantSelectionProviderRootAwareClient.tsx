@@ -16,6 +16,10 @@ type ContextValue = {
   modified?: boolean
   options: TenantOption[]
   selectedTenantID: string | number | undefined
+  /** When true, tenant selection is locked to the current host (tenant subdomain / custom domain). */
+  isHostLocked: boolean
+  /** The tenant ID implied by the current host, when host-locked. */
+  hostLockedTenantID?: string | number
   setEntityType: React.Dispatch<React.SetStateAction<'document' | 'global' | undefined>>
   setModified: (value: boolean) => void
   setTenant: (args: { id?: string | number; refresh?: boolean }) => void
@@ -38,6 +42,8 @@ const DefaultContext: ContextValue = {
   modified: false,
   options: [],
   selectedTenantID: undefined,
+  isHostLocked: false,
+  hostLockedTenantID: undefined,
   setEntityType: () => undefined,
   setModified: () => undefined,
   setTenant: () => undefined,
@@ -96,6 +102,44 @@ export function TenantSelectionProviderRootAwareClient({
   const hasSyncedForUser = React.useRef(false)
   const hasAppliedInitialTenant = React.useRef(false)
   const [tenantOptions, setTenantOptions] = React.useState(initialTenantOptions)
+
+  const getRootHostname = React.useCallback((): string | null => {
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL
+    if (!serverUrl) return null
+    try {
+      return new URL(serverUrl).hostname
+    } catch {
+      return null
+    }
+  }, [])
+
+  const getCookieValue = React.useCallback((name: string): string | undefined => {
+    if (typeof document === 'undefined') return undefined
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+    return match?.[1] != null ? decodeURIComponent(match[1]) : undefined
+  }, [])
+
+  const isHostLocked = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    const root = getRootHostname()
+    if (!root) return false
+    const current = window.location.hostname
+    if (!current) return false
+    if (root === 'localhost') return current.endsWith('.localhost')
+    return current !== root && current.endsWith('.' + root) ? true : current !== root && !current.endsWith('.' + root)
+  }, [getRootHostname])
+
+  const hostLockedTenantSlug = React.useMemo(() => {
+    if (!isHostLocked) return undefined
+    return getCookieValue('tenant-slug')
+  }, [getCookieValue, isHostLocked])
+
+  const hostLockedTenantID = React.useMemo((): string | number | undefined => {
+    if (!isHostLocked) return undefined
+    if (!hostLockedTenantSlug) return undefined
+    const match = tenantOptions.find((o) => o.slug && o.slug === hostLockedTenantSlug)
+    return match?.value
+  }, [isHostLocked, hostLockedTenantSlug, tenantOptions])
 
   const pathHelpers = React.useMemo(
     () =>
@@ -161,6 +205,12 @@ export function TenantSelectionProviderRootAwareClient({
 
   const setTenant = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
+      if (isHostLocked && hostLockedTenantID != null && hostLockedTenantID !== '') {
+        // On tenant subdomains/custom domains, always lock selection to the host-implied tenant.
+        // This prevents cross-tenant switching except on the platform root host.
+        setTenantAndCookie({ id: hostLockedTenantID, refresh: false })
+        return
+      }
       if (id === undefined || id === null || id === '') {
         setTenantAndCookie({ id: undefined, refresh })
       } else if (!tenantOptions.find((o) => String(o.value) === String(id))) {
@@ -169,8 +219,21 @@ export function TenantSelectionProviderRootAwareClient({
         setTenantAndCookie({ id, refresh })
       }
     },
-    [tenantOptions, setTenantAndCookie],
+    [tenantOptions, setTenantAndCookie, isHostLocked, hostLockedTenantID],
   )
+
+  // On tenant hosts, ensure payload-tenant cookie is set to the host-implied tenant ID.
+  // Do NOT refresh here—admin editing makes frequent requests and refreshing would clear forms.
+  React.useEffect(() => {
+    if (!isHostLocked) return
+    if (hostLockedTenantID == null || hostLockedTenantID === '') return
+    if (selectedTenantID != null && String(selectedTenantID) === String(hostLockedTenantID)) {
+      // Still ensure cookie is correct (in case user arrived with empty cookie).
+      setPayloadTenantCookie(String(hostLockedTenantID), getCookieDomain)
+      return
+    }
+    setTenantAndCookie({ id: hostLockedTenantID, refresh: false })
+  }, [isHostLocked, hostLockedTenantID, selectedTenantID, setTenantAndCookie, getCookieDomain])
 
   const syncTenants = React.useCallback(async () => {
     try {
@@ -433,6 +496,8 @@ export function TenantSelectionProviderRootAwareClient({
     modified,
     options: tenantOptions,
     selectedTenantID,
+    isHostLocked,
+    hostLockedTenantID,
     setEntityType,
     setModified,
     setTenant,

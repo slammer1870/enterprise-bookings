@@ -30,6 +30,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     setTenant,
     rootDocCollections = ['navbar', 'footer'],
     canClearTenantOnCurrentRoute = true,
+    isHostLocked,
   } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
@@ -91,10 +92,11 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
   }
 
   const canClear =
-    ['dashboard', 'list'].includes(viewType ?? '') ||
-    viewType == null ||
-    isOnNavbarOrFooter ||
-    canClearTenantOnCurrentRoute
+    !isHostLocked &&
+    (['dashboard', 'list'].includes(viewType ?? '') ||
+      viewType == null ||
+      isOnNavbarOrFooter ||
+      canClearTenantOnCurrentRoute)
 
   const labelText = (() => {
     if (!label) return (t as (k: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')
@@ -108,6 +110,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
 
   const readOnly =
     Boolean(disabled) ||
+    Boolean(isHostLocked) ||
     (!isOnNavbarOrFooter &&
       !canClearTenantOnCurrentRoute &&
       entityType !== 'global' &&
