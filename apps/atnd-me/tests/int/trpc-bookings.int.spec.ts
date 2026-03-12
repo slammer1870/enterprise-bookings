@@ -2160,4 +2160,242 @@ describe('tRPC Bookings Integration Tests', () => {
       })
     }, TEST_TIMEOUT)
   })
+
+  describe('Schedule single-slot membership shortcut', () => {
+    it('books directly when lesson is single-slot and user has an active subscription', async () => {
+      const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
+      const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
+      if (!hasPlans || !hasSubs) return
+
+      const plan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: `Schedule Shortcut Plan ${Date.now()}`,
+          status: 'active',
+          tenant: testTenant.id,
+          sessionsInformation: {
+            sessions: 2,
+            interval: 'week',
+            intervalCount: 1,
+            // Explicitly single-slot for memberships
+            allowMultipleBookingsPerLesson: false,
+          },
+        },
+        overrideAccess: true,
+      })
+
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: 'acct_test_schedule_shortcut',
+        },
+        overrideAccess: true,
+      })
+
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: { allowedPlans: [plan.id] } },
+        overrideAccess: true,
+      })
+
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 30)
+      const sub = await payload.create({
+        collection: 'subscriptions',
+        data: {
+          user: user.id,
+          plan: plan.id,
+          status: 'active',
+          tenant: testTenant.id,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        overrideAccess: true,
+      })
+
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(9, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(10, 0, 0, 0)
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+
+      const caller = await createCaller()
+      const result = await (caller as any).bookings.bookSingleSlotLessonOrRedirect({
+        lessonId: testLesson.id,
+      })
+
+      expect(result).toBeDefined()
+      expect(result.redirectUrl ?? null).toBe(null)
+
+      // Verify booking exists and is confirmed with subscription markers
+      const bookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { lesson: { equals: testLesson.id } },
+            { user: { equals: user.id } },
+            { status: { equals: 'confirmed' } },
+          ],
+        },
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(bookings.totalDocs).toBe(1)
+      const doc: any = bookings.docs[0]
+      expect(doc.paymentMethodUsed).toBe('subscription')
+      expect(doc.subscriptionIdUsed).toBe(sub.id)
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { lesson: { equals: testLesson.id } },
+        overrideAccess: true,
+      })
+      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
+      await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: {} },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: { stripeConnectOnboardingStatus: 'not_connected', stripeConnectAccountId: null },
+        overrideAccess: true,
+      })
+    }, TEST_TIMEOUT)
+
+    it('redirects to manage when lesson is single-slot but membership is past due', async () => {
+      const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
+      const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
+      if (!hasPlans || !hasSubs) return
+
+      const plan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: `Schedule Shortcut Past Due Plan ${Date.now()}`,
+          status: 'active',
+          tenant: testTenant.id,
+          sessionsInformation: {
+            sessions: 2,
+            interval: 'week',
+            intervalCount: 1,
+            allowMultipleBookingsPerLesson: false,
+          },
+        },
+        overrideAccess: true,
+      })
+
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: 'acct_test_schedule_shortcut_past_due',
+        },
+        overrideAccess: true,
+      })
+
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: { allowedPlans: [plan.id] } },
+        overrideAccess: true,
+      })
+
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + 30)
+      const sub = await payload.create({
+        collection: 'subscriptions',
+        data: {
+          user: user.id,
+          plan: plan.id,
+          status: 'past_due',
+          tenant: testTenant.id,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        overrideAccess: true,
+      })
+
+      const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
+      startTime.setHours(11, 0, 0, 0)
+      const endTime = new Date(startTime)
+      endTime.setHours(12, 0, 0, 0)
+      const testLesson = (await createWithTenant<Lesson>(
+        'lessons',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          classOption: classOption.id,
+          location: 'Test',
+          active: true,
+          lockOutTime: 0,
+        },
+        { draft: false, overrideAccess: true }
+      ))
+
+      const caller = await createCaller()
+      const result = await (caller as any).bookings.bookSingleSlotLessonOrRedirect({
+        lessonId: testLesson.id,
+      })
+
+      expect(result).toBeDefined()
+      expect(result.redirectUrl).toBe(`/bookings/${testLesson.id}/manage`)
+
+      const bookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { lesson: { equals: testLesson.id } },
+            { user: { equals: user.id } },
+            { status: { equals: 'confirmed' } },
+          ],
+        },
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(bookings.totalDocs).toBe(0)
+
+      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
+      await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
+      await payload.update({
+        collection: 'class-options',
+        id: classOption.id,
+        data: { paymentMethods: {} },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'tenants',
+        id: testTenant.id,
+        data: { stripeConnectOnboardingStatus: 'not_connected', stripeConnectAccountId: null },
+        overrideAccess: true,
+      })
+    }, TEST_TIMEOUT)
+  })
 })

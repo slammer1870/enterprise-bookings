@@ -192,7 +192,8 @@ describe('QuantitySelector', () => {
 
     // Should default to 1 when capacity is 0
     expect(screen.getByText('1 slot available')).toBeInTheDocument()
-    // Increase button should be disabled
-    expect(screen.getByLabelText('Increase quantity')).toBeDisabled()
+    // No +/- buttons are shown when quantity cannot be adjusted
+    expect(screen.queryByLabelText('Increase quantity')).toBeNull()
+    expect(screen.queryByLabelText('Decrease quantity')).toBeNull()
   })
 })

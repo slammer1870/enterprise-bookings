@@ -75,6 +75,12 @@ export type LessonScheduleState = {
     waitingCount: number;
   };
   /**
+   * True when the lesson's booking/payment configuration effectively limits the viewer
+   * to a single booking slot (e.g. membership/drop-in rules disallow multi-booking).
+   * When true, schedule UX can attempt direct booking/cancellation without extra navigation.
+   */
+  singleSlotOnly?: boolean;
+  /**
    * UI intent for the primary CTA.
    * The client should treat this as authoritative for schedule buttons.
    */

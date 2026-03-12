@@ -110,6 +110,11 @@ describe('ManageBookingPageClient', () => {
             onError: opts?.onError,
           }),
         },
+        cancelPendingBookingsForLesson: {
+          mutationOptions: () => ({
+            mutationFn: vi.fn().mockResolvedValue({ cancelled: 0 }),
+          }),
+        },
       },
       lessons: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
@@ -137,6 +142,7 @@ describe('ManageBookingPageClient', () => {
         cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
         createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
         setMyBookingQuantityForLesson: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
+        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: vi.fn().mockResolvedValue({ cancelled: 0 }) }) },
       },
       lessons: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
@@ -181,6 +187,7 @@ describe('ManageBookingPageClient', () => {
         cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
         createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
         setMyBookingQuantityForLesson: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
+        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: vi.fn().mockResolvedValue({ cancelled: 0 }) }) },
       },
       lessons: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },

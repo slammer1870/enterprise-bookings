@@ -22,6 +22,146 @@ import {
 } from "@repo/shared-services";
 
 export const bookingsRouter = {
+  /**
+   * Schedule UX shortcut for single-slot lessons:
+   * - If viewer has an eligible active subscription for the lesson, book immediately.
+   * - Otherwise redirect to the manage page (where payment / portal actions live).
+   *
+   * This intentionally avoids navigating to the generic booking page for cases where the
+   * viewer can only ever book 1 slot and the flow is decided by membership state.
+   */
+  bookSingleSlotLessonOrRedirect: protectedProcedure
+    .use(requireCollections("lessons", "bookings", "class-options", "subscriptions"))
+    .input(z.object({ lessonId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const { lessonId } = input;
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+      }
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 2,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+      if (!lesson) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      const classOptionId =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any).id
+          : (lesson.classOption as any);
+      const classOption =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any)
+          : classOptionId != null
+            ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+                depth: 2,
+                overrideAccess: Boolean(tenantId),
+                user: ctx.user,
+              })
+            : null;
+
+      // Child lessons are handled on the children booking page.
+      if ((classOption as any)?.type === "child") {
+        return { redirectUrl: `/bookings/children/${lessonId}` };
+      }
+
+      const paymentMethods = (classOption as any)?.paymentMethods as
+        | { allowedDropIn?: any; allowedPlans?: any[] }
+        | undefined;
+      const hasPaymentMethods = Boolean(
+        paymentMethods?.allowedDropIn || (paymentMethods?.allowedPlans?.length ?? 0) > 0
+      );
+      const dropInAllowsMultiple =
+        (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerLesson === true;
+      const planAllowsMultiple = Array.isArray((paymentMethods as any)?.allowedPlans)
+        ? (paymentMethods as any).allowedPlans.some(
+            (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerLesson === true
+          )
+        : false;
+      const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
+      const singleSlotOnly = !allowsMultipleBookingsForViewer;
+
+      // If this isn't a single-slot lesson, fall back to the normal booking page flow.
+      if (!singleSlotOnly) {
+        return { redirectUrl: `/bookings/${lessonId}` };
+      }
+
+      // If already booked, no-op (stay on schedule).
+      const existingConfirmed = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: {
+          and: [
+            { lesson: { equals: lessonId } },
+            { user: { equals: ctx.user.id } },
+            { status: { equals: "confirmed" } },
+          ],
+        },
+        depth: 0,
+        limit: 1,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+      if (existingConfirmed.docs.length > 0) {
+        return { redirectUrl: null };
+      }
+
+      const allowedPlanIds =
+        (paymentMethods as any)?.allowedPlans?.map((p: any) =>
+          typeof p === "object" && p != null ? p.id : p
+        ) ?? [];
+
+      // No membership option configured -> redirect to manage.
+      if (!Array.isArray(allowedPlanIds) || allowedPlanIds.length === 0) {
+        return { redirectUrl: `/bookings/${lessonId}/manage` };
+      }
+
+      // Find the first eligible subscription the viewer can use for this lesson.
+      const subs = await findSafe<Subscription>(ctx.payload, "subscriptions", {
+        where: {
+          and: [
+            { user: { equals: ctx.user.id } },
+            { plan: { in: allowedPlanIds } },
+          ],
+        },
+        depth: 2,
+        limit: 25,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      const lessonStart = new Date(lesson.startTime);
+      const usable = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
+
+      if (!usable) {
+        return { redirectUrl: `/bookings/${lessonId}/manage` };
+      }
+
+      const limitReached = await hasReachedSubscriptionLimit(usable as any, ctx.payload, lessonStart);
+      if (limitReached) {
+        return { redirectUrl: `/bookings/${lessonId}/manage` };
+      }
+
+      // Book directly (mark as subscription-backed) using the viewer context.
+      await createSafe(
+        ctx.payload,
+        "bookings",
+        ({
+          lesson: Number(lessonId),
+          user: Number(ctx.user.id),
+          status: "confirmed",
+          paymentMethodUsed: "subscription",
+          subscriptionIdUsed: Number((usable as any).id),
+        } as unknown) as Record<string, unknown>,
+        { overrideAccess: false, user: ctx.user }
+      );
+
+      return { redirectUrl: null };
+    }),
   checkIn: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
     .input(z.object({ lessonId: z.number() }))

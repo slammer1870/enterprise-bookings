@@ -33,7 +33,7 @@ export type BetterAuthCollectionsConfig = {
 };
 
 export type BetterAuthTrustedOriginsProvider = (
-  request: Request
+  _request: Request
 ) => string[] | Promise<string[]>;
 
 export type BetterAuthServerConfig = {

@@ -628,7 +628,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         // Enforce doc-level access for the caller.
         try {
           await ctx.payload.findByID({
-            collection: "plans",
+            collection: "plans" as any,
             id,
             depth: 0,
             overrideAccess: false,
@@ -648,7 +648,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         // Privileged read for protected fields (stripeProductId / priceJSON).
         plan = await ctx.payload
           .findByID({
-            collection: "plans",
+            collection: "plans" as any,
             id,
             depth: 0,
             overrideAccess: true,
@@ -669,7 +669,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         if (plan?.id != null) {
           try {
             await ctx.payload.findByID({
-              collection: "plans",
+              collection: "plans" as any,
               id: plan.id,
               depth: 0,
               overrideAccess: false,
@@ -753,7 +753,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       // Privileged read to access Stripe IDs (field-level access is admin-only).
       const subscriptionDoc = await ctx.payload
         .findByID({
-          collection: "subscriptions",
+          collection: "subscriptions" as any,
           id: subscriptionId,
           depth: 0,
           overrideAccess: true,

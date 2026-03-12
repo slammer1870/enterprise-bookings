@@ -468,6 +468,7 @@ export const lessonsRouter = {
           // by capacity/booking rules. If there are payment methods, only show "Modify" when at
           // least one method supports multiple bookings per lesson.
           const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
+          scheduleState.singleSlotOnly = !allowsMultipleBookingsForViewer;
 
           if (availability === "closed") {
             scheduleState.action = "closed";

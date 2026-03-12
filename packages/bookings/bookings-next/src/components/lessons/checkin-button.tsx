@@ -85,6 +85,19 @@ export const CheckInButton = ({
     })
   );
 
+  const { mutateAsync: bookSingleSlotOrRedirect, isPending: isSingleSlotPending } = useMutation(
+    trpc.bookings.bookSingleSlotLessonOrRedirect.mutationOptions({
+      onSuccess: async (result: any) => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.lessons.getByDate.queryKey(),
+        });
+        if (result?.redirectUrl) {
+          router.push(result.redirectUrl);
+        }
+      },
+    })
+  );
+
   const handleClick: MouseEventHandler<HTMLButtonElement> = async () => {
     if (action === "closed") return;
 
@@ -116,7 +129,13 @@ export const CheckInButton = ({
     }
 
     if (action === "book") {
-      router.push(`/bookings/${lessonId}`);
+      const singleSlotOnly = scheduleState?.singleSlotOnly === true;
+      if (singleSlotOnly) {
+        await bookSingleSlotOrRedirect({ lessonId });
+        toast.success("Booked");
+      } else {
+        router.push(`/bookings/${lessonId}`);
+      }
       trackEvent("Booking Initiated");
       return;
     }
@@ -142,7 +161,7 @@ export const CheckInButton = ({
     }
   };
 
-  const disabled = action === "closed" || isPending;
+  const disabled = action === "closed" || isPending || isSingleSlotPending;
 
   return (
     <>
@@ -152,7 +171,7 @@ export const CheckInButton = ({
         disabled={disabled}
         onClick={handleClick}
       >
-        {isPending ? "Loading..." : label}
+        {isPending || isSingleSlotPending ? "Loading..." : label}
       </Button>
     </>
   );
