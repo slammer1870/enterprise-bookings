@@ -21,6 +21,11 @@ import { getServerSideURL } from './utilities/getURL'
 import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
+import {
+  betterAuthPluginOptions,
+  getExtraTrustedOriginHosts,
+  getTrustedOriginsWithCustomDomains,
+} from '@/lib/auth/options'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -120,6 +125,40 @@ export default buildConfig({
     },
   ],
   plugins,
+  onInit: async (payload) => {
+    // Better Auth's `trustedOrigins` is evaluated at initialization time.
+    // Build it from tenant custom domains so logins from custom domains are accepted.
+    try {
+      const result = await payload.find({
+        collection: 'tenants',
+        depth: 0,
+        limit: 1000,
+        overrideAccess: true,
+        select: { domain: true },
+      })
+      const tenantDomains = (result.docs as Array<{ domain?: unknown }>)
+        .map((d) => (d?.domain != null ? String(d.domain).trim().toLowerCase() : ''))
+        .filter(Boolean)
+
+      const extraFromEnv = getExtraTrustedOriginHosts()
+      const trustedOrigins = getTrustedOriginsWithCustomDomains([
+        ...extraFromEnv,
+        ...tenantDomains,
+      ])
+
+      // `payload-auth` sets `pluginOptions.betterAuthOptions` during config build.
+      // Mutating it here affects the options used moments later to init Better Auth.
+      ;(betterAuthPluginOptions as any).betterAuthOptions = {
+        ...(betterAuthPluginOptions as any).betterAuthOptions,
+        trustedOrigins,
+      }
+    } catch (err) {
+      console.warn(
+        '[auth] Failed to hydrate Better Auth trustedOrigins from tenants; falling back to static config.',
+        err
+      )
+    }
+  },
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),
   sharp: sharp as unknown as SharpDependency,
   typescript: {

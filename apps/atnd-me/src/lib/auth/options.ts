@@ -56,7 +56,7 @@ export function getTrustedOriginsWithCustomDomains(
 }
 
 /** Extra trusted origins (e.g. tenant custom domains). Comma-separated hostnames. */
-function getExtraTrustedOriginHosts(): string[] {
+export function getExtraTrustedOriginHosts(): string[] {
   const raw = process.env.BETTER_AUTH_TRUSTED_ORIGINS_EXTRA
   if (!raw || typeof raw !== 'string') return []
   return raw
