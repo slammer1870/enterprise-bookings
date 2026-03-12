@@ -68,6 +68,9 @@ export function getExtraTrustedOriginHosts(): string[] {
 type TenantDomainCacheEntry = { ok: boolean; atMs: number }
 const tenantDomainCache = new Map<string, TenantDomainCacheEntry>()
 
+type TenantDomainsCacheAllEntry = { domains: string[]; atMs: number }
+let tenantDomainsAllCache: TenantDomainsCacheAllEntry | null = null
+
 async function isTenantCustomDomain(hostname: string): Promise<boolean> {
   const now = Date.now()
   const ttlMs = 5 * 60_000
@@ -94,8 +97,49 @@ async function isTenantCustomDomain(hostname: string): Promise<boolean> {
   }
 }
 
+async function getAllTenantCustomDomains(): Promise<string[]> {
+  const now = Date.now()
+  const ttlMs = 5 * 60_000
+  if (tenantDomainsAllCache && now - tenantDomainsAllCache.atMs < ttlMs) {
+    return tenantDomainsAllCache.domains
+  }
+
+  try {
+    const { getPayload } = await import('@/lib/payload')
+    const payload = await getPayload()
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { domain: { exists: true } },
+      limit: 1000,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    const domains = (result.docs as Array<{ domain?: unknown }>)
+      .map((d) => (d?.domain != null ? String(d.domain) : ''))
+      .map((d) => normalizeCustomDomain(d) || '')
+      .filter(Boolean)
+
+    tenantDomainsAllCache = { domains, atMs: now }
+    return domains
+  } catch {
+    // Fail closed: if we can't load tenant domains, don't trust extra origins.
+    tenantDomainsAllCache = { domains: [], atMs: now }
+    return []
+  }
+}
+
 async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
-  const base = getTrustedOriginsWithCustomDomains(getExtraTrustedOriginHosts())
+  // Include:
+  // - platform origins (+ wildcard subdomains)
+  // - optional env-provided extras (kept for emergency overrides)
+  // - *all* tenant custom domains from DB so Better Auth can validate callbackURL even when
+  //   the request lacks an Origin header (common for some auth flows / proxies).
+  const allTenantDomains = await getAllTenantCustomDomains()
+  const base = getTrustedOriginsWithCustomDomains([
+    ...getExtraTrustedOriginHosts(),
+    ...allTenantDomains,
+  ])
 
   const originHeader = request.headers.get('origin') || ''
   if (!originHeader) return base
