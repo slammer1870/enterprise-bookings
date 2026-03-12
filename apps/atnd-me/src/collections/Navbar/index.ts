@@ -35,6 +35,7 @@ export const Navbar: CollectionConfig = {
             required: false,
             admin: {
                 position: 'sidebar',
+                hidden: true,
                 description:
                     'Optional. Leave empty for the root site navbar (when no tenant is assigned, e.g. root domain).',
             },
