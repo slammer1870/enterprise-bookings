@@ -183,15 +183,59 @@ export const Navbar: CollectionConfig = {
         beforeValidate: [
             async ({ data, operation, req }) => {
                 // Set tenant from context on create only when not explicitly set (allow null for root navbar)
-                if (operation === 'create' && data && data.tenant === undefined) {
+                if (operation === 'create' && data && (data.tenant === undefined || data.tenant === null)) {
                     const rawTenant = req.context?.tenant as unknown
                     if (rawTenant) {
                         // `tenant` may be a primitive ID or an object with an `id` field
                         data.tenant =
-                            typeof rawTenant === 'object' && 'id' in rawTenant
+                            typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
                                 ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 (rawTenant as any).id
                                 : (rawTenant as string | number)
+                    } else {
+                        // Fallback: on tenant subdomains, tenant selector may default to "no tenant" (null).
+                        // Use the tenant-slug cookie set by middleware to resolve the tenant id.
+                        const rootHostname = (() => {
+                            const url = process.env.NEXT_PUBLIC_SERVER_URL
+                            if (!url) return null
+                            try {
+                                return new URL(url).hostname
+                            } catch {
+                                return null
+                            }
+                        })()
+
+                        const requestHost = req.headers?.get?.('host')?.split(':')[0] ?? ''
+                        const isTenantHost =
+                            !rootHostname ||
+                            (requestHost && rootHostname && requestHost !== rootHostname)
+
+                        if (isTenantHost) {
+                            const cookieHeader = req.headers?.get?.('cookie') ?? ''
+                            const match = typeof cookieHeader === 'string'
+                                ? cookieHeader.match(/(?:^|;\s*)tenant-slug=([^;]*)/)
+                                : null
+                            const slug = match?.[1] ? decodeURIComponent(match[1]).trim().toLowerCase() : null
+                            if (slug && /^[a-z0-9-]+$/.test(slug)) {
+                                try {
+                                    const result = await req.payload.find({
+                                        collection: 'tenants',
+                                        where: { slug: { equals: slug } },
+                                        limit: 1,
+                                        depth: 0,
+                                        overrideAccess: true,
+                                        req,
+                                    })
+                                    const tenant = result.docs[0] as { id?: unknown } | undefined
+                                    const id = tenant?.id
+                                    if (typeof id === 'string' || typeof id === 'number') {
+                                        data.tenant = id
+                                    }
+                                } catch {
+                                    // Leave tenant unset on lookup error
+                                }
+                            }
+                        }
                     }
                 }
                 return data
