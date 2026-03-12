@@ -32,6 +32,10 @@ export type BetterAuthCollectionsConfig = {
   verificationsSlug?: string;
 };
 
+export type BetterAuthTrustedOriginsProvider = (
+  request: Request
+) => string[] | Promise<string[]>;
+
 export type BetterAuthServerConfig = {
   appName: string;
   /**
@@ -39,7 +43,7 @@ export type BetterAuthServerConfig = {
    * Defaults to NEXT_PUBLIC_SERVER_URL or http://localhost:3000.
    */
   baseURL?: string;
-  trustedOrigins?: string[];
+  trustedOrigins?: string[] | BetterAuthTrustedOriginsProvider;
   adminUserIds: string[];
 
   /**

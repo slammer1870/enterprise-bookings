@@ -65,6 +65,61 @@ export function getExtraTrustedOriginHosts(): string[] {
     .filter(Boolean)
 }
 
+type TenantDomainCacheEntry = { ok: boolean; atMs: number }
+const tenantDomainCache = new Map<string, TenantDomainCacheEntry>()
+
+async function isTenantCustomDomain(hostname: string): Promise<boolean> {
+  const now = Date.now()
+  const ttlMs = 5 * 60_000
+  const cached = tenantDomainCache.get(hostname)
+  if (cached && now - cached.atMs < ttlMs) return cached.ok
+
+  try {
+    const { getPayload } = await import('@/lib/payload')
+    const payload = await getPayload()
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { domain: { equals: hostname } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const ok = Boolean(result.docs[0])
+    tenantDomainCache.set(hostname, { ok, atMs: now })
+    return ok
+  } catch {
+    // Fail closed: if we can't verify, don't trust the origin.
+    tenantDomainCache.set(hostname, { ok: false, atMs: now })
+    return false
+  }
+}
+
+async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
+  const base = getTrustedOriginsWithCustomDomains(getExtraTrustedOriginHosts())
+
+  const originHeader = request.headers.get('origin') || ''
+  if (!originHeader) return base
+
+  let origin: URL
+  try {
+    origin = new URL(originHeader)
+  } catch {
+    return base
+  }
+
+  // Enforce https origins only (we redirect http->https at the edge/app).
+  if (origin.protocol !== 'https:') return base
+
+  const hostname = normalizeCustomDomain(origin.hostname)
+  if (!hostname) return base
+
+  if (!(await isTenantCustomDomain(hostname))) return base
+
+  // Return platform origins + the specific tenant origin that made the request.
+  // (Better Auth validates Origin exactly; we do not wildcard custom domains.)
+  return [...base, origin.origin]
+}
+
 async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ name: string; domain?: string | null } | null> {
   let hostname = ''
   try {
@@ -146,7 +201,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   cookieDomainStrategy: 'host',
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
-  trustedOrigins: getTrustedOriginsWithCustomDomains(getExtraTrustedOriginHosts()),
+  trustedOrigins: trustedOriginsFromRequest,
   resolveMagicLinkAppName: async ({ url }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
   resolveMagicLinkFrom: async ({ url }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
