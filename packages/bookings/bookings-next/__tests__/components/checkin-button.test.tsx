@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { CheckInButton } from '../../src/components/lessons/checkin-button'
+import { toast } from 'sonner'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -22,6 +23,7 @@ vi.mock('@repo/trpc/client', () => ({
 }))
 
 const invalidateQueriesMock = vi.fn(async () => {})
+let nextRedirectUrl: string | null = null
 vi.mock('@tanstack/react-query', async () => {
   const actual: any = await vi.importActual('@tanstack/react-query')
   return {
@@ -32,9 +34,9 @@ vi.mock('@tanstack/react-query', async () => {
         mutateAsync: async (input: any) => {
           if (typeof opts?.onSuccess === 'function') {
             // Simulate server returning "no redirect" (direct booking succeeded)
-            await opts.onSuccess({ redirectUrl: null }, input, null)
+            await opts.onSuccess({ redirectUrl: nextRedirectUrl }, input, null)
           }
-          return { redirectUrl: null }
+          return { redirectUrl: nextRedirectUrl }
         },
         isPending: false,
       }
@@ -53,6 +55,8 @@ vi.mock('@repo/ui/components/ui/use-confirm', () => ({
 describe('CheckInButton (schedule single-slot shortcut)', () => {
   beforeEach(() => {
     invalidateQueriesMock.mockClear()
+    ;(toast.success as any).mockClear?.()
+    nextRedirectUrl = null
   })
 
   it('attempts direct booking when scheduleState.singleSlotOnly is true', async () => {
@@ -75,6 +79,31 @@ describe('CheckInButton (schedule single-slot shortcut)', () => {
     await user.click(screen.getByRole('button', { name: 'Book' }))
 
     expect(invalidateQueriesMock).toHaveBeenCalled()
+    expect(toast.success).toHaveBeenCalledWith('Booked')
+  })
+
+  it('does not show "Booked" toast when server returns a redirectUrl', async () => {
+    nextRedirectUrl = '/bookings/123'
+    const user = userEvent.setup()
+
+    render(
+      <CheckInButton
+        lessonId={123}
+        type="adult"
+        scheduleState={{
+          availability: 'open',
+          viewer: { confirmedIds: [], confirmedCount: 0, waitingIds: [], waitingCount: 0 },
+          action: 'book',
+          label: 'Book',
+          singleSlotOnly: true,
+        }}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Book' }))
+
+    expect(invalidateQueriesMock).toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalledWith('Booked')
   })
 })
 

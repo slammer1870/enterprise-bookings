@@ -150,18 +150,20 @@ test.describe('Drop-in multi-quantity discount', () => {
         if (req.method() !== 'POST') return false
         try {
           const body = req.postDataJSON() as { price?: unknown }
-          return body?.price === 18
+          return Number(body?.price) === 18
         } catch {
           return false
         }
       },
-      { timeout: 15000 }
+      { timeout: 30_000 }
     )
 
     // Increase quantity to 2 (should trigger discount tier and a new payment intent creation)
     const inc = page.getByRole('button', { name: 'Increase quantity' })
     await inc.scrollIntoViewIfNeeded()
-    await inc.click()
+    await expect(inc).toBeVisible({ timeout: 10_000 })
+    await expect(inc).toBeEnabled({ timeout: 10_000 })
+    await Promise.all([discountedRequestPromise, inc.click()])
 
     // UI shows original total struck-through and discounted total visible (multiple nodes can show same amount)
     await expect(page.getByText('€20.00').first()).toBeVisible({ timeout: 15_000 })

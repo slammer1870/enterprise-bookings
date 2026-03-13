@@ -131,8 +131,13 @@ export const CheckInButton = ({
     if (action === "book") {
       const singleSlotOnly = scheduleState?.singleSlotOnly === true;
       if (singleSlotOnly) {
-        await bookSingleSlotOrRedirect({ lessonId });
-        toast.success("Booked");
+        const result = await bookSingleSlotOrRedirect({ lessonId });
+        // Only show "Booked" when the server actually booked immediately.
+        // If we got a redirectUrl, the user is being sent to a booking/manage page (payment/portal),
+        // so showing a success toast is misleading.
+        if (result?.redirectUrl == null) {
+          toast.success("Booked");
+        }
       } else {
         router.push(`/bookings/${lessonId}`);
       }

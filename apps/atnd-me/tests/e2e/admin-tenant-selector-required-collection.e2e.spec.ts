@@ -16,6 +16,12 @@ function getTenantSelector(page: Page) {
 async function ensureSidebarOpen(page: Page) {
   await page.waitForLoadState('domcontentloaded').catch(() => null)
 
+  // In some admin layouts (esp. wide viewports), the sidebar is always visible and
+  // the "Open menu" / "Close menu" buttons are not rendered at all.
+  if (await getTenantSelector(page).isVisible().catch(() => false)) {
+    return
+  }
+
   const openMenuButton = page.getByRole('button', { name: /open\s+menu/i })
   const closeMenuButton = page.getByRole('button', { name: /close\s+menu/i })
 
@@ -26,10 +32,8 @@ async function ensureSidebarOpen(page: Page) {
 
   if (await openMenuButton.isVisible().catch(() => false)) {
     await openMenuButton.click({ timeout: 10_000 }).catch(() => null)
-    await closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 })
+    await closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => null)
     await page.waitForTimeout(250)
-  } else {
-    await closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 })
   }
 
   await getTenantSelector(page).waitFor({ state: 'visible', timeout: 20_000 })
