@@ -65,7 +65,8 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
     await waitForServerReady(page.context().request)
 
     // User: register
-    const email = `user-${Date.now()}@example.com`
+    // Make this extremely collision-resistant across retries, parallelism, and shared DBs.
+    const email = `user-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`
     const password = 'Password123!'
     await page.goto('/auth/sign-up', { waitUntil: 'load', timeout: process.env.CI ? 120000 : 60000 })
 
@@ -107,9 +108,16 @@ test.describe('Darkhorse Strength: membership booking flow', () => {
             name: 'Test User',
           })
 
-          // Some setups might return 409 if a user exists; treat as ok for idempotency.
+          // Some setups return 409 if a user exists; others return 400 with a validation error.
+          // Treat "already exists" as OK for idempotency (e.g. test retries).
           if (!signUpRes.ok && signUpRes.status !== 409) {
             const txt = await signUpRes.text().catch(() => '')
+            const alreadyExists =
+              signUpRes.status === 400 &&
+              (txt.includes('Value must be unique') ||
+                txt.toLowerCase().includes('already exists') ||
+                txt.toLowerCase().includes('unique'))
+            if (alreadyExists) return
             if (shouldRetryStatus(signUpRes.status)) {
               throw new Error(`signUp transient failure: ${signUpRes.status} ${txt}`)
             }
