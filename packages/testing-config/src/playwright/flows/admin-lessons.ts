@@ -135,10 +135,29 @@ export async function createLessonViaApi(
 ): Promise<number> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const request: any = (page.context() as any).request
+  const adminEmail = `admin@example.com`
+  const adminPassword = 'password123'
 
   const cookieHeader = async () => {
     const cookies: Array<{ name: string; value: string }> = await (page.context() as any).cookies()
     return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
+  }
+
+  const adminAuthHeader = async (): Promise<Record<string, string>> => {
+    try {
+      const res = await request.post(`${baseUrl}/api/users/login`, {
+        headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+        data: { email: adminEmail, password: adminPassword },
+        timeout: 30000,
+      })
+      if (!res.ok()) return {}
+      const json: any = await res.json().catch(() => null)
+      const token = json?.token ?? json?.doc?.token ?? json?.user?.token
+      if (!token || typeof token !== 'string') return {}
+      return { Authorization: `JWT ${token}` }
+    } catch {
+      return {}
+    }
   }
 
   const start = new Date(opts.date)
@@ -147,7 +166,11 @@ export async function createLessonViaApi(
   end.setHours(opts.endHour, opts.endMinute, 0, 0)
 
   const res = await request.post(`${baseUrl}/api/lessons`, {
-    headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+    headers: {
+      ...(await adminAuthHeader()),
+      Cookie: await cookieHeader(),
+      'Content-Type': 'application/json',
+    },
     data: {
       date: opts.date.toISOString(),
       startTime: start.toISOString(),

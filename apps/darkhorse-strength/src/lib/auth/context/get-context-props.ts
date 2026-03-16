@@ -53,8 +53,24 @@ export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
 export const currentUser = async (): Promise<TypedUser | null> => {
   const payload = await getPayload()
   const headers = await requestHeaders()
-  const { user } = await payload.auth({ headers })
-  return user
+
+  // Prefer Better Auth session when enabled; Payload auth may throw "No User" when unauthenticated.
+  try {
+    const betterAuth: any = (payload as any).betterAuth
+    if (betterAuth?.api?.getSession) {
+      const session = await betterAuth.api.getSession({ headers })
+      if (session?.user) return session.user as TypedUser
+    }
+  } catch {
+    // ignore and fall back
+  }
+
+  try {
+    const { user } = await payload.auth({ headers })
+    return user
+  } catch {
+    return null
+  }
 }
 
 export const getContextProps = (): {

@@ -14,10 +14,29 @@ export async function ensureAtLeastOneActivePlanWithStripePrice(page: Page): Pro
 }> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const request: any = (page.context() as any).request
+  const adminEmail = `admin@example.com`
+  const adminPassword = 'password123'
 
   const cookieHeader = async () => {
     const cookies: Array<{ name: string; value: string }> = await (page.context() as any).cookies()
     return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
+  }
+
+  const adminAuthHeader = async (): Promise<Record<string, string>> => {
+    try {
+      const res = await request.post(`${baseUrl}/api/users/login`, {
+        headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+        data: { email: adminEmail, password: adminPassword },
+        timeout: 30000,
+      })
+      if (!res.ok()) return {}
+      const json: any = await res.json().catch(() => null)
+      const token = json?.token ?? json?.doc?.token ?? json?.user?.token
+      if (!token || typeof token !== 'string') return {}
+      return { Authorization: `JWT ${token}` }
+    } catch {
+      return {}
+    }
   }
 
   const ensurePlanHasStripePriceId = async (plan: PlanDoc) => {
@@ -35,7 +54,11 @@ export async function ensureAtLeastOneActivePlanWithStripePrice(page: Page): Pro
     const fakeStripePriceId = `price_e2e_${Date.now()}`
 
     const patchRes = await request.patch(`${baseUrl}/api/plans/${planId}`, {
-      headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+      headers: {
+        ...(await adminAuthHeader()),
+        Cookie: await cookieHeader(),
+        'Content-Type': 'application/json',
+      },
       data: {
         status: 'active',
         // memberships `PlanDetail` parses `priceJSON` and uses `.id` as the Stripe priceId.
@@ -54,7 +77,7 @@ export async function ensureAtLeastOneActivePlanWithStripePrice(page: Page): Pro
 
   // API-first: avoid flakiness reading admin table text; also ensures seeded plans get patched.
   const existingRes = await request.get(`${baseUrl}/api/plans?limit=1&sort=-createdAt`, {
-    headers: { Cookie: await cookieHeader() },
+    headers: { ...(await adminAuthHeader()), Cookie: await cookieHeader() },
   })
   if (existingRes.ok()) {
     const json: any = await existingRes.json().catch(() => null)
@@ -73,7 +96,11 @@ export async function ensureAtLeastOneActivePlanWithStripePrice(page: Page): Pro
   const planName = `E2E Plan ${Date.now()}`
   const stripePriceId = `price_e2e_${Date.now()}`
   const createRes = await request.post(`${baseUrl}/api/plans`, {
-    headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+    headers: {
+      ...(await adminAuthHeader()),
+      Cookie: await cookieHeader(),
+      'Content-Type': 'application/json',
+    },
     data: {
       name: planName,
       status: 'active',
@@ -103,14 +130,37 @@ export async function setClassOptionAllowedPlans(
 ): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const request: any = (page.context() as any).request
+  const adminEmail = `admin@example.com`
+  const adminPassword = 'password123'
 
   const cookieHeader = async () => {
     const cookies: Array<{ name: string; value: string }> = await (page.context() as any).cookies()
     return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
   }
 
+  const adminAuthHeader = async (): Promise<Record<string, string>> => {
+    try {
+      const res = await request.post(`${baseUrl}/api/users/login`, {
+        headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+        data: { email: adminEmail, password: adminPassword },
+        timeout: 30000,
+      })
+      if (!res.ok()) return {}
+      const json: any = await res.json().catch(() => null)
+      const token = json?.token ?? json?.doc?.token ?? json?.user?.token
+      if (!token || typeof token !== 'string') return {}
+      return { Authorization: `JWT ${token}` }
+    } catch {
+      return {}
+    }
+  }
+
   const res = await request.patch(`${baseUrl}/api/class-options/${options.classOptionId}`, {
-    headers: { Cookie: await cookieHeader(), 'Content-Type': 'application/json' },
+    headers: {
+      ...(await adminAuthHeader()),
+      Cookie: await cookieHeader(),
+      'Content-Type': 'application/json',
+    },
     data: {
       paymentMethods: {
         allowedPlans: options.planIds,
