@@ -9,6 +9,29 @@ import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 
+type PaymentMethodsLike = {
+  allowedDropIn?: {
+    adjustable?: boolean
+    /** Legacy/alternate field name used by some older seeds/tests */
+    allowMultipleBookingsPerLesson?: boolean
+  } | null
+  allowedPlans?:
+    | Array<{
+        sessionsInformation?: { allowMultipleBookingsPerLesson?: boolean } | null
+      }>
+    | null
+  allowedClassPasses?: unknown[] | null
+} | null
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function asPaymentMethodsLike(value: unknown): PaymentMethodsLike {
+  if (!isObject(value)) return null
+  return value as PaymentMethodsLike
+}
+
 /**
  * Smart BookingPageClient that automatically detects payment methods
  * and conditionally renders payment selection or direct booking form.
@@ -83,9 +106,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the lesson data from the server
   // is used; there is no client-side Stripe Connect or tenant check. If the server returns a lesson without
   // classOption.paymentMethods populated (e.g. no tenant context so depth/overrideAccess omit it), this is false.
-  const paymentMethods = lesson.classOption?.paymentMethods as
-    | { allowedDropIn?: unknown; allowedPlans?: unknown[]; allowedClassPasses?: unknown[] }
-    | undefined
+  const paymentMethods = asPaymentMethodsLike(lesson.classOption?.paymentMethods)
   const hasPaymentMethods = Boolean(
     paymentMethods?.allowedDropIn ||
     (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
@@ -94,12 +115,14 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 
   const capacityMaxQuantity = Math.max(1, lesson.remainingCapacity || 1)
   const dropInAllowsMultiple =
-    (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerLesson === true
-  const planAllowsMultiple = Array.isArray((paymentMethods as any)?.allowedPlans)
-    ? (paymentMethods as any).allowedPlans.some(
-        (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerLesson === true
-      )
-    : false
+    // Drop-in multi-quantity is controlled by the DropIn field `adjustable`.
+    // Keep a fallback for legacy data/models that might have used a different name.
+    paymentMethods?.allowedDropIn?.adjustable === true ||
+    paymentMethods?.allowedDropIn?.allowMultipleBookingsPerLesson === true
+  const planAllowsMultiple =
+    paymentMethods?.allowedPlans?.some(
+      (p) => p.sessionsInformation?.allowMultipleBookingsPerLesson === true
+    ) ?? false
   // Match server-side gating: if payment methods exist, only allow multi-quantity when at least one method supports it.
   const allowsMultipleBookingsForViewer =
     !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple
