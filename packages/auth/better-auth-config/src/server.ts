@@ -208,6 +208,53 @@ function scopeMagicLinkUrlToCallbackOrigin(magicLinkUrl: string): string {
   }
 }
 
+function formatEmailSubjectTimestamp(date = new Date()): string {
+  // Keep this stable (UTC) so subjects don't vary by server locale/timezone.
+  // Example: "Tue, 12th of March 2026 14:03:22 UTC"
+  const timeZone = "UTC"
+
+  const day = Number(
+    new Intl.DateTimeFormat("en-GB", { day: "numeric", timeZone }).format(date)
+  )
+  const month = new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    timeZone,
+  }).format(date)
+  const year = new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    timeZone,
+  }).format(date)
+  const weekday = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    timeZone,
+  }).format(date)
+
+  const time = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone,
+  }).format(date)
+
+  return `${weekday}, ${day}${ordinalSuffix(day)} of ${month} ${year} ${time} ${timeZone}`
+}
+
+function ordinalSuffix(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return "th"
+  switch (n % 10) {
+    case 1:
+      return "st"
+    case 2:
+      return "nd"
+    case 3:
+      return "rd"
+    default:
+      return "th"
+  }
+}
+
 export function createBetterAuthOptions(config: BetterAuthServerConfig) {
   const baseURL =
     config.baseURL ||
@@ -286,7 +333,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
 
     await emailSender.sendEmail({
       to: email.toLowerCase(),
-      subject: `Sign in to ${magicLinkAppName}`,
+      subject: `Sign in to ${magicLinkAppName} - ${formatEmailSubjectTimestamp()}`,
       html,
       ...(from ? { from } : {}),
     });
