@@ -116,6 +116,7 @@ function NavIcon({
 
 export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
   const navItems = data?.navItems || []
+  const hasNavLinks = navItems.length > 0
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [mobileMounted, setMobileMounted] = React.useState(false)
@@ -195,6 +196,14 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
       document.body.style.overflow = prevOverflow
     }
   }, [mobileOpen, closeMobileMenu])
+
+  if (!hasNavLinks) {
+    return (
+      <nav className="flex items-center">
+        <HeaderAuthMenu />
+      </nav>
+    )
+  }
 
   return (
     <nav className="relative flex items-center">

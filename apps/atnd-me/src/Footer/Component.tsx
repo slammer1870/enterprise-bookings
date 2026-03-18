@@ -3,7 +3,6 @@ import React from 'react'
 import Image from 'next/image'
 import { cookies } from 'next/headers'
 
-import { ThemeSelector } from '@/providers/Theme/ThemeSelector'
 import { CMSLink } from '@/components/Link'
 import { Logo } from '@/components/Logo/Logo'
 import { getPayload } from '@/lib/payload'
@@ -84,7 +83,6 @@ export async function Footer() {
   const logoLink = footerData?.logoLink || '/'
   const copyrightText = footerData?.copyrightText
   const styling = footerData?.styling
-  const showThemeSelector = styling?.showThemeSelector !== false
   const padding = styling?.padding || 'medium'
 
   // Get styling values
@@ -132,7 +130,6 @@ export async function Footer() {
           </Link>
 
           <div className="flex flex-col-reverse items-start md:flex-row gap-4 md:items-center">
-            {showThemeSelector && <ThemeSelector />}
             {navItems.length > 0 && (
               <nav className="flex flex-col md:flex-row gap-4">
                 {navItems.map(({ link, icon }, i) => {
