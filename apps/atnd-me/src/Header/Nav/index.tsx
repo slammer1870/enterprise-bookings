@@ -236,7 +236,10 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
 
       <button
         type="button"
-        className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm"
+        className={[
+          'md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
+          mobileMounted ? 'relative z-[60]' : '',
+        ].join(' ')}
         aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={mobileOpen}
         aria-controls="mobile-header-nav"
@@ -265,20 +268,8 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
               mobileOpen ? 'translate-x-0' : 'translate-x-full',
             ].join(' ')}
           >
-            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-              <div className="text-sm font-medium">Menu</div>
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-foreground"
-                aria-label="Close menu"
-                onClick={closeMobileMenu}
-              >
-                <BurgerIcon open />
-              </button>
-            </div>
-
-            <div className="px-6 py-6 overflow-auto h-[calc(100vh-73px)]">
-              <div className="flex flex-col gap-2">
+            <div className="px-6 pb-6 pt-20 overflow-auto h-screen">
+              <div className="flex flex-col gap-3">
                 {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
                   const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
                     | 'inline'
