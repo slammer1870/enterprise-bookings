@@ -268,8 +268,8 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
               mobileOpen ? 'translate-x-0' : 'translate-x-full',
             ].join(' ')}
           >
-            <div className="px-6 pb-6 pt-20 overflow-auto h-screen">
-              <div className="flex flex-col gap-3">
+            <div className="px-6 pb-10 pt-24 overflow-auto h-screen">
+              <div className="flex flex-col gap-5">
                 {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
                   const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
                     | 'inline'
@@ -305,8 +305,8 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
                 })}
               </div>
 
-              <div className="mt-4 pt-4 border-t border-border">
-                <HeaderAuthMenu className="w-full justify-start" />
+              <div className="mt-8 pt-6 border-t border-border">
+                <HeaderAuthMenu mode="inline" />
               </div>
             </div>
           </div>

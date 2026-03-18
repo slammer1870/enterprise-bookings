@@ -14,7 +14,13 @@ function getUserInitial(user: any): string {
   return source ? source[0]!.toUpperCase() : '?'
 }
 
-export function HeaderAuthMenu({ className }: { className?: string }) {
+export function HeaderAuthMenu({
+  className,
+  mode = 'dropdown',
+}: {
+  className?: string
+  mode?: 'dropdown' | 'inline'
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
@@ -27,7 +33,7 @@ export function HeaderAuthMenu({ className }: { className?: string }) {
 
   if (!user) {
     return (
-      <Button asChild size="sm" variant="outline" className={cn('h-9', className)}>
+      <Button asChild size="sm" variant="outline" className={cn('h-9 cursor-pointer', className)}>
         <Link href={`/auth/sign-in?redirectTo=${encodeURIComponent(redirectTo)}`}>Sign in</Link>
       </Button>
     )
@@ -35,6 +41,44 @@ export function HeaderAuthMenu({ className }: { className?: string }) {
 
   const label = (typeof user?.name === 'string' && user.name.trim()) || user?.email || 'Account'
   const initial = getUserInitial(user)
+
+  if (mode === 'inline') {
+    return (
+      <div className={cn('flex flex-col gap-4', className)}>
+        <div className="flex items-center gap-4">
+          <span
+            className={cn(
+              'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold',
+            )}
+            aria-hidden
+          >
+            {initial}
+          </span>
+
+          <div className="min-w-0">
+            <div className="text-sm font-medium truncate">{label}</div>
+            {user?.email ? (
+              <div className="text-xs text-muted-foreground truncate">{String(user.email)}</div>
+            ) : null}
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full justify-center cursor-pointer"
+          onClick={async () => {
+            await signOut()
+            router.refresh()
+            router.push('/')
+          }}
+        >
+          Log out
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <details ref={detailsRef} className={cn('relative', className)}>
@@ -70,7 +114,7 @@ export function HeaderAuthMenu({ className }: { className?: string }) {
         <button
           type="button"
           className={cn(
-            'w-full text-left px-3 py-2 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'w-full cursor-pointer text-left px-3 py-2 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}
           onClick={async () => {
             detailsRef.current?.removeAttribute('open')
