@@ -6,6 +6,16 @@ import { authenticated } from '../../access/authenticated'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { userTenantRead, userTenantUpdate, isAdmin, isTenantAdmin } from '../../access/userTenantAccess'
 
+function coerceRolesFromDoc(doc: unknown): string[] {
+  if (!doc || typeof doc !== 'object') return []
+  const d = doc as { roles?: unknown; role?: unknown }
+  const roles = Array.isArray(d.roles) ? d.roles : null
+  if (roles && roles.every((r) => typeof r === 'string')) return roles
+  const role = d.role
+  const roleArr = Array.isArray(role) ? role : role != null ? [role] : []
+  return roleArr.filter((r): r is string => typeof r === 'string')
+}
+
 export const Users: CollectionConfig = {
   slug: 'users',
   access: {
@@ -27,16 +37,51 @@ export const Users: CollectionConfig = {
       // this hook is defense-in-depth in case role/roles are ever writable elsewhere (e.g. Better Auth).
       // Only strip when there is an authenticated user who is not admin (e.g. avoid stripping on
       // overrideAccess creates, seed, or system operations where req.user may be absent).
-      ({ data, req }) => {
+      ({ data, req, originalDoc }) => {
         if (!data || !req.user || isAdmin(req.user)) return data
         const d = data as { roles?: string[]; role?: string | string[] }
-        if (d.roles && Array.isArray(d.roles) && d.roles.includes('admin')) {
+
+        // Tenant-admins may toggle tenant-admin for users they can update, but cannot arbitrarily
+        // rewrite roles. Keep all existing roles (except admin) and only apply the tenant-admin toggle.
+        if (isTenantAdmin(req.user) && (d.roles !== undefined || d.role !== undefined)) {
+          const existing = coerceRolesFromDoc(originalDoc)
+
+          const desired = Array.isArray(d.roles)
+            ? d.roles
+            : d.role !== undefined
+              ? (Array.isArray(d.role) ? d.role : [d.role])
+              : []
+
+          const wantsTenantAdmin = desired.includes('tenant-admin')
+
+          const next = wantsTenantAdmin
+            ? Array.from(new Set([...existing, 'tenant-admin']))
+            : existing.filter((r) => r !== 'tenant-admin')
+
+          // Ensure at least a base role remains
+          const nextWithUser = next.length > 0 ? next : ['user']
+
+          d.roles = nextWithUser
+          d.role = nextWithUser
+        }
+
+        const existingRoles = coerceRolesFromDoc(originalDoc)
+        const existingHasAdmin = existingRoles.includes('admin')
+
+        // Non-admins can never *add* or *remove* admin:
+        // - if the target already has admin, preserve it
+        // - otherwise, strip any attempted admin grant
+        if (d.roles && Array.isArray(d.roles) && d.roles.includes('admin') && !existingHasAdmin) {
           d.roles = d.roles.filter((r) => r !== 'admin')
+        } else if (d.roles && Array.isArray(d.roles) && existingHasAdmin && !d.roles.includes('admin')) {
+          d.roles = [...d.roles, 'admin']
         }
         if (d.role !== undefined) {
           const arr = Array.isArray(d.role) ? d.role : [d.role]
-          if (arr.includes('admin')) {
+          if (arr.includes('admin') && !existingHasAdmin) {
             d.role = arr.filter((r) => r !== 'admin') as typeof d.role
+          } else if (!arr.includes('admin') && existingHasAdmin) {
+            d.role = [...arr, 'admin'] as typeof d.role
           }
         }
         return data

@@ -1,6 +1,6 @@
 import type { CollectionConfig, Config, PayloadRequest, Plugin } from 'payload'
 
-import { isAdmin } from '@/access/userTenantAccess'
+import { isAdmin, isTenantAdmin } from '@/access/userTenantAccess'
 
 /**
  * Fix for `payload-auth/better-auth` role field schema mismatch.
@@ -27,13 +27,24 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
 
   const fields = usersCollection.fields || []
 
-  // Restrict the role field (Better Auth) to admin-only read/update, matching the roles field.
+  // Allow tenant-admins to edit role/roles, but enforce safe scoping in Users collection hooks.
+  // (Field-level access can only return boolean; it cannot enforce tenant scoping.)
   const fieldsWithRoleAccess = fields.map((field) => {
     if ('name' in field && field.name === 'role') {
       const access = {
-        create: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
-        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
-        update: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
+        create: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+        update: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+      }
+      return { ...field, access } as typeof field
+    }
+    if ('name' in field && field.name === 'roles') {
+      const existingAccess = (field as { access?: unknown }).access
+      const access = {
+        ...(typeof existingAccess === 'object' && existingAccess ? (existingAccess as Record<string, unknown>) : {}),
+        create: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+        update: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
       }
       return { ...field, access } as typeof field
     }

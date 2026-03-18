@@ -853,6 +853,37 @@ describe('User Tenant Access Control', () => {
         TEST_TIMEOUT,
       )
     })
+
+    describe('Tenant-admin can grant tenant-admin within tenant', () => {
+      it(
+        'tenant-admin can promote another user in their tenant to tenant-admin',
+        async () => {
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          const updated = (await payload.update({
+            collection: 'users',
+            id: userInTestTenant.id,
+            data: { roles: ['user', 'tenant-admin'] },
+            req,
+            overrideAccess: false,
+          })) as User
+
+          expect(updated.roles).toContain('tenant-admin')
+
+          const refetched = (await payload.findByID({
+            collection: 'users',
+            id: userInTestTenant.id,
+            overrideAccess: true,
+          })) as User
+          expect(refetched.roles).toContain('tenant-admin')
+        },
+        TEST_TIMEOUT,
+      )
+    })
   })
 
   describe('Regular user access', () => {
