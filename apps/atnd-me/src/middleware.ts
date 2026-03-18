@@ -21,6 +21,16 @@ const ADMIN_HEADER = 'x-next-payload-admin'
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 
+function getPlatformOrigin(): string | null {
+  const url = process.env.NEXT_PUBLIC_SERVER_URL
+  if (!url) return null
+  try {
+    return new URL(url).origin
+  } catch {
+    return null
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPayloadAdmin = pathname.startsWith('/admin')
@@ -28,6 +38,7 @@ export async function middleware(request: NextRequest) {
   const hostname = hostHeader.split(':')[0] ?? hostHeader
   const isLocalhost = hostname.includes('localhost')
   const rootHostname = getRootHostname()
+  const platformOrigin = getPlatformOrigin()
 
   // Skip middleware for static/API paths (admin is handled below so we can set tenant cookie from subdomain).
   if (
@@ -75,7 +86,7 @@ export async function middleware(request: NextRequest) {
     !hostname.endsWith('.' + rootHostname)
   ) {
     try {
-      const origin = request.nextUrl.origin
+      const origin = platformOrigin ?? request.nextUrl.origin
       const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
       const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
       if (res.ok) {
@@ -171,7 +182,7 @@ export async function middleware(request: NextRequest) {
       let tenantIdToSet: string | number | null = resolvedTenantId
       if (tenantIdToSet == null) {
         try {
-          const origin = request.nextUrl.origin
+          const origin = platformOrigin ?? request.nextUrl.origin
           const url = `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(subdomain)}`
           const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
           if (res.ok) {
