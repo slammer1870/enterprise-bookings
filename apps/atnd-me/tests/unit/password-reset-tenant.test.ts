@@ -32,7 +32,7 @@ async function setup({ findImpl }: { findImpl: (args: any) => Promise<any> }) {
   }
 }
 
-describe('Magic-link email tenant From header', () => {
+describe('Password reset email tenant From header', () => {
   beforeEach(() => {
     process.env = { ...ORIGINAL_ENV }
   })
@@ -51,17 +51,16 @@ describe('Magic-link email tenant From header', () => {
 
     const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
 
-    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
-      email: 'person@example.com',
-      token: 'tok',
-      url: 'https://studio.example.com/api/auth/magic-link?token=tok',
+    await betterAuthPluginOptions.betterAuthOptions.emailAndPassword.sendResetPassword({
+      user: { email: 'person@example.com', name: 'Person' },
+      url: 'https://studio.example.com/reset-password?token=tok',
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [_url, init] = fetchMock.mock.calls[0] as any[]
     const payload = JSON.parse(init.body)
     expect(payload.to).toEqual(['person@example.com'])
-    expect(payload.subject).toMatch(/^Sign in to Studio Yoga\b/)
+    expect(payload.subject).toBe('Reset your Studio Yoga password')
     expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
   })
 
@@ -74,54 +73,16 @@ describe('Magic-link email tenant From header', () => {
 
     const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
 
-    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
-      email: 'person@example.com',
-      token: 'tok',
-      url: 'https://acme.atnd-me.com/api/auth/magic-link?token=tok',
+    await betterAuthPluginOptions.betterAuthOptions.emailAndPassword.sendResetPassword({
+      user: { email: 'person@example.com', name: 'Person' },
+      url: 'https://acme.atnd-me.com/reset-password?token=tok',
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [_url, init] = fetchMock.mock.calls[0] as any[]
     const payload = JSON.parse(init.body)
-    expect(payload.to).toEqual(['person@example.com'])
-    expect(payload.subject).toMatch(/^Sign in to Acme Gym\b/)
+    expect(payload.subject).toBe('Reset your Acme Gym password')
     expect(payload.from).toBe('Acme Gym <auth@atnd.me>')
-  })
-
-  it('falls back to DEFAULT_FROM_ADDRESS when Resend rejects unverified from domain', async () => {
-    const findImpl = vi.fn(async ({ collection, where }: any) => {
-      expect(collection).toBe('tenants')
-      expect(where).toEqual({ slug: { equals: 'acme' } })
-      return { docs: [{ name: 'Acme Gym', domain: null }] }
-    })
-
-    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
-    process.env.DEFAULT_FROM_NAME = 'ATND ME'
-    process.env.DEFAULT_FROM_ADDRESS = 'auth@atnd-me.com'
-
-    fetchMock.mockImplementationOnce(async () => ({
-      ok: false,
-      status: 403,
-      statusText: 'Forbidden',
-      text: async () =>
-        '{"statusCode":403,"message":"The atnd.me domain is not verified.","name":"validation_error"}',
-    }))
-
-    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
-      email: 'person@example.com',
-      token: 'tok',
-      url: 'https://acme.atnd-me.com/api/auth/magic-link?token=tok',
-    })
-
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-
-    const [_url1, init1] = fetchMock.mock.calls[0] as any[]
-    const payload1 = JSON.parse(init1.body)
-    expect(payload1.from).toBe('Acme Gym <auth@atnd.me>')
-
-    const [_url2, init2] = fetchMock.mock.calls[1] as any[]
-    const payload2 = JSON.parse(init2.body)
-    expect(payload2.from).toBe('Acme Gym <auth@atnd-me.com>')
   })
 })
 

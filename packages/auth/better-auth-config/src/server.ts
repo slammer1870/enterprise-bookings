@@ -91,6 +91,20 @@ export type BetterAuthServerConfig = {
     | Promise<{ fromName?: string | null; fromAddress?: string | null } | null>
     | { fromName?: string | null; fromAddress?: string | null }
     | null;
+  /**
+   * Optional per-reset-password email app name resolver (tenant branding).
+   * If it returns a non-empty string, it will be used in the reset password email template.
+   */
+  resolveResetPasswordAppName?: (_args: { user: any; url: string }) => Promise<string | null> | string | null;
+  /**
+   * Optional per-reset-password email "From" resolver (tenant branding).
+   * If it returns a non-empty `fromAddress`, it will be used for the reset password email's From header.
+   * `fromName` defaults to the resolved reset-password app name when omitted.
+   */
+  resolveResetPasswordFrom?: (_args: { user: any; url: string }) =>
+    | Promise<{ fromName?: string | null; fromAddress?: string | null } | null>
+    | { fromName?: string | null; fromAddress?: string | null }
+    | null;
   sessionCookieCache?: { enabled: boolean; maxAge?: number };
   /** Session expires after this many seconds (Better Auth default ~7 days). */
   sessionExpiresInSeconds?: number;
@@ -189,22 +203,22 @@ export function createBetterAuthPlugins({
   return plugins;
 }
 
-function scopeMagicLinkUrlToCallbackOrigin(magicLinkUrl: string): string {
+function scopeUrlToCallbackOrigin(inputUrl: string): string {
   try {
-    const url = new URL(magicLinkUrl)
+    const url = new URL(inputUrl)
     const callback = url.searchParams.get("callbackURL")
-    if (!callback) return magicLinkUrl
+    if (!callback) return inputUrl
 
     // callbackURL is usually URL-encoded; URLSearchParams returns it decoded.
     // Only scope when it's an absolute http(s) URL.
     const cbUrl = new URL(callback)
-    if (cbUrl.protocol !== "http:" && cbUrl.protocol !== "https:") return magicLinkUrl
+    if (cbUrl.protocol !== "http:" && cbUrl.protocol !== "https:") return inputUrl
 
     url.protocol = cbUrl.protocol
     url.host = cbUrl.host
     return url.toString()
   } catch {
-    return magicLinkUrl
+    return inputUrl
   }
 }
 
@@ -280,7 +294,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     token: string;
     url: string;
   }) => {
-    const scopedUrl = scopeMagicLinkUrlToCallbackOrigin(url)
+    const scopedUrl = scopeUrlToCallbackOrigin(url)
 
     // test harness capture
     saveTestMagicLink({ email, token, url: scopedUrl });
@@ -402,19 +416,56 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
         verify: verifyPassword,
       },
       async sendResetPassword({ user, url }: { user: any; url: string }) {
+        const scopedUrl = scopeUrlToCallbackOrigin(url)
+
+        let resetAppName = config.appName
+        if (typeof config.resolveResetPasswordAppName === "function") {
+          try {
+            const resolved = await config.resolveResetPasswordAppName({ user, url: scopedUrl })
+            if (typeof resolved === "string" && resolved.trim()) {
+              resetAppName = resolved.trim()
+            }
+          } catch (err) {
+            console.warn("[better-auth-config] resolveResetPasswordAppName failed; using default appName.", err);
+          }
+        }
+
+        let from: string | undefined = undefined;
+        if (typeof config.resolveResetPasswordFrom === "function") {
+          try {
+            const resolved = await config.resolveResetPasswordFrom({ user, url: scopedUrl });
+            const fromNameRaw = resolved && typeof resolved === "object" ? resolved.fromName : null;
+            const fromAddressRaw = resolved && typeof resolved === "object" ? resolved.fromAddress : null;
+            const fromAddress =
+              typeof fromAddressRaw === "string" && fromAddressRaw.trim()
+                ? fromAddressRaw.trim()
+                : "";
+            if (fromAddress) {
+              const fromName =
+                typeof fromNameRaw === "string" && fromNameRaw.trim()
+                  ? fromNameRaw.trim()
+                  : resetAppName;
+              from = formatFrom(fromName, fromAddress);
+            }
+          } catch (err) {
+            console.warn("[better-auth-config] resolveResetPasswordFrom failed; using default From.", err);
+          }
+        }
+
         const html = buildBasicAuthEmailHtml({
-          appName: config.appName,
+          appName: resetAppName,
           title: `Reset your password`,
           greeting: user?.name ? `Hello, ${user.name}` : "Hello",
-          body: `We received a request to reset your ${config.appName} password.\nThis link may expire soon.`,
+          body: `We received a request to reset your ${resetAppName} password.\nThis link may expire soon.`,
           ctaText: "Reset password",
-          ctaUrl: url,
+          ctaUrl: scopedUrl,
           footer: `If you did not request this, you can ignore this email.`,
         });
         await emailSender.sendEmail({
           to: String(user?.email || "").toLowerCase(),
-          subject: `Reset your ${config.appName} password`,
+          subject: `Reset your ${resetAppName} password`,
           html,
+          ...(from ? { from } : {}),
         });
       },
     },

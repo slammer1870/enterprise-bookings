@@ -64,8 +64,13 @@ function ForgotPasswordFormContent() {
     async (data: FormData) => {
       try {
         const normalizedEmail = data.email.toLowerCase();
+        const callbackURL =
+          typeof window !== "undefined"
+            ? new URL("/reset-password", window.location.origin).href
+            : undefined;
         await forgotPassword({
           email: normalizedEmail,
+          callbackURL,
         });
       } catch (error: any) {
         form.setError("root", {

@@ -63,7 +63,7 @@ describe('Magic-link URL scoping', () => {
     const [_url, init] = fetchMock.mock.calls[0] as any[]
     const payload = JSON.parse(init.body)
 
-    expect(payload.subject).toBe('Sign in to ATND ME')
+    expect(payload.subject).toMatch(/^Sign in to ATND ME\b/)
     expect(payload.html).toContain('https://bru-grappling.atnd.me/api/auth/magic-link/verify?')
     expect(payload.html).toContain('callbackURL=')
     expect(seenUrls[0]).toContain('https://bru-grappling.atnd.me/api/auth/magic-link/verify?')

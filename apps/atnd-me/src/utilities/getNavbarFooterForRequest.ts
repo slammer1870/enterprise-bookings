@@ -3,6 +3,82 @@ import { getTenantContext, getTenantWithBranding } from './getTenantContext'
 
 export type TenantSlugSource = import('./getTenantContext').TenantSlugSource
 
+type LinkLike = {
+  type?: string
+  url?: string
+  label?: string
+  reference?: any
+}
+
+/**
+ * Normalize Navbar/Footer link objects into { type: 'custom', url } shape.
+ * Exported for unit tests.
+ */
+export async function resolveLinkToUrl(payload: Pick<Payload, 'findByID' | 'find'>, link: LinkLike): Promise<LinkLike | null> {
+  if (!link || typeof link !== 'object') return null
+  if (link.type !== 'reference') return link
+
+  const ref = (link as any).reference
+
+  // Supported shapes:
+  // - { relationTo: 'pages'|'posts', value: { id } | id }
+  // - legacy: { value: id } (no relationTo)
+  // - legacy: reference: id
+  const relationTo: string | null =
+    ref && typeof ref === 'object' && typeof ref.relationTo === 'string' ? ref.relationTo : null
+
+  const rawValue =
+    ref && typeof ref === 'object' && 'value' in ref ? (ref as any).value : ref
+
+  const id =
+    rawValue && typeof rawValue === 'object' && 'id' in rawValue ? (rawValue as any).id : rawValue
+
+  const numericId =
+    typeof id === 'number' ? id : typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : null
+
+  if (numericId == null) return null
+
+  async function resolveSlug(collection: 'pages' | 'posts'): Promise<string | null> {
+    try {
+      const doc: any = await payload.findByID({ collection, id: numericId, depth: 0 } as any)
+      const slug = doc?.slug != null ? String(doc.slug) : ''
+      if (slug) return slug
+    } catch {
+      // fall through
+    }
+
+    try {
+      const result: any = await payload.find({
+        collection,
+        where: { id: { equals: numericId } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      } as any)
+      const doc = result?.docs?.[0]
+      const slug = doc?.slug != null ? String(doc.slug) : ''
+      return slug || null
+    } catch {
+      return null
+    }
+  }
+
+  if (relationTo === 'pages' || relationTo === 'posts') {
+    const slug = await resolveSlug(relationTo)
+    if (!slug) return null
+    return { type: 'custom', label: link.label, url: relationTo === 'posts' ? `/posts/${slug}` : `/${slug}` }
+  }
+
+  // Legacy: no relationTo -> try pages then posts
+  const pageSlug = await resolveSlug('pages')
+  if (pageSlug) return { type: 'custom', label: link.label, url: `/${pageSlug}` }
+
+  const postSlug = await resolveSlug('posts')
+  if (postSlug) return { type: 'custom', label: link.label, url: `/posts/${postSlug}` }
+
+  return null
+}
+
 /**
  * Minimal navbar shape for layout rendering.
  * Compatible with both Navbar collection and Header global.

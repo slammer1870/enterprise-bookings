@@ -253,6 +253,13 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
     const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
     return { fromName, fromAddress }
   },
+  resolveResetPasswordAppName: async ({ url }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
+  resolveResetPasswordFrom: async ({ url }) => {
+    const tenant = await resolveTenantForMagicLinkUrl(url)
+    const fromName = tenant?.name || 'ATND ME'
+    const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
+    return { fromName, fromAddress }
+  },
   roles: {
     adminRoles: ['admin', 'tenant-admin'],
     defaultRole: 'user',
