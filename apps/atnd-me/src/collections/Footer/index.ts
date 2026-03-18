@@ -94,6 +94,7 @@ export const Footer: CollectionConfig = {
       fields: [
         link({
           appearances: false,
+          publishedOnly: true,
         }),
         {
           name: 'icon',

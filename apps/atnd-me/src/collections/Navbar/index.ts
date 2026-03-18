@@ -85,6 +85,7 @@ export const Navbar: CollectionConfig = {
             fields: [
                 link({
                     appearances: false,
+                    publishedOnly: true,
                 }),
                 {
                     name: 'icon',

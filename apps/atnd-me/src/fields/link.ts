@@ -18,10 +18,16 @@ export const appearanceOptions: Record<LinkAppearances, { label: string; value: 
 type LinkType = (options?: {
   appearances?: LinkAppearances[] | false
   disableLabel?: boolean
+  publishedOnly?: boolean
   overrides?: Partial<GroupField>
 }) => Field
 
-export const link: LinkType = ({ appearances, disableLabel = false, overrides = {} } = {}) => {
+export const link: LinkType = ({
+  appearances,
+  disableLabel = false,
+  publishedOnly = false,
+  overrides = {},
+} = {}) => {
   const linkResult: GroupField = {
     name: 'link',
     type: 'group',
@@ -77,6 +83,19 @@ export const link: LinkType = ({ appearances, disableLabel = false, overrides = 
       label: 'Document to link to',
       relationTo: ['pages', 'posts'],
       required: true,
+      ...(publishedOnly
+        ? {
+            filterOptions: ({ relationTo }: { relationTo?: string }) => {
+              if (relationTo === 'pages' || relationTo === 'posts') {
+                return {
+                  _status: { equals: 'published' },
+                  slug: { exists: true },
+                }
+              }
+              return true
+            },
+          }
+        : {}),
     },
     {
       name: 'url',
