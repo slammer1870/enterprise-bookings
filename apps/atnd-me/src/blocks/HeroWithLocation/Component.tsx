@@ -180,7 +180,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
           )}
 
           {title && (
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight drop-shadow-md">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight drop-shadow-md">
               <span
                 className={
                   titleLine1Accent
@@ -280,7 +280,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
 
         {/* Schedule Section - Card inside container width */}
         <div className="w-full max-w-2xl z-20">
-          <div className="rounded-sm bg-stone-200/80 shadow-md p-6 md:p-8 w-full">
+          <div className="rounded-sm bg-background shadow-md p-6 md:p-8 w-full">
             <h2 className="text-3xl font-medium mb-6 text-center text-stone-900 uppercase">Schedule</h2>
             <Schedule />
           </div>
