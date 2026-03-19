@@ -4,6 +4,8 @@
  * Secret: npx wrangler secret put R2_WORKER_SECRET
  */
 
+/// <reference types="@cloudflare/workers-types" />
+
 export interface Env {
   R2: R2Bucket
   R2_WORKER_SECRET?: string
@@ -20,6 +22,17 @@ function cors(): HeadersInit {
     'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'X-R2-Auth, X-R2-Key, Content-Type',
   }
+}
+
+function inferContentTypeFromKey(key: string): string | null {
+  const ext = key.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'png') return 'image/png'
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'gif') return 'image/gif'
+  if (ext === 'svg') return 'image/svg+xml'
+  if (ext === 'avif') return 'image/avif'
+  return null
 }
 
 export default {
@@ -57,7 +70,11 @@ export default {
         const object = await env.R2.get(key)
         if (!object) return new Response('Not Found', { status: 404, headers: cors() })
         const headers = new Headers(cors())
-        if (object.httpMetadata?.contentType) headers.set('Content-Type', object.httpMetadata.contentType)
+        const contentType =
+          object.httpMetadata?.contentType ||
+          inferContentTypeFromKey(key) ||
+          'application/octet-stream'
+        headers.set('Content-Type', contentType)
         return new Response(object.body, { status: 200, headers })
       }
       return new Response('Method Not Allowed', { status: 405, headers: cors() })

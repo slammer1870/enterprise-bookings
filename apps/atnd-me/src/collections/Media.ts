@@ -21,6 +21,22 @@ const dirname = path.dirname(filename)
 export const Media: CollectionConfig = {
   slug: 'media',
   folders: false,
+  // Ensure relationship population includes fields needed by the frontend.
+  // In particular `updatedAt` is used as a cache-busting tag in `getMediaUrl(...)`.
+  defaultPopulate: {
+    alt: true,
+    updatedAt: true,
+    createdAt: true,
+    url: true,
+    filename: true,
+    mimeType: true,
+    filesize: true,
+    width: true,
+    height: true,
+    focalX: true,
+    focalY: true,
+    sizes: true,
+  },
   access: {
     read: tenantScopedMediaRead,
     create: tenantScopedCreate,
