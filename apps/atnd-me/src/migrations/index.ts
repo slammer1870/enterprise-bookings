@@ -57,6 +57,8 @@ import * as migration_20260227_subscriptions_connect_fields from './20260227_sub
 import * as migration_20260304_pages_blocks_bru_grappling from './20260304_pages_blocks_bru_grappling';
 import * as migration_20260305_footer_nav_items_icon from './20260305_footer_nav_items_icon';
 import * as migration_20260305_footer_styling_padding from './20260305_footer_styling_padding';
+import * as migration_20260318_tenants_apple_pay_domain_association from './20260318_tenants_apple_pay_domain_association';
+import * as migration_20260319_131730_clHeroLoc_pages_block from './20260319_131730_clHeroLoc_pages_block';
 import * as migration_20260319_footer_nav_items_icon_location from './20260319_footer_nav_items_icon_location';
 
 export const migrations = [
@@ -338,7 +340,7 @@ export const migrations = [
   {
     up: migration_20260227_subscriptions_connect_fields.up,
     down: migration_20260227_subscriptions_connect_fields.down,
-    name: '20260227_subscriptions_connect_fields'
+    name: '20260227_subscriptions_connect_fields',
   },
   {
     up: migration_20260304_pages_blocks_bru_grappling.up,
@@ -356,8 +358,18 @@ export const migrations = [
     name: '20260305_footer_styling_padding',
   },
   {
+    up: migration_20260318_tenants_apple_pay_domain_association.up,
+    down: migration_20260318_tenants_apple_pay_domain_association.down,
+    name: '20260318_tenants_apple_pay_domain_association',
+  },
+  {
+    up: migration_20260319_131730_clHeroLoc_pages_block.up,
+    down: migration_20260319_131730_clHeroLoc_pages_block.down,
+    name: '20260319_131730_clHeroLoc_pages_block',
+  },
+  {
     up: migration_20260319_footer_nav_items_icon_location.up,
     down: migration_20260319_footer_nav_items_icon_location.down,
-    name: '20260319_footer_nav_items_icon_location',
+    name: '20260319_footer_nav_items_icon_location'
   },
 ];
