@@ -43,12 +43,18 @@ export function setPayloadTenantCookie(
 
 export function deleteTenantCookie(getCookieDomain?: () => string | undefined): void {
   if (typeof document === 'undefined') return
+  // IMPORTANT: cookies can exist in both "host-only" and "domain-scoped" variants.
+  // For example: after selecting a tenant on a subdomain we may set Domain=.rootHostname,
+  // then later clearing on the root hostname must also delete that domain-scoped cookie.
   const domain = getCookieDomain?.() ?? getPayloadTenantCookieDomainDefault()
-  const domainAttr = domain ? `; Domain=${domain}` : ''
-  const base = `${PAYLOAD_TENANT_COOKIE}=; Max-Age=0; SameSite=Lax${domainAttr}`
-  document.cookie = `${base}; Path=/`
-  document.cookie = `${base}; Path=/admin`
-  document.cookie = `${base}; Path=/admin/`
+  const baseNoDomain = `${PAYLOAD_TENANT_COOKIE}=; Max-Age=0; SameSite=Lax`
+  const baseWithDomain = domain ? `${baseNoDomain}; Domain=${domain}` : null
+
+  const paths = ['/', '/admin', '/admin/'] as const
+  for (const path of paths) {
+    document.cookie = `${baseNoDomain}; Path=${path}`
+    if (baseWithDomain) document.cookie = `${baseWithDomain}; Path=${path}`
+  }
 }
 
 export function getTenantCookie(): string | undefined {

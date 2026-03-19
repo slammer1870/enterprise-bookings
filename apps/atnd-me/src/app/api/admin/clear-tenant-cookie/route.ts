@@ -45,15 +45,10 @@ export async function POST(request: NextRequest) {
     res.headers.append('Set-Cookie', clearCookieHeader('/admin'))
     res.headers.append('Set-Cookie', clearCookieHeader('/admin/'))
 
-    // When admin is accessed via subdomain, client sets cookie with Domain=.rootHostname.
-    // Clear that too so the domain-scoped cookie is removed.
+    // Also clear any domain-scoped cookie (Domain=.rootHostname). This can exist even when
+    // the current request is on the root hostname (e.g. user previously visited admin on a subdomain).
     const rootHostname = getRootHostname()
-    const requestHost = request.headers.get('host')?.split(':')[0] ?? ''
-    const isSubdomain =
-      rootHostname &&
-      requestHost !== rootHostname &&
-      (requestHost.endsWith('.' + rootHostname) || requestHost.endsWith('.localhost'))
-    if (isSubdomain && rootHostname) {
+    if (rootHostname) {
       const domain = rootHostname === 'localhost' ? '.localhost' : `.${rootHostname}`
       res.headers.append('Set-Cookie', clearCookieHeader('/', domain))
       res.headers.append('Set-Cookie', clearCookieHeader('/admin', domain))
