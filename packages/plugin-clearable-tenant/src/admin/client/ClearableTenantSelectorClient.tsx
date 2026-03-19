@@ -31,6 +31,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     rootDocCollections = ['navbar', 'footer'],
     canClearTenantOnCurrentRoute = true,
     isHostLocked,
+    isTenantAdminUser,
   } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
@@ -93,6 +94,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
 
   const canClear =
     !isHostLocked &&
+    !isTenantAdminUser &&
     (['dashboard', 'list'].includes(viewType ?? '') ||
       viewType == null ||
       isOnNavbarOrFooter ||

@@ -519,7 +519,10 @@ export const plugins: Plugin[] = [
     collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
     collectionsWithTenantField: ['pages', 'navbar', 'footer'],
     documentTenantFieldName: 'tenant',
-    userHasAccessToAllTenants: (user) => checkRole(['admin'], user as SharedUser),
+    // Used by the selector→document sync hook. We want tenant-admin autosave drafts
+    // (Pages create flow) to pick up the selected tenant automatically, while still
+    // keeping "no tenant" (base pages) effectively admin-only via the UI.
+    userHasAccessToAllTenants: (user) => checkRole(['admin', 'tenant-admin'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,

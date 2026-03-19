@@ -34,7 +34,8 @@ type ContextValue = {
   documentTenantFieldName: string
   /** True when current route has optional tenant (user can clear selector); false when tenant is required. */
   canClearTenantOnCurrentRoute: boolean
-  isTenantAdminOnly?: (user: unknown) => boolean
+  /** True when current user is tenant-admin (but not admin). */
+  isTenantAdminUser: boolean
 }
 
 const DefaultContext: ContextValue = {
@@ -55,6 +56,7 @@ const DefaultContext: ContextValue = {
   collectionsWithTenantField: [],
   documentTenantFieldName: 'tenant',
   canClearTenantOnCurrentRoute: true,
+  isTenantAdminUser: false,
 }
 
 const Context = createContext<ContextValue>(DefaultContext)
@@ -508,7 +510,10 @@ export function TenantSelectionProviderRootAwareClient({
     collectionsCreateRequireTenantForTenantAdmin,
     collectionsWithTenantField,
     documentTenantFieldName,
-    canClearTenantOnCurrentRoute,
+    // Tenant-admins should never be able to clear tenant selection (base/root docs are admin-only),
+    // even if the current route would otherwise be considered "optional tenant".
+    canClearTenantOnCurrentRoute: isTenantAdminUser ? false : canClearTenantOnCurrentRoute,
+    isTenantAdminUser,
   }
 
   return (

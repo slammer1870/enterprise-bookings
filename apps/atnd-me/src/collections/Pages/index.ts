@@ -232,6 +232,7 @@ export const Pages: CollectionConfig<'pages'> = {
       label: 'Assigned Tenant',
       admin: {
         position: 'sidebar',
+        hidden: true,
         description:
           'Optional. Leave empty for global pages (e.g. root landing page on the main domain).',
       },
@@ -316,46 +317,13 @@ export const Pages: CollectionConfig<'pages'> = {
     afterChange: [revalidatePage],
     beforeValidate: [
       async ({ data, operation, req, originalDoc }) => {
-        // Ensure tenant is set so version creation and slug validation have it (tenant-admin context).
+        // Ensure tenant is set so version creation and slug validation have it.
         if (!data) return data
         // Respect an explicit "no tenant" selection (global page).
         // Payload will send `null` when a relationship field is cleared.
         if (data.tenant === null) return data
         if (data.tenant) return data
         const user = (req as { user?: unknown })?.user
-
-        // For tenant-admins, the Pages create route uses autosave and will create the draft document
-        // before the user submits the form. If the tenant is not set on that initial draft, tenant-admins
-        // cannot read the draft (tenantScopedReadFiltered), and the Admin UI ends up at "doc not found".
-        // Prefer the TenantSelector cookie (`payload-tenant`) as the source of truth on create.
-        if (user && checkRole(['tenant-admin'], user as SharedUser)) {
-          const anyReq = req as unknown as {
-            headers?: unknown
-            req?: { headers?: Record<string, string | string[] | undefined> }
-          }
-          const headersAny = anyReq.headers as unknown as { get?: (name: string) => string | null; cookie?: unknown } | undefined
-
-          const cookieHeader =
-            // Next.js Headers (or compatible)
-            headersAny?.get?.('cookie') ??
-            // Node/Express-ish object
-            (typeof headersAny?.cookie === 'string' ? headersAny.cookie : undefined) ??
-            (typeof anyReq.req?.headers?.cookie === 'string' ? anyReq.req.headers.cookie : undefined) ??
-            ''
-
-          const match = typeof cookieHeader === 'string'
-            ? cookieHeader.match(/(?:^|;\s*)payload-tenant=([^;]*)/)
-            : null
-          const raw = match?.[1] ? decodeURIComponent(match[1]) : ''
-          const trimmed = String(raw || '').trim()
-          if (trimmed) {
-            const asNum = /^\d+$/.test(trimmed) ? parseInt(trimmed, 10) : NaN
-            if (Number.isFinite(asNum)) {
-              data.tenant = asNum
-              return data
-            }
-          }
-        }
 
         const rawTenant =
           req.context?.tenant ??
