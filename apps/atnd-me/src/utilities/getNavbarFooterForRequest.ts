@@ -162,7 +162,7 @@ export async function getNavbarForRequest(
       collection: 'navbar',
       where: { tenant: { equals: null } },
       limit: 1,
-      depth: 1,
+      depth: 2,
       overrideAccess: true,
     })
     const rootDoc = rootResult.docs[0]
@@ -191,7 +191,7 @@ export async function getNavbarForRequest(
     collection: 'navbar',
     where: { tenant: { equals: tenant.id } },
     limit: 1,
-    depth: 1,
+    depth: 2,
     // Public read is allowed; keep access + tenant base filter behavior intact
     overrideAccess: false,
     req,
@@ -244,7 +244,7 @@ export async function getFooterForRequest(
       collection: 'footer',
       where: { tenant: { equals: null } },
       limit: 1,
-      depth: 1,
+      depth: 2,
       overrideAccess: true,
     })
     const rootDoc = rootResult.docs[0]
@@ -279,7 +279,7 @@ export async function getFooterForRequest(
     collection: 'footer',
     where: { tenant: { equals: tenant.id } },
     limit: 1,
-    depth: 1,
+    depth: 2,
     // Public read is allowed; keep access + tenant base filter behavior intact
     overrideAccess: false,
     req,
