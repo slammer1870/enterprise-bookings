@@ -2186,7 +2186,7 @@ export interface Footer {
         /**
          * Optional icon before the label (e.g. for social links).
          */
-        icon?: ('none' | 'instagram' | 'facebook' | 'x') | null;
+        icon?: ('none' | 'instagram' | 'facebook' | 'x' | 'location') | null;
         id?: string | null;
       }[]
     | null;

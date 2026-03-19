@@ -70,6 +70,26 @@ function FooterIcon({
       </svg>
     )
   }
+  if (icon === 'location') {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={iconClass}
+        aria-hidden
+      >
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    )
+  }
   return null
 }
 
@@ -134,7 +154,10 @@ export async function Footer() {
               <nav className="flex flex-col md:flex-row gap-4">
                 {navItems.map(({ link, icon }, i) => {
                   const displayIcon =
-                    icon === 'instagram' || icon === 'facebook' || icon === 'x'
+                    icon === 'instagram' ||
+                    icon === 'facebook' ||
+                    icon === 'x' ||
+                    icon === 'location'
                       ? icon
                       : null
                   const linkProps = link as React.ComponentProps<typeof CMSLink>

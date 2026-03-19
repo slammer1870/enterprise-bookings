@@ -51,9 +51,10 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
-    await expect(
-      page.getByRole('link', { name: /connect stripe/i }).or(page.locator('a:has-text("Connect Stripe")'))
-    ).toBeVisible({ timeout: 10000 })
+    const gatedSection = page.getByTestId('require-stripe-connect')
+    await expect(gatedSection.getByRole('link', { name: /connect stripe/i })).toBeVisible({
+      timeout: 10000,
+    })
   })
 
   test('clicking "Connect Stripe" redirects to Stripe OAuth', async ({ page, testData, request }) => {
@@ -97,9 +98,8 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
     const connectLink = page
+      .getByTestId('require-stripe-connect')
       .getByRole('link', { name: /connect stripe/i })
-      .or(page.locator('a:has-text("Connect Stripe")'))
-      .first()
     await expect(connectLink).toBeVisible({ timeout: 10000 })
 
     const href = await connectLink.getAttribute('href')
@@ -159,13 +159,10 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
-    await expect(
-      page.getByText(/stripe connected/i).or(page.locator('text=/stripe connected/i'))
-    ).toBeVisible({ timeout: 10000 })
+    const status = page.getByTestId('stripe-connect-status')
+    await expect(status.getByText(/stripe connected/i)).toBeVisible({ timeout: 10000 })
 
-    const connectCta = page
-      .getByRole('link', { name: /connect stripe/i })
-      .or(page.locator('a:has-text("Connect Stripe")'))
-    await expect(connectCta).not.toBeVisible()
+    const gatedSection = page.getByTestId('require-stripe-connect')
+    await expect(gatedSection.getByRole('link', { name: /connect stripe/i })).not.toBeVisible()
   })
 })

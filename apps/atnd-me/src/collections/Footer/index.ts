@@ -105,6 +105,7 @@ export const Footer: CollectionConfig = {
             { label: 'Instagram', value: 'instagram' },
             { label: 'Facebook', value: 'facebook' },
             { label: 'X (Twitter)', value: 'x' },
+            { label: 'Location', value: 'location' },
           ],
           defaultValue: 'none',
           admin: {
