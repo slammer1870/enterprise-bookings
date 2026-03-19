@@ -60,6 +60,7 @@ import * as migration_20260305_footer_styling_padding from './20260305_footer_st
 import * as migration_20260318_tenants_apple_pay_domain_association from './20260318_tenants_apple_pay_domain_association';
 import * as migration_20260319_131730_clHeroLoc_pages_block from './20260319_131730_clHeroLoc_pages_block';
 import * as migration_20260319_footer_nav_items_icon_location from './20260319_footer_nav_items_icon_location';
+import * as migration_20260319_media_tenant_id from './20260319_media_tenant_id';
 
 export const migrations = [
   {
@@ -371,5 +372,10 @@ export const migrations = [
     up: migration_20260319_footer_nav_items_icon_location.up,
     down: migration_20260319_footer_nav_items_icon_location.down,
     name: '20260319_footer_nav_items_icon_location'
+  },
+  {
+    up: migration_20260319_media_tenant_id.up,
+    down: migration_20260319_media_tenant_id.down,
+    name: '20260319_media_tenant_id'
   },
 ];
