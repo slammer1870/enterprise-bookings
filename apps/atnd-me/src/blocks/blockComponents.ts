@@ -51,7 +51,7 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   heroSchedule: HeroScheduleBlock,
   heroScheduleSanctuary: HeroScheduleSanctuaryBlock,
   heroWithLocation: HeroWithLocationBlock,
-  croiLanHeroWithLocation: HeroWithLocationBlock,
+  clHeroLoc: HeroWithLocationBlock,
   healthBenefits: HealthBenefitsBlock,
   sectionTagline: SectionTaglineBlock,
   missionElements: MissionElementsBlock,

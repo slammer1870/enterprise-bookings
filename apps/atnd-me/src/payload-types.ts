@@ -267,6 +267,7 @@ export interface Page {
     | BruTestimonialsBlock
     | BruContactBlock
     | BruHeroWaitlistBlock
+    | CroiLanHeroWithLocationBlock
   )[];
   meta?: {
     title?: string | null;
@@ -300,6 +301,7 @@ export interface Tenant {
    */
   allowedBlocks?:
     | (
+        | 'heroWithLocation'
         | 'marketingHero'
         | 'location'
         | 'healthBenefits'
@@ -320,6 +322,7 @@ export interface Tenant {
         | 'bruTestimonials'
         | 'bruContact'
         | 'bruHeroWaitlist'
+        | 'clHeroLoc'
         | 'threeColumnLayout'
       )[]
     | null;
@@ -1198,6 +1201,7 @@ export interface ThreeColumnLayoutBlock {
         | BruTestimonialsBlock
         | BruContactBlock
         | BruHeroWaitlistBlock
+        | CroiLanHeroWithLocationBlock
       )[]
     | null;
   id?: string | null;
@@ -2023,6 +2027,84 @@ export interface BruHeroWaitlistBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'bruHeroWaitlist';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CroiLanHeroWithLocationBlock".
+ */
+export interface CroiLanHeroWithLocationBlock {
+  /**
+   * Full-bleed background image
+   */
+  backgroundImage?: (number | null) | Media;
+  /**
+   * Hex code for overlay over the background image (e.g. #000000). Default: black.
+   */
+  imageOverlayHex?: string | null;
+  /**
+   * Overlay opacity (0–100). Default: 70.
+   */
+  imageOverlayOpacity?: number | null;
+  logo?: (number | null) | Media;
+  /**
+   * First line of heading (e.g. CROÍ LÁN)
+   */
+  title?: string | null;
+  /**
+   * Second line of heading (e.g. SAUNA)
+   */
+  titleLine2?: string | null;
+  /**
+   * Style first line with accent color (e.g. orange); second line stays white
+   */
+  titleLine1Accent?: boolean | null;
+  /**
+   * e.g. The Bog Meadow, Enniskerry Village
+   */
+  locationText?: string | null;
+  /**
+   * e.g. 30 minutes outside Dublin
+   */
+  locationSubtext?: string | null;
+  /**
+   * Show map pin icon before location
+   */
+  showLocationIcon?: boolean | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * e.g. Follow Us (shown with icon at bottom-left)
+   */
+  socialFollowLabel?: string | null;
+  /**
+   * URL for social follow link (e.g. Instagram)
+   */
+  socialFollowUrl?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'clHeroLoc';
 }
 /**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
@@ -2873,6 +2955,7 @@ export interface PagesSelect<T extends boolean = true> {
         bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
         bruContact?: T | BruContactBlockSelect<T>;
         bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   meta?:
     | T
@@ -3080,6 +3163,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
         bruContact?: T | BruContactBlockSelect<T>;
         bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   id?: T;
   blockName?: T;
@@ -3456,6 +3540,41 @@ export interface BruHeroWaitlistBlockSelect<T extends boolean = true> {
   form?: T;
   enableIntro?: T;
   introContent?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CroiLanHeroWithLocationBlock_select".
+ */
+export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
+  backgroundImage?: T;
+  imageOverlayHex?: T;
+  imageOverlayOpacity?: T;
+  logo?: T;
+  title?: T;
+  titleLine2?: T;
+  titleLine1Accent?: T;
+  locationText?: T;
+  locationSubtext?: T;
+  showLocationIcon?: T;
+  links?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+            };
+        id?: T;
+      };
+  socialFollowLabel?: T;
+  socialFollowUrl?: T;
   id?: T;
   blockName?: T;
 }
