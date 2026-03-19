@@ -38,6 +38,7 @@ import { HealthBenefits } from '@/blocks/HealthBenefits/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
 import { HeroScheduleSanctuary } from '@/blocks/HeroScheduleSanctuary/config'
 import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
+import { CroiLanHeroWithLocation } from '@/blocks/CroiLanHeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
@@ -86,6 +87,8 @@ const availableBlocks = [
   BruTestimonials,
   BruContact,
   BruHeroWaitlist,
+  // Croí Lán (tenant-scoped extras)
+  CroiLanHeroWithLocation,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config

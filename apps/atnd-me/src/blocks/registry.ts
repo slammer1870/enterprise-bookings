@@ -16,6 +16,7 @@ import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
 import { HeroWithLocation } from './HeroWithLocation/config'
 import { MissionElements } from './MissionElements/config'
+import { CroiLanHeroWithLocation } from './CroiLanHeroWithLocation/config'
 import {
   Hero,
   About,
@@ -67,6 +68,8 @@ const allBlocks: Block[] = [
   BruTestimonials,
   BruContact,
   BruHeroWaitlist,
+  // Croí Lán (tenant-scoped extras)
+  CroiLanHeroWithLocation,
 ]
 
 const ThreeColumnLayout = createThreeColumnLayout(allBlocks)
@@ -75,7 +78,6 @@ const ThreeColumnLayout = createThreeColumnLayout(allBlocks)
 export const defaultBlockSlugs: string[] = [
   'heroSchedule',
   'heroScheduleSanctuary',
-  'heroWithLocation', // Croí Lán–style hero with location and social follow
   'hero',
   'about',
   'schedule',
