@@ -121,14 +121,14 @@ export async function middleware(request: NextRequest) {
   if (!subdomain) {
     const response = isPayloadAdmin
       ? NextResponse.next({
-          request: {
-            headers: (() => {
-              const h = new Headers(request.headers)
-              h.set(ADMIN_HEADER, '1')
-              return h
-            })(),
-          },
-        })
+        request: {
+          headers: (() => {
+            const h = new Headers(request.headers)
+            h.set(ADMIN_HEADER, '1')
+            return h
+          })(),
+        },
+      })
       : NextResponse.next()
     // Do not delete tenant cookies on /admin: every admin request was getting Set-Cookie delete
     // which caused the admin dashboard to constantly reload. Only clear on frontend routes.
@@ -151,14 +151,14 @@ export async function middleware(request: NextRequest) {
 
   const response = isPayloadAdmin
     ? NextResponse.next({
-        request: {
-          headers: (() => {
-            const h = new Headers(request.headers)
-            h.set(ADMIN_HEADER, '1')
-            return h
-          })(),
-        },
-      })
+      request: {
+        headers: (() => {
+          const h = new Headers(request.headers)
+          h.set(ADMIN_HEADER, '1')
+          return h
+        })(),
+      },
+    })
     : NextResponse.next()
   const cookieOptions: { httpOnly: boolean; sameSite: 'lax'; path: string; domain?: string } = {
     httpOnly: false,
@@ -177,10 +177,22 @@ export async function middleware(request: NextRequest) {
   // during editing; re-issuing cookies there can trigger route refreshes and clear form state.
   const existingTenantSlug = request.cookies.get('tenant-slug')?.value
   if (existingTenantSlug !== subdomain) {
+    // Ensure there is only one tenant-slug cookie stored (no duplicates across path/domain).
+    // Canonical cookie: Path=/, Domain=(host-only for custom domain/localhost) or .rootHostname for platform subdomains.
+    const domainScoped =
+      !isCustomDomain && !isLocalhost
+        ? cookieOptions.domain
+        : undefined
+    clearCookieEverywhere({
+      response,
+      name: 'tenant-slug',
+      paths: ['/', '/admin', '/admin/'],
+      domains: [undefined, domainScoped],
+    })
     response.cookies.set('tenant-slug', subdomain, cookieOptions)
   }
 
-  // Fix: deep-linking into Payload admin on custom domains can server-redirect back to /admin
+  // Fix: deep-linkings into Payload admin on custom domains can server-redirect back to /admin
   // if payload-tenant isn't set yet (server components can't rely on client-side cookie set).
   if (isPayloadAdmin) {
     const existingPayloadTenant = request.cookies.get(PAYLOAD_TENANT_COOKIE)?.value
@@ -206,6 +218,18 @@ export async function middleware(request: NextRequest) {
       }
 
       if (tenantIdToSet != null && tenantIdToSet !== '') {
+        // Ensure there is only one payload-tenant cookie stored (no duplicates across path/domain).
+        // Canonical cookie: Path=/, Domain=(host-only for custom domain/localhost) or .rootHostname for platform subdomains.
+        const domainScoped =
+          !isCustomDomain && !isLocalhost
+            ? cookieOptions.domain
+            : undefined
+        clearCookieEverywhere({
+          response,
+          name: PAYLOAD_TENANT_COOKIE,
+          paths: ['/', '/admin', '/admin/'],
+          domains: [undefined, domainScoped],
+        })
         response.cookies.set(PAYLOAD_TENANT_COOKIE, String(tenantIdToSet), cookieOptions)
       }
     }
@@ -247,6 +271,28 @@ type EnforceArgs = {
 function clearCookieHeader(name: string, path: string, domain?: string | null): string {
   const domainAttr = domain ? `; Domain=${domain}` : ''
   return `${name}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+}
+
+function clearCookieEverywhere(args: {
+  response: NextResponse
+  name: string
+  /**
+   * Include all paths that might have been used historically/by dependencies.
+   * Browsers treat cookies with same name but different path as distinct entries.
+   */
+  paths: string[]
+  /**
+   * Include both host-only (undefined) and any known domain-scoped variants.
+   * Browsers treat cookies with same name but different domain as distinct entries.
+   */
+  domains: Array<string | null | undefined>
+}) {
+  const { response, name, paths, domains } = args
+  for (const path of paths) {
+    for (const domain of domains) {
+      response.headers.append('Set-Cookie', clearCookieHeader(name, path, domain ?? undefined))
+    }
+  }
 }
 
 async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextResponse | null> {
