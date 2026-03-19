@@ -60,23 +60,47 @@ export async function getTenantContext(
   source?: TenantSlugSource | null
 ): Promise<TenantContext | null> {
   const slug = await getTenantSlug(source)
-  if (!slug) return null
+  if (slug) {
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { slug: { equals: slug } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
 
-  const result = await payload.find({
-    collection: 'tenants',
-    where: { slug: { equals: slug } },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  })
+    const tenant = result.docs[0]
+    if (!tenant) return null
 
-  const tenant = result.docs[0]
-  if (!tenant) return null
+    return {
+      id: tenant.id as number,
+      slug: tenant.slug as string,
+      name: (tenant as { name?: string }).name ?? '',
+    }
+  }
 
-  return {
-    id: tenant.id as number,
-    slug: tenant.slug as string,
-    name: (tenant as { name?: string }).name ?? '',
+  // Fallback: Admin TenantSelector on root domain (payload-tenant cookie stores tenant ID)
+  const cookieStore = source?.cookies
+  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
+  if (!payloadTenant || !/^\d+$/.test(payloadTenant)) return null
+
+  const tenantId = parseInt(payloadTenant, 10)
+  try {
+    const tenant = await payload.findByID({
+      collection: 'tenants',
+      id: tenantId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    if (!tenant) return null
+    const t = tenant as { id: number; slug: string; name?: string }
+    return {
+      id: t.id,
+      slug: t.slug,
+      name: t.name ?? '',
+    }
+  } catch {
+    return null
   }
 }
 
@@ -94,66 +118,66 @@ export async function getTenantWithBranding(
 ): Promise<TenantWithBranding | null> {
   const cookieStore = source?.cookies
 
-  // 1) Admin TenantSelector: payload-tenant cookie (tenant ID)
-  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    const tenantId = parseInt(payloadTenant, 10)
-    try {
-      const tenant = await payload.findByID({
-        collection: 'tenants',
-        id: tenantId,
-        depth: 1,
-        overrideAccess: true,
-      })
-      if (tenant) {
-        const t = tenant as {
-          id: number
-          slug: string
-          name?: string
-          logo?: { url?: string; alt?: string } | number | null
-          description?: string | null
-        }
-        return {
-          id: t.id,
-          slug: t.slug,
-          name: t.name ?? '',
-          logo: t.logo,
-          description: t.description,
-        }
-      }
-    } catch {
-      // Fall through to slug lookup
+  const slug = await getTenantSlug(source)
+  // Prefer explicit tenant slug (subdomain/custom-domain resolution) over admin selector cookie.
+  if (slug) {
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { slug: { equals: slug } },
+      limit: 1,
+      depth: 1,
+      overrideAccess: true,
+    })
+
+    const tenant = result.docs[0]
+    if (!tenant) return null
+
+    const t = tenant as {
+      id: number
+      slug: string
+      name?: string
+      logo?: { url?: string; alt?: string } | number | null
+      description?: string | null
+    }
+
+    return {
+      id: t.id,
+      slug: t.slug,
+      name: t.name ?? '',
+      logo: t.logo,
+      description: t.description,
     }
   }
 
-  // 2) Subdomain: tenant-slug cookie / header / param
-  const slug = await getTenantSlug(source)
-  if (!slug) return null
+  // Fallback: Admin TenantSelector (payload-tenant cookie stores tenant ID)
+  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
+  if (!payloadTenant || !/^\d+$/.test(payloadTenant)) return null
 
-  const result = await payload.find({
-    collection: 'tenants',
-    where: { slug: { equals: slug } },
-    limit: 1,
-    depth: 1,
-    overrideAccess: true,
-  })
+  const tenantId = parseInt(payloadTenant, 10)
+  try {
+    const tenant = await payload.findByID({
+      collection: 'tenants',
+      id: tenantId,
+      depth: 1,
+      overrideAccess: true,
+    })
+    if (!tenant) return null
 
-  const tenant = result.docs[0]
-  if (!tenant) return null
-
-  const t = tenant as {
-    id: number
-    slug: string
-    name?: string
-    logo?: { url?: string; alt?: string } | number | null
-    description?: string | null
-  }
-
-  return {
-    id: t.id,
-    slug: t.slug,
-    name: t.name ?? '',
-    logo: t.logo,
-    description: t.description,
+    const t = tenant as {
+      id: number
+      slug: string
+      name?: string
+      logo?: { url?: string; alt?: string } | number | null
+      description?: string | null
+    }
+    return {
+      id: t.id,
+      slug: t.slug,
+      name: t.name ?? '',
+      logo: t.logo,
+      description: t.description,
+    }
+  } catch {
+    return null
   }
 }
