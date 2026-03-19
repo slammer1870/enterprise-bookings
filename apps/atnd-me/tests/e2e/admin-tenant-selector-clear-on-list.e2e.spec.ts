@@ -1,0 +1,124 @@
+import type { Page } from '@playwright/test'
+import { expect, test } from './helpers/fixtures'
+import { loginAsSuperAdmin, BASE_URL } from './helpers/auth-helpers'
+import { getPayloadInstance, createTestPage } from './helpers/data-helpers'
+
+const ADMIN_VIEWPORT = { width: 1440, height: 900 }
+
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function getTenantSelector(page: Page) {
+  return page.getByTestId('tenant-selector')
+}
+
+async function ensureSidebarOpen(page: Page) {
+  await page.waitForLoadState('domcontentloaded').catch(() => null)
+
+  // In some admin layouts (esp. wide viewports), the sidebar is always visible and
+  // the "Open menu" / "Close menu" buttons are not rendered at all.
+  if (await getTenantSelector(page).isVisible().catch(() => false)) {
+    return
+  }
+
+  const openMenuButton = page.getByRole('button', { name: /open\s+menu/i })
+  const closeMenuButton = page.getByRole('button', { name: /close\s+menu/i })
+
+  await Promise.race([
+    openMenuButton.waitFor({ state: 'visible', timeout: 10_000 }),
+    closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }),
+  ]).catch(() => null)
+
+  if (await openMenuButton.isVisible().catch(() => false)) {
+    await openMenuButton.click({ timeout: 10_000 }).catch(() => null)
+    await closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => null)
+    await page.waitForTimeout(250)
+  }
+
+  await getTenantSelector(page).waitFor({ state: 'visible', timeout: 20_000 })
+}
+
+test.describe('Admin tenant selector — clearing on list shows all tenants', () => {
+  test.describe.configure({ mode: 'serial', timeout: 90_000 })
+
+  test('clearing tenant on a collection list does not auto-select first tenant (even if tenant-slug cookie exists)', async ({
+    page,
+    testData,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
+
+    const payload = await getPayloadInstance()
+    const tenant1 = testData.tenants[0]
+    const tenant2 = testData.tenants[1]
+    if (!tenant1?.id || !tenant1?.slug || !tenant1?.name) throw new Error('Test setup requires tenant1')
+    if (!tenant2?.id || !tenant2?.slug || !tenant2?.name) throw new Error('Test setup requires tenant2')
+
+    const title1 = `E2E Page T1 ${testData.workerIndex}`
+    const title2 = `E2E Page T2 ${testData.workerIndex}`
+
+    // Ensure two tenant-scoped pages exist (unique slugs per worker).
+    await createTestPage(tenant1.id, `e2e-clear-tenant-t1-${testData.workerIndex}`, title1)
+    await createTestPage(tenant2.id, `e2e-clear-tenant-t2-${testData.workerIndex}`, title2)
+
+    // Seed a tenant-slug cookie to mimic prior tenant-host navigation.
+    // The regression: on root-domain admin, clearing tenant should still show "all tenants"
+    // and must NOT re-select a tenant because tenant-slug is set.
+    const origin = new URL(BASE_URL).origin
+    await page.context().addCookies([
+      { name: 'tenant-slug', value: tenant1.slug, url: `${origin}/` },
+      { name: 'tenant-slug', value: tenant1.slug, url: `${origin}/admin/` },
+    ])
+
+    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    const wrap = getTenantSelector(page)
+    const combobox = wrap.getByRole('combobox').or(wrap).first()
+
+    // Select tenant1 explicitly and ensure tenant2's page is hidden.
+    await wrap.getByRole('button').last().click({ timeout: 5000, force: true }).catch(() => null)
+    await combobox.click({ timeout: 5000 }).catch(() => null)
+    await page.getByRole('option', { name: new RegExp(escapeRegex(tenant1.name), 'i') }).first().click()
+
+    await expect(page.getByText(title1)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(title2)).toHaveCount(0)
+
+    // Clear tenant selection; list should show docs from all tenants.
+    const cookieURLs = [`${origin}/`, `${origin}/admin/`, `${origin}/admin/collections/`]
+    const getPayloadTenantCookie = async () => {
+      const cookies = await page.context().cookies(cookieURLs)
+      return cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
+    }
+
+    // Clear using keyboard (react-select clearable single-select clears on Backspace).
+    await combobox.click({ timeout: 10_000 }).catch(() => null)
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('Backspace').catch(() => null)
+      await page.waitForTimeout(150)
+      if ((await getPayloadTenantCookie()) === '') break
+    }
+
+    await expect
+      .poll(async () => await getPayloadTenantCookie(), { timeout: 20_000 })
+      .toBe('')
+
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(title1)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(title2)).toBeVisible({ timeout: 20_000 })
+
+    // Reload should remain "all tenants" (must not snap back to tenant1 via tenant-slug cookie).
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(title1)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(title2)).toBeVisible({ timeout: 20_000 })
+
+    // Cleanup is handled by migrate:fresh per test run; avoid deletes to reduce flake.
+    void payload
+  })
+})
+

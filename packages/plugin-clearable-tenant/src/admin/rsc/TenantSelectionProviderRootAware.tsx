@@ -1,4 +1,5 @@
 import { cookies as getCookies } from 'next/headers'
+import { headers as getHeaders } from 'next/headers'
 import React from 'react'
 import type { Payload } from 'payload'
 import { TenantSelectionProviderRootAwareClient } from '../client/TenantSelectionProviderRootAwareClient'
@@ -9,6 +10,33 @@ function defaultUserHasAccessToAllTenants(user: unknown): boolean {
   if (!user) return false
   const u = user as { roles?: string[] }
   return Array.isArray(u.roles) && u.roles.includes('admin')
+}
+
+function getRootHostnameFromEnv(): string | null {
+  const url = process.env.NEXT_PUBLIC_SERVER_URL
+  if (!url) return null
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
+function isHostLockedServer(hostHeader: string | null): boolean {
+  const root = getRootHostnameFromEnv()
+  if (!root) return false
+  const host = (hostHeader ?? '').split(':')[0] ?? ''
+  if (!host) return false
+
+  if (root === 'localhost') {
+    // In local dev/tests, tenant hosts are `tenant.localhost`.
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return false
+    return host.endsWith('.localhost')
+  }
+
+  // Any non-root host counts as locked (tenant subdomain or custom domain).
+  if (host === root) return false
+  return true
 }
 
 async function getTenantOptions({
@@ -130,7 +158,9 @@ export async function TenantSelectionProviderRootAware(props: Props) {
       const match = tenantOptions.find((o) => String(o.value) === tenantCookie)
       initialValue = match?.value
     } else {
-      const tenantSlug = cookieStore.get('tenant-slug')?.value
+      const h = await getHeaders()
+      const isHostLocked = isHostLockedServer(h.get('host'))
+      const tenantSlug = isHostLocked ? cookieStore.get('tenant-slug')?.value : undefined
       if (tenantSlug) {
         const matchBySlug = tenantOptions.find((o) => o.slug === tenantSlug)
         initialValue = matchBySlug?.value

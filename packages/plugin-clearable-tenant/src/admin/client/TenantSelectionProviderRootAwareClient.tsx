@@ -300,11 +300,22 @@ export function TenantSelectionProviderRootAwareClient({
 
   React.useEffect(() => {
     if (!selectedTenantID && tenantOptions.length > 0 && entityType === 'global') {
+      // If current route supports "all tenants" (clearable selector), do not auto-pick
+      // the first tenant. This would make it impossible to view unscoped list results.
+      if (canClearTenantOnCurrentRoute) return
       if (!isOnRootDocCollection && !isOnDashboard) {
         setTenant({ id: tenantOptions[0]?.value, refresh: true })
       }
     }
-  }, [selectedTenantID, tenantOptions, entityType, isOnRootDocCollection, isOnDashboard, setTenant])
+  }, [
+    selectedTenantID,
+    tenantOptions,
+    entityType,
+    isOnRootDocCollection,
+    isOnDashboard,
+    canClearTenantOnCurrentRoute,
+    setTenant,
+  ])
 
   const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
   const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(null)
