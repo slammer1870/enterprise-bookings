@@ -37,11 +37,14 @@ export const RequireStripeConnectField: React.FC<RequireStripeConnectFieldProps>
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch status for any authenticated non-admin user.
+    // Fetch status for any authenticated user so the UI reflects the *selected tenant*.
+    // Admins should still see payment fields even when not connected, but they must not see a
+    // false-positive "Stripe connected" status.
+    //
     // In some auth/session payloads, role fields may not be present client-side even though the user
     // has access to this admin screen. Don't hide the field in that case; treat status failures as
-    // "not connected" and show the CTA.
-    if (!user || isAdmin(user)) {
+    // "not connected" and show the CTA (or status line).
+    if (!user) {
       setLoading(false)
       return
     }
@@ -96,6 +99,9 @@ export const RequireStripeConnectField: React.FC<RequireStripeConnectFieldProps>
         parentPath={parentPath}
         parentSchemaPath={parentSchemaPath}
         readOnly={readOnly ?? false}
+        stripeConnected={status?.connected ?? false}
+        tenantSlug={status?.tenantSlug}
+        stripeStatusResolved={loading === false}
       />
     )
   }
@@ -166,6 +172,9 @@ function ConnectedPaymentMethodsField({
   parentPath: _parentPath,
   parentSchemaPath,
   readOnly,
+  stripeConnected,
+  tenantSlug,
+  stripeStatusResolved,
 }: {
   path: string
   field: { label?: string; name: string; fields?: ClientField[]; admin?: { description?: string } }
@@ -174,6 +183,9 @@ function ConnectedPaymentMethodsField({
   parentPath?: string
   parentSchemaPath?: string
   readOnly: boolean
+  stripeConnected?: boolean
+  tenantSlug?: string
+  stripeStatusResolved?: boolean
 }) {
   const fields = field.fields ?? []
   const schemaPath = parentSchemaPath ?? path
@@ -190,13 +202,30 @@ function ConnectedPaymentMethodsField({
       ? (field as { admin: { description: string } }).admin.description
       : 'Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.'
 
+  const showStripeStatus = stripeStatusResolved === true
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  const connectHref =
+    tenantSlug && base
+      ? `${base}/api/stripe/connect/authorize?tenantSlug=${encodeURIComponent(tenantSlug)}`
+      : `${base}/api/stripe/connect/authorize`
+
   return (
     <div data-testid="require-stripe-connect" className="payload-field">
       <h3 className="field-type__label" style={{ margin: '0 0 8px 0', fontWeight: 600 }}>
         {groupLabel}
       </h3>
       <FieldDescription description={groupDescription} path={path} />
-      <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#22c55e' }}>✓ Stripe connected</p>
+      {showStripeStatus ? (
+        stripeConnected ? (
+          <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#22c55e' }}>✓ Stripe connected</p>
+        ) : (
+          <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#b45309' }}>
+            Stripe not connected. <a href={connectHref}>Connect Stripe</a>
+          </p>
+        )
+      ) : (
+        <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#6b7280' }}>Checking Stripe connection…</p>
+      )}
       <RenderFields
         fields={fields}
         parentPath={path}
