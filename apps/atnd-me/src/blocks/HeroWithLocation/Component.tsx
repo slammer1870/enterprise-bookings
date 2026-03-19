@@ -140,7 +140,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   return (
     <div className="flex w-full">
       {/* Hero Section - Full width on mobile, half width on desktop (same layout as Hero with Schedule) */}
-      <div className="relative w-full flex-shrink-0 min-h-[600px] md:min-h-[750px] flex flex-col md:flex-row items-start md:items-center justify-center md:justify-between overflow-hidden p-8">
+      <div className="relative w-full flex-shrink-0 min-h-[600px] md:min-h-[750px] flex flex-col md:flex-row items-start md:items-start justify-center md:justify-between overflow-hidden p-8">
         {bgUrl && (
           <>
             <Image
@@ -279,7 +279,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
         )}
 
         {/* Schedule Section - Card inside container width */}
-        <div className="w-full max-w-2xl z-20">
+        <div className="w-full max-w-2xl z-20 md:self-start md:pt-16">
           <div className="rounded-sm bg-background shadow-md p-6 md:p-8 w-full">
             <h2 className="text-3xl font-medium mb-6 text-center text-stone-900 uppercase">Schedule</h2>
             <Schedule />
