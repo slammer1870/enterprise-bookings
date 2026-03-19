@@ -16,6 +16,7 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   faqs: 'FAQs',
   tenantScopedSchedule: 'Schedule by Tenant',
   heroScheduleSanctuary: 'Hero & Schedule (Sanctuary)',
+  heroWithLocation: 'Hero with Location',
   healthBenefits: 'Health Benefits',
   sectionTagline: 'Section Tagline',
   missionElements: 'Mission Elements',
@@ -31,6 +32,7 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   bruTestimonials: 'Testimonials (Brú)',
   bruContact: 'Contact (Brú)',
   bruHeroWaitlist: 'Hero Waitlist (Brú)',
+  clHeroLoc: 'Croí Lán – Hero with Location',
 }
 
 /** Stripe Connect onboarding status (step 2.1). */
