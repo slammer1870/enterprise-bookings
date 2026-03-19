@@ -1,6 +1,7 @@
 import type { Access } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
+import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 /**
  * Get tenant IDs that a user has access to
@@ -344,6 +345,69 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
       if (typeof id === 'number') {
         ctx.__resolvedTenantIdFromSlug = id
         return { tenant: { equals: id } }
+      }
+    }
+
+    // Final fallback: resolve tenant from Host header (works for Next/Image server-side fetches
+    // that do not forward browser cookies).
+    const ctx = (req.context ??= {}) as Record<string, unknown>
+    const cachedHostTenant = ctx.__resolvedTenantIdFromHost
+    if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
+      return { tenant: { equals: cachedHostTenant } }
+    }
+
+    const hostHeader =
+      req.headers?.get?.('x-forwarded-host') ??
+      req.headers?.get?.('host') ??
+      ''
+    const hostname = String(hostHeader).split(':')[0] ?? ''
+    if (hostname) {
+      const rootHostname = (() => {
+        const url = process.env.NEXT_PUBLIC_SERVER_URL
+        if (!url) return null
+        try {
+          return new URL(url).hostname
+        } catch {
+          return null
+        }
+      })()
+
+      const isLocalhost = hostname.includes('localhost')
+      let slugFromSubdomain: string | null = null
+
+      if (isLocalhost) {
+        const parts = hostname.split('.')
+        if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') slugFromSubdomain = parts[0]
+      } else if (rootHostname && hostname.endsWith('.' + rootHostname)) {
+        const prefix = hostname.slice(0, -(rootHostname.length + 1))
+        slugFromSubdomain = prefix.split('.')[0] || null
+      }
+
+      const where =
+        slugFromSubdomain
+          ? { slug: { equals: slugFromSubdomain } }
+          : (() => {
+              const normalized = normalizeCustomDomain(hostname)
+              return normalized ? { domain: { equals: normalized } } : null
+            })()
+
+      if (where) {
+        const result = await req.payload
+          .find({
+            collection: 'tenants',
+            where,
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+            select: { id: true } as any,
+          })
+          .catch(() => null as any)
+
+        const id = result?.docs?.[0]?.id
+        if (typeof id === 'number') {
+          ctx.__resolvedTenantIdFromHost = id
+          return { tenant: { equals: id } }
+        }
       }
     }
 
