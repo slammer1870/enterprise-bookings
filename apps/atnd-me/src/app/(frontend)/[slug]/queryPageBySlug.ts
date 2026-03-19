@@ -13,12 +13,14 @@ export const queryPageBySlug = cache(async ({ slug }: { slug: string }): Promise
   const tenant = await getTenantContext(payload, { cookies: cookieStore })
   const tenantId = tenant?.id ?? null
 
-  // Build where clause with tenant filter if tenant context exists
+  // Build where clause:
+  // - On tenant sites (tenant context exists): only return that tenant's page.
+  // - On the base site (no tenant context): only return global pages (tenant is null).
   const where: Where = {
     slug: {
       equals: slug,
     },
-    ...(tenantId ? { tenant: { equals: tenantId } } : {}),
+    ...(tenantId ? { tenant: { equals: tenantId } } : { tenant: { equals: null } }),
   }
 
   const result = await payload.find({
