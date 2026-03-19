@@ -166,7 +166,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
           </>
         )}
 
-        <div className="relative z-10 flex flex-col justify-center gap-4 px-6 py-16 md:px-12 lg:px-16 max-w-3xl">
+        <div className="relative z-10 flex flex-col justify-center gap-4 px-6 pt-16 pb-16 md:px-12 lg:px-16 lg:pt-40 max-w-3xl">
           {logoUrl && (
             <div className="flex-shrink-0 mb-2">
               <Image
@@ -279,7 +279,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
         )}
 
         {/* Schedule Section - Card inside container width */}
-        <div className="w-full max-w-2xl z-20 md:self-start md:pt-16">
+        <div className="w-full max-w-2xl z-20 md:self-start md:pt-16 lg:pt-24">
           <div className="rounded-sm bg-background shadow-md p-6 md:p-8 w-full">
             <h2 className="text-3xl font-medium mb-6 text-center text-stone-900 uppercase">Schedule</h2>
             <Schedule />
