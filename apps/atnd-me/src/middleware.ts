@@ -136,6 +136,16 @@ export async function middleware(request: NextRequest) {
       response.cookies.delete('tenant-id')
       response.cookies.delete('tenant-slug')
     }
+    // Enforce tenant-admin tenant isolation in admin UI (root domain = no tenant).
+    if (isPayloadAdmin) {
+      const authCheck = await enforceAdminTenantAuthorization({
+        request,
+        response,
+        rootHostname,
+        platformOrigin,
+      })
+      if (authCheck) return authCheck
+    }
     return response
   }
 
@@ -200,6 +210,18 @@ export async function middleware(request: NextRequest) {
       }
     }
   }
+
+  // Enforce tenant-admin tenant isolation in admin UI.
+  if (isPayloadAdmin) {
+    const authCheck = await enforceAdminTenantAuthorization({
+      request,
+      response,
+      rootHostname,
+      platformOrigin,
+    })
+    if (authCheck) return authCheck
+  }
+
   return response
 }
 
@@ -213,4 +235,74 @@ export const config = {
      */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
+}
+
+type EnforceArgs = {
+  request: NextRequest
+  response: NextResponse
+  rootHostname: string | null
+  platformOrigin: string | null
+}
+
+function clearCookieHeader(name: string, path: string, domain?: string | null): string {
+  const domainAttr = domain ? `; Domain=${domain}` : ''
+  return `${name}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+}
+
+async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextResponse | null> {
+  const { request, response, rootHostname, platformOrigin } = args
+
+  // Allow the login screen and static assets to render without the extra check.
+  // (We still block the UI immediately after auth if tenant is wrong.)
+  const { pathname } = request.nextUrl
+  if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) return null
+
+  const origin = platformOrigin ?? request.nextUrl.origin
+  const url = `${origin}/api/admin/authorize-tenant`
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      cache: 'no-store',
+      headers: request.headers,
+    })
+  } catch {
+    // If the check fails (network/runtime), fail open so admin isn't bricked.
+    return null
+  }
+
+  if (res.status !== 403) return null
+
+  // Forbidden: clear tenant cookies and send user to platform root admin.
+  const redirectUrl = request.nextUrl.clone()
+  redirectUrl.pathname = '/admin'
+  redirectUrl.search = ''
+
+  if (rootHostname) {
+    redirectUrl.hostname = rootHostname
+    // Preserve port for local dev.
+    if (rootHostname.includes('localhost')) {
+      redirectUrl.port = request.nextUrl.port || redirectUrl.port
+    }
+  }
+
+  const redirectResponse = NextResponse.redirect(redirectUrl)
+
+  // Clear both host-scoped and domain-scoped cookies.
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/'))
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin'))
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/'))
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/'))
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/'))
+
+  if (rootHostname && !rootHostname.includes('localhost')) {
+    const domain = `.${rootHostname}`
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/', domain))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin', domain))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/', domain))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/', domain))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/', domain))
+  }
+
+  return redirectResponse
 }
