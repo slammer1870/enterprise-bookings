@@ -110,14 +110,16 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     return first ?? (t as (k: string) => string)('plugin-multi-tenant:nav-tenantSelector-label')
   })()
 
+  const isDocumentLikeView =
+    viewType != null && (['document', 'version'] as ViewTypes[]).includes(viewType)
+
   const readOnly =
     Boolean(disabled) ||
     Boolean(isHostLocked) ||
-    (!isOnNavbarOrFooter &&
-      !canClearTenantOnCurrentRoute &&
-      entityType !== 'global' &&
-      viewType != null &&
-      (['document', 'version'] as ViewTypes[]).includes(viewType))
+    // Navbar/Footer docs should not be able to switch tenant context mid-edit.
+    // The doc's tenant is controlled by the selector (synced to the hidden `tenant` relationship field).
+    (isOnNavbarOrFooter && isDocumentLikeView) ||
+    (!isOnNavbarOrFooter && !canClearTenantOnCurrentRoute && entityType !== 'global' && isDocumentLikeView)
 
   return (
     <div
