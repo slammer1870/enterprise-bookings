@@ -43,7 +43,12 @@ function buildR2WorkerRequestHandler(
       const authHeader = { 'X-R2-Auth': secret, 'X-R2-Key': key }
       const headers: Record<string, string> = { ...authHeader }
       const method = request.method ?? 'GET'
-      if (request.headers?.['Content-Type']) headers['Content-Type'] = String(request.headers['Content-Type'])
+      // Forward content-type case-insensitively so R2 stores correct metadata.
+      const ct =
+        (request.headers?.['content-type'] ?? request.headers?.['Content-Type'] ?? request.headers?.['CONTENT-TYPE']) as
+          | string
+          | undefined
+      if (ct) headers['Content-Type'] = String(ct)
       const res = await fetch(base, {
         method,
         headers,
@@ -51,6 +56,27 @@ function buildR2WorkerRequestHandler(
       })
       const resHeaders: Record<string, string> = {}
       res.headers.forEach((v, k) => (resHeaders[k] = v))
+      // Next/Image rejects `application/octet-stream`. If the Worker (or R2 metadata) returns a generic
+      // content-type, infer it from the key extension for common image types.
+      if (method === 'GET' && res.ok) {
+        const got = (resHeaders['content-type'] ?? '').toLowerCase()
+        if (!got || got.includes('application/octet-stream')) {
+          const ext = key.split('.').pop()?.toLowerCase() ?? ''
+          const inferred =
+            ext === 'png'
+              ? 'image/png'
+              : ext === 'jpg' || ext === 'jpeg'
+                ? 'image/jpeg'
+                : ext === 'webp'
+                  ? 'image/webp'
+                  : ext === 'gif'
+                    ? 'image/gif'
+                    : ext === 'svg'
+                      ? 'image/svg+xml'
+                      : null
+          if (inferred) resHeaders['content-type'] = inferred
+        }
+      }
       // SDK expects { response: HttpResponse }. For PUT/DELETE 2xx use empty body (Worker returns JSON). For GET return body as Node Readable.
       let body: unknown
       if (method === 'GET' && res.ok && res.body) {
