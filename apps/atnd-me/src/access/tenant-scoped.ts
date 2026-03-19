@@ -1,4 +1,4 @@
-import type { Access } from 'payload'
+import type { Access, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
@@ -272,6 +272,16 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
   const user = req.user
   const contextTenant = req.context?.tenant
 
+  const whereTenantOrPublic = (tenantId: number): Where =>
+    ({
+      or: [{ tenant: { equals: tenantId } }, { isPublic: { equals: true } }],
+    }) as unknown as Where
+
+  const whereTenantsOrPublic = (tenantIds: number[]): Where =>
+    ({
+      or: [{ tenant: { in: tenantIds } }, { isPublic: { equals: true } }],
+    }) as unknown as Where
+
   // Admin can read all documents
   if (user && checkRole(['admin'], user as unknown as SharedUser)) {
     return true
@@ -281,7 +291,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
   if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
     if (tenantIds === null || tenantIds.length === 0) return false
-    return { tenant: { in: tenantIds } }
+    return whereTenantsOrPublic(tenantIds)
   }
 
   // Public / regular users: only allow within current tenant context
@@ -291,7 +301,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
         ? (contextTenant as { id: number }).id
         : contextTenant
     if (typeof contextTenantId === 'number') {
-      return { tenant: { equals: contextTenantId } }
+      return whereTenantOrPublic(contextTenantId)
     }
   }
 
@@ -317,7 +327,8 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     const payloadTenant =
       cookieStore?.get?.('payload-tenant')?.value ?? getCookieFromHeader('payload-tenant') ?? null
     if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-      return { tenant: { equals: parseInt(payloadTenant, 10) } }
+      const id = parseInt(payloadTenant, 10)
+      return whereTenantOrPublic(id)
     }
 
     const tenantSlug =
@@ -327,7 +338,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
       const ctx = (req.context ??= {}) as Record<string, unknown>
       const cached = ctx.__resolvedTenantIdFromSlug
       if (typeof cached === 'number' && Number.isFinite(cached)) {
-        return { tenant: { equals: cached } }
+        return whereTenantOrPublic(cached)
       }
 
       const result = await req.payload
@@ -344,7 +355,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
       const id = result?.docs?.[0]?.id
       if (typeof id === 'number') {
         ctx.__resolvedTenantIdFromSlug = id
-        return { tenant: { equals: id } }
+        return whereTenantOrPublic(id)
       }
     }
 
@@ -353,7 +364,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     const ctx = (req.context ??= {}) as Record<string, unknown>
     const cachedHostTenant = ctx.__resolvedTenantIdFromHost
     if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
-      return { tenant: { equals: cachedHostTenant } }
+      return whereTenantOrPublic(cachedHostTenant)
     }
 
     const hostHeader =
@@ -406,12 +417,12 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
         const id = result?.docs?.[0]?.id
         if (typeof id === 'number') {
           ctx.__resolvedTenantIdFromHost = id
-          return { tenant: { equals: id } }
+          return whereTenantOrPublic(id)
         }
       }
     }
 
-    // Root domain / no tenant context: do not expose tenant media
-    return false
+    // No tenant context could be resolved: only publicly-linked media.
+    return { isPublic: { equals: true } } as unknown as Where
   })()
 }

@@ -4,6 +4,7 @@ import { link } from '@/fields/link'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { revalidateFooter } from './hooks/revalidateFooter'
+import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -230,7 +231,17 @@ export const Footer: CollectionConfig = {
         return data
       },
     ],
-    afterChange: [revalidateFooter],
+    afterChange: [
+      revalidateFooter,
+      async ({ req }) => {
+        await syncPublicMediaFlags(req)
+      },
+    ],
+    afterDelete: [
+      async ({ req }) => {
+        await syncPublicMediaFlags(req)
+      },
+    ],
   },
   timestamps: true,
 }

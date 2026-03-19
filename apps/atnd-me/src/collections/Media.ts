@@ -25,6 +25,7 @@ export const Media: CollectionConfig = {
   // In particular `updatedAt` is used as a cache-busting tag in `getMediaUrl(...)`.
   defaultPopulate: {
     alt: true,
+    isPublic: true,
     updatedAt: true,
     createdAt: true,
     url: true,
@@ -65,6 +66,19 @@ export const Media: CollectionConfig = {
     ],
   },
   fields: [
+    {
+      name: 'isPublic',
+      type: 'checkbox',
+      defaultValue: false,
+      access: {
+        create: () => false,
+        update: () => false,
+      },
+      admin: {
+        hidden: true,
+        readOnly: true,
+      },
+    },
     {
       name: 'alt',
       type: 'text',

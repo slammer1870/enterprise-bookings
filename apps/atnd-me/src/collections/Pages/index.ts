@@ -47,6 +47,7 @@ import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePage } from './hooks/revalidatePage'
 import { tenantScopedSlugField } from '../../fields/tenant-scoped-slug-field'
 import { getUserTenantIds } from '../../access/tenant-scoped'
+import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
 
 import {
   MetaDescriptionField,
@@ -317,7 +318,12 @@ export const Pages: CollectionConfig<'pages'> = {
     tenantScopedSlugField({ fieldToUse: 'title' }),
   ],
   hooks: {
-    afterChange: [revalidatePage],
+    afterChange: [
+      revalidatePage,
+      async ({ req }) => {
+        await syncPublicMediaFlags(req)
+      },
+    ],
     beforeValidate: [
       async ({ data, operation, req, originalDoc }) => {
         // Ensure tenant is set so version creation and slug validation have it.
@@ -389,7 +395,12 @@ export const Pages: CollectionConfig<'pages'> = {
         return data
       },
     ],
-    afterDelete: [revalidateDelete],
+    afterDelete: [
+      revalidateDelete,
+      async ({ req }) => {
+        await syncPublicMediaFlags(req)
+      },
+    ],
   },
   versions: {
     drafts: {

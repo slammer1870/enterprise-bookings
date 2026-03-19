@@ -4,6 +4,7 @@ import { link } from '@/fields/link'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { revalidateNavbar } from './hooks/revalidateNavbar'
+import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
 import {
     tenantScopedCreate,
     tenantScopedUpdate,
@@ -242,7 +243,17 @@ export const Navbar: CollectionConfig = {
                 return data
             },
         ],
-        afterChange: [revalidateNavbar],
+        afterChange: [
+            revalidateNavbar,
+            async ({ req }) => {
+                await syncPublicMediaFlags(req)
+            },
+        ],
+        afterDelete: [
+            async ({ req }) => {
+                await syncPublicMediaFlags(req)
+            },
+        ],
     },
     timestamps: true,
 }
