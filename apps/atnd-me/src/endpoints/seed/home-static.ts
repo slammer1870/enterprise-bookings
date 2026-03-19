@@ -8,7 +8,7 @@ export const homeStatic: RequiredDataFromCollectionSlug<'pages'> = {
     {
       blockType: 'heroSchedule',
       blockName: 'Hero Schedule',
-      title: 'Payload Website Template',
+      title: 'ATND',
       links: [
         {
           link: {
@@ -22,8 +22,8 @@ export const homeStatic: RequiredDataFromCollectionSlug<'pages'> = {
     },
   ],
   meta: {
-    description: 'An open-source website built with Payload and Next.js.',
-    title: 'Payload Website Template',
+    description: 'ATND — bookings and websites for modern venues.',
+    title: 'ATND',
   },
   title: 'Home',
 }

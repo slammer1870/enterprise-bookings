@@ -4,8 +4,7 @@ import { cookies } from 'next/headers'
 
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 
-const DEFAULT_PAYLOAD_LOGO =
-  'https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-logo-light.svg'
+const DEFAULT_ATND_LOGO = '/favicon.svg'
 
 type TenantBrandingProps = {
   payload: { find: (opts: unknown) => Promise<{ docs: unknown[] }> }
@@ -14,7 +13,7 @@ type TenantBrandingProps = {
 }
 
 /**
- * Server component that renders tenant logo when available, otherwise Payload default.
+ * Server component that renders tenant logo when available, otherwise ATND default.
  * Used for admin graphics.Logo and graphics.Icon.
  * Tenant is resolved from payload-tenant (TenantSelector) or tenant-slug (subdomain) cookie.
  */
@@ -36,10 +35,10 @@ export async function TenantBranding({ payload, variant, className }: TenantBran
     // Fall through to default
   }
 
-  const src = logoUrl || DEFAULT_PAYLOAD_LOGO
-  const alt = logoUrl ? logoAlt : 'Payload'
+  const src = logoUrl || DEFAULT_ATND_LOGO
+  const alt = logoUrl ? logoAlt : 'ATND'
 
-  const isExternal = src === DEFAULT_PAYLOAD_LOGO
+  const isExternal = /^https?:\/\//i.test(src)
 
   if (variant === 'icon') {
     return (
