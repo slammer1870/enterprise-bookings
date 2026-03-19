@@ -294,6 +294,46 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     }
   }
 
-  // Root domain / no tenant context: do not expose tenant media
-  return false
+  // Fallback: API/file requests may not have req.context.tenant set.
+  // Try to resolve tenant from cookies:
+  // - payload-tenant (plugin/admin cookie containing tenant id)
+  // - tenant-slug (middleware cookie) -> resolve to id
+  return (async () => {
+    const cookieStore = (req as unknown as { cookies?: { get?: (name: string) => { value?: string } | undefined } }).cookies
+
+    const payloadTenant = cookieStore?.get?.('payload-tenant')?.value ?? null
+    if (payloadTenant && /^\d+$/.test(payloadTenant)) {
+      return { tenant: { equals: parseInt(payloadTenant, 10) } }
+    }
+
+    const tenantSlug = cookieStore?.get?.('tenant-slug')?.value ?? null
+    if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
+      // Cache on req.context to avoid repeated tenant lookups during the same request.
+      const ctx = (req.context ??= {}) as Record<string, unknown>
+      const cached = ctx.__resolvedTenantIdFromSlug
+      if (typeof cached === 'number' && Number.isFinite(cached)) {
+        return { tenant: { equals: cached } }
+      }
+
+      const result = await req.payload
+        .find({
+          collection: 'tenants',
+          where: { slug: { equals: tenantSlug } },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+          select: { id: true } as any,
+        })
+        .catch(() => null as any)
+
+      const id = result?.docs?.[0]?.id
+      if (typeof id === 'number') {
+        ctx.__resolvedTenantIdFromSlug = id
+        return { tenant: { equals: id } }
+      }
+    }
+
+    // Root domain / no tenant context: do not expose tenant media
+    return false
+  })()
 }
