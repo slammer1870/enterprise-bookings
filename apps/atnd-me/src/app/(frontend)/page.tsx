@@ -117,17 +117,8 @@ export default async function RootPage() {
               A powerful multi-tenant booking platform for fitness studios, yoga centers, and wellness businesses.
             </p>
             <p className="text-lg text-gray-500 mb-12">
-              Manage your classes, instructors, and bookings all in one place. Choose from our available tenants below to get started.
+              Manage your classes, instructors, and bookings all in one place.
             </p>
-            
-            <div className="mb-12">
-              <Link
-                href="/tenants"
-                className="inline-block bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                View All Tenants
-              </Link>
-            </div>
 
             <div className="grid md:grid-cols-3 gap-8 mt-16">
               <div className="p-6 bg-white rounded-lg shadow-md">

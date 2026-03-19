@@ -43,8 +43,8 @@ export default async function ClassPassPurchasePage({
         <p className="text-muted-foreground">
           Select a tenant (or open this page from a tenant subdomain) to buy a class pass.
         </p>
-        <Link href="/tenants" className="mt-2 inline-block text-primary underline">
-          View tenants
+        <Link href="/" className="mt-2 inline-block text-primary underline">
+          Back to home
         </Link>
       </div>
     )

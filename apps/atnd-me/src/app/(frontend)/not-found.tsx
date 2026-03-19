@@ -60,51 +60,31 @@ export default async function NotFound() {
 
   // For root domain, use relative URLs
   const homeUrl = isInvalidTenant ? `${rootDomainUrl}/` : '/'
-  const tenantsUrl = isInvalidTenant ? `${rootDomainUrl}/tenants` : '/tenants'
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
       <div className="container mx-auto px-4 py-16 text-center">
         <h1 className="text-6xl font-bold mb-4 text-gray-900">404</h1>
-        
+
+        <h2 className="text-3xl font-semibold mb-4 text-gray-700">Page Not Found</h2>
+        <p className="text-xl text-gray-600 mb-8">
+          The page you&apos;re looking for doesn&apos;t exist.
+        </p>
+
         {isInvalidTenant ? (
-          <>
-            <h2 className="text-3xl font-semibold mb-4 text-gray-700">
-              Tenant Not Found
-            </h2>
-            <p className="text-xl text-gray-600 mb-8">
-              The tenant &quot;{tenantSlug}&quot; does not exist or is not available.
-            </p>
-            <div className="space-x-4">
-              <a
-                href={homeUrl}
-                className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Go to Home
-              </a>
-              <a
-                href={tenantsUrl}
-                className="inline-block bg-gray-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-gray-700 transition-colors"
-              >
-                View All Tenants
-              </a>
-            </div>
-          </>
+          <a
+            href={homeUrl}
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Go to Home
+          </a>
         ) : (
-          <>
-            <h2 className="text-3xl font-semibold mb-4 text-gray-700">
-              Page Not Found
-            </h2>
-            <p className="text-xl text-gray-600 mb-8">
-              The page you&apos;re looking for doesn&apos;t exist.
-            </p>
-            <Link
-              href="/"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Go to Home
-            </Link>
-          </>
+          <Link
+            href="/"
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Go to Home
+          </Link>
         )}
       </div>
     </div>
