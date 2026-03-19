@@ -17,6 +17,13 @@ export const queryPageBySlug = cache(async ({ slug }: { slug: string }): Promise
   // published global pages (tenant=null) to be able to render their referenced media.
   // For that case only, intentionally bypass access so relationship population works.
   const overrideAccess = draft || tenantId == null
+  const req =
+    tenantId != null
+      ? ({
+          payload,
+          context: { tenant: tenantId },
+        } as Parameters<(typeof payload)['find']>[0]['req'])
+      : undefined
 
   // Build where clause:
   // - On tenant sites (tenant context exists): only return that tenant's page.
@@ -35,6 +42,7 @@ export const queryPageBySlug = cache(async ({ slug }: { slug: string }): Promise
     limit: 1,
     pagination: false,
     overrideAccess,
+    ...(req ? { req } : {}),
     where,
   })
 
