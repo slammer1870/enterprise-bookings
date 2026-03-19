@@ -301,12 +301,26 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
   return (async () => {
     const cookieStore = (req as unknown as { cookies?: { get?: (name: string) => { value?: string } | undefined } }).cookies
 
-    const payloadTenant = cookieStore?.get?.('payload-tenant')?.value ?? null
+    const cookieHeader = req.headers?.get?.('cookie') ?? ''
+    const getCookieFromHeader = (name: string): string | null => {
+      if (!cookieHeader) return null
+      const m = cookieHeader.match(new RegExp(`(?:^|;\\\\s*)${name}=([^;]*)`))
+      if (!m?.[1]) return null
+      try {
+        return decodeURIComponent(m[1])
+      } catch {
+        return m[1]
+      }
+    }
+
+    const payloadTenant =
+      cookieStore?.get?.('payload-tenant')?.value ?? getCookieFromHeader('payload-tenant') ?? null
     if (payloadTenant && /^\d+$/.test(payloadTenant)) {
       return { tenant: { equals: parseInt(payloadTenant, 10) } }
     }
 
-    const tenantSlug = cookieStore?.get?.('tenant-slug')?.value ?? null
+    const tenantSlug =
+      cookieStore?.get?.('tenant-slug')?.value ?? getCookieFromHeader('tenant-slug') ?? null
     if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
       // Cache on req.context to avoid repeated tenant lookups during the same request.
       const ctx = (req.context ??= {}) as Record<string, unknown>
