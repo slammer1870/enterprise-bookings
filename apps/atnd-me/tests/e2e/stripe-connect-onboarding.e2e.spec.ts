@@ -159,10 +159,9 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
       .catch(() => null)
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
-    const status = page.getByTestId('stripe-connect-status')
-    await expect(status.getByText(/stripe connected/i)).toBeVisible({ timeout: 10000 })
-
     const gatedSection = page.getByTestId('require-stripe-connect')
+    await expect(gatedSection.getByText(/stripe connected/i)).toBeVisible({ timeout: 10000 })
+
     await expect(gatedSection.getByRole('link', { name: /connect stripe/i })).not.toBeVisible()
   })
 })

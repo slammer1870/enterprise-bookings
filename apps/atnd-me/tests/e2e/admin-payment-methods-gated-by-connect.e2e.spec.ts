@@ -125,8 +125,8 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
 
     await expect(page.getByTestId('require-stripe-connect')).toBeVisible({ timeout: 15000 })
 
-    const status = page.getByTestId('stripe-connect-status')
-    await expect(status.getByText(/stripe connected/i)).toBeVisible({ timeout: 10000 })
+    const gatedSection = page.getByTestId('require-stripe-connect')
+    await expect(gatedSection.getByText(/stripe connected/i)).toBeVisible({ timeout: 10000 })
 
     // Payment method section should be present (e.g. "Payment Methods" or "Enable payments")
     const paymentSection = page.getByText(/payment methods|enable payments/i).first()

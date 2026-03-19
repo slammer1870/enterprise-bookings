@@ -8,7 +8,7 @@ import { Logo } from '@/components/Logo/Logo'
 import { getPayload } from '@/lib/payload'
 import { getFooterForRequest, type FooterData } from '@/utilities/getNavbarFooterForRequest'
 
-const iconClass = 'size-5 flex-shrink-0'
+const iconClass = 'size-4 flex-shrink-0'
 
 function FooterIcon({
   icon,
@@ -19,8 +19,8 @@ function FooterIcon({
     return (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -40,8 +40,8 @@ function FooterIcon({
     return (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -57,8 +57,8 @@ function FooterIcon({
     return (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -74,8 +74,8 @@ function FooterIcon({
     return (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -164,14 +164,14 @@ export async function Footer() {
 
                   return (
                     <CMSLink
-                      className={textColor}
+                      className={`${textColor} text-sm`}
                       key={i}
                       {...linkProps}
                       {...(displayIcon != null
                         ? {
                             label: undefined,
                             children: (
-                              <span className="inline-flex items-center">
+                              <span className="inline-flex items-center text-sm">
                                 <FooterIcon icon={displayIcon} />
                                 <span className="ml-1.5">{linkProps.label ?? ''}</span>
                               </span>

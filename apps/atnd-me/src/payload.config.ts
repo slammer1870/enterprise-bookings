@@ -48,8 +48,6 @@ export default buildConfig({
       // The `BeforeDashboard` component renders the 'welcome' block that you see after logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeDashboard: ['@/components/BeforeDashboard'],
-      // Stripe Connect status in header so tenant-admins see it on every admin page (not only dashboard).
-      header: ['@/components/admin/StripeConnectStatus'],
       // Home link at top of sidebar for quick access to dashboard (analytics).
       beforeNavLinks: ['@/components/admin/NavHomeLink'],
       // Phase 4 – Custom analytics dashboard (replaces default dashboard view).
