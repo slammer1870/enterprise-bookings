@@ -260,3 +260,40 @@ export const tenantScopedReadFiltered: Access = ({ req }) => {
   // No tenant context - allow read (multi-tenant plugin will handle filtering if needed)
   return true
 }
+
+/**
+ * Media should never leak across tenants.
+ * - Admin: all media
+ * - Tenant-admin: media for their assigned tenants
+ * - Public/regular users: media for the current tenant context only
+ */
+export const tenantScopedMediaRead: Access = ({ req }) => {
+  const user = req.user
+  const contextTenant = req.context?.tenant
+
+  // Admin can read all documents
+  if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+    return true
+  }
+
+  // Tenant-admin: constrain to their tenants
+  if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+    if (tenantIds === null || tenantIds.length === 0) return false
+    return { tenant: { in: tenantIds } }
+  }
+
+  // Public / regular users: only allow within current tenant context
+  if (contextTenant) {
+    const contextTenantId =
+      typeof contextTenant === 'object' && contextTenant !== null && 'id' in contextTenant
+        ? (contextTenant as { id: number }).id
+        : contextTenant
+    if (typeof contextTenantId === 'number') {
+      return { tenant: { equals: contextTenantId } }
+    }
+  }
+
+  // Root domain / no tenant context: do not expose tenant media
+  return false
+}

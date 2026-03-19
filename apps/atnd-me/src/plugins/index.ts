@@ -483,6 +483,7 @@ export const plugins: Plugin[] = [
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
+      media: {}, // Tenant-scoped media uploads
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions
       // Globals converted to collections (one per tenant). customTenantField so we can allow
@@ -512,6 +513,7 @@ export const plugins: Plugin[] = [
       'plans',
       'discount-codes',
       'subscriptions',
+      'media',
       'forms',
       'form-submissions',
       'scheduler',

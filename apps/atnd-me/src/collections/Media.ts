@@ -8,8 +8,12 @@ import {
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { anyone } from '../access/anyone'
-import { authenticated } from '../access/authenticated'
+import {
+  tenantScopedCreate,
+  tenantScopedDelete,
+  tenantScopedMediaRead,
+  tenantScopedUpdate,
+} from '../access/tenant-scoped'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -18,10 +22,31 @@ export const Media: CollectionConfig = {
   slug: 'media',
   folders: false,
   access: {
-    create: authenticated,
-    delete: authenticated,
-    read: anyone,
-    update: authenticated,
+    read: tenantScopedMediaRead,
+    create: tenantScopedCreate,
+    update: tenantScopedUpdate,
+    delete: tenantScopedDelete,
+  },
+  hooks: {
+    beforeValidate: [
+      ({ data, req, operation }) => {
+        if (operation !== 'create') return data
+        if (!data) return data
+        if (data.tenant) return data
+
+        const rawTenant = req.context?.tenant
+        if (!rawTenant) return data
+
+        const id =
+          typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
+            ? (rawTenant as { id: number }).id
+            : rawTenant
+        if (typeof id === 'number') {
+          data.tenant = id
+        }
+        return data
+      },
+    ],
   },
   fields: [
     {
