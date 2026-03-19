@@ -62,26 +62,26 @@ export default async function NotFound() {
   const homeUrl = isInvalidTenant ? `${rootDomainUrl}/` : '/'
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
       <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-6xl font-bold mb-4 text-gray-900">404</h1>
+        <h1 className="text-6xl font-bold mb-4">404</h1>
 
-        <h2 className="text-3xl font-semibold mb-4 text-gray-700">Page Not Found</h2>
-        <p className="text-xl text-gray-600 mb-8">
+        <h2 className="text-3xl font-semibold mb-4">Page Not Found</h2>
+        <p className="text-xl text-muted-foreground mb-8">
           The page you&apos;re looking for doesn&apos;t exist.
         </p>
 
         {isInvalidTenant ? (
           <a
             href={homeUrl}
-            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg text-lg font-semibold px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background transition-colors"
           >
             Go to Home
           </a>
         ) : (
           <Link
             href="/"
-            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg text-lg font-semibold px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background transition-colors"
           >
             Go to Home
           </Link>

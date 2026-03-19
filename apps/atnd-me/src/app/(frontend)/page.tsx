@@ -107,35 +107,35 @@ export default async function RootPage() {
     // Return the default marketing page structure
     // To make this editable: Create a page with slug "root" and leave tenant field empty (admin can do this)
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <div className="min-h-screen bg-background text-foreground">
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl font-bold mb-6 text-gray-900">
+            <h1 className="text-5xl font-bold mb-6">
               Welcome to ATND ME
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className="text-xl text-muted-foreground mb-8">
               A powerful multi-tenant booking platform for fitness studios, yoga centers, and wellness businesses.
             </p>
-            <p className="text-lg text-gray-500 mb-12">
+            <p className="text-lg text-muted-foreground/80 mb-12">
               Manage your classes, instructors, and bookings all in one place.
             </p>
 
             <div className="grid md:grid-cols-3 gap-8 mt-16">
-              <div className="p-6 bg-white rounded-lg shadow-md">
+              <div className="p-6 bg-card text-card-foreground rounded-lg border border-border shadow-sm">
                 <h2 className="text-2xl font-semibold mb-4">Easy Booking</h2>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Simple and intuitive booking system for your customers. Book classes in just a few clicks.
                 </p>
               </div>
-              <div className="p-6 bg-white rounded-lg shadow-md">
+              <div className="p-6 bg-card text-card-foreground rounded-lg border border-border shadow-sm">
                 <h2 className="text-2xl font-semibold mb-4">Multi-Tenant</h2>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Each tenant has their own isolated space with custom branding, pages, and settings.
                 </p>
               </div>
-              <div className="p-6 bg-white rounded-lg shadow-md">
+              <div className="p-6 bg-card text-card-foreground rounded-lg border border-border shadow-sm">
                 <h2 className="text-2xl font-semibold mb-4">Flexible Management</h2>
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                   Manage instructors, class options, schedules, and bookings all from one admin panel.
                 </p>
               </div>

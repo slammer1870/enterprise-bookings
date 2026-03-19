@@ -106,8 +106,8 @@ export async function Footer() {
   const padding = styling?.padding || 'medium'
 
   // Get styling values
-  const backgroundColor = styling?.backgroundColor || 'bg-black dark:bg-card'
-  const textColor = styling?.textColor || 'text-white'
+  const backgroundColor = styling?.backgroundColor || 'bg-card'
+  const textColor = styling?.textColor || 'text-card-foreground'
 
   const logoUrl = typeof logo === 'object' && logo?.url ? logo.url : null
   const logoAlt = typeof logo === 'object' && logo?.alt ? logo.alt : 'Logo'

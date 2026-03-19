@@ -60,7 +60,7 @@ export const BookingsTrendChart: React.FC<{
         <Tooltip
           labelFormatter={(v) => (typeof v === 'string' ? v.slice(0, 10) : String(v))}
           contentStyle={{
-            backgroundColor: 'var(--theme-elevation-50, #fff)',
+            backgroundColor: 'var(--theme-elevation-50)',
             border: '1px solid var(--theme-elevation-200, #ddd)',
             borderRadius: '4px',
           }}

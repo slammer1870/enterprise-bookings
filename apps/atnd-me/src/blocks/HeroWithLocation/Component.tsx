@@ -281,7 +281,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
         {/* Schedule Section - Card inside container width */}
         <div className="w-full max-w-2xl z-20 md:self-start md:pt-16 lg:pt-24">
           <div className="rounded-sm bg-background shadow-md p-6 md:p-8 w-full">
-            <h2 className="text-3xl font-medium mb-6 text-center text-stone-900 uppercase">Schedule</h2>
+            <h2 className="text-3xl font-medium mb-6 text-center text-foreground uppercase">Schedule</h2>
             <Schedule />
           </div>
         </div>

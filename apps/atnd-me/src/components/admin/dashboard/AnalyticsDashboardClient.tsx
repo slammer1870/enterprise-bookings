@@ -135,7 +135,7 @@ export const AnalyticsDashboardClient: React.FC<{
                 padding: '1rem',
                 border: '1px solid var(--theme-elevation-200, #eee)',
                 borderRadius: '6px',
-                backgroundColor: 'var(--theme-elevation-50, #fafafa)',
+                backgroundColor: 'var(--theme-elevation-50)',
               }}
             >
               <div style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
@@ -155,7 +155,7 @@ export const AnalyticsDashboardClient: React.FC<{
                 padding: '1rem',
                 border: '1px solid var(--theme-elevation-200, #eee)',
                 borderRadius: '6px',
-                backgroundColor: 'var(--theme-elevation-50, #fafafa)',
+                backgroundColor: 'var(--theme-elevation-50)',
               }}
             >
               <div style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
@@ -178,7 +178,7 @@ export const AnalyticsDashboardClient: React.FC<{
                 border: '1px solid var(--theme-elevation-200, #eee)',
                 borderRadius: '6px',
                 padding: '1rem',
-                backgroundColor: '#fff',
+                backgroundColor: 'var(--theme-elevation-0)',
               }}
             >
               <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', marginTop: 0 }}>Bookings over time</h2>
@@ -200,7 +200,7 @@ export const AnalyticsDashboardClient: React.FC<{
                   border: '1px solid var(--theme-elevation-200, #eee)',
                   borderRadius: '6px',
                   overflow: 'hidden',
-                  backgroundColor: '#fff',
+                  backgroundColor: 'var(--theme-elevation-0)',
                   padding: '1rem',
                 }}
               >
