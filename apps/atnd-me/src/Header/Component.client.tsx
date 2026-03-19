@@ -49,7 +49,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
 
   return (
     <header
-      className="absolute top-0 left-0 right-0 z-20"
+      className="absolute top-0 left-0 right-0 z-40"
       {...(theme ? { 'data-theme': theme } : {})}
       style={{
         backgroundColor,
