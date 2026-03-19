@@ -32,13 +32,26 @@ export function setPayloadTenantCookie(
   const encoded = tenantId != null && tenantId !== '' ? encodeURIComponent(tenantId) : ''
   const isSet = encoded !== ''
   const domain = getCookieDomain?.() ?? getPayloadTenantCookieDomainDefault()
+
+  // Ensure there is only ONE payload-tenant cookie entry:
+  // - no duplicates across path (/, /admin, /admin/)
+  // - no duplicates across host-only vs domain-scoped
+  //
+  // Canonical cookie is always Path=/, optionally Domain=... when provided.
+  const domainsToClear = [undefined, domain].filter(
+    (d, idx, arr) => arr.indexOf(d) === idx,
+  ) as Array<string | undefined>
+  const pathsToClear = ['/', '/admin', '/admin/'] as const
+  for (const d of domainsToClear) {
+    const domainAttr = d ? `; Domain=${d}` : ''
+    for (const path of pathsToClear) {
+      document.cookie = `${PAYLOAD_TENANT_COOKIE}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+    }
+  }
+
   const domainAttr = domain ? `; Domain=${domain}` : ''
-  const baseAttrs = `SameSite=Lax${domainAttr}`
   const maxAgeAttrs = isSet ? `Max-Age=${COOKIE_MAX_AGE_YEAR}` : `Max-Age=0`
-  const base = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/; ${maxAgeAttrs}; ${baseAttrs}`
-  document.cookie = base
-  document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/admin; ${maxAgeAttrs}; ${baseAttrs}`
-  document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/admin/; ${maxAgeAttrs}; ${baseAttrs}`
+  document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/; ${maxAgeAttrs}; SameSite=Lax${domainAttr}`
 }
 
 export function deleteTenantCookie(getCookieDomain?: () => string | undefined): void {
