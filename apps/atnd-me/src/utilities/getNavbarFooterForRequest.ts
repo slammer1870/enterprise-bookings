@@ -182,17 +182,18 @@ export async function getNavbarForRequest(
 
   const tenantBranding = await getTenantWithBranding(payload, source)
 
-  // Use req.context.tenant for tenant scoping (like footer). We've seen cases where
-  // a tenant request with no navbar doc can incorrectly resolve another tenant's navbar.
+  // Use req.context.tenant for tenant scoping (like footer).
   const req = {
     payload,
     context: { tenant: tenant.id },
   } as Parameters<Payload['find']>[0]['req']
   const result = await payload.find({
     collection: 'navbar',
+    where: { tenant: { equals: tenant.id } },
     limit: 1,
     depth: 1,
-    overrideAccess: true,
+    // Public read is allowed; keep access + tenant base filter behavior intact
+    overrideAccess: false,
     req,
   })
 
