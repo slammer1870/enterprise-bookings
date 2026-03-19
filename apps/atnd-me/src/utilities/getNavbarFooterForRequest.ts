@@ -270,17 +270,17 @@ export async function getFooterForRequest(
 
   const tenantBranding = await getTenantWithBranding(payload, source)
 
-  // Use req.context.tenant instead of where.tenant to avoid known bug
-  // (footer find with where.tenant generates invalid SQL: "where  = $1")
   const req = {
     payload,
     context: { tenant: tenant.id },
   } as Parameters<Payload['find']>[0]['req']
   const result = await payload.find({
     collection: 'footer',
+    where: { tenant: { equals: tenant.id } },
     limit: 1,
     depth: 1,
-    overrideAccess: true,
+    // Public read is allowed; keep access + tenant base filter behavior intact
+    overrideAccess: false,
     req,
   })
 

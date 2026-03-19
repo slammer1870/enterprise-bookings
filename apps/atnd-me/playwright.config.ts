@@ -7,9 +7,9 @@ import dotenv from 'dotenv'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '.env') })
 
-// payload-auth uses directory imports that Node ESM rejects; this loader resolves them.
-const payloadAuthLoader = path.resolve(__dirname, 'scripts/payload-auth-loader.mjs')
-const nodeOptionsWithLoader = `--no-deprecation --experimental-loader ${payloadAuthLoader}`
+// payload-auth uses directory imports that Node ESM rejects; this import hook registers a resolver.
+const payloadAuthRegister = path.resolve(__dirname, 'scripts/register-payload-auth-loader.mjs')
+const nodeOptionsWithLoader = `--no-deprecation --import ${payloadAuthRegister}`
 
 import { defineConfig, devices } from '@playwright/test'
 
@@ -37,8 +37,8 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     actionTimeout: 30000,
     navigationTimeout: 60000,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    trace: 'off',
+    screenshot: 'off',
   },
   projects: [
     {
@@ -70,7 +70,8 @@ export default defineConfig({
         // Dev mode fallback: `next dev` with payload-auth loader (no build required, slower)
         command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev:e2e',
         url: 'http://localhost:3000/admin',
-        timeout: 180000,
+        // Admin route compilation can be slow on fresh builds / CI
+        timeout: 600000,
         reuseExistingServer: !process.env.CI,
         stdout: 'pipe',
         stderr: 'pipe',

@@ -1,8 +1,8 @@
-import { register } from "node:module";
+import { register } from 'node:module'
 
-// Register the custom resolver so Node can load `payload-auth`'s published ESM output
+// Node 22+ prefers `--import` + `register()` over `--experimental-loader`.
+// Register our custom resolver so Node can load `payload-auth`'s published ESM output
 // (which contains extensionless and directory specifiers).
-// Important: register relative to *this file*, not `process.cwd()`, because Next
-// can change the working directory or spawn workers with a different cwd.
-register("./payload-auth-loader.mjs", import.meta.url);
+const loaderURL = new URL('./payload-auth-loader.mjs', import.meta.url)
+register(loaderURL.href, import.meta.url)
 
