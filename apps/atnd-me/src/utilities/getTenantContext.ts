@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import { getPlatformHostname } from './getURL'
 
 /**
  * Source for extracting tenant slug (cookies, headers, URL params).
@@ -36,10 +37,61 @@ export async function getTenantSlug(
   return null
 }
 
+function getTenantSlugFromHost(headers?: Headers | null): string | null {
+  const host = headers?.get('x-forwarded-host')?.split(',')[0]?.trim() || headers?.get('host')?.trim()
+  if (!host) return null
+
+  const hostname = host.split(':')[0] ?? host
+  const platformHostname = getPlatformHostname()
+
+  if (hostname.includes('localhost')) {
+    const parts = hostname.split('.')
+    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') {
+      return parts[0]
+    }
+    return null
+  }
+
+  if (!platformHostname || hostname === platformHostname) {
+    return null
+  }
+
+  if (hostname.endsWith(`.${platformHostname}`)) {
+    const prefix = hostname.slice(0, -(platformHostname.length + 1))
+    return prefix.split('.')[0] || null
+  }
+
+  return null
+}
+
+async function findTenantByHost(payload: Payload, headers?: Headers | null) {
+  const host = headers?.get('x-forwarded-host')?.split(',')[0]?.trim() || headers?.get('host')?.trim()
+  if (!host) return null
+
+  const hostname = host.split(':')[0] ?? host
+  const platformHostname = getPlatformHostname()
+
+  if (!hostname || hostname.includes('localhost')) return null
+  if (platformHostname && (hostname === platformHostname || hostname.endsWith(`.${platformHostname}`))) {
+    return null
+  }
+
+  const result = await payload.find({
+    collection: 'tenants',
+    where: { domain: { equals: hostname } },
+    limit: 1,
+    depth: 1,
+    overrideAccess: true,
+  })
+
+  return result.docs[0] ?? null
+}
+
 export type TenantContext = {
   id: number
   slug: string
   name: string
+  domain?: string | null
 }
 
 /**
@@ -59,7 +111,7 @@ export async function getTenantContext(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<TenantContext | null> {
-  const slug = await getTenantSlug(source)
+  const slug = (await getTenantSlug(source)) || getTenantSlugFromHost(source?.headers)
   if (slug) {
     const result = await payload.find({
       collection: 'tenants',
@@ -76,6 +128,17 @@ export async function getTenantContext(
       id: tenant.id as number,
       slug: tenant.slug as string,
       name: (tenant as { name?: string }).name ?? '',
+      domain: (tenant as { domain?: string | null }).domain ?? null,
+    }
+  }
+
+  const tenantFromHost = await findTenantByHost(payload, source?.headers)
+  if (tenantFromHost) {
+    return {
+      id: tenantFromHost.id as number,
+      slug: tenantFromHost.slug as string,
+      name: (tenantFromHost as { name?: string }).name ?? '',
+      domain: (tenantFromHost as { domain?: string | null }).domain ?? null,
     }
   }
 
@@ -93,11 +156,12 @@ export async function getTenantContext(
       overrideAccess: true,
     })
     if (!tenant) return null
-    const t = tenant as { id: number; slug: string; name?: string }
+    const t = tenant as { id: number; slug: string; name?: string; domain?: string | null }
     return {
       id: t.id,
       slug: t.slug,
       name: t.name ?? '',
+      domain: t.domain ?? null,
     }
   } catch {
     return null
@@ -118,7 +182,7 @@ export async function getTenantWithBranding(
 ): Promise<TenantWithBranding | null> {
   const cookieStore = source?.cookies
 
-  const slug = await getTenantSlug(source)
+  const slug = (await getTenantSlug(source)) || getTenantSlugFromHost(source?.headers)
   // Prefer explicit tenant slug (subdomain/custom-domain resolution) over admin selector cookie.
   if (slug) {
     const result = await payload.find({
@@ -136,6 +200,7 @@ export async function getTenantWithBranding(
       id: number
       slug: string
       name?: string
+      domain?: string | null
       logo?: { url?: string; alt?: string } | number | null
       description?: string | null
     }
@@ -144,6 +209,28 @@ export async function getTenantWithBranding(
       id: t.id,
       slug: t.slug,
       name: t.name ?? '',
+      domain: t.domain ?? null,
+      logo: t.logo,
+      description: t.description,
+    }
+  }
+
+  const tenantFromHost = await findTenantByHost(payload, source?.headers)
+  if (tenantFromHost) {
+    const t = tenantFromHost as {
+      id: number
+      slug: string
+      name?: string
+      domain?: string | null
+      logo?: { url?: string; alt?: string } | number | null
+      description?: string | null
+    }
+
+    return {
+      id: t.id,
+      slug: t.slug,
+      name: t.name ?? '',
+      domain: t.domain ?? null,
       logo: t.logo,
       description: t.description,
     }
@@ -167,6 +254,7 @@ export async function getTenantWithBranding(
       id: number
       slug: string
       name?: string
+      domain?: string | null
       logo?: { url?: string; alt?: string } | number | null
       description?: string | null
     }
@@ -174,6 +262,7 @@ export async function getTenantWithBranding(
       id: t.id,
       slug: t.slug,
       name: t.name ?? '',
+      domain: t.domain ?? null,
       logo: t.logo,
       description: t.description,
     }

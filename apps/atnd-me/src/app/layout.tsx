@@ -7,6 +7,7 @@ import { GeistMono } from 'geist/font/mono'
 import { GeistSans } from 'geist/font/sans'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
+import { getTenantSiteURL } from '@/utilities/getURL'
 
 /** Set by middleware for /admin so Payload's RootLayout is the only document (avoids nested <html>/<body>). */
 const ADMIN_HEADER = 'x-next-payload-admin'
@@ -24,16 +25,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const fallbackAppName = 'ATND ME'
   try {
     const cookieStore = await cookies()
+    const headersList = await headers()
     const payload = await getPayload()
-    const tenant = await getTenantWithBranding(payload, { cookies: cookieStore })
+    const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
     const logo = tenant?.logo
     const appName = tenant?.name?.trim() || tenant?.slug?.trim() || fallbackAppName
+    const metadataBase = new URL(getTenantSiteURL(tenant, headersList))
     const logoUrl =
       logo && typeof logo === 'object' && logo !== null && typeof logo.url === 'string'
-        ? logo.url
+        ? new URL(logo.url, metadataBase).toString()
         : null
 
     return {
+      metadataBase,
       title: {
         default: appName,
         template: `%s | ${appName}`,
@@ -54,6 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // Fall through to default favicon
   }
   return {
+    metadataBase: new URL(getTenantSiteURL()),
     title: {
       default: fallbackAppName,
       template: `%s | ${fallbackAppName}`,

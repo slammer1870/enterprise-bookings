@@ -1,14 +1,16 @@
 import { getPayload } from '@/lib/payload'
 import { cookies } from 'next/headers'
-import Link from 'next/link'
 import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { draftMode } from 'next/headers'
+import type { Metadata } from 'next'
 import type { RequiredDataFromCollectionSlug } from 'payload'
 import type { Page } from '@/payload-types'
 import PageClient from './[slug]/page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { queryPageBySlug } from './[slug]/queryPageBySlug'
+import { generateMeta } from '@/utilities/generateMeta'
+import { getTenantWithBranding } from '@/utilities/getTenantContext'
 
 /**
  * Root page handler for both marketing (no subdomain) and tenant home pages
@@ -157,4 +159,55 @@ export default async function RootPage() {
       <RenderBlocks blocks={layout} />
     </article>
   )
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies()
+  const payload = await getPayload()
+  const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore })
+
+  if (cookieStore.get('tenant-slug')?.value) {
+    const homePage = await queryPageBySlug({ slug: 'home' })
+    if (homePage) {
+      return generateMeta({
+        doc: homePage,
+        tenantBranding,
+        pathname: '/',
+      })
+    }
+
+    return generateMeta({
+      doc: null,
+      tenantBranding,
+      pathname: '/',
+    })
+  }
+
+  let rootPage: RequiredDataFromCollectionSlug<'pages'> | null = null
+
+  try {
+    const rootPages = await payload.find({
+      collection: 'pages',
+      where: {
+        slug: {
+          equals: 'root',
+        },
+      },
+      draft: false,
+      depth: 2,
+      limit: 10,
+      pagination: false,
+      overrideAccess: true,
+    })
+
+    rootPage = rootPages.docs.find((doc: Page) => !doc.tenant || doc.tenant === null) ?? null
+  } catch {
+    rootPage = null
+  }
+
+  return generateMeta({
+    doc: rootPage,
+    tenantBranding: null,
+    pathname: '/',
+  })
 }

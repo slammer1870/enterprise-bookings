@@ -11,6 +11,7 @@ import type { Post } from '@/payload-types'
 
 import { PostHero } from '@/heros/PostHero'
 import { generateMeta } from '@/utilities/generateMeta'
+import { getTenantWithBranding } from '@/utilities/getTenantContext'
 import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 
@@ -82,8 +83,18 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   // Decode to support slugs with special characters
   const decodedSlug = decodeURIComponent(slug)
   const post = await queryPostBySlug({ slug: decodedSlug })
+  const payload = await getPayload()
+  const { cookies, headers } = await import('next/headers')
+  const cookieStore = await cookies()
+  const headersList = await headers()
+  const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
 
-  return generateMeta({ doc: post })
+  return generateMeta({
+    doc: post,
+    tenantBranding,
+    pathname: `/posts/${decodedSlug}`,
+    headers: headersList,
+  })
 }
 
 const queryPostBySlug = cache(async ({ slug }: { slug: string }) => {

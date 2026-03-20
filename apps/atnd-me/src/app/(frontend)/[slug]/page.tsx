@@ -121,7 +121,14 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   const payload = await getPayload()
   const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
-  const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore })
+  const { headers } = await import('next/headers')
+  const headersList = await headers()
+  const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
 
-  return generateMeta({ doc: page, tenantBranding })
+  return generateMeta({
+    doc: page,
+    tenantBranding,
+    pathname: decodedSlug === 'home' ? '/' : `/${decodedSlug}`,
+    headers: headersList,
+  })
 }

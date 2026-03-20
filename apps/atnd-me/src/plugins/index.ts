@@ -64,17 +64,33 @@ import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { getActiveR2Config } from '@/lib/storage/config'
 
-import { Page, Post } from '@/payload-types'
-import { getServerSideURL } from '@/utilities/getURL'
+import { Page, Post, Tenant } from '@/payload-types'
+import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
 
 const generateTitle: GenerateTitle<Post | Page> = ({ doc }) => {
   return doc?.title ? `${doc.title} | ATND` : 'ATND'
 }
 
 const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
-  const url = getServerSideURL()
+  const page = doc as Partial<Page>
+  const tenant =
+    page?.tenant && typeof page.tenant === 'object'
+      ? (page.tenant as Tenant)
+      : null
+  const baseURL = getTenantSiteURL(tenant)
+  const isRootPage = page?.slug === 'root' && !tenant
+  const isTenantHomePage = page?.slug === 'home' && Boolean(tenant)
 
-  return doc?.slug ? `${url}/${doc.slug}` : url
+  if (isRootPage || isTenantHomePage) {
+    return baseURL
+  }
+
+  if (doc?.slug) {
+    const pathname = 'tenant' in page ? `/${doc.slug}` : `/posts/${doc.slug}`
+    return getAbsoluteURL(pathname, baseURL)
+  }
+
+  return getServerSideURL()
 }
 
 export const plugins: Plugin[] = [

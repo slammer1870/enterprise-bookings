@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cookies, headers } from 'next/headers'
 
 // Header/Footer use cookies(), layout uses draftMode(), pages use getSession()/headers().
 // Force dynamic so these dynamic APIs are valid and we avoid DYNAMIC_SERVER_USAGE in CI/production.
@@ -14,8 +15,10 @@ import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
 import '@repo/ui/globals.css'
 
 import './globals.css'
-import { getServerSideURL } from '@/utilities/getURL'
 import { Toaster } from 'sonner'
+import { getPayload } from '@/lib/payload'
+import { getTenantWithBranding } from '@/utilities/getTenantContext'
+import { getAbsoluteURL, getTenantSiteURL } from '@/utilities/getURL'
 
 export default async function RootLayout({
   children,
@@ -41,11 +44,28 @@ export default async function RootLayout({
   )
 }
 
-export const metadata: Metadata = {
-  metadataBase: new URL(getServerSideURL()),
-  openGraph: mergeOpenGraph(),
-  twitter: {
-    card: 'summary_large_image',
-    creator: 'ATND',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies()
+  const headersList = await headers()
+  const payload = await getPayload()
+  const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
+  const siteUrl = getTenantSiteURL(tenant, headersList)
+  const logoUrl =
+    tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
+      ? getAbsoluteURL(tenant.logo.url, siteUrl)
+      : undefined
+
+  return {
+    openGraph: mergeOpenGraph({
+      images: logoUrl ? [{ url: logoUrl }] : undefined,
+      siteName: tenant?.name || 'ATND ME',
+      title: tenant?.name || 'ATND ME',
+      url: siteUrl,
+    }),
+    twitter: {
+      card: 'summary_large_image',
+      creator: 'ATND',
+      images: logoUrl ? [logoUrl] : undefined,
+    },
+  }
 }
