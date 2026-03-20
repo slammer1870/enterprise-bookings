@@ -59,6 +59,7 @@ import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
+import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { getActiveR2Config } from '@/lib/storage/config'
@@ -176,6 +177,8 @@ export const plugins: Plugin[] = [
   fixBetterAuthRoleField(),
   // Hide Better Auth collections (accounts, sessions, verifications) from tenant-admins; only full admins see them
   hideBetterAuthCollectionsFromTenantAdmins(),
+  // Hide platform website management collections from tenant-admins.
+  hideWebsiteCollectionsFromTenantAdmins(),
   bookingsPlugin({
     enabled: true,
     lessonOverrides: {
