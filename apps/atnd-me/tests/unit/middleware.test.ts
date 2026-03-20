@@ -139,4 +139,42 @@ describe('Middleware', () => {
       expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
     })
   })
+
+  describe('admin cookie synchronization', () => {
+    const originalFetch = globalThis.fetch
+
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    })
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    it('resyncs payload-tenant when tenant-slug changes on admin route', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=acme')) {
+          return new Response(JSON.stringify({ id: 42 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://acme.atnd-me.com/admin', {
+        headers: {
+          host: 'acme.atnd-me.com',
+          cookie: 'tenant-slug=old-tenant; payload-tenant=7',
+        },
+      })
+
+      const res = await middleware(req)
+      const setCookie = res.headers.get('set-cookie')
+
+      expect(setCookie).toContain('tenant-slug=acme')
+      expect(setCookie).toContain('payload-tenant=42')
+    })
+  })
 })

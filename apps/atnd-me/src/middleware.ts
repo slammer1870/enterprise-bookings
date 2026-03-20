@@ -196,8 +196,12 @@ export async function middleware(request: NextRequest) {
   // if payload-tenant isn't set yet (server components can't rely on client-side cookie set).
   if (isPayloadAdmin) {
     const existingPayloadTenant = request.cookies.get(PAYLOAD_TENANT_COOKIE)?.value
+    const shouldResyncPayloadTenant =
+      existingTenantSlug !== subdomain &&
+      existingTenantSlug != null &&
+      existingTenantSlug !== ''
     if (
-      (existingPayloadTenant == null || existingPayloadTenant === '') &&
+      ((existingPayloadTenant == null || existingPayloadTenant === '') || shouldResyncPayloadTenant) &&
       subdomain &&
       /^[a-z0-9-]+$/i.test(subdomain)
     ) {
