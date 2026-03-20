@@ -1,6 +1,22 @@
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
 const COOKIE_MAX_AGE_YEAR = 60 * 60 * 24 * 365
 
+function getRootHostnameFromEnv(): string | undefined {
+  const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL
+  if (!serverUrl) return undefined
+  try {
+    return new URL(serverUrl).hostname
+  } catch {
+    return undefined
+  }
+}
+
+function getRootCookieDomainFromEnv(): string | undefined {
+  const rootHostname = getRootHostnameFromEnv()
+  if (!rootHostname || rootHostname === 'localhost') return undefined
+  return `.${rootHostname}`
+}
+
 /**
  * Default cookie domain for payload-tenant when admin is on subdomain.
  * Uses NEXT_PUBLIC_SERVER_URL and window.location.hostname. Apps can override via context if needed.
@@ -31,14 +47,24 @@ export function setPayloadTenantCookie(
   if (typeof document === 'undefined') return
   const encoded = tenantId != null && tenantId !== '' ? encodeURIComponent(tenantId) : ''
   const isSet = encoded !== ''
-  const domain = getCookieDomain?.() ?? getPayloadTenantCookieDomainDefault()
+  const rootHostname = getRootHostnameFromEnv()
+  const rootDomain = getRootCookieDomainFromEnv()
+  const defaultDomain = getPayloadTenantCookieDomainDefault()
+  const configuredDomain = getCookieDomain?.()
+  const currentHostname = window.location.hostname
+  // Prefer explicit override, then host-based default. On root host, use root domain
+  // so root/subdomain contexts share the same canonical cookie value.
+  const domain =
+    configuredDomain ??
+    defaultDomain ??
+    (rootHostname && currentHostname === rootHostname ? rootDomain : undefined)
 
   // Ensure there is only ONE payload-tenant cookie entry:
   // - no duplicates across path (/, /admin, /admin/)
   // - no duplicates across host-only vs domain-scoped
   //
   // Canonical cookie is always Path=/, optionally Domain=... when provided.
-  const domainsToClear = [undefined, domain].filter(
+  const domainsToClear = [undefined, domain, rootDomain].filter(
     (d, idx, arr) => arr.indexOf(d) === idx,
   ) as Array<string | undefined>
   const pathsToClear = ['/', '/admin', '/admin/'] as const
@@ -60,6 +86,7 @@ export function deleteTenantCookie(getCookieDomain?: () => string | undefined): 
   // For example: after selecting a tenant on a subdomain we may set Domain=.rootHostname,
   // then later clearing on the root hostname must also delete that domain-scoped cookie.
   const domain = getCookieDomain?.() ?? getPayloadTenantCookieDomainDefault()
+  const rootDomain = getRootCookieDomainFromEnv()
   const baseNoDomain = `${PAYLOAD_TENANT_COOKIE}=; Max-Age=0; SameSite=Lax`
   const baseWithDomain = domain ? `${baseNoDomain}; Domain=${domain}` : null
 
@@ -67,6 +94,9 @@ export function deleteTenantCookie(getCookieDomain?: () => string | undefined): 
   for (const path of paths) {
     document.cookie = `${baseNoDomain}; Path=${path}`
     if (baseWithDomain) document.cookie = `${baseWithDomain}; Path=${path}`
+    if (rootDomain) {
+      document.cookie = `${PAYLOAD_TENANT_COOKIE}=; Max-Age=0; SameSite=Lax; Domain=${rootDomain}; Path=${path}`
+    }
   }
 }
 
