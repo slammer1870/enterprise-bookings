@@ -12,6 +12,10 @@ function stripeDateOnly(unix: number | null | undefined): string | null {
 }
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
+import {
+  assertConnectWebhookEventApiVersion,
+  warnIfConnectWebhookEventApiVersionMismatch,
+} from '@/lib/stripe-connect/connectWebhookApiVersion'
 import { verifyStripeConnectWebhook } from '@/lib/stripe-connect/webhookVerify'
 import {
   hasProcessedStripeConnectEvent,
@@ -46,6 +50,14 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
+
+  try {
+    assertConnectWebhookEventApiVersion(event)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Webhook API version mismatch'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+  warnIfConnectWebhookEventApiVersionMismatch(event)
 
   if (hasProcessedStripeConnectEvent(event.id)) {
     return NextResponse.json({ received: true }, { status: 200 })

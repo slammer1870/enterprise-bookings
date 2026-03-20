@@ -69,8 +69,12 @@ export async function createTenantCouponAndPromoCode(
   }
   const coupon = await stripe.coupons.create(couponParams, { stripeAccount: accountId })
 
+  // Clover API expects `promotion`; stripe-node types still require legacy `coupon` on PromotionCodeCreateParams.
   const promo = await stripe.promotionCodes.create(
-    { coupon: coupon.id, code: code.toUpperCase() },
+    {
+      promotion: { type: 'coupon' as const, coupon: coupon.id },
+      code: code.toUpperCase(),
+    } as unknown as Stripe.PromotionCodeCreateParams,
     { stripeAccount: accountId },
   )
 

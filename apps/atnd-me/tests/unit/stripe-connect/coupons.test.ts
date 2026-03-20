@@ -52,7 +52,10 @@ describe('stripe-connect/coupons', () => {
         { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(mockStripe.promotionCodes.create).toHaveBeenCalledWith(
-        { coupon: 'coupon_123', code: 'SUMMER20' },
+        {
+          promotion: { type: 'coupon', coupon: 'coupon_123' },
+          code: 'SUMMER20',
+        },
         { stripeAccount: MOCK_ACCOUNT_ID },
       )
       expect(result).toEqual({ couponId: 'coupon_123', promotionCodeId: 'promo_123' })

@@ -11,6 +11,8 @@ import { getStripeConnectEnv } from '@/lib/stripe/platform'
 export type StripeConnectEvent = {
   id: string
   type: string
+  /** API version used to render `data` (set on the webhook endpoint, or platform default). */
+  api_version?: string | null
   account?: string | { id?: string }
   data?: { object?: Record<string, unknown> }
   [k: string]: unknown

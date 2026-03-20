@@ -2,7 +2,21 @@
 
 import Stripe from 'stripe'
 
-const STRIPE_API_VERSION = '2025-02-24.acacia' as const
+/** Default when `STRIPE_API_VERSION` is unset (Clover). */
+const DEFAULT_PLATFORM_STRIPE_API_VERSION = '2026-02-25.clover'
+
+function resolvePlatformStripeApiVersion(): string {
+  const fromEnv = process.env.STRIPE_API_VERSION?.trim()
+  return fromEnv || DEFAULT_PLATFORM_STRIPE_API_VERSION
+}
+
+/**
+ * Resolved Stripe API version for API calls and Connect webhook `api_version` checks.
+ * Override with `STRIPE_API_VERSION`; defaults to Clover `2026-02-25.clover`.
+ * @see https://docs.stripe.com/upgrades
+ */
+export const PLATFORM_STRIPE_API_VERSION =
+  resolvePlatformStripeApiVersion() as Stripe.LatestApiVersion
 
 /** E2E/test Connect account ID prefixes; match test-accounts.ts. */
 const E2E_ACCOUNT_REGEX =
@@ -50,7 +64,7 @@ export function getPlatformStripe(): Stripe {
   }
   if (!platformStripe) {
     const raw = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: STRIPE_API_VERSION,
+      apiVersion: PLATFORM_STRIPE_API_VERSION,
     })
     // Wrap paymentIntents.create so E2E/test account IDs never hit the real Stripe API.
     const rawCreate = raw.paymentIntents.create.bind(raw.paymentIntents)
