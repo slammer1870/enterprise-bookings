@@ -321,6 +321,15 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     return null
   }
 
+  if (res.status === 401) {
+    // Keep unauthenticated admin access on the current host (tenant/custom domain).
+    // Without this explicit redirect, Payload may resolve login via platform root URL.
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/admin/login'
+    loginUrl.search = ''
+    return NextResponse.redirect(loginUrl)
+  }
+
   if (res.status !== 403) return null
 
   // Forbidden: clear tenant cookies and send user to platform root admin.
