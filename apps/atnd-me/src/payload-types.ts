@@ -353,6 +353,7 @@ export interface Tenant {
 export interface Media {
   id: number;
   tenant?: (number | null) | Tenant;
+  isPublic?: boolean | null;
   alt?: string | null;
   caption?: {
     root: {
@@ -3616,6 +3617,7 @@ export interface PostsSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   tenant?: T;
+  isPublic?: T;
   alt?: T;
   caption?: T;
   updatedAt?: T;
