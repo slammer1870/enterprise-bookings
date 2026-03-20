@@ -37,6 +37,19 @@ const disableSchemaPush =
 
 export default buildConfig({
   admin: {
+    // Override Payload admin head metadata (title/description/favicon) for white-labeling.
+    // Note: this is static config (not request/tenant scoped).
+    meta: {
+      title: 'ATND ME Admin',
+      description: 'ATND ME admin dashboard',
+      icons: [
+        {
+          rel: 'icon',
+          type: 'image/x-icon',
+          url: '/favicon.ico',
+        },
+      ],
+    },
     components: {
       graphics: {
         Logo: '@/components/admin/AdminLogo',
