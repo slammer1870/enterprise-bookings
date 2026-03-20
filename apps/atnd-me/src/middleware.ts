@@ -304,6 +304,8 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
 
   const { pathname } = request.nextUrl
   const isLoginRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/')
+  // Keep login host-local and unauth-friendly; enforce tenant authorization on /admin routes after auth.
+  if (isLoginRoute) return null
 
   const origin = platformOrigin ?? request.nextUrl.origin
   const url = `${origin}/api/admin/authorize-tenant`
@@ -320,8 +322,6 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   }
 
   if (res.status === 401) {
-    // Login route must remain reachable when unauthenticated.
-    if (isLoginRoute) return null
     // Keep unauthenticated admin access on the current host (tenant/custom domain).
     // Without this explicit redirect, Payload may resolve login via platform root URL.
     const loginUrl = request.nextUrl.clone()
