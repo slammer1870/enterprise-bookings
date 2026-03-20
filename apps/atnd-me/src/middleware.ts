@@ -302,11 +302,8 @@ function clearCookieEverywhere(args: {
 async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextResponse | null> {
   const { request, response, rootHostname, platformOrigin } = args
 
-  // Allow the login screen and static assets to render without the extra check.
-  // (We still block the UI immediately after auth if tenant is wrong.)
   const { pathname } = request.nextUrl
-  if (pathname === '/admin' || pathname === '/admin/') return null
-  if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) return null
+  const isLoginRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/')
 
   const origin = platformOrigin ?? request.nextUrl.origin
   const url = `${origin}/api/admin/authorize-tenant`
@@ -323,6 +320,8 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   }
 
   if (res.status === 401) {
+    // Login route must remain reachable when unauthenticated.
+    if (isLoginRoute) return null
     // Keep unauthenticated admin access on the current host (tenant/custom domain).
     // Without this explicit redirect, Payload may resolve login via platform root URL.
     const loginUrl = request.nextUrl.clone()
@@ -346,6 +345,11 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     } else {
       redirectUrl.port = ''
     }
+  }
+  // Prevent loops (e.g. tenant-admin on root /admin with no tenant context):
+  // if redirect target equals current URL, send to login on root host.
+  if (redirectUrl.toString() === request.nextUrl.toString()) {
+    redirectUrl.pathname = '/admin/login'
   }
 
   const redirectResponse = NextResponse.redirect(redirectUrl)
