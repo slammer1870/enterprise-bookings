@@ -272,6 +272,23 @@ type EnforceArgs = {
   platformOrigin: string | null
 }
 
+function resolveLoginRouteRedirect(args: {
+  request: NextRequest
+  isLoginRoute: boolean
+  authStatus: number
+}): NextResponse | null {
+  const { request, isLoginRoute, authStatus } = args
+  if (!isLoginRoute) return null
+  if (authStatus === 401) return null
+  if (authStatus === 403) return null
+
+  // Authenticated users should not remain on /admin/login; keep host context.
+  const adminUrl = request.nextUrl.clone()
+  adminUrl.pathname = '/admin'
+  adminUrl.search = ''
+  return NextResponse.redirect(adminUrl)
+}
+
 function clearCookieHeader(name: string, path: string, domain?: string | null): string {
   const domainAttr = domain ? `; Domain=${domain}` : ''
   return `${name}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
@@ -304,8 +321,6 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
 
   const { pathname } = request.nextUrl
   const isLoginRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/')
-  // Keep login host-local and unauth-friendly; enforce tenant authorization on /admin routes after auth.
-  if (isLoginRoute) return null
 
   const origin = platformOrigin ?? request.nextUrl.origin
   const url = `${origin}/api/admin/authorize-tenant`
@@ -321,7 +336,15 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     return null
   }
 
+  const loginRouteRedirect = resolveLoginRouteRedirect({
+    request,
+    isLoginRoute,
+    authStatus: res.status,
+  })
+  if (loginRouteRedirect) return loginRouteRedirect
+
   if (res.status === 401) {
+    if (isLoginRoute) return null
     // Keep unauthenticated admin access on the current host (tenant/custom domain).
     // Without this explicit redirect, Payload may resolve login via platform root URL.
     const loginUrl = request.nextUrl.clone()
