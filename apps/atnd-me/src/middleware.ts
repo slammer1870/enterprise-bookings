@@ -329,6 +329,8 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     // Preserve port for local dev.
     if (rootHostname.includes('localhost')) {
       redirectUrl.port = request.nextUrl.port || redirectUrl.port
+    } else {
+      redirectUrl.port = ''
     }
   }
 
