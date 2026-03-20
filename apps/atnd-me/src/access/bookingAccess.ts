@@ -6,7 +6,10 @@
 import type { Access, AccessArgs } from 'payload'
 import { bookingCreateAccess, bookingUpdateAccess } from '@repo/bookings-plugin'
 import { checkClassPass } from '@repo/bookings-payments'
+import { checkRole } from '@repo/shared-utils'
+import type { User as SharedUser } from '@repo/shared-types'
 import { getTenantFromLesson } from '@/utilities/getTenantFromLesson'
+import { resolveTenantAdminTenantIds } from './tenant-scoped'
 
 type TenantLike = {
   id?: number
@@ -50,10 +53,27 @@ function isTenantConnectActive(tenant: TenantLike): boolean {
  * Else if payments enabled, require tenant Stripe Connect–active.
  */
 export const bookingCreateAccessWithPaymentValidation: Access = async (args: AccessArgs) => {
+  const { req, data } = args
+  const user = req.user as SharedUser | null
+
+  // Tenant-admins manage bookings for their venues (admin UI): same as platform admin for
+  // lesson capacity / payment gates; still scoped to the lesson's tenant.
+  if (user && checkRole(['tenant-admin'], user) && data?.lesson) {
+    const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
+    if (tenantIds.length > 0) {
+      const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
+      if (lessonId != null) {
+        const lessonTenantId = await getTenantFromLesson(req.payload, lessonId as number)
+        if (lessonTenantId != null && tenantIds.includes(lessonTenantId)) {
+          return true
+        }
+      }
+    }
+  }
+
   const allowed = await bookingCreateAccess(args as Parameters<typeof bookingCreateAccess>[0])
   if (!allowed) return false
 
-  const { req, data } = args
   if (!data?.lesson) return true // no lesson, no payment check
 
   const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
@@ -72,7 +92,6 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
     const tenantId = await getTenantFromLesson(req.payload, lesson as { id: number; tenant?: number | { id: number } })
     if (tenantId == null) return false
 
-    const user = req.user
     if (user?.id && hasAllowedClassPasses(classOption)) {
       const result = await checkClassPass({
         payload: req.payload,
@@ -104,5 +123,12 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
  * confirmations are driven by webhooks).
  */
 export const bookingUpdateAccessWithPaymentValidation: Access = async (args: AccessArgs) => {
+  const { req } = args
+  const requester = req.user as SharedUser | null
+  if (requester && checkRole(['tenant-admin'], requester)) {
+    const tenantIds = await resolveTenantAdminTenantIds({ user: requester, payload: req.payload })
+    if (tenantIds.length === 0) return false
+    return { tenant: { in: tenantIds } }
+  }
   return bookingUpdateAccess(args as Parameters<typeof bookingUpdateAccess>[0])
 }

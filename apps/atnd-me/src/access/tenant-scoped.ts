@@ -54,7 +54,8 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
   return []
 }
 
-async function resolveTenantAdminTenantIds(args: {
+/** Resolves tenant IDs for a tenant-admin (session user may omit `tenants`; loads from DB). */
+export async function resolveTenantAdminTenantIds(args: {
   user: unknown
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any
