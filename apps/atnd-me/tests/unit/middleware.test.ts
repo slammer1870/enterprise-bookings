@@ -210,7 +210,7 @@ describe('Middleware', () => {
         return new Response(null, { status: 404 })
       }
 
-      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+      const req = new NextRequest('http://croilan.atnd-me.com/admin/collections/pages', {
         headers: { host: 'croilan.atnd-me.com' },
       })
 
@@ -240,13 +240,43 @@ describe('Middleware', () => {
         return new Response(null, { status: 404 })
       }
 
-      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+      const req = new NextRequest('http://croilan.atnd-me.com/admin/collections/pages', {
         headers: { host: 'croilan.atnd-me.com' },
       })
 
       const res = await middleware(req)
       expect(res.status).toBe(307)
       expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
+    })
+
+    it('does not redirect base /admin when tenant auth returns forbidden', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=croilan')) {
+          return new Response(JSON.stringify({ id: 123 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('location')).toBeNull()
     })
   })
 })

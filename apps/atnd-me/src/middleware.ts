@@ -305,6 +305,7 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   // Allow the login screen and static assets to render without the extra check.
   // (We still block the UI immediately after auth if tenant is wrong.)
   const { pathname } = request.nextUrl
+  if (pathname === '/admin' || pathname === '/admin/') return null
   if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) return null
 
   const origin = platformOrigin ?? request.nextUrl.origin
