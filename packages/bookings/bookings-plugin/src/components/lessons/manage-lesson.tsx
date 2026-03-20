@@ -60,8 +60,8 @@ export const ManageLesson = ({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-current hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Open menu"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          aria-label="Open lesson actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>
