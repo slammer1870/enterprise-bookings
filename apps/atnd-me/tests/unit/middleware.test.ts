@@ -177,4 +177,76 @@ describe('Middleware', () => {
       expect(setCookie).toContain('payload-tenant=42')
     })
   })
+
+  describe('admin tenant auth redirects', () => {
+    const originalFetch = globalThis.fetch
+
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
+    })
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch
+    })
+
+    it('redirects unauthenticated tenant admin requests to same-host /admin/login', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=croilan')) {
+          return new Response(JSON.stringify({ id: 123 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('http://croilan.atnd-me.com/admin/login')
+    })
+
+    it('redirects forbidden tenant-admin access to platform root admin', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=croilan')) {
+          return new Response(JSON.stringify({ id: 123 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
+    })
+  })
 })
