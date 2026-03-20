@@ -33,6 +33,10 @@ export const hideWebsiteCollectionsFromTenantAdmins = (): Plugin => (
       access: {
         ...(typeof coll.access === 'object' && coll.access !== null ? coll.access : {}),
         admin: adminOnlyAccess,
+        read: adminOnlyAccess,
+        create: adminOnlyAccess,
+        update: adminOnlyAccess,
+        delete: adminOnlyAccess,
       },
     }
   })
