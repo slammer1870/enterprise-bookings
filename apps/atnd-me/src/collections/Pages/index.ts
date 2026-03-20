@@ -114,6 +114,75 @@ const pageBlocks = [
 
 const allPageBlockSlugs: string[] = pageBlocks.map((b) => b.slug!).filter(Boolean)
 
+async function resolveTenantIdForPageWrite(req: {
+  context?: { tenant?: unknown; __resolvedTenantIdFromSlug?: unknown; __resolvedTenantIdFromHost?: unknown }
+  cookies?: { get?: (name: string) => { value?: string } | undefined }
+  headers?: { get?: (name: string) => string | null }
+  payload?: {
+    find: (args: {
+      collection: 'tenants'
+      where: Record<string, unknown>
+      limit: number
+      depth: number
+      overrideAccess: boolean
+      select: { id: true }
+      req?: unknown
+    }) => Promise<{ docs?: Array<{ id?: number | string }> }>
+  }
+}): Promise<number | string | null> {
+  const ctxTenant = req.context?.tenant
+  if (ctxTenant) {
+    return typeof ctxTenant === 'object' && ctxTenant !== null && 'id' in ctxTenant
+      ? (ctxTenant as { id: number | string }).id
+      : (ctxTenant as number | string)
+  }
+
+  const cookieStore = req.cookies
+  const headerGetter = req.headers?.get?.bind(req.headers)
+  const cookieHeader = headerGetter?.('cookie') ?? ''
+  const getCookieFromHeader = (name: string): string | null => {
+    if (!cookieHeader) return null
+    const m = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+    if (!m?.[1]) return null
+    try {
+      return decodeURIComponent(m[1])
+    } catch {
+      return m[1]
+    }
+  }
+
+  const payloadTenant =
+    cookieStore?.get?.('payload-tenant')?.value ?? getCookieFromHeader('payload-tenant') ?? null
+  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
+    return parseInt(payloadTenant, 10)
+  }
+
+  const cachedTenantId =
+    req.context?.__resolvedTenantIdFromSlug ?? req.context?.__resolvedTenantIdFromHost ?? null
+  if (typeof cachedTenantId === 'number' || typeof cachedTenantId === 'string') {
+    return cachedTenantId
+  }
+
+  const tenantSlug =
+    cookieStore?.get?.('tenant-slug')?.value ?? getCookieFromHeader('tenant-slug') ?? null
+  if (!tenantSlug || !req.payload) return null
+
+  const result = await req.payload
+    .find({
+      collection: 'tenants',
+      where: { slug: { equals: tenantSlug } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      select: { id: true },
+      req,
+    })
+    .catch(() => null)
+
+  const tenantId = result?.docs?.[0]?.id
+  return typeof tenantId === 'number' || typeof tenantId === 'string' ? tenantId : null
+}
+
 /** Extract allowed block slugs from the document's tenant only (not navbar context). Base pages get default blocks. */
 function _getAllowedBlockSlugs(data: { tenant?: unknown }, _req?: { context?: { tenant?: unknown } }): string[] {
   const tenant = data?.tenant
@@ -132,12 +201,28 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
   const r = req as
     | {
         user?: unknown
+        cookies?: { get?: (name: string) => { value?: string } | undefined }
+        headers?: { get?: (name: string) => string | null }
         payload?: {
           findByID: (opts: {
             collection: 'tenants'
             id: number | string
             depth: number
           }) => Promise<{ allowedBlocks?: string[] }>
+          find: (args: {
+            collection: 'tenants'
+            where: Record<string, unknown>
+            limit: number
+            depth: number
+            overrideAccess: boolean
+            select: { id: true }
+            req?: unknown
+          }) => Promise<{ docs?: Array<{ id?: number | string }> }>
+        }
+        context?: {
+          tenant?: unknown
+          __resolvedTenantIdFromSlug?: unknown
+          __resolvedTenantIdFromHost?: unknown
         }
       }
     | undefined
@@ -148,9 +233,45 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
     // Access control still prevents unauthenticated users from creating/updating pages.
     if (!r?.user) return allPageBlockSlugs
 
+    // Prefer the tenant implied by request context (subdomain / middleware) when `data.tenant`
+    // hasn't been synced into the form yet (common on create pages during initial hydration).
+    const rawCtxTenant = r?.context?.tenant
+    const ctxTenantId =
+      rawCtxTenant &&
+      (typeof rawCtxTenant === 'object' ? ('id' in rawCtxTenant ? (rawCtxTenant as { id?: number | string }).id : undefined) : rawCtxTenant)
+
+    if (typeof ctxTenantId === 'number' || typeof ctxTenantId === 'string') {
+      try {
+        const tenantDoc = await r.payload?.findByID({
+          collection: 'tenants',
+          id: ctxTenantId,
+          depth: 0,
+        })
+        return getBlocksForTenant(tenantDoc?.allowedBlocks ?? []).map((b) => b.slug!).filter(Boolean)
+      } catch {
+        // fall back to user-based behavior below
+      }
+    }
+
+    // Create-page block filtering can run before the form tenant field hydrates and before
+    // req.context.tenant is available. Reuse the same cookie/header fallback as page writes.
+    const resolvedTenantId = r ? await resolveTenantIdForPageWrite(r).catch(() => null) : null
+    if (typeof resolvedTenantId === 'number' || typeof resolvedTenantId === 'string') {
+      try {
+        const tenantDoc = await r?.payload?.findByID({
+          collection: 'tenants',
+          id: resolvedTenantId,
+          depth: 0,
+        })
+        return getBlocksForTenant(tenantDoc?.allowedBlocks ?? []).map((b) => b.slug!).filter(Boolean)
+      } catch {
+        // fall back to user-based behavior below
+      }
+    }
+
     const tenantIds = getUserTenantIds((r.user ?? null) as unknown as SharedUser | null)
     if (tenantIds === null) return allPageBlockSlugs
-    return defaultBlockSlugs
+    return getBlocksForTenant([]).map((b) => b.slug!).filter(Boolean)
   }
 
   let allowed: string[] | undefined
@@ -332,10 +453,9 @@ export const Pages: CollectionConfig<'pages'> = {
         // Payload will send `null` when a relationship field is cleared.
         if (data.tenant === null) return data
         if (data.tenant) return data
-        const user = (req as { user?: unknown })?.user
 
         const rawTenant =
-          req.context?.tenant ??
+          (await resolveTenantIdForPageWrite(req as Parameters<typeof resolveTenantIdForPageWrite>[0])) ??
           (operation === 'update' && originalDoc?.tenant ? originalDoc.tenant : null)
         if (rawTenant) {
           data.tenant =

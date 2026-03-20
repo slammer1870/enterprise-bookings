@@ -60,23 +60,49 @@ async function getTenantOptions({
   const coll = payload.collections[tenantsCollectionSlug as keyof typeof payload.collections]
   const isOrderable = (coll?.config as { orderable?: boolean })?.orderable ?? false
   const hasAccess = await Promise.resolve(userHasAccessToAllTenants(user))
-  const userTenantIds = hasAccess
-    ? undefined
-    : (user as Record<string, unknown>)[tenantsArrayFieldName] != null
-      ? ((user as Record<string, unknown>)[tenantsArrayFieldName] as unknown[])
-          .map((row) => {
-            const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
-            if (typeof field === 'string' || typeof field === 'number') return field
-            if (field && typeof field === 'object' && 'id' in field) return (field as { id: number }).id
-            return undefined
-          })
-          .filter((id): id is number | string => id !== undefined)
-      : undefined
+  const u = user as Record<string, unknown>
+  const extractIds = (rec: Record<string, unknown>): (string | number)[] | undefined => {
+    if (rec[tenantsArrayFieldName] == null) return undefined
+    return (rec[tenantsArrayFieldName] as unknown[])
+      .map((row) => {
+        const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
+        if (typeof field === 'string' || typeof field === 'number') return field
+        if (field && typeof field === 'object' && 'id' in field) return (field as { id: number }).id
+        return undefined
+      })
+      .filter((id): id is number | string => id !== undefined)
+  }
+
+  let userTenantIds = hasAccess ? undefined : extractIds(u)
+
+  if (!hasAccess && (!userTenantIds || userTenantIds.length === 0)) {
+    const idRaw = u.id
+    const uid =
+      typeof idRaw === 'number'
+        ? idRaw
+        : typeof idRaw === 'string' && /^\d+$/.test(idRaw)
+          ? parseInt(idRaw, 10)
+          : NaN
+    if (Number.isFinite(uid)) {
+      const fullUser = await payload
+        .findByID({
+          collection: 'users',
+          id: uid,
+          depth: 2,
+          overrideAccess: true,
+        })
+        .catch(() => null)
+      if (fullUser) {
+        userTenantIds = extractIds(fullUser as unknown as Record<string, unknown>)
+      }
+    }
+  }
 
   const result = await payload.find({
     collection: tenantsCollectionSlug as keyof typeof payload.collections,
     depth: 0,
-    limit: 0,
+    // Payload treats limit 0 as "no rows" in recent versions — need enough rows for the selector.
+    limit: 500,
     overrideAccess: false,
     select: { [useAsTitle]: true, slug: true } as Parameters<Payload['find']>[0]['select'],
     sort: isOrderable ? '_order' : useAsTitle,

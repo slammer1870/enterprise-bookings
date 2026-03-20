@@ -14,6 +14,63 @@ function tenantBaseUrl(tenantSlug: string): string {
   return `http://${tenantSlug}.localhost:3000`
 }
 
+/**
+ * Node's DNS often does not resolve `*.localhost` (getaddrinfo ENOTFOUND), while browsers usually do.
+ * For API calls, connect to the same TCP origin as `BASE_URL` and send the tenant virtual host.
+ *
+ * @param logicalOrigin - e.g. `http://slug.localhost:3000`
+ * @param apiPath - path starting with `/`, e.g. `/api/users/login`
+ */
+function resolveLocalhostTenantApiRequest(
+  logicalOrigin: string,
+  apiPath: string
+): { url: string; extraHeaders?: Record<string, string> } {
+  const path = apiPath.startsWith('/') ? apiPath : `/${apiPath}`
+  try {
+    const logical = new URL(logicalOrigin)
+    const root = new URL(BASE_URL)
+    const isTenantSubdomainLocalhost =
+      logical.hostname.includes('localhost') &&
+      logical.hostname !== 'localhost' &&
+      logical.hostname.endsWith('.localhost')
+    if (isTenantSubdomainLocalhost) {
+      return {
+        url: `${root.origin}${path}`,
+        extraHeaders: { Host: logical.host },
+      }
+    }
+    return { url: `${logicalOrigin.replace(/\/$/, '')}${path}` }
+  } catch {
+    return { url: `${logicalOrigin.replace(/\/$/, '')}${path}` }
+  }
+}
+
+/** Worker `request` + POST to loopback with `Host: slug.localhost` can file cookies under localhost; remap for tenant navigation. */
+function remapCookiesForTenantAdminOrigin(
+  cookies: { name: string; value: string; domain: string; path: string; expires: number; httpOnly: boolean; secure: boolean; sameSite: 'Strict' | 'Lax' | 'None' }[],
+  adminOrigin: string
+): typeof cookies {
+  try {
+    const u = new URL(adminOrigin)
+    if (!u.hostname.endsWith('.localhost') || u.hostname === 'localhost') {
+      return cookies
+    }
+    const tenantHost = u.hostname
+    return cookies.map((c) => {
+      const raw = c.domain || ''
+      const dom = raw.replace(/^\./, '')
+      if (dom === tenantHost) return c
+      // Loopback connection host / missing domain → wrong host for `*.localhost` navigation
+      if (dom === 'localhost' || dom === '127.0.0.1' || dom === '') {
+        return { ...c, domain: tenantHost }
+      }
+      return c
+    })
+  } catch {
+    return cookies
+  }
+}
+
 function _toDomainCookie(
   cookie: Awaited<ReturnType<BrowserContext['cookies']>>[number],
   domain: string
@@ -33,10 +90,6 @@ function _toDomainCookie(
 }
 
 async function fillLoginFormAndSubmit(page: Page, email: string, password: string) {
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Looking for form elements')
-  // #endregion
-  
   // Wait for login form to be visible (Better Auth UI can hydrate asynchronously)
   const emailInput = page
     .getByRole('textbox', { name: /email/i })
@@ -55,35 +108,14 @@ async function fillLoginFormAndSubmit(page: Page, email: string, password: strin
     .or(page.locator('button[type="submit"]'))
     .first()
 
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Waiting for email input')
-  // #endregion
   await emailInput.waitFor({ state: 'visible', timeout: 20000 })
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Waiting for password input')
-  // #endregion
   await passwordInput.waitFor({ state: 'visible', timeout: 20000 })
 
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Filling email')
-  // #endregion
   await emailInput.fill(email)
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Filling password')
-  // #endregion
   await passwordInput.fill(password)
 
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Waiting for submit button')
-  // #endregion
   await submitButton.waitFor({ state: 'visible', timeout: 20000 })
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Clicking submit button')
-  // #endregion
   await submitButton.click()
-  // #region agent log
-  console.log('[DEBUG] fillLoginFormAndSubmit: Submit button clicked')
-  // #endregion
 }
 
 /**
@@ -123,27 +155,37 @@ export async function loginAsUser(
  * Login to the Payload admin panel (uses `/admin/login`).
  * Pass the Playwright `request` fixture when available so the API call does not depend on
  * page.request (avoids "Target page, context or browser has been closed" with worker-scoped fixtures).
+ *
+ * @param opts.adminOrigin - When set (e.g. `http://tenant-slug.localhost:3000`), login + session cookies
+ *   are scoped to that host. Required for admin flows on tenant subdomains (localhost root cookies are not sent there).
  */
 export async function loginToAdminPanel(
   page: Page,
   email: string,
   password: string,
-  opts?: { request?: APIRequestContext }
+  opts?: { request?: APIRequestContext; adminOrigin?: string }
 ): Promise<void> {
+  const origin = opts?.adminOrigin ?? BASE_URL
   const apiRequest = opts?.request ?? page.request
-  const apiLogin = await apiRequest.post(`${BASE_URL}/api/users/login`, {
+  const { url: apiLoginUrl, extraHeaders } = opts?.adminOrigin
+    ? resolveLocalhostTenantApiRequest(opts.adminOrigin, '/api/users/login')
+    : { url: `${BASE_URL}/api/users/login`, extraHeaders: undefined }
+  const apiLogin = await apiRequest.post(apiLoginUrl, {
     data: { email, password },
+    headers: extraHeaders,
   })
 
   if (apiLogin.ok()) {
-    // If we used the standalone request fixture, copy its cookies into the page context.
-    if (opts?.request) {
-      const state = await opts.request.storageState()
-      if (state.cookies.length) {
-        await page.context().addCookies(state.cookies)
-      }
+    // After API login, ensure session cookies exist in the browser context.
+    // `apiRequest` cookie jar isn't guaranteed to be synced to `page.context()` automatically.
+    const state = await apiRequest.storageState()
+    const cookies = opts?.adminOrigin
+      ? remapCookiesForTenantAdminOrigin(state.cookies, opts.adminOrigin)
+      : state.cookies
+    if (cookies.length) {
+      await page.context().addCookies(cookies)
     }
-    await page.goto(`${BASE_URL}/admin`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${origin}/admin`, { waitUntil: 'domcontentloaded' })
     await page
       .waitForURL((url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'), {
         timeout: 20000,
@@ -158,7 +200,7 @@ export async function loginToAdminPanel(
   }
 
   // Fallback: UI login (keeps the test output useful if auth endpoint changes)
-  await page.goto(`${BASE_URL}/admin/login`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${origin}/admin/login`, { waitUntil: 'domcontentloaded' })
   await fillLoginFormAndSubmit(page, email, password)
 
   // Wait for navigation away from login page
@@ -210,18 +252,23 @@ export async function loginAsTenantAdmin(
   page: Page,
   tenantNumber: number = 1,
   email?: string,
-  passwordOrOpts: string | { request?: APIRequestContext; password?: string } = 'password'
+  passwordOrOpts:
+    | string
+    | { request?: APIRequestContext; password?: string; tenantSlug?: string } = 'password'
 ): Promise<void> {
   const adminEmail = email || `tenant-admin-${tenantNumber}@test.com`
   const password =
     typeof passwordOrOpts === 'string'
       ? passwordOrOpts
       : passwordOrOpts.password ?? 'password'
-  const requestOpts =
-    typeof passwordOrOpts === 'object' && passwordOrOpts.request != null
-      ? { request: passwordOrOpts.request }
-      : undefined
-  await loginToAdminPanel(page, adminEmail, password, requestOpts)
+  const optsObj = typeof passwordOrOpts === 'object' ? passwordOrOpts : undefined
+  const request = optsObj?.request
+  const tenantSlug = optsObj?.tenantSlug
+  const adminOrigin = tenantSlug ? tenantBaseUrl(tenantSlug) : undefined
+  await loginToAdminPanel(page, adminEmail, password, {
+    ...(request != null ? { request } : {}),
+    ...(adminOrigin != null ? { adminOrigin } : {}),
+  })
 }
 
 /** Cookie names that indicate auth/session (Better Auth). */
@@ -323,10 +370,16 @@ export async function loginAsRegularUserViaApi(
   // Decorrelated jitter backoff (prevents thundering herd).
   let backoffMs = 250
 
+  const { url: signInUrl, extraHeaders: signInHeaders } = resolveLocalhostTenantApiRequest(
+    baseURL,
+    '/api/auth/sign-in/email'
+  )
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await apiRequest.post(`${baseURL}/api/auth/sign-in/email`, {
+    const res = await apiRequest.post(signInUrl, {
       data: { email: email.toLowerCase(), password },
       failOnStatusCode: false,
+      headers: signInHeaders,
     })
 
     if (res.ok()) break

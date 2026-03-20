@@ -1,3 +1,5 @@
+import { PLATFORM_STRIPE_API_VERSION } from '@/lib/stripe/platform'
+
 /**
  * Factory for Stripe payment_intent.succeeded event mocks.
  * Matches Stripe's structure for platform/destination charges (atnd-me Connect flow).
@@ -14,7 +16,7 @@ export function createPaymentIntentSucceededEvent(overrides: {
   return {
     id,
     object: 'event' as const,
-    api_version: '2025-12-15.clover',
+    api_version: PLATFORM_STRIPE_API_VERSION,
     created: Math.floor(Date.now() / 1000),
     data: {
       object: {

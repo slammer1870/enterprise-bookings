@@ -160,6 +160,9 @@ export const RequireStripeConnectField: React.FC<RequireStripeConnectFieldProps>
       parentPath={parentPath}
       parentSchemaPath={parentSchemaPath}
       readOnly={readOnly ?? false}
+      stripeConnected={connected}
+      tenantSlug={tenantSlug}
+      stripeStatusResolved={loading === false}
     />
   )
 }

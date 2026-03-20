@@ -249,7 +249,67 @@ describe('Middleware', () => {
       expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
     })
 
-    it('does not redirect base /admin when tenant auth returns forbidden', async () => {
+    it('keeps unauthenticated /admin/login on same host', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('location')).toBeNull()
+    })
+
+    it('redirects authenticated /admin/login to same-host /admin', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(null, { status: 204 })
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('http://croilan.atnd-me.com/admin')
+    })
+
+    it('redirects forbidden /admin/login to platform root admin', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
+    })
+
+    it('redirects tenant subdomain /admin to platform root when tenant auth returns forbidden', async () => {
       globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
 
@@ -275,8 +335,8 @@ describe('Middleware', () => {
       })
 
       const res = await middleware(req)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('location')).toBeNull()
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
     })
   })
 })

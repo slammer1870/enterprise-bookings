@@ -317,7 +317,7 @@ function clearCookieEverywhere(args: {
 }
 
 async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextResponse | null> {
-  const { request, response, rootHostname, platformOrigin } = args
+  const { request, response: _response, rootHostname, platformOrigin } = args
 
   const { pathname } = request.nextUrl
   const isLoginRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/')

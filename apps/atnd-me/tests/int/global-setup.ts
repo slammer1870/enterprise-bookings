@@ -38,7 +38,15 @@ export async function globalSetup() {
   // pre-set by a workflow, the workflow runs migrate:fresh before test:int, so we skip here.
   if (weCreatedDb && process.env.DATABASE_URI) {
     console.log('[Vitest Global Setup] Running payload migrate:fresh on new test DB...')
-    const nodeOpts = [process.env.NODE_OPTIONS ?? '', '--no-deprecation'].filter(Boolean).join(' ')
+    const payloadAuthLoaderImport = '--import ./scripts/register-payload-auth-loader.mjs'
+    const currentNodeOptions = process.env.NODE_OPTIONS ?? ''
+    const nodeOpts = [
+      currentNodeOptions,
+      '--no-deprecation',
+      currentNodeOptions.includes(payloadAuthLoaderImport) ? '' : payloadAuthLoaderImport,
+    ]
+      .filter(Boolean)
+      .join(' ')
     try {
       execSync('pnpm exec payload migrate:fresh --force-accept-warning', {
         cwd: process.cwd(),

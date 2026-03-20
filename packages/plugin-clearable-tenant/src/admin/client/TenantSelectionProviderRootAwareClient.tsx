@@ -226,7 +226,7 @@ export function TenantSelectionProviderRootAwareClient({
 
   // On tenant hosts, ensure payload-tenant cookie is set to the host-implied tenant ID.
   // Do NOT refresh here—admin editing makes frequent requests and refreshing would clear forms.
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!isHostLocked) return
     if (hostLockedTenantID == null || hostLockedTenantID === '') return
     if (selectedTenantID != null && String(selectedTenantID) === String(hostLockedTenantID)) {
@@ -406,7 +406,7 @@ export function TenantSelectionProviderRootAwareClient({
     }
   }, [pathname, selectedTenantID, tenantOptions, router, isTenantRequiredCreatePath])
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!isTenantAdminUser || tenantOptions.length !== 1) return
     const singleTenantId = tenantOptions[0]?.value
     if (singleTenantId == null) return
@@ -428,6 +428,8 @@ export function TenantSelectionProviderRootAwareClient({
     const noTenant = selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
     if (!noTenant) return
     if (tenantOptions.length === 1) return
+    // populate-tenant-options / RSC hydration can still be in flight — do not redirect yet.
+    if (tenantOptions.length === 0) return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
     const collectionSlug = createMatch?.[1]
     if (!collectionSlug) return

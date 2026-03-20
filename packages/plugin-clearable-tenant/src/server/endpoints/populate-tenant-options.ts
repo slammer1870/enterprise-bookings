@@ -55,19 +55,45 @@ export function createPopulateTenantOptionsHandler(
     const isOrderable = (coll?.config as { orderable?: boolean })?.orderable ?? false
     const hasAccess = await Promise.resolve(userHasAccessToAllTenants(user))
     const userRecord = user as unknown as Record<string, unknown>
-    const userTenantIds = hasAccess
-      ? undefined
-      : userRecord[tenantsArrayFieldName] != null
-        ? (userRecord[tenantsArrayFieldName] as unknown[])
-            .map((row) => {
-              const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
-              if (typeof field === 'string' || typeof field === 'number') return field
-              if (field && typeof field === 'object' && 'id' in field)
-                return (field as { id: number }).id
-              return undefined
-            })
-            .filter((id): id is number | string => id !== undefined)
-        : undefined
+
+    const extractTenantIds = (u: Record<string, unknown>): (string | number)[] | undefined => {
+      if (u[tenantsArrayFieldName] == null) return undefined
+      return (u[tenantsArrayFieldName] as unknown[])
+        .map((row) => {
+          const field = (row as Record<string, unknown>)[tenantsArrayTenantFieldName]
+          if (typeof field === 'string' || typeof field === 'number') return field
+          if (field && typeof field === 'object' && 'id' in field)
+            return (field as { id: number }).id
+          return undefined
+        })
+        .filter((id): id is number | string => id !== undefined)
+    }
+
+    let userTenantIds = hasAccess ? undefined : extractTenantIds(userRecord)
+
+    // JWT/session user often omits `tenants` rows — without IDs we'd return every tenant and force the create modal.
+    if (!hasAccess && (!userTenantIds || userTenantIds.length === 0)) {
+      const idRaw = userRecord.id
+      const uid =
+        typeof idRaw === 'number'
+          ? idRaw
+          : typeof idRaw === 'string' && /^\d+$/.test(idRaw)
+            ? parseInt(idRaw, 10)
+            : NaN
+      if (Number.isFinite(uid)) {
+        const fullUser = await payload
+          .findByID({
+            collection: 'users',
+            id: uid,
+            depth: 2,
+            overrideAccess: true,
+          })
+          .catch(() => null)
+        if (fullUser) {
+          userTenantIds = extractTenantIds(fullUser as unknown as Record<string, unknown>)
+        }
+      }
+    }
 
     const select: Record<string, boolean> = { [useAsTitle]: true }
     const collConfig = coll?.config as { fields?: { name: string }[] } | undefined
@@ -77,7 +103,7 @@ export function createPopulateTenantOptionsHandler(
     const result = await payload.find({
       collection: tenantsCollectionSlug as keyof typeof payload.collections,
       depth: 0,
-      limit: 0,
+      limit: 500,
       overrideAccess: false,
       select: select as Parameters<typeof payload.find>[0]['select'],
       sort: isOrderable ? '_order' : useAsTitle,

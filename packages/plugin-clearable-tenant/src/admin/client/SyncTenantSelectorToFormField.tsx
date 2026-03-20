@@ -34,7 +34,7 @@ export function SyncTenantSelectorToFormField(): React.ReactElement | null {
       ? collectionsWithTenantField.includes(collectionSlug)
       : false
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!collectionHasTenantField) return
     // Relationship fields accept id or { id }; Payload typically accepts the id.
     const value =

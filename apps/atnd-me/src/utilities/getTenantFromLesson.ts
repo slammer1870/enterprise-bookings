@@ -16,6 +16,8 @@ export async function getTenantFromLesson(
       collection: 'lessons',
       id: lessonOrLessonId,
       depth: 0,
+      overrideAccess: true,
+      context: { triggerAfterChange: false },
     })
     lesson = doc as LessonLike
   } else {

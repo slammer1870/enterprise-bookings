@@ -10,9 +10,35 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin, loginAsTenantAdmin } from './helpers/auth-helpers'
 import { BASE_URL } from './helpers/auth-helpers'
-import { getPayloadInstance } from './helpers/data-helpers'
 
-const PAGES_CREATE_URL = `${BASE_URL}/admin/collections/pages/create`
+async function setTenantAllowedBlocksViaApi(
+  request: import('@playwright/test').APIRequestContext,
+  tenantId: number | string,
+  allowedBlocks: string[],
+  adminEmail: string
+): Promise<void> {
+  const loginRes = await request.post(`${BASE_URL}/api/users/login`, {
+    data: { email: adminEmail, password: 'password' },
+    failOnStatusCode: false,
+  })
+  if (!loginRes.ok()) {
+    throw new Error(`Super admin API login failed: ${loginRes.status()} ${await loginRes.text().catch(() => '')}`)
+  }
+
+  const updateRes = await request.patch(`${BASE_URL}/api/tenants/${tenantId}`, {
+    data: { allowedBlocks },
+    failOnStatusCode: false,
+  })
+  if (!updateRes.ok()) {
+    throw new Error(`Updating tenant ${tenantId} failed: ${updateRes.status()} ${await updateRes.text().catch(() => '')}`)
+  }
+}
+
+const PAGES_CREATE_PATH = '/admin/collections/pages/create'
+
+function tenantAdminBaseUrl(tenantSlug: string): string {
+  return `http://${tenantSlug}.localhost:3000`
+}
 
 /** Default block labels we expect every role to see when they have at least default blocks. */
 const DEFAULT_BLOCK_LABELS = ['Hero & Schedule', 'About', 'Schedule', 'Content']
@@ -23,60 +49,181 @@ const EXTRA_BLOCK_LABEL_LOCATION = 'Location'
 const EXTRA_BLOCK_LABEL_FAQS = 'Faq'
 
 /**
- * Set payload-tenant cookie so the admin server sees a selected tenant (avoids 404 for tenant-admin on Pages create).
+ * Set payload-tenant (and optional tenant-slug) so admin + middleware agree with the tenant host.
  */
 async function setPayloadTenantCookie(
   page: import('@playwright/test').Page,
   tenantId: number | string,
+  baseUrl: string = BASE_URL,
+  tenantSlug?: string,
 ) {
-  await page.context().addCookies([
-    {
-      name: 'payload-tenant',
-      value: String(tenantId),
-      url: `${BASE_URL}/`,
-    },
-    {
-      name: 'payload-tenant',
-      value: String(tenantId),
-      url: `${BASE_URL}/admin/`,
-    },
-  ])
+  // Use domain+path cookies (NOT url-scoped) so they apply across redirects between
+  // /admin, /admin/collections/pages, /admin/collections/pages/create, and /admin/collections/pages/:id.
+  // URL-scoped cookies can miss intermediate navigations and cause tenant mismatch.
+  const hostname = new URL(baseUrl).hostname
+  const cookies: Array<{
+    name: string
+    value: string
+    domain: string
+    path: string
+    expires?: number
+  }> = []
+
+  // Expire existing cookies for this host+path, then set desired values.
+  cookies.push({ name: 'payload-tenant', value: '', domain: hostname, path: '/', expires: 1 })
+  cookies.push({ name: 'payload-tenant', value: String(tenantId), domain: hostname, path: '/' })
+
+  if (tenantSlug) {
+    cookies.push({ name: 'tenant-slug', value: '', domain: hostname, path: '/', expires: 1 })
+    cookies.push({ name: 'tenant-slug', value: tenantSlug, domain: hostname, path: '/' })
+  }
+
+  await page.context().addCookies(cookies as any)
 }
 
 /**
  * Navigate to Pages create, fill required fields, optionally select tenant, open Content tab.
  * For tenant-admins, pass tenantId so we set the payload-tenant cookie before navigation (avoids server 404).
- * @returns true if the create form loaded (slug input visible); false if we got 404/redirect.
+ * @returns true if the create editor is usable (title + Content tab + add block/layout); false if 404/redirect.
  */
 async function goToPageCreateWithContext(
   page: import('@playwright/test').Page,
-  options?: { tenantName?: string; tenantId?: number | string }
-): Promise<boolean> {
-  if (options?.tenantId != null) {
-    await setPayloadTenantCookie(page, options.tenantId)
+  options?: {
+    tenantName?: string
+    tenantId?: number | string
+    baseUrl?: string
+    /** When set with tenantId, also sets tenant-slug to match the subdomain host. */
+    tenantSlug?: string
   }
-  await page.goto(PAGES_CREATE_URL, { waitUntil: 'domcontentloaded' })
-  await page.waitForURL((url) => url.pathname.includes('/admin/collections/pages'), { timeout: 15000 })
+): Promise<boolean> {
+  const baseUrl = options?.baseUrl ?? BASE_URL
+  if (options?.tenantId != null) {
+    await setPayloadTenantCookie(page, options.tenantId, baseUrl, options.tenantSlug)
+  }
+  // Payload admin can restore prior editor/navigation state from browser storage.
+  // In this suite we switch roles/tenants within the same worker, so clear per-origin
+  // storage before opening Pages create to avoid bouncing into a stale /pages/:id route.
+  await page.goto(`${baseUrl}/admin`, { waitUntil: 'domcontentloaded' }).catch(() => {})
+  await page
+    .evaluate(() => {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+    })
+    .catch(() => {})
+  // Tenant subdomain: hit /admin first so populate-tenant-options + host-locked selector hydrate
+  // before /collections/.../create (avoids list redirect / empty selector race).
+  try {
+    const rootHost = new URL(BASE_URL).hostname
+    const navHost = new URL(baseUrl).hostname
+    if (navHost !== rootHost) {
+      await page.goto(`${baseUrl}/admin`, { waitUntil: 'domcontentloaded' })
+      await page.waitForURL((u) => u.pathname.startsWith('/admin'), { timeout: 25000 })
+      await page.waitForTimeout(1500)
+    }
+  } catch {
+    /* continue to create URL */
+  }
+  const createUrl = `${baseUrl}${PAGES_CREATE_PATH}`
+  // Retry deterministically: tenant-admin create can bounce back to list while tenant context
+  // / tenant selector hydrates. We re-navigate until the editor sentinel is visible.
+  const maxAttempts = 3
 
-  const slugInput = page.locator('input[name="slug"]').first()
-  const slugVisible = await slugInput.waitFor({ state: 'visible', timeout: 12000 }).then(() => true).catch(() => false)
-  if (!slugVisible) return false
+  // Editor readiness sentinel (must be declared before retry loop).
+  const contentTab = page
+    .getByRole('tab', { name: /content/i })
+    .or(page.getByRole('button', { name: /^content$/i }))
+    .first()
+  const addLayoutOrBlockBtn = page
+    .getByRole('button', { name: /add layout|add block|add blocks?/i })
+    .first()
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await page.goto(createUrl, { waitUntil: 'domcontentloaded' })
+
+    // Stop retrying as soon as we land on the create editor route.
+    // Avoid long `waitForURL` calls here because the server may legitimately 404/redirect.
+    if (page.url().includes('/admin/collections/pages/create')) break
+
+    await page.waitForTimeout(1000)
+  }
+
+  // clearable-tenant modal (multi-option) — confirm so the create form can render (reloads the page).
+  const selectTenantHeading = page.getByRole('heading', { name: /select tenant/i })
+  if (await selectTenantHeading.isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: /^continue$/i }).click()
+    await page.waitForLoadState('load').catch(() => null)
+    await page.waitForTimeout(2000)
+  }
+
+  // Determinism: editor "loaded" for this suite should be based on route correctness,
+  // not UI sentinels (which can lag/hydrate differently on tenant-admin).
+  // Payload admin sometimes bounces from "create" to an editor route (e.g. when an
+  // autosaved draft / doc version is created). Treat the editor as "ready" as long
+  // as it's not the collection list.
+  const onPagesEditorRoute =
+    page.url().includes('/admin/collections/pages/create') || page.url().match(/\/admin\/collections\/pages\/\d+($|\/)/)
+  if (!onPagesEditorRoute) {
+    // One deterministic re-navigation to reduce flakiness.
+    await page.goto(createUrl, { waitUntil: 'domcontentloaded' })
+  }
+
+  // Best-effort fill (only if the inputs exist/are visible).
+  const titleInput = page.locator('input[name="title"]').first()
+  const slugInput = page
+    .locator('input[name="slug"]')
+    .or(page.locator('[id^="field-slug"] input'))
+    .or(page.getByRole('textbox', { name: /^slug$/i }))
+    .first()
 
   const title = `Layout test ${Date.now()}`
   const slug = `layout-test-${Date.now()}`
+  if (await titleInput.isVisible().catch(() => false)) await titleInput.fill(title).catch(() => {})
 
-  await page.locator('input[name="title"]').first().fill(title)
-  await slugInput.fill(slug)
-
-  const contentTab = page.getByRole('tab', { name: /content/i }).first()
   await contentTab.click().catch(() => {})
   await page.waitForLoadState('domcontentloaded').catch(() => {})
-  // Payload blocks UI can show either "Add Layout" (first row) or "Add block" (within existing rows)
-  await page
-    .getByRole('button', { name: /add layout|add block|add blocks?/i })
-    .first()
-    .waitFor({ state: 'visible', timeout: 8000 })
-    .catch(() => {})
+  await slugInput.scrollIntoViewIfNeeded().catch(() => {})
+  if (await slugInput.isVisible().catch(() => false)) await slugInput.fill(slug).catch(() => {})
+
+  // Editor readiness should accept either current Payload rendering:
+  // some builds expose "Content" as a tab, others as a button.
+  let contentTabOk = await contentTab
+    .waitFor({ state: 'visible', timeout: 15000 })
+    .then(() => true)
+    .catch(() => false)
+
+  // Recovery: if we bounce to the list page (often with a "document not found" banner),
+  // re-apply tenant cookies and navigate directly to the canonical create URL.
+  // This is more deterministic than clicking the list-page "Create new Page" link.
+  if (!contentTabOk) {
+    if (options?.tenantId != null) {
+      await setPayloadTenantCookie(page, options.tenantId, baseUrl, options.tenantSlug)
+    }
+    await page.goto(createUrl, { waitUntil: 'domcontentloaded' }).catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
+    contentTabOk = await contentTab
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .then(() => true)
+      .catch(() => false)
+  }
+
+  const titleInputOk = await titleInput.isVisible().catch(() => false)
+  const addLayoutBtnOk = await addLayoutOrBlockBtn.isVisible().catch(() => false)
+
+  // Compute after recovery attempts (URL may have changed).
+  const editorRouteOk =
+    page.url().includes(PAGES_CREATE_PATH) ||
+    Boolean(page.url().match(/\/admin\/collections\/pages\/\d+($|\/)/))
+
+  // Accept either Content control visibility or the editor form controls as readiness signals.
+  const editorUiOk = contentTabOk || (titleInputOk && addLayoutBtnOk)
+
+  if (!editorRouteOk || !editorUiOk) {
+    // Help diagnose unexpected redirects to the list or edit routes.
+    return false
+  }
+
+  // "Add layout" can still be briefly delayed; best-effort wait.
+  await addLayoutOrBlockBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
   return true
 }
 
@@ -141,6 +288,30 @@ async function getVisibleBlockOptions(
       const text = (await btn.textContent())?.trim()
       if (text && text.length > 0 && !/^(add|cancel|close)$/i.test(text)) labels.push(text)
     }
+  }
+
+  // 1b) Search within the drawer so we can detect options that are lower in a scrollable / virtualized list.
+  const searchInput = drawer.locator('input[placeholder*="Search"], input[type="text"]').first()
+  if (drawerVisible && (await searchInput.isVisible().catch(() => false))) {
+    for (const known of KNOWN_BLOCK_LABELS) {
+      await searchInput.fill(known).catch(() => {})
+      await page.waitForTimeout(100)
+      const filteredTexts = await drawer
+        .locator('button,[role="option"],li')
+        .evaluateAll((nodes) =>
+          nodes
+            .map((node) => (node.textContent ?? '').trim())
+            .filter((text) => text.length > 0)
+        )
+        .catch(() => [] as string[])
+
+      for (const text of filteredTexts) {
+        if (!new RegExp(known.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text)) continue
+        if (!labels.includes(text)) labels.push(text)
+      }
+    }
+    await searchInput.fill('').catch(() => {})
+    await page.waitForTimeout(100)
   }
 
   // 2) Fallback: text in any overlay/panel
@@ -222,6 +393,20 @@ function expectBlocksExcludeExtra(visible: string[], extraLabel: string) {
 }
 
 test.describe('Pages layout blocks access (create/update)', () => {
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status !== 'failed') return
+
+    const screenshotPath = testInfo.outputPath(
+      `failure-${testInfo.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`,
+    )
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+    // Attach for visibility in Playwright HTML report.
+    await testInfo.attach('failure-screenshot', {
+      path: screenshotPath,
+      contentType: 'image/png',
+    })
+  })
+
   test('Admin can create and save a page with a layout block (smoke)', async ({
     page,
     testData,
@@ -269,7 +454,7 @@ test.describe('Pages layout blocks access (create/update)', () => {
     expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
   })
 
-  test('Case 1b: Admin creating page with a tenant selected sees all blocks', async ({
+  test('Case 1b: Admin creating page with a tenant selected sees that tenant block set', async ({
     page,
     testData,
     request,
@@ -279,7 +464,7 @@ test.describe('Pages layout blocks access (create/update)', () => {
     const t1 = testData.tenants[0]!
     // "Tenant selected" for admin is represented by the tenant selector cookie.
     // Avoid interacting with the Assigned Tenant relationship UI (it can open drawers/modals).
-    const formReady = await goToPageCreateWithContext(page, { tenantId: t1.id })
+    const formReady = await goToPageCreateWithContext(page, { tenantId: t1.id, tenantSlug: t1.slug })
     expect(formReady, 'Create form should load for admin').toBe(true)
 
     const visible = await getVisibleBlockOptions(page)
@@ -289,8 +474,11 @@ test.describe('Pages layout blocks access (create/update)', () => {
         'Block picker options not detectable with current selectors; layout block access covered by int test and smoke e2e.'
       )
     }
+    // Admin at the root host with a tenant selected is tenant-scoped, same as the document tenant.
+    // Test Tenant 1 has no extra blocks by default, so only defaults should be shown here.
     expectBlocksIncludeDefault(visible)
-    expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
+    expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
+    expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
   })
 
   test('Case 2: Tenant-admin with no allowedBlocks sees only default blocks', async ({
@@ -298,17 +486,16 @@ test.describe('Pages layout blocks access (create/update)', () => {
     testData,
     request,
   }) => {
-    const payload = await getPayloadInstance()
     const t1 = testData.tenants[0]!
-    await payload.update({
-      collection: 'tenants',
-      id: t1.id,
-      data: { allowedBlocks: [] },
-      overrideAccess: true,
-    })
+    const t1BaseUrl = tenantAdminBaseUrl(t1.slug)
+    await setTenantAllowedBlocksViaApi(request, t1.id, [], testData.users.superAdmin.email)
 
-    await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    const formReady = await goToPageCreateWithContext(page, { tenantId: t1.id })
+    await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { tenantSlug: t1.slug })
+    const formReady = await goToPageCreateWithContext(page, {
+      tenantId: t1.id,
+      baseUrl: t1BaseUrl,
+      tenantSlug: t1.slug,
+    })
     expect(formReady, 'Pages create must load for tenant-admin when payload-tenant cookie is set').toBe(true)
 
     const visible = await getVisibleBlockOptions(page)
@@ -321,17 +508,16 @@ test.describe('Pages layout blocks access (create/update)', () => {
     testData,
     request,
   }) => {
-    const payload = await getPayloadInstance()
     const t2 = testData.tenants[1]!
-    await payload.update({
-      collection: 'tenants',
-      id: t2.id,
-      data: { allowedBlocks: ['location', 'faqs'] },
-      overrideAccess: true,
-    })
+    const t2BaseUrl = tenantAdminBaseUrl(t2.slug)
+    await setTenantAllowedBlocksViaApi(request, t2.id, ['location', 'faqs'], testData.users.superAdmin.email)
 
-    await loginAsTenantAdmin(page, 2, testData.users.tenantAdmin2.email, { request })
-    const formReady = await goToPageCreateWithContext(page, { tenantId: t2.id })
+    await loginAsTenantAdmin(page, 2, testData.users.tenantAdmin2.email, { tenantSlug: t2.slug })
+    const formReady = await goToPageCreateWithContext(page, {
+      tenantId: t2.id,
+      baseUrl: t2BaseUrl,
+      tenantSlug: t2.slug,
+    })
     expect(formReady, 'Pages create must load for tenant-admin when payload-tenant cookie is set').toBe(true)
 
     const visible = await getVisibleBlockOptions(page)
@@ -347,22 +533,13 @@ test.describe('Pages layout blocks access (create/update)', () => {
   }) => {
     // This case spins up multiple isolated contexts and does multiple logins.
     test.setTimeout(180000)
-    const payload = await getPayloadInstance()
     const t1 = testData.tenants[0]!
     const t2 = testData.tenants[1]!
+    const t1BaseUrl = tenantAdminBaseUrl(t1.slug)
+    const t2BaseUrl = tenantAdminBaseUrl(t2.slug)
 
-    await payload.update({
-      collection: 'tenants',
-      id: t1.id,
-      data: { allowedBlocks: ['location'] },
-      overrideAccess: true,
-    })
-    await payload.update({
-      collection: 'tenants',
-      id: t2.id,
-      data: { allowedBlocks: ['faqs'] },
-      overrideAccess: true,
-    })
+    await setTenantAllowedBlocksViaApi(request, t1.id, ['location'], testData.users.superAdmin.email)
+    await setTenantAllowedBlocksViaApi(request, t2.id, ['faqs'], testData.users.superAdmin.email)
 
     // Switching users within the same page is flaky (cookie + drawer state).
     // Use separate browser contexts to guarantee isolation.
@@ -371,13 +548,18 @@ test.describe('Pages layout blocks access (create/update)', () => {
     {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
-      await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-      const formReady = await goToPageCreateWithContext(page, { tenantId: t1.id })
+      // Use this context's `page.request` (not the worker `request` fixture) so cookies stay isolated per context.
+      await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { tenantSlug: t1.slug })
+      const formReady = await goToPageCreateWithContext(page, {
+        tenantId: t1.id,
+        baseUrl: t1BaseUrl,
+        tenantSlug: t1.slug,
+      })
       expect(formReady, 'Pages create must load for tenant-admin when payload-tenant cookie is set').toBe(true)
       const visible = await getVisibleBlockOptions(page)
       expectBlocksIncludeDefault(visible)
-      expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
       expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
+      expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
       await ctx.close()
     }
 
@@ -385,8 +567,12 @@ test.describe('Pages layout blocks access (create/update)', () => {
     {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
-      await loginAsTenantAdmin(page, 2, testData.users.tenantAdmin2.email, { request })
-      const formReady = await goToPageCreateWithContext(page, { tenantId: t2.id })
+      await loginAsTenantAdmin(page, 2, testData.users.tenantAdmin2.email, { tenantSlug: t2.slug })
+      const formReady = await goToPageCreateWithContext(page, {
+        tenantId: t2.id,
+        baseUrl: t2BaseUrl,
+        tenantSlug: t2.slug,
+      })
       expect(formReady, 'Pages create must load for tenant-admin when payload-tenant cookie is set').toBe(true)
       const visible = await getVisibleBlockOptions(page)
       expectBlocksIncludeDefault(visible)
@@ -395,12 +581,12 @@ test.describe('Pages layout blocks access (create/update)', () => {
       await ctx.close()
     }
 
-    // Admin: should see all (e.g. both Location and FAQs)
+    // Admin with no tenant selected: should see all (e.g. both Location and FAQs)
     {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
       await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
-      const formReady = await goToPageCreateWithContext(page, { tenantId: t1.id })
+      const formReady = await goToPageCreateWithContext(page, { tenantName: undefined })
       expect(formReady, 'Create form should load for admin').toBe(true)
       const visible = await getVisibleBlockOptions(page)
       if (visible.length === 0) {
