@@ -35,7 +35,7 @@ export type PlanViewProps = {
     _metadata?: { [key: string]: string | undefined }
   ) => Promise<void>;
   onCreateCustomerPortal: () => Promise<void>;
-  onCreateCustomerUpgradePortal?: (_productId: string) => Promise<void>;
+  onCreateCustomerUpgradePortal?: (_planIdentifier: string | number) => Promise<void>;
   /** When set and canUseSubscriptionForQuantity, show "Use my membership" to book without paying. */
   onConfirmBookingWithSubscription?: (_subscriptionId: number) => Promise<void>;
 };
@@ -88,7 +88,7 @@ export function PlanView({
 
   if (!hasMatchingPlan) {
     const upgradeablePlans = allowedPlans.filter(
-      (plan) => (plan as any).stripeProductId && plan.id !== subscription.plan.id
+      (plan) => plan.id !== subscription.plan.id
     );
 
     return (
@@ -109,7 +109,7 @@ export function PlanView({
                   <Button
                     className="w-full"
                     onClick={() =>
-                      onCreateCustomerUpgradePortal((plan as any).stripeProductId as string)
+                      onCreateCustomerUpgradePortal(plan.id)
                     }
                   >
                     Upgrade Subscription
@@ -167,11 +167,11 @@ export function PlanView({
                 </p>
               </CardContent>
               <CardFooter>
-                {onCreateCustomerUpgradePortal && (plan as any).stripeProductId ? (
+                {onCreateCustomerUpgradePortal ? (
                   <Button
                     className="w-full"
                     onClick={() =>
-                      onCreateCustomerUpgradePortal((plan as any).stripeProductId as string)
+                      onCreateCustomerUpgradePortal(plan.id)
                     }
                   >
                     Upgrade

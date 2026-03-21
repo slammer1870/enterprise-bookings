@@ -432,9 +432,9 @@ export function PaymentMethods({
     await createCustomerPortal({ returnUrl });
   };
 
-  const handleCreateCustomerUpgradePortal = async (productId: string) => {
+  const handleCreateCustomerUpgradePortal = async (planIdentifier: string | number) => {
     const returnUrl = getCustomerPortalReturnUrl();
-    await createCustomerUpgradePortal({ productId, returnUrl });
+    await createCustomerUpgradePortal({ planId: planIdentifier, returnUrl });
   };
 
   const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;

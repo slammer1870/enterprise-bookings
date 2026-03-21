@@ -213,12 +213,12 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
             : undefined;
         await createCustomerPortal({ returnUrl });
       }}
-      onCreateCustomerUpgradePortal={async (productId) => {
+      onCreateCustomerUpgradePortal={async (planIdentifier) => {
         const returnUrl =
           typeof window !== "undefined"
             ? `${window.location.origin}/dashboard`
             : undefined;
-        await createCustomerUpgradePortal({ productId, returnUrl });
+        await createCustomerUpgradePortal({ planId: planIdentifier, returnUrl });
       }}
     />
   );
