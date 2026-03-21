@@ -815,7 +815,13 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           stripeOpts
         );
         const candidate =
-          list.data.find((s) => s.status === "active" || s.status === "trialing") ??
+          list.data.find(
+            (s) =>
+              s.status === "active" ||
+              s.status === "trialing" ||
+              s.status === "past_due" ||
+              s.status === "unpaid"
+          ) ??
           list.data[0] ??
           null;
         stripeSubscriptionId = candidate?.id ?? null;
@@ -824,7 +830,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       if (!stripeSubscriptionId) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "No active subscription found",
+          message: "No subscription found",
         });
       }
 
