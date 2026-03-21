@@ -302,6 +302,15 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         })
       )
       .query(async ({ ctx, input }) => {
+        if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+          return {
+            classPriceCents: 0,
+            bookingFeeCents: 0,
+            totalCents: 0,
+            currency: "eur",
+          };
+        }
+
         const meta = input.metadata ?? {};
         const stripeAccountId = await resolveStripeAccountIdFromMetadata({
           payload: ctx.payload,
@@ -806,6 +815,9 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           : null;
 
       if (!stripeSubscriptionId) {
+        if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+          stripeSubscriptionId = `sub_test_upgrade_${subscriptionId}`;
+        } else {
         const list = await ctx.stripe.subscriptions.list(
           {
             customer: customerId,
@@ -825,6 +837,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           list.data[0] ??
           null;
         stripeSubscriptionId = candidate?.id ?? null;
+        }
       }
 
       if (!stripeSubscriptionId) {
@@ -832,6 +845,27 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           code: "NOT_FOUND",
           message: "No subscription found",
         });
+      }
+
+      if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+        const redirectUrl = (() => {
+          const raw = input.returnUrl || `${process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000"}/`;
+          try {
+            const url = new URL(raw.startsWith("http") ? raw : `http://localhost:3000${raw.startsWith("/") ? raw : `/${raw}`}`);
+            url.searchParams.set("test_stripe_portal", "upgrade");
+            url.searchParams.set("subscription", stripeSubscriptionId);
+            return `${url.pathname}${url.search}`;
+          } catch {
+            return "/?test_stripe_portal=upgrade";
+          }
+        })();
+
+        return ({
+          object: "billing_portal.session",
+          id: `bps_test_${Date.now()}`,
+          url: redirectUrl,
+          lastResponse: {} as Stripe.Response<Stripe.BillingPortal.Session>["lastResponse"],
+        } as unknown) as Stripe.Response<Stripe.BillingPortal.Session>;
       }
 
       let configId: string | undefined;

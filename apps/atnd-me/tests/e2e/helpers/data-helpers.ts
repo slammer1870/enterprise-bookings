@@ -1,6 +1,6 @@
 import { getPayload, type Payload } from 'payload'
 import config from '../../../src/payload.config'
-import type { Tenant, User, Lesson, ClassOption, Booking } from '@repo/shared-types'
+import type { Tenant, User, Lesson, ClassOption, Booking, Plan, Subscription } from '@repo/shared-types'
 
 /**
  * Helper functions for creating test data via Payload API
@@ -351,6 +351,117 @@ export async function createTestBooking(
     },
     overrideAccess: true,
   })) as Booking
+}
+
+export async function updateTenantStripeConnect(
+  tenantId: string | number,
+  overrides?: {
+    stripeConnectOnboardingStatus?: 'active' | 'not_connected'
+    stripeConnectAccountId?: string | null
+  }
+): Promise<Tenant> {
+  const payload = await getPayloadInstance()
+  const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
+
+  return (await payload.update({
+    collection: 'tenants',
+    id: tenantIdNumber,
+    data: {
+      stripeConnectOnboardingStatus:
+        overrides?.stripeConnectOnboardingStatus ?? 'active',
+      stripeConnectAccountId:
+        overrides?.stripeConnectAccountId ?? `acct_test_${tenantIdNumber}`,
+    },
+    overrideAccess: true,
+  })) as Tenant
+}
+
+export async function createTestPlan(params: {
+  tenantId: string | number
+  name: string
+  sessions: number
+  allowMultipleBookingsPerLesson?: boolean
+  stripeProductId?: string
+  priceId?: string
+}): Promise<Plan> {
+  const payload = await getPayloadInstance()
+  const tenantIdNumber = typeof params.tenantId === 'string' ? Number(params.tenantId) : params.tenantId
+
+  return (await payload.create({
+    collection: 'plans',
+    data: {
+      tenant: tenantIdNumber,
+      name: params.name,
+      status: 'active',
+      sessionsInformation: {
+        sessions: params.sessions,
+        interval: 'week',
+        intervalCount: 1,
+        allowMultipleBookingsPerLesson:
+          params.allowMultipleBookingsPerLesson ?? false,
+      },
+      stripeProductId: params.stripeProductId ?? `prod_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      priceJSON: JSON.stringify({
+        id: params.priceId ?? `price_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      }),
+    },
+    overrideAccess: true,
+  })) as Plan
+}
+
+export async function setClassOptionAllowedPlans(
+  classOptionId: string | number,
+  planIds: Array<string | number>
+): Promise<ClassOption> {
+  const payload = await getPayloadInstance()
+  const classOptionIdNumber =
+    typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
+
+  return (await payload.update({
+    collection: 'class-options',
+    id: classOptionIdNumber,
+    data: {
+      paymentMethods: {
+        allowedPlans: planIds.map((id) => (typeof id === 'string' ? Number(id) : id)),
+      },
+    },
+    overrideAccess: true,
+  })) as ClassOption
+}
+
+export async function createTestSubscription(params: {
+  userId: string | number
+  tenantId: string | number
+  planId: string | number
+  status?: Subscription['status']
+  stripeSubscriptionId?: string | null
+  stripeCustomerId?: string | null
+  stripeAccountId?: string | null
+  startDate?: Date
+  endDate?: Date
+}): Promise<Subscription> {
+  const payload = await getPayloadInstance()
+  const userIdNumber = typeof params.userId === 'string' ? Number(params.userId) : params.userId
+  const tenantIdNumber = typeof params.tenantId === 'string' ? Number(params.tenantId) : params.tenantId
+  const planIdNumber = typeof params.planId === 'string' ? Number(params.planId) : params.planId
+  const startDate = params.startDate ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const endDate = params.endDate ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+  return (await payload.create({
+    collection: 'subscriptions',
+    data: {
+      user: userIdNumber,
+      tenant: tenantIdNumber,
+      plan: planIdNumber,
+      status: params.status ?? 'active',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      stripeSubscriptionId: params.stripeSubscriptionId ?? null,
+      stripeCustomerId: params.stripeCustomerId ?? `cus_test_${userIdNumber}`,
+      stripeAccountId: params.stripeAccountId ?? `acct_test_${tenantIdNumber}`,
+    },
+    overrideAccess: true,
+  })) as Subscription
 }
 
 /**
