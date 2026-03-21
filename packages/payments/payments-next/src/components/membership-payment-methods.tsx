@@ -211,7 +211,10 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
           typeof window !== "undefined"
             ? `${window.location.origin}/dashboard`
             : undefined;
-        await createCustomerPortal({ returnUrl });
+        await createCustomerPortal({
+          returnUrl,
+          ...(tenantId != null ? { tenantId } : {}),
+        });
       }}
       onCreateCustomerUpgradePortal={async (planIdentifier) => {
         const returnUrl =

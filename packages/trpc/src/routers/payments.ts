@@ -556,29 +556,65 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       return session;
     }),
   createCustomerPortal: stripeProtectedProcedure
-    .input(z.object({ returnUrl: z.string().optional() }).optional())
+    .input(
+      z
+        .object({
+          returnUrl: z.string().optional(),
+          /** When provided, attempts to open the portal on the tenant's Connect account. */
+          tenantId: z.union([z.number(), z.string()]).optional(),
+        })
+        .optional()
+    )
     .mutation(async ({ ctx, input }) => {
       const payloadUser = await resolvePayloadUser({
         payload: ctx.payload,
         sessionUser: ctx.user,
       });
-      const { stripeCustomerId: customerId } =
-        await ensureStripeCustomerIdForAccount({
+      const tenantId = coerceNumericId(input?.tenantId);
+      const tenantDoc =
+        tenantId != null
+          ? await ctx.payload
+              .findByID({
+                collection: "tenants" as any,
+                id: tenantId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              .catch(() => null)
+          : null;
+      const tenantStripeAccountId =
+        tenantDoc &&
+        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+        (tenantDoc as any).stripeConnectAccountId.trim() &&
+        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+          ? String((tenantDoc as any).stripeConnectAccountId).trim()
+          : null;
+
+      const stripeOpts = tenantStripeAccountId
+        ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
+
+      const { stripeCustomerId: customerId } = await ensureStripeCustomerIdForAccount(
+        {
           payload: ctx.payload,
           stripe: ctx.stripe,
           userId: payloadUser.id,
           email: payloadUser.email ?? null,
           name: payloadUser.name ?? null,
-          stripeAccountId: null,
-        });
+          stripeAccountId: tenantStripeAccountId,
+        }
+      );
       const returnUrl =
         input?.returnUrl ||
         `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
 
-      const session = await ctx.stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: returnUrl,
-      });
+      const session = await ctx.stripe.billingPortal.sessions.create(
+        {
+          customer: customerId,
+          return_url: returnUrl,
+        },
+        stripeOpts
+      );
 
       return session;
     }),
@@ -720,12 +756,18 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         payload: ctx.payload,
         sessionUser: ctx.user,
       });
-      // Resolve the user's current subscription via Payload (works across Connect + platform),
+      const planTenantId =
+        typeof plan?.tenant === "object" && plan.tenant != null && "id" in plan.tenant
+          ? coerceNumericId((plan.tenant as any).id)
+          : coerceNumericId(plan?.tenant);
+
+      // Resolve the user's current subscription via Payload (Connect-aware),
       // then use Stripe only to open the billing portal session.
       const activeOrTrialing = await findSafe<any>(ctx.payload, "subscriptions", {
         where: {
           user: { equals: payloadUser.id },
           status: { in: ["active", "trialing"] },
+          ...(planTenantId != null ? { tenant: { equals: planTenantId } } : {}),
         },
         limit: 1,
         depth: 0,
@@ -739,6 +781,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           where: {
             user: { equals: payloadUser.id },
             status: { in: ["past_due", "unpaid"] },
+            ...(planTenantId != null ? { tenant: { equals: planTenantId } } : {}),
           },
           limit: 1,
           depth: 0,

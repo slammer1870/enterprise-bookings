@@ -429,7 +429,10 @@ export function PaymentMethods({
 
   const handleCreateCustomerPortal = async () => {
     const returnUrl = getCustomerPortalReturnUrl();
-    await createCustomerPortal({ returnUrl });
+    await createCustomerPortal({
+      returnUrl,
+      ...(tenantId != null ? { tenantId } : {}),
+    });
   };
 
   const handleCreateCustomerUpgradePortal = async (planIdentifier: string | number) => {
