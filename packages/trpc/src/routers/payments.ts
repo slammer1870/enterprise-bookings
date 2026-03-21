@@ -825,13 +825,37 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           ? (subscriptionDoc as any).stripeAccountId.trim()
           : null;
 
-      const stripeOpts = stripeAccountId
-        ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
+      // If the subscription doc doesn't have Connect scoping info (older data),
+      // fall back to the plan's tenant Connect account so we open the portal in the right scope
+      // for Connect-scoped products/prices.
+      const tenantDoc =
+        planTenantId != null
+          ? await ctx.payload
+              .findByID({
+                collection: "tenants" as any,
+                id: planTenantId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              .catch(() => null)
+          : null;
+      const tenantStripeAccountId =
+        tenantDoc &&
+        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+        (tenantDoc as any).stripeConnectAccountId.trim() &&
+        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+          ? String((tenantDoc as any).stripeConnectAccountId).trim()
+          : null;
+
+      const stripeAccountIdForPortal = stripeAccountId ?? tenantStripeAccountId;
+
+      const stripeOpts = stripeAccountIdForPortal
+        ? ({ stripeAccount: stripeAccountIdForPortal } satisfies Stripe.RequestOptions)
         : undefined;
 
       // Prefer customer id captured on Connect subscription docs; otherwise resolve/create on the right scope.
       const directCustomerId =
-        stripeAccountId &&
+        stripeAccountIdForPortal &&
         typeof (subscriptionDoc as any)?.stripeCustomerId === "string" &&
         (subscriptionDoc as any).stripeCustomerId.trim()
           ? (subscriptionDoc as any).stripeCustomerId.trim()
@@ -846,7 +870,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             userId: payloadUser.id,
             email: payloadUser.email ?? null,
             name: payloadUser.name ?? null,
-            stripeAccountId,
+            stripeAccountId: stripeAccountIdForPortal,
           })
         ).stripeCustomerId;
 
