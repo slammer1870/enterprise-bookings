@@ -468,6 +468,20 @@ export function PaymentMethods({
     subscription &&
     allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
 
+  // Allow legacy inactive plan usage: keep inactive plans out of the subscribe/upgrade list,
+  // but include the current subscription plan in the PlanView matching check so users don't
+  // see "you do not have a plan..." when their subscribed plan is inactive.
+  const currentSubscriptionPlan =
+    subscription && subscription.plan && typeof subscription.plan === "object" && subscription.plan != null
+      ? (subscription.plan as Plan)
+      : null;
+  const subscriptionPlanIsAllowed =
+    currentSubscriptionPlan != null && allowedPlanDocs.some((p) => p.id === currentSubscriptionPlan.id);
+  const plansForView: Plan[] =
+    subscriptionPlanIsAllowed && currentSubscriptionPlan?.status !== "active"
+      ? [currentSubscriptionPlan, ...activePlans]
+      : activePlans;
+
   const userPlanAllowsMultiple =
     subscription?.plan &&
     planAllowsMultipleBookingsPerLesson(subscription.plan);
@@ -616,7 +630,7 @@ export function PaymentMethods({
         {hasMembershipTab && (
           <TabsContent value="membership">
             <PlanView
-              allowedPlans={activePlans}
+              allowedPlans={plansForView}
               subscription={subscription}
               lessonDate={new Date(lesson.startTime)}
               subscriptionLimitReached={subscriptionLimitReached}

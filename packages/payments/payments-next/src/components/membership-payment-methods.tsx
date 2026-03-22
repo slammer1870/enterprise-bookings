@@ -183,7 +183,19 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
         (p: unknown): p is Plan => typeof p === "object" && p != null && "id" in p
       ) as Plan[])
     : [];
+  // UI should not offer subscribing to inactive legacy plans, but users with an existing
+  // subscription to an inactive plan should still be able to use it for booking.
   const activePlans = allowedPlanDocs.filter((plan) => plan.status === "active");
+  const currentSubscriptionPlan =
+    subscription && subscription.plan && typeof subscription.plan === "object" && subscription.plan != null
+      ? (subscription.plan as Plan)
+      : null;
+  const subscriptionPlanIsAllowed =
+    currentSubscriptionPlan != null && allowedPlanDocs.some((p) => p.id === currentSubscriptionPlan.id);
+  const plansForView: Plan[] =
+    subscriptionPlanIsAllowed && currentSubscriptionPlan?.status !== "active"
+      ? [currentSubscriptionPlan, ...activePlans]
+      : activePlans;
 
   const hasSubscriptionWithPlan =
     subscription && allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
@@ -200,7 +212,7 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
 
   return (
     <PlanView
-      allowedPlans={activePlans}
+      allowedPlans={plansForView}
       subscription={subscription}
       lessonDate={new Date(lesson.startTime)}
       subscriptionLimitReached={subscriptionLimitReached}
