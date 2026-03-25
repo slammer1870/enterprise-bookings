@@ -218,16 +218,14 @@ export const generateLessonsFromSchedule: TaskHandler<
         const startTimeDate = new Date(timeSlot.startTime);
         const endTimeDate = new Date(timeSlot.endTime);
 
-        // Parse the stored times in the specified timezone to extract wall-clock time
-        // This handles the case where the scheduler was configured during a different DST period
-        const startInTZ = new TZDate(startTimeDate, timeZone);
-        const endInTZ = new TZDate(endTimeDate, timeZone);
-
-        // Extract the hours and minutes as they appear in the target timezone
-        const startHours = startInTZ.getHours();
-        const startMinutes = startInTZ.getMinutes();
-        const endHours = endInTZ.getHours();
-        const endMinutes = endInTZ.getMinutes();
+        // `timeSlot.startTime`/`endTime` are stored as absolute instants on a dummy
+        // anchor date for time-only fields. Extracting UTC components keeps the
+        // intended wall-clock slot stable across DST transitions and avoids local
+        // timezone effects during parsing.
+        const startHours = startTimeDate.getUTCHours();
+        const startMinutes = startTimeDate.getUTCMinutes();
+        const endHours = endTimeDate.getUTCHours();
+        const endMinutes = endTimeDate.getUTCMinutes();
 
         // Use TZDate to create dates in the specified timezone
         // This ensures that times remain consistent across DST boundaries

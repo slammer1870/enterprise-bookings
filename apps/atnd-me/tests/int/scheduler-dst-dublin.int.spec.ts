@@ -18,7 +18,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
 
-    testTenant = await payload.create({
+    const createdTenant = await payload.create({
       collection: 'tenants',
       data: {
         name: 'DST Tenant',
@@ -26,6 +26,10 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       },
       overrideAccess: true,
     })
+    testTenant = {
+      id: (createdTenant as any).id,
+      slug: (createdTenant as any).slug,
+    }
 
     const uniqueEmail = `test-dst-${Date.now()}@test.com`
     user = (await payload.create({
@@ -70,19 +74,21 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   }
 
   it(
-    'does not show Monday schedule on Sunday Mar 29 2026 (Dublin DST start)',
+    'reproduces the DST boundary regression when scheduler is configured on 29th March from a 26th March planning date',
     async () => {
       const timeZone = 'Europe/Dublin'
+      // Simulate scheduler being configured with a start date that sits on the
+      // first Monday after DST starts (29 March), while the admin is planning it
+      // on 26 March.
+      const startDate = '2026-03-29' // Sunday in production examples, DST boundary date
+      const endDate = '2026-04-04' // Saturday
 
-      // Start schedule on Sunday Mar 29 2026 (DST start day in Dublin).
-      const startDate = new TZDate(2026, 2, 29, 0, 0, 0, 0, timeZone)
-      const endDate = new TZDate(2026, 3, 2, 23, 59, 59, 999, timeZone) // through Tue Apr 2
+      // Keep this to the two active weekdays in the regression scenario:
+      // - Monday lessons at 10:00
+      // - Tuesday lessons at 11:00
+      // If Monday is shifted to Sunday, this assertion pattern catches it immediately.
+      const hourByScheduleIndex = [10, 11] as const
 
-      // Use "wall-clock" 10:00-11:00 slot representation.
-      const slotStart = new TZDate(2000, 0, 1, 10, 0, 0, 0, timeZone)
-      const slotEnd = new TZDate(2000, 0, 1, 11, 0, 0, 0, timeZone)
-
-      // Remove any existing scheduler doc for this tenant to avoid interference.
       const existing = await payload.find({
         collection: 'scheduler',
         where: { tenant: { equals: testTenant.id } },
@@ -102,47 +108,37 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         context: { tenant: testTenant.id },
       } as any
 
+      const mkSlot = (hour: number) => {
+        const start = new TZDate(2000, 0, 1, hour, 0, 0, 0, timeZone)
+        const end = new TZDate(2000, 0, 1, hour, 30, 0, 0, timeZone)
+        return {
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          classOption: classOption.id,
+          location: `DST Slot ${hour}`,
+          active: true,
+        }
+      }
+
       await payload.create({
         collection: 'scheduler',
         data: {
           tenant: Number(testTenant.id),
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate,
+          endDate,
           clearExisting: true,
           defaultClassOption: classOption.id,
           lockOutTime: 0,
           week: {
+            // week.days is Monday-first: 0=Mon ... 6=Sun
             days: [
-              // Monday (index 0)
-              {
-                timeSlot: [
-                  {
-                    startTime: slotStart.toISOString(),
-                    endTime: slotEnd.toISOString(),
-                    classOption: classOption.id,
-                    location: 'Test Location',
-                    active: true,
-                  },
-                ],
-              },
-              // Tuesday (index 1)
-              {
-                timeSlot: [
-                  {
-                    startTime: slotStart.toISOString(),
-                    endTime: slotEnd.toISOString(),
-                    classOption: classOption.id,
-                    location: 'Test Location',
-                    active: true,
-                  },
-                ],
-              },
-              // Wed..Sun empty
-              { timeSlot: [] },
-              { timeSlot: [] },
-              { timeSlot: [] },
-              { timeSlot: [] },
-              { timeSlot: [] },
+              { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
+              { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
+              { timeSlot: [] }, // Wed
+              { timeSlot: [] }, // Thu
+              { timeSlot: [] }, // Fri
+              { timeSlot: [] }, // Sat
+              { timeSlot: [] }, // Sun
             ],
           },
         },
@@ -155,29 +151,72 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       const caller = await createCaller()
 
-      // Query Sunday Mar 29 in Dublin. Use a midday instant to avoid boundary ambiguity.
-      const sundayInstant = new TZDate(2026, 2, 29, 12, 0, 0, 0, timeZone).toISOString()
-      const sundayLessons = (await caller.lessons.getByDate({
-        date: sundayInstant,
-        tenantId: Number(testTenant.id),
-      })) as Lesson[]
+      // Query each calendar day using a midday instant in Dublin to avoid boundary ambiguity.
+      const calendarDates = [
+        { y: 2026, m: 2, d: 29 }, // Sun Mar 29
+        { y: 2026, m: 2, d: 30 }, // Mon Mar 30
+        { y: 2026, m: 2, d: 31 }, // Tue Mar 31
+        { y: 2026, m: 3, d: 1 }, // Wed Apr 1
+        { y: 2026, m: 3, d: 2 }, // Thu Apr 2
+        { y: 2026, m: 3, d: 3 }, // Fri Apr 3
+        { y: 2026, m: 3, d: 4 }, // Sat Apr 4
+      ] as const
 
-      expect(sundayLessons.length).toBe(0)
+      for (const { y, m, d } of calendarDates) {
+        const middayInstant = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).toISOString()
+        const lessons = (await caller.lessons.getByDate({
+          date: middayInstant,
+          tenantId: Number(testTenant.id),
+        })) as Lesson[]
 
-      // Query Monday Mar 30 in Dublin - should have at least one lesson.
-      const mondayInstant = new TZDate(2026, 2, 30, 12, 0, 0, 0, timeZone).toISOString()
-      const mondayLessons = (await caller.lessons.getByDate({
-        date: mondayInstant,
-        tenantId: Number(testTenant.id),
-      })) as Lesson[]
+        const jsDay = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).getDay()
 
-      expect(mondayLessons.length).toBeGreaterThan(0)
+        if (jsDay === 0) {
+          // Sunday should not get a generated lesson in this schedule
+          expect(lessons.length).toBe(0)
+          continue
+        }
 
-      // Ensure lessons returned for Monday are actually Monday in Dublin.
-      for (const lesson of mondayLessons) {
+        if (jsDay >= 3 && jsDay <= 6) {
+          // Wednesday through Saturday are intentionally not scheduled in this fixture
+          expect(lessons.length).toBe(0)
+          continue
+        }
+
+        // Active days Mon/Tue: exactly one lesson each with the configured hour.
+        expect(lessons.length).toBe(1)
+        const lesson = lessons[0]!
+        expect(lesson).toBeDefined()
         const start = new TZDate(new Date(lesson.startTime as any), timeZone)
-        expect(start.getDay()).toBe(1) // 1 = Monday
+
+        // Verify lesson is on the correct local calendar day and weekday.
+        expect(start.getFullYear()).toBe(y)
+        expect(start.getMonth()).toBe(m)
+        expect(start.getDate()).toBe(d)
+
+        const scheduleIndex = jsDay === 0 ? 6 : jsDay - 1 // 0=Mon..6=Sun
+        const expectedHour = hourByScheduleIndex[scheduleIndex]!
+        expect(start.getHours()).toBe(expectedHour)
+
+        if (jsDay === 2) {
+          expect(start.getHours()).toBe(11)
+        }
+        if (jsDay === 1) {
+          expect(start.getHours()).toBe(10)
+        }
       }
+
+      // 2) If this test is green, Monday is still being created on Monday
+      // (not on Sunday) after crossing the DST boundary.
+      const mondayLessons = (await caller.lessons.getByDate({
+        date: new TZDate(2026, 2, 30, 12, 0, 0, 0, timeZone).toISOString(),
+        tenantId: Number(testTenant.id),
+      })) as Lesson[]
+      expect(mondayLessons.length).toBe(1)
+      const mondayStart = new TZDate(new Date((mondayLessons[0] as Lesson).startTime as any), timeZone)
+      expect(mondayStart.getDay()).toBe(1) // Monday
+      expect(mondayStart.getHours()).toBe(10)
+      expect(mondayStart.getDate()).toBe(30)
     },
     TEST_TIMEOUT,
   )

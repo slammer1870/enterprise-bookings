@@ -204,13 +204,14 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
         const startTimeDate = new Date(timeSlot.startTime);
         const endTimeDate = new Date(timeSlot.endTime);
 
-        const startInTZ = new TZDate(startTimeDate, timeZone);
-        const endInTZ = new TZDate(endTimeDate, timeZone);
-
-        const startHours = startInTZ.getHours();
-        const startMinutes = startInTZ.getMinutes();
-        const endHours = endInTZ.getHours();
-        const endMinutes = endInTZ.getMinutes();
+        // `timeSlot.startTime`/`endTime` are stored as absolute instants on a dummy
+        // anchor date for time-only fields. Extracting UTC components keeps the
+        // intended wall-clock slot stable across DST transitions and avoids local
+        // timezone effects during parsing.
+        const startHours = startTimeDate.getUTCHours();
+        const startMinutes = startTimeDate.getUTCMinutes();
+        const endHours = endTimeDate.getUTCHours();
+        const endMinutes = endTimeDate.getUTCMinutes();
 
         const lessonStartTime = new TZDate(
           currentInTZ.getFullYear(),
