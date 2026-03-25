@@ -180,11 +180,16 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
         ? rawTenant.id
         : rawTenant;
 
-    let currentDate = new Date(start);
+    // IMPORTANT: Keep `currentDate` as a timezone-aware date.
+    // Converting to a plain `Date` and then reading Y/M/D via getters will use the
+    // server timezone (often UTC) and can shift the calendar day after DST starts.
+    let currentDate = start;
     while (currentDate <= end) {
+      const currentInTZ = new TZDate(currentDate, timeZone);
+
       // Derive weekday in the scheduler's timezone (NOT server timezone),
       // otherwise we can map "Monday" slots onto "Sunday" when DST shifts.
-      const dayOfWeek = new TZDate(currentDate, timeZone).getDay();
+      const dayOfWeek = currentInTZ.getDay();
       const scheduleIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const scheduleDay = week?.days?.[scheduleIndex];
 
@@ -208,9 +213,9 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
         const endMinutes = endInTZ.getMinutes();
 
         const lessonStartTime = new TZDate(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
-          currentDate.getDate(),
+          currentInTZ.getFullYear(),
+          currentInTZ.getMonth(),
+          currentInTZ.getDate(),
           startHours,
           startMinutes,
           0,
@@ -219,9 +224,9 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
         );
 
         const lessonEndTime = new TZDate(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
-          currentDate.getDate(),
+          currentInTZ.getFullYear(),
+          currentInTZ.getMonth(),
+          currentInTZ.getDate(),
           endHours,
           endMinutes,
           0,
@@ -267,9 +272,9 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
         }
 
         const lessonDate = new TZDate(
-          currentDate.getFullYear(),
-          currentDate.getMonth(),
-          currentDate.getDate(),
+          currentInTZ.getFullYear(),
+          currentInTZ.getMonth(),
+          currentInTZ.getDate(),
           0,
           0,
           0,
@@ -316,12 +321,11 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
 
       // Advance by calendar days in the scheduler timezone, then normalize back to
       // midnight to keep the loop stable across DST transitions.
-      const next = addDays(new TZDate(currentDate, timeZone), 1);
-      const nextInTZ = new TZDate(next, timeZone);
+      const next = addDays(currentInTZ, 1);
       currentDate = new TZDate(
-        nextInTZ.getFullYear(),
-        nextInTZ.getMonth(),
-        nextInTZ.getDate(),
+        next.getFullYear(),
+        next.getMonth(),
+        next.getDate(),
         0,
         0,
         0,

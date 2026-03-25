@@ -1,9 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TZDate } from "@date-fns/tz";
 
 import { generateLessonsFromSchedule } from "../src/tasks/generate-lessons";
 
 describe("Scheduler tests", () => {
+  // Production runs in UTC (or a non-Dublin server timezone). Force UTC here so
+  // DST boundary bugs don't get masked by the developer machine timezone.
+  const ORIGINAL_TZ = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "UTC";
+  });
+  afterAll(() => {
+    process.env.TZ = ORIGINAL_TZ;
+  });
+
   it("does not shift Monday-only schedules to Sunday across Dublin DST start (startDate=Mar 29)", async () => {
     const timeZone = "Europe/Dublin";
 
@@ -49,7 +59,7 @@ describe("Scheduler tests", () => {
     const slotStart = new TZDate(2000, 0, 1, 10, 0, 0, 0, timeZone);
     const slotEnd = new TZDate(2000, 0, 1, 11, 0, 0, 0, timeZone);
 
-    await generateLessonsFromSchedule({
+    await (generateLessonsFromSchedule as any)({
       input: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -138,7 +148,7 @@ describe("Scheduler tests", () => {
     const slotStart = new TZDate(2000, 0, 1, 10, 0, 0, 0, timeZone);
     const slotEnd = new TZDate(2000, 0, 1, 11, 0, 0, 0, timeZone);
 
-    await generateLessonsFromSchedule({
+    await (generateLessonsFromSchedule as any)({
       input: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -180,4 +190,5 @@ describe("Scheduler tests", () => {
       expect(start.getDay()).toBe(1);
     }
   });
+
 });
