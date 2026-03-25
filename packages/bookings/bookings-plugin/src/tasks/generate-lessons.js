@@ -46,10 +46,34 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
   const timeZone =
     payload?.config?.admin?.timezones?.defaultTimezone || "Europe/Dublin";
 
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+  // Interpret the schedule boundaries in the scheduler's timezone.
+  // This prevents server-local timezone (often UTC in prod) from shifting the
+  // calendar day around DST boundaries (e.g. Europe/Dublin late March).
+  const startInstant = new Date(startDate);
+  const startInTZ = new TZDate(startInstant, timeZone);
+  const start = new TZDate(
+    startInTZ.getFullYear(),
+    startInTZ.getMonth(),
+    startInTZ.getDate(),
+    0,
+    0,
+    0,
+    0,
+    timeZone
+  );
+
+  const endInstant = new Date(endDate);
+  const endInTZ = new TZDate(endInstant, timeZone);
+  const end = new TZDate(
+    endInTZ.getFullYear(),
+    endInTZ.getMonth(),
+    endInTZ.getDate(),
+    23,
+    59,
+    59,
+    999,
+    timeZone
+  );
 
   try {
     if (clearExisting) {
@@ -158,7 +182,9 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
 
     let currentDate = new Date(start);
     while (currentDate <= end) {
-      const dayOfWeek = currentDate.getDay();
+      // Derive weekday in the scheduler's timezone (NOT server timezone),
+      // otherwise we can map "Monday" slots onto "Sunday" when DST shifts.
+      const dayOfWeek = new TZDate(currentDate, timeZone).getDay();
       const scheduleIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const scheduleDay = week?.days?.[scheduleIndex];
 
@@ -270,7 +296,7 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
           continue;
         }
 
-        const newLesson = await payload.create({
+        await payload.create({
           collection: "lessons",
           data: {
             date: lessonDate.toISOString(),
@@ -286,12 +312,22 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
           req,
           overrideAccess: true,
         });
-
-        // eslint-disable-next-line no-console
-        console.log("New lesson", newLesson);
       }
 
-      currentDate = addDays(currentDate, 1);
+      // Advance by calendar days in the scheduler timezone, then normalize back to
+      // midnight to keep the loop stable across DST transitions.
+      const next = addDays(new TZDate(currentDate, timeZone), 1);
+      const nextInTZ = new TZDate(next, timeZone);
+      currentDate = new TZDate(
+        nextInTZ.getFullYear(),
+        nextInTZ.getMonth(),
+        nextInTZ.getDate(),
+        0,
+        0,
+        0,
+        0,
+        timeZone
+      );
     }
   } catch (error) {
     // eslint-disable-next-line no-console
