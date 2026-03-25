@@ -1,4 +1,4 @@
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 const defaultPasswordValidator = (password: string): string | true => {
   if (!password) return "No password was given";

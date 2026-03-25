@@ -39,8 +39,10 @@ export type Lesson = {
     | "childrenBooked"
     | "multipleBooked";
   originalLockOutTime?: number;
-  /** Present in multi-tenant apps; ID or populated { id, slug? }. */
-  tenant?: number | { id: number; slug?: string } | null;
+  /** Present in multi-tenant apps; ID or populated tenant info. */
+  tenant?: number | { id: number; slug?: string; timeZone?: string | null } | null;
+  /** Resolved timezone for formatting/query consumers. */
+  timeZone?: string;
   /**
    * Schedule-specific view model computed server-side (tRPC).
    * When present, UI should render buttons from this instead of `bookingStatus`.

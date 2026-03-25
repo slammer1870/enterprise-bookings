@@ -12,14 +12,19 @@ import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
 import {
   getTenantSlug,
   resolveTenantId,
+  resolveTenantTimeZone,
   assertLessonBelongsToTenant,
   populateLessonClassOption,
   deriveTenantIdFromLesson,
 } from "../utils/tenant";
 
 import { ClassOption, Lesson, LessonScheduleState } from "@repo/shared-types";
-import { checkRole, getDayRange } from "@repo/shared-utils";
-import { TZDate } from "@date-fns/tz";
+import {
+  checkRole,
+  getDayRange,
+  getDayBoundsInTimeZone,
+  resolveTimeZone,
+} from "@repo/shared-utils";
 
 export const lessonsRouter = {
   getById: protectedProcedure
@@ -42,10 +47,24 @@ export const lessonsRouter = {
         });
       }
 
-      if (tenantId) {
-        assertLessonBelongsToTenant(lesson, tenantId, input.id);
+      let effectiveTenantId = tenantId;
+      if (effectiveTenantId == null) {
+        effectiveTenantId = deriveTenantIdFromLesson(lesson);
+      }
+
+      if (effectiveTenantId) {
+        assertLessonBelongsToTenant(lesson, effectiveTenantId, input.id);
         await populateLessonClassOption(ctx.payload, lesson);
       }
+
+      const fallbackTimeZone = resolveTimeZone(
+        ctx.payload.config.admin.timezones.defaultTimezone
+      );
+      lesson.timeZone = await resolveTenantTimeZone(
+        ctx.payload,
+        effectiveTenantId,
+        fallbackTimeZone
+      );
 
       return lesson;
     }),
@@ -76,6 +95,15 @@ export const lessonsRouter = {
         assertLessonBelongsToTenant(lesson, tenantId, input.id);
         await populateLessonClassOption(ctx.payload, lesson);
       }
+
+      const fallbackTimeZone = resolveTimeZone(
+        ctx.payload.config.admin.timezones.defaultTimezone
+      );
+      lesson.timeZone = await resolveTenantTimeZone(
+        ctx.payload,
+        tenantId,
+        fallbackTimeZone
+      );
 
       // Validate lesson is bookable
       // NOTE: `bookingStatus` is computed per-viewer:
@@ -190,33 +218,15 @@ export const lessonsRouter = {
           tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
         }
 
-        const timeZone =
-          ctx.payload.config.admin.timezones.defaultTimezone || "Europe/Dublin";
-
-        // `input.date` is an instant (ISO string). Interpret its calendar day in the
-        // tenant timezone, then build day boundaries in that same timezone.
-        const instant = new Date(input.date);
-        const inTZ = new TZDate(instant, timeZone);
-        const startOfDay = new TZDate(
-          inTZ.getFullYear(),
-          inTZ.getMonth(),
-          inTZ.getDate(),
-          0,
-          0,
-          0,
-          0,
-          timeZone
+        const fallbackTimeZone = resolveTimeZone(
+          ctx.payload.config.admin.timezones.defaultTimezone
         );
-        const endOfDay = new TZDate(
-          inTZ.getFullYear(),
-          inTZ.getMonth(),
-          inTZ.getDate(),
-          23,
-          59,
-          59,
-          999,
-          timeZone
+        const timeZone = await resolveTenantTimeZone(
+          ctx.payload,
+          tenantId,
+          fallbackTimeZone
         );
+        const { startOfDay, endOfDay } = getDayBoundsInTimeZone(input.date, timeZone);
 
         // Build where clause with date range and tenant filter
         // CRITICAL: We MUST explicitly filter by tenant in the where clause.
@@ -550,6 +560,7 @@ export const lessonsRouter = {
             bookingStatus: legacyBookingStatus,
             myBookingCount: viewerConfirmedCount,
             scheduleState,
+            timeZone,
           } as Lesson;
         });
       } catch (error) {

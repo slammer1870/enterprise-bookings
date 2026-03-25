@@ -10,6 +10,11 @@ import { getRemainingCapacity } from "../hooks/remaining-capacity";
 import { getBookingStatus } from "../hooks/booking-status";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types/";
+import {
+  combineDateAndTimeInTimeZone,
+  extractUtcWallClock,
+  resolveTimeZone,
+} from "@repo/shared-utils";
 
 import type { BookingsPluginConfig } from "../types";
 
@@ -84,6 +89,102 @@ const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date
   return null;
 };
 
+const getDefaultTimeZone = (req: { payload?: { config?: { admin?: { timezones?: { defaultTimezone?: string } } } } } | undefined) =>
+  resolveTimeZone(req?.payload?.config?.admin?.timezones?.defaultTimezone);
+
+const getTenantIdFromValue = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    const id = (value as { id?: unknown }).id;
+    return typeof id === "number"
+      ? id
+      : typeof id === "string"
+        ? Number(id)
+        : null;
+  }
+  return null;
+};
+
+const getTenantTimeZoneFromValue = (value: unknown): string | null => {
+  if (!value || typeof value !== "object") return null;
+  return typeof (value as { timeZone?: unknown }).timeZone === "string"
+    ? ((value as { timeZone?: string }).timeZone ?? null)
+    : null;
+};
+
+const getWallClockTime = (value: unknown): {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  milliseconds: number;
+} | null => {
+  if (typeof value === "string") {
+    const parsedTime = parseTimeString(value);
+    if (parsedTime) {
+      return {
+        hours: parsedTime.hours,
+        minutes: parsedTime.minutes,
+        seconds: 0,
+        milliseconds: 0,
+      };
+    }
+  }
+
+  if (value instanceof Date || typeof value === "string") {
+    const parsedDate = new Date(value);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return extractUtcWallClock(parsedDate);
+    }
+  }
+
+  return null;
+};
+
+const resolveLessonTimeZoneForValidation = (
+  siblingData: Record<string, unknown>,
+  fallbackTimeZone: string
+) => {
+  const siblingTenantTimeZone = getTenantTimeZoneFromValue(siblingData?.tenant);
+  if (siblingTenantTimeZone) return resolveTimeZone(siblingTenantTimeZone, fallbackTimeZone);
+  return fallbackTimeZone;
+};
+
+const resolveLessonTimeZone = async ({
+  req,
+  siblingData,
+}: {
+  req: any;
+  siblingData: Record<string, unknown>;
+}) => {
+  const fallbackTimeZone = getDefaultTimeZone(req);
+  const siblingTenantTimeZone = getTenantTimeZoneFromValue(siblingData?.tenant);
+  if (siblingTenantTimeZone) return resolveTimeZone(siblingTenantTimeZone, fallbackTimeZone);
+
+  const tenantId = getTenantIdFromValue(siblingData?.tenant ?? req?.context?.tenant);
+  if (!tenantId || !req?.payload?.findByID) return fallbackTimeZone;
+
+  try {
+    const tenant = await req.payload.findByID({
+      collection: "tenants",
+      id: tenantId,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    });
+
+    return resolveTimeZone(
+      typeof tenant?.timeZone === "string" ? tenant.timeZone : null,
+      fallbackTimeZone
+    );
+  } catch {
+    return fallbackTimeZone;
+  }
+};
+
 const defaultFields: Field[] = [
   {
     type: "row",
@@ -112,27 +213,20 @@ const defaultFields: Field[] = [
         },
         hooks: {
           beforeChange: [
-            ({ value, siblingData, req }) => {
+            async ({ value, siblingData, req }) => {
               if (req?.context?.skipLessonTimeNormalization) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
-              const time = coerceToDateForTimeOnlyField(value);
+              const time = getWallClockTime(value);
               if (!time) return value;
 
-              const year = base.getFullYear();
-              const month = base.getMonth();
-              const day = base.getDate();
-              value = new Date(
-                year,
-                month,
-                day,
-                time.getHours(),
-                time.getMinutes(),
-                time.getSeconds(),
-                time.getMilliseconds()
-              );
-              return value;
+              const timeZone = await resolveLessonTimeZone({
+                req,
+                siblingData: (siblingData || {}) as Record<string, unknown>,
+              });
+
+              return combineDateAndTimeInTimeZone(base, time, timeZone).toISOString();
             },
           ],
         },
@@ -148,27 +242,20 @@ const defaultFields: Field[] = [
         },
         hooks: {
           beforeChange: [
-            ({ value, siblingData, req }) => {
+            async ({ value, siblingData, req }) => {
               if (req?.context?.skipLessonTimeNormalization) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
-              const time = coerceToDateForTimeOnlyField(value);
+              const time = getWallClockTime(value);
               if (!time) return value;
 
-              const year = base.getFullYear();
-              const month = base.getMonth();
-              const day = base.getDate();
-              value = new Date(
-                year,
-                month,
-                day,
-                time.getHours(),
-                time.getMinutes(),
-                time.getSeconds(),
-                time.getMilliseconds()
-              );
-              return value;
+              const timeZone = await resolveLessonTimeZone({
+                req,
+                siblingData: (siblingData || {}) as Record<string, unknown>,
+              });
+
+              return combineDateAndTimeInTimeZone(base, time, timeZone).toISOString();
             },
           ],
         },
@@ -178,34 +265,24 @@ const defaultFields: Field[] = [
             date: string;
           };
           if (value && siblingData.startTime && siblingData.date) {
-            // Apply the same transformation logic as beforeChange hooks
-            const date = new Date(siblingData.date);
-            const year = date.getFullYear();
-            const month = date.getMonth();
-            const day = date.getDate();
-
-            // Transform endTime
-            const endTimeRaw = new Date(value);
-            const endTime = new Date(
-              year,
-              month,
-              day,
-              endTimeRaw.getHours(),
-              endTimeRaw.getMinutes(),
-              endTimeRaw.getSeconds(),
-              endTimeRaw.getMilliseconds()
+            const fallbackTimeZone = getDefaultTimeZone((options as { req?: any }).req);
+            const timeZone = resolveLessonTimeZoneForValidation(
+              options.siblingData as Record<string, unknown>,
+              fallbackTimeZone
             );
+            const endTimeParts = getWallClockTime(value);
+            const startTimeParts = getWallClockTime(siblingData.startTime);
+            if (!endTimeParts || !startTimeParts) return true;
 
-            // Transform startTime
-            const startTimeRaw = new Date(siblingData.startTime);
-            const startTime = new Date(
-              year,
-              month,
-              day,
-              startTimeRaw.getHours(),
-              startTimeRaw.getMinutes(),
-              startTimeRaw.getSeconds(),
-              startTimeRaw.getMilliseconds()
+            const endTime = combineDateAndTimeInTimeZone(
+              siblingData.date,
+              endTimeParts,
+              timeZone
+            );
+            const startTime = combineDateAndTimeInTimeZone(
+              siblingData.date,
+              startTimeParts,
+              timeZone
             );
             if (endTime <= startTime) {
               return "End time must be greater than start time";

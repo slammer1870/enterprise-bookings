@@ -6,3 +6,4 @@ export * from "./password";
 export * from "./utm";
 export * from "./discount";
 export * from "./booking-auth";
+export * from "./timezone";

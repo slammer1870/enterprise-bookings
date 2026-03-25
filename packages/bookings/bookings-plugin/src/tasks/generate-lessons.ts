@@ -1,6 +1,7 @@
 import { TaskHandler } from "payload";
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
+import { resolveTimeZone } from "@repo/shared-utils";
 
 import { TaskGenerateLessonsFromSchedule } from "../types";
 import { Lesson } from "@repo/shared-types";
@@ -42,8 +43,43 @@ export const generateLessonsFromSchedule: TaskHandler<
     };
   }
 
-  const timeZone =
-    payload.config.admin.timezones.defaultTimezone || "Europe/Dublin";
+  const fallbackTimeZone = resolveTimeZone(
+    payload.config.admin.timezones.defaultTimezone
+  );
+  let timeZone = fallbackTimeZone;
+
+  const tenantRef = req.context?.tenant as
+    | number
+    | string
+    | { id?: number | string; timeZone?: string | null }
+    | undefined;
+
+  if (tenantRef && typeof tenantRef === "object" && typeof tenantRef.timeZone === "string") {
+    timeZone = resolveTimeZone(tenantRef.timeZone, fallbackTimeZone);
+  } else {
+    const tenantId =
+      tenantRef && typeof tenantRef === "object"
+        ? tenantRef.id
+        : tenantRef;
+
+    if (tenantId != null) {
+      try {
+        const tenant = await payload.findByID({
+          collection: "tenants",
+          id: tenantId,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        });
+        timeZone = resolveTimeZone(
+          typeof tenant?.timeZone === "string" ? tenant.timeZone : null,
+          fallbackTimeZone
+        );
+      } catch {
+        timeZone = fallbackTimeZone;
+      }
+    }
+  }
 
   // Interpret the schedule boundaries in the scheduler's timezone.
   // This prevents server-local timezone (often UTC in prod) from shifting the

@@ -4,6 +4,7 @@ import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import type { User, Lesson, ClassOption, Tenant, Booking } from '@repo/shared-types'
+import { TZDate } from '@date-fns/tz'
 
 /**
  * Integration tests to verify tRPC procedures work correctly in both:
@@ -186,6 +187,86 @@ describe('tRPC Tenant Compatibility Tests', () => {
             ? lesson.tenant.id
             : lesson.tenant
           expect(lessonTenantId).toBe(testTenant.id)
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'lessons.getByDate: uses the tenant timezone instead of the app default for local day boundaries',
+      async () => {
+        const tenantTimeZone = 'America/New_York'
+        const zonedTenant = (await payload.create({
+          collection: 'tenants',
+          data: {
+            name: `Timezone Tenant ${Date.now()}`,
+            slug: `timezone-tenant-${Date.now()}`,
+            timeZone: tenantTimeZone,
+          } as any,
+          overrideAccess: true,
+        })) as Tenant
+
+        const zonedClassOption = (await payload.create({
+          collection: 'class-options',
+          data: {
+            name: `Timezone Class ${Date.now()}`,
+            places: 10,
+            description: 'Timezone test description',
+            tenant: zonedTenant.id,
+          },
+          overrideAccess: true,
+        })) as ClassOption
+
+        const start = new TZDate(2026, 2, 10, 23, 30, 0, 0, tenantTimeZone)
+        const end = new TZDate(2026, 2, 11, 0, 30, 0, 0, tenantTimeZone)
+        const lesson = (await payload.create({
+          collection: 'lessons',
+          data: {
+            date: start.toISOString(),
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            classOption: zonedClassOption.id,
+            active: true,
+            tenant: zonedTenant.id,
+          },
+          overrideAccess: true,
+        })) as Lesson
+
+        try {
+          const headers = new Headers()
+          headers.set('cookie', `tenant-slug=${zonedTenant.slug}`)
+          const ctx = await createTRPCContext({
+            headers,
+            payload,
+            user: regularUser,
+          })
+
+          const caller = appRouter.createCaller(ctx)
+          const lessons = await caller.lessons.getByDate({
+            date: new TZDate(2026, 2, 10, 12, 0, 0, 0, tenantTimeZone).toISOString(),
+          })
+
+          expect(lessons.map((entry) => entry.id)).toContain(lesson.id)
+        } finally {
+          try {
+            await payload.delete({
+              collection: 'lessons',
+              where: { id: { equals: lesson.id } },
+              overrideAccess: true,
+            })
+            await payload.delete({
+              collection: 'class-options',
+              where: { id: { equals: zonedClassOption.id } },
+              overrideAccess: true,
+            })
+            await payload.delete({
+              collection: 'tenants',
+              where: { id: { equals: zonedTenant.id } },
+              overrideAccess: true,
+            })
+          } catch {
+            // ignore cleanup errors
+          }
         }
       },
       TEST_TIMEOUT,

@@ -2,6 +2,7 @@ export interface Tenant {
   id: number;
   name: string;
   slug: string;
+  timeZone?: string | null;
   domain?: string | null;
   description?: string | null;
   logo?: {

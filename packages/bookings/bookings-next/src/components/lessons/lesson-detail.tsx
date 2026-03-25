@@ -2,9 +2,8 @@ import React from 'react'
 
 import Image from "next/image"
 
-import { format } from 'date-fns'
-
 import { Lesson } from '@repo/shared-types'
+import { formatInTimeZone, resolveLessonTimeZone } from '@repo/shared-utils'
 
 import { CheckInButton } from './checkin-button'
 
@@ -20,6 +19,8 @@ export function LessonDetail({
    */
   manageHref?: string | ((lessonId: number) => string);
 }) {
+  const timeZone = resolveLessonTimeZone(lesson)
+
   return (
     <div
       className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
@@ -27,8 +28,8 @@ export function LessonDetail({
     >
       <div>
         <div className="text-sm font-light">
-          {format(new Date(lesson.startTime), 'HH:mm a')} -{' '}
-          {format(new Date(lesson.endTime), 'HH:mm a')}
+          {formatInTimeZone(lesson.startTime, 'HH:mm a', timeZone)} -{' '}
+          {formatInTimeZone(lesson.endTime, 'HH:mm a', timeZone)}
         </div>
         <div className="text-xl font-medium">
           {lesson.classOption.name}{' '}

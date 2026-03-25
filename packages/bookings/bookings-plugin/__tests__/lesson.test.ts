@@ -8,6 +8,7 @@
 import type { Payload } from "payload";
 
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
+import { TZDate } from "@date-fns/tz";
 
 import { buildConfig, getPayload } from "payload";
 
@@ -28,7 +29,9 @@ let restClient: NextRESTClient;
 let classOption: ClassOption;
 
 describe("Lesson tests", () => {
+  const ORIGINAL_TZ = process.env.TZ;
   beforeAll(async () => {
+    process.env.TZ = "UTC";
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
 
@@ -54,7 +57,37 @@ describe("Lesson tests", () => {
     if (payload) {
       await payload.db.destroy();
     }
+    process.env.TZ = ORIGINAL_TZ;
   });
+
+  it(
+    "normalizes manually saved lesson times using the configured timezone across DST",
+    async () => {
+      const timeZone = "Europe/Dublin";
+      const lessonDate = new TZDate(2026, 3, 7, 0, 0, 0, 0, timeZone);
+
+      const lesson = await payload.create({
+        collection: "lessons",
+        data: {
+          date: lessonDate.toISOString(),
+          startTime: "18:00",
+          endTime: "19:00",
+          classOption: classOption.id,
+          location: "DST Manual Save",
+        },
+      });
+
+      const start = new TZDate(new Date(String(lesson.startTime)), timeZone);
+      const end = new TZDate(new Date(String(lesson.endTime)), timeZone);
+
+      expect(start.getFullYear()).toBe(2026);
+      expect(start.getMonth()).toBe(3);
+      expect(start.getDate()).toBe(7);
+      expect(start.getHours()).toBe(18);
+      expect(end.getHours()).toBe(19);
+    },
+    TEST_TIMEOUT
+  );
 
   it(
     "should should get the lessons endpoint",

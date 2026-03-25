@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
+import { isValidTimeZone } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
   isCustomDomainDnsValidationEnabled,
@@ -116,6 +117,20 @@ export const Tenants: CollectionConfig = {
       index: true,
       access: {
         update: adminOnlyUpdate, // Only admin can change slug; tenant-admins cannot
+      },
+    },
+    {
+      name: 'timeZone',
+      type: 'text',
+      required: false,
+      admin: {
+        description:
+          'IANA timezone for this tenant, for example Europe/Dublin or America/New_York. If empty, the app default timezone is used.',
+      },
+      validate: (value: unknown) => {
+        const timeZone = typeof value === 'string' ? value.trim() : ''
+        if (!timeZone) return true
+        return isValidTimeZone(timeZone) || 'Enter a valid IANA timezone'
       },
     },
     {

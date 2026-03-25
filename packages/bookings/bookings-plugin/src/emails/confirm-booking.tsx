@@ -12,6 +12,7 @@ import {
   Text,
 } from "@react-email/components";
 import { Lesson, Transaction } from "@repo/shared-types";
+import { formatDateInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils";
 import * as React from "react";
 
 interface BookingConfirmationEmailProps {
@@ -25,12 +26,12 @@ export const BookingConfirmationEmail = ({
   transaction,
   numberOfGuests,
 }: BookingConfirmationEmailProps) => {
-  const formattedDate = new Date(lesson.date).toLocaleDateString("en-US", {
+  const timeZone = resolveLessonTimeZone(lesson);
+  const formattedDate = formatDateInTimeZone(lesson.date, "en-US", timeZone, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: "Europe/Dublin",
   });
 
   // Format transaction amount if exists
@@ -79,13 +80,13 @@ export const BookingConfirmationEmail = ({
                     {new Date(lesson.startTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin",
+                      timeZone,
                     })}{" "}
                     -{" "}
                     {new Date(lesson.endTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin",
+                      timeZone,
                     })}
                   </Column>
                 </Row>

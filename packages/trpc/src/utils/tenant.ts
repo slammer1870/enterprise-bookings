@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 
 import { findSafe, findByIdSafe, hasCollection } from "./collections";
 import type { ClassOption, Lesson } from "@repo/shared-types";
+import { resolveTimeZone } from "@repo/shared-utils";
 
 export type TenantContext = {
   headers: Headers;
@@ -56,6 +57,33 @@ export async function resolveTenantId(
   } catch (error) {
     console.error("Error resolving tenant (continuing without tenant filter):", error);
     return null;
+  }
+}
+
+export async function resolveTenantTimeZone(
+  payload: Payload,
+  tenantId: number | null,
+  fallbackTimeZone: string
+): Promise<string> {
+  if (!tenantId || !hasCollection(payload, "tenants")) {
+    return resolveTimeZone(null, fallbackTimeZone);
+  }
+
+  try {
+    const tenant = await findByIdSafe<{ timeZone?: string | null }>(
+      payload,
+      "tenants" as any,
+      tenantId,
+      {
+        depth: 0,
+        overrideAccess: true,
+      }
+    );
+
+    return resolveTimeZone(tenant?.timeZone, fallbackTimeZone);
+  } catch (error) {
+    console.error("Error resolving tenant timezone (falling back to app default):", error);
+    return resolveTimeZone(null, fallbackTimeZone);
   }
 }
 

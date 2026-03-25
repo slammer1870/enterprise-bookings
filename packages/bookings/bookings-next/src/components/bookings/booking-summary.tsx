@@ -1,10 +1,11 @@
-"use client";
-
 import { CalendarIcon, Clock, ClipboardCheck } from "lucide-react";
 
-import { format } from "date-fns";
-
 import type { Lesson } from "@repo/shared-types";
+import {
+  formatDateInTimeZone,
+  formatInTimeZone,
+  resolveLessonTimeZone,
+} from "@repo/shared-utils";
 
 import {
   Card,
@@ -15,6 +16,8 @@ import {
 } from "@repo/ui/components/ui/card";
 
 export function BookingSummary({ lesson }: { lesson: Lesson }) {
+  const timeZone = resolveLessonTimeZone(lesson);
+
   return (
     <Card className="bg-white">
       <CardHeader>
@@ -27,7 +30,12 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
             <CalendarIcon className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Date:</span>
             <span className="ml-2">
-              {format(new Date(lesson.date), "EEEE, MMMM d, yyyy")}
+              {formatDateInTimeZone(lesson.date, "en-US", timeZone, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
             </span>
           </div>
 
@@ -35,8 +43,8 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
             <Clock className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Time:</span>
             <span className="ml-2">
-              {format(new Date(lesson.startTime), "HH:mmaa")} -{" "}
-              {format(new Date(lesson.endTime), "HH:mmaa")}
+              {formatInTimeZone(lesson.startTime, "HH:mmaa", timeZone)} -{" "}
+              {formatInTimeZone(lesson.endTime, "HH:mmaa", timeZone)}
             </span>
           </div>
 

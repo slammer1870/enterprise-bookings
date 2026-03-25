@@ -1840,6 +1840,9 @@ importers:
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../../shared-types
+      '@repo/shared-utils':
+        specifier: workspace:*
+        version: link:../../shared-utils
       '@repo/trpc':
         specifier: workspace:*
         version: link:../../trpc
@@ -2723,6 +2726,9 @@ importers:
 
   packages/shared-utils:
     dependencies:
+      '@date-fns/tz':
+        specifier: ^1.4.1
+        version: 1.4.1
       '@repo/shared-types':
         specifier: workspace:*
         version: link:../shared-types
@@ -2732,6 +2738,9 @@ importers:
       crypto:
         specifier: ^1.0.1
         version: 1.0.1
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
       qs:
         specifier: ^6.14.0
         version: 6.14.1

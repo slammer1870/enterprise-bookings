@@ -1,5 +1,5 @@
 import type { CollectionConfig, Field, Payload } from 'payload'
-import { checkRole } from '@repo/shared-utils'
+import { checkRole, extractUtcWallClock } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import {
     tenantScopedCreate,
@@ -42,20 +42,20 @@ const days: Field = {
                         if (currentSlot.location !== otherSlot.location) continue
                         if (!currentSlot.startTime || !currentSlot.endTime || !otherSlot.startTime || !otherSlot.endTime) continue
 
-                        // Check for time overlap
-                        const currentStart = new Date(currentSlot.startTime)
-                        const currentEnd = new Date(currentSlot.endTime)
-                        const otherStart = new Date(otherSlot.startTime)
-                        const otherEnd = new Date(otherSlot.endTime)
+                        const currentStart = extractUtcWallClock(currentSlot.startTime)
+                        const currentEnd = extractUtcWallClock(currentSlot.endTime)
+                        const otherStart = extractUtcWallClock(otherSlot.startTime)
+                        const otherEnd = extractUtcWallClock(otherSlot.endTime)
 
-                        // Normalize to just time comparison by setting same date
-                        currentStart.setFullYear(2000, 0, 1)
-                        currentEnd.setFullYear(2000, 0, 1)
-                        otherStart.setFullYear(2000, 0, 1)
-                        otherEnd.setFullYear(2000, 0, 1)
+                        const currentStartMinutes = currentStart.hours * 60 + currentStart.minutes
+                        const currentEndMinutes = currentEnd.hours * 60 + currentEnd.minutes
+                        const otherStartMinutes = otherStart.hours * 60 + otherStart.minutes
+                        const otherEndMinutes = otherEnd.hours * 60 + otherEnd.minutes
 
-                        // Two time periods overlap if: start1 < end2 AND start2 < end1
-                        const hasTimeOverlap = currentStart < otherEnd && currentStart > otherStart
+                        // Two local wall-clock ranges overlap if each starts before the other ends.
+                        const hasTimeOverlap =
+                          currentStartMinutes < otherEndMinutes &&
+                          otherStartMinutes < currentEndMinutes
 
                         if (hasTimeOverlap) {
                             return 'Time slots cannot overlap for the same location on the same day'
