@@ -31,7 +31,9 @@ export function Schedule({
 
   const { data: lessons, isLoading } = useQuery({
     ...trpc.lessons.getByDate.queryOptions({
-      date: selectedDate.toDateString(),
+      // Use an ISO instant (not locale-dependent strings like toDateString()).
+      // Server will interpret the calendar day in the tenant timezone.
+      date: selectedDate.toISOString(),
       ...(tenantId != null && { tenantId }),
     }),
     // Always refetch on mount to ensure fresh data after navigation (e.g., after booking)

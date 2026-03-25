@@ -19,6 +19,7 @@ import {
 
 import { ClassOption, Lesson, LessonScheduleState } from "@repo/shared-types";
 import { checkRole, getDayRange } from "@repo/shared-utils";
+import { TZDate } from "@date-fns/tz";
 
 export const lessonsRouter = {
   getById: protectedProcedure
@@ -189,10 +190,33 @@ export const lessonsRouter = {
           tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
         }
 
-        const startOfDay = new Date(input.date);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(input.date);
-        endOfDay.setHours(23, 59, 59, 999);
+        const timeZone =
+          ctx.payload.config.admin.timezones.defaultTimezone || "Europe/Dublin";
+
+        // `input.date` is an instant (ISO string). Interpret its calendar day in the
+        // tenant timezone, then build day boundaries in that same timezone.
+        const instant = new Date(input.date);
+        const inTZ = new TZDate(instant, timeZone);
+        const startOfDay = new TZDate(
+          inTZ.getFullYear(),
+          inTZ.getMonth(),
+          inTZ.getDate(),
+          0,
+          0,
+          0,
+          0,
+          timeZone
+        );
+        const endOfDay = new TZDate(
+          inTZ.getFullYear(),
+          inTZ.getMonth(),
+          inTZ.getDate(),
+          23,
+          59,
+          59,
+          999,
+          timeZone
+        );
 
         // Build where clause with date range and tenant filter
         // CRITICAL: We MUST explicitly filter by tenant in the where clause.
