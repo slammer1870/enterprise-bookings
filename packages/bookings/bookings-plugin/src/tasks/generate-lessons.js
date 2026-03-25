@@ -315,6 +315,10 @@ export const generateLessonsFromSchedule = async ({ input, req }) => {
             active: timeSlot.active !== false,
             ...(tenantId ? { tenant: tenantId } : {}),
           },
+          context: {
+            ...(req && req.context ? req.context : {}),
+            skipLessonTimeNormalization: true,
+          },
           req,
           overrideAccess: true,
         });

@@ -337,6 +337,10 @@ export const generateLessonsFromSchedule: TaskHandler<
             // Explicitly set tenant if available in context (for multi-tenant support)
             ...(tenantId ? { tenant: typeof tenantId === 'number' ? tenantId : Number(tenantId) } : {}),
           },
+          context: {
+            ...(req.context || {}),
+            skipLessonTimeNormalization: true,
+          },
           req,
           overrideAccess: true,
         });

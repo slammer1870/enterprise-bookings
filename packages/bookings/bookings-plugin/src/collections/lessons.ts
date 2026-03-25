@@ -112,7 +112,8 @@ const defaultFields: Field[] = [
         },
         hooks: {
           beforeChange: [
-            ({ value, siblingData }) => {
+            ({ value, siblingData, req }) => {
+              if (req?.context?.skipLessonTimeNormalization) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
@@ -147,7 +148,8 @@ const defaultFields: Field[] = [
         },
         hooks: {
           beforeChange: [
-            ({ value, siblingData }) => {
+            ({ value, siblingData, req }) => {
+              if (req?.context?.skipLessonTimeNormalization) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
