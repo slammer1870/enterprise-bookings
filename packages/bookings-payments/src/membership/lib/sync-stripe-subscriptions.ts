@@ -3,7 +3,8 @@
 import * as crypto from "crypto";
 import type { Payload } from "payload";
 import type Stripe from "stripe";
-import { generatePasswordSaltHash, stripe } from "@repo/shared-utils";
+import { stripe } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 import type { Plan, User } from "@repo/shared-types";
 
 // Plugin-added collection slugs; app Payload types may not include them when building.

@@ -23,9 +23,9 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
-import { useTRPC } from "@repo/trpc";
+import { useTRPC } from "@repo/trpc/client";
 import { useMutation } from "@tanstack/react-query";
-import { buildUTMCallbackUrl } from "@repo/shared-utils";
+import { buildUTMCallbackUrl } from "@repo/shared-utils/utm";
 import {
   GoogleSignInButton,
   type SignInWithGoogle,

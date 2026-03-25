@@ -3,7 +3,7 @@ import React from 'react'
 import Image from "next/image"
 
 import { Lesson } from '@repo/shared-types'
-import { formatInTimeZone, resolveLessonTimeZone } from '@repo/shared-utils'
+import { formatInTimeZone, resolveLessonTimeZone } from '@repo/shared-utils/timezone'
 
 import { CheckInButton } from './checkin-button'
 

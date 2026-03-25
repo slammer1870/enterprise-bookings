@@ -1,6 +1,6 @@
 import { publicProcedure } from "../trpc";
 import { z } from "zod";
-import { generatePasswordSaltHash } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 import crypto from "crypto";
 import { findSafe, createSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";

@@ -16,7 +16,7 @@ import {
 import { cn } from "@repo/ui/lib/utils";
 import { format } from "date-fns";
 
-import { getLessonsQuery } from "@repo/shared-utils";
+import { getLessonsQuery } from "@repo/shared-utils/query";
 
 import { useTransition } from "react";
 

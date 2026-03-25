@@ -25,6 +25,28 @@
   "main": "src/index.ts",
   "type": "module",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./timezone": {
+      "types": "./src/timezone.ts",
+      "default": "./src/timezone.ts"
+    },
+    "./query": {
+      "types": "./src/query.ts",
+      "default": "./src/query.ts"
+    },
+    "./utm": {
+      "types": "./src/utm.ts",
+      "default": "./src/utm.ts"
+    },
+    "./password": {
+      "types": "./src/password.ts",
+      "default": "./src/password.ts"
+    }
+  },
   "scripts": {
     "check-types": "tsc --noEmit",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"

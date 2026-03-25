@@ -30,12 +30,13 @@ describe('Class-pass-types soft delete (Phase 4.5)', () => {
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
+    const runId = Date.now()
 
     adminUser = (await payload.create({
       collection: 'users',
       data: {
         name: 'Admin CPT Soft Delete',
-        email: `admin-cpt-soft-${Date.now()}@test.com`,
+        email: `admin-cpt-soft-${runId}@test.com`,
         password: 'test',
         roles: ['admin'],
         emailVerified: true,
@@ -48,8 +49,8 @@ describe('Class-pass-types soft delete (Phase 4.5)', () => {
       collection: 'tenants',
       data: {
         name: 'CPT Soft Delete Tenant',
-        slug: `cpt-soft-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_mock',
+        slug: `cpt-soft-tenant-${runId}`,
+        stripeConnectAccountId: `acct_mock_cpt_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
@@ -60,7 +61,7 @@ describe('Class-pass-types soft delete (Phase 4.5)', () => {
       collection: 'class-pass-types',
       data: {
         name: 'Test Pass Type Soft Delete',
-        slug: `pass-soft-${Date.now()}`,
+        slug: `pass-soft-${runId}`,
         quantity: 5,
         tenant: testTenantId,
         priceInformation: { price: 29.99 },

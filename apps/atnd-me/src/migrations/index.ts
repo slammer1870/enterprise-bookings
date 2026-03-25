@@ -62,6 +62,7 @@ import * as migration_20260319_131730_clHeroLoc_pages_block from './20260319_131
 import * as migration_20260319_footer_nav_items_icon_location from './20260319_footer_nav_items_icon_location';
 import * as migration_20260319_media_is_public from './20260319_media_is_public';
 import * as migration_20260319_media_tenant_id from './20260319_media_tenant_id';
+import * as migration_20260325_tenants_timezone from './20260325_tenants_timezone';
 
 export const migrations = [
   {
@@ -383,5 +384,10 @@ export const migrations = [
     up: migration_20260319_media_tenant_id.up,
     down: migration_20260319_media_tenant_id.down,
     name: '20260319_media_tenant_id'
+  },
+  {
+    up: migration_20260325_tenants_timezone.up,
+    down: migration_20260325_tenants_timezone.down,
+    name: '20260325_tenants_timezone'
   },
 ];

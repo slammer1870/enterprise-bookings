@@ -7,7 +7,7 @@ import {
   formatDateInTimeZone,
   formatInTimeZone,
   resolveLessonTimeZone,
-} from "@repo/shared-utils";
+} from "@repo/shared-utils/timezone";
 
 import {
   Card,

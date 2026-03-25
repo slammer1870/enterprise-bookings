@@ -292,6 +292,10 @@ export interface Tenant {
   name: string;
   slug: string;
   /**
+   * IANA timezone for this tenant, for example Europe/Dublin or America/New_York. If empty, the app default timezone is used.
+   */
+  timeZone?: string | null;
+  /**
    * Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. When VALIDATE_TENANT_CUSTOM_DOMAIN_DNS=true, the domain must have DNS records (A, AAAA, or CNAME) before saving.
    */
   domain?: string | null;
@@ -3733,6 +3737,7 @@ export interface CategoriesSelect<T extends boolean = true> {
 export interface TenantsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
+  timeZone?: T;
   domain?: T;
   description?: T;
   allowedBlocks?: T;

@@ -1,6 +1,6 @@
 "use server";
 
-import { generatePasswordSaltHash } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 
 import * as crypto from "crypto";
 

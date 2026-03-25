@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { useTRPC } from "@repo/trpc";
+import { useTRPC } from "@repo/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 
 import { ToggleDate } from "@repo/ui/components/toggle-date";
