@@ -5,26 +5,35 @@ import { SelectInput, toast, useAuth, useDocumentInfo } from "@payloadcms/ui"
 
 type StripeCustomer = { id: string; email?: string | null; name?: string | null }
 type StripeCustomersResponse = { data?: StripeCustomer[]; meta?: { stripeAccountId?: string | null } }
+type TenantStripeCustomer = { stripeAccountId: string; stripeCustomerId: string }
+type UserRecord = { stripeCustomers?: unknown }
 
-function normalizeId(id: unknown): number | null {
-  if (typeof id === "number" && Number.isFinite(id)) return id
-  if (typeof id === "string" && id.trim()) {
-    const n = parseInt(id, 10)
-    return Number.isFinite(n) ? n : null
-  }
-  return null
+function isTenantStripeCustomer(value: unknown): value is TenantStripeCustomer {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Record<string, unknown>
+  return (
+    typeof candidate.stripeAccountId === "string" &&
+    typeof candidate.stripeCustomerId === "string"
+  )
 }
 
-function isAdminUser(u: any): boolean {
-  const roles = Array.isArray(u?.roles) ? u.roles : []
-  return roles.includes("admin")
+function parseTenantStripeCustomers(value: unknown): TenantStripeCustomer[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(isTenantStripeCustomer)
+}
+
+function isAdminUser(user: unknown): boolean {
+  if (!user || typeof user !== "object") return false
+  const candidate = user as Record<string, unknown>
+  const roles = Array.isArray(candidate.roles) ? candidate.roles : []
+  return roles.some((role) => role === "admin")
 }
 
 export const TenantStripeCustomerMappingField: React.FC = () => {
   const { user: currentUser } = useAuth()
   const { id } = useDocumentInfo()
 
-  const userId = normalizeId(id)
+  const userId = Number.isFinite(Number(id)) ? Number(id) : null
 
   const [loading, setLoading] = React.useState(false)
   const [stripeAccountId, setStripeAccountId] = React.useState<string | null>(null)
@@ -32,7 +41,7 @@ export const TenantStripeCustomerMappingField: React.FC = () => {
     { label: "Select a customer", value: "" },
   ])
   const [value, setValue] = React.useState<string>("")
-  const [stripeCustomers, setStripeCustomers] = React.useState<any[]>([])
+  const [stripeCustomers, setStripeCustomers] = React.useState<TenantStripeCustomer[]>([])
 
   const canUse = isAdminUser(currentUser)
 
@@ -51,8 +60,8 @@ export const TenantStripeCustomerMappingField: React.FC = () => {
       ])
 
       if (!userRes.ok) throw new Error("Failed to load user")
-      const userJson: any = await userRes.json()
-      const existingStripeCustomers = Array.isArray(userJson?.stripeCustomers) ? userJson.stripeCustomers : []
+      const userJson = (await userRes.json()) as UserRecord
+      const existingStripeCustomers = parseTenantStripeCustomers(userJson?.stripeCustomers)
       setStripeCustomers(existingStripeCustomers)
 
       if (!stripeRes.ok) {
@@ -82,7 +91,7 @@ export const TenantStripeCustomerMappingField: React.FC = () => {
       setOptions(nextOptions)
 
       if (acct) {
-        const mapped = existingStripeCustomers.find((x: any) => x?.stripeAccountId === acct)?.stripeCustomerId
+        const mapped = existingStripeCustomers.find((x) => x.stripeAccountId === acct)?.stripeCustomerId
         setValue(typeof mapped === "string" ? mapped : "")
       } else {
         setValue("")
@@ -114,10 +123,10 @@ export const TenantStripeCustomerMappingField: React.FC = () => {
       const next =
         newCustomerId && newCustomerId.trim()
           ? [
-              ...existing.filter((x: any) => x?.stripeAccountId !== stripeAccountId),
+              ...existing.filter((x) => x.stripeAccountId !== stripeAccountId),
               { stripeAccountId, stripeCustomerId: newCustomerId.trim() },
             ]
-          : existing.filter((x: any) => x?.stripeAccountId !== stripeAccountId)
+          : existing.filter((x) => x.stripeAccountId !== stripeAccountId)
 
       const res = await fetch(`/api/users/${userId}`, {
         method: "PATCH",
@@ -172,8 +181,9 @@ export const TenantStripeCustomerMappingField: React.FC = () => {
         name="__tenantStripeCustomerMapping"
         options={options}
         value={value}
-        onChange={(e: any) => {
-          const newValue = String(e?.value ?? "")
+        onChange={(selected) => {
+          const option = Array.isArray(selected) ? selected[0] : selected
+          const newValue = String((option as { value?: unknown })?.value ?? "")
           setValue(newValue)
           void save(newValue).catch((err) => {
             toast.error(`Failed to save mapping: ${(err as Error).message}`)
@@ -205,4 +215,3 @@ export const TenantStripeCustomerMappingField: React.FC = () => {
     </div>
   )
 }
-

@@ -7,11 +7,37 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import React, { useMemo, useRef } from 'react'
 
-function getUserInitial(user: any): string {
+function getUserInitial(user: SessionUser | null): string {
   const name = typeof user?.name === 'string' ? user.name.trim() : ''
   const email = typeof user?.email === 'string' ? user.email.trim() : ''
   const source = name || email
   return source ? source[0]!.toUpperCase() : '?'
+}
+
+type SessionUser = { name?: unknown; email?: unknown }
+type SessionResult =
+  | { user?: SessionUser }
+  | {
+      data?: {
+        user?: SessionUser
+      }
+  }
+  | null
+  | undefined
+
+function getSessionUser(value: SessionResult): SessionUser | null {
+  if (!value || typeof value !== 'object') return null
+
+  const withData = value as { data?: { user?: SessionUser } }
+  if (withData.data && typeof withData.data.user !== 'undefined') {
+    return withData.data.user ?? null
+  }
+
+  return (value as { user?: SessionUser }).user ?? null
+}
+
+function describeUserLabel(user: SessionUser): string {
+  return (typeof user?.name === 'string' && user.name.trim()) || (typeof user?.email === 'string' && user.email.trim()) || 'Account'
 }
 
 export function HeaderAuthMenu({
@@ -25,9 +51,8 @@ export function HeaderAuthMenu({
   const pathname = usePathname()
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
 
-  const sessionResult: any = useSession()
-  const session: any = sessionResult?.data ?? sessionResult
-  const user: any = session?.user ?? null
+  const sessionResult = useSession() as SessionResult
+  const user = getSessionUser(sessionResult)
 
   const redirectTo = useMemo(() => pathname || '/', [pathname])
 
@@ -39,7 +64,7 @@ export function HeaderAuthMenu({
     )
   }
 
-  const label = (typeof user?.name === 'string' && user.name.trim()) || user?.email || 'Account'
+  const label = user ? describeUserLabel(user) : 'Account'
   const initial = getUserInitial(user)
 
   if (mode === 'inline') {

@@ -1,4 +1,4 @@
-import type { Access, Where } from 'payload'
+import type { Access, Payload, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
@@ -55,10 +55,15 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
 }
 
 /** Resolves tenant IDs for a tenant-admin (session user may omit `tenants`; loads from DB). */
+type TenantsFindResult = {
+  docs?: Array<{
+    id?: unknown
+  }>
+}
+
 export async function resolveTenantAdminTenantIds(args: {
   user: unknown
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload: any
+  payload: Payload
 }): Promise<number[]> {
   const { user, payload } = args
   const direct = getUserTenantIds(user as SharedUser)
@@ -342,16 +347,15 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
         return whereTenantOrPublic(cached)
       }
 
-      const result = await req.payload
-        .find({
+    const result = (await req.payload
+      .find({
           collection: 'tenants',
           where: { slug: { equals: tenantSlug } },
           limit: 1,
           depth: 0,
-          overrideAccess: true,
-          select: { id: true } as any,
+        overrideAccess: true,
         })
-        .catch(() => null as any)
+      .catch(() => null)) as TenantsFindResult | null
 
       const id = result?.docs?.[0]?.id
       if (typeof id === 'number') {
@@ -404,16 +408,15 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
             })()
 
       if (where) {
-        const result = await req.payload
-          .find({
+      const result = (await req.payload
+      .find({
             collection: 'tenants',
             where,
             limit: 1,
             depth: 0,
-            overrideAccess: true,
-            select: { id: true } as any,
+        overrideAccess: true,
           })
-          .catch(() => null as any)
+      .catch(() => null)) as TenantsFindResult | null
 
         const id = result?.docs?.[0]?.id
         if (typeof id === 'number') {

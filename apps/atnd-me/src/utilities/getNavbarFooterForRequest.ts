@@ -7,31 +7,41 @@ type LinkLike = {
   type?: string
   url?: string
   label?: string
-  reference?: any
+  reference?: unknown
 }
 
 /**
  * Normalize Navbar/Footer link objects into { type: 'custom', url } shape.
  * Exported for unit tests.
  */
+type LinkReferencePayload = Record<string, unknown>
+type SlugResultDoc = { slug?: unknown }
+type SlugFindResult = { docs?: Array<SlugResultDoc> }
+
+function isRecord(value: unknown): value is LinkReferencePayload {
+  return value !== null && typeof value === 'object'
+}
+
 export async function resolveLinkToUrl(payload: Pick<Payload, 'findByID' | 'find'>, link: LinkLike): Promise<LinkLike | null> {
   if (!link || typeof link !== 'object') return null
   if (link.type !== 'reference') return link
 
-  const ref = (link as any).reference
+  const ref = link.reference
 
   // Supported shapes:
   // - { relationTo: 'pages'|'posts', value: { id } | id }
   // - legacy: { value: id } (no relationTo)
   // - legacy: reference: id
   const relationTo: string | null =
-    ref && typeof ref === 'object' && typeof ref.relationTo === 'string' ? ref.relationTo : null
+    ref && isRecord(ref) && typeof (ref as Record<string, unknown>).relationTo === 'string'
+      ? ((ref as Record<string, unknown>).relationTo as string)
+      : null
 
   const rawValue =
-    ref && typeof ref === 'object' && 'value' in ref ? (ref as any).value : ref
+    ref && isRecord(ref) && 'value' in ref ? ref.value : ref
 
   const id =
-    rawValue && typeof rawValue === 'object' && 'id' in rawValue ? (rawValue as any).id : rawValue
+    rawValue && isRecord(rawValue) && 'id' in rawValue ? rawValue.id : rawValue
 
   const numericId =
     typeof id === 'number' ? id : typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : null
@@ -39,24 +49,25 @@ export async function resolveLinkToUrl(payload: Pick<Payload, 'findByID' | 'find
   if (numericId == null) return null
 
   async function resolveSlug(collection: 'pages' | 'posts'): Promise<string | null> {
+    const lookupId = numericId!
     try {
-      const doc: any = await payload.findByID({ collection, id: numericId, depth: 0 } as any)
-      const slug = doc?.slug != null ? String(doc.slug) : ''
+      const doc = (await payload.findByID({ collection, id: lookupId, depth: 0 })) as SlugResultDoc
+      const slug = typeof doc?.slug === 'string' ? doc.slug : ''
       if (slug) return slug
     } catch {
       // fall through
     }
 
     try {
-      const result: any = await payload.find({
+      const result = (await payload.find({
         collection,
-        where: { id: { equals: numericId } },
+        where: { id: { equals: lookupId } },
         limit: 1,
         depth: 0,
         overrideAccess: true,
-      } as any)
+      })) as SlugFindResult
       const doc = result?.docs?.[0]
-      const slug = doc?.slug != null ? String(doc.slug) : ''
+      const slug = typeof doc?.slug === 'string' ? doc.slug : ''
       return slug || null
     } catch {
       return null

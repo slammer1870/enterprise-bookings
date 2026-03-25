@@ -69,11 +69,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const userName = typeof user?.name === 'string' ? user.name : null
     const { stripeCustomerId } = await ensureStripeCustomerIdForAccount({
       payload,
       userId: user.id,
       email: user.email,
-      name: (user as any)?.name ?? null,
+      name: userName,
       stripeAccountId: tenant.stripeConnectAccountId,
     })
 

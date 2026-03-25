@@ -110,7 +110,7 @@ export async function syncPublicMediaFlags(req: PayloadRequest): Promise<void> {
     await req.payload.update({
       collection: 'media',
       id: doc.id,
-      data: { isPublic: shouldBePublic } as any,
+      data: { isPublic: shouldBePublic },
       overrideAccess: true,
       req,
       context: { ...(req.context ?? {}), syncPublicMedia: true },
