@@ -25,7 +25,6 @@
     "@payloadcms/db-postgres": "*",
     "@payloadcms/richtext-lexical": "3.70.0",
     "@repo/bookings-plugin": "workspace:*",
-    "@repo/eslint-config": "workspace:*",
     "@repo/payload-testing": "workspace:*",
     "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
