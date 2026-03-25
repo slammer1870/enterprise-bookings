@@ -1,4 +1,4 @@
-import { TaskHandler } from "payload";
+import { CollectionSlug, TaskHandler } from "payload";
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
 import { resolveTimeZone } from "@repo/shared-utils";
@@ -16,6 +16,16 @@ function toId(value: unknown): number | null {
   }
   const n = Number(value);
   return Number.isNaN(n) ? null : n;
+}
+
+function hasTenantsCollection(
+  payload: { collections?: Record<string, unknown> }
+): boolean {
+  return Boolean(payload.collections && "tenants" in payload.collections);
+}
+
+function hasTimeZone(value: unknown): value is { timeZone?: string | null } {
+  return typeof value === "object" && value !== null && "timeZone" in value;
 }
 
 export const generateLessonsFromSchedule: TaskHandler<
@@ -62,17 +72,19 @@ export const generateLessonsFromSchedule: TaskHandler<
         ? tenantRef.id
         : tenantRef;
 
-    if (tenantId != null) {
+    if (tenantId != null && hasTenantsCollection(payload)) {
       try {
         const tenant = await payload.findByID({
-          collection: "tenants",
+          collection: "tenants" as CollectionSlug,
           id: tenantId,
           depth: 0,
           overrideAccess: true,
           req,
         });
         timeZone = resolveTimeZone(
-          typeof tenant?.timeZone === "string" ? tenant.timeZone : null,
+          hasTimeZone(tenant) && typeof tenant.timeZone === "string"
+            ? tenant.timeZone
+            : null,
           fallbackTimeZone
         );
       } catch {
