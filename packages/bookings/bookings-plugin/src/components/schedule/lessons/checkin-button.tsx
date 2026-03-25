@@ -118,7 +118,11 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   const getButtonClassName = () => {
     const baseClasses = "w-full";
     
-    if (status === "active" || status === "trialable") {
+    if (status === "trialable") {
+      return `${baseClasses} bg-blue-600 hover:bg-blue-700 text-white`;
+    }
+
+    if (status === "active") {
       return `${baseClasses} bg-checkin hover:bg-checkin/90 text-checkin-foreground`;
     }
     
