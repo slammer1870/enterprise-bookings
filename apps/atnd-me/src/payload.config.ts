@@ -73,6 +73,9 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    timezones: {
+      defaultTimezone: 'Europe/Dublin',
+    },
     user: Users.slug,
     livePreview: {
       breakpoints: [
