@@ -220,5 +220,141 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'handles the Autumn DST boundary in Europe/Dublin without day drift',
+    async () => {
+      const timeZone = 'Europe/Dublin'
+      // Simulate a scheduler configured at the start of the autumn fallback window.
+      const startDate = '2026-10-25' // Sunday in production examples, DST ends this weekend
+      const endDate = '2026-10-31' // Saturday
+
+      // Keep a narrow schedule for Monday and Tuesday only.
+      const hourByScheduleIndex = [9, 10] as const
+
+      const existing = await payload.find({
+        collection: 'scheduler',
+        where: { tenant: { equals: testTenant.id } },
+        limit: 10,
+        overrideAccess: true,
+      })
+      for (const doc of existing.docs) {
+        await payload.delete({
+          collection: 'scheduler',
+          id: doc.id,
+          overrideAccess: true,
+        })
+      }
+
+      const req = {
+        ...payload,
+        context: { tenant: testTenant.id },
+      } as any
+
+      const mkSlot = (hour: number) => {
+        const start = new TZDate(2000, 0, 1, hour, 0, 0, 0, timeZone)
+        const end = new TZDate(2000, 0, 1, hour, 30, 0, 0, timeZone)
+        return {
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          classOption: classOption.id,
+          location: `DST Slot ${hour}`,
+          active: true,
+        }
+      }
+
+      await payload.create({
+        collection: 'scheduler',
+        data: {
+          tenant: Number(testTenant.id),
+          startDate,
+          endDate,
+          clearExisting: true,
+          defaultClassOption: classOption.id,
+          lockOutTime: 0,
+          week: {
+            // week.days is Monday-first: 0=Mon ... 6=Sun
+            days: [
+              { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
+              { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
+              { timeSlot: [] }, // Wed
+              { timeSlot: [] }, // Thu
+              { timeSlot: [] }, // Fri
+              { timeSlot: [] }, // Sat
+              { timeSlot: [] }, // Sun
+            ],
+          },
+        },
+        req,
+        overrideAccess: true,
+      })
+
+      await new Promise((r) => setTimeout(r, 2000))
+
+      const caller = await createCaller()
+
+      // Query each calendar day using a midday instant in Dublin to avoid boundary ambiguity.
+      const calendarDates = [
+        { y: 2026, m: 9, d: 25 }, // Sun Oct 25
+        { y: 2026, m: 9, d: 26 }, // Mon Oct 26
+        { y: 2026, m: 9, d: 27 }, // Tue Oct 27
+        { y: 2026, m: 9, d: 28 }, // Wed Oct 28
+        { y: 2026, m: 9, d: 29 }, // Thu Oct 29
+        { y: 2026, m: 9, d: 30 }, // Fri Oct 30
+        { y: 2026, m: 9, d: 31 }, // Sat Oct 31
+      ] as const
+
+      for (const { y, m, d } of calendarDates) {
+        const middayInstant = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).toISOString()
+        const lessons = (await caller.lessons.getByDate({
+          date: middayInstant,
+          tenantId: Number(testTenant.id),
+        })) as Lesson[]
+
+        const jsDay = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).getDay()
+
+        if (jsDay === 0) {
+          expect(lessons.length).toBe(0)
+          continue
+        }
+
+        if (jsDay >= 3 && jsDay <= 6) {
+          expect(lessons.length).toBe(0)
+          continue
+        }
+
+        expect(lessons.length).toBe(1)
+        const lesson = lessons[0]!
+        expect(lesson).toBeDefined()
+        const start = new TZDate(new Date(lesson.startTime as any), timeZone)
+
+        expect(start.getFullYear()).toBe(y)
+        expect(start.getMonth()).toBe(m)
+        expect(start.getDate()).toBe(d)
+
+        const scheduleIndex = jsDay === 0 ? 6 : jsDay - 1 // 0=Mon..6=Sun
+        const expectedHour = hourByScheduleIndex[scheduleIndex]!
+        expect(start.getHours()).toBe(expectedHour)
+
+        if (jsDay === 2) {
+          expect(start.getHours()).toBe(10)
+        }
+        if (jsDay === 1) {
+          expect(start.getHours()).toBe(9)
+        }
+      }
+
+      const mondayLessons = (await caller.lessons.getByDate({
+        date: new TZDate(2026, 9, 26, 12, 0, 0, 0, timeZone).toISOString(),
+        tenantId: Number(testTenant.id),
+      })) as Lesson[]
+      expect(mondayLessons.length).toBe(1)
+      const mondayStart = new TZDate(new Date((mondayLessons[0] as Lesson).startTime as any), timeZone)
+      expect(mondayStart.getDay()).toBe(1) // Monday
+      expect(mondayStart.getHours()).toBe(9)
+      expect(mondayStart.getDate()).toBe(26)
+    },
+    TEST_TIMEOUT,
+  )
 })
 
