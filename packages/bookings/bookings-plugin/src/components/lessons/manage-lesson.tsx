@@ -18,6 +18,30 @@ function getTenantSlugFromCookie(): string | null {
   return value ? decodeURIComponent(value.trim()) : null;
 }
 
+function getRootHostFromEnv(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SERVER_URL?.trim();
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    return url.hostname;
+  } catch {
+    return raw.replace(/^https?:\/\//, "").split("/")[0]?.split(":")[0] ?? null;
+  }
+}
+
+function shouldPrefixWithTenantSlug(
+  hostname: string,
+  tenantSlug: string,
+  rootHost: string | null
+): boolean {
+  const hasTenantSubdomain = hostname === tenantSlug || hostname.startsWith(`${tenantSlug}.`);
+  if (hasTenantSubdomain) return false;
+
+  if (!rootHost) return true;
+  return hostname === rootHost || hostname.endsWith(`.${rootHost}`);
+}
+
 function getPublicBookingUrl(
   lessonId: number,
   tenantSlugFromLesson: string | null | undefined
@@ -28,8 +52,17 @@ function getPublicBookingUrl(
   const path = `/bookings/${lessonId}`;
   if (tenantSlug) {
     const { protocol, hostname, port } = window.location;
-    const host = port ? `${hostname}:${port}` : hostname;
-    return `${protocol}//${tenantSlug}.${host}${path}`;
+    const rootHost = getRootHostFromEnv();
+    const shouldPrefix = shouldPrefixWithTenantSlug(
+      hostname,
+      tenantSlug,
+      rootHost
+    );
+    const host = shouldPrefix
+      ? `${tenantSlug}.${hostname}`
+      : hostname;
+    const hostWithPort = port ? `${host}:${port}` : host;
+    return `${protocol}//${hostWithPort}${path}`;
   }
   return `${window.location.origin}${path}`;
 }
