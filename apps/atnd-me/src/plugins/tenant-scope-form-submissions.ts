@@ -25,6 +25,10 @@ export const tenantScopeFormSubmissions = (): Plugin => (incomingConfig: Config)
         collection: 'forms',
         id: formId,
         depth: 0,
+        // Public form submission endpoints may not have an authenticated user, and `forms`
+        // is tenant-scoped with restrictive read access. We only need the form's tenant ID
+        // to correctly scope the submission, so intentionally bypass access here.
+        overrideAccess: true,
       })
 
       if (form?.tenant) {
