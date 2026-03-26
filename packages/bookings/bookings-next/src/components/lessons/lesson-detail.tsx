@@ -23,24 +23,24 @@ export function LessonDetail({
 
   return (
     <div
-      className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+      className="flex w-full flex-col gap-4 border-b border-border pb-4 last:border-b-0 last:pb-0 md:flex-row md:items-center md:justify-between"
       key={lesson.id}
     >
       <div>
-        <div className="text-sm font-light">
+        <div className="text-sm font-light text-muted-foreground">
           {formatInTimeZone(lesson.startTime, 'HH:mm a', timeZone)} -{' '}
           {formatInTimeZone(lesson.endTime, 'HH:mm a', timeZone)}
         </div>
-        <div className="text-xl font-medium">
+        <div className="text-xl font-medium text-foreground">
           {lesson.classOption.name}{' '}
           {lesson.location && (
             <>
-              - <span className="font-normal">{lesson.location}</span>
+              - <span className="font-normal text-muted-foreground">{lesson.location}</span>
             </>
           )}
         </div>
         {lesson.instructor ? (
-          <div className="flex items-center justify-start mt-2">
+          <div className="mt-2 flex items-center justify-start">
             {lesson.instructor.profileImage && (
               <Image
                 src={(lesson.instructor.profileImage.url as string) || ''}
@@ -55,9 +55,9 @@ export function LessonDetail({
                 }} />
             )}
             <div className="flex flex-col">
-              <span>{lesson.instructor.name}</span>
+              <span className="text-foreground">{lesson.instructor.name}</span>
               {lesson.bookingStatus !== 'closed' && (
-                <span className="font-light text-sm">
+                <span className="text-sm font-light text-muted-foreground">
                   {lesson.remainingCapacity} places remaining
                 </span>
               )}
@@ -66,7 +66,7 @@ export function LessonDetail({
         ) : (
           <>
             {lesson.bookingStatus !== 'closed' && (
-              <span className="font-light text-sm">
+              <span className="text-sm font-light text-muted-foreground">
                 {lesson.remainingCapacity} places remaining
               </span>
             )}

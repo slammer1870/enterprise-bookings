@@ -20,7 +20,7 @@ export function LessonList({
           <LessonDetail key={lesson.id} lesson={lesson} manageHref={manageHref} />
         ))
       ) : (
-        <p>No lessons scheduled for today</p>
+        <p className="text-muted-foreground">No lessons scheduled for today</p>
       )}
     </div>
   )

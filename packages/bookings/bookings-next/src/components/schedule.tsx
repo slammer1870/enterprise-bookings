@@ -47,16 +47,16 @@ export function Schedule({
   });
 
   return (
-    <>
+    <div className="space-y-6 text-foreground">
       <ToggleDate date={selectedDate} setDate={setSelectedDate} />
       {isLoading ? (
-        <div className="flex flex-col justify-start items-center h-full">
+        <div className="flex h-full flex-col items-center justify-start text-muted-foreground">
           <Loader2 className="w-10 h-10 animate-spin mb-4" />
           <span className="text-sm">Loading schedule...</span>
         </div>
       ) : (
         <LessonList lessons={Array.isArray(lessons) ? lessons : []} manageHref={manageHref} />
       )}
-    </>
+    </div>
   );
 }

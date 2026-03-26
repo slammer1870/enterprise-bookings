@@ -83,7 +83,7 @@ export function TenantScopedScheduleClient({
 
   if (tenants.length === 0) {
     return (
-      <div className="rounded-lg border border-stone-200 bg-stone-50 p-6 text-center text-stone-600">
+      <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
         No tenants available. Add tenants in the admin to show schedules here.
       </div>
     )
@@ -92,7 +92,7 @@ export function TenantScopedScheduleClient({
   return (
     <div className="w-full space-y-4">
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-stone-700">
+        <label className="text-sm font-medium text-foreground">
           Show schedule for
         </label>
         <Select value={value} onValueChange={onValueChange}>
@@ -111,7 +111,7 @@ export function TenantScopedScheduleClient({
       {effectiveTenantId != null ? (
         <Schedule tenantId={effectiveTenantId} />
       ) : (
-        <div className="rounded-lg border border-stone-200 bg-stone-50 p-6 text-center text-stone-600">
+        <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
           Select a tenant above to view their schedule.
         </div>
       )}

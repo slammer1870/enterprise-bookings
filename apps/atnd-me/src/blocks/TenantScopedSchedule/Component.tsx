@@ -37,14 +37,14 @@ export async function TenantScopedScheduleBlock({
   return (
     <section
       id="schedule"
-      className="w-full max-w-2xl mx-auto px-4 py-8 sm:px-6 sm:py-10 scroll-mt-6"
+      className="mx-auto w-full max-w-2xl scroll-mt-6 px-4 py-8 text-foreground sm:px-6 sm:py-10"
     >
-      <h2 className="text-2xl font-semibold text-stone-800 mb-4 text-center">
+      <h2 className="mb-4 text-center text-2xl font-semibold text-foreground">
         Schedule
       </h2>
       <Suspense
         fallback={
-          <div className="rounded-lg border border-stone-200 bg-stone-50 p-6 text-center text-stone-500">
+          <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
             Loading schedule…
           </div>
         }

@@ -19,7 +19,7 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
   const timeZone = resolveLessonTimeZone(lesson);
 
   return (
-    <Card className="bg-white">
+    <Card className="bg-card text-card-foreground">
       <CardHeader>
         <CardTitle>Booking Summary</CardTitle>
         <CardDescription>Review your booking summary details</CardDescription>

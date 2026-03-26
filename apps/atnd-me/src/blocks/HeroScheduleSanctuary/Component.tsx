@@ -142,9 +142,9 @@ export const HeroScheduleSanctuaryBlock: React.FC<HeroScheduleSanctuaryBlockProp
       </div>
 
       {/* Schedule panel – warm background to match site */}
-      <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-8 lg:p-12 bg-stone-50">
+      <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center bg-card p-8 text-card-foreground lg:p-12">
         <div className="w-full max-w-lg">
-          <h2 className="text-2xl font-semibold text-stone-800 mb-6 text-center">Schedule</h2>
+          <h2 className="mb-6 text-center text-2xl font-semibold text-card-foreground">Schedule</h2>
           <Schedule />
         </div>
       </div>

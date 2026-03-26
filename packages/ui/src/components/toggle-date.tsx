@@ -12,11 +12,11 @@ export function ToggleDate(props: ToggleDateProps) {
 
   return (
     <>
-      <div className="mx-auto mb-8 flex w-full max-w-screen-sm items-center justify-between">
+      <div className="mx-auto mb-8 flex w-full max-w-screen-sm items-center justify-between gap-4 text-foreground">
         <svg
           onClick={() => handleChange(-1)}
           viewBox="0 0 13 15"
-          className="h-4 w-4 fill-inherit"
+          className="h-4 w-4 cursor-pointer fill-current text-muted-foreground transition-colors hover:text-foreground"
         >
           <path
             id="Polygon_2"
@@ -25,11 +25,11 @@ export function ToggleDate(props: ToggleDateProps) {
             transform="translate(0 15) rotate(-90)"
           />
         </svg>
-        <p className="text-lg">{date.toDateString()}</p>
+        <p className="text-center text-lg">{date.toDateString()}</p>
         <svg
           onClick={() => handleChange(+1)}
           viewBox="0 0 13 15"
-          className="h-4 w-4 fill-inherit"
+          className="h-4 w-4 cursor-pointer fill-current text-muted-foreground transition-colors hover:text-foreground"
         >
           <path
             id="Polygon_3"

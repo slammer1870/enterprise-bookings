@@ -130,9 +130,9 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
             </div>
 
             {/* Schedule Section - Full width on mobile, half width on desktop */}
-            <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center p-8 lg:p-12 bg-white">
+            <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center bg-background p-8 text-foreground lg:p-12">
                 <div className="w-full max-w-lg">
-                    <h2 className="text-3xl font-bold mb-8 text-center">Schedule</h2>
+                    <h2 className="mb-8 text-center text-3xl font-bold">Schedule</h2>
                     <Schedule />
                 </div>
             </div>
