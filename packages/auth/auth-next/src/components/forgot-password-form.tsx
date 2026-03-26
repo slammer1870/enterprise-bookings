@@ -92,7 +92,7 @@ function ForgotPasswordFormContent() {
       </CardHeader>
       <CardContent>
         {form.formState.errors.root && (
-          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
+          <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             {form.formState.errors.root.message}
           </div>
         )}
@@ -120,7 +120,7 @@ function ForgotPasswordFormContent() {
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting}
-                className="w-full bg-black text-white hover:bg-gray-800"
+                className="w-full"
                 variant="default"
               >
                 {form.formState.isSubmitting ? "Sending..." : "Submit"}
