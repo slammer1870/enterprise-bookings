@@ -13,9 +13,7 @@ export const rolesPlugin =
       return config;
     }
 
-    const allowedRoles = ["admin", "tenant-admin", "user"] as const;
-    type AllowedRole = (typeof allowedRoles)[number];
-    type UserForOnInit = { id: string | number; roles?: AllowedRole[] };
+    type UserForOnInit = { id: string | number; roles?: string[] | null };
 
     let collections = config.collections || [];
 
@@ -26,6 +24,16 @@ export const rolesPlugin =
     if (!usersCollection) {
       throw new Error("Users collection not found");
     }
+
+    const configuredRoles = Array.isArray(pluginOptions.roles)
+      ? pluginOptions.roles
+      : [];
+    const defaultRole = pluginOptions.defaultRole || "user";
+    const fallbackFirstUserRole = pluginOptions.firstUserRole || "admin";
+
+    const allowedRoleValues = Array.from(
+      new Set([...configuredRoles, defaultRole, fallbackFirstUserRole].filter(Boolean))
+    );
 
     collections = [
       ...(collections.filter((collection) => collection.slug !== "users") ||
@@ -54,10 +62,8 @@ export const rolesPlugin =
         return;
       }
 
-      const firstUserRole: AllowedRole = allowedRoles.includes(
-        pluginOptions.firstUserRole as AllowedRole
-      )
-        ? (pluginOptions.firstUserRole as AllowedRole)
+      const firstUserRole = allowedRoleValues.includes(fallbackFirstUserRole)
+        ? fallbackFirstUserRole
         : "admin";
 
       try {
@@ -82,9 +88,7 @@ export const rolesPlugin =
             throw new Error("No users found");
           }
 
-          const userRoles: AllowedRole[] = Array.isArray(firstUser.roles)
-            ? firstUser.roles
-            : [];
+          const userRoles = Array.isArray(firstUser.roles) ? firstUser.roles : [];
 
           // Check if the user doesn't have the admin role
           if (!userRoles.includes(firstUserRole)) {
@@ -94,7 +98,8 @@ export const rolesPlugin =
               collection: "users",
               id: firstUser.id,
               data: {
-                roles: [...userRoles, firstUserRole],
+                // `users.roles` is app-defined; keep runtime correct and avoid cross-app type coupling.
+                roles: [...userRoles, firstUserRole] as any,
               },
               overrideAccess: true,
               // Minimal local req object; ensures payload internals can resolve collections.
