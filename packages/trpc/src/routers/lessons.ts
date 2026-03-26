@@ -257,6 +257,19 @@ export const lessonsRouter = {
         );
         const { startOfDay, endOfDay } = getDayBoundsInTimeZone(input.date, timeZone);
 
+        // Schedule UX: don't allow browsing past days, and don't show lessons that already ended today.
+        const now = new Date();
+        const { startOfDay: todayStart, endOfDay: todayEnd } = getDayBoundsInTimeZone(
+          now.toISOString(),
+          timeZone
+        );
+        if (endOfDay.getTime() < todayStart.getTime()) {
+          return [];
+        }
+        // Note: We intentionally do NOT filter out lessons that already ended today.
+        // Requirement: users shouldn't be able to browse yesterday or earlier, but
+        // today's schedule should still show the full day.
+
         // Build where clause with date range and tenant filter
         // CRITICAL: We MUST explicitly filter by tenant in the where clause.
         // The access control (tenantScopedReadFiltered) also returns a tenant filter,
@@ -267,15 +280,17 @@ export const lessonsRouter = {
         //
         // This allows cross-tenant booking - users can see lessons for the tenant
         // they're viewing (from subdomain), regardless of their tenant assignments.
+        const dayRangeClause = {
+          startTime: {
+            greater_than_equal: startOfDay.toISOString(),
+            less_than_equal: endOfDay.toISOString(),
+          },
+        };
+
         const whereClause: any = tenantId
           ? {
               and: [
-                {
-                  startTime: {
-                    greater_than_equal: startOfDay.toISOString(),
-                    less_than_equal: endOfDay.toISOString(),
-                  },
-                },
+                dayRangeClause,
                 {
                   tenant: {
                     equals: tenantId,
@@ -284,10 +299,7 @@ export const lessonsRouter = {
               ],
             }
           : {
-              startTime: {
-                greater_than_equal: startOfDay.toISOString(),
-                less_than_equal: endOfDay.toISOString(),
-              },
+              and: [dayRangeClause],
             };
 
         const queryOptions: {
@@ -483,7 +495,7 @@ export const lessonsRouter = {
 
         // Helpers
         const getId = relationId;
-        const now = new Date();
+        const nowForStatus = new Date();
 
         const isLessonClosed = (startTime: string | undefined, lockOutTime: number | undefined) => {
           if (!startTime) return false;
@@ -491,12 +503,12 @@ export const lessonsRouter = {
           const startMs = start.getTime();
           if (!Number.isFinite(startMs)) return false;
           // Once the session has started, it's closed.
-          if (now.getTime() >= startMs) return true;
+          if (nowForStatus.getTime() >= startMs) return true;
           // lockOutTime is minutes before start time.
           if (lockOutTime === undefined || lockOutTime === null) return false;
           if (lockOutTime === 0) return false;
           const lockOutDeadlineMs = startMs - lockOutTime * 60_000;
-          return now.getTime() >= lockOutDeadlineMs;
+          return nowForStatus.getTime() >= lockOutDeadlineMs;
         };
 
         // Batch-fetch bookings for all returned lessons (for capacity + viewer state).

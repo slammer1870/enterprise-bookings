@@ -110,18 +110,17 @@ describe('Schedule lessons visibility for authenticated users', () => {
       overrideAccess: true,
     })) as ClassOption
 
-    // Create a lesson for today in the tenant
-    const today = new Date()
-    today.setHours(10, 0, 0, 0)
-    const endTime = new Date(today)
-    endTime.setHours(11, 0, 0, 0)
+    // Create a lesson in the future (schedule endpoint hides ended lessons)
+    const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
+    startTime.setSeconds(0, 0)
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
     testLesson = (await payload.create({
       collection: 'lessons',
       draft: false,
       data: {
-        date: today.toISOString(),
-        startTime: today.toISOString(),
+        date: startTime.toISOString(),
+        startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         classOption: classOption.id,
         active: true,
@@ -186,9 +185,8 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        // Call getByDate with today's date
-        const today = new Date()
-        today.setHours(12, 0, 0, 0) // Use noon to ensure we're in the same day
+        // Call getByDate using the lesson's calendar day (schedule endpoint hides past days/ended lessons)
+        const today = new Date(testLesson.startTime)
         
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
@@ -224,8 +222,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
+        const today = new Date(testLesson.startTime)
         
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
@@ -270,8 +267,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
+        const today = new Date(testLesson.startTime)
         
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
@@ -356,8 +352,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         } as any)
 
         try {
-          const today = new Date()
-          today.setHours(12, 0, 0, 0)
+          const today = new Date(testLesson.startTime)
           
           const caller = appRouter.createCaller(ctx)
           const lessons = await caller.lessons.getByDate({

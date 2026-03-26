@@ -66,17 +66,16 @@ describe('tRPC Tenant Compatibility Tests', () => {
       overrideAccess: true,
     })) as ClassOption
 
-    // Create a lesson for today in the tenant
-    const today = new Date()
-    today.setHours(10, 0, 0, 0)
-    const endTime = new Date(today)
-    endTime.setHours(11, 0, 0, 0)
+    // Create a lesson in the future (schedule endpoint hides ended lessons)
+    const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
+    startTime.setSeconds(0, 0)
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
     testLesson = (await payload.create({
       collection: 'lessons',
       data: {
-        date: today.toISOString(),
-        startTime: today.toISOString(),
+        date: startTime.toISOString(),
+        startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         classOption: testClassOption.id,
         active: true,
@@ -168,8 +167,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           user: regularUser,
         })
 
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
+        const today = new Date(testLesson.startTime)
 
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
@@ -214,8 +212,30 @@ describe('tRPC Tenant Compatibility Tests', () => {
           overrideAccess: true,
         })) as ClassOption
 
-        const start = new TZDate(2026, 2, 10, 23, 30, 0, 0, tenantTimeZone)
-        const end = new TZDate(2026, 2, 11, 0, 30, 0, 0, tenantTimeZone)
+        // Use a future local date to avoid schedule endpoint filtering past days.
+        // Pick a date 2 days from now in the tenant timezone, near midnight to test local-day boundaries.
+        const future = new TZDate(new Date(), tenantTimeZone)
+        future.setDate(future.getDate() + 2)
+        const start = new TZDate(
+          future.getFullYear(),
+          future.getMonth(),
+          future.getDate(),
+          23,
+          30,
+          0,
+          0,
+          tenantTimeZone,
+        )
+        const end = new TZDate(
+          future.getFullYear(),
+          future.getMonth(),
+          future.getDate() + 1,
+          0,
+          30,
+          0,
+          0,
+          tenantTimeZone,
+        )
         const lesson = (await payload.create({
           collection: 'lessons',
           data: {
@@ -240,7 +260,16 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
           const caller = appRouter.createCaller(ctx)
           const lessons = await caller.lessons.getByDate({
-            date: new TZDate(2026, 2, 10, 12, 0, 0, 0, tenantTimeZone).toISOString(),
+            date: new TZDate(
+              future.getFullYear(),
+              future.getMonth(),
+              future.getDate(),
+              12,
+              0,
+              0,
+              0,
+              tenantTimeZone,
+            ).toISOString(),
           })
 
           expect(lessons.map((entry) => entry.id)).toContain(lesson.id)
@@ -515,8 +544,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           user: regularUser,
         })
 
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
+        const today = new Date(testLesson.startTime)
 
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
@@ -661,8 +689,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           user: regularUser,
         })
 
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
+        const today = new Date(testLesson.startTime)
 
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
@@ -698,8 +725,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           user: regularUser,
         })
 
-        const today = new Date()
-        today.setHours(12, 0, 0, 0)
+        const today = new Date(testLesson.startTime)
 
         const caller = appRouter.createCaller(ctx)
         const lessons = await caller.lessons.getByDate({
