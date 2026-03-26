@@ -48,6 +48,16 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/sitemap') ||
     pathname.startsWith('/robots.txt')
   ) {
+    // If we're on the platform root host (e.g. atnd.me) with no subdomain tenant context,
+    // proactively clear tenant cookies even for API/static requests. Otherwise a user can
+    // carry a stale `tenant-slug` from a previous tenant subdomain session while browsing
+    // the root site, and APIs may behave as if a tenant is selected.
+    if (rootHostname && hostname === rootHostname) {
+      const response = NextResponse.next()
+      response.cookies.delete('tenant-slug')
+      return response
+    }
+
     return NextResponse.next()
   }
 
@@ -192,50 +202,53 @@ export async function middleware(request: NextRequest) {
     response.cookies.set('tenant-slug', subdomain, cookieOptions)
   }
 
-  // Fix: deep-linkings into Payload admin on custom domains can server-redirect back to /admin
-  // if payload-tenant isn't set yet (server components can't rely on client-side cookie set).
-  if (isPayloadAdmin) {
-    const existingPayloadTenant = request.cookies.get(PAYLOAD_TENANT_COOKIE)?.value
-    const shouldResyncPayloadTenant =
-      existingTenantSlug !== subdomain &&
-      existingTenantSlug != null &&
-      existingTenantSlug !== ''
-    if (
-      ((existingPayloadTenant == null || existingPayloadTenant === '') || shouldResyncPayloadTenant) &&
-      subdomain &&
-      /^[a-z0-9-]+$/i.test(subdomain)
-    ) {
-      let tenantIdToSet: string | number | null = resolvedTenantId
-      if (tenantIdToSet == null) {
-        try {
-          const origin = platformOrigin ?? request.nextUrl.origin
-          const url = `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(subdomain)}`
-          const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
-          if (res.ok) {
-            const data = (await res.json()) as { id?: string | number }
-            tenantIdToSet =
-              typeof data?.id === 'string' || typeof data?.id === 'number' ? data.id : null
-          }
-        } catch {
-          // Leave payload-tenant unset on fetch error
-        }
-      }
+  // Important: keep Payload's multi-tenant context cookie (`payload-tenant`) in sync on tenant sites.
+  //
+  // Previously, we only set this cookie for `/admin` routes. That can break public endpoints that
+  // depend on tenant scoping (e.g. POST /api/form-submissions from the frontend), because the
+  // collection-level tenant scoping logic may look for this cookie on API requests.
+  const existingPayloadTenant = request.cookies.get(PAYLOAD_TENANT_COOKIE)?.value
+  const shouldResyncPayloadTenant =
+    existingTenantSlug !== subdomain &&
+    existingTenantSlug != null &&
+    existingTenantSlug !== ''
 
-      if (tenantIdToSet != null && tenantIdToSet !== '') {
-        // Ensure there is only one payload-tenant cookie stored (no duplicates across path/domain).
-        // Canonical cookie: Path=/, Domain=(host-only for custom domain/localhost) or .rootHostname for platform subdomains.
-        const domainScoped =
-          !isCustomDomain && !isLocalhost
-            ? cookieOptions.domain
-            : undefined
-        clearCookieEverywhere({
-          response,
-          name: PAYLOAD_TENANT_COOKIE,
-          paths: ['/', '/admin', '/admin/'],
-          domains: [undefined, domainScoped],
-        })
-        response.cookies.set(PAYLOAD_TENANT_COOKIE, String(tenantIdToSet), cookieOptions)
+  if (
+    ((existingPayloadTenant == null || existingPayloadTenant === '') || shouldResyncPayloadTenant) &&
+    subdomain &&
+    /^[a-z0-9-]+$/i.test(subdomain)
+  ) {
+    let tenantIdToSet: string | number | null = resolvedTenantId
+
+    // For platform subdomains (or when custom domain didn't already resolve an ID), look up tenant id.
+    if (tenantIdToSet == null) {
+      try {
+        const origin = platformOrigin ?? request.nextUrl.origin
+        const url = `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(subdomain)}`
+        const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
+        if (res.ok) {
+          const data = (await res.json()) as { id?: string | number }
+          tenantIdToSet = typeof data?.id === 'string' || typeof data?.id === 'number' ? data.id : null
+        }
+      } catch {
+        // Leave payload-tenant unset on fetch error
       }
+    }
+
+    if (tenantIdToSet != null && tenantIdToSet !== '') {
+      // Ensure there is only one payload-tenant cookie stored (no duplicates across path/domain).
+      // Canonical cookie: Path=/, Domain=(host-only for custom domain/localhost) or .rootHostname for platform subdomains.
+      const domainScoped =
+        !isCustomDomain && !isLocalhost
+          ? cookieOptions.domain
+          : undefined
+      clearCookieEverywhere({
+        response,
+        name: PAYLOAD_TENANT_COOKIE,
+        paths: ['/', '/admin', '/admin/'],
+        domains: [undefined, domainScoped],
+      })
+      response.cookies.set(PAYLOAD_TENANT_COOKIE, String(tenantIdToSet), cookieOptions)
     }
   }
 

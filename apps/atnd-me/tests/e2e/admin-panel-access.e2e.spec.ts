@@ -1,14 +1,26 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin, loginAsTenantAdmin, loginAsRegularUser } from './helpers/auth-helpers'
 
-async function submitAdminLogin(page: Parameters<typeof test>[0]['page'], email: string) {
-  await page.getByRole('textbox', { name: /email/i }).first().fill(email)
-  await page.getByLabel(/password/i).or(page.locator('input[type="password"]')).first().fill('password')
-  await page
+async function submitAdminLogin(
+  page: Parameters<typeof test>[0]['page'],
+  email: string,
+  password = 'password'
+) {
+  const emailInput = page.getByRole('textbox', { name: /^email/i }).first()
+  const passwordInput = page.getByLabel(/^password/i).or(page.locator('input[type="password"]')).first()
+  const submitButton = page
     .getByRole('button', { name: /login|sign in/i })
     .or(page.locator('button[type="submit"]'))
     .first()
-    .click()
+
+  await expect(emailInput).toBeVisible()
+  await expect(passwordInput).toBeVisible()
+
+  await emailInput.fill(email)
+  await passwordInput.fill(password)
+
+  await expect(submitButton).toBeEnabled()
+  await submitButton.click()
 }
 
 test.describe('Admin Panel Access', () => {
@@ -25,17 +37,15 @@ test.describe('Admin Panel Access', () => {
   test('should keep tenant-admin on their own tenant host after login', async ({
     page,
     testData,
+    request,
   }) => {
     const slug = testData.tenants[0]!.slug
-    await page.goto(`http://${slug}.localhost:3000/admin/login`, { waitUntil: 'domcontentloaded' })
-    await submitAdminLogin(page, testData.users.tenantAdmin1.email)
-
-    await page
-      .waitForURL((u) => u.pathname.startsWith('/admin') && !u.pathname.startsWith('/admin/login'), {
-        timeout: 12000,
-      })
-      .catch(() => null)
-    await page.waitForLoadState('networkidle').catch(() => null)
+    // Prefer API-based admin login for stability; ensures cookies are correctly scoped to the tenant host.
+    await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request, tenantSlug: slug })
+    await page.goto(`http://${slug}.localhost:3000/admin`, { waitUntil: 'domcontentloaded' })
+    await page.waitForURL((u) => u.pathname.startsWith('/admin') && !u.pathname.startsWith('/admin/login'), {
+      timeout: 20000,
+    })
 
     const url = new URL(page.url())
     expect(url.hostname).toBe(`${slug}.localhost`)

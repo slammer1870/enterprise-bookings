@@ -12,6 +12,37 @@ function parsePayloadTenantId(request: NextRequest): number | null {
   return Number.isFinite(id) ? id : null
 }
 
+async function resolveRequestedTenantId(args: {
+  payload: Awaited<ReturnType<typeof getPayload>>
+  request: NextRequest
+}): Promise<number | null> {
+  const { payload, request } = args
+
+  const fromPayloadCookie = parsePayloadTenantId(request)
+  if (fromPayloadCookie) return fromPayloadCookie
+
+  // Fallback: first-load of `/admin/login` on a tenant host may not yet have `payload-tenant`.
+  // Use the host-scoped `tenant-slug` cookie (set by middleware) to resolve the tenant id.
+  const tenantSlug = request.cookies.get('tenant-slug')?.value?.trim().toLowerCase()
+  if (!tenantSlug || !/^[a-z0-9-]+$/.test(tenantSlug)) return null
+
+  const result = await payload
+    .find({
+      collection: 'tenants',
+      where: { slug: { equals: tenantSlug } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    .catch(() => null)
+
+  const tenant = result?.docs?.[0] as { id?: unknown } | undefined
+  const id = tenant?.id
+  if (typeof id === 'number' && Number.isFinite(id)) return id
+  if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  return null
+}
+
 async function resolveTenantIdsForUser(args: {
   payload: Awaited<ReturnType<typeof getPayload>>
   user: SharedUser
@@ -71,7 +102,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const requestedTenantId = parsePayloadTenantId(request)
+  const requestedTenantId = await resolveRequestedTenantId({ payload, request })
   if (!requestedTenantId) {
     // Root-host admin navigation (e.g. localhost/admin in tests) may not carry payload-tenant.
     // In that case, allow the session and rely on collection access controls / tenant selectors.
