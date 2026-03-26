@@ -3,7 +3,7 @@
 import { Lesson } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { PlanView } from "@repo/membership-next";
 import type { Plan } from "@repo/shared-types";
@@ -20,6 +20,8 @@ type MembershipPaymentMethodsProps = {
 export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const discountCode = (searchParams?.get("discount") || "").trim() || undefined;
 
   const { data: subscriptionData } = useSuspenseQuery(
     trpc.subscriptions.getSubscriptionForLesson.queryOptions({
@@ -171,6 +173,7 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
       priceId,
       quantity: 1,
       metadata: metaWithTenant,
+      ...(discountCode ? { discountCode } : {}),
       mode: "subscription",
       successUrl: `${origin}/dashboard${tenantQ}`,
       cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,

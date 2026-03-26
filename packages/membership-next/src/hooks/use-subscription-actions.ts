@@ -11,6 +11,8 @@ export type CheckoutArgs = {
   quantity?: number
   mode?: 'subscription' | 'payment'
   metadata?: Record<string, string | undefined>
+  /** Customer-facing promo code like SUMMER20 */
+  discountCode?: string
   successUrl?: string
   cancelUrl?: string
 }
@@ -81,6 +83,7 @@ export function useSubscriptionActions(options: UseSubscriptionActionsOptions = 
       quantity = 1,
       mode = 'subscription',
       metadata,
+      discountCode,
       successUrl = defaultSuccessUrl,
       cancelUrl = defaultCancelUrl,
     } = args
@@ -90,6 +93,7 @@ export function useSubscriptionActions(options: UseSubscriptionActionsOptions = 
       quantity,
       mode,
       metadata: cleanMetadata(metadata),
+      discountCode,
       successUrl,
       cancelUrl,
     })

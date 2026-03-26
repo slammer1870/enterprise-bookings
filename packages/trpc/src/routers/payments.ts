@@ -368,6 +368,11 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         priceId: z.string(),
         quantity: z.number().optional(),
         metadata: z.record(z.string(), z.string()).optional(),
+        /**
+         * Customer-facing promo code (e.g. SUMMER20). Resolved against tenant-scoped
+         * `discount-codes` and applied as a Stripe Promotion Code.
+         */
+        discountCode: z.string().optional(),
         successUrl: z.string().optional(),
         cancelUrl: z.string().optional(),
         mode: z.enum(["subscription", "payment"]),
@@ -407,6 +412,57 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       const stripeOpts = stripeAccountId
         ? ({ stripeAccount: stripeAccountId } satisfies Stripe.RequestOptions)
         : undefined;
+
+      // Optional: resolve tenant discount code → Stripe Promotion Code id.
+      // NOTE: Discount codes are created on the tenant's Connect account in atnd-me.
+      let promotionCodeId: string | null = null;
+      if (input.discountCode) {
+        const tenantIdRaw = meta.tenantId;
+        const tenantId =
+          typeof tenantIdRaw === "string" ? parseInt(tenantIdRaw, 10) : NaN;
+        if (!Number.isFinite(tenantId)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "discountCode requires metadata.tenantId",
+          });
+        }
+        if (!stripeAccountId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "discountCode requires a connected Stripe account (Connect-scoped checkout).",
+          });
+        }
+
+        const code = String(input.discountCode).trim().toUpperCase();
+        const match = await ctx.payload.find({
+          collection: "discount-codes" as any,
+          depth: 0,
+          limit: 1,
+          overrideAccess: true,
+          where: {
+            and: [
+              { tenant: { equals: tenantId } },
+              { code: { equals: code } },
+              { status: { equals: "active" } },
+              { stripePromotionCodeId: { exists: true } },
+            ],
+          },
+        });
+        const doc = (match as any)?.docs?.[0] as
+          | { stripePromotionCodeId?: string | null }
+          | undefined;
+        promotionCodeId =
+          doc?.stripePromotionCodeId && String(doc.stripePromotionCodeId).trim()
+            ? String(doc.stripePromotionCodeId).trim()
+            : null;
+        if (!promotionCodeId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or inactive discount code.",
+          });
+        }
+      }
 
       const payloadUser = await resolvePayloadUser({
         payload: ctx.payload,
@@ -540,6 +596,9 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         cancel_url:
           input.cancelUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
       };
+      if (promotionCodeId) {
+        sessionParams.discounts = [{ promotion_code: promotionCodeId }];
+      }
       if (input.mode === "subscription") {
         sessionParams.subscription_data = {
           metadata: meta,
