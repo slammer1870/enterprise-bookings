@@ -13,7 +13,9 @@ export const rolesPlugin =
       return config;
     }
 
-    type UserForOnInit = { id: string; roles?: string[] };
+    const allowedRoles = ["admin", "tenant-admin", "user"] as const;
+    type AllowedRole = (typeof allowedRoles)[number];
+    type UserForOnInit = { id: string | number; roles?: AllowedRole[] };
 
     let collections = config.collections || [];
 
@@ -52,7 +54,11 @@ export const rolesPlugin =
         return;
       }
 
-      const firstUserRole = pluginOptions.firstUserRole || "admin";
+      const firstUserRole: AllowedRole = allowedRoles.includes(
+        pluginOptions.firstUserRole as AllowedRole
+      )
+        ? (pluginOptions.firstUserRole as AllowedRole)
+        : "admin";
 
       try {
         // Check if there are any users
@@ -76,24 +82,24 @@ export const rolesPlugin =
             throw new Error("No users found");
           }
 
-          const userRoles = Array.isArray(firstUser.roles) ? firstUser.roles : [];
+          const userRoles: AllowedRole[] = Array.isArray(firstUser.roles)
+            ? firstUser.roles
+            : [];
 
           // Check if the user doesn't have the admin role
           if (!userRoles.includes(firstUserRole)) {
-            // Add the admin role to the first user
-            const updateUsers =
-              payload.update as unknown as (_options: {
-                collection: "users";
-                id: string;
-                data: { roles: string[] };
-              }) => Promise<unknown>;
-
-            await updateUsers({
+            // Add the role to the first user.
+            // Payload v3 local operations expect a `req` shape; omitting it can crash in some init flows.
+            await payload.update({
               collection: "users",
               id: firstUser.id,
               data: {
                 roles: [...userRoles, firstUserRole],
               },
+              overrideAccess: true,
+              // Minimal local req object; ensures payload internals can resolve collections.
+              // (onInit runs outside a request/response cycle)
+              req: { payload } as any,
             });
 
             payload.logger.info(
