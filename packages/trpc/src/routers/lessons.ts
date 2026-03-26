@@ -269,7 +269,8 @@ export const lessonsRouter = {
           req?: any;
         } = {
           where: whereClause,
-          depth: 2,
+          // Keep lesson query shallow; we will populate + sanitize classOption ourselves.
+          depth: 0,
           sort: "startTime",
           // CRITICAL: When we have an explicit tenant filter in the where clause AND
           // req.context.tenant set, we can use overrideAccess: true to bypass the
@@ -320,12 +321,12 @@ export const lessonsRouter = {
           } as SelectType,
         });
 
-        const now = new Date();
         const lessonDocs = lessons.docs as any[];
         const lessonIds = lessonDocs.map((l) => l.id).filter(Boolean) as number[];
 
-        // Helpers
-        const getId = (value: any): number | null => {
+        // Sanitize relationship docs to prevent leaking tenant/payment/provider fields to clients.
+        // We intentionally return tenant as an ID only (or null) and a schedule-safe classOption shape.
+        const relationId = (value: any): number | null => {
           if (!value) return null;
           if (typeof value === "number") return value;
           if (typeof value === "string") {
@@ -338,6 +339,70 @@ export const lessonsRouter = {
           }
           return null;
         };
+
+        const sanitizeDropIn = (doc: any) => {
+          if (!doc || typeof doc !== "object") return doc;
+          return {
+            id: relationId(doc.id),
+            name: doc.name ?? null,
+            description: doc.description ?? null,
+            isActive: doc.isActive ?? null,
+            price: doc.price ?? null,
+            adjustable: doc.adjustable ?? null,
+            discountTiers: Array.isArray(doc.discountTiers) ? doc.discountTiers : [],
+            paymentMethods: Array.isArray(doc.paymentMethods) ? doc.paymentMethods : [],
+          };
+        };
+
+        const sanitizeClassOption = (doc: any) => {
+          if (!doc || typeof doc !== "object") return doc;
+          const pm = doc.paymentMethods && typeof doc.paymentMethods === "object" ? doc.paymentMethods : null;
+          const allowedDropIn = pm?.allowedDropIn;
+          return {
+            id: relationId(doc.id),
+            name: doc.name ?? null,
+            places: doc.places ?? null,
+            description: doc.description ?? null,
+            type: doc.type ?? null,
+            paymentMethods: pm
+              ? {
+                  allowedDropIn:
+                    allowedDropIn && typeof allowedDropIn === "object"
+                      ? sanitizeDropIn(allowedDropIn)
+                      : allowedDropIn != null
+                        ? relationId(allowedDropIn)
+                        : null,
+                  allowedClassPasses: Array.isArray(pm.allowedClassPasses) ? pm.allowedClassPasses : [],
+                  allowedPlans: Array.isArray(pm.allowedPlans) ? pm.allowedPlans : [],
+                }
+              : undefined,
+          };
+        };
+
+        // Populate class options in one query (then sanitize).
+        const classOptionIds = Array.from(
+          new Set(lessonDocs.map((l) => relationId(l.classOption)).filter(Boolean) as number[])
+        );
+        const classOptionsById: Map<number, any> = new Map();
+        if (classOptionIds.length > 0 && hasCollection(ctx.payload, "class-options")) {
+          const classOptions = await ctx.payload.find({
+            collection: "class-options" as CollectionSlug,
+            where: { id: { in: classOptionIds } },
+            depth: 2,
+            limit: 0,
+            overrideAccess: true,
+            req: queryOptions.req,
+          });
+          (classOptions.docs as any[]).forEach((co) => {
+            const id = relationId(co?.id);
+            if (!id) return;
+            classOptionsById.set(id, sanitizeClassOption(co));
+          });
+        }
+
+        // Helpers
+        const getId = relationId;
+        const now = new Date();
 
         const isLessonClosed = (startTime: string | undefined, lockOutTime: number | undefined) => {
           if (!startTime) return false;
@@ -420,7 +485,9 @@ export const lessonsRouter = {
 
         return lessonDocs.map((lesson: any) => {
           const lessonId = getId(lesson.id)!;
-          const classOption: any = lesson.classOption;
+          const classOptionId = getId(lesson.classOption);
+          const classOption: any =
+            (classOptionId != null ? classOptionsById.get(classOptionId) : null) ?? null;
           const places: number | null = typeof classOption === "object" && classOption !== null
             ? getId(classOption.places) ?? (typeof classOption.places === "number" ? classOption.places : null)
             : null;
@@ -555,6 +622,8 @@ export const lessonsRouter = {
 
           return {
             ...lesson,
+            tenant: getId(lesson.tenant),
+            classOption,
             bookings: { docs: [] },
             remainingCapacity,
             bookingStatus: legacyBookingStatus,
