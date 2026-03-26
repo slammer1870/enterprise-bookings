@@ -46,6 +46,16 @@ export const FormBlock: React.FC<
   const [error, setError] = useState<{ message: string; status?: string } | undefined>()
   const router = useRouter()
 
+  const safeParseJSON = async (res: Response) => {
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.toLowerCase().includes('application/json')) return null
+    try {
+      return (await res.json()) as unknown
+    } catch {
+      return null
+    }
+  }
+
   const onSubmit = useCallback(
     (data: FormFieldBlock[]) => {
       let loadingTimerID: ReturnType<typeof setTimeout>
@@ -63,7 +73,7 @@ export const FormBlock: React.FC<
         }, 1000)
 
         try {
-          const req = await fetch(`${getClientSideURL()}/api/form-submissions`, {
+          const req = await fetch(`/api/form-submissions`, {
             body: JSON.stringify({
               form: formID,
               submissionData: dataToSend,
@@ -74,7 +84,15 @@ export const FormBlock: React.FC<
             method: 'POST',
           })
 
-          const res = await req.json()
+          const parsed = await safeParseJSON(req)
+          const res = (parsed ?? {}) as any
+          const rawText =
+            parsed == null
+              ? await req
+                  .text()
+                  .then((t) => t.trim())
+                  .catch(() => '')
+              : ''
 
           clearTimeout(loadingTimerID)
 
@@ -82,8 +100,11 @@ export const FormBlock: React.FC<
             setIsLoading(false)
 
             setError({
-              message: res.errors?.[0]?.message || 'Internal Server Error',
-              status: res.status,
+              message:
+                res?.errors?.[0]?.message ||
+                res?.message ||
+                (rawText ? rawText.slice(0, 500) : 'Internal Server Error'),
+              status: String(req.status),
             })
 
             return
@@ -103,7 +124,7 @@ export const FormBlock: React.FC<
           console.warn(err)
           setIsLoading(false)
           setError({
-            message: 'Something went wrong.',
+            message: err instanceof Error ? err.message : 'Something went wrong.',
           })
         }
       }
