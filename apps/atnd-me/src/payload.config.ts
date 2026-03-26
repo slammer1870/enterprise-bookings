@@ -120,12 +120,9 @@ export default buildConfig({
       : {}),
   }),
   collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler],
-  // Tenant sites can be served from many origins (subdomains + custom domains).
-  // Allow cross-origin POSTs (e.g. embedded forms / custom domains) to reach Payload REST endpoints.
-  cors: {
-    origins: '*',
-    headers: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  },
+  // Keep Payload's global CORS restrictive; we selectively allow additional origins
+  // for specific public endpoints (e.g. /api/form-submissions) via Next route wrappers.
+  cors: [getServerSideURL()].filter(Boolean),
   globals: [PlatformFees],
   endpoints: [
     // Tenant-scoped Stripe customers for Connect mapping UI.
