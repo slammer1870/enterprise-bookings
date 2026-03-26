@@ -259,7 +259,7 @@ export const lessonsRouter = {
 
         // Schedule UX: don't allow browsing past days, and don't show lessons that already ended today.
         const now = new Date();
-        const { startOfDay: todayStart, endOfDay: todayEnd } = getDayBoundsInTimeZone(
+        const { startOfDay: todayStart } = getDayBoundsInTimeZone(
           now.toISOString(),
           timeZone
         );
