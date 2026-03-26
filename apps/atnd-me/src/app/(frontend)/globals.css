@@ -8,8 +8,6 @@
   /* IMPORTANT:
    * Tailwind v4 (used by @repo/ui) expects these CSS variables to be valid CSS colors.
    * Use `hsl(...)` rather than raw HSL components so overrides apply correctly.
-   * Note: Booking action colors (--checkin, etc.) are kept as raw HSL tuples because
-   * @repo/ui consumes them as `hsl(var(--checkin))` in utility classes.
    */
   --background: hsl(0 0% 100%);
   --foreground: hsl(222.2 84% 4.9%);
@@ -41,11 +39,9 @@
 
   --radius: 0.5rem;
 
-  /* Check-in button colors - updated to brand yellow */
-  /* Keep as raw HSL tuples: @repo/ui consumes them as `hsl(var(--checkin))` */
+  /* Booking action colors */
   --checkin: hsl(106, 84%, 42%);
   --checkin-foreground: hsl(0, 0%, 100%);
-  /* White color */
 
   /* Other button state colors */
   --trialable: hsl(197, 84%, 42%);
@@ -119,20 +115,20 @@
   --ring: hsl(212.7 26.8% 83.9%);
 
   /* Check-in button colors for dark mode */
-  --checkin: 45 94% 52%;
-  --checkin-foreground: 210 40% 98%;
+  --checkin: hsl(45 94% 52%);
+  --checkin-foreground: hsl(210 40% 98%);
 
   /* Other button state colors for dark mode */
-  --trialable: 217 91% 60%;
-  --trialable-foreground: 0 0% 98%;
-  --cancel: 0 62.8% 30.6%;
-  --cancel-foreground: 0 0% 98%;
-  --waitlist: 38 92% 50%;
-  --waitlist-foreground: 0 0% 98%;
-  --children-booked: 271 91% 65%;
-  --children-booked-foreground: 0 0% 98%;
-  --modify: 263 70% 55%;
-  --modify-foreground: 0 0% 98%;
-  --closed: 0 0% 50%;
-  --closed-foreground: 0 0% 98%;
+  --trialable: hsl(217 91% 60%);
+  --trialable-foreground: hsl(0 0% 98%);
+  --cancel: hsl(0 62.8% 30.6%);
+  --cancel-foreground: hsl(0 0% 98%);
+  --waitlist: hsl(38 92% 50%);
+  --waitlist-foreground: hsl(0 0% 98%);
+  --children-booked: hsl(271 91% 65%);
+  --children-booked-foreground: hsl(0 0% 98%);
+  --modify: hsl(263 70% 55%);
+  --modify-foreground: hsl(0 0% 98%);
+  --closed: hsl(0 0% 50%);
+  --closed-foreground: hsl(0 0% 98%);
 }
