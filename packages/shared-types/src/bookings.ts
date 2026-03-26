@@ -12,6 +12,52 @@ export type Instructor = {
   active?: boolean | null;
 };
 
+/**
+ * Minimal lesson DTO for schedule/homepage views.
+ *
+ * Security note: This intentionally excludes payment provider fields, tenant objects,
+ * and relationship docs that shouldn't be exposed to the client.
+ */
+export type ScheduleInstructor = {
+  id: number;
+  name?: string | null;
+  profileImage?: { url: string } | null;
+};
+
+export type ScheduleClassOption = {
+  id: number;
+  name: string;
+  type?: "adult" | "child";
+};
+
+export type ScheduleLesson = {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  classOption: ScheduleClassOption;
+  location: string;
+  instructor?: ScheduleInstructor | null;
+  remainingCapacity: number;
+  bookingStatus:
+    | "active"
+    | "waitlist"
+    | "waiting"
+    | "closed"
+    | "booked"
+    | "trialable"
+    | "childrenBooked"
+    | "multipleBooked";
+  /** Tenant ID only (never a full tenant object). */
+  tenant?: number | null;
+  /** Resolved timezone for formatting/query consumers. */
+  timeZone?: string;
+  /** Schedule-specific view model computed server-side (tRPC). */
+  scheduleState?: LessonScheduleState;
+  /** Optional: confirmed booking count for the viewer. */
+  myBookingCount?: number;
+};
+
 export type Lesson = {
   id: number;
   date: string;

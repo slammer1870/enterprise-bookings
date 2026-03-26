@@ -164,10 +164,10 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       for (const { y, m, d } of calendarDates) {
         const middayInstant = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).toISOString()
-        const lessons = (await caller.lessons.getByDate({
+        const lessons = await caller.lessons.getByDate({
           date: middayInstant,
           tenantId: Number(testTenant.id),
-        })) as Lesson[]
+        })
 
         const jsDay = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).getDay()
 
@@ -208,12 +208,12 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       // 2) If this test is green, Monday is still being created on Monday
       // (not on Sunday) after crossing the DST boundary.
-      const mondayLessons = (await caller.lessons.getByDate({
+      const mondayLessons = await caller.lessons.getByDate({
         date: new TZDate(2026, 2, 30, 12, 0, 0, 0, timeZone).toISOString(),
         tenantId: Number(testTenant.id),
-      })) as Lesson[]
+      })
       expect(mondayLessons.length).toBe(1)
-      const mondayStart = new TZDate(new Date((mondayLessons[0] as Lesson).startTime as any), timeZone)
+      const mondayStart = new TZDate(new Date((mondayLessons[0] as any).startTime as any), timeZone)
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(10)
       expect(mondayStart.getDate()).toBe(30)
@@ -306,10 +306,10 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       for (const { y, m, d } of calendarDates) {
         const middayInstant = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).toISOString()
-        const lessons = (await caller.lessons.getByDate({
+        const lessons = await caller.lessons.getByDate({
           date: middayInstant,
           tenantId: Number(testTenant.id),
-        })) as Lesson[]
+        })
 
         const jsDay = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).getDay()
 
@@ -344,12 +344,12 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         }
       }
 
-      const mondayLessons = (await caller.lessons.getByDate({
+      const mondayLessons = await caller.lessons.getByDate({
         date: new TZDate(2026, 9, 26, 12, 0, 0, 0, timeZone).toISOString(),
         tenantId: Number(testTenant.id),
-      })) as Lesson[]
+      })
       expect(mondayLessons.length).toBe(1)
-      const mondayStart = new TZDate(new Date((mondayLessons[0] as Lesson).startTime as any), timeZone)
+      const mondayStart = new TZDate(new Date((mondayLessons[0] as any).startTime as any), timeZone)
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(9)
       expect(mondayStart.getDate()).toBe(26)

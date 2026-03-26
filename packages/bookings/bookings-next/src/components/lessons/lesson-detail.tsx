@@ -2,7 +2,7 @@ import React from 'react'
 
 import Image from "next/image"
 
-import { Lesson } from '@repo/shared-types'
+import { ScheduleLesson } from '@repo/shared-types'
 import { formatInTimeZone, resolveLessonTimeZone } from '@repo/shared-utils/timezone'
 
 import { CheckInButton } from './checkin-button'
@@ -11,7 +11,7 @@ export function LessonDetail({
   lesson,
   manageHref,
 }: { 
-  lesson: Lesson;
+  lesson: ScheduleLesson;
   /**
    * Optional function or string to generate the manage booking URL.
    * Defaults to `/bookings/[id]/manage` if not provided.

@@ -18,6 +18,8 @@ describe('Schedule lessons visibility for authenticated users', () => {
   let regularUser: User
   let testTenant: Tenant
   let testLesson: Lesson
+  let planId: number
+  let classPassTypeId: number
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -29,6 +31,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       data: {
         name: 'Test Tenant',
         slug: `test-tenant-schedule-${Date.now()}`,
+        stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
     })) as Tenant
@@ -47,6 +50,50 @@ describe('Schedule lessons visibility for authenticated users', () => {
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0])) as User
 
+    // Create payment method dependencies for the class option (to validate sanitization)
+    const plan = await payload.create({
+      collection: 'plans',
+      data: {
+        name: `Schedule Test Plan ${Date.now()}`,
+        tenant: testTenant.id,
+        status: 'active',
+        priceInformation: {
+          price: 40,
+          intervalCount: 1,
+          interval: 'week',
+        },
+        sessionsInformation: {
+          sessions: 2,
+          intervalCount: 1,
+          interval: 'week',
+          allowMultipleBookingsPerLesson: true,
+        },
+        // Intentionally set Stripe-y fields that must never leak to public clients
+        stripeProductId: 'prod_TEST_SHOULD_NOT_LEAK',
+        priceJSON: '{"id":"price_TEST_SHOULD_NOT_LEAK"}',
+        skipSync: true,
+      },
+      overrideAccess: true,
+    })
+    planId = (plan as any).id as number
+
+    const classPassType = await payload.create({
+      collection: 'class-pass-types',
+      data: {
+        name: `Schedule Test Pass Type ${Date.now()}`,
+        slug: `schedule-test-pass-type-${Date.now()}`,
+        tenant: testTenant.id,
+        quantity: 10,
+        allowMultipleBookingsPerLesson: true,
+        status: 'active',
+        stripeProductId: 'prod_TEST_SHOULD_NOT_LEAK',
+        priceJSON: '{"id":"price_TEST_SHOULD_NOT_LEAK"}',
+        skipSync: true,
+      },
+      overrideAccess: true,
+    })
+    classPassTypeId = (classPassType as any).id as number
+
     // Create class option for the tenant
     const classOption = (await payload.create({
       collection: 'class-options',
@@ -55,6 +102,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
         places: 10,
         description: 'Test description',
         tenant: testTenant.id,
+        paymentMethods: {
+          allowedPlans: [planId],
+          allowedClassPasses: [classPassTypeId],
+        },
       },
       overrideAccess: true,
     })) as ClassOption
@@ -88,6 +139,18 @@ describe('Schedule lessons visibility for authenticated users', () => {
           collection: 'lessons',
           where: { id: { equals: testLesson.id } },
         })
+        if (planId) {
+          await payload.delete({
+            collection: 'plans',
+            where: { id: { equals: planId } },
+          })
+        }
+        if (classPassTypeId) {
+          await payload.delete({
+            collection: 'class-pass-types',
+            where: { id: { equals: classPassTypeId } },
+          })
+        }
         await payload.delete({
           collection: 'users',
           where: { id: { equals: regularUser.id } },
@@ -172,6 +235,15 @@ describe('Schedule lessons visibility for authenticated users', () => {
         // Unauthenticated users should also be able to see lessons for booking
         const lessonIds = lessons.map((l) => l.id)
         expect(lessonIds).toContain(testLesson.id)
+
+        // But unauthenticated users must not receive tenant/Stripe/payment-provider fields
+        // embedded inside nested payment method relationships.
+        const lesson = lessons.find((l) => l.id === testLesson.id) as any
+        expect(lesson).toBeTruthy()
+        const co = lesson.classOption as any
+        expect(co).toBeTruthy()
+        // Schedule endpoint must not expose payment method relationship docs at all.
+        expect(co).not.toHaveProperty('paymentMethods')
       } finally {
         authSpy.mockRestore()
       }

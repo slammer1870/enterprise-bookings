@@ -1,11 +1,11 @@
-import { Lesson } from '@repo/shared-types'
+import { ScheduleLesson } from '@repo/shared-types'
 import { LessonDetail } from './lesson-detail'
 
 export function LessonList({ 
   lessons,
   manageHref,
 }: { 
-  lessons: Lesson[];
+  lessons: ScheduleLesson[];
   /**
    * Optional function or string to generate the manage booking URL.
    * Defaults to `/bookings/[id]/manage` if not provided.

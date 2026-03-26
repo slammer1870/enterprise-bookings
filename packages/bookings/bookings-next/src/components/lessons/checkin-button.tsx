@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@repo/trpc/client";
-import type { Lesson, LessonScheduleState } from "@repo/shared-types";
+import type { ScheduleLesson, LessonScheduleState } from "@repo/shared-types";
 import { Button } from "@repo/ui/components/ui/button";
 import type { MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
@@ -49,7 +49,7 @@ export const CheckInButton = ({
   manageHref,
 }: {
   lessonId: number;
-  type: Lesson["classOption"]["type"];
+  type: ScheduleLesson["classOption"]["type"];
   scheduleState?: LessonScheduleState;
   /**
    * Optional function or string to generate the manage booking URL.

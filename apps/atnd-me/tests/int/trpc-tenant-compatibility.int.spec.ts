@@ -183,10 +183,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
         // All lessons should be from the subdomain tenant
         for (const lesson of lessons) {
-          const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-            ? lesson.tenant.id
-            : lesson.tenant
-          expect(lessonTenantId).toBe(testTenant.id)
+          expect(lesson.tenant).toBe(testTenant.id)
         }
       },
       TEST_TIMEOUT,

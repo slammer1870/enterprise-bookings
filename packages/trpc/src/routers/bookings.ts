@@ -652,7 +652,7 @@ export const bookingsRouter = {
               paymentMethodUsed: "subscription",
               subscriptionIdUsed,
             } as Partial<Booking>,
-            { overrideAccess: true }
+            { overrideAccess: false, user: ctx.user }
           );
           confirmedBookings.push(updated as Booking);
           if (hasCollection(ctx.payload, "transactions")) {
@@ -714,7 +714,7 @@ export const bookingsRouter = {
               paymentMethodUsed: "class_pass",
               classPassIdUsed: classPassIdUsed!,
             } as Partial<Booking>,
-            { overrideAccess: true }
+            { overrideAccess: false, user: ctx.user }
           );
           confirmedBookings.push(updated as Booking);
           if (hasCollection(ctx.payload, "transactions")) {
@@ -792,6 +792,8 @@ export const bookingsRouter = {
             collection: "class-passes" as import("payload").CollectionSlug,
             id: classPassIdUsed,
             depth: 0,
+            overrideAccess: false,
+            user: ctx.user,
           })) as { quantity?: number; status?: string } | null;
           if (pass && typeof pass.quantity === "number") {
             const nextQty = Math.max(0, pass.quantity - 1);
@@ -800,7 +802,8 @@ export const bookingsRouter = {
               collection: "class-passes" as import("payload").CollectionSlug,
               id: classPassIdUsed,
               data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
-              overrideAccess: true,
+              overrideAccess: false,
+              user: ctx.user,
             });
           }
         }

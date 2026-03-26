@@ -18,7 +18,7 @@ import {
   deriveTenantIdFromLesson,
 } from "../utils/tenant";
 
-import { ClassOption, Lesson, LessonScheduleState } from "@repo/shared-types";
+import { ClassOption, Lesson, LessonScheduleState, ScheduleLesson } from "@repo/shared-types";
 import {
   checkRole,
   getDayRange,
@@ -34,11 +34,25 @@ export const lessonsRouter = {
       const tenantSlug = getTenantSlug(ctx);
       const tenantId = await resolveTenantId(ctx.payload, tenantSlug);
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
-        depth: 3,
-        overrideAccess: Boolean(tenantId),
-        user: ctx.user,
-      });
+      // IMPORTANT: when operating on behalf of a user, enforce Payload access controls.
+      // We pass req.context.tenant so multi-tenant access functions can scope correctly.
+      const lesson = (await ctx.payload
+        .findByID({
+          collection: "lessons" as any,
+          id: input.id,
+          depth: 3,
+          overrideAccess: false,
+          user: ctx.user,
+          req: {
+            user: ctx.user,
+            payload: ctx.payload,
+            context: tenantId ? { tenant: tenantId } : {},
+          } as any,
+        })
+        .catch((e: any) => {
+          if (e?.statusCode === 404 || e?.message?.includes?.("not found")) return null;
+          throw e;
+        })) as Lesson | null;
 
       if (!lesson) {
         throw new TRPCError({
@@ -75,11 +89,25 @@ export const lessonsRouter = {
     .query(async ({ ctx, input }) => {
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
-        depth: 5,
-        overrideAccess: true,
-        user: ctx.user,
-      });
+      const lesson = (await ctx.payload
+        .findByID({
+          collection: "lessons" as any,
+          id: input.id,
+          depth: 5,
+          // Enforce access control for the caller, but provide tenant context for cross-tenant booking
+          // (tenant is derived from host/cookie + validated below).
+          overrideAccess: false,
+          user: ctx.user,
+          req: {
+            user: ctx.user,
+            payload: ctx.payload,
+            context: tenantId ? { tenant: tenantId } : {},
+          } as any,
+        })
+        .catch((e: any) => {
+          if (e?.statusCode === 404 || e?.message?.includes?.("not found")) return null;
+          throw e;
+        })) as Lesson | null;
 
       if (!lesson) {
         throw new TRPCError({
@@ -152,7 +180,8 @@ export const lessonsRouter = {
               },
               limit: 1,
               depth: 0,
-              overrideAccess: true,
+              overrideAccess: false,
+              user: ctx.user,
             });
             if (userPending.docs.length > 0) {
               // User has pending bookings; allow through so they can complete checkout
@@ -272,12 +301,10 @@ export const lessonsRouter = {
           // Keep lesson query shallow; we will populate + sanitize classOption ourselves.
           depth: 0,
           sort: "startTime",
-          // CRITICAL: When we have an explicit tenant filter in the where clause AND
-          // req.context.tenant set, we can use overrideAccess: true to bypass the
-          // multi-tenant plugin's automatic filtering (which filters by user's tenants array).
-          // The explicit where clause already filters by the subdomain tenant, so we don't
-          // need the plugin's filtering. This allows cross-tenant booking.
-          overrideAccess: tenantId ? true : false,
+          // Enforce Payload access controls. Tenant scoping is handled via:
+          // - explicit whereClause tenant filter (when tenantId is resolved)
+          // - req.context.tenant passed below (multi-tenant plugin + access functions)
+          overrideAccess: false,
         };
 
         // Set tenant context on req for multi-tenant plugin filtering
@@ -354,6 +381,52 @@ export const lessonsRouter = {
           };
         };
 
+        const sanitizePlan = (doc: any) => {
+          if (!doc || typeof doc !== "object") return doc;
+          const si = doc.sessionsInformation && typeof doc.sessionsInformation === "object"
+            ? doc.sessionsInformation
+            : null;
+          const pi = doc.priceInformation && typeof doc.priceInformation === "object"
+            ? doc.priceInformation
+            : null;
+          return {
+            id: relationId(doc.id),
+            name: doc.name ?? null,
+            sessionsInformation: si
+              ? {
+                  sessions: si.sessions ?? null,
+                  intervalCount: si.intervalCount ?? null,
+                  interval: si.interval ?? null,
+                  allowMultipleBookingsPerLesson: si.allowMultipleBookingsPerLesson ?? false,
+                }
+              : undefined,
+            priceInformation: pi
+              ? {
+                  price: pi.price ?? null,
+                  intervalCount: pi.intervalCount ?? null,
+                  interval: pi.interval ?? null,
+                }
+              : undefined,
+            status: doc.status ?? null,
+          };
+        };
+
+        const sanitizeClassPassType = (doc: any) => {
+          if (!doc || typeof doc !== "object") return doc;
+          const pi = doc.priceInformation && typeof doc.priceInformation === "object"
+            ? doc.priceInformation
+            : null;
+          return {
+            id: relationId(doc.id),
+            name: doc.name ?? null,
+            slug: doc.slug ?? null,
+            quantity: doc.quantity ?? null,
+            allowMultipleBookingsPerLesson: doc.allowMultipleBookingsPerLesson ?? false,
+            priceInformation: pi ? { price: pi.price ?? null } : undefined,
+            status: doc.status ?? null,
+          };
+        };
+
         const sanitizeClassOption = (doc: any) => {
           if (!doc || typeof doc !== "object") return doc;
           const pm = doc.paymentMethods && typeof doc.paymentMethods === "object" ? doc.paymentMethods : null;
@@ -372,8 +445,16 @@ export const lessonsRouter = {
                       : allowedDropIn != null
                         ? relationId(allowedDropIn)
                         : null,
-                  allowedClassPasses: Array.isArray(pm.allowedClassPasses) ? pm.allowedClassPasses : [],
-                  allowedPlans: Array.isArray(pm.allowedPlans) ? pm.allowedPlans : [],
+                  allowedClassPasses: Array.isArray(pm.allowedClassPasses)
+                    ? pm.allowedClassPasses.map((cp: any) =>
+                        cp && typeof cp === "object" ? sanitizeClassPassType(cp) : relationId(cp)
+                      )
+                    : [],
+                  allowedPlans: Array.isArray(pm.allowedPlans)
+                    ? pm.allowedPlans.map((p: any) =>
+                        p && typeof p === "object" ? sanitizePlan(p) : relationId(p)
+                      )
+                    : [],
                 }
               : undefined,
           };
@@ -488,9 +569,10 @@ export const lessonsRouter = {
           const classOptionId = getId(lesson.classOption);
           const classOption: any =
             (classOptionId != null ? classOptionsById.get(classOptionId) : null) ?? null;
-          const places: number | null = typeof classOption === "object" && classOption !== null
-            ? getId(classOption.places) ?? (typeof classOption.places === "number" ? classOption.places : null)
-            : null;
+          const places: number | null =
+            typeof classOption === "object" && classOption !== null
+              ? (typeof classOption.places === "number" ? classOption.places : null)
+              : null;
           const lockOutTime: number | undefined = typeof lesson.lockOutTime === "number" ? lesson.lockOutTime : undefined;
 
           const lessonBookings = bookingsByLessonId.get(lessonId) ?? [];
@@ -620,17 +702,36 @@ export const lessonsRouter = {
                         ? "trialable"
                         : "active";
 
-          return {
-            ...lesson,
+          const scheduleLesson: ScheduleLesson = {
+            id: lessonId,
+            date: lesson.date,
+            startTime: lesson.startTime,
+            endTime: lesson.endTime,
+            location: lesson.location ?? "",
+            instructor:
+              lesson.instructor && typeof lesson.instructor === "object"
+                ? {
+                    id: getId(lesson.instructor.id) ?? (typeof lesson.instructor.id === "number" ? lesson.instructor.id : 0),
+                    name: lesson.instructor.name ?? null,
+                    profileImage: lesson.instructor.profileImage
+                      ? { url: lesson.instructor.profileImage.url }
+                      : null,
+                  }
+                : null,
             tenant: getId(lesson.tenant),
-            classOption,
-            bookings: { docs: [] },
+            classOption: {
+              id: getId(classOption?.id) ?? (typeof classOption?.id === "number" ? classOption.id : lessonId),
+              name: classOption?.name ?? "",
+              type: classOption?.type ?? undefined,
+            },
             remainingCapacity,
             bookingStatus: legacyBookingStatus,
             myBookingCount: viewerConfirmedCount,
             scheduleState,
             timeZone,
-          } as Lesson;
+          };
+
+          return scheduleLesson;
         });
       } catch (error) {
         console.error("Error in getByDate:", error);
