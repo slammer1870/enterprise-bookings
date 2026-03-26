@@ -86,6 +86,7 @@ async function isTenantCustomDomain(hostname: string): Promise<boolean> {
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      select: { id: true } as any,
     })
     const ok = Boolean(result.docs[0])
     tenantDomainCache.set(hostname, { ok, atMs: now })
@@ -113,6 +114,7 @@ async function getAllTenantCustomDomains(): Promise<string[]> {
       limit: 1000,
       depth: 0,
       overrideAccess: true,
+      select: { domain: true } as any,
     })
 
     const domains = (result.docs as Array<{ domain?: unknown }>)
@@ -184,6 +186,7 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      select: { name: true, domain: true } as any,
     })
     const tenant = result.docs[0] as { name?: unknown; domain?: unknown } | undefined
     const name = tenant?.name != null ? String(tenant.name).trim() : ''
@@ -200,6 +203,7 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      select: { name: true, domain: true } as any,
     })
     const tenant = result.docs[0] as { name?: unknown; domain?: unknown } | undefined
     const name = tenant?.name != null ? String(tenant.name).trim() : ''

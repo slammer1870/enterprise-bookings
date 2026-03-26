@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
   let bookingIds = await validateBookingIdsFromMetadata(payload, metadata ?? {}, {
     lessonId,
     userId: user.id,
+    user,
   })
 
   const lesson = (await payload.findByID({
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
     id: lessonId,
     depth: 1,
     overrideAccess: true,
+    select: { tenant: true, remainingCapacity: true } as any,
   })) as { tenant?: number | { id: number }; remainingCapacity?: number } | null
 
   const remainingCapacity =
@@ -86,6 +88,11 @@ export async function POST(request: NextRequest) {
     id: tenantId,
     depth: 0,
     overrideAccess: true,
+    select: {
+      id: true,
+      stripeConnectAccountId: true,
+      stripeConnectOnboardingStatus: true,
+    } as any,
   })) as TenantForConnect | null
 
   if (!tenant) {
@@ -109,6 +116,7 @@ export async function POST(request: NextRequest) {
       bookingIds = await reservePendingBookings(payload, {
         lessonId,
         userId: user.id,
+        user,
         tenantId,
         quantity,
       })

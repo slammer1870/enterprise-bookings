@@ -18,6 +18,7 @@ export async function getTenantFromLesson(
       depth: 0,
       overrideAccess: true,
       context: { triggerAfterChange: false },
+      select: { tenant: true } as any,
     })
     lesson = doc as LessonLike
   } else {

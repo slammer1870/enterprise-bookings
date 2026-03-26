@@ -97,6 +97,8 @@ export const Users: CollectionConfig = {
           collection: 'users',
           limit: 0,
           overrideAccess: true,
+          depth: 0,
+          select: { id: true } as any,
         })
         if (count.totalDocs !== 1) return
         const u = doc as { roles?: string[] }

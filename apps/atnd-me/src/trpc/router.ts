@@ -24,6 +24,7 @@ export const appRouter = createAppRouter({
         id: lessonId,
         depth: 0,
         overrideAccess: true,
+        select: { tenant: true } as any,
       })) as { tenant?: number | { id: number } } | null
       const tenantId =
         lesson?.tenant != null

@@ -85,6 +85,7 @@ export async function confirmBookingsFromQuantityFlow(
     limit: qty * 2,
     depth: 0,
     overrideAccess: true,
+    select: { id: true, status: true } as any,
   })
 
   const docs = existing.docs as { id: number; status?: string }[]
@@ -161,6 +162,8 @@ export async function confirmBookingAndCreateSubscriptionTransaction(
     where: { booking: { equals: bookingId } },
     limit: 1,
     overrideAccess: true,
+    depth: 0,
+    select: { id: true } as any,
   })
 
   if (existing.totalDocs === 0) {
@@ -193,6 +196,7 @@ export async function confirmBookingsFromSubscriptionMetadata(
         id,
         depth: 1,
         overrideAccess: true,
+        select: { tenant: true } as any,
       })) as { tenant?: number | { id: number } } | null
 
       if (!booking) continue

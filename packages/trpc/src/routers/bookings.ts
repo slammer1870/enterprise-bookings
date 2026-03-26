@@ -652,7 +652,9 @@ export const bookingsRouter = {
               paymentMethodUsed: "subscription",
               subscriptionIdUsed,
             } as Partial<Booking>,
-            { overrideAccess: false, user: ctx.user }
+            // System operation: confirming pending bookings after membership selection.
+            // Ownership was validated by the pendingResult query above.
+            { overrideAccess: true }
           );
           confirmedBookings.push(updated as Booking);
           if (hasCollection(ctx.payload, "transactions")) {
@@ -714,7 +716,9 @@ export const bookingsRouter = {
               paymentMethodUsed: "class_pass",
               classPassIdUsed: classPassIdUsed!,
             } as Partial<Booking>,
-            { overrideAccess: false, user: ctx.user }
+            // System operation: confirming pending bookings after selecting a class pass.
+            // Ownership was validated by the pendingResult query above.
+            { overrideAccess: true }
           );
           confirmedBookings.push(updated as Booking);
           if (hasCollection(ctx.payload, "transactions")) {
@@ -792,8 +796,9 @@ export const bookingsRouter = {
             collection: "class-passes" as import("payload").CollectionSlug,
             id: classPassIdUsed,
             depth: 0,
-            overrideAccess: false,
-            user: ctx.user,
+            // System operation: class pass decrement is enforced by earlier ownership checks,
+            // but users typically cannot update class passes directly.
+            overrideAccess: true,
           })) as { quantity?: number; status?: string } | null;
           if (pass && typeof pass.quantity === "number") {
             const nextQty = Math.max(0, pass.quantity - 1);
@@ -802,8 +807,7 @@ export const bookingsRouter = {
               collection: "class-passes" as import("payload").CollectionSlug,
               id: classPassIdUsed,
               data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
-              overrideAccess: false,
-              user: ctx.user,
+              overrideAccess: true,
             });
           }
         }

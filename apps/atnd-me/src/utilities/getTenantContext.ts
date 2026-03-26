@@ -82,6 +82,15 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
     limit: 1,
     depth: 1,
     overrideAccess: true,
+    // Restrict fields; callers may only need id/slug/name/branding.
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      domain: true,
+      logo: true,
+      description: true,
+    } as any,
   })
 
   return result.docs[0] ?? null
@@ -119,6 +128,12 @@ export async function getTenantContext(
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        domain: true,
+      } as any,
     })
 
     const tenant = result.docs[0]
@@ -191,6 +206,14 @@ export async function getTenantWithBranding(
       limit: 1,
       depth: 1,
       overrideAccess: true,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        domain: true,
+        logo: true,
+        description: true,
+      } as any,
     })
 
     const tenant = result.docs[0]
@@ -247,6 +270,14 @@ export async function getTenantWithBranding(
       id: tenantId,
       depth: 1,
       overrideAccess: true,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        domain: true,
+        logo: true,
+        description: true,
+      } as any,
     })
     if (!tenant) return null
 

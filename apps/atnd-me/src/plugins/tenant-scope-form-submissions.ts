@@ -29,6 +29,7 @@ export const tenantScopeFormSubmissions = (): Plugin => (incomingConfig: Config)
         // is tenant-scoped with restrictive read access. We only need the form's tenant ID
         // to correctly scope the submission, so intentionally bypass access here.
         overrideAccess: true,
+        select: { tenant: true } as any,
       })
 
       if (form?.tenant) {

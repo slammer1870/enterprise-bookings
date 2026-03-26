@@ -65,6 +65,7 @@ export async function resolveLinkToUrl(payload: Pick<Payload, 'findByID' | 'find
         limit: 1,
         depth: 0,
         overrideAccess: true,
+        select: { slug: true } as any,
       })) as SlugFindResult
       const doc = result?.docs?.[0]
       const slug = typeof doc?.slug === 'string' ? doc.slug : ''

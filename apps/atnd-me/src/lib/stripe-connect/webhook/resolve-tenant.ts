@@ -27,6 +27,7 @@ export async function resolveTenant(
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      select: { id: true } as any,
     })
     const tenant = result.docs[0] as Tenant
     if (tenant) return tenant
@@ -37,6 +38,8 @@ export async function resolveTenant(
         collection: 'tenants',
         id: Number(metaTenantId),
         overrideAccess: true,
+        depth: 0,
+        select: { id: true } as any,
       })
       return t as Tenant
     } catch {

@@ -9,7 +9,7 @@ type PayloadLike = any
 export async function validateBookingIdsFromMetadata(
   payload: PayloadLike,
   metadata: { bookingIds?: string },
-  opts: { lessonId: number; userId: number }
+  opts: { lessonId: number; userId: number; user?: unknown }
 ): Promise<string[]> {
   const raw = metadata?.bookingIds
   if (!raw || typeof raw !== 'string') return []
@@ -35,7 +35,9 @@ export async function validateBookingIdsFromMetadata(
     },
     depth: 0,
     limit: parsed.length,
-    overrideAccess: true,
+    // These booking IDs come from the client; enforce access controls.
+    overrideAccess: false,
+    user: opts.user,
   })
 
   return (docs.docs as { id: number }[]).map((b) => String(b.id))
@@ -53,6 +55,7 @@ export async function reservePendingBookings(
   opts: {
     lessonId: number
     userId: number
+    user?: unknown
     tenantId: number
     quantity: number
   }
@@ -74,7 +77,8 @@ export async function reservePendingBookings(
     sort: 'id',
     limit: quantity,
     depth: 0,
-    overrideAccess: true,
+    overrideAccess: false,
+    user: opts.user,
   })
 
   const existingIds = (existing.docs as { id: number }[]).map((b) => String(b.id))
@@ -105,7 +109,8 @@ export async function reservePendingBookings(
           tenant: tenantId,
           status: 'pending',
         },
-        overrideAccess: true,
+        overrideAccess: false,
+        user: opts.user,
       })
       existingIds.push(String(created.id))
     }

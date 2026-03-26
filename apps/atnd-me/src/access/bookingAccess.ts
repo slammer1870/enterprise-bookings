@@ -109,6 +109,10 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
       id: tenantId,
       depth: 0,
       overrideAccess: true,
+      select: {
+        stripeConnectAccountId: true,
+        stripeConnectOnboardingStatus: true,
+      } as any,
     })) as TenantLike | null
     if (!tenant) return false
 

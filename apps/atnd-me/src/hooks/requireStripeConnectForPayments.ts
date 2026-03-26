@@ -52,6 +52,10 @@ export const requireStripeConnectForPayments: CollectionBeforeChangeHook = async
     id: tenantId,
     depth: 0,
     overrideAccess: true,
+    select: {
+      stripeConnectOnboardingStatus: true,
+      stripeConnectAccountId: true,
+    } as any,
   })
 
   const status = tenant?.stripeConnectOnboardingStatus as string | undefined

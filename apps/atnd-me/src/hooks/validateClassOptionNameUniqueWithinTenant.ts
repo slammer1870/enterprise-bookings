@@ -53,6 +53,7 @@ export const validateClassOptionNameUniqueWithinTenant: CollectionBeforeValidate
     limit: 1,
     depth: 0,
     overrideAccess: true,
+    select: { id: true } as any,
   })
 
   if (existing.docs.length > 0) {

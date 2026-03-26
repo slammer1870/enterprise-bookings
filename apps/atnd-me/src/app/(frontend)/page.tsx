@@ -84,21 +84,19 @@ export default async function RootPage() {
     const rootPages = await payload.find({
       collection: 'pages',
       where: {
-        slug: {
-          equals: 'root',
-        },
-        // For root domain pages, tenant should be null/undefined
-        // We query without tenant filter and check if tenant is null
+        and: [
+          { slug: { equals: 'root' } },
+          // Root marketing pages are explicitly unscoped (tenant = null).
+          { tenant: { equals: null } },
+        ],
       },
       draft,
       depth: 2,
-      limit: 10, // Get multiple to filter by null tenant
-      pagination: false,
+      limit: 1,
       overrideAccess: true, // Bypass access control to find root pages
     })
 
-    // Filter to find pages with no tenant (null tenant field)
-    page = rootPages.docs.find((doc: Page) => !doc.tenant || doc.tenant === null) ?? null
+    page = (rootPages.docs[0] as Page | undefined) ?? null
   } catch (error) {
     // If query fails, continue with fallback
     console.error('Error loading root page:', error)
@@ -189,18 +187,15 @@ export async function generateMetadata(): Promise<Metadata> {
     const rootPages = await payload.find({
       collection: 'pages',
       where: {
-        slug: {
-          equals: 'root',
-        },
+        and: [{ slug: { equals: 'root' } }, { tenant: { equals: null } }],
       },
       draft: false,
       depth: 2,
-      limit: 10,
-      pagination: false,
+      limit: 1,
       overrideAccess: true,
     })
 
-    rootPage = rootPages.docs.find((doc: Page) => !doc.tenant || doc.tenant === null) ?? null
+    rootPage = (rootPages.docs[0] as Page | undefined) ?? null
   } catch {
     rootPage = null
   }

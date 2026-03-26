@@ -222,6 +222,7 @@ export async function POST(request: NextRequest) {
         limit: 1,
         depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
       })
       const user = userResult.docs[0] as { id: number } | undefined
       if (!user) {
@@ -238,6 +239,7 @@ export async function POST(request: NextRequest) {
         limit: 1,
         depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
       })
       const plan = planResult.docs[0] as { id: number } | undefined
       if (!plan) {
@@ -251,6 +253,7 @@ export async function POST(request: NextRequest) {
         limit: 1,
         depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
       })
       if (existing.docs.length > 0) {
         // subscription.updated may have created the record first; still run booking confirmation
@@ -333,6 +336,7 @@ export async function POST(request: NextRequest) {
         limit: 1,
         depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
       })
       const sub = subResult.docs[0] as { id: number } | undefined
       if (sub) {
@@ -368,6 +372,7 @@ export async function POST(request: NextRequest) {
             limit: 1,
             depth: 0,
             overrideAccess: true,
+            select: { id: true } as any,
           })
           const user = userResult.docs[0] as { id: number } | undefined
           const planResult = await payload.find({
@@ -379,6 +384,7 @@ export async function POST(request: NextRequest) {
             limit: 1,
             depth: 0,
             overrideAccess: true,
+            select: { id: true } as any,
           })
           const plan = planResult.docs[0] as { id: number } | undefined
           if (user && plan) {
@@ -388,6 +394,7 @@ export async function POST(request: NextRequest) {
               limit: 1,
               depth: 0,
               overrideAccess: true,
+              select: { id: true } as any,
             })
             if (existingAgain.docs.length === 0) {
               const allowedStatuses = ['incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'] as const
@@ -441,6 +448,7 @@ export async function POST(request: NextRequest) {
         limit: 1,
         depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
       })
       const sub = subResult.docs[0] as { id: number } | undefined
       if (sub) {
@@ -469,6 +477,7 @@ export async function POST(request: NextRequest) {
       id: tenant.id,
       data: { stripeConnectOnboardingStatus: status },
       overrideAccess: true,
+      select: { id: true } as any,
     })
   } else if (event.type === 'account.application.deauthorized') {
     await payload.update({
@@ -479,6 +488,7 @@ export async function POST(request: NextRequest) {
         stripeConnectOnboardingStatus: 'deauthorized',
       },
       overrideAccess: true,
+      select: { id: true } as any,
     })
     console.info('[Stripe Connect] deauthorized', { tenantId: tenant.id })
   }

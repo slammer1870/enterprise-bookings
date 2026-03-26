@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
         stripeConnectLastError: null,
       },
       overrideAccess: true,
+      select: { id: true } as any,
     })
     console.info('[Stripe Connect] connected', { tenantId, userId: stateUserId })
     return NextResponse.redirect(
@@ -93,6 +94,7 @@ export async function GET(request: NextRequest) {
         stripeConnectLastError: message,
       },
       overrideAccess: true,
+      select: { id: true } as any,
     })
     return NextResponse.redirect(
       `${baseUrl}${ERROR_REDIRECT}?stripe_connect=error&message=${encodeURIComponent(message)}`,

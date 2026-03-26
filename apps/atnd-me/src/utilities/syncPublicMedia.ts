@@ -58,6 +58,16 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     depth: 2,
     overrideAccess: true,
     req,
+    // We only need fields that could reference media; keep it reasonably narrow.
+    // (Explicit typing is messy across apps; keep runtime safety with `as any`.)
+    select: {
+      id: true,
+      layout: true,
+      hero: true,
+      featuredImage: true,
+      meta: true,
+      tenant: true,
+    } as any,
   })
 
   for (const page of pages.docs) {
@@ -72,6 +82,13 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
       depth: 2,
       overrideAccess: true,
       req,
+      select: {
+        id: true,
+        logo: true,
+        navItems: true,
+        styling: true,
+        tenant: true,
+      } as any,
     }),
     req.payload.find({
       collection: 'footer',
@@ -80,6 +97,13 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
       depth: 2,
       overrideAccess: true,
       req,
+      select: {
+        id: true,
+        logo: true,
+        navItems: true,
+        styling: true,
+        tenant: true,
+      } as any,
     }),
   ])
 
@@ -100,6 +124,7 @@ export async function syncPublicMediaFlags(req: PayloadRequest): Promise<void> {
     depth: 0,
     overrideAccess: true,
     req,
+    select: { id: true, isPublic: true } as any,
   })
 
   for (const doc of media.docs as Array<{ id: number; isPublic?: boolean | null }>) {

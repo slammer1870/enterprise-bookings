@@ -40,6 +40,7 @@ export async function getCurrentUser(
         collection: 'users',
         id: parseInt(testUserId, 10),
         overrideAccess: true,
+        select: { id: true, email: true, name: true, roles: true, tenants: true } as any,
       })
       return u as unknown as SharedUser
     }
@@ -60,6 +61,7 @@ export async function resolveTenantForConnect(
       id: parseInt(slugOrId, 10),
       depth: 0,
       overrideAccess: true,
+      select: { id: true, stripeConnectAccountId: true, stripeConnectOnboardingStatus: true } as any,
     })
     return t as TenantForConnect | null
   }
@@ -69,6 +71,7 @@ export async function resolveTenantForConnect(
     limit: 1,
     depth: 0,
     overrideAccess: true,
+    select: { id: true, stripeConnectAccountId: true, stripeConnectOnboardingStatus: true } as any,
   })
   return (result.docs[0] as TenantForConnect) ?? null
 }

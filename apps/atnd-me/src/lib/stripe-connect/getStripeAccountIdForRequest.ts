@@ -43,6 +43,7 @@ export async function getStripeAccountIdForRequest(req: PayloadRequest): Promise
     id: tenantId,
     depth: 0,
     overrideAccess: true,
+    select: { stripeConnectAccountId: true, stripeConnectOnboardingStatus: true } as any,
   }).catch(() => null)
   if (!tenant) return null
   const t = tenant as { stripeConnectAccountId?: string | null; stripeConnectOnboardingStatus?: string | null }

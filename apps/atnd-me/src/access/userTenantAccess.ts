@@ -141,6 +141,7 @@ export const userTenantRead: Access = async ({ req }) => {
       limit: 5000,
       depth: 0,
       overrideAccess: true,
+      select: { user: true } as any,
     })
     const userIdsWithBookings = [
       ...new Set(
@@ -219,6 +220,7 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
       limit: 5000,
       depth: 0,
       overrideAccess: true,
+      select: { user: true } as any,
     })
     const userIdsWithBookings = [
       ...new Set(

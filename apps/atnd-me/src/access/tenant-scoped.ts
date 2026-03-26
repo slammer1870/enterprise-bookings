@@ -354,6 +354,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
           limit: 1,
           depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
         })
       .catch(() => null)) as TenantsFindResult | null
 
@@ -415,6 +416,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
             limit: 1,
             depth: 0,
         overrideAccess: true,
+        select: { id: true } as any,
           })
       .catch(() => null)) as TenantsFindResult | null
 

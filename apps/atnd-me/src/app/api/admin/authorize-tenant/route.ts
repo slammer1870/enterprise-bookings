@@ -33,6 +33,8 @@ async function resolveRequestedTenantId(args: {
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      // Only need id (avoid leaking tenant fields).
+      select: { id: true } as any,
     })
     .catch(() => null)
 
@@ -64,6 +66,8 @@ async function resolveTenantIdsForUser(args: {
       id,
       depth: 2,
       overrideAccess: true,
+      // Keep this tight; we only need tenant relationships + roles.
+      select: { id: true, roles: true, tenants: true },
     })
     .catch(() => null)
 

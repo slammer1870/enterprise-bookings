@@ -34,6 +34,7 @@ export async function getReceiptFromPaymentIntent(
     },
     depth: 2,
     overrideAccess: true,
+    select: { booking: true } as any,
   })
 
   if (transactions.docs.length === 0) return null
@@ -61,6 +62,7 @@ export async function getReceiptFromPaymentIntent(
     id: lessonId,
     depth: 1,
     overrideAccess: true,
+    select: { id: true, startTime: true, endTime: true, date: true, classOption: true } as any,
   }) as { id: number; startTime: string; endTime: string; date: string; classOption?: { name?: string } } | null
 
   if (!lesson) return null
@@ -115,6 +117,7 @@ export async function getReceiptFromBookingIds(
     depth: 2,
     limit: bookingIds.length,
     overrideAccess: true,
+    select: { lesson: true } as any,
   })
 
   if (bookings.docs.length === 0) return null
@@ -130,6 +133,7 @@ export async function getReceiptFromBookingIds(
     id: lessonId,
     depth: 1,
     overrideAccess: true,
+    select: { id: true, startTime: true, endTime: true, date: true, classOption: true } as any,
   }) as { id: number; startTime: string; endTime: string; date: string; classOption?: { name?: string } } | null
 
   if (!lesson) return null

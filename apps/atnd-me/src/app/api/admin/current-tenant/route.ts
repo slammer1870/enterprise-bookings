@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       id: tenantId,
       depth: 0,
       overrideAccess: true,
+      select: { name: true },
     }).catch(() => null)
 
     const tenantName = tenant ? (tenant as { name?: string }).name ?? null : null
