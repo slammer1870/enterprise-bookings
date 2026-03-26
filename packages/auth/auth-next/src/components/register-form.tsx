@@ -163,7 +163,7 @@ function RegisterFormContent({
             <Button
               type="submit"
               disabled={form.formState.isSubmitting || isPending}
-              className="w-full bg-black text-white hover:bg-gray-800"
+              className="w-full"
               variant="default"
             >
               {form.formState.isSubmitting || isPending

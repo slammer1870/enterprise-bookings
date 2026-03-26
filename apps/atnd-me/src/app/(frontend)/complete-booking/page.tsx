@@ -6,7 +6,7 @@ export default async function CompleteBooking({ searchParams }: { searchParams: 
   const { mode = 'login' } = await searchParams
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center">
+    <div className="flex h-screen flex-col items-center justify-center bg-background text-foreground">
       <RegisterLoginTabsWithAuth value={mode as 'login' | 'register'} />
     </div>
   )
