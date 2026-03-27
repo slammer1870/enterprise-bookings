@@ -172,7 +172,7 @@ export function HeaderAuthMenu({
         <button
           type="button"
           className={cn(
-            'w-full cursor-pointer text-left px-3 py-2 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'w-full cursor-pointer border-t border-border text-left px-3 py-2 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1',
           )}
           onClick={async () => {
             detailsRef.current?.removeAttribute('open')
