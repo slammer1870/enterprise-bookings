@@ -6,10 +6,10 @@ import { ManageLesson } from "./manage-lesson";
 import { Button, SelectRow } from "@payloadcms/ui";
 import { TableRow, TableCell } from "@repo/ui/components/ui/table";
 import { cn } from "@repo/ui/lib/utils";
-import { format } from "date-fns";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { AddBooking } from "../bookings/add-booking";
+import { formatInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils/timezone";
 
 export const LessonDetail = ({
   lesson,
@@ -23,6 +23,7 @@ export const LessonDetail = ({
   const bookings = lesson.bookings.docs as Booking[];
   const classOption = lesson.classOption as ClassOption;
   const [expandedLessons, setExpandedLessons] = useState<Set<number>>(new Set());
+  const timeZone = resolveLessonTimeZone(lesson);
 
   const isActive = (lesson as Lesson & { active?: boolean }).active !== false;
 
@@ -66,8 +67,8 @@ export const LessonDetail = ({
             />
           )}
         </TableCell>
-        <TableCell>{format(lesson.startTime, "HH:mm")}</TableCell>
-        <TableCell>{format(lesson.endTime, "HH:mm")}</TableCell>
+        <TableCell>{formatInTimeZone(lesson.startTime, "HH:mm", timeZone)}</TableCell>
+        <TableCell>{formatInTimeZone(lesson.endTime, "HH:mm", timeZone)}</TableCell>
         <TableCell>{classOption.name}</TableCell>
         <TableCell>
           <Button

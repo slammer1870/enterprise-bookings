@@ -262,18 +262,22 @@ export const generateLessonsFromSchedule: TaskHandler<
       for (const timeSlot of timeSlots) {
         // Extract time components from the stored time slots
         // The scheduler stores times as timestamps, but we only care about the wall-clock time
-        // We need to parse them in the specified timezone to get the correct hours/minutes
-        const startTimeDate = new Date(timeSlot.startTime);
-        const endTimeDate = new Date(timeSlot.endTime);
+        // We MUST interpret these instants in the tenant timezone.
+        //
+        // Why: Payload time-only fields are stored as real Date instants. The underlying UTC time
+        // can differ depending on whether the slot was created/edited during DST. If we read UTC
+        // hours (getUTCHours), a slot that was entered as 18:45 in Europe/Dublin during DST may
+        // appear as 17:45 and generate lessons one hour early after DST boundaries.
+        //
+        // By converting the stored instant into the tenant timezone and then extracting local
+        // hours/minutes, we preserve the wall-clock time the admin selected.
+        const startInTZ = new TZDate(new Date(timeSlot.startTime), timeZone);
+        const endInTZ = new TZDate(new Date(timeSlot.endTime), timeZone);
 
-        // `timeSlot.startTime`/`endTime` are stored as absolute instants on a dummy
-        // anchor date for time-only fields. Extracting UTC components keeps the
-        // intended wall-clock slot stable across DST transitions and avoids local
-        // timezone effects during parsing.
-        const startHours = startTimeDate.getUTCHours();
-        const startMinutes = startTimeDate.getUTCMinutes();
-        const endHours = endTimeDate.getUTCHours();
-        const endMinutes = endTimeDate.getUTCMinutes();
+        const startHours = startInTZ.getHours();
+        const startMinutes = startInTZ.getMinutes();
+        const endHours = endInTZ.getHours();
+        const endMinutes = endInTZ.getMinutes();
 
         // Use TZDate to create dates in the specified timezone
         // This ensures that times remain consistent across DST boundaries
