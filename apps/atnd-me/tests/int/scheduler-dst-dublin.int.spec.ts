@@ -14,6 +14,17 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   let user: User
   let classOption: ClassOption
 
+  const getLocalDateTimeParts = (value: string | Date, timeZone: string) => {
+    const zoned = new TZDate(new Date(value), timeZone)
+    return {
+      year: zoned.getFullYear(),
+      month: zoned.getMonth(),
+      date: zoned.getDate(),
+      hours: zoned.getHours(),
+      minutes: zoned.getMinutes(),
+    }
+  }
+
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
@@ -353,6 +364,59 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(9)
       expect(mondayStart.getDate()).toBe(26)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'preserves lesson date and times when updating a lesson on 30th March across the DST boundary',
+    async () => {
+      const timeZone = 'Europe/Dublin'
+
+      const lesson = (await payload.create({
+        collection: 'lessons',
+        data: {
+          tenant: Number(testTenant.id),
+          date: new TZDate(2026, 2, 30, 0, 0, 0, 0, timeZone).toISOString(),
+          startTime: '10:00',
+          endTime: '11:00',
+          classOption: classOption.id,
+          location: 'DST lesson update regression',
+          active: true,
+        },
+        overrideAccess: true,
+      })) as Lesson
+
+      const beforeDate = getLocalDateTimeParts(String(lesson.date), timeZone)
+      const beforeStart = getLocalDateTimeParts(String(lesson.startTime), timeZone)
+      const beforeEnd = getLocalDateTimeParts(String(lesson.endTime), timeZone)
+
+      const updated = (await payload.update({
+        collection: 'lessons',
+        id: lesson.id,
+        data: {
+          tenant: Number(testTenant.id),
+          date: new Date(String(lesson.date)),
+          startTime: new Date(String(lesson.startTime)),
+          endTime: new Date(String(lesson.endTime)),
+          classOption: classOption.id,
+          location: 'DST lesson update regression',
+          active: false,
+        },
+        overrideAccess: true,
+      })) as Lesson
+
+      const afterDate = getLocalDateTimeParts(String(updated.date), timeZone)
+      const afterStart = getLocalDateTimeParts(String(updated.startTime), timeZone)
+      const afterEnd = getLocalDateTimeParts(String(updated.endTime), timeZone)
+
+      expect(afterDate).toEqual(beforeDate)
+      expect(afterStart).toEqual(beforeStart)
+      expect(afterEnd).toEqual(beforeEnd)
+      expect(afterDate).toMatchObject({ year: 2026, month: 2, date: 30 })
+      expect(afterStart.hours).toBe(10)
+      expect(afterEnd.hours).toBe(11)
+      expect(updated.active).toBe(false)
     },
     TEST_TIMEOUT,
   )
