@@ -147,6 +147,15 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     await expect(page.getByTestId('total')).toHaveText('€11.00')
 
     // Verify total next to Pay button includes booking fee (not class price only)
-    await expect(page.getByTestId('payment-total')).toHaveText('€11.00')
+    // `payment-total` is rendered only after the fee breakdown query returns in the payment UI.
+    // Wait for that request in CI to avoid flakiness.
+    await page
+      .waitForResponse(
+        (resp) =>
+          resp.url().includes('/api/trpc/payments.getDropInFeeBreakdown') && resp.status() === 200,
+        { timeout: 15000 },
+      )
+      .catch(() => null)
+    await expect(page.getByTestId('payment-total')).toHaveText('€11.00', { timeout: 15000 })
   })
 })

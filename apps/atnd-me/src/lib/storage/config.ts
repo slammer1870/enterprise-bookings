@@ -80,7 +80,13 @@ function buildR2WorkerRequestHandler(
       // SDK expects { response: HttpResponse }. For PUT/DELETE 2xx use empty body (Worker returns JSON). For GET return body as Node Readable.
       let body: unknown
       if (method === 'GET' && res.ok && res.body) {
-        body = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
+        // In some runtimes/libraries `res.body` can be a non-Web stream object; guard before converting.
+        const webStream = res.body as unknown as { getReader?: unknown }
+        if (typeof webStream?.getReader === 'function') {
+          body = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
+        } else {
+          body = undefined
+        }
       } else if (method === 'PUT' || method === 'DELETE') {
         body = res.ok ? undefined : (res.body ?? undefined)
       } else {
