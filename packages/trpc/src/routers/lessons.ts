@@ -407,6 +407,18 @@ export const lessonsRouter = {
           return null;
         };
 
+        const sanitizeInstructor = (doc: any) => {
+          if (!doc || typeof doc !== "object") return null;
+          return {
+            id: relationId(doc.id) ?? 0,
+            name: doc.name ?? null,
+            profileImage:
+              doc.profileImage && typeof doc.profileImage === "object" && doc.profileImage.url
+                ? { url: doc.profileImage.url }
+                : null,
+          };
+        };
+
         const sanitizeDropIn = (doc: any) => {
           if (!doc || typeof doc !== "object") return doc;
           return {
@@ -499,6 +511,28 @@ export const lessonsRouter = {
               : undefined,
           };
         };
+
+        // Populate instructors in one query so public schedule cards can still show
+        // instructor names and avatars without exposing extra instructor fields.
+        const instructorIds = Array.from(
+          new Set(lessonDocs.map((l) => relationId(l.instructor)).filter(Boolean) as number[])
+        );
+        const instructorsById: Map<number, any> = new Map();
+        if (instructorIds.length > 0 && hasCollection(ctx.payload, "instructors")) {
+          const instructors = await ctx.payload.find({
+            collection: "instructors" as CollectionSlug,
+            where: { id: { in: instructorIds } },
+            depth: 2,
+            limit: 0,
+            overrideAccess: false,
+            req: queryOptions.req,
+          });
+          (instructors.docs as any[]).forEach((instructor) => {
+            const id = relationId(instructor?.id);
+            if (!id) return;
+            instructorsById.set(id, sanitizeInstructor(instructor));
+          });
+        }
 
         // Populate class options in one query (then sanitize).
         const classOptionIds = Array.from(
@@ -606,6 +640,9 @@ export const lessonsRouter = {
 
         return lessonDocs.map((lesson: any) => {
           const lessonId = getId(lesson.id)!;
+          const instructorId = getId(lesson.instructor);
+          const instructor =
+            (instructorId != null ? instructorsById.get(instructorId) : null) ?? null;
           const classOptionId = getId(lesson.classOption);
           const classOption: any =
             (classOptionId != null ? classOptionsById.get(classOptionId) : null) ?? null;
@@ -748,16 +785,7 @@ export const lessonsRouter = {
             startTime: lesson.startTime,
             endTime: lesson.endTime,
             location: lesson.location ?? "",
-            instructor:
-              lesson.instructor && typeof lesson.instructor === "object"
-                ? {
-                    id: getId(lesson.instructor.id) ?? (typeof lesson.instructor.id === "number" ? lesson.instructor.id : 0),
-                    name: lesson.instructor.name ?? null,
-                    profileImage: lesson.instructor.profileImage
-                      ? { url: lesson.instructor.profileImage.url }
-                      : null,
-                  }
-                : null,
+            instructor,
             tenant: getId(lesson.tenant),
             classOption: {
               id: getId(classOption?.id) ?? (typeof classOption?.id === "number" ? classOption.id : lessonId),

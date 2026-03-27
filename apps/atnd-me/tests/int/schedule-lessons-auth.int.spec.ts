@@ -27,6 +27,9 @@ describe('Schedule lessons visibility for authenticated users', () => {
   let testTenant: Tenant
   let testLesson: Lesson
   let inactiveLesson: Lesson
+  let instructorUser: User
+  let instructorId: number
+  let profileImageId: number
   let planId: number
   let classPassTypeId: number
 
@@ -58,6 +61,50 @@ describe('Schedule lessons visibility for authenticated users', () => {
       draft: false,
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0])) as User
+
+    instructorUser = (await payload.create({
+      collection: 'users',
+      data: {
+        name: 'Schedule Instructor',
+        email: `instructor-schedule-${Date.now()}@test.com`,
+        password: 'test',
+        roles: ['user'],
+        emailVerified: true,
+      },
+      draft: false,
+      overrideAccess: true,
+    } as Parameters<typeof payload.create>[0])) as User
+
+    const profileImage = await payload.create({
+      collection: 'media',
+      data: {
+        alt: 'Schedule Instructor Headshot',
+        tenant: testTenant.id,
+      },
+      file: {
+        name: 'schedule-instructor.png',
+        data: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
+          'base64',
+        ),
+        mimetype: 'image/png',
+        size: 70,
+      },
+      overrideAccess: true,
+    })
+    profileImageId = (profileImage as any).id as number
+
+    const instructor = await payload.create({
+      collection: 'instructors',
+      data: {
+        user: instructorUser.id,
+        active: true,
+        profileImage: profileImageId,
+        tenant: testTenant.id,
+      },
+      overrideAccess: true,
+    })
+    instructorId = (instructor as any).id as number
 
     // Create payment method dependencies for the class option (to validate sanitization)
     const plan = await payload.create({
@@ -131,6 +178,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
+        instructor: instructorId,
         classOption: classOption.id,
         active: true,
         tenant: testTenant.id,
@@ -145,6 +193,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
+          instructor: instructorId,
         classOption: classOption.id,
         active: false,
         tenant: testTenant.id,
@@ -180,6 +229,22 @@ describe('Schedule lessons visibility for authenticated users', () => {
         await payload.delete({
           collection: 'users',
           where: { id: { equals: regularUser.id } },
+        })
+        if (instructorId) {
+          await payload.delete({
+            collection: 'instructors',
+            where: { id: { equals: instructorId } },
+          })
+        }
+        if (profileImageId) {
+          await payload.delete({
+            collection: 'media',
+            where: { id: { equals: profileImageId } },
+          })
+        }
+        await payload.delete({
+          collection: 'users',
+          where: { id: { equals: instructorUser.id } },
         })
         await payload.delete({
           collection: 'tenants',
@@ -264,6 +329,13 @@ describe('Schedule lessons visibility for authenticated users', () => {
         // embedded inside nested payment method relationships.
         const lesson = lessons.find((l) => l.id === testLesson.id) as any
         expect(lesson).toBeTruthy()
+        expect(lesson.instructor).toEqual({
+          id: instructorId,
+          name: 'Schedule Instructor',
+          profileImage: expect.objectContaining({
+            url: expect.stringContaining('/media/'),
+          }),
+        })
         const co = lesson.classOption as any
         expect(co).toBeTruthy()
         // Schedule endpoint must not expose payment method relationship docs at all.
