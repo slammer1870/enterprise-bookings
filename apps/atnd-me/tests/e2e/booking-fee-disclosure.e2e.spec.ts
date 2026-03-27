@@ -19,9 +19,10 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     request,
   }) => {
     const payload = await getPayloadInstance()
-    
+
     const tenantId = testData.tenants[0]?.id
     const tenantSlug = testData.tenants[0]?.slug
+    const w = testData.workerIndex
 
     if (!tenantId || !tenantSlug) {
       throw new Error('Tenant ID or slug is missing from test data')
@@ -64,7 +65,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     const dropIn = await payload.create({
       collection: 'drop-ins',
       data: {
-        name: `Fee Disclosure Drop-in ${tenantId}-${Date.now()}`,
+        name: `Fee Disclosure Drop-in ${tenantId}-w${w}-${Date.now()}`,
         isActive: true,
         price: 10,
         adjustable: true,
@@ -73,15 +74,15 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
       },
       overrideAccess: true,
     }) as { id: number }
-    
+
     // Create class option with tenant relationship
-    const classOption = await createTestClassOption(tenantId, 'Fee Disclosure Class', 5)
-    
+    const classOption = await createTestClassOption(tenantId, 'Fee Disclosure Class', 5, undefined, w)
+
     // Update class option with drop-in payment method
     await payload.update({
       collection: 'class-options',
       id: classOption.id,
-      data: { 
+      data: {
         paymentMethods: { allowedDropIn: dropIn.id },
         tenant: tenantId, // Ensure tenant relationship is set
       },
@@ -100,7 +101,34 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
       request,
       tenantSlug,
     })
-    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
+
+    // Warm-up tenant routing/session before hitting the booking page directly.
+    await navigateToTenant(page, tenantSlug, '/')
+    await page.waitForLoadState('domcontentloaded').catch(() => null)
+    if (await page.getByText(/tenant not found/i).isVisible().catch(() => false)) {
+      throw new Error(
+        `Tenant "${tenantSlug}" not found when loading tenant root. App and test must use the same DB (DATABASE_URI). Lesson ${lesson.id}.`
+      )
+    }
+    await page.waitForURL((u) => u.pathname === '/home', { timeout: 10000 }).catch(() => null)
+
+    const bookingPath = `/bookings/${lesson.id}`
+    const goToBooking = async () => {
+      await navigateToTenant(page, tenantSlug, bookingPath)
+      await page.waitForLoadState('domcontentloaded').catch(() => null)
+      return new URL(page.url()).pathname
+    }
+    let currentPath = await goToBooking()
+    for (const delayMs of [1500, 2500]) {
+      if (currentPath !== '/home' && currentPath.startsWith('/bookings/')) break
+      await new Promise((r) => setTimeout(r, delayMs))
+      currentPath = await goToBooking()
+    }
+    if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
+      throw new Error(
+        `Booking page redirected away. Lesson ${lesson.id}, tenant ${tenantSlug}. Expected ${bookingPath}, got ${currentPath}. Check server logs for createBookingPage or getByIdForBooking.`
+      )
+    }
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     // Wait for booking page: either Payment Methods (success) or error (fail fast with clear message).

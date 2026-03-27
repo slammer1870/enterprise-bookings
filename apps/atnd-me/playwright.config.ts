@@ -28,9 +28,9 @@ export default defineConfig({
   testDir: './tests/e2e',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // Production build can handle more workers, but cap at 2 for multi-tenant apps
-  // (each worker creates 3 tenants × multiple Payload instances = high DB load)
-  workers: useProductionBuild ? 2 : 1,
+  // CI has been flaky with multiple workers against the shared multi-tenant test DB.
+  // Keep local prod runs fast, but serialize CI to reduce transient booking/form failures.
+  workers: process.env.CI ? 1 : useProductionBuild ? 2 : 1,
   timeout: 60_000,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list'], ['html']],
   use: {

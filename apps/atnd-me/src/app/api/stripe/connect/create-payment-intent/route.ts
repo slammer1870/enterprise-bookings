@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
     id: lessonId,
     depth: 1,
     overrideAccess: true,
-    select: { tenant: true, remainingCapacity: true } as any,
   })) as { tenant?: number | { id: number }; remainingCapacity?: number } | null
 
   const remainingCapacity =

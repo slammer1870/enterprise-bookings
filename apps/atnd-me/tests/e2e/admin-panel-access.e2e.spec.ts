@@ -83,41 +83,53 @@ test.describe('Admin Panel Access', () => {
   })
 
   test('should allow admin roles to access panel and deny regular users', async ({
-    page,
+    browser,
     testData,
     request,
   }) => {
     // Test super admin access
-    await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
-    await page.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' })
-    await page
-      .waitForURL((url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'), { timeout: 10000 })
+    const superAdminContext = await browser.newContext()
+    const superAdminPage = await superAdminContext.newPage()
+    await loginAsSuperAdmin(superAdminPage, testData.users.superAdmin.email, {
+      request: superAdminPage.request,
+    })
+    await superAdminPage.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' })
+    await superAdminPage
+      .waitForURL((url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'), {
+        timeout: 10000,
+      })
       .catch(() => {
-        if (page.url().includes('/admin/login')) {
+        if (superAdminPage.url().includes('/admin/login')) {
           throw new Error(`Super admin denied - redirected to login`)
         }
       })
-    expect(page.url()).toContain('/admin')
-    expect(page.url()).not.toContain('/admin/login')
+    expect(superAdminPage.url()).toContain('/admin')
+    expect(superAdminPage.url()).not.toContain('/admin/login')
+    await superAdminContext.close()
 
-    // Test tenant-admin access
-    await page.context().clearCookies()
-    await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' })
-    expect(page.url()).toContain('/admin')
-    expect(page.url()).not.toContain('/admin/login')
+    // Test tenant-admin access with an isolated cookie jar
+    const tenantAdminContext = await browser.newContext()
+    const tenantAdminPage = await tenantAdminContext.newPage()
+    await loginAsTenantAdmin(tenantAdminPage, 1, testData.users.tenantAdmin1.email, {
+      request: tenantAdminPage.request,
+    })
+    await tenantAdminPage.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' })
+    expect(tenantAdminPage.url()).toContain('/admin')
+    expect(tenantAdminPage.url()).not.toContain('/admin/login')
+    await tenantAdminContext.close()
 
-    // Test regular user denial
-    await page.context().clearCookies()
-    await loginAsRegularUser(page, 1, testData.users.user1.email)
+    // Test regular user denial with a separate context as well
+    const regularUserContext = await browser.newContext()
+    const regularUserPage = await regularUserContext.newPage()
+    await loginAsRegularUser(regularUserPage, 1, testData.users.user1.email)
     let sawForbidden = false
-    page.on('response', (resp) => {
+    regularUserPage.on('response', (resp) => {
       if (resp.status() === 403 && (resp.url().includes('/admin') || resp.url().includes('/api/'))) {
         sawForbidden = true
       }
     })
     let tooManyRedirects = false
-    await page.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' }).catch((err) => {
+    await regularUserPage.goto('http://localhost:3000/admin', { waitUntil: 'domcontentloaded' }).catch((err) => {
       const message = err instanceof Error ? err.message : String(err)
       if (message.includes('ERR_TOO_MANY_REDIRECTS')) {
         tooManyRedirects = true
@@ -126,16 +138,26 @@ test.describe('Admin Panel Access', () => {
       throw err
     })
     await Promise.race([
-      page.waitForURL((u) => /\/admin\/login|\/admin\/unauthorized|\/auth\//.test(u.pathname), { timeout: 5000 }),
-      page.getByRole('textbox', { name: /email/i }).first().waitFor({ state: 'visible', timeout: 5000 }),
-      page.getByText(/unauthorized|forbidden|access denied|don't have permission|sign in|log in/i).first().waitFor({ state: 'visible', timeout: 5000 }),
+      regularUserPage.waitForURL((u) => /\/admin\/login|\/admin\/unauthorized|\/auth\//.test(u.pathname), {
+        timeout: 5000,
+      }),
+      regularUserPage.getByRole('textbox', { name: /email/i }).first().waitFor({ state: 'visible', timeout: 5000 }),
+      regularUserPage
+        .getByText(/unauthorized|forbidden|access denied|don't have permission|sign in|log in/i)
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 }),
     ]).catch(() => null)
-    const url = page.url()
+    const url = regularUserPage.url()
     const isRedirected = Boolean(url.match(/\/admin\/login|\/admin\/unauthorized|\/auth\//))
-    const hasLoginForm = await page.getByRole('textbox', { name: /email/i }).first().isVisible().catch(() => false)
-    const bodyText = await page.locator('body').textContent().catch(() => '')
+    const hasLoginForm = await regularUserPage
+      .getByRole('textbox', { name: /email/i })
+      .first()
+      .isVisible()
+      .catch(() => false)
+    const bodyText = await regularUserPage.locator('body').textContent().catch(() => '')
     const hasDeniedContent =
       /unauthorized|forbidden|access denied|don't have permission|sign in|log in/i.test(bodyText ?? '')
     expect(isRedirected || hasLoginForm || sawForbidden || hasDeniedContent || tooManyRedirects).toBe(true)
+    await regularUserContext.close()
   })
 })

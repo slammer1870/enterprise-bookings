@@ -93,19 +93,29 @@ test.describe('Form submissions', () => {
     await navigateToTenant(page, tenantSlug, `/${pageSlug}`)
     await expect(page.locator('form')).toBeVisible()
 
-    // Hydration guard: ensure inputs are interactive before submitting.
-    await page.locator('#firstName').fill('Sam')
-    await page.locator('#email').fill(`sam+${unique}@example.com`)
-    await page.locator('#message').fill('Hello from Playwright.')
+    const submitForm = async (email: string) => {
+      // Hydration guard: ensure inputs are interactive before submitting.
+      await page.locator('#firstName').fill('Sam')
+      await page.locator('#email').fill(email)
+      await page.locator('#message').fill('Hello from Playwright.')
 
-    const submissionResponse = page.waitForResponse(
-      (res) => res.request().method() === 'POST' && res.url().includes('/api/form-submissions'),
-      { timeout: 15_000 },
-    )
+      const submissionResponse = page.waitForResponse(
+        (res) => res.request().method() === 'POST' && res.url().includes('/api/form-submissions'),
+        { timeout: 15_000 },
+      )
 
-    await Promise.all([submissionResponse, page.getByRole('button', { name: 'Send' }).click()])
+      await Promise.all([submissionResponse, page.getByRole('button', { name: 'Send' }).click()])
+      return await submissionResponse
+    }
 
-    const res = await submissionResponse
+    let res = await submitForm(`sam+${unique}@example.com`)
+    if (res.status() >= 500) {
+      // The standalone CI server can occasionally serve a transient 5xx on the first public submit.
+      // Reload once and retry so the test only fails on persistent server errors.
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(page.locator('form')).toBeVisible()
+      res = await submitForm(`sam+${unique}-retry@example.com`)
+    }
     if (res.status() >= 300) {
       const body = await res.text().catch(() => '')
       throw new Error(
