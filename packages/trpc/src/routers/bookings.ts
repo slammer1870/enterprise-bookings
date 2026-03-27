@@ -25,7 +25,7 @@ export const bookingsRouter = {
   /**
    * Schedule UX shortcut for single-slot lessons:
    * - If viewer has an eligible active subscription for the lesson, book immediately.
-   * - Otherwise redirect to the manage page (where payment / portal actions live).
+   * - Otherwise redirect to the lesson booking page so payment/subscription options are available.
    *
    * This intentionally avoids navigating to the generic booking page for cases where the
    * viewer can only ever book 1 slot and the flow is decided by membership state.
@@ -117,7 +117,7 @@ export const bookingsRouter = {
 
       // No membership option configured -> redirect to manage.
       if (!Array.isArray(allowedPlanIds) || allowedPlanIds.length === 0) {
-        return { redirectUrl: `/bookings/${lessonId}/manage` };
+        return { redirectUrl: `/bookings/${lessonId}` };
       }
 
       // Find the first eligible subscription the viewer can use for this lesson.
