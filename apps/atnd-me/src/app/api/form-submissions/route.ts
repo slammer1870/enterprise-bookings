@@ -1,7 +1,6 @@
-import config from '@payload-config'
-import { REST_OPTIONS, REST_POST } from '@payloadcms/next/routes'
 import { NextResponse } from 'next/server'
 import { getPayload } from '@/lib/payload'
+import type { FormSubmission } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
 import type { CollectionSlug } from 'payload'
  
@@ -93,32 +92,75 @@ function applyCorsHeaders(args: { response: Response; origin: string; request: R
   )
   response.headers.set('Access-Control-Allow-Credentials', 'true')
 }
- 
-const payloadPOST = REST_POST(config)
-const payloadOPTIONS = REST_OPTIONS(config)
- 
-type PayloadOptionsContext = Parameters<typeof payloadOPTIONS>[1]
-type PayloadPostContext = Parameters<typeof payloadPOST>[1]
 
-export async function OPTIONS(request: Request, context: PayloadOptionsContext) {
+function isSubmissionBody(
+  value: unknown,
+): value is Pick<FormSubmission, 'form' | 'submissionData'> {
+  if (!value || typeof value !== 'object') return false
+
+  const body = value as { form?: unknown; submissionData?: unknown }
+  const formValid =
+    typeof body.form === 'number' ||
+    (typeof body.form === 'string' && body.form.trim().length > 0)
+
+  const submissionDataValid =
+    body.submissionData == null ||
+    (Array.isArray(body.submissionData) &&
+      body.submissionData.every((item) => {
+        if (!item || typeof item !== 'object') return false
+        const row = item as { field?: unknown; value?: unknown; id?: unknown }
+        const idValid = row.id == null || typeof row.id === 'string'
+        return typeof row.field === 'string' && typeof row.value === 'string' && idValid
+      }))
+
+  return formValid && submissionDataValid
+}
+ 
+export async function OPTIONS(request: Request) {
   const allowedOrigin = await resolveAllowedOrigin(request)
   if (!allowedOrigin) {
     return new NextResponse(null, { status: 403 })
   }
- 
-  const res = await payloadOPTIONS(request, context)
+
+  const res = new NextResponse(null, { status: 204 })
   applyCorsHeaders({ response: res, origin: allowedOrigin, request })
   return res
 }
- 
-export async function POST(request: Request, context: PayloadPostContext) {
+
+export async function POST(request: Request) {
   const allowedOrigin = await resolveAllowedOrigin(request)
   if (!allowedOrigin) {
     return NextResponse.json({ error: 'CORS origin not allowed' }, { status: 403 })
   }
- 
-  const res = await payloadPOST(request, context)
-  applyCorsHeaders({ response: res, origin: allowedOrigin, request })
-  return res
+
+  const body = await request.json().catch(() => null)
+  if (!isSubmissionBody(body)) {
+    const res = NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    applyCorsHeaders({ response: res, origin: allowedOrigin, request })
+    return res
+  }
+
+  try {
+    const payload = await getPayload()
+    const submission = await payload.create({
+      collection: 'form-submissions',
+      data: {
+        form: typeof body.form === 'string' ? Number(body.form) : body.form,
+        submissionData: body.submissionData ?? null,
+      },
+      depth: 0,
+      draft: false,
+      overrideAccess: false,
+    })
+
+    const res = NextResponse.json(submission, { status: 201 })
+    applyCorsHeaders({ response: res, origin: allowedOrigin, request })
+    return res
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to submit form'
+    const res = NextResponse.json({ error: message }, { status: 400 })
+    applyCorsHeaders({ response: res, origin: allowedOrigin, request })
+    return res
+  }
 }
 
