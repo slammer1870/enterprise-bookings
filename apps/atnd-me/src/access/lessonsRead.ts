@@ -1,4 +1,4 @@
-import type { Access } from 'payload'
+import type { Access, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { tenantScopedReadFiltered } from './tenant-scoped'
@@ -6,9 +6,11 @@ import { tenantScopedReadFiltered } from './tenant-scoped'
 /**
  * Lessons read access:
  * - Admin / tenant-admin: unchanged (full visibility per existing tenant scoping rules)
- * - Regular user / public: do not allow reading lessons that have already ended
+ * - Authenticated regular users: unchanged
+ * - Public: do not allow reading lessons that have already ended and do not
+ *   expose inactive lessons
  *
- * This prevents “past lessons” from being visible in client-facing schedule views
+ * This prevents “past lessons” and inactive lessons from being visible in client-facing schedule views
  * without relying on each API layer to remember to filter.
  */
 export const lessonsRead: Access = async (args) => {
@@ -16,29 +18,36 @@ export const lessonsRead: Access = async (args) => {
   if (base === false) return false
 
   const user = args.req.user as unknown as SharedUser | undefined | null
-  if (user && checkRole(['admin', 'tenant-admin'], user)) {
+  if (user) {
     return base
   }
 
   const nowIso = new Date().toISOString()
 
-  // Merge base constraint (if any) with the "not ended yet" constraint
-  if (base === true) {
-    return {
-      endTime: {
-        greater_than_equal: nowIso,
-      },
-    }
-  }
-
-  return {
+  const publicVisibilityConstraint: Where = {
     and: [
-      base,
       {
         endTime: {
           greater_than_equal: nowIso,
         },
       },
+      {
+        active: {
+          equals: true,
+        },
+      },
+    ],
+  }
+
+  // Merge base constraint (if any) with the public visibility constraints
+  if (base === true) {
+    return publicVisibilityConstraint
+  }
+
+  return {
+    and: [
+      base,
+      publicVisibilityConstraint,
     ],
   }
 }

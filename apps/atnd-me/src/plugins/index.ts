@@ -21,6 +21,7 @@ import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { validateClassOptionNameUniqueWithinTenant } from '@/hooks/validateClassOptionNameUniqueWithinTenant'
 import { bookingsPlugin } from '@repo/bookings-plugin'
+import { lessonsRead } from '@/access/lessonsRead'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -200,7 +201,7 @@ export const plugins: Plugin[] = [
     lessonOverrides: {
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: tenantScopedReadFiltered, // Filter by tenant for tenant-admins, public for booking
+        read: lessonsRead, // Preserve tenant scoping while hiding past/inactive lessons from public schedule
         create: tenantScopedCreate,
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,

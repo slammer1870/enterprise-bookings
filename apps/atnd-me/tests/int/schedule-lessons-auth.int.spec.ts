@@ -13,11 +13,20 @@ import type { User, Lesson, ClassOption, Tenant } from '@repo/shared-types'
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
 
+function getLessonTenantId(lesson: { tenant?: Lesson['tenant'] }): number | null {
+  if (typeof lesson.tenant === 'object' && lesson.tenant !== null && 'id' in lesson.tenant) {
+    return lesson.tenant.id
+  }
+
+  return typeof lesson.tenant === 'number' ? lesson.tenant : null
+}
+
 describe('Schedule lessons visibility for authenticated users', () => {
   let payload: Payload
   let regularUser: User
   let testTenant: Tenant
   let testLesson: Lesson
+  let inactiveLesson: Lesson
   let planId: number
   let classPassTypeId: number
 
@@ -128,6 +137,20 @@ describe('Schedule lessons visibility for authenticated users', () => {
       },
       overrideAccess: true,
     })) as Lesson
+
+    inactiveLesson = (await payload.create({
+      collection: 'lessons',
+      draft: false,
+      data: {
+        date: startTime.toISOString(),
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        classOption: classOption.id,
+        active: false,
+        tenant: testTenant.id,
+      },
+      overrideAccess: true,
+    })) as Lesson
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -137,6 +160,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
         await payload.delete({
           collection: 'lessons',
           where: { id: { equals: testLesson.id } },
+        })
+        await payload.delete({
+          collection: 'lessons',
+          where: { id: { equals: inactiveLesson.id } },
         })
         if (planId) {
           await payload.delete({
@@ -249,6 +276,39 @@ describe('Schedule lessons visibility for authenticated users', () => {
   )
 
   it(
+    'hides inactive lessons from the public schedule response',
+    async () => {
+      const mockHeaders = new Headers()
+      mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
+
+      const ctx = await createTRPCContext({
+        headers: mockHeaders,
+        payload,
+      })
+
+      const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
+        user: null,
+      } as any)
+
+      try {
+        const today = new Date(testLesson.startTime)
+
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({
+          date: today.toISOString(),
+        })
+
+        const lessonIds = lessons.map((l) => l.id)
+        expect(lessonIds).toContain(testLesson.id)
+        expect(lessonIds).not.toContain(inactiveLesson.id)
+      } finally {
+        authSpy.mockRestore()
+      }
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'allows authenticated user to see lessons even when they do not have tenant in tenants array',
     async () => {
       // This is the key scenario: user is authenticated but viewing a tenant
@@ -282,10 +342,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         
         // Verify all lessons belong to the tenant from subdomain (not user's tenants)
         for (const lesson of lessons) {
-          const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-            ? lesson.tenant.id
-            : lesson.tenant
-          expect(lessonTenantId).toBe(testTenant.id)
+          expect(getLessonTenantId(lesson)).toBe(testTenant.id)
         }
       } finally {
         authSpy.mockRestore()
@@ -366,10 +423,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
           
           // All lessons should be from the subdomain tenant
           for (const lesson of lessons) {
-            const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-              ? lesson.tenant.id
-              : lesson.tenant
-            expect(lessonTenantId).toBe(testTenant.id)
+            expect(getLessonTenantId(lesson)).toBe(testTenant.id)
           }
         } finally {
           authSpy.mockRestore()
