@@ -5,7 +5,7 @@ import { signOut, useSession } from '@/lib/auth/client'
 import { cn } from '@/utilities/ui'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import React, { useMemo, useRef } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 
 function getUserInitial(user: SessionUser | null): string {
   const name = typeof user?.name === 'string' ? user.name.trim() : ''
@@ -50,6 +50,7 @@ export function HeaderAuthMenu({
   const router = useRouter()
   const pathname = usePathname()
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
+  const [billingLoading, setBillingLoading] = useState(false)
 
   const sessionResult = useSession() as SessionResult
   const user = getSessionUser(sessionResult)
@@ -135,6 +136,38 @@ export function HeaderAuthMenu({
             <div className="text-xs text-muted-foreground truncate">{String(user.email)}</div>
           ) : null}
         </div>
+
+        <button
+          type="button"
+          disabled={billingLoading}
+          className={cn(
+            'w-full cursor-pointer text-left px-3 py-2 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed',
+          )}
+          onClick={async () => {
+            if (billingLoading) return
+            setBillingLoading(true)
+            try {
+              detailsRef.current?.removeAttribute('open')
+              const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
+              if (!res.ok) {
+                const txt = await res.text().catch(() => '')
+                throw new Error(txt && txt.trim() ? txt : 'Failed to open billing portal')
+              }
+              const json = (await res.json()) as { url?: unknown }
+              const url = typeof json?.url === 'string' ? json.url : ''
+              if (!url) throw new Error('Billing portal URL missing')
+              window.location.assign(url)
+            } catch (e) {
+              // Fallback to keep the user in a sane state.
+              console.error(e)
+              router.refresh()
+            } finally {
+              setBillingLoading(false)
+            }
+          }}
+        >
+          {billingLoading ? 'Opening billing portal…' : 'Billing portal'}
+        </button>
 
         <button
           type="button"

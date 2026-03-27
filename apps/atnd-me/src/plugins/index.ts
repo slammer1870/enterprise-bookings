@@ -27,6 +27,7 @@ import {
   tenantScopedUpdate,
   tenantScopedDelete,
   tenantScopedReadFiltered,
+  tenantScopedPublicReadStrict,
 } from '../access/tenant-scoped'
 import {
   productsRequireStripeConnectRead,
@@ -210,7 +211,7 @@ export const plugins: Plugin[] = [
     classOptionsOverrides: {
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: () => true, // Public read for booking pages
+        read: tenantScopedPublicReadStrict,
         create: tenantScopedCreate,
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,
@@ -251,7 +252,7 @@ export const plugins: Plugin[] = [
     instructorOverrides: {
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: () => true, // Public read for booking pages
+        read: tenantScopedPublicReadStrict,
         create: tenantScopedCreate,
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,
