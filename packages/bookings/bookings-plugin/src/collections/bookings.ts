@@ -315,7 +315,10 @@ const defaultHooks: HooksConfig = {
               lockOutTime: 0,
             },
             // Prevent recursion / side-effects in downstream hooks
-            context: { triggerAfterChange: false },
+            context: {
+              triggerAfterChange: false,
+              skipLessonTimeNormalization: true,
+            },
           });
         } else {
           await req.payload.update({
@@ -323,7 +326,10 @@ const defaultHooks: HooksConfig = {
             id: lessonId,
             data: { lockOutTime: (lesson as any).originalLockOutTime },
             // Prevent recursion / side-effects in downstream hooks
-            context: { triggerAfterChange: false },
+            context: {
+              triggerAfterChange: false,
+              skipLessonTimeNormalization: true,
+            },
           });
         }
       } catch (error: any) {

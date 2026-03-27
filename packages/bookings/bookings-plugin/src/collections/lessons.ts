@@ -214,6 +214,7 @@ const defaultFields: Field[] = [
         hooks: {
           beforeChange: [
             async ({ value, siblingData, req }) => {
+              if (typeof value === "undefined") return value;
               if (req?.context?.skipLessonTimeNormalization) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
@@ -243,6 +244,7 @@ const defaultFields: Field[] = [
         hooks: {
           beforeChange: [
             async ({ value, siblingData, req }) => {
+              if (typeof value === "undefined") return value;
               if (req?.context?.skipLessonTimeNormalization) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
