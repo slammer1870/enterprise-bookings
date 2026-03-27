@@ -916,6 +916,13 @@ describe('User Tenant Access Control', () => {
         ))
 
         // Regular user should be able to read lessons for booking
+        const req = {
+          ...payload,
+          payload,
+          context: { tenant: testTenant.id },
+          user: regularUser,
+        } as any
+
         const userLessons = await payload.find({
           collection: 'lessons',
           where: {
@@ -924,7 +931,7 @@ describe('User Tenant Access Control', () => {
             },
           },
           limit: 100,
-          user: regularUser,
+          req,
           overrideAccess: false, // Enforce access control
         })
 
@@ -983,6 +990,155 @@ describe('User Tenant Access Control', () => {
             overrideAccess: false, // Enforce access control
           }),
         ).rejects.toThrow()
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'does not leak lessons, class options, or instructors without tenant context for regular users or public reads',
+      async () => {
+        const lessonDate = new Date()
+        lessonDate.setHours(10, 0, 0, 0)
+        const lessonEndTime = new Date(lessonDate)
+        lessonEndTime.setHours(11, 0, 0, 0)
+
+        const classOption = (await createWithTenantContext<ClassOption>(
+          'class-options',
+          {
+            name: `Leak Test Class ${Date.now()}`,
+            places: 10,
+            description: 'Tenant-scoped class option should not leak',
+          },
+          testTenant.id,
+          { overrideAccess: true }
+        ))
+
+        const lesson = (await createWithTenantContext<Lesson>(
+          'lessons',
+          {
+            date: lessonDate.toISOString(),
+            startTime: lessonDate.toISOString(),
+            endTime: lessonEndTime.toISOString(),
+            classOption: classOption.id,
+            active: true,
+          },
+          testTenant.id,
+          { overrideAccess: true }
+        ))
+
+        const instructorUser = (await payload.create({
+          collection: 'users',
+          data: {
+            name: `Leak Test Instructor ${Date.now()}`,
+            email: `leak-test-instructor-${Date.now()}@test.com`,
+            password: 'test',
+            roles: ['user'],
+            emailVerified: true,
+          },
+          draft: false,
+          overrideAccess: true,
+        } as Parameters<typeof payload.create>[0])) as User
+
+        const instructor = await createWithTenantContext(
+          'instructors',
+          {
+            user: instructorUser.id,
+            description: 'Tenant-scoped instructor should not leak',
+            active: true,
+          },
+          testTenant.id,
+          { overrideAccess: true }
+        )
+
+        const publicReq = {
+          ...payload,
+          payload,
+          headers: new Headers(),
+          context: {},
+          user: null,
+        } as any
+
+        const regularUserReq = {
+          ...payload,
+          payload,
+          headers: new Headers(),
+          context: {},
+          user: regularUser,
+        } as any
+
+        const runNoLeakQuery = async (query: Promise<{ docs: unknown[] }>) => {
+          try {
+            const result = await query
+            return result.docs.length
+          } catch {
+            return 'forbidden'
+          }
+        }
+
+        const [publicLessons, publicClassOptions, publicInstructors, regularLessons, regularClassOptions, regularInstructors] =
+          await Promise.all([
+            runNoLeakQuery(
+              payload.find({
+                collection: 'lessons',
+                where: { id: { equals: lesson.id } },
+                limit: 10,
+                req: publicReq,
+                overrideAccess: false,
+              }),
+            ),
+            runNoLeakQuery(
+              payload.find({
+                collection: 'class-options',
+                where: { id: { equals: classOption.id } },
+                limit: 10,
+                req: publicReq,
+                overrideAccess: false,
+              }),
+            ),
+            runNoLeakQuery(
+              payload.find({
+                collection: 'instructors',
+                where: { id: { equals: (instructor as { id: number }).id } },
+                limit: 10,
+                req: publicReq,
+                overrideAccess: false,
+              }),
+            ),
+            runNoLeakQuery(
+              payload.find({
+                collection: 'lessons',
+                where: { id: { equals: lesson.id } },
+                limit: 10,
+                req: regularUserReq,
+                overrideAccess: false,
+              }),
+            ),
+            runNoLeakQuery(
+              payload.find({
+                collection: 'class-options',
+                where: { id: { equals: classOption.id } },
+                limit: 10,
+                req: regularUserReq,
+                overrideAccess: false,
+              }),
+            ),
+            runNoLeakQuery(
+              payload.find({
+                collection: 'instructors',
+                where: { id: { equals: (instructor as { id: number }).id } },
+                limit: 10,
+                req: regularUserReq,
+                overrideAccess: false,
+              }),
+            ),
+          ])
+
+        expect(publicLessons === 0 || publicLessons === 'forbidden').toBe(true)
+        expect(publicClassOptions === 0 || publicClassOptions === 'forbidden').toBe(true)
+        expect(publicInstructors === 0 || publicInstructors === 'forbidden').toBe(true)
+        expect(regularLessons === 0 || regularLessons === 'forbidden').toBe(true)
+        expect(regularClassOptions === 0 || regularClassOptions === 'forbidden').toBe(true)
+        expect(regularInstructors === 0 || regularInstructors === 'forbidden').toBe(true)
       },
       TEST_TIMEOUT,
     )

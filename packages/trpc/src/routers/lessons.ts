@@ -12,6 +12,7 @@ import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
 import {
   getTenantSlug,
   resolveTenantId,
+  resolveTenantIdFromLessonId,
   resolveTenantTimeZone,
   assertLessonBelongsToTenant,
   populateLessonClassOption,
@@ -32,7 +33,10 @@ export const lessonsRouter = {
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       const tenantSlug = getTenantSlug(ctx);
-      const tenantId = await resolveTenantId(ctx.payload, tenantSlug);
+      let tenantId = await resolveTenantId(ctx.payload, tenantSlug);
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.id);
+      }
 
       // IMPORTANT: when operating on behalf of a user, enforce Payload access controls.
       // We pass req.context.tenant so multi-tenant access functions can scope correctly.
@@ -242,9 +246,22 @@ export const lessonsRouter = {
           ? (await ctx.betterAuth.api.getSession({ headers: ctx.headers }))?.user ?? null
           : (await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false }))?.user ?? null;
 
+        const tenantSlug = getTenantSlug(ctx);
         let tenantId: number | null = input.tenantId ?? null;
         if (tenantId == null) {
-          tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+          tenantId = await resolveTenantId(ctx.payload, tenantSlug);
+        }
+
+        // When a tenant slug was provided but does not resolve, treat it as an empty schedule
+        // instead of letting collection access turn this into a 403.
+        if (tenantSlug && tenantId == null) {
+          return [];
+        }
+
+        // Without any tenant context, tenant-scoped apps should degrade safely by returning
+        // an empty schedule. This preserves compatibility for callers that only expect "no throw".
+        if (tenantSlug == null && input.tenantId == null && tenantId == null) {
+          return [];
         }
 
         const fallbackTimeZone = resolveTimeZone(

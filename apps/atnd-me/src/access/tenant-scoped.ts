@@ -61,6 +61,18 @@ type TenantsFindResult = {
   }>
 }
 
+type RequestLike = {
+  user?: unknown
+  context?: Record<string, unknown>
+  payload: Payload
+  cookies?: {
+    get?: (name: string) => { value?: string } | undefined
+  }
+  headers?: {
+    get?: (name: string) => string | null
+  }
+}
+
 export async function resolveTenantAdminTenantIds(args: {
   user: unknown
   payload: Payload
@@ -86,6 +98,127 @@ export async function resolveTenantAdminTenantIds(args: {
 
   const fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
   return fromDb === null ? [] : fromDb
+}
+
+function getCookieFromRequestHeader(req: RequestLike, name: string): string | null {
+  const cookieHeader = req.headers?.get?.('cookie') ?? ''
+  if (!cookieHeader) return null
+  const m = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+  if (!m?.[1]) return null
+  try {
+    return decodeURIComponent(m[1])
+  } catch {
+    return m[1]
+  }
+}
+
+function normalizeContextTenantId(contextTenant: unknown): number | null {
+  if (typeof contextTenant === 'number' && Number.isFinite(contextTenant)) return contextTenant
+  if (typeof contextTenant === 'string' && /^\d+$/.test(contextTenant)) return parseInt(contextTenant, 10)
+  if (typeof contextTenant === 'object' && contextTenant !== null && 'id' in contextTenant) {
+    const id = (contextTenant as { id?: unknown }).id
+    if (typeof id === 'number' && Number.isFinite(id)) return id
+    if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  }
+  return null
+}
+
+async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | null> {
+  const contextTenantId = normalizeContextTenantId(req.context?.tenant)
+  if (contextTenantId) return contextTenantId
+
+  const ctx = (req.context ??= {}) as Record<string, unknown>
+
+  const payloadTenant =
+    req.cookies?.get?.('payload-tenant')?.value ?? getCookieFromRequestHeader(req, 'payload-tenant') ?? null
+  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
+    const id = parseInt(payloadTenant, 10)
+    ctx.__resolvedTenantIdFromPayloadCookie = id
+    return id
+  }
+
+  const tenantSlug =
+    req.cookies?.get?.('tenant-slug')?.value ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
+  if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
+    const cached = ctx.__resolvedTenantIdFromSlug
+    if (typeof cached === 'number' && Number.isFinite(cached)) return cached
+
+    const result = (await req.payload
+      .find({
+        collection: 'tenants',
+        where: { slug: { equals: tenantSlug } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        select: { id: true } as any,
+      })
+      .catch(() => null)) as TenantsFindResult | null
+
+    const id = result?.docs?.[0]?.id
+    if (typeof id === 'number') {
+      ctx.__resolvedTenantIdFromSlug = id
+      return id
+    }
+  }
+
+  const cachedHostTenant = ctx.__resolvedTenantIdFromHost
+  if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
+    return cachedHostTenant
+  }
+
+  const hostHeader = req.headers?.get?.('x-forwarded-host') ?? req.headers?.get?.('host') ?? ''
+  const hostname = String(hostHeader).split(':')[0] ?? ''
+  if (!hostname) return null
+
+  const rootHostname = (() => {
+    const url = process.env.NEXT_PUBLIC_SERVER_URL
+    if (!url) return null
+    try {
+      return new URL(url).hostname
+    } catch {
+      return null
+    }
+  })()
+
+  const isLocalhost = hostname.includes('localhost')
+  let slugFromSubdomain: string | null = null
+
+  if (isLocalhost) {
+    const parts = hostname.split('.')
+    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') slugFromSubdomain = parts[0]
+  } else if (rootHostname && hostname.endsWith('.' + rootHostname)) {
+    const prefix = hostname.slice(0, -(rootHostname.length + 1))
+    slugFromSubdomain = prefix.split('.')[0] || null
+  }
+
+  const where =
+    slugFromSubdomain
+      ? { slug: { equals: slugFromSubdomain } }
+      : (() => {
+          const normalized = normalizeCustomDomain(hostname)
+          return normalized ? { domain: { equals: normalized } } : null
+        })()
+
+  if (!where) return null
+
+  const result = (await req.payload
+    .find({
+      collection: 'tenants',
+      where,
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      select: { id: true } as any,
+    })
+    .catch(() => null)) as TenantsFindResult | null
+
+  const id = result?.docs?.[0]?.id
+  if (typeof id === 'number') {
+    ctx.__resolvedTenantIdFromHost = id
+    return id
+  }
+
+  return null
 }
 
 /**
@@ -269,6 +402,40 @@ export const tenantScopedReadFiltered: Access = ({ req }) => {
 }
 
 /**
+ * Strict tenant-scoped read for public-facing booking collections.
+ * - Admin: all tenants, including when admin clears the tenant selector in Payload.
+ * - Tenant-admin: only assigned tenants.
+ * - Public/regular users: only the resolved tenant from request context/cookies/host.
+ * - No tenant context for public/regular users: deny access to avoid cross-tenant leaks.
+ */
+export const tenantScopedPublicReadStrict: Access = async ({ req }) => {
+  const user = req.user
+
+  if (user && checkRole(['admin'], user as SharedUser)) {
+    return true
+  }
+
+  if (user && checkRole(['tenant-admin'], user as SharedUser)) {
+    const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
+    if (tenantIds.length === 0) return false
+    return {
+      tenant: {
+        in: tenantIds,
+      },
+    }
+  }
+
+  const tenantId = await resolveTenantIdFromRequest(req as RequestLike)
+  if (!tenantId) return false
+
+  return {
+    tenant: {
+      equals: tenantId,
+    },
+  }
+}
+
+/**
  * Media should never leak across tenants.
  * - Admin: all media
  * - Tenant-admin: media for their assigned tenants
@@ -316,117 +483,8 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
   // - payload-tenant (plugin/admin cookie containing tenant id)
   // - tenant-slug (middleware cookie) -> resolve to id
   return (async () => {
-    const cookieStore = (req as unknown as { cookies?: { get?: (name: string) => { value?: string } | undefined } }).cookies
-
-    const cookieHeader = req.headers?.get?.('cookie') ?? ''
-    const getCookieFromHeader = (name: string): string | null => {
-      if (!cookieHeader) return null
-      const m = cookieHeader.match(new RegExp(`(?:^|;\\\\s*)${name}=([^;]*)`))
-      if (!m?.[1]) return null
-      try {
-        return decodeURIComponent(m[1])
-      } catch {
-        return m[1]
-      }
-    }
-
-    const payloadTenant =
-      cookieStore?.get?.('payload-tenant')?.value ?? getCookieFromHeader('payload-tenant') ?? null
-    if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-      const id = parseInt(payloadTenant, 10)
-      return whereTenantOrPublic(id)
-    }
-
-    const tenantSlug =
-      cookieStore?.get?.('tenant-slug')?.value ?? getCookieFromHeader('tenant-slug') ?? null
-    if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
-      // Cache on req.context to avoid repeated tenant lookups during the same request.
-      const ctx = (req.context ??= {}) as Record<string, unknown>
-      const cached = ctx.__resolvedTenantIdFromSlug
-      if (typeof cached === 'number' && Number.isFinite(cached)) {
-        return whereTenantOrPublic(cached)
-      }
-
-    const result = (await req.payload
-      .find({
-          collection: 'tenants',
-          where: { slug: { equals: tenantSlug } },
-          limit: 1,
-          depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-        })
-      .catch(() => null)) as TenantsFindResult | null
-
-      const id = result?.docs?.[0]?.id
-      if (typeof id === 'number') {
-        ctx.__resolvedTenantIdFromSlug = id
-        return whereTenantOrPublic(id)
-      }
-    }
-
-    // Final fallback: resolve tenant from Host header (works for Next/Image server-side fetches
-    // that do not forward browser cookies).
-    const ctx = (req.context ??= {}) as Record<string, unknown>
-    const cachedHostTenant = ctx.__resolvedTenantIdFromHost
-    if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
-      return whereTenantOrPublic(cachedHostTenant)
-    }
-
-    const hostHeader =
-      req.headers?.get?.('x-forwarded-host') ??
-      req.headers?.get?.('host') ??
-      ''
-    const hostname = String(hostHeader).split(':')[0] ?? ''
-    if (hostname) {
-      const rootHostname = (() => {
-        const url = process.env.NEXT_PUBLIC_SERVER_URL
-        if (!url) return null
-        try {
-          return new URL(url).hostname
-        } catch {
-          return null
-        }
-      })()
-
-      const isLocalhost = hostname.includes('localhost')
-      let slugFromSubdomain: string | null = null
-
-      if (isLocalhost) {
-        const parts = hostname.split('.')
-        if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') slugFromSubdomain = parts[0]
-      } else if (rootHostname && hostname.endsWith('.' + rootHostname)) {
-        const prefix = hostname.slice(0, -(rootHostname.length + 1))
-        slugFromSubdomain = prefix.split('.')[0] || null
-      }
-
-      const where =
-        slugFromSubdomain
-          ? { slug: { equals: slugFromSubdomain } }
-          : (() => {
-              const normalized = normalizeCustomDomain(hostname)
-              return normalized ? { domain: { equals: normalized } } : null
-            })()
-
-      if (where) {
-      const result = (await req.payload
-      .find({
-            collection: 'tenants',
-            where,
-            limit: 1,
-            depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-          })
-      .catch(() => null)) as TenantsFindResult | null
-
-        const id = result?.docs?.[0]?.id
-        if (typeof id === 'number') {
-          ctx.__resolvedTenantIdFromHost = id
-          return whereTenantOrPublic(id)
-        }
-      }
-    }
+    const id = await resolveTenantIdFromRequest(req as RequestLike)
+    if (id) return whereTenantOrPublic(id)
 
     // No tenant context could be resolved: only publicly-linked media.
     return { isPublic: { equals: true } } as unknown as Where

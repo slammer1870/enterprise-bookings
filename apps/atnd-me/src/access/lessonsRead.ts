@@ -1,7 +1,7 @@
 import type { Access, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { tenantScopedReadFiltered } from './tenant-scoped'
+import { tenantScopedPublicReadStrict } from './tenant-scoped'
 
 /**
  * Lessons read access:
@@ -14,7 +14,7 @@ import { tenantScopedReadFiltered } from './tenant-scoped'
  * without relying on each API layer to remember to filter.
  */
 export const lessonsRead: Access = async (args) => {
-  const base = await tenantScopedReadFiltered(args)
+  const base = await tenantScopedPublicReadStrict(args)
   if (base === false) return false
 
   const user = args.req.user as unknown as SharedUser | undefined | null

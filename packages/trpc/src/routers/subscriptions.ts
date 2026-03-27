@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { optionalUserProcedure, protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe } from "../utils/collections";
+import {
+  getTenantSlug,
+  resolveTenantId,
+  resolveTenantIdFromLessonId,
+} from "../utils/tenant";
 
 import { Subscription, Lesson, Plan } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
@@ -190,12 +195,17 @@ export const subscriptionsRouter = {
         };
       }
 
+      let tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(payload, input.lessonId);
+      }
+
       // Get the lesson to check allowed plans
       const lesson = await findByIdSafe<Lesson>(
         payload,
         "lessons",
         input.lessonId,
-        { depth: 2, overrideAccess: false, user }
+        { depth: 2, overrideAccess: Boolean(tenantId), user }
       );
 
       if (!lesson) {

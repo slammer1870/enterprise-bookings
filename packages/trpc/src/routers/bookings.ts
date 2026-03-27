@@ -349,7 +349,10 @@ export const bookingsRouter = {
       const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds, classPassId } = input;
       const status =
         subscriptionId != null || classPassId != null ? "confirmed" : (statusInput ?? "confirmed");
-      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+      }
 
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
         depth: 0,
@@ -825,9 +828,13 @@ export const bookingsRouter = {
     .use(requireCollections("lessons", "class-passes"))
     .input(z.object({ lessonId: z.number() }))
     .query(async ({ ctx, input }) => {
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+      }
       const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.lessonId, {
         depth: 2,
-        overrideAccess: false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
       if (!lesson) {
@@ -847,11 +854,11 @@ export const bookingsRouter = {
         .filter((id): id is number => typeof id === "number");
       if (allowedTypeIds.length === 0) return [];
 
-      const tenantId =
+      const lessonTenantId =
         typeof lesson.tenant === "object" && lesson.tenant != null
           ? (lesson.tenant as { id: number }).id
           : (lesson.tenant as number | undefined) ?? null;
-      if (tenantId == null) return [];
+      if (lessonTenantId == null) return [];
 
       const now = new Date().toISOString();
       const result = await findSafe(
@@ -860,7 +867,7 @@ export const bookingsRouter = {
         {
           where: {
             user: { equals: ctx.user.id },
-            tenant: { equals: tenantId },
+            tenant: { equals: lessonTenantId },
             type: { in: allowedTypeIds },
             status: { equals: "active" },
             quantity: { greater_than: 0 },
