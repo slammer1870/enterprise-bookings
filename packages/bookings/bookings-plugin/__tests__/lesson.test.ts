@@ -28,6 +28,17 @@ let payload: Payload;
 let restClient: NextRESTClient;
 let classOption: ClassOption;
 
+const getLocalDateTimeParts = (value: string | Date, timeZone: string) => {
+  const zoned = new TZDate(new Date(value), timeZone);
+  return {
+    year: zoned.getFullYear(),
+    month: zoned.getMonth(),
+    date: zoned.getDate(),
+    hours: zoned.getHours(),
+    minutes: zoned.getMinutes(),
+  };
+};
+
 describe("Lesson tests", () => {
   const ORIGINAL_TZ = process.env.TZ;
   beforeAll(async () => {
@@ -85,6 +96,56 @@ describe("Lesson tests", () => {
       expect(start.getDate()).toBe(7);
       expect(start.getHours()).toBe(18);
       expect(end.getHours()).toBe(19);
+    },
+    TEST_TIMEOUT
+  );
+
+  it(
+    "preserves lesson date and times when updating across the Dublin DST boundary",
+    async () => {
+      const timeZone = "Europe/Dublin";
+      const lessonDate = new TZDate(2026, 2, 30, 0, 0, 0, 0, timeZone);
+
+      const lesson = (await payload.create({
+        collection: "lessons",
+        data: {
+          date: lessonDate.toISOString(),
+          startTime: "10:00",
+          endTime: "11:00",
+          classOption: classOption.id,
+          location: "DST Update Save",
+          active: true,
+        },
+      })) as Lesson;
+
+      const beforeDate = getLocalDateTimeParts(String(lesson.date), timeZone);
+      const beforeStart = getLocalDateTimeParts(String(lesson.startTime), timeZone);
+      const beforeEnd = getLocalDateTimeParts(String(lesson.endTime), timeZone);
+
+      const updated = (await payload.update({
+        collection: "lessons",
+        id: lesson.id,
+        data: {
+          date: new Date(String(lesson.date)),
+          startTime: new Date(String(lesson.startTime)),
+          endTime: new Date(String(lesson.endTime)),
+          classOption: classOption.id,
+          location: "DST Update Save",
+          active: false,
+        },
+      })) as Lesson;
+
+      const afterDate = getLocalDateTimeParts(String(updated.date), timeZone);
+      const afterStart = getLocalDateTimeParts(String(updated.startTime), timeZone);
+      const afterEnd = getLocalDateTimeParts(String(updated.endTime), timeZone);
+
+      expect(afterDate).toEqual(beforeDate);
+      expect(afterStart).toEqual(beforeStart);
+      expect(afterEnd).toEqual(beforeEnd);
+      expect(afterStart.hours).toBe(10);
+      expect(afterEnd.hours).toBe(11);
+      expect(afterDate).toMatchObject({ year: 2026, month: 2, date: 30 });
+      expect(updated.active).toBe(false);
     },
     TEST_TIMEOUT
   );

@@ -15,6 +15,7 @@ import {
   extractUtcWallClock,
   resolveTimeZone,
 } from "@repo/shared-utils";
+import { TZDate } from "@date-fns/tz";
 
 import type { BookingsPluginConfig } from "../types";
 
@@ -69,6 +70,13 @@ const coerceToDateForTimeOnlyField = (value: unknown): Date | null => {
   return null;
 };
 
+const isCanonicalDateTimeString = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return /T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value);
+};
+
 /** Get a valid date from siblingData.date or from value (e.g. full ISO string). Used so API create works when date is not yet in siblingData or is localized. */
 const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date | null => {
   const raw = siblingData?.date;
@@ -116,7 +124,10 @@ const getTenantTimeZoneFromValue = (value: unknown): string | null => {
     : null;
 };
 
-const getWallClockTime = (value: unknown): {
+const getWallClockTimeInTimeZone = (
+  value: unknown,
+  timeZone?: string
+): {
   hours: number;
   minutes: number;
   seconds: number;
@@ -137,6 +148,16 @@ const getWallClockTime = (value: unknown): {
   if (value instanceof Date || typeof value === "string") {
     const parsedDate = new Date(value);
     if (!Number.isNaN(parsedDate.getTime())) {
+      if (timeZone) {
+        const zonedDate = new TZDate(parsedDate, timeZone);
+        return {
+          hours: zonedDate.getHours(),
+          minutes: zonedDate.getMinutes(),
+          seconds: zonedDate.getSeconds(),
+          milliseconds: zonedDate.getMilliseconds(),
+        };
+      }
+
       return extractUtcWallClock(parsedDate);
     }
   }
@@ -215,17 +236,17 @@ const defaultFields: Field[] = [
           beforeChange: [
             async ({ value, siblingData, req }) => {
               if (typeof value === "undefined") return value;
-              if (req?.context?.skipLessonTimeNormalization) return value;
+              if (isCanonicalDateTimeString(value)) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
-
-              const time = getWallClockTime(value);
-              if (!time) return value;
 
               const timeZone = await resolveLessonTimeZone({
                 req,
                 siblingData: (siblingData || {}) as Record<string, unknown>,
               });
+
+              const time = getWallClockTimeInTimeZone(value, timeZone);
+              if (!time) return value;
 
               return combineDateAndTimeInTimeZone(base, time, timeZone).toISOString();
             },
@@ -245,17 +266,17 @@ const defaultFields: Field[] = [
           beforeChange: [
             async ({ value, siblingData, req }) => {
               if (typeof value === "undefined") return value;
-              if (req?.context?.skipLessonTimeNormalization) return value;
+              if (isCanonicalDateTimeString(value)) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
-
-              const time = getWallClockTime(value);
-              if (!time) return value;
 
               const timeZone = await resolveLessonTimeZone({
                 req,
                 siblingData: (siblingData || {}) as Record<string, unknown>,
               });
+
+              const time = getWallClockTimeInTimeZone(value, timeZone);
+              if (!time) return value;
 
               return combineDateAndTimeInTimeZone(base, time, timeZone).toISOString();
             },
@@ -272,8 +293,11 @@ const defaultFields: Field[] = [
               options.siblingData as Record<string, unknown>,
               fallbackTimeZone
             );
-            const endTimeParts = getWallClockTime(value);
-            const startTimeParts = getWallClockTime(siblingData.startTime);
+            const endTimeParts = getWallClockTimeInTimeZone(value, timeZone);
+            const startTimeParts = getWallClockTimeInTimeZone(
+              siblingData.startTime,
+              timeZone
+            );
             if (!endTimeParts || !startTimeParts) return true;
 
             const endTime = combineDateAndTimeInTimeZone(
