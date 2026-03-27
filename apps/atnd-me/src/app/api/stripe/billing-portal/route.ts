@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
+import { getTenantContext } from '@/utilities/getTenantContext'
+import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
 
 type TenantStripeCustomer = { stripeAccountId: string; stripeCustomerId: string }
 
@@ -25,6 +27,12 @@ export async function POST(request: NextRequest) {
   const payload = await getPayload()
   const authResult = await payload.auth({ headers: request.headers })
   const user = authResult?.user ?? null
+  const tenantContext = await getTenantContext(payload, {
+    cookies: request.cookies,
+    headers: request.headers,
+    searchParams: request.nextUrl.searchParams,
+  })
+  const returnURL = getAbsoluteURL('/', tenantContext ? getTenantSiteURL(tenantContext, request.headers) : getRequestOrigin(request.headers))
 
   if (!user || typeof user !== 'object' || !('id' in user)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -67,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   // In E2E/test placeholder accounts, never hit Stripe.
   if (isStripeTestAccount(stripeAccountId)) {
-    return NextResponse.json({ url: request.nextUrl.origin + '/' })
+    return NextResponse.json({ url: returnURL })
   }
 
   const fullUser = await payload
@@ -93,7 +101,7 @@ export async function POST(request: NextRequest) {
   const session = await stripe.billingPortal.sessions.create(
     {
       customer: mapping.stripeCustomerId,
-      return_url: request.nextUrl.origin + '/',
+      return_url: returnURL,
     },
     { stripeAccount: stripeAccountId },
   )
