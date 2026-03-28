@@ -103,6 +103,17 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
   return await createLessonForTomorrowViaApi(page, classOptionId)
 }
 
+function getScheduleLessonCard(page: any, className: string) {
+  return page
+    .locator('#schedule')
+    .first()
+    .locator('div.flex.w-full.flex-col.gap-4.border-b', {
+      has: page.locator('div.text-xl.font-medium', { hasText: className }),
+      hasText: /10:00.*AM.*11:00.*AM/i,
+    })
+    .first()
+}
+
 /**
  * Ensure there is at least one Drop In product available in the admin.
  * Returns the name of a Drop In we can select.
@@ -351,24 +362,8 @@ test.describe('User booking flow from schedule', () => {
     // The lesson we created has class name "E2E Test Class" and time 10:00 AM - 11:00 AM
     // This ensures we're clicking on the lesson we created, not another lesson on the schedule
 
-    // Find the lesson card by locating the class name, then finding its parent container
-    // The structure is: container > div (details) > div.text-xl.font-medium (class name)
-    const classNameElement = page
-      .locator('#schedule').first()
-      .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
-      .first()
-
-    await expect(classNameElement).toBeVisible({ timeout: 60000 })
-
-    // Verify the time matches (10:00 AM - 11:00 AM) to ensure it's the correct lesson
-    const timeElement = classNameElement
-      .locator('..') // Go to parent (details div)
-      .locator('div.text-sm.font-light', { hasText: /10:00.*AM.*11:00.*AM/i })
-      .first()
-    await expect(timeElement).toBeVisible({ timeout: 10000 })
-
-    // Navigate to the lesson card container (parent of the details div)
-    const lessonCard = classNameElement.locator('../..').first()
+    const lessonCard = getScheduleLessonCard(page, 'E2E Test Class')
+    await expect(lessonCard).toBeVisible({ timeout: 60000 })
 
     // Within this specific lesson card, find the "Book" or "Check In" button
     // Button text is "Book" for active lessons without payment methods
@@ -563,23 +558,8 @@ test.describe('User booking flow from schedule', () => {
     // Find the specific lesson by class name to ensure we're checking the correct one
     // The lesson we created has class name "E2E Test Class" and time 10:00 AM - 11:00 AM
 
-    // Find the lesson card by locating the class name, then finding its parent container
-    const classNameElementForCancel = page
-      .locator('#schedule').first()
-      .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
-      .first()
-
-    await expect(classNameElementForCancel).toBeVisible({ timeout: 60000 })
-
-    // Verify the time matches (10:00 AM - 11:00 AM) to ensure it's the correct lesson
-    const timeElementForCancel = classNameElementForCancel
-      .locator('..') // Go to parent (details div)
-      .locator('div.text-sm.font-light', { hasText: /10:00.*AM.*11:00.*AM/i })
-      .first()
-    await expect(timeElementForCancel).toBeVisible({ timeout: 10000 })
-
-    // Navigate to the lesson card container (parent of the details div)
-    const lessonCardForCancel = classNameElementForCancel.locator('../..').first()
+    const lessonCardForCancel = getScheduleLessonCard(page, 'E2E Test Class')
+    await expect(lessonCardForCancel).toBeVisible({ timeout: 60000 })
 
     // With the schedule view model, a single booking can show "Modify Booking" (manage quantity)
     // rather than "Cancel Booking". Cancel is available from the manage page.
@@ -653,13 +633,7 @@ test.describe('User booking flow from schedule', () => {
     await goToTomorrowInSchedule(page)
 
     // Re-find the lesson card on the schedule (fresh DOM after reload).
-    const lessonCardAfterCancel = page
-      .locator('#schedule')
-      .first()
-      .locator('div.text-xl.font-medium', { hasText: 'E2E Test Class' })
-      .first()
-      .locator('../..')
-      .first()
+    const lessonCardAfterCancel = getScheduleLessonCard(page, 'E2E Test Class')
 
     const bookButtonAfter = lessonCardAfterCancel
       .getByRole('button', { name: /^(Book|Check In)$/i })
