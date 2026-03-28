@@ -7,17 +7,9 @@ import type { CollectionSlug, JsonObject, PaginatedDocs, Payload, TypeWithID } f
 export function hasCollection(payload: any, collectionSlug: string): boolean {
   try {
     const collections = payload.config?.collections || [];
-
-    const found = collections.some(
+    return collections.some(
       (col: any) => col?.slug === collectionSlug || col === collectionSlug
     );
-    if (!found) {
-      console.log(
-        `Collection "${collectionSlug}" not found. Available collections:`,
-        collections.map((col: any) => col?.slug || col)
-      );
-    }
-    return found;
   } catch (error) {
     console.error(`Error checking for collection "${collectionSlug}":`, error);
     return false;

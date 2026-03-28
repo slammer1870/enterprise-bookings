@@ -22,6 +22,7 @@ export const LessonAdmin: React.FC<{
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
+  const hasTenantsCollection = payload.config.collections.some((collection) => collection.slug === "tenants");
   // Get headers to authenticate user and create req object
   // This allows the multi-tenant plugin to filter lessons by tenant
   const requestHeaders = await headers();
@@ -43,7 +44,7 @@ export const LessonAdmin: React.FC<{
     const tenantId = /^\d+$/.test(payloadTenant) ? Number(payloadTenant) : payloadTenant;
     if (!req.context) req.context = {};
     req.context.tenant = tenantId;
-  } else if (!isAdmin && req) {
+  } else if (!isAdmin && req && hasTenantsCollection) {
     // 2) Fallback: tenant from subdomain (tenant-slug, set by middleware)
     const tenantSlug = cookieStore.get('tenant-slug')?.value;
     if (tenantSlug) {

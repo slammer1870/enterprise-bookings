@@ -825,9 +825,12 @@ export const bookingsRouter = {
    * with status active, quantity > 0, and expirationDate in the future.
    */
   getValidClassPassesForLesson: protectedProcedure
-    .use(requireCollections("lessons", "class-passes"))
     .input(z.object({ lessonId: z.number() }))
     .query(async ({ ctx, input }) => {
+      if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-passes")) {
+        return [];
+      }
+
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
         tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);

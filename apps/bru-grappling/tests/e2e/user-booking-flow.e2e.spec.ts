@@ -11,118 +11,96 @@ import {
 } from './helpers'
 import { ensureHomePageWithSchedule, goToTomorrowInSchedule } from '@repo/testing-config/src/playwright'
 
+async function apiGet<T>(page: any, path: string): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const cookies = await page.context().cookies()
+  const cookieHeader = cookies.map((c: { name: string; value: string }) => `${c.name}=${c.value}`).join('; ')
+  const res = await page.context().request.get(`${baseUrl}${path}`, {
+    headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+    timeout: 120000,
+  })
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`GET ${path} failed: ${res.status()} ${txt}`)
+  }
+  const json: any = await res.json().catch(() => null)
+  return (json?.doc ?? json) as T
+}
+
+async function apiPost<T>(page: any, path: string, data: Record<string, unknown>): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const cookies = await page.context().cookies()
+  const cookieHeader = cookies.map((c: { name: string; value: string }) => `${c.name}=${c.value}`).join('; ')
+  const res = await page.context().request.post(`${baseUrl}${path}`, {
+    headers: {
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      'Content-Type': 'application/json',
+    },
+    data,
+    timeout: 120000,
+  })
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`POST ${path} failed: ${res.status()} ${txt}`)
+  }
+  const json: any = await res.json().catch(() => null)
+  return (json?.doc ?? json) as T
+}
+
+async function createClassOptionViaApi(
+  page: any,
+  options: {
+    name: string
+    description: string
+    paymentMethods?: { allowedPlans?: number[]; allowedDropIn?: number | null }
+  },
+): Promise<number> {
+  const created = await apiPost<{ id: number }>(page, '/api/class-options', {
+    name: options.name,
+    places: 10,
+    description: options.description,
+    type: 'adult',
+    ...(options.paymentMethods ? { paymentMethods: options.paymentMethods } : {}),
+  })
+  if (!created?.id) throw new Error(`Unexpected class option response: ${JSON.stringify(created)}`)
+  return Number(created.id)
+}
+
+async function createLessonForTomorrowViaApi(page: any, classOptionId: number): Promise<Date> {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const start = new Date(tomorrow)
+  start.setHours(10, 0, 0, 0)
+  const end = new Date(tomorrow)
+  end.setHours(11, 0, 0, 0)
+  await apiPost(page, '/api/lessons', {
+    date: tomorrow.toISOString(),
+    startTime: start.toISOString(),
+    endTime: end.toISOString(),
+    lockOutTime: 0,
+    classOption: classOptionId,
+    active: true,
+  })
+  return tomorrow
+}
+
 /**
  * Ensure there is a lesson tomorrow with a basic class option.
  * Returns the Date for tomorrow.
  */
 async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'): Promise<Date> {
-  // Ensure a basic class option exists; create it if it does not
-  await page.goto('/admin/collections/class-options', {
-    waitUntil: 'load',
-    timeout: process.env.CI ? 120000 : 60000,
-  })
-  const existingClassOptionRow = page.getByRole('row', { name: new RegExp(className, 'i') })
+  const existingClassOption = await apiGet<{ docs?: Array<{ id: number }> }>(
+    page,
+    `/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
+  )
+  const classOptionId =
+    existingClassOption?.docs?.[0]?.id ??
+    (await createClassOptionViaApi(page, {
+      name: className,
+      description: 'A test class option for e2e',
+    }))
 
-  if ((await existingClassOptionRow.count()) === 0) {
-    // No matching class option found; create a basic one
-    await page.getByLabel('Create new Class Option').click()
-
-    await page
-      .waitForURL(/\/admin\/collections\/class-options\/create/, {
-        timeout: process.env.CI ? 60000 : 30000,
-        waitUntil: 'domcontentloaded',
-      })
-      .catch(async () => {
-        await page.goto('/admin/collections/class-options/create', {
-          waitUntil: 'domcontentloaded',
-          timeout: process.env.CI ? 60000 : 30000,
-        })
-      })
-
-    await page.getByRole('textbox', { name: 'Name *' }).fill(className)
-    await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
-    await page.getByRole('textbox', { name: 'Description *' }).fill('A test class option for e2e')
-
-    await saveObjectAndWaitForNavigation(page, {
-      apiPath: '/api/class-options',
-      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-      collectionName: 'class-options',
-    })
-  }
-
-  // Compute tomorrow's date (used for both lookup and creation)
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-
-  // First, check if a lesson already exists for tomorrow with this class option
-  await page.goto('/admin/collections/lessons', {
-    waitUntil: 'load',
-    timeout: process.env.CI ? 180000 : 60000,
-  })
-  const tomorrowDay = tomorrow.getDate()
-  const dayButton = page.locator(`button:has-text("${tomorrowDay}")`).first()
-  if ((await dayButton.count()) > 0) {
-    await dayButton.click()
-    await page.waitForTimeout(2000)
-  }
-
-  const existingLessonCell = page.getByRole('cell', { name: className })
-  if ((await existingLessonCell.count()) > 0) {
-    // Lesson already exists for tomorrow with this class option; reuse it.
-    return tomorrow
-  }
-
-  // No existing lesson found; create a new lesson for tomorrow using this class option
-  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-
-  const dateInput = page.locator('#field-date').getByRole('textbox')
-  await dateInput.click()
-  await dateInput.fill(tomorrowDateStr)
-  await page.keyboard.press('Tab')
-
-  const startTimeInput = page.locator('#field-startTime').getByRole('textbox')
-  await startTimeInput.click()
-  const startTimeOption = page.getByRole('option', { name: '10:00 AM' })
-  if ((await startTimeOption.count()) > 0) {
-    await startTimeOption.click()
-  } else {
-    await startTimeInput.fill('10:00 AM')
-    await page.keyboard.press('Enter')
-  }
-
-  const endTimeInput = page.locator('#field-endTime').getByRole('textbox')
-  await endTimeInput.click()
-  const endTimeOption = page.getByRole('option', { name: '11:00 AM' })
-  if ((await endTimeOption.count()) > 0) {
-    await endTimeOption.click()
-  } else {
-    await endTimeInput.fill('11:00 AM')
-    await page.keyboard.press('Enter')
-  }
-
-  const classOptionCombobox = page
-    .locator('text=Class Option')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-  await classOptionCombobox.click()
-  const classOption = page.getByRole('option', { name: className })
-  await expect(classOption).toBeVisible({ timeout: 10000 })
-  await classOption.click()
-
-  // Save lesson with ID extraction fallback
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/lessons',
-    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
-    collectionName: 'lessons',
-  })
-
-  return tomorrow
+  return await createLessonForTomorrowViaApi(page, classOptionId)
 }
 
 /**
@@ -207,110 +185,21 @@ async function ensureAtLeastOneDropIn(page: any): Promise<string> {
 async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
   const className = `E2E Drop-In Class ${Date.now()}`
   const dropInName = await ensureAtLeastOneDropIn(page)
+  const dropIns = await apiGet<{ docs?: Array<{ id: number }> }>(
+    page,
+    `/api/drop-ins?where[name][equals]=${encodeURIComponent(dropInName)}&limit=1&depth=0`,
+  )
+  const dropInId = dropIns?.docs?.[0]?.id
+  if (!dropInId) throw new Error(`Drop In "${dropInName}" not found after creation`)
 
-  // Create a unique class option configured for drop-in payments only
-  await page.goto('/admin/collections/class-options', { waitUntil: 'load', timeout: 60000 })
-  await page.getByLabel('Create new Class Option').click()
-
-  await page.getByRole('textbox', { name: 'Name *' }).waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByRole('textbox', { name: 'Name *' }).fill(className)
-  await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
-  await page
-    .getByRole('textbox', { name: 'Description *' })
-    .fill('A test class option for e2e (drop-in)')
-
-  // Configure payment methods: Allowed Drop In (assumes at least one drop-in exists)
-  const allowedDropInCombobox = page
-    .locator('text=Allowed Drop In')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-
-  await expect(allowedDropInCombobox).toBeVisible({ timeout: 20000 })
-  await allowedDropInCombobox.click()
-  // Scope to the open listbox so we don't accidentally match unrelated "option" roles elsewhere
-  const listbox = page.getByRole('listbox')
-  const noOptions = listbox.getByText(/No options/i)
-  if (await noOptions.isVisible({ timeout: 2000 }).catch(() => false)) {
-    throw new Error(
-      'No Drop In options were available to select. Ensure a Drop In exists and is accessible in the admin UI.',
-    )
-  }
-
-  const dropInOption = listbox.getByRole('option', { name: new RegExp(dropInName, 'i') })
-  if ((await dropInOption.count()) > 0) {
-    await dropInOption.first().click()
-  } else {
-    // Fallback: select the first available option (better than hanging on "no options")
-    const first = listbox.getByRole('option').first()
-    await expect(first).toBeVisible({ timeout: 20000 })
-    await first.click()
-  }
-
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/class-options',
-    expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-    collectionName: 'class-options',
+  const classOptionId = await createClassOptionViaApi(page, {
+    name: className,
+    description: 'A test class option for e2e (drop-in)',
+    paymentMethods: { allowedDropIn: Number(dropInId) },
   })
 
-  // Compute tomorrow's date (used for lesson creation)
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-
-  // Create a new lesson for tomorrow using this class option
-  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-
-  const dateInput = page.locator('#field-date').getByRole('textbox')
-  await dateInput.click()
-  await dateInput.fill(tomorrowDateStr)
-  await page.keyboard.press('Tab')
-
-  const startTimeInput = page.locator('#field-startTime').getByRole('textbox')
-  await startTimeInput.click()
-  const startTimeOption = page.getByRole('option', { name: '10:00 AM' })
-  if ((await startTimeOption.count()) > 0) {
-    await startTimeOption.click()
-  } else {
-    await startTimeInput.fill('10:00 AM')
-    await page.keyboard.press('Enter')
-  }
-
-  const endTimeInput = page.locator('#field-endTime').getByRole('textbox')
-  await endTimeInput.click()
-  const endTimeOption = page.getByRole('option', { name: '11:00 AM' })
-  if ((await endTimeOption.count()) > 0) {
-    await endTimeOption.click()
-  } else {
-    await endTimeInput.fill('11:00 AM')
-    await page.keyboard.press('Enter')
-  }
-
-  const classOptionCombobox = page
-    .locator('text=Class Option')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-  await classOptionCombobox.click()
-  const classOption = page.getByRole('option', { name: className })
-  await expect(classOption).toBeVisible({ timeout: 10000 })
-  await classOption.click()
-
-  // Verify the selected class option has the required payment method (drop-in)
   await verifyClassOptionPaymentMethod(page, className, 'dropIn')
-
-  // Save lesson with ID extraction fallback
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/lessons',
-    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
-    collectionName: 'lessons',
-  })
-
-  return tomorrow
+  return await createLessonForTomorrowViaApi(page, classOptionId)
 }
 
 /**

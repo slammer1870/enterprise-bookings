@@ -2,9 +2,8 @@ import { test, expect } from '@playwright/test'
 import {
   ensureAdminLoggedIn,
   saveObjectAndWaitForNavigation,
-  waitForServerReady,
 } from './helpers'
-import { createClassOption, setLessonTomorrowAtTenToEleven, uniqueClassName } from '@repo/testing-config/src/playwright'
+import { createClassOption, createLessonViaApi, uniqueClassName } from '@repo/testing-config/src/playwright'
 
 /**
  * E2E test for admin lesson creation flow
@@ -19,45 +18,6 @@ import { createClassOption, setLessonTomorrowAtTenToEleven, uniqueClassName } fr
  */
 
 // shared helpers now come from @repo/testing-config (bru-grappling as standard)
-
-/**
- * Helper to select a class option in the lesson form and save the lesson.
- */
-async function selectClassOptionAndSaveLesson(page: any, className: string): Promise<void> {
-  const classOptionCombobox = page
-    .locator('text=Class Option')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-  
-  // Ensure combobox is visible and clickable
-  await expect(classOptionCombobox).toBeVisible({ timeout: 10000 })
-  await classOptionCombobox.click()
-  await page.waitForTimeout(500)
-
-  // Wait for and select the option
-  const createdOption = page.getByRole('option', { name: className })
-  await expect(createdOption).toBeVisible({ timeout: 10000 })
-  await createdOption.click()
-  
-  // Wait for dropdown to close and selection to be applied
-  await page.waitForTimeout(1000)
-  
-  // Ensure the dropdown is closed before proceeding
-  await expect(createdOption)
-    .not.toBeVisible({ timeout: 3000 })
-    .catch(() => {
-    // If dropdown is still open, press Escape to close it
-    return page.keyboard.press('Escape')
-  })
-
-  // Save lesson with ID extraction fallback
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/lessons',
-    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
-    collectionName: 'lessons',
-  })
-}
 
 /**
  * Helper to navigate to the lessons list for tomorrow and assert the class name exists.
@@ -139,11 +99,22 @@ test.describe('Admin Lesson Creation Flow', () => {
       collectionName: 'class-options',
     })
 
-    // Step 3: Create a lesson for tomorrow
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
+    const classOptionId = (() => {
+      const match = page.url().match(/\/admin\/collections\/class-options\/(\d+)/)
+      if (!match?.[1]) throw new Error(`Could not extract class option id from URL: ${page.url()}`)
+      return parseInt(match[1], 10)
+    })()
 
-    await selectClassOptionAndSaveLesson(page, className)
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    await createLessonViaApi(page, {
+      classOptionId,
+      date: tomorrow,
+      startHour: 10,
+      startMinute: 0,
+      endHour: 11,
+      endMinute: 0,
+    })
 
     // Step 4: Navigate to lessons page and verify the lesson exists for tomorrow
     await expectLessonVisibleForTomorrow(page, tomorrow, className)
@@ -182,11 +153,22 @@ test.describe('Admin Lesson Creation Flow', () => {
       collectionName: 'class-options',
     })
 
-    // Create a lesson for tomorrow using this class option
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
+    const classOptionId = (() => {
+      const match = page.url().match(/\/admin\/collections\/class-options\/(\d+)/)
+      if (!match?.[1]) throw new Error(`Could not extract class option id from URL: ${page.url()}`)
+      return parseInt(match[1], 10)
+    })()
 
-    await selectClassOptionAndSaveLesson(page, className)
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    await createLessonViaApi(page, {
+      classOptionId,
+      date: tomorrow,
+      startHour: 10,
+      startMinute: 0,
+      endHour: 11,
+      endMinute: 0,
+    })
     await expectLessonVisibleForTomorrow(page, tomorrow, className)
   })
 
@@ -223,11 +205,22 @@ test.describe('Admin Lesson Creation Flow', () => {
       collectionName: 'class-options',
     })
 
-    // Create a lesson for tomorrow using this class option
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
+    const classOptionId = (() => {
+      const match = page.url().match(/\/admin\/collections\/class-options\/(\d+)/)
+      if (!match?.[1]) throw new Error(`Could not extract class option id from URL: ${page.url()}`)
+      return parseInt(match[1], 10)
+    })()
 
-    await selectClassOptionAndSaveLesson(page, className)
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    await createLessonViaApi(page, {
+      classOptionId,
+      date: tomorrow,
+      startHour: 10,
+      startMinute: 0,
+      endHour: 11,
+      endMinute: 0,
+    })
     await expectLessonVisibleForTomorrow(page, tomorrow, className)
   })
 
@@ -279,11 +272,22 @@ test.describe('Admin Lesson Creation Flow', () => {
       collectionName: 'class-options',
     })
 
-    // Create a lesson for tomorrow using this class option
-    await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-    const tomorrow = await setLessonTomorrowAtTenToEleven(page)
+    const classOptionId = (() => {
+      const match = page.url().match(/\/admin\/collections\/class-options\/(\d+)/)
+      if (!match?.[1]) throw new Error(`Could not extract class option id from URL: ${page.url()}`)
+      return parseInt(match[1], 10)
+    })()
 
-    await selectClassOptionAndSaveLesson(page, className)
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    await createLessonViaApi(page, {
+      classOptionId,
+      date: tomorrow,
+      startHour: 10,
+      startMinute: 0,
+      endHour: 11,
+      endMinute: 0,
+    })
     await expectLessonVisibleForTomorrow(page, tomorrow, className)
   })
 })

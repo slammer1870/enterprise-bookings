@@ -24,6 +24,11 @@ import { AccessControls, HooksConfig } from "@repo/shared-types";
 import { lessonReadAccess } from "../access/lessons";
 import { setLockout } from "../hooks/set-lockout";
 
+const hasTenantsCollection = (req: any): boolean => {
+  const collections = req?.payload?.config?.collections;
+  return Array.isArray(collections) && collections.some((collection: any) => collection?.slug === "tenants");
+};
+
 const parseTimeString = (value: unknown): { hours: number; minutes: number } | null => {
   if (typeof value !== "string") return null;
   const s = value.trim();
@@ -186,7 +191,7 @@ const resolveLessonTimeZone = async ({
   if (siblingTenantTimeZone) return resolveTimeZone(siblingTenantTimeZone, fallbackTimeZone);
 
   const tenantId = getTenantIdFromValue(siblingData?.tenant ?? req?.context?.tenant);
-  if (!tenantId || !req?.payload?.findByID) return fallbackTimeZone;
+  if (!tenantId || !req?.payload?.findByID || !hasTenantsCollection(req)) return fallbackTimeZone;
 
   try {
     const tenant = await req.payload.findByID({

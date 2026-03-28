@@ -32,10 +32,9 @@ import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 }
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { LessonAdmin as LessonAdmin_a8ce920709833e15274cf94b2365830c } from '@repo/bookings-plugin/src/components/lessons/lesson-admin'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
+import { default as default_93204d94190b460b2a4b3e03089a6c3a } from '@/fields/last-check-in'
 import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
-import { default as default_93204d94190b460b2a4b3e03089a6c3a } from '@/fields/last-check-in'
-import { SyncStripe as SyncStripe_d4fc83fd43c18d4a7a3d1af9e8a85fe1 } from '@repo/bookings-payments'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
 import { CollectionCards as CollectionCards_ab83ff7e88da8d3530831f296ec4756a } from '@payloadcms/ui/rsc'
 
@@ -74,10 +73,9 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_a8ce920709833e15274cf94b2365830c,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
+  "@/fields/last-check-in#default": default_93204d94190b460b2a4b3e03089a6c3a,
   "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
   "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
-  "@/fields/last-check-in#default": default_93204d94190b460b2a4b3e03089a6c3a,
-  "@repo/bookings-payments#SyncStripe": SyncStripe_d4fc83fd43c18d4a7a3d1af9e8a85fe1,
   "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7,
   "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a
 }
