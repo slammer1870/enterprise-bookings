@@ -269,9 +269,10 @@ export const lessonsRouter = {
           return [];
         }
 
-        // Without any tenant context, tenant-scoped apps should degrade safely by returning
-        // an empty schedule. This preserves compatibility for callers that only expect "no throw".
-        if (tenantSlug == null && input.tenantId == null && tenantId == null) {
+        // Without tenant context, tenant-scoped apps should return an empty schedule
+        // to avoid leaking cross-tenant data. Non-tenant apps should still return all lessons.
+        const hasTenantsCollection = hasCollection(ctx.payload, "tenants");
+        if (tenantSlug == null && input.tenantId == null && tenantId == null && hasTenantsCollection) {
           return [];
         }
 

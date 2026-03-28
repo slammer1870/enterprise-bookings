@@ -4,10 +4,16 @@ import type { TypedUser } from 'payload'
 import { headers as requestHeaders } from 'next/headers'
 
 export const getSession = async (): Promise<Session | null> => {
-  const payload = await getPayload()
-  const headers = await requestHeaders()
-  const session = await payload.betterAuth.api.getSession({ headers })
-  return session as Session | null
+  try {
+    const payload = await getPayload()
+    const headers = await requestHeaders()
+    const session = await payload.betterAuth.api.getSession({ headers })
+    return session as Session | null
+  } catch (error) {
+    // If getSession fails (e.g. missing/invalid session cookie), treat as unauthenticated
+    console.error("[getSession] better-auth session fetch failed:", error)
+    return null
+  }
 }
 
 export const getUserAccounts = async (): Promise<Account[]> => {
