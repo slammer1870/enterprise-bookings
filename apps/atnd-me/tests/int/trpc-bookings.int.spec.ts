@@ -645,9 +645,9 @@ describe('tRPC Bookings Integration Tests', () => {
     it('should not return cancelled bookings', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()
-      startTime.setHours(22, 0, 0, 0)
+      startTime.setHours(10, 0, 0, 0)
       const endTime = new Date(startTime)
-      endTime.setHours(23, 0, 0, 0)
+      endTime.setHours(11, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
         'lessons',
@@ -1652,9 +1652,9 @@ describe('tRPC Bookings Integration Tests', () => {
     it('setMyBookingQuantityForLesson only considers confirmed; pending bookings remain untouched', async () => {
       const startTime = new Date()
       startTime.setDate(startTime.getDate() + 1)
-      startTime.setHours(22, 0, 0, 0)
+      startTime.setHours(10, 0, 0, 0)
       const endTime = new Date(startTime)
-      endTime.setHours(23, 0, 0, 0)
+      endTime.setHours(11, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
         'lessons',
@@ -2285,7 +2285,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
     }, TEST_TIMEOUT)
 
-    it('redirects to manage when lesson is single-slot but membership is past due', async () => {
+    it('redirects to booking page when lesson is single-slot but membership is past due', async () => {
       const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
       const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
       if (!hasPlans || !hasSubs) return
@@ -2365,7 +2365,9 @@ describe('tRPC Bookings Integration Tests', () => {
       })
 
       expect(result).toBeDefined()
-      expect(result.redirectUrl).toBe(`/bookings/${testLesson.id}/manage`)
+      // Past-due subscriptions are not directly usable, so the shortcut falls back to
+      // the booking page where the membership UI can surface the customer portal flow.
+      expect(result.redirectUrl).toBe(`/bookings/${testLesson.id}`)
 
       const bookings = await payload.find({
         collection: 'bookings',
