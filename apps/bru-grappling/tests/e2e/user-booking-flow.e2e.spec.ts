@@ -88,7 +88,10 @@ async function createLessonForTomorrowViaApi(page: any, classOptionId: number): 
  * Ensure there is a lesson tomorrow with a basic class option.
  * Returns the Date for tomorrow.
  */
-async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'): Promise<Date> {
+async function ensureLessonForTomorrow(
+  page: any,
+  className = `E2E Test Class ${Date.now()}`,
+): Promise<{ tomorrow: Date; className: string }> {
   const existingClassOption = await apiGet<{ docs?: Array<{ id: number }> }>(
     page,
     `/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
@@ -100,7 +103,8 @@ async function ensureLessonForTomorrow(page: any, className = 'E2E Test Class'):
       description: 'A test class option for e2e',
     }))
 
-  return await createLessonForTomorrowViaApi(page, classOptionId)
+  const tomorrow = await createLessonForTomorrowViaApi(page, classOptionId)
+  return { tomorrow, className }
 }
 
 function getScheduleLessonCard(page: any, className: string) {
@@ -109,7 +113,6 @@ function getScheduleLessonCard(page: any, className: string) {
     .first()
     .locator('div.flex.w-full.flex-col.gap-4.border-b', {
       has: page.locator('div.text-xl.font-medium', { hasText: className }),
-      hasText: /10:00.*AM.*11:00.*AM/i,
     })
     .first()
 }
@@ -337,11 +340,11 @@ test.describe('User booking flow from schedule', () => {
     // Admin phase: ensure prerequisites
     await ensureAdminLoggedIn(page)
     await ensureHomePageWithSchedule(page)
-    const tomorrow = await ensureLessonForTomorrow(page)
+    const { tomorrow, className } = await ensureLessonForTomorrow(page)
 
     // Verify the class option has NO payment methods configured
     // This ensures the lesson can be checked in directly without payment flow
-    await verifyClassOptionHasNoPaymentMethods(page, 'E2E Test Class')
+    await verifyClassOptionHasNoPaymentMethods(page, className)
 
     // Log out admin
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
@@ -359,10 +362,10 @@ test.describe('User booking flow from schedule', () => {
     await goToTomorrowInSchedule(page)
 
     // Find the specific lesson by class name to ensure we click the correct one
-    // The lesson we created has class name "E2E Test Class" and time 10:00 AM - 11:00 AM
+    // The lesson we created has a unique class name for this test run.
     // This ensures we're clicking on the lesson we created, not another lesson on the schedule
 
-    const lessonCard = getScheduleLessonCard(page, 'E2E Test Class')
+    const lessonCard = getScheduleLessonCard(page, className)
     await expect(lessonCard).toBeVisible({ timeout: 60000 })
 
     // Within this specific lesson card, find the "Book" or "Check In" button
@@ -555,10 +558,8 @@ test.describe('User booking flow from schedule', () => {
 
     await goToTomorrowInSchedule(page)
 
-    // Find the specific lesson by class name to ensure we're checking the correct one
-    // The lesson we created has class name "E2E Test Class" and time 10:00 AM - 11:00 AM
-
-    const lessonCardForCancel = getScheduleLessonCard(page, 'E2E Test Class')
+    // Find the specific lesson by the unique class name created for this test run.
+    const lessonCardForCancel = getScheduleLessonCard(page, className)
     await expect(lessonCardForCancel).toBeVisible({ timeout: 60000 })
 
     // With the schedule view model, a single booking can show "Modify Booking" (manage quantity)
@@ -633,7 +634,7 @@ test.describe('User booking flow from schedule', () => {
     await goToTomorrowInSchedule(page)
 
     // Re-find the lesson card on the schedule (fresh DOM after reload).
-    const lessonCardAfterCancel = getScheduleLessonCard(page, 'E2E Test Class')
+    const lessonCardAfterCancel = getScheduleLessonCard(page, className)
 
     const bookButtonAfter = lessonCardAfterCancel
       .getByRole('button', { name: /^(Book|Check In)$/i })
