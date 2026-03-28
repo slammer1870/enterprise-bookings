@@ -138,7 +138,7 @@ export const bookingsRouter = {
       const usable = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
 
       if (!usable) {
-        return { redirectUrl: `/bookings/${lessonId}/manage` };
+        return { redirectUrl: `/bookings/${lessonId}` };
       }
 
       const limitReached = await hasReachedSubscriptionLimit(usable as any, ctx.payload, lessonStart);
