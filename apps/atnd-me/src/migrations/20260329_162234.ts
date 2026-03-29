@@ -2,13 +2,15 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhHero' BEFORE 'clHeroLoc';
-  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhTeam' BEFORE 'clHeroLoc';
-  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhTimetable' BEFORE 'clHeroLoc';
-  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhTestimonials' BEFORE 'clHeroLoc';
-  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhPricing' BEFORE 'clHeroLoc';
-  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhContact' BEFORE 'clHeroLoc';
-  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE 'dhGroups' BEFORE 'clHeroLoc';
+  DO $$ BEGIN
+  IF to_regclass('public.pages_blocks_dh_hero') IS NULL THEN
+   ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhHero' BEFORE 'clHeroLoc';
+  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhTeam' BEFORE 'clHeroLoc';
+  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhTimetable' BEFORE 'clHeroLoc';
+  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhTestimonials' BEFORE 'clHeroLoc';
+  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhPricing' BEFORE 'clHeroLoc';
+  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhContact' BEFORE 'clHeroLoc';
+  ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'dhGroups' BEFORE 'clHeroLoc';
   CREATE TABLE "pages_blocks_dh_hero" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
@@ -471,7 +473,10 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "_pages_v_blocks_dh_groups_hero_image_idx" ON "_pages_v_blocks_dh_groups" USING btree ("hero_image_id");
   CREATE INDEX "_pages_v_blocks_dh_groups_cta_cta_form_idx" ON "_pages_v_blocks_dh_groups" USING btree ("cta_form_id");
   ALTER TABLE "media" ADD CONSTRAINT "media_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
-  CREATE INDEX "media_tenant_idx" ON "media" USING btree ("tenant_id");`)
+  CREATE INDEX "media_tenant_idx" ON "media" USING btree ("tenant_id");
+  END IF;
+  END $$;
+`)
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {

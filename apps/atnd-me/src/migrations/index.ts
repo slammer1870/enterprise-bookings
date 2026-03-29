@@ -66,6 +66,7 @@ import * as migration_20260319_media_tenant_id from './20260319_media_tenant_id'
 import * as migration_20260325_tenants_timezone from './20260325_tenants_timezone';
 import * as migration_20260326_form_submissions_tenant_id from './20260326_form_submissions_tenant_id';
 import * as migration_20260329_162234 from './20260329_162234';
+import * as migration_20260329_202734 from './20260329_202734';
 
 export const migrations = [
   {
@@ -406,6 +407,11 @@ export const migrations = [
   {
     up: migration_20260329_162234.up,
     down: migration_20260329_162234.down,
-    name: '20260329_162234'
+    name: '20260329_162234',
+  },
+  {
+    up: migration_20260329_202734.up,
+    down: migration_20260329_202734.down,
+    name: '20260329_202734'
   },
 ];
