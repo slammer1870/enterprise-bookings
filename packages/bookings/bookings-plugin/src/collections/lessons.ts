@@ -102,6 +102,34 @@ const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date
   return null;
 };
 
+const resolveLessonDate = (value: unknown): Date | null => {
+  if (value instanceof Date) return value;
+
+  if (typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (!value || typeof value !== "object") return null;
+
+  if ("value" in value) {
+    const extracted = resolveLessonDate((value as { value: unknown }).value);
+    if (extracted && !Number.isNaN(extracted.getTime())) return extracted;
+  }
+
+  for (const child of Object.values(value)) {
+    const extracted = resolveLessonDate(child);
+    if (extracted && !Number.isNaN(extracted.getTime())) return extracted;
+  }
+
+  return null;
+};
+
 const getDefaultTimeZone = (req: { payload?: { config?: { admin?: { timezones?: { defaultTimezone?: string } } } } } | undefined) =>
   resolveTimeZone(req?.payload?.config?.admin?.timezones?.defaultTimezone);
 
@@ -560,6 +588,39 @@ const defaultHooks: HooksConfig = {
           if (data) {
             data.instructor = null;
           }
+        }
+      }
+
+      if (req?.context?.skipLessonTimeNormalization) {
+        return data;
+      }
+
+      if (data?.date) {
+        const siblingData = data as Record<string, unknown>;
+        const lessonDate = resolveLessonDate(data.date);
+        if (lessonDate) {
+          const timeZone = await resolveLessonTimeZone({
+            req,
+            siblingData,
+          });
+
+          const normalizeTimeField = (fieldName: "startTime" | "endTime") => {
+            const rawValue = siblingData?.[fieldName];
+            if (typeof rawValue === "undefined") return;
+            if (isCanonicalDateTimeString(rawValue)) return;
+
+            const time = getWallClockTimeInTimeZone(rawValue, timeZone);
+            if (!time) return;
+
+            siblingData[fieldName] = combineDateAndTimeInTimeZone(
+              lessonDate,
+              time,
+              timeZone
+            ).toISOString();
+          };
+
+          normalizeTimeField("startTime");
+          normalizeTimeField("endTime");
         }
       }
       return data;
