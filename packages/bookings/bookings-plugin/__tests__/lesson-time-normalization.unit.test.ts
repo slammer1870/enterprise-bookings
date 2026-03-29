@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { generateLessonCollection } from "../src/collections/lessons";
 import { getLessonsQuery } from "../src/utils/query";
 
+const LESSON_TIMEZONE = "Europe/Dublin";
+
 const normalizeTimeFields = async (data: Record<string, unknown>) => {
   const lessonCollection = generateLessonCollection({
     enabled: true,
@@ -16,7 +18,7 @@ const normalizeTimeFields = async (data: Record<string, unknown>) => {
     config: {
       admin: {
         timezones: {
-          defaultTimezone: "Europe/Dublin",
+          defaultTimezone: LESSON_TIMEZONE,
         },
       },
     },
@@ -97,7 +99,7 @@ describe("Lesson beforeChange normalization", () => {
     await normalizeTimeFields(data);
 
     const start = new Date(String(data.startTime));
-    const query = qs.parse(getLessonsQuery(new Date(lessonDate)), {
+    const query = qs.parse(getLessonsQuery(new Date(lessonDate), LESSON_TIMEZONE), {
       ignoreQueryPrefix: true,
     });
     const queryConditions = query.where?.and as unknown as Array<{
