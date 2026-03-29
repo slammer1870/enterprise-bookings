@@ -37,6 +37,62 @@ const normalizeTimeFields = async (data: Record<string, unknown>) => {
 };
 
 describe("Lesson beforeChange normalization", () => {
+  it("re-bases canonical ISO time picker values onto the selected lesson date", async () => {
+    const selectedLessonDate = new TZDate(2026, 3, 1, 0, 0, 0, 0, "Europe/Dublin");
+    const adminPickerStartValue = new TZDate(2026, 2, 29, 10, 0, 0, 0, "Europe/Dublin");
+    const adminPickerEndValue = new TZDate(2026, 2, 29, 11, 0, 0, 0, "Europe/Dublin");
+    const data = {
+      date: selectedLessonDate.toISOString(),
+      startTime: adminPickerStartValue.toISOString(),
+      endTime: adminPickerEndValue.toISOString(),
+    } as Record<string, unknown>;
+
+    await normalizeTimeFields(data);
+
+    const start = new TZDate(new Date(String(data.startTime)), "Europe/Dublin");
+    const end = new TZDate(new Date(String(data.endTime)), "Europe/Dublin");
+
+    expect(start.getFullYear()).toBe(2026);
+    expect(start.getMonth()).toBe(3);
+    expect(start.getDate()).toBe(1);
+    expect(start.getHours()).toBe(10);
+    expect(start.getMinutes()).toBe(0);
+
+    expect(end.getFullYear()).toBe(2026);
+    expect(end.getMonth()).toBe(3);
+    expect(end.getDate()).toBe(1);
+    expect(end.getHours()).toBe(11);
+    expect(end.getMinutes()).toBe(0);
+  });
+
+  it("re-bases admin time picker Date values onto the selected lesson date", async () => {
+    const selectedLessonDate = new TZDate(2026, 3, 3, 0, 0, 0, 0, "Europe/Dublin");
+    const adminPickerStartValue = new TZDate(2026, 2, 29, 10, 0, 0, 0, "Europe/Dublin");
+    const adminPickerEndValue = new TZDate(2026, 2, 29, 11, 0, 0, 0, "Europe/Dublin");
+    const data = {
+      date: selectedLessonDate.toISOString(),
+      startTime: new Date(adminPickerStartValue.toISOString()),
+      endTime: new Date(adminPickerEndValue.toISOString()),
+    } as Record<string, unknown>;
+
+    await normalizeTimeFields(data);
+
+    const start = new TZDate(new Date(String(data.startTime)), "Europe/Dublin");
+    const end = new TZDate(new Date(String(data.endTime)), "Europe/Dublin");
+
+    expect(start.getFullYear()).toBe(2026);
+    expect(start.getMonth()).toBe(3);
+    expect(start.getDate()).toBe(3);
+    expect(start.getHours()).toBe(10);
+    expect(start.getMinutes()).toBe(0);
+
+    expect(end.getFullYear()).toBe(2026);
+    expect(end.getMonth()).toBe(3);
+    expect(end.getDate()).toBe(3);
+    expect(end.getHours()).toBe(11);
+    expect(end.getMinutes()).toBe(0);
+  });
+
   it("normalizes time-only strings against provided object date payload", async () => {
     const lessonDate = new TZDate(2026, 4, 10, 0, 0, 0, 0, "Europe/Dublin");
     const data = {

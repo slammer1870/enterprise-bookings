@@ -285,7 +285,6 @@ const defaultFields: Field[] = [
           beforeChange: [
             async ({ value, siblingData, req }) => {
               if (typeof value === "undefined") return value;
-              if (isCanonicalDateTimeString(value)) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
@@ -315,7 +314,6 @@ const defaultFields: Field[] = [
           beforeChange: [
             async ({ value, siblingData, req }) => {
               if (typeof value === "undefined") return value;
-              if (isCanonicalDateTimeString(value)) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
@@ -623,7 +621,6 @@ const defaultHooks: HooksConfig = {
           const normalizeTimeField = (fieldName: "startTime" | "endTime") => {
             const rawValue = siblingData?.[fieldName];
             if (typeof rawValue === "undefined") return;
-            if (isCanonicalDateTimeString(rawValue)) return;
 
             const time = getWallClockTimeInTimeZone(rawValue, timeZone);
             if (!time) return;
