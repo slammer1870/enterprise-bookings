@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
@@ -18,23 +18,59 @@ import { format } from "date-fns";
 
 import { getLessonsQuery } from "@repo/shared-utils/query";
 
-import { useTransition } from "react";
+function parseSelectedDate(selectedDateISO?: string): Date {
+  if (!selectedDateISO) return new Date();
 
-export const DatePicker = () => {
+  const parsed = new Date(selectedDateISO);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function isSameCalendarDay(left?: Date, right?: Date) {
+  if (!left || !right) return false;
+
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) => {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [date, setDate] = useState<Date | undefined>(new Date());
-
-  const query = getLessonsQuery(date || new Date());
+  const selectedDateFromUrl = useMemo(
+    () => parseSelectedDate(selectedDateISO),
+    [selectedDateISO],
+  );
+  const [date, setDate] = useState<Date | undefined>(selectedDateFromUrl);
+  const [month, setMonth] = useState<Date>(selectedDateFromUrl);
 
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    setDate((currentDate) =>
+      isSameCalendarDay(currentDate, selectedDateFromUrl) ? currentDate : selectedDateFromUrl,
+    );
+    setMonth(selectedDateFromUrl);
+  }, [selectedDateFromUrl]);
+
+  useEffect(() => {
+    if (selectedDateISO) return;
+
     startTransition(() => {
-      router.push(pathname + query);
+      router.replace(pathname + getLessonsQuery(selectedDateFromUrl));
     });
-  }, [date]);
+  }, [pathname, router, selectedDateFromUrl, selectedDateISO]);
+
+  const handleSelect = (nextDate: Date | undefined) => {
+    if (!nextDate) return;
+    setDate(nextDate);
+    setMonth(nextDate);
+    startTransition(() => {
+      router.push(pathname + getLessonsQuery(nextDate));
+    });
+  };
 
   return (
     <>
@@ -42,8 +78,9 @@ export const DatePicker = () => {
         <Calendar
           mode="single"
           selected={date}
-          onSelect={setDate}
-          defaultMonth={date}
+          onSelect={handleSelect}
+          month={month}
+          onMonthChange={setMonth}
           showOutsideDays
           required
           disabled={isPending}
@@ -66,9 +103,10 @@ export const DatePicker = () => {
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               selected={date}
-              onSelect={setDate}
+              onSelect={handleSelect}
               mode="single"
-              defaultMonth={date}
+              month={month}
+              onMonthChange={setMonth}
               showOutsideDays
               required
               initialFocus

@@ -7,10 +7,49 @@ import {
   selectClassOptionInLessonForm,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
-import { getLessonsQuery } from '@repo/shared-utils'
 
 function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function formatCalendarButtonLabel(date: Date): string {
+  const weekdays = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ]
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ]
+  const day = date.getDate()
+  const mod100 = day % 100
+  const suffix =
+    mod100 >= 11 && mod100 <= 13
+      ? 'th'
+      : day % 10 === 1
+        ? 'st'
+        : day % 10 === 2
+          ? 'nd'
+          : day % 10 === 3
+            ? 'rd'
+            : 'th'
+
+  return `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${day}${suffix}, ${date.getFullYear()}`
 }
 
 async function chooseTenantInCreateModal(page: Parameters<typeof test>[0]['page'], tenantName: string) {
@@ -41,6 +80,40 @@ async function chooseTenantInCreateModal(page: Parameters<typeof test>[0]['page'
   await continueButton.click()
   await page.waitForLoadState('load').catch(() => null)
   await expect(dialog).not.toBeVisible({ timeout: 15000 })
+}
+
+async function openLessonsDashboardForDate(
+  page: Parameters<typeof test>[0]['page'],
+  targetDate: Date,
+) {
+  await page.goto('/admin/collections/lessons', {
+    waitUntil: 'domcontentloaded',
+    timeout: process.env.CI ? 120000 : 60000,
+  })
+
+  await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+    timeout: process.env.CI ? 120000 : 60000,
+  })
+
+  const monthStatus = page.getByRole('status').first()
+  const nextMonthButton = page.getByRole('button', { name: /go to the next month/i })
+  const targetMonthLabel = targetDate.toLocaleString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  })
+
+  for (let i = 0; i < 12; i += 1) {
+    const visibleMonth = (await monthStatus.textContent())?.trim()
+    if (visibleMonth === targetMonthLabel) break
+    await nextMonthButton.click()
+  }
+
+  await expect(monthStatus).toHaveText(targetMonthLabel, {
+    timeout: process.env.CI ? 120000 : 60000,
+  })
+
+  const targetDateLabel = formatCalendarButtonLabel(targetDate)
+  await page.getByRole('button', { name: new RegExp(`^${escapeRegex(targetDateLabel)}$`) }).click()
 }
 
 test.describe('Admin lesson creation date regression', () => {
@@ -88,14 +161,8 @@ test.describe('Admin lesson creation date regression', () => {
     await setLessonDateAndTime(page, targetDate)
     await saveLesson(page)
 
-    await page.goto(`/admin/collections/lessons${getLessonsQuery(targetDate)}`, {
-      waitUntil: 'domcontentloaded',
-      timeout: process.env.CI ? 120000 : 60000,
-    })
+    await openLessonsDashboardForDate(page, targetDate)
 
-    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
-      timeout: process.env.CI ? 120000 : 60000,
-    })
     await expect(page.getByRole('cell', { name: className }).first()).toBeVisible({
       timeout: process.env.CI ? 120000 : 60000,
     })

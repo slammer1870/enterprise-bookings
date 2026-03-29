@@ -16,6 +16,7 @@ import type { User as SharedUser } from "@repo/shared-types";
 
 import { LessonLoading } from "./lesson-loading";
 import { FetchLessons } from "./fetch-lessons";
+import { getLessonStartTimeFilter } from "../../utils/lesson-search-params";
 
 export const LessonAdmin: React.FC<{
   params: any;
@@ -68,6 +69,8 @@ export const LessonAdmin: React.FC<{
     }
   }
 
+  const selectedDateISO = getLessonStartTimeFilter(searchParams);
+
   return (
     <Gutter className="!pt-0">
       <div className="flex flex-row justify-start items-center mb-4 gap-3">
@@ -89,12 +92,12 @@ export const LessonAdmin: React.FC<{
       </div>
       <div className="flex flex-col md:flex-row">
         <div className="mb-8 md:mb-0 md:mr-8">
-          <DatePicker />
+          <DatePicker selectedDateISO={selectedDateISO} />
         </div>
         <div className="flex flex-col w-full">
           <Suspense
             key={[
-              searchParams["where[or][0][and][0][startTime][greater_than_equal]"] as string,
+              selectedDateISO,
               req?.context?.tenant ?? "all",
             ]
               .filter(Boolean)

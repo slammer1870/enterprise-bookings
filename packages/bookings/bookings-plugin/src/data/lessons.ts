@@ -3,7 +3,7 @@ import { BasePayload, PayloadRequest } from "payload";
 import { getLessonsQuery } from "@repo/shared-utils";
 import { Lesson } from "@repo/shared-types";
 
-import qs from "qs";
+import { getLessonStartTimeFilter, normalizeLessonSearchParams } from "../utils/lesson-search-params";
 
 export const getLessons = async (
   payload: BasePayload,
@@ -11,17 +11,9 @@ export const getLessons = async (
   params: any,
   req?: PayloadRequest
 ) => {
-  const startQuery = "where[or][0][and][0][startTime][greater_than_equal]";
-
-  const condition = searchParams && searchParams[startQuery];
-  const effectiveSearchParams = condition
-    ? searchParams
-    : getLessonsQuery(new Date()).replace(/^\?/, "");
-
-  const ps = qs.parse(effectiveSearchParams as unknown as string, {
-    ignoreQueryPrefix: true,
-    depth: 6,
-  });
+  const startTimeFilter = getLessonStartTimeFilter(searchParams);
+  const effectiveSearchParams = startTimeFilter ? searchParams : getLessonsQuery(new Date()).replace(/^\?/, "");
+  const ps = normalizeLessonSearchParams(effectiveSearchParams);
 
   // segments: ['admin', 'collections', 'lessons'] -> use 'lessons'
   const collection =
