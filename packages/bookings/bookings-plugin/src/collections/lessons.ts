@@ -130,6 +130,13 @@ const resolveLessonDate = (value: unknown): Date | null => {
   return null;
 };
 
+const normalizeDateForDateField = (value: unknown): string | null => {
+  if (!value || typeof value !== "object") return null;
+  const parsedDate = resolveLessonDate(value);
+  if (!parsedDate || Number.isNaN(parsedDate.getTime())) return null;
+  return parsedDate.toISOString();
+};
+
 const getDefaultTimeZone = (req: { payload?: { config?: { admin?: { timezones?: { defaultTimezone?: string } } } } } | undefined) =>
   resolveTimeZone(req?.payload?.config?.admin?.timezones?.defaultTimezone);
 
@@ -250,6 +257,15 @@ const defaultFields: Field[] = [
         required: true,
         defaultValue: new Date(),
         localized: true,
+        hooks: {
+          beforeValidate: [
+            ({ value }) => {
+              if (value instanceof Date || typeof value === "string") return value;
+              const normalizedDate = normalizeDateForDateField(value);
+              return normalizedDate ?? value;
+            },
+          ],
+        },
         admin: {
           date: {
             displayFormat: "dd/MM/yyyy",
