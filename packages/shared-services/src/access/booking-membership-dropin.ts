@@ -7,6 +7,15 @@ import { validateLessonStatus } from "../lesson";
 
 import { validateLessonPaymentMethods } from "../lesson";
 
+function normalizeID(id: unknown): number | null {
+  if (typeof id === "number" && Number.isFinite(id)) return id;
+  if (typeof id === "string") {
+    const n = parseInt(id, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 export const bookingCreateMembershipDropinAccess = async ({
   req,
   data,
@@ -27,6 +36,7 @@ export const bookingCreateMembershipDropinAccess = async ({
       collection: "lessons",
       id: lessonId,
       depth: 3,
+      overrideAccess: true,
     })) as unknown as Lesson;
 
     if (!lesson || !user) return false;
@@ -61,20 +71,26 @@ export const bookingUpdateMembershipDropinAccess = async ({
   let booking: Booking | undefined;
 
   try {
+    const requester = req.user as unknown as User | null;
+    const requesterId = normalizeID(requester?.id);
+    if (!requesterId) return false;
+
     if (id) {
       booking = (await req.payload.findByID({
         collection: "bookings",
         id,
         depth: 3,
+        overrideAccess: true,
       })) as unknown as Booking;
     } else {
       const bookingQuery = await req.payload.find({
         collection: "bookings",
         where: {
           lesson: { equals: lessonId },
-          user: { equals: userId },
+          user: { equals: userId ?? requesterId },
         },
         depth: 3,
+        overrideAccess: true,
       });
 
       booking = bookingQuery.docs[0] as Booking | undefined;
@@ -86,19 +102,23 @@ export const bookingUpdateMembershipDropinAccess = async ({
       collection: "lessons",
       id: booking.lesson.id,
       depth: 3,
+      overrideAccess: true,
     })) as unknown as Lesson;
 
     const user = (await req.payload.findByID({
       collection: "users",
-      id: userId || booking.user.id,
+      id: userId ?? booking.user.id,
       depth: 3,
+      overrideAccess: true,
     })) as unknown as User;
 
     if (!lesson || !user) return false;
 
-    if (checkRole(["admin"], user)) return true;
+    if (requester && checkRole(["admin"], requester)) return true;
 
-    if (req.user?.id !== user.id) return false;
+    const bookingUserId = normalizeID(user.id);
+    if (!bookingUserId) return false;
+    if (requesterId !== bookingUserId) return false;
 
     if (req.data?.status === "cancelled") return true;
 
