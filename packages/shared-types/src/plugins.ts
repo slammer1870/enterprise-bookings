@@ -15,14 +15,12 @@ import {
   CollectionBeforeReadHook,
 } from "payload";
 
-export type FieldsOverride = (args: { defaultFields: Field[] }) => Field[];
-export type HooksOverride = (args: {
-  defaultHooks: HooksConfig;
-}) => HooksConfig;
+export type FieldsOverride = (_: { defaultFields: Field[] }) => Field[];
+export type HooksOverride = (_: { defaultHooks: HooksConfig }) => HooksConfig;
 
 export type AccessControls =
   | {
-      admin?: ({ req }: { req: PayloadRequest }) => boolean | Promise<boolean>;
+      admin?: (_: { req: PayloadRequest }) => boolean | Promise<boolean>;
       create?: Access;
       delete?: Access;
       read?: Access;

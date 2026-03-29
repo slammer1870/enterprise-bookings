@@ -67,9 +67,8 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    users: User;
-    accounts: Account;
     sessions: Session;
+    accounts: Account;
     verifications: Verification;
     'admin-invitations': AdminInvitation;
     media: Media;
@@ -79,6 +78,7 @@ export interface Config {
     'class-options': ClassOption;
     bookings: Booking;
     'drop-ins': DropIn;
+    users: User;
     transactions: Transaction;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -87,20 +87,21 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    users: {
-      lessons: 'lessons';
-    };
     lessons: {
       bookings: 'bookings';
     };
     'drop-ins': {
       'class-optionsPaymentMethods': 'class-options';
     };
+    users: {
+      lessons: 'lessons';
+      account: 'accounts';
+      session: 'sessions';
+    };
   };
   collectionsSelect: {
-    users: UsersSelect<false> | UsersSelect<true>;
-    accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
+    accounts: AccountsSelect<false> | AccountsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -110,6 +111,7 @@ export interface Config {
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -120,6 +122,7 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
+  fallbackLocale: null;
   globals: {
     scheduler: Scheduler;
   };
@@ -160,6 +163,41 @@ export interface UserAuthOperations {
   };
 }
 /**
+ * Sessions are active sessions for users. They are used to authenticate users with a session token
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions".
+ */
+export interface Session {
+  id: number;
+  /**
+   * The date and time when the session will expire
+   */
+  expiresAt: string;
+  /**
+   * The unique session token
+   */
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The IP address of the device
+   */
+  ipAddress?: string | null;
+  /**
+   * The user agent information of the device
+   */
+  userAgent?: string | null;
+  /**
+   * The user that the session belongs to
+   */
+  user: number | User;
+  /**
+   * The admin who is impersonating this session
+   */
+  impersonatedBy?: (number | null) | User;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
@@ -174,7 +212,7 @@ export interface User {
   /**
    * Users chosen display name
    */
-  name?: string | null;
+  name: string;
   /**
    * The email of the user
    */
@@ -187,12 +225,12 @@ export interface User {
    * The image of the user
    */
   image?: string | null;
-  /**
-   * The role of the user
-   */
-  role: 'admin' | 'customer';
-  updatedAt: string;
   createdAt: string;
+  updatedAt: string;
+  /**
+   * The role/ roles of the user
+   */
+  role?: ('admin' | 'customer')[] | null;
   /**
    * Whether the user is banned from the platform
    */
@@ -205,6 +243,17 @@ export interface User {
    * The date and time when the ban will expire
    */
   banExpires?: string | null;
+  account?: {
+    docs?: (number | Account)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  session?: {
+    docs?: (number | Session)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  stripeCustomerId?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -298,6 +347,9 @@ export interface ClassOption {
   places: number;
   description: string;
   paymentMethods?: {
+    /**
+     * One-off payment option for this class (e.g. pay at door, single-session fee). Select a drop-in to allow customers to pay per booking without a class pass or membership.
+     */
     allowedDropIn?: (number | null) | DropIn;
   };
   updatedAt: string;
@@ -313,6 +365,9 @@ export interface DropIn {
   description?: string | null;
   isActive: boolean;
   price: number;
+  /**
+   * When enabled, users can book more than one spot for the same lesson when paying drop-in.
+   */
   adjustable: boolean;
   discountTiers?:
     | {
@@ -370,10 +425,6 @@ export interface Transaction {
 export interface Account {
   id: number;
   /**
-   * The user that the account belongs to
-   */
-  user: number | User;
-  /**
    * The id of the account as provided by the SSO or equal to userId for credential accounts
    */
   accountId: string;
@@ -382,6 +433,10 @@ export interface Account {
    */
   providerId: string;
   /**
+   * The user that the account belongs to
+   */
+  user: number | User;
+  /**
    * The access token of the account. Returned by the provider
    */
   accessToken?: string | null;
@@ -389,6 +444,10 @@ export interface Account {
    * The refresh token of the account. Returned by the provider
    */
   refreshToken?: string | null;
+  /**
+   * The id token for the account. Returned by the provider
+   */
+  idToken?: string | null;
   /**
    * The date and time when the access token will expire
    */
@@ -402,50 +461,11 @@ export interface Account {
    */
   scope?: string | null;
   /**
-   * The id token for the account. Returned by the provider
-   */
-  idToken?: string | null;
-  /**
    * The hashed password of the account. Mainly used for email and password authentication
    */
   password?: string | null;
-  updatedAt: string;
   createdAt: string;
-}
-/**
- * Sessions are active sessions for users. They are used to authenticate users with a session token
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions".
- */
-export interface Session {
-  id: number;
-  /**
-   * The user that the session belongs to
-   */
-  user: number | User;
-  /**
-   * The unique session token
-   */
-  token: string;
-  /**
-   * The date and time when the session will expire
-   */
-  expiresAt: string;
-  /**
-   * The IP address of the device
-   */
-  ipAddress?: string | null;
-  /**
-   * The user agent information of the device
-   */
-  userAgent?: string | null;
   updatedAt: string;
-  createdAt: string;
-  /**
-   * The admin who is impersonating this session
-   */
-  impersonatedBy?: (number | null) | User;
 }
 /**
  * Verifications are used to verify authentication requests
@@ -467,8 +487,8 @@ export interface Verification {
    * The date and time when the verification request will expire
    */
   expiresAt: string;
-  updatedAt: string;
   createdAt: string;
+  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -496,6 +516,10 @@ export interface Page {
         | ScheduleBlock
         | LocationBlock
         | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
             faqs?:
               | {
                   question?: string | null;
@@ -680,16 +704,12 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'users';
-        value: number | User;
+        relationTo: 'sessions';
+        value: number | Session;
       } | null)
     | ({
         relationTo: 'accounts';
         value: number | Account;
-      } | null)
-    | ({
-        relationTo: 'sessions';
-        value: number | Session;
       } | null)
     | ({
         relationTo: 'verifications';
@@ -726,6 +746,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'drop-ins';
         value: number | DropIn;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'transactions';
@@ -775,53 +799,35 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
+ * via the `definition` "sessions_select".
  */
-export interface UsersSelect<T extends boolean = true> {
-  lessons?: T;
-  roles?: T;
-  name?: T;
-  email?: T;
-  emailVerified?: T;
-  image?: T;
-  role?: T;
-  updatedAt?: T;
+export interface SessionsSelect<T extends boolean = true> {
+  expiresAt?: T;
+  token?: T;
   createdAt?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
+  updatedAt?: T;
+  ipAddress?: T;
+  userAgent?: T;
+  user?: T;
+  impersonatedBy?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "accounts_select".
  */
 export interface AccountsSelect<T extends boolean = true> {
-  user?: T;
   accountId?: T;
   providerId?: T;
+  user?: T;
   accessToken?: T;
   refreshToken?: T;
+  idToken?: T;
   accessTokenExpiresAt?: T;
   refreshTokenExpiresAt?: T;
   scope?: T;
-  idToken?: T;
   password?: T;
-  updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions_select".
- */
-export interface SessionsSelect<T extends boolean = true> {
-  user?: T;
-  token?: T;
-  expiresAt?: T;
-  ipAddress?: T;
-  userAgent?: T;
   updatedAt?: T;
-  createdAt?: T;
-  impersonatedBy?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -831,8 +837,8 @@ export interface VerificationsSelect<T extends boolean = true> {
   identifier?: T;
   value?: T;
   expiresAt?: T;
-  updatedAt?: T;
   createdAt?: T;
+  updatedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -879,6 +885,7 @@ export interface PagesSelect<T extends boolean = true> {
         faqs?:
           | T
           | {
+              title?: T;
               faqs?:
                 | T
                 | {
@@ -1025,6 +1032,27 @@ export interface DropInsSelect<T extends boolean = true> {
   'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  lessons?: T;
+  roles?: T;
+  name?: T;
+  email?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  stripeCustomerId?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPayload } from 'payload'
+import { getPayload, type CollectionSlug } from 'payload'
 import config from '@/payload.config'
-import { subscriptionCreated } from '@repo/memberships'
+import type { Plan } from '@/payload-types'
+import { subscriptionCreated } from '@repo/bookings-payments'
 import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
@@ -51,19 +52,19 @@ export async function POST(request: NextRequest) {
 
     // 2) Plan with stripeProductId (create fake id if missing)
     const planQuery = await payload.find({
-      collection: 'plans',
+      collection: 'plans' as CollectionSlug,
       limit: 1,
       sort: '-createdAt',
       overrideAccess: true,
     })
-    const plan = planQuery.docs[0]
+    const plan = planQuery.docs[0] as Plan | undefined
     if (!plan) {
       return NextResponse.json({ error: 'No plans available for subscription test' }, { status: 400 })
     }
     const stripeProductId = plan.stripeProductId || `prod_test_${Date.now()}`
     if (!plan.stripeProductId) {
       await payload.update({
-        collection: 'plans',
+        collection: 'plans' as CollectionSlug,
         id: plan.id,
         data: { stripeProductId },
         overrideAccess: true,

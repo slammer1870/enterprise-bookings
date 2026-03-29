@@ -23,6 +23,7 @@
     "check-types": "tsc --noEmit",
     "dev": "next dev --turbopack",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test:int": "echo 'No integration tests for web app'"
   }
 }

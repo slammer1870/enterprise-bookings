@@ -1,20 +1,18 @@
 import {
   Body,
-  Button,
   Container,
   Column,
   Head,
   Heading,
   Hr,
   Html,
-  Img,
-  Link,
   Preview,
   Row,
   Section,
   Text,
 } from "@react-email/components";
-import { Booking, Lesson, Transaction, User } from "@repo/shared-types";
+import { Lesson, Transaction } from "@repo/shared-types";
+import { formatDateInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils";
 import * as React from "react";
 
 interface BookingConfirmationEmailProps {
@@ -28,12 +26,12 @@ export const BookingConfirmationEmail = ({
   transaction,
   numberOfGuests,
 }: BookingConfirmationEmailProps) => {
-  const formattedDate = new Date(lesson.date).toLocaleDateString("en-US", {
+  const timeZone = resolveLessonTimeZone(lesson);
+  const formattedDate = formatDateInTimeZone(lesson.date, "en-US", timeZone, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: "Europe/Dublin",
   });
 
   // Format transaction amount if exists
@@ -82,13 +80,13 @@ export const BookingConfirmationEmail = ({
                     {new Date(lesson.startTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin",
+                      timeZone,
                     })}{" "}
                     -{" "}
                     {new Date(lesson.endTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin",
+                      timeZone,
                     })}
                   </Column>
                 </Row>
@@ -149,11 +147,6 @@ const container = {
   maxWidth: "600px",
 };
 
-const logoContainer = {
-  padding: "20px",
-  textAlign: "center" as const,
-};
-
 const content = {
   backgroundColor: "#ffffff",
   padding: "30px",
@@ -208,28 +201,6 @@ const detailValue = {
 const divider = {
   borderColor: "#e5e5e5",
   margin: "15px 0",
-};
-
-const ctaContainer = {
-  textAlign: "center" as const,
-  margin: "30px 0",
-};
-
-const ctaButton = {
-  backgroundColor: "#4a90e2",
-  color: "#fff",
-  borderRadius: "4px",
-  fontSize: "16px",
-  fontWeight: "bold",
-  textDecoration: "none",
-  padding: "12px 20px",
-};
-
-const footer = {
-  fontSize: "14px",
-  color: "#777",
-  textAlign: "center" as const,
-  margin: "20px 0 0",
 };
 
 export default BookingConfirmationEmail;

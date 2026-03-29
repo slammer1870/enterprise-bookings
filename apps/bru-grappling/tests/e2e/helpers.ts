@@ -96,6 +96,110 @@ export async function clickAndWaitForNavigation(
   }
 }
 
+async function cookieHeader(page: Page): Promise<string> {
+  const cookies = await page.context().cookies()
+  return cookies.map((c) => `${c.name}=${c.value}`).join('; ')
+}
+
+async function apiGet<T>(page: Page, path: string): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const res = await page.context().request.get(`${baseUrl}${path}`, {
+    headers: { Cookie: await cookieHeader(page) },
+    timeout: 120000,
+  })
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`GET ${path} failed: ${res.status()} ${txt}`)
+  }
+  const json: any = await res.json().catch(() => null)
+  return (json?.doc ?? json) as T
+}
+
+async function apiPost<T>(page: Page, path: string, data: Record<string, unknown>): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const res = await page.context().request.post(`${baseUrl}${path}`, {
+    headers: {
+      Cookie: await cookieHeader(page),
+      'Content-Type': 'application/json',
+    },
+    data,
+    timeout: 120000,
+  })
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`POST ${path} failed: ${res.status()} ${txt}`)
+  }
+  const json: any = await res.json().catch(() => null)
+  return (json?.doc ?? json) as T
+}
+
+async function apiPatch<T>(page: Page, path: string, data: Record<string, unknown>): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
+  const res = await page.context().request.patch(`${baseUrl}${path}`, {
+    headers: {
+      Cookie: await cookieHeader(page),
+      'Content-Type': 'application/json',
+    },
+    data,
+    timeout: 120000,
+  })
+  if (!res.ok()) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`PATCH ${path} failed: ${res.status()} ${txt}`)
+  }
+  const json: any = await res.json().catch(() => null)
+  return (json?.doc ?? json) as T
+}
+
+async function getClassOptionByName(
+  page: Page,
+  className: string,
+): Promise<{ id: number; paymentMethods?: { allowedPlans?: unknown[] | null; allowedDropIn?: unknown } } | null> {
+  const result = await apiGet<{ docs?: Array<any> }>(
+    page,
+    `/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
+  )
+  const doc = result?.docs?.[0]
+  return doc?.id ? doc : null
+}
+
+async function createClassOptionViaApi(
+  page: Page,
+  options: {
+    name: string
+    description: string
+    paymentMethods?: { allowedPlans?: number[]; allowedDropIn?: number | null }
+  },
+): Promise<number> {
+  const created = await apiPost<{ id: number }>(page, '/api/class-options', {
+    name: options.name,
+    places: 10,
+    description: options.description,
+    type: 'adult',
+    ...(options.paymentMethods ? { paymentMethods: options.paymentMethods } : {}),
+  })
+  if (!created?.id) throw new Error(`Unexpected class option response: ${JSON.stringify(created)}`)
+  return Number(created.id)
+}
+
+async function createLessonForTomorrowViaApi(page: Page, classOptionId: number): Promise<Date> {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  await apiPost(page, '/api/lessons', {
+    date: tomorrow.toISOString(),
+    startTime: new Date(tomorrow.setHours(10, 0, 0, 0)).toISOString(),
+    endTime: new Date(tomorrow.setHours(11, 0, 0, 0)).toISOString(),
+    lockOutTime: 0,
+    classOption: classOptionId,
+    active: true,
+  })
+
+  const result = new Date()
+  result.setDate(result.getDate() + 1)
+  result.setHours(10, 0, 0, 0)
+  return result
+}
+
 /**
  * Helper function to ensure we're logged in as admin.
  * Creates first user if needed, or assumes we're already logged in.
@@ -243,118 +347,19 @@ async function verifyClassOptionPaymentMethod(
 export async function ensureLessonForTomorrowWithSubscription(page: any): Promise<Date> {
   const className = `E2E Subscription Class ${Date.now()}`
   const planName = await ensureAtLeastOnePlan(page)
+  const plans = await apiGet<{ docs?: Array<{ id: number; name?: string }> }>(
+    page,
+    `/api/plans?where[name][equals]=${encodeURIComponent(planName)}&limit=1&depth=0`,
+  )
+  const planId = plans?.docs?.[0]?.id
+  if (!planId) throw new Error(`Plan "${planName}" not found after creation`)
 
-  // Create a subscription-only class option
-  await page.goto('/admin/collections/class-options', {
-    waitUntil: 'load',
-    timeout: process.env.CI ? 120000 : 60000,
-  })
-  // "Create new Class Option" is a link in Payload 3.64.0
-  const createLink = page.getByRole('link', { name: /Create new.*Class Option/i })
-  if ((await createLink.count()) > 0) {
-    await clickAndWaitForNavigation(page, createLink.first(), /\/admin\/collections\/class-options\/create/, {
-      timeout: process.env.CI ? 120000 : 60000,
-      waitUntil: 'domcontentloaded',
-    })
-  } else {
-    await clickAndWaitForNavigation(
-      page,
-      page.getByLabel(/Create new.*Class Option/i).first(),
-      /\/admin\/collections\/class-options\/create/,
-      {
-        timeout: process.env.CI ? 120000 : 60000,
-        waitUntil: 'domcontentloaded',
-        force: process.env.CI ? true : false,
-      },
-    )
-  }
-
-  const nameField = page.getByRole('textbox', { name: /^Name\s*\*?$/i })
-  await nameField.waitFor({ state: 'visible', timeout: process.env.CI ? 30000 : 10000 })
-  await nameField.fill(className)
-  await page.getByRole('spinbutton', { name: 'Places *' }).fill('10')
-  await page
-    .getByRole('textbox', { name: 'Description *' })
-    .fill('A test class option for e2e (subscription)')
-
-  // Configure payment methods: Allowed Plans (pick first available)
-  const allowedPlansCombobox = page
-    .locator('text=Allowed Plans')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-
-  await expect(allowedPlansCombobox).toBeVisible({ timeout: 20000 })
-  await allowedPlansCombobox.click()
-  const planOption = page.getByRole('option', { name: new RegExp(planName, 'i') })
-  if ((await planOption.count()) > 0) {
-    await planOption.first().click()
-  } else {
-    const firstPlan = page.getByRole('option').first()
-    await expect(firstPlan).toBeVisible({ timeout: 20000 })
-    await firstPlan.click()
-  }
-
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/class-options',
-    expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-    collectionName: 'class-options',
+  const classOptionId = await createClassOptionViaApi(page, {
+    name: className,
+    description: 'A test class option for e2e (subscription)',
+    paymentMethods: { allowedPlans: [Number(planId)] },
   })
 
-  // Create lesson for tomorrow
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-
-  await page.goto('/admin/collections/lessons/create', { waitUntil: 'load', timeout: 120000 })
-
-  const dateInput = page.locator('#field-date').getByRole('textbox')
-  await dateInput.click()
-  await dateInput.fill(tomorrowDateStr)
-  await page.keyboard.press('Tab')
-
-  const startTimeInput = page.locator('#field-startTime').getByRole('textbox')
-  await startTimeInput.click()
-  const startTimeOption = page.getByRole('option', { name: '10:00 AM' })
-  if ((await startTimeOption.count()) > 0) {
-    await startTimeOption.click()
-  } else {
-    await startTimeInput.fill('10:00 AM')
-    await page.keyboard.press('Enter')
-  }
-
-  const endTimeInput = page.locator('#field-endTime').getByRole('textbox')
-  await endTimeInput.click()
-  const endTimeOption = page.getByRole('option', { name: '11:00 AM' })
-  if ((await endTimeOption.count()) > 0) {
-    await endTimeOption.click()
-  } else {
-    await endTimeInput.fill('11:00 AM')
-    await page.keyboard.press('Enter')
-  }
-
-  const classOptionCombobox = page
-    .locator('text=Class Option')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-  await classOptionCombobox.click()
-  const classOption = page.getByRole('option', { name: className })
-  await expect(classOption).toBeVisible({ timeout: 10000 })
-  await classOption.click()
-
-  // Verify the selected class option has the required payment method
   await verifyClassOptionPaymentMethod(page, className, 'subscription')
-
-  await saveObjectAndWaitForNavigation(page, {
-    apiPath: '/api/lessons',
-    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
-    collectionName: 'lessons',
-  })
-
-  return tomorrow
+  return await createLessonForTomorrowViaApi(page, classOptionId)
 }

@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 // Minimal type shims to allow this package to typecheck in environments where
 // workspace dependency installation is restricted (e.g., sandboxed CI/linting).
 //
@@ -23,6 +25,7 @@ declare module '@playwright/test' {
     first(): Locator
     count(): Promise<number>
     isVisible(options?: { timeout?: number }): Promise<boolean>
+    or(other: Locator): Locator
   }
 
   export type Response = {
@@ -46,6 +49,7 @@ declare module '@playwright/test' {
 
   export type Page = {
     getByRole(role: string, options?: { name?: string | RegExp }): Locator
+    getByLabel(selector: string | RegExp): Locator
     locator(selector: string): Locator
     waitForResponse(
       predicate: (response: Response) => boolean,
@@ -69,6 +73,30 @@ declare module '@playwright/test' {
     toBeEnabled(options?: { timeout?: number }): Promise<void>
     toHaveURL(url: string | RegExp, options?: { timeout?: number }): Promise<void>
   }
+}
+
+declare module 'vitest/config' {
+  export interface UserConfig {
+    plugins?: unknown[];
+    define?: Record<string, unknown>;
+    resolve?: {
+      alias?: Record<string, string>;
+    };
+    test?: {
+      environment?: string;
+      globals?: boolean;
+      hookTimeout?: number;
+      setupFiles?: string[];
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }
+
+  export function defineConfig<T extends UserConfig>(config: T): T;
+  export function mergeConfig<T extends UserConfig, U extends UserConfig>(
+    base: T,
+    overrides: U,
+  ): T & U;
 }
 
 

@@ -6,6 +6,7 @@ export { ResetPasswordForm } from "./components/reset-password-form";
 export { RegisterLoginTabs } from "./components/register-login-tabs";
 export { default as RegisterForm } from "./components/register-form";
 export { default as LoginForm } from "./components/login-form";
+export { type SignInWithGoogle } from "./components/google-sign-in-button";
 
 // Export providers (client-side only)
 export { AuthProvider, useAuth } from "./providers/auth";

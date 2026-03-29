@@ -7,13 +7,13 @@ import {
   Heading,
   Hr,
   Html,
-  Link,
   Preview,
   Row,
   Section,
   Text,
 } from "@react-email/components";
 import { Lesson } from "@repo/shared-types";
+import { formatDateInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils";
 import * as React from "react";
 
 interface WaitlistNotificationEmailProps {
@@ -25,12 +25,12 @@ export const WaitlistNotificationEmail = ({
   lesson,
   dashboardUrl,
 }: WaitlistNotificationEmailProps) => {
-  const formattedDate = new Date(lesson.date).toLocaleDateString("en-US", {
+  const timeZone = resolveLessonTimeZone(lesson);
+  const formattedDate = formatDateInTimeZone(lesson.date, "en-US", timeZone, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: "Europe/Dublin",
   });
 
   return (
@@ -72,13 +72,13 @@ export const WaitlistNotificationEmail = ({
                     {new Date(lesson.startTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin",
+                      timeZone,
                     })}{" "}
                     -{" "}
                     {new Date(lesson.endTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "Europe/Dublin",
+                      timeZone,
                     })}
                   </Column>
                 </Row>

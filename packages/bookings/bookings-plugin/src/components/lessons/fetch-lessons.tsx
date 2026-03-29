@@ -1,8 +1,8 @@
 import React from "react";
 
-import { LessonList } from "./lesson-list";
+import { LessonsListWithSelection } from "./lessons-list-with-selection";
 
-import { BasePayload } from "payload";
+import { BasePayload, PayloadRequest } from "payload";
 
 import { getLessons } from "../../data/lessons";
 
@@ -10,8 +10,11 @@ export const FetchLessons: React.FC<{
   params: any;
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
-}> = async ({ searchParams, payload, params }) => {
-  const lessons = await getLessons(payload, searchParams, params);
+  req?: PayloadRequest;
+}> = async ({ searchParams, payload, params, req }) => {
+  const lessons = await getLessons(payload, searchParams, params, req);
+  const date = typeof searchParams?.date === "string" ? searchParams.date : "";
+  const listKey = date || "default";
 
-  return <LessonList lessons={lessons} />;
+  return <LessonsListWithSelection lessons={lessons} listKey={listKey} />;
 };

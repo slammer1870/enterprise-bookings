@@ -107,7 +107,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
           collection: "lessons",
           id: lessonIdNum,
         });
-      } catch (error) {
+      } catch {
         payload.logger.error(`Lesson not found: ${lessonIdNum}`);
         return;
       }

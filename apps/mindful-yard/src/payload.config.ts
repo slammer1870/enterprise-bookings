@@ -12,23 +12,21 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 
 import { bookingsPlugin } from '@repo/bookings-plugin'
+import { bookingsPaymentsPlugin } from '@repo/bookings-payments'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
 import { rolesPlugin } from '@repo/roles'
-import { paymentsPlugin } from '@repo/payments-plugin'
 
 import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
-import { Transaction, User } from '@repo/shared-types'
+import { Transaction } from '@repo/shared-types'
 
 import {
   bookingCreateDropinAccess,
   bookingUpdateDropinAccess,
 } from '@repo/shared-services/src/access/booking-dropin'
-import { checkRole } from '@repo/shared-utils'
-import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -150,11 +148,11 @@ export default buildConfig({
         }),
       },
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: true,
-      acceptedPaymentMethods: ['cash'],
-      paymentMethodSlugs: ['class-options'],
+    bookingsPaymentsPlugin({
+      dropIns: {
+        enabled: true,
+        paymentMethodSlugs: ['class-options'],
+      },
     }),
     seoPlugin({
       collections: ['pages'],

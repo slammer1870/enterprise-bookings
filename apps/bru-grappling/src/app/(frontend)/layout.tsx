@@ -18,7 +18,7 @@ import { BetterAuthUIProvider } from '@/lib/auth/provider'
 
 import { getContextProps } from '@/lib/auth/context/get-context-props'
 
-const roboto = Roboto({
+const _roboto = Roboto({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
   style: ['normal', 'italic'],

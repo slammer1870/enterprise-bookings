@@ -41,7 +41,12 @@ export const modifyUsersCollection = (
             const users = await req.payload.find({
               collection: "users",
               depth: 0,
-              limit: 0,
+              // Only need to know whether *any* user exists; avoid selecting full docs
+              // (which can join plugin-backed tables that may not exist yet).
+              limit: 1,
+              select: {
+                email: true,
+              },
             });
             if (users.totalDocs === 0) {
               // if `admin` not in array of values, add it

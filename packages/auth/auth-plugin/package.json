@@ -44,7 +44,9 @@
     "payload": "*"
   },
   "scripts": {
-    "test": "vitest --hook-timeout=1000000"
+    "test": "vitest --hook-timeout=1000000",
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   },
   "type": "module",
   "types": "./src/index.ts"

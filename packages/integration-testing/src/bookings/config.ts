@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 import { bookingsPlugin } from "@repo/bookings-plugin";
-import { membershipsPlugin } from "@repo/memberships";
+import { bookingsPaymentsPlugin } from "@repo/bookings-payments";
 import { paymentsPlugin } from "@repo/payments-plugin";
 import { rolesPlugin } from "@repo/roles";
 import { checkRole } from "../../../shared-utils/src/check-role";
@@ -79,7 +79,10 @@ export const config: Config = {
       connectionString: process.env.DATABASE_URI,
     },
   }),
-  sharp,
+  // Wrap `sharp` to match Payload's expected SharpDependency signature.
+  // (The `sharp` package has multiple overloads, including `sharp(options?)`,
+  // which can fail assignment against Payload's stricter `(input?, options?)` type.)
+  sharp: ((input, options) => sharp(input as any, options)) as Config["sharp"],
   plugins: [
     payloadCloudPlugin(),
     bookingsPlugin({
@@ -98,9 +101,11 @@ export const config: Config = {
       acceptedPaymentMethods: ["cash", "card"],
       paymentMethodSlugs: ["class-options"],
     }),
-    membershipsPlugin({
-      enabled: true,
-      paymentMethodSlugs: ["class-options"],
+    bookingsPaymentsPlugin({
+      membership: {
+        enabled: true,
+        paymentMethodSlugs: ["class-options"],
+      },
     }),
   ],
 };

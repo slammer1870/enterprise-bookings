@@ -45,8 +45,8 @@ async function verifyLegacyPassword(password: string, legacyHash: string): Promi
         const computedHashRaw = await pbkdf2Promisified(password, salt)
         const computedHash = computedHashRaw.toString('hex')
         return crypto.timingSafeEqual(
-          Buffer.from(computedHash, 'hex'),
-          Buffer.from(hash, 'hex'),
+          new Uint8Array(Buffer.from(computedHash, 'hex')),
+          new Uint8Array(Buffer.from(hash, 'hex')),
         )
       } catch {
         return false

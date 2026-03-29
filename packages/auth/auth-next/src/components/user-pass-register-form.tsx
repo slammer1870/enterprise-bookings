@@ -122,7 +122,7 @@ export default function UserPassRegisterForm() {
       </CardHeader>
       <CardContent className="pb-2">
         {form.formState.errors.root && (
-          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
+          <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             {form.formState.errors.root.message}
           </div>
         )}
@@ -191,7 +191,7 @@ export default function UserPassRegisterForm() {
             <Button
               type="submit"
               disabled={form.formState.isSubmitting}
-              className="w-full bg-black text-white hover:bg-gray-800"
+              className="w-full"
               variant="default"
             >
               {form.formState.isSubmitting ? "Submitting..." : "Submit"}
@@ -200,9 +200,9 @@ export default function UserPassRegisterForm() {
         </Form>
       </CardContent>
       <CardFooter className="flex items-center justify-end">
-        <div className="text-sm text-gray-500 flex items-center gap-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <p>Already have an account?</p>
-          <Link href="/login" className="text-black">
+          <Link href="/login" className="text-foreground hover:text-primary">
             Click here to login
           </Link>
         </div>

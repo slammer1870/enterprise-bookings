@@ -1,17 +1,23 @@
+"use client";
+
 import {
   Table,
-  TableHeader,
   TableBody,
-  TableRow,
   TableHead,
+  TableHeader,
+  TableRow,
   TableCell,
 } from "@repo/ui/components/ui/table";
 
+/**
+ * Loading skeleton for the lessons list. Uses shadcn Table.
+ */
 export const LessonLoading: React.FC<{}> = () => {
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10" />
           <TableHead>Start Time</TableHead>
           <TableHead>End Time</TableHead>
           <TableHead>Class Name</TableHead>
@@ -21,7 +27,7 @@ export const LessonLoading: React.FC<{}> = () => {
       </TableHeader>
       <TableBody>
         <TableRow>
-          <TableCell colSpan={5} className="text-center">
+          <TableCell colSpan={6} className="text-center">
             Loading lessons...
           </TableCell>
         </TableRow>

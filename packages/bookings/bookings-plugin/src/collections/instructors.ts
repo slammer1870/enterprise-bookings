@@ -8,7 +8,7 @@ import type {
 
 import { BookingsPluginConfig } from "../types";
 
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 
 import type { User, AccessControls, HooksConfig } from "@repo/shared-types/";
 
@@ -102,13 +102,13 @@ const defaultHooks = {
               : data.user;
           const user = await req.payload.findByID({
             collection: "users",
-            id: userId,
-            req,
-          });
-          data.name = (user as any)?.name || `User ${userId}`;
-        } catch (error) {
-          data.name = data.name || `User ${data.user}`;
-        }
+          id: userId,
+          req,
+        });
+        data.name = (user as any)?.name || `User ${userId}`;
+      } catch {
+        data.name = data.name || `User ${data.user}`;
+      }
       } else if (data && !data.name && operation === "update") {
         // If updating and user exists but name is missing, populate it
         try {
@@ -125,19 +125,19 @@ const defaultHooks = {
             const user = await req.payload.findByID({
               collection: "users",
               id: userId,
-              req,
-            });
-            data.name = (user as any)?.name || `User ${userId}`;
-          }
-        } catch (error) {
-          // Ignore errors
+            req,
+          });
+          data.name = (user as any)?.name || `User ${userId}`;
         }
+      } catch {
+        // Ignore errors
+      }
       }
       return data;
     },
   ],
   afterChange: [
-    async ({ doc, req, operation }: any) => {
+    async ({ doc, req, operation: _operation }: any) => {
       // Ensure name is saved after change
       if (doc && doc.user && (!doc.name || doc.name === "")) {
         try {
@@ -155,13 +155,13 @@ const defaultHooks = {
           // Update the document with the name
           await req.payload.update({
             collection: "instructors" as CollectionSlug,
-            id: doc.id,
-            data: { name: userName },
-            req,
-          });
-        } catch (error) {
-          // Ignore errors
-        }
+          id: doc.id,
+          data: { name: userName },
+          req,
+        });
+      } catch {
+        // Ignore errors
+      }
       }
       return doc;
     },
@@ -197,13 +197,13 @@ const defaultHooks = {
               const user = await req.payload.findByID({
                 collection: "users",
                 id: userId,
-                req,
-              });
-              // Update the document with the name for display
-              d.name = (user as any)?.name || `User ${userId}`;
-            } catch (error) {
-              d.name = d.name || `User ${d.user}`;
-            }
+            req,
+          });
+          // Update the document with the name for display
+          d.name = (user as any)?.name || `User ${userId}`;
+        } catch {
+          d.name = d.name || `User ${d.user}`;
+        }
           }
         }
       }
@@ -221,48 +221,38 @@ const defaultHooks = {
 } as HooksConfig;
 
 export const generateInstructorCollection = (config: BookingsPluginConfig) => {
-  // Determine fields first, before spreading instructorOverrides
-  // This prevents conflicts if instructorOverrides has a fields property
+  const overrides = config?.instructorOverrides;
+  // Determine fields first, before spreading overrides
   const fields =
-    config?.instructorOverrides?.fields &&
-    typeof config?.instructorOverrides?.fields === "function"
-      ? config.instructorOverrides.fields({ defaultFields })
+    overrides?.fields && typeof overrides?.fields === "function"
+      ? overrides.fields({ defaultFields })
       : defaultFields;
 
   const instructorConfig: CollectionConfig = {
     slug: "instructors",
     labels: {
-      ...(config?.instructorOverrides?.labels || defaultLabels),
+      ...(overrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.instructorOverrides?.access &&
-      typeof config?.instructorOverrides?.access === "function"
-        ? config.instructorOverrides.access({ defaultAccess })
+      ...(overrides?.access && typeof overrides?.access === "function"
+        ? overrides.access({ defaultAccess })
         : defaultAccess),
     },
     admin: {
-      ...(config?.instructorOverrides?.admin || defaultAdmin),
+      ...(overrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.instructorOverrides?.hooks &&
-      typeof config?.instructorOverrides?.hooks === "function"
-        ? config.instructorOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks && typeof overrides?.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields,
-    // Spread other instructorOverrides properties (but not fields, hooks, access, admin, labels, slug)
-    ...(config?.instructorOverrides
+    // Spread other overrides properties (but not fields, hooks, access, admin, labels, slug)
+    ...(overrides
       ? Object.fromEntries(
-          Object.entries(config.instructorOverrides).filter(
+          Object.entries(overrides).filter(
             ([key]) =>
-              ![
-                "fields",
-                "hooks",
-                "access",
-                "admin",
-                "labels",
-                "slug",
-              ].includes(key)
+              !["fields", "hooks", "access", "admin", "labels", "slug"].includes(key)
           )
         )
       : {}),

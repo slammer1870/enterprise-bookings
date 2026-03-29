@@ -4,10 +4,16 @@ import type { TypedUser } from 'payload'
 import { headers as requestHeaders } from 'next/headers'
 
 export const getSession = async (): Promise<Session | null> => {
-  const payload = await getPayload()
-  const headers = await requestHeaders()
-  const session = await payload.betterAuth.api.getSession({ headers })
-  return session as Session | null
+  try {
+    const payload = await getPayload()
+    const headers = await requestHeaders()
+    const session = await payload.betterAuth.api.getSession({ headers })
+    return session as Session | null
+  } catch (error) {
+    // If getSession fails (e.g. missing/invalid session cookie), treat as unauthenticated
+    console.error("[getSession] better-auth session fetch failed:", error)
+    return null
+  }
 }
 
 export const getUserAccounts = async (): Promise<Account[]> => {
@@ -53,8 +59,24 @@ export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
 export const currentUser = async (): Promise<TypedUser | null> => {
   const payload = await getPayload()
   const headers = await requestHeaders()
-  const { user } = await payload.auth({ headers })
-  return user
+
+  // Prefer Better Auth session when enabled; Payload auth may throw "No User" when unauthenticated.
+  try {
+    const betterAuth: any = (payload as any).betterAuth
+    if (betterAuth?.api?.getSession) {
+      const session = await betterAuth.api.getSession({ headers })
+      if (session?.user) return session.user as TypedUser
+    }
+  } catch {
+    // ignore and fall back
+  }
+
+  try {
+    const { user } = await payload.auth({ headers })
+    return user
+  } catch {
+    return null
+  }
 }
 
 export const getContextProps = (): {

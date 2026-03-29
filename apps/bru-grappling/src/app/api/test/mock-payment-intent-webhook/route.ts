@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
-import { paymentIntentSucceeded } from '@repo/payments-plugin'
-import type Stripe from 'stripe'
+import { paymentIntentSucceeded, type PaymentIntentSucceededArgs } from '@repo/bookings-payments'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,13 +61,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call the webhook handler
+    // Call the webhook handler (cast to expected shape: id, customer, metadata as string/Record)
     await paymentIntentSucceeded({
-      event: event as {
-        data: {
-          object: Stripe.PaymentIntent
-        }
-      },
+      event: event as PaymentIntentSucceededArgs['event'],
       payload,
     })
 

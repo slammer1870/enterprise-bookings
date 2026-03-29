@@ -26,7 +26,7 @@ if (typeof globalThis.File === 'undefined') {
 
 // Handle unhandled promise rejections from async hooks gracefully
 // These occur when Payload CMS hooks run after test completion during cleanup
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason, _promise) => {
   const errorMessage = reason instanceof Error ? reason.message : String(reason);
   
   // Ignore non-critical errors from async hooks that run during test cleanup

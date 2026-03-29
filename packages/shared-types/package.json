@@ -5,5 +5,15 @@
   "types": "src/index.ts",
   "peerDependencies": {
     "payload": "*"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   }
 }

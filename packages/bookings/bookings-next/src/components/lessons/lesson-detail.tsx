@@ -2,33 +2,45 @@ import React from 'react'
 
 import Image from "next/image"
 
-import { format } from 'date-fns'
-
-import { Lesson } from '@repo/shared-types'
+import { ScheduleLesson } from '@repo/shared-types'
+import { formatInTimeZone, resolveLessonTimeZone } from '@repo/shared-utils/timezone'
 
 import { CheckInButton } from './checkin-button'
 
-export function LessonDetail({ lesson }: { lesson: Lesson }) {
+export function LessonDetail({ 
+  lesson,
+  manageHref,
+}: { 
+  lesson: ScheduleLesson;
+  /**
+   * Optional function or string to generate the manage booking URL.
+   * Defaults to `/bookings/[id]/manage` if not provided.
+   * Passed through to CheckInButton component.
+   */
+  manageHref?: string | ((lessonId: number) => string);
+}) {
+  const timeZone = resolveLessonTimeZone(lesson)
+
   return (
     <div
-      className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+      className="flex w-full flex-col gap-4 border-b border-border pb-4 last:border-b-0 last:pb-0 md:flex-row md:items-center md:justify-between"
       key={lesson.id}
     >
       <div>
-        <div className="text-sm font-light">
-          {format(new Date(lesson.startTime), 'HH:mm a')} -{' '}
-          {format(new Date(lesson.endTime), 'HH:mm a')}
+        <div className="text-sm font-light text-muted-foreground">
+          {formatInTimeZone(lesson.startTime, 'HH:mm a', timeZone)} -{' '}
+          {formatInTimeZone(lesson.endTime, 'HH:mm a', timeZone)}
         </div>
-        <div className="text-xl font-medium">
+        <div className="text-xl font-medium text-foreground">
           {lesson.classOption.name}{' '}
           {lesson.location && (
             <>
-              - <span className="font-normal">{lesson.location}</span>
+              - <span className="font-normal text-muted-foreground">{lesson.location}</span>
             </>
           )}
         </div>
         {lesson.instructor ? (
-          <div className="flex items-center justify-start mt-2">
+          <div className="mt-2 flex items-center justify-start">
             {lesson.instructor.profileImage && (
               <Image
                 src={(lesson.instructor.profileImage.url as string) || ''}
@@ -43,9 +55,9 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
                 }} />
             )}
             <div className="flex flex-col">
-              <span>{lesson.instructor.name}</span>
+              <span className="text-foreground">{lesson.instructor.name}</span>
               {lesson.bookingStatus !== 'closed' && (
-                <span className="font-light text-sm">
+                <span className="text-sm font-light text-muted-foreground">
                   {lesson.remainingCapacity} places remaining
                 </span>
               )}
@@ -54,7 +66,7 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
         ) : (
           <>
             {lesson.bookingStatus !== 'closed' && (
-              <span className="font-light text-sm">
+              <span className="text-sm font-light text-muted-foreground">
                 {lesson.remainingCapacity} places remaining
               </span>
             )}
@@ -63,9 +75,10 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
       </div>
       <div className="w-full md:w-1/4">
         <CheckInButton
-          bookingStatus={lesson.bookingStatus}
+          lessonId={lesson.id}
           type={lesson.classOption.type}
-          id={lesson.id}
+          scheduleState={lesson.scheduleState}
+          manageHref={manageHref}
         />
       </div>
     </div>

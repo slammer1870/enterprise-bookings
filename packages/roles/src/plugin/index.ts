@@ -13,6 +13,8 @@ export const rolesPlugin =
       return config;
     }
 
+    type UserForOnInit = { id: string | number; roles?: string[] | null };
+
     let collections = config.collections || [];
 
     const usersCollection = collections.find(
@@ -22,6 +24,16 @@ export const rolesPlugin =
     if (!usersCollection) {
       throw new Error("Users collection not found");
     }
+
+    const configuredRoles = Array.isArray(pluginOptions.roles)
+      ? pluginOptions.roles
+      : [];
+    const defaultRole = pluginOptions.defaultRole || "user";
+    const fallbackFirstUserRole = pluginOptions.firstUserRole || "admin";
+
+    const allowedRoleValues = Array.from(
+      new Set([...configuredRoles, defaultRole, fallbackFirstUserRole].filter(Boolean))
+    );
 
     collections = [
       ...(collections.filter((collection) => collection.slug !== "users") ||
@@ -38,6 +50,22 @@ export const rolesPlugin =
       if (existingOnInit) {
         await existingOnInit(payload);
       }
+
+      // Skip database operations during build time to avoid schema mismatch errors
+      // Next.js build process may initialize Payload but database schema might not be ready
+      const isBuildTime =
+        process.env.NEXT_PHASE === "phase-production-build" ||
+        (process.env.NODE_ENV === "production" && !process.env.DATABASE_URI);
+
+      if (isBuildTime) {
+        payload.logger.info("Skipping rolesPlugin onInit during build time");
+        return;
+      }
+
+      const firstUserRole = allowedRoleValues.includes(fallbackFirstUserRole)
+        ? fallbackFirstUserRole
+        : "admin";
+
       try {
         // Check if there are any users
         const users = await payload.find({
@@ -45,25 +73,38 @@ export const rolesPlugin =
           depth: 0,
           limit: 1,
           sort: "createdAt", // Sort by creation date to get the oldest user
+          // Be defensive: selecting the full doc can join optional plugin-backed tables.
+          // During rolling deploys / partial migrations, those tables may not exist yet.
+          select: {
+            roles: true,
+          },
         });
 
         // If at least one user exists, assign admin role to the first created user
         if (users.totalDocs > 0) {
-          const firstUser = users.docs[0];
+          const firstUser = users.docs[0] as unknown as UserForOnInit | undefined;
 
           if (!firstUser) {
             throw new Error("No users found");
           }
 
+          const userRoles = Array.isArray(firstUser.roles) ? firstUser.roles : [];
+
           // Check if the user doesn't have the admin role
-          if (!firstUser?.roles?.includes("admin")) {
-            // Add the admin role to the first user
+          if (!userRoles.includes(firstUserRole)) {
+            // Add the role to the first user.
+            // Payload v3 local operations expect a `req` shape; omitting it can crash in some init flows.
             await payload.update({
               collection: "users",
               id: firstUser.id,
               data: {
-                roles: [...(firstUser?.roles || []), "admin"],
+                // `users.roles` is app-defined; keep runtime correct and avoid cross-app type coupling.
+                roles: [...userRoles, firstUserRole] as any,
               },
+              overrideAccess: true,
+              // Minimal local req object; ensures payload internals can resolve collections.
+              // (onInit runs outside a request/response cycle)
+              req: { payload } as any,
             });
 
             payload.logger.info(
@@ -72,7 +113,16 @@ export const rolesPlugin =
           }
         }
       } catch (error) {
-        payload.logger.error(error);
+        // During build, database errors are expected - log but don't fail
+        // The error is likely due to schema mismatch (e.g., users_role table doesn't exist)
+        if (isBuildTime || process.env.NODE_ENV === "production") {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          payload.logger.warn(
+            `rolesPlugin onInit skipped due to build-time database error: ${errorMessage}`
+          );
+        } else {
+          payload.logger.error(error);
+        }
       }
     };
 

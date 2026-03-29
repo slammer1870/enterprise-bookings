@@ -1,171 +1,124 @@
 "use client";
 
-import React from "react";
-
-import { zodResolver } from "@hookform/resolvers/zod";
-
-import { useForm } from "react-hook-form";
-
-import { Booking } from "@repo/shared-types";
-
-import { Button } from "@repo/ui/components/ui/button";
-
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@repo/ui/components/ui/dialog";
-
-import {
-  AdminDialog,
-  AdminDialogContent,
-} from "@repo/ui/components/ui/admin-dialog";
-
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@repo/ui/components/ui/form";
-
-import { z } from "zod";
-
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-} from "@repo/ui/components/ui/select";
-
-import { Label } from "@repo/ui/components/ui/label";
-
-import { useState } from "react";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import type { Booking } from "@repo/shared-types";
+import { Button, SelectInput } from "@payloadcms/ui";
+import { Label } from "@repo/ui/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@repo/ui/components/ui/sheet";
+
+const statusOptions = [
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Pending", value: "pending" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Waiting List", value: "waiting" },
+] as { label: string; value: string }[];
 
 export function EditBooking({ booking }: { booking: Booking }) {
+  const [status, setStatus] = useState<string>(booking.status);
+  const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
-
   const router = useRouter();
 
-  const FormData = z.object({
-    user: z.number(),
-    status: z.string(),
-  });
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
 
-  type FormSchema = z.infer<typeof FormData>;
+      const data = await response.json();
 
-  const form = useForm<FormSchema>({
-    resolver: zodResolver(FormData),
-    defaultValues: {
-      user: booking.user.id,
-      status: booking.status,
-    },
-  });
+      if (data.errors?.length) {
+        toast.error(data.errors[0].message ?? "An error occurred");
+        return;
+      }
 
-  async function onSubmit(data: FormSchema) {
-    const response = await fetch(`/api/bookings/${booking.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        status: data.status,
-        // Add any other necessary booking data
-      }),
-    });
-
-    const { errors } = await response.json();
-
-    if (errors) {
-      return toast.error(errors[0].message || "An error occurred");
+      toast.success("Booking updated successfully");
+      setOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("An error occurred");
+    } finally {
+      setSubmitting(false);
     }
-
-    setOpen(false);
-    toast.success("Booking updated successfully");
-    form.reset();
-    router.refresh();
   }
 
   return (
-    <AdminDialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-secondary px-3 py-2 text-sm font-medium text-secondary-foreground shadow-sm hover:bg-secondary/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        >
           Manage Booking
-        </Button>
-      </DialogTrigger>
-      <AdminDialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Edit Booking</DialogTitle>
-          <DialogDescription>
+        </button>
+      </SheetTrigger>
+      <SheetContent className="z-[100]">
+        <SheetHeader>
+          <SheetTitle>Edit Booking</SheetTitle>
+        </SheetHeader>
+        <div className="p-0 pt-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Make changes to your booking here. Click save when you are done.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col items-start">
-                <Label className="mb-2">Name</Label>
-                <p className="text-sm">
-                  {typeof booking.user === "object"
-                    ? booking.user.email
-                    : booking.user}
-                </p>
-              </div>
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a class for this lesson" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                          <SelectItem value="waiting">Waiting List</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">Name</span>
+              <p className="text-sm">
+                {typeof booking.user === "object"
+                  ? booking.user.email
+                  : String(booking.user)}
+              </p>
             </div>
-            <DialogFooter className="flex items-center justify-end gap-2">
-              {booking?.transaction ? (
+            <div className="space-y-2">
+              <Label htmlFor="edit-booking-status" className="text-xs">Status</Label>
+              <div className="[&_.field-label]:!hidden min-h-7 [&_.input]:!min-h-7 [&_.input]:!py-0.5 [&_[role=combobox]]:!min-h-7 [&_[role=combobox]]:!py-0.5">
+                <SelectInput
+                  path="edit-booking-status"
+                  name="edit-booking-status"
+                  value={status}
+                  onChange={(opt) => {
+                    const o = Array.isArray(opt) ? opt[0] : opt;
+                    setStatus(
+                      o && typeof o === "object" && "value" in o
+                        ? String(o.value)
+                        : status
+                    );
+                  }}
+                  options={statusOptions}
+                  isClearable={false}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              {booking?.transaction && (
                 <Link
-                  href={`/admin/collections/transactions/${booking?.transaction?.id}`}
+                  href={`/admin/collections/transactions/${booking.transaction.id}`}
+                  className="text-sm text-primary hover:underline"
                 >
-                  <Button variant="outline">View Transaction</Button>
+                  View Transaction
                 </Link>
-              ) : (
-                <span className="text-sm text-gray-500 dark:text-gray-400"></span>
               )}
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" size="small" disabled={submitting}>
                 Save
               </Button>
-            </DialogFooter>
+            </div>
           </form>
-        </Form>
-      </AdminDialogContent>
-    </AdminDialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

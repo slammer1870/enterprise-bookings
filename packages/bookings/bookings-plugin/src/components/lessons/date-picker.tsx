@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Calendar } from "@repo/ui/components/ui/calendar";
 
 import { Button } from "@repo/ui/components/ui/button";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -16,7 +16,7 @@ import {
 import { cn } from "@repo/ui/lib/utils";
 import { format } from "date-fns";
 
-import { getLessonsQuery } from "@repo/shared-utils";
+import { getLessonsQuery } from "@repo/shared-utils/query";
 
 import { useTransition } from "react";
 

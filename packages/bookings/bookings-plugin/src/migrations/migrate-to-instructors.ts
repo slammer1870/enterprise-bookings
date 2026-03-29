@@ -213,7 +213,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     // New schema: instructor_id references instructors, but we need to check if any lessons have invalid references
     // or if there are any users that should be instructors but aren't yet
     // First, get all lessons with instructor_id that might need migration
-    const lessonsWithInstructors = await db.execute<{
+    const _lessonsWithInstructors = await db.execute<{
       instructor_id: number | null;
     }>(sql`
       SELECT instructor_id FROM lessons WHERE instructor_id IS NOT NULL
@@ -411,8 +411,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
 export async function down({
   db,
-  payload,
-  req,
 }: MigrateDownArgs): Promise<void> {
   // Reverse the migration
 

@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@repo/analytics": "workspace:*",
+    "@repo/membership-next": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "@repo/trpc": "workspace:*",
@@ -24,10 +25,12 @@
     "@types/node": "^24.10.1",
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
+    "eslint": "^9.39.1",
     "typescript": "5.9.3"
   },
-  "peerDependencies": {
-    "@repo/memberships": "workspace:*"
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   }
 }
 

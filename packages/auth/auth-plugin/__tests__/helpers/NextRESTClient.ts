@@ -58,30 +58,30 @@ function generateQueryString(
 
 export class NextRESTClient {
   private _DELETE: (
-    request: Request,
-    args: { params: Promise<{ slug: string[] }> }
+    _request: Request,
+    _args: { params: Promise<{ slug: string[] }> }
   ) => Promise<Response>;
 
   private _GET: (
-    request: Request,
-    args: { params: Promise<{ slug: string[] }> }
+    _request: Request,
+    _args: { params: Promise<{ slug: string[] }> }
   ) => Promise<Response>;
 
-  private _GRAPHQL_POST: (request: Request) => Promise<Response>;
+  private _GRAPHQL_POST: (_request: Request) => Promise<Response>;
 
   private _PATCH: (
-    request: Request,
-    args: { params: Promise<{ slug: string[] }> }
+    _request: Request,
+    _args: { params: Promise<{ slug: string[] }> }
   ) => Promise<Response>;
 
   private _POST: (
-    request: Request,
-    args: { params: Promise<{ slug: string[] }> }
+    _request: Request,
+    _args: { params: Promise<{ slug: string[] }> }
   ) => Promise<Response>;
 
   private _PUT: (
-    request: Request,
-    args: { params: Promise<{ slug: string[] }> }
+    _request: Request,
+    _args: { params: Promise<{ slug: string[] }> }
   ) => Promise<Response>;
 
   private readonly config: SanitizedConfig;

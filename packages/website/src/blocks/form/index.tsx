@@ -1,7 +1,6 @@
 "use client";
 
 import type {
-  FormFieldBlock,
   Form as FormType,
 } from "@payloadcms/plugin-form-builder/types";
 import { useForm } from "react-hook-form";
@@ -35,7 +34,7 @@ export interface Data {
   [key: string]: Property | Property[] | Value;
 }
 
-type FormField = {
+type CustomFormField = {
   name: string;
   label: string;
   type: string;
@@ -49,7 +48,7 @@ export type FormBlockType = {
   blockType?: "form-block";
   enableIntro: boolean;
   form: FormType & {
-    fields: FormField[];
+    fields: CustomFormField[];
   };
   introContent?: {
     root: {
@@ -92,11 +91,8 @@ export const FormBlock: React.FC<
 
   const {
     control,
-    formState: { errors, isSubmitting },
-    getValues,
+    formState: { isSubmitting },
     handleSubmit,
-    register,
-    setValue,
   } = formMethods;
 
   const [isLoading, setIsLoading] = useState(false);
@@ -216,13 +212,11 @@ export const FormBlock: React.FC<
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-4"
           >
-            {formFromProps.fields.map((fieldBlock: FormField, index) => {
+            {formFromProps.fields.map((fieldBlock: CustomFormField, index) => {
               const {
                 name,
                 label,
                 required: requiredFromProps,
-                type,
-                defaultValue,
               } = fieldBlock;
               return (
                 <FormField

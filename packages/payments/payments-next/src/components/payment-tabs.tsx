@@ -8,7 +8,7 @@ import {
 import { Lesson } from "@repo/shared-types";
 
 export function PaymentTabs({
-  paymentMethods,
+  paymentMethods: _paymentMethods,
 }: {
   paymentMethods: Lesson["classOption"]["paymentMethods"];
 }) {

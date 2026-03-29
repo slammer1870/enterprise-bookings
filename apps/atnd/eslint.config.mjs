@@ -13,6 +13,9 @@ const eslintConfig = [
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     rules: {
+      // Disable react-hooks/exhaustive-deps: ESLint 9 removed context.getSource(),
+      // which the rule uses; disabling avoids "context.getSource is not a function" in CI.
+      'react-hooks/exhaustive-deps': 'off',
       '@typescript-eslint/ban-ts-comment': 'warn',
       '@typescript-eslint/no-empty-object-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',

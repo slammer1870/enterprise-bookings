@@ -13,14 +13,14 @@ export const Posts: CollectionConfig = {
   slug: "posts",
   access: {
     create: ({ req: { user } }) => {
-      return checkRole(["admin"], user as User);
+      return checkRole(["admin"], user as unknown as User);
     },
     delete: ({ req: { user } }) => {
-      return checkRole(["admin"], user as User);
+      return checkRole(["admin"], user as unknown as User);
     },
     read: adminOrPublished,
     update: ({ req: { user } }) => {
-      return checkRole(["admin"], user as User);
+      return checkRole(["admin"], user as unknown as User);
     },
   },
   admin: {

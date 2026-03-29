@@ -23,19 +23,31 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getStoredUTMParams, useAnalyticsTracker } from "@repo/analytics";
-import { useTRPC } from "@repo/trpc";
+import { useTRPC } from "@repo/trpc/client";
 import { useMutation } from "@tanstack/react-query";
-import { buildUTMCallbackUrl } from "@repo/shared-utils";
+import { buildUTMCallbackUrl } from "@repo/shared-utils/utm";
+import {
+  GoogleSignInButton,
+  type SignInWithGoogle,
+} from "./google-sign-in-button";
 
-export default function LoginForm() {
+export default function LoginForm({
+  signInWithGoogle,
+}: {
+  signInWithGoogle?: SignInWithGoogle | null;
+} = {}) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <LoginFormContent />
+      <LoginFormContent signInWithGoogle={signInWithGoogle} />
     </Suspense>
   );
 }
 
-function LoginFormContent() {
+function LoginFormContent({
+  signInWithGoogle,
+}: {
+  signInWithGoogle?: SignInWithGoogle | null;
+}) {
   const searchParams = useSearchParams();
   const callbackUrlRaw = searchParams?.get("callbackUrl") || "/";
   const searchParamsString = searchParams?.toString() || "";
@@ -74,10 +86,17 @@ function LoginFormContent() {
       try {
         const normalizedEmail = data.email.toLowerCase();
 
-        // Request magic-link via tRPC so better-auth handles delivery server-side
+        // Request magic-link via tRPC so better-auth handles delivery server-side.
+        // Use absolute callback URL so post-login redirect stays on current origin
+        // (e.g. tenant subdomain). Server baseURL is often bare localhost; resolving
+        // here avoids redirecting to the wrong host.
+        const callbackURL =
+          typeof window !== 'undefined' && !/^https?:\/\//i.test(callbackUrl)
+            ? new URL(callbackUrl, window.location.origin).href
+            : callbackUrl;
         await signInMagicLink({
           email: normalizedEmail,
-          callbackURL: callbackUrl,
+          callbackURL,
         });
 
         trackEvent("Login Completed");
@@ -89,7 +108,7 @@ function LoginFormContent() {
         });
       }
     },
-    [signInMagicLink, router, trackEvent]
+    [signInMagicLink, router, trackEvent, callbackUrl]
   );
 
   return (
@@ -119,13 +138,26 @@ function LoginFormContent() {
             <Button
               type="submit"
               disabled={form.formState.isSubmitting || isPending}
-              className="w-full bg-black text-white hover:bg-gray-800"
+              className="w-full"
               variant="default"
             >
               {form.formState.isSubmitting || isPending
                 ? "Sending..."
                 : "Submit"}
             </Button>
+            {signInWithGoogle ? (
+              <>
+                <div className="relative my-4 flex items-center gap-2">
+                  <span className="text-muted-foreground text-xs">— or —</span>
+                </div>
+                <GoogleSignInButton
+                  callbackURL={callbackUrl}
+                  signInWithGoogle={signInWithGoogle}
+                  variant="login"
+                  className="w-full"
+                />
+              </>
+            ) : null}
           </form>
         </Form>
       </CardContent>

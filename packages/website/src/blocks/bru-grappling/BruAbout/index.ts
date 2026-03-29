@@ -1,0 +1,2 @@
+export { BruAboutBlock } from './Component'
+

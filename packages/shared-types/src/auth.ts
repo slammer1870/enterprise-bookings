@@ -1,4 +1,4 @@
-type AnyAsyncFn = (...args: any[]) => Promise<any> | any;
+type AnyAsyncFn = (..._args: any[]) => Promise<any> | any;
 
 export type BetterAuth<GetPayload extends AnyAsyncFn> = Awaited<
   ReturnType<GetPayload>
@@ -25,5 +25,5 @@ export type BetterAuthApi<GetPayload extends AnyAsyncFn> = BetterAuth<
 export type BetterAuthMagicLinkHandler<GetPayload extends AnyAsyncFn> =
   BetterAuthApi<GetPayload> extends { signInMagicLink: infer Fn }
     ? Fn
-    : (...args: any[]) => Promise<unknown>;
+    : (..._args: any[]) => Promise<unknown>;
 

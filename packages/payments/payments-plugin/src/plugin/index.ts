@@ -3,7 +3,6 @@ import type {
   Plugin,
   CollectionSlug,
   GroupField,
-  NamedGroupField,
 } from "payload";
 
 import { modifyUsersCollection } from "../collections/users";

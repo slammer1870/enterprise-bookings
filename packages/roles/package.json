@@ -7,7 +7,7 @@
     "@payloadcms/richtext-lexical": "*",
     "monaco-editor": "^0.52.2",
     "payload": "*",
-    "sharp": "0.34.5"
+    "sharp": "0.33.5"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
@@ -23,5 +23,9 @@
     "vitest": "4.0.12"
   },
   "main": "./src/index.ts",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  }
 }

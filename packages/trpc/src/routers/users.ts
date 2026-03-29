@@ -1,6 +1,7 @@
 import { protectedProcedure, requireCollections } from "../trpc";
 import { z } from "zod";
-import { checkRole, generatePasswordSaltHash } from "@repo/shared-utils";
+import { checkRole } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 import crypto from "crypto";
 import { findSafe, createSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";
@@ -29,18 +30,18 @@ export const usersRouter = {
     .use(requireCollections("users"))
     .query(async ({ ctx }) => {
       const children = await findSafe(ctx.payload, "users", {
-      where: {
-        parentUser: { equals: ctx.user?.id },
-      },
-      limit: 100,
-      depth: 1,
-      sort: "name",
+        where: {
+          parentUser: { equals: ctx.user?.id },
+        },
+        limit: 100,
+        depth: 1,
+        sort: "name",
         overrideAccess: false,
         user: ctx.user,
-    });
+      });
 
-    return children.docs;
-  }),
+      return children.docs;
+    }),
   createChild: protectedProcedure
     .use(requireCollections("users"))
     .input(
@@ -55,12 +56,12 @@ export const usersRouter = {
         password: randomPassword,
       });
       const child = await createSafe(ctx.payload, "users", {
-          name: input.name,
-          email: input.email,
-          parentUser: ctx.user?.id,
-          hash,
-          salt,
-          password: randomPassword,
+        name: input.name,
+        email: input.email,
+        parentUser: ctx.user?.id,
+        hash,
+        salt,
+        password: randomPassword,
       }, {
         overrideAccess: false,
         user: ctx.user,

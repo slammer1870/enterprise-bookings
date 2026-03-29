@@ -1,8 +1,9 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-export const GET = async (request: Request) => {
-  const payload = await getPayload({
+// eslint-disable-next-line no-unused-vars -- route handler signature requires Request
+export const GET = async (_req: Request) => {
+  await getPayload({
     config: configPromise,
   })
 

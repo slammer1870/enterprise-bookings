@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-import { checkRole } from '@repo/shared-utils/src/check-role'
+import { checkRole } from '@repo/shared-utils'
 import type { User } from '@repo/shared-types'
 
 import { adminOrUserOrInstructor } from '@repo/shared-services/src/access/is-admin-or-user-or-instructor'

@@ -20,19 +20,39 @@ import CardSkeleton from "./card-skeleton";
 
 import { useAnalyticsTracker } from "@repo/analytics";
 
-// Make sure to call loadStripe outside of a component's render to avoid
-// recreating the Stripe object on every render.
-// This is your test publishable API key.
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
-);
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+const stripePromiseByAccount = new Map<string, ReturnType<typeof loadStripe>>();
+
+function getStripePromise(stripeAccountId?: string | null) {
+  const account = typeof stripeAccountId === "string" && stripeAccountId.trim() ? stripeAccountId.trim() : null;
+  if (!account) {
+    if (stripePromise) return stripePromise;
+  } else {
+    const existing = stripePromiseByAccount.get(account);
+    if (existing) return existing;
+  }
+  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!key) return null;
+  const created = account ? loadStripe(key, { stripeAccount: account }) : loadStripe(key);
+  if (!account) {
+    stripePromise = created;
+    return stripePromise;
+  }
+  stripePromiseByAccount.set(account, created);
+  return created;
+}
 
 function PaymentForm({
   priceComponent,
   price,
+  onPaymentRedirectStart,
+  returnUrl,
 }: {
   priceComponent: React.ReactNode;
   price: number;
+  onPaymentRedirectStart?: () => void;
+  /** URL Stripe redirects to after payment. Defaults to /dashboard for backwards compatibility. */
+  returnUrl?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -51,15 +71,23 @@ function PaymentForm({
     }
 
     setIsLoading(true);
+    onPaymentRedirectStart?.();
     trackEvent("Payment Button Clicked", {
       revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
     });
 
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SERVER_URL || "";
+    const baseReturn = returnUrl ?? "/dashboard";
+    const fullReturnUrl = baseReturn.startsWith("http")
+      ? baseReturn
+      : `${origin}${baseReturn.startsWith("/") ? baseReturn : `/${baseReturn}`}`;
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        // Make sure to change this to your payment completion page
-        return_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/dashboard`,
+        return_url: fullReturnUrl,
       },
     });
 
@@ -118,16 +146,30 @@ export default function CheckoutForm({
   price,
   priceComponent,
   metadata,
+  createPaymentIntentUrl,
+  onPaymentRedirectStart,
+  returnUrl,
 }: {
   price: number;
   priceComponent: React.ReactNode;
   metadata?: { [key: string]: string };
+  /**
+   * Override the server endpoint used to create a PaymentIntent.
+   * Defaults to the bookings-payments plugin endpoint served via Payload's API:
+   * POST /api/stripe/create-payment-intent
+   */
+  createPaymentIntentUrl?: string;
+  /** Called when user starts payment (before redirect to Stripe) so parent can avoid cancelling pending bookings */
+  onPaymentRedirectStart?: () => void;
+  /** URL Stripe redirects to after payment. Defaults to /dashboard for backwards compatibility. */
+  returnUrl?: string;
 }) {
   const appearance = {
     theme: "stripe",
   } as Appearance;
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -139,11 +181,15 @@ export default function CheckoutForm({
 
         console.log("Creating payment intent with price:", price);
 
-        const response = await fetch("/api/stripe/create-payment-intent", {
+        const url = createPaymentIntentUrl ?? "/api/stripe/create-payment-intent";
+        // Payments endpoint is typically provided by the Payload bookings-payments plugin at:
+        // POST /stripe/create-payment-intent (served under Payload's /api/* catch-all).
+        const response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             price,
             metadata,
@@ -182,6 +228,11 @@ export default function CheckoutForm({
 
         console.log("Payment intent created successfully");
         setClientSecret(data.clientSecret);
+        setStripeAccountId(
+          typeof data.stripeAccountId === "string" && data.stripeAccountId.trim()
+            ? data.stripeAccountId.trim()
+            : null
+        );
       } catch (err) {
         console.error("Error creating payment intent:", err);
         setError("Network error - please check your connection and try again");
@@ -191,15 +242,7 @@ export default function CheckoutForm({
     };
 
     createCheckoutSession();
-  }, [price, metadata]);
-
-  // Check if Stripe is properly configured
-  useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-      console.error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not configured");
-      setError("Payment system is not properly configured");
-    }
-  }, []);
+  }, [price, metadata, createPaymentIntentUrl]);
 
   if (error) {
     return (
@@ -216,12 +259,42 @@ export default function CheckoutForm({
   }
 
   if (isLoading || !clientSecret) {
-    return <CardSkeleton />;
+    return (
+      <div>
+        {priceComponent}
+        <CardSkeleton />
+      </div>
+    );
+  }
+
+  const stripe = getStripePromise(stripeAccountId);
+  // E2E/test mock secret (from create-payment-intent when ENABLE_TEST_WEBHOOKS or placeholder account).
+  // Don't pass to Elements or Stripe.js will throw loading the invalid PI.
+  const isTestClientSecret =
+    typeof clientSecret === "string" &&
+    /^pi_test_.*_secret_test$/.test(clientSecret);
+  if (!stripe || isTestClientSecret) {
+    // If Stripe isn't configured, or we have a test mock PI, render price breakdown only (no card form).
+    return (
+      <div>
+        {priceComponent}
+        <div className="text-sm text-muted-foreground" data-testid="stripe-not-configured">
+          {isTestClientSecret
+            ? "Payment form not available in test mode."
+            : "Payments are not available in this environment."}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <Elements stripe={stripePromise} options={{ appearance, clientSecret }}>
-      <PaymentForm priceComponent={priceComponent} price={price} />
+    <Elements stripe={stripe} options={{ appearance, clientSecret }}>
+      <PaymentForm
+        priceComponent={priceComponent}
+        price={price}
+        onPaymentRedirectStart={onPaymentRedirectStart}
+        returnUrl={returnUrl}
+      />
     </Elements>
   );
 }

@@ -31,7 +31,7 @@ export const SelectChildren = ({
 }: {
   lessonId: number
   bookedChildren: User[]
-  bookChild: (data: { lessonId: number; childId: number; status?: 'confirmed' | 'pending' }) => void
+  bookChild: (_data: { lessonId: number; childId: number; status?: 'confirmed' | 'pending' }) => void
   isBooking: boolean
 }) => {
   const trpc = useTRPC()

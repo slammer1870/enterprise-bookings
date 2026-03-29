@@ -1,10 +1,21 @@
 import { z } from "zod";
-import { protectedProcedure, requireCollections } from "../trpc";
+import { optionalUserProcedure, protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe } from "../utils/collections";
+import {
+  getTenantSlug,
+  resolveTenantId,
+  resolveTenantIdFromLessonId,
+} from "../utils/tenant";
 
 import { Subscription, Lesson, Plan } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
-import { hasReachedSubscriptionLimit } from "@repo/shared-services";
+import {
+  hasReachedSubscriptionLimit,
+  getRemainingSessionsInPeriod,
+  subscriptionNeedsCustomerPortal,
+  getSubscriptionUpgradeOptions,
+  getRemainingSessionsInPeriodForPlan,
+} from "@repo/shared-services";
 
 export const subscriptionsRouter = {
   getSubscription: protectedProcedure
@@ -160,43 +171,73 @@ export const subscriptionsRouter = {
 
       return false;
     }),
-  getSubscriptionForLesson: protectedProcedure
+  getSubscriptionForLesson: optionalUserProcedure
     .use(requireCollections("lessons", "subscriptions"))
     .input(
       z.object({
         lessonId: z.number(),
+        /** Selected booking quantity on the booking page (used to filter eligible upgrade plans). */
+        quantity: z.number().min(1).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const { user, payload } = ctx;
+
+      // Logged out (or session missing): safe fallback so payment UI can still render.
+      if (!user) {
+        return {
+          subscription: null,
+          subscriptionLimitReached: false,
+          remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
+          eligiblePlansForQuantity: null,
+        };
+      }
+
+      let tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(payload, input.lessonId);
+      }
 
       // Get the lesson to check allowed plans
       const lesson = await findByIdSafe<Lesson>(
         payload,
         "lessons",
         input.lessonId,
-        { depth: 2, overrideAccess: false, user }
+        { depth: 2, overrideAccess: Boolean(tenantId), user }
       );
 
       if (!lesson) {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
       const classOption =
         typeof lesson.classOption === "object" ? lesson.classOption : null;
       const allowedPlans = classOption?.paymentMethods?.allowedPlans || [];
+      const allowedPlanDocs = (allowedPlans as unknown[]).filter(
+        (p): p is Plan => typeof p === "object" && p != null && "id" in p
+      );
 
       if (allowedPlans.length === 0) {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
-      // Find active subscription for this user with allowed plans
+      // Find subscription for this user with allowed plans (include past_due so UI can show portal)
       const userSubscription = await findSafe<Subscription & { plan: Plan }>(
         payload,
         "subscriptions",
@@ -206,7 +247,6 @@ export const subscriptionsRouter = {
             status: {
               not_in: [
                 "canceled",
-                "unpaid",
                 "incomplete_expired",
                 "incomplete",
               ],
@@ -230,19 +270,78 @@ export const subscriptionsRouter = {
         return {
           subscription: null,
           subscriptionLimitReached: false,
+          remainingSessions: null,
+          needsCustomerPortal: false,
+          upgradeOptions: [],
+          eligiblePlansForQuantity: null,
         };
       }
 
+      const needsCustomerPortal = subscriptionNeedsCustomerPortal(
+        subscription.status
+      );
+
       // Check if subscription limit is reached
       const limitReached = await hasReachedSubscriptionLimit(
-        subscription,
+        subscription as Subscription,
         payload,
         new Date(lesson.startTime)
       );
 
+      const remainingSessions = await getRemainingSessionsInPeriod(
+        subscription as Subscription,
+        payload,
+        new Date(lesson.startTime)
+      );
+
+      const selectedQuantity = input.quantity ?? 1;
+      const lessonDate = new Date(lesson.startTime);
+
+      const eligiblePlansForQuantity =
+        selectedQuantity > 1
+          ? await (async () => {
+              const candidates = allowedPlanDocs.filter((p) => p.status === "active");
+              const eligible: Plan[] = [];
+              for (const plan of candidates) {
+                const allowsMultiple =
+                  plan.sessionsInformation?.allowMultipleBookingsPerLesson ===
+                  true;
+                if (!allowsMultiple) continue;
+
+                const remainingForPlan = await getRemainingSessionsInPeriodForPlan(
+                  subscription as Subscription,
+                  plan,
+                  payload,
+                  lessonDate
+                );
+
+                if (remainingForPlan != null && remainingForPlan < selectedQuantity) {
+                  continue;
+                }
+
+                eligible.push(plan);
+              }
+              return eligible;
+            })()
+          : null;
+
+      const upgradeOptions =
+        limitReached && allowedPlans.length > 0
+          ? await getSubscriptionUpgradeOptions(
+              subscription as Subscription,
+              (eligiblePlansForQuantity ?? allowedPlanDocs) as Plan[],
+              payload,
+              new Date(lesson.startTime)
+            )
+          : [];
+
       return {
         subscription,
         subscriptionLimitReached: limitReached,
+        remainingSessions,
+        needsCustomerPortal,
+        upgradeOptions,
+        eligiblePlansForQuantity,
       };
     }),
 };

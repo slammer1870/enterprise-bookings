@@ -3,6 +3,29 @@ import { Payload, Where, CollectionSlug } from "payload";
 import { Lesson, Plan, Subscription, User } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 
+/** Resolve plan collection slug (plans). */
+function getPlanCollectionSlug(payload: Payload): CollectionSlug {
+  return payload.collections && "plans" in payload.collections
+    ? ("plans" as CollectionSlug)
+    : ("plans" as CollectionSlug);
+}
+
+/**
+ * Returns true if plan explicitly allows multiple bookings per lesson.
+ *
+ * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
+ * Multi-booking is controlled only by the explicit flag.
+ */
+function planAllowsMultipleBookingsPerLesson(plan: Plan): boolean {
+  const si = plan?.sessionsInformation as
+    | (NonNullable<Plan["sessionsInformation"]> & {
+        allowMultipleBookingsPerLesson?: boolean;
+      })
+    | null
+    | undefined;
+  return si?.allowMultipleBookingsPerLesson === true;
+}
+
 function getSubscriptionPeriodStartAndEndDate(opts: {
   subscriptionStartDate: Date | string;
   lessonDate: Date;
@@ -128,7 +151,7 @@ export const hasReachedSubscriptionLimit = async (
   if (typeof plan === "number") {
     try {
       plan = (await payload.findByID({
-        collection: "plans" as CollectionSlug,
+        collection: getPlanCollectionSlug(payload),
         id: plan,
       })) as Plan;
     } catch {
@@ -187,6 +210,229 @@ export const hasReachedSubscriptionLimit = async (
   }
 
   return false;
+};
+
+/**
+ * Returns remaining sessions in the current billing period for the subscription.
+ * Returns null if the plan has no session limit (unlimited) or plan/session info is missing.
+ * Used to filter which plans can be shown on the booking page based on selected quantity.
+ */
+export const getRemainingSessionsInPeriod = async (
+  subscription: Subscription,
+  payload: Payload,
+  lessonDate: Date
+): Promise<number | null> => {
+  let plan = subscription.plan as unknown as Plan | number;
+  if (typeof plan === "number") {
+    try {
+      plan = (await payload.findByID({
+        collection: getPlanCollectionSlug(payload),
+        id: plan,
+      })) as Plan;
+    } catch {
+      return null;
+    }
+  }
+
+  return await getRemainingSessionsInPeriodForPlan(
+    subscription,
+    plan as Plan,
+    payload,
+    lessonDate
+  );
+};
+
+/**
+ * Returns remaining sessions in the current billing period for the given plan, using the subscription's period anchor.
+ * Returns null if the plan has no session limit (unlimited) or plan/session info is missing.
+ */
+export const getRemainingSessionsInPeriodForPlan = async (
+  subscription: Subscription,
+  plan: Plan,
+  payload: Payload,
+  lessonDate: Date
+): Promise<number | null> => {
+  if (
+    !plan ||
+    !plan.sessionsInformation ||
+    plan.sessionsInformation.sessions == null ||
+    plan.sessionsInformation.sessions <= 0 ||
+    !plan.sessionsInformation.interval ||
+    plan.sessionsInformation.intervalCount == null
+  ) {
+    return null; // unlimited
+  }
+
+  const { startDate, endDate } = subscription.startDate
+    ? getSubscriptionPeriodStartAndEndDate({
+        subscriptionStartDate: subscription.startDate as any,
+        lessonDate,
+        intervalType: plan.sessionsInformation.interval,
+        intervalCount: plan.sessionsInformation.intervalCount || 1,
+      })
+    : getIntervalStartAndEndDate(
+        plan.sessionsInformation.interval,
+        plan.sessionsInformation.intervalCount || 1,
+        lessonDate
+      );
+
+  try {
+    const bookings = await payload.find({
+      collection: "bookings" as CollectionSlug,
+      depth: 0,
+      where: query(subscription, plan as Plan, startDate, endDate),
+      limit: 0,
+    });
+    const used = bookings.totalDocs ?? 0;
+    const limit = plan.sessionsInformation.sessions;
+    return Math.max(0, limit - used);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Returns the maximum additional booking quantity the user can create for this lesson
+ * when booking via subscription. Returns null if user has no subscription for this lesson
+ * (caller may allow any quantity if they are paying).
+ * When allowMultipleBookingsPerLesson is false, max is 1 per lesson.
+ */
+export const getMaxSubscriptionQuantityPerLesson = async (
+  userId: number,
+  lesson: Lesson,
+  payload: Payload
+): Promise<number | null> => {
+  const allowedPlans = lesson.classOption?.paymentMethods?.allowedPlans;
+  if (!allowedPlans || allowedPlans.length === 0) return null;
+
+  try {
+    const subs = await payload.find({
+      collection: "subscriptions" as CollectionSlug,
+      where: {
+        user: { equals: userId },
+        status: { equals: "active" },
+        startDate: { less_than_equal: new Date() },
+        endDate: { greater_than_equal: new Date() },
+        plan: {
+          in: allowedPlans.map((p: any) => (typeof p === "object" && p != null ? p.id : p)),
+        },
+        or: [
+          { cancelAt: { greater_than: new Date() } },
+          { cancelAt: { exists: false } },
+        ],
+      },
+      depth: 2,
+      limit: 1,
+      overrideAccess: true,
+    });
+
+    if (subs.docs.length === 0) return null;
+
+    let plan = (subs.docs[0] as Subscription).plan as Plan | number;
+    if (typeof plan === "number") {
+      plan = (await payload.findByID({
+        collection: getPlanCollectionSlug(payload),
+        id: plan,
+        depth: 0,
+      })) as Plan;
+    }
+    if (!plan) return null;
+
+    const maxPerLesson = planAllowsMultipleBookingsPerLesson(plan) ? Infinity : 1;
+
+    const existing = await payload.find({
+      collection: "bookings" as CollectionSlug,
+      where: {
+        lesson: { equals: lesson.id },
+        user: { equals: userId },
+        status: { equals: "confirmed" },
+      },
+      limit: 0,
+      overrideAccess: true,
+    });
+
+    const existingCount = existing.totalDocs ?? 0;
+    const maxAdditional = Math.max(0, maxPerLesson - existingCount);
+    return maxAdditional;
+  } catch (error) {
+    payload.logger?.error?.(`getMaxSubscriptionQuantityPerLesson: ${error}`);
+    return null;
+  }
+};
+
+/** Statuses that allow using subscription for booking (no portal required). */
+const USABLE_SUBSCRIPTION_STATUSES = ["active", "trialing"] as const;
+
+/** Statuses that require the customer to visit the portal (e.g. update payment). */
+export const NEEDS_PORTAL_SUBSCRIPTION_STATUSES = ["past_due", "unpaid"] as const;
+
+export function subscriptionNeedsCustomerPortal(
+  status: string | undefined
+): boolean {
+  return status != null && (NEEDS_PORTAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}
+
+export function canUseSubscriptionForBooking(status: string | undefined): boolean {
+  return status != null && (USABLE_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}
+
+export type SubscriptionUpgradeOption = {
+  plan: Plan;
+  maxAdditionalSessions: number;
+};
+
+/**
+ * For a user with a current subscription and session limit reached (or nearly),
+ * returns allowed plans they can upgrade to with pro-rata additional sessions.
+ * E.g. 2/week plan, used 2 this week, upgrade to 3/week → 1 more session (not 3).
+ */
+export const getSubscriptionUpgradeOptions = async (
+  subscription: Subscription,
+  allowedPlans: Plan[],
+  payload: Payload,
+  lessonDate: Date
+): Promise<SubscriptionUpgradeOption[]> => {
+  let currentPlan = subscription.plan as Plan | number;
+  if (typeof currentPlan === "number") {
+    try {
+      currentPlan = (await payload.findByID({
+        collection: getPlanCollectionSlug(payload),
+        id: currentPlan,
+        depth: 0,
+      })) as Plan;
+    } catch {
+      return [];
+    }
+  }
+  if (!currentPlan?.sessionsInformation?.sessions) return [];
+
+  const remaining = await getRemainingSessionsInPeriod(
+    subscription,
+    payload,
+    lessonDate
+  );
+  const usedInPeriod =
+    remaining != null
+      ? currentPlan.sessionsInformation!.sessions! - remaining
+      : 0;
+
+  const currentSessions = currentPlan.sessionsInformation!.sessions!;
+  const options: SubscriptionUpgradeOption[] = [];
+
+  for (const targetPlan of allowedPlans) {
+    if (targetPlan.id === currentPlan.id) continue;
+    const si = targetPlan.sessionsInformation;
+    if (!si?.sessions || si.sessions <= currentSessions) continue;
+
+    const sessionsLeftIfUpgraded = Math.max(0, si.sessions - usedInPeriod);
+    const proRataCap = si.sessions - currentSessions;
+    const maxAdditionalSessions = Math.min(sessionsLeftIfUpgraded, proRataCap);
+    if (maxAdditionalSessions > 0) {
+      options.push({ plan: targetPlan, maxAdditionalSessions });
+    }
+  }
+
+  return options;
 };
 
 // Helper function to check user subscription

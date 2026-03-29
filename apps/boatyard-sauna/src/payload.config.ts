@@ -5,8 +5,6 @@ import path from 'path'
 import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
-import { betterAuthPlugin } from 'payload-auth/better-auth'
-
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { migrations } from './migrations'

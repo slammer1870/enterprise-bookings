@@ -86,7 +86,14 @@ export function ChildrenValidateSubscription({
           <Button
             className="w-full"
             disabled={isPending}
-            onClick={() => createCustomerPortal()}
+            onClick={() =>
+              createCustomerPortal({
+                returnUrl:
+                  typeof window !== "undefined"
+                    ? window.location.href
+                    : undefined,
+              })
+            }
           >
             {isPending ? "Loading..." : "Update Subscription"}
           </Button>

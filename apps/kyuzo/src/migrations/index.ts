@@ -20,6 +20,13 @@ import * as migration_20260103_000001_migrate_legacy_users_to_better_auth from '
 import * as migration_20260106_000001_rename_role_customer_to_user from './20260106_000001_rename_role_customer_to_user';
 import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
 import * as migration_20260119_000001_rename_users_parent_to_parent_user from './20260119_000001_rename_users_parent_to_parent_user';
+import * as migration_20260120_200918 from './20260120_200918';
+import * as migration_20260127_082521 from './20260127_082521';
+import * as migration_20260203_000001_create_memberships_tables from './20260203_000001_create_memberships_tables';
+import * as migration_20260203_000001_create_plans_tables from './20260203_000001_create_plans_tables';
+import * as migration_20260203_000002_plans_allow_multiple_bookings_per_lesson from './20260203_000002_plans_allow_multiple_bookings_per_lesson';
+import * as migration_20260211_200756 from './20260211_200756';
+import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
 
 export const migrations = [
   {
@@ -90,7 +97,7 @@ export const migrations = [
   {
     up: migration_20251206_110241.up,
     down: migration_20251206_110241.down,
-    name: '20251206_110241'
+    name: '20251206_110241',
   },
   {
     up: migration_20260101_000001.up,
@@ -131,5 +138,40 @@ export const migrations = [
     up: migration_20260119_000001_rename_users_parent_to_parent_user.up,
     down: migration_20260119_000001_rename_users_parent_to_parent_user.down,
     name: '20260119_000001_rename_users_parent_to_parent_user',
+  },
+  {
+    up: migration_20260120_200918.up,
+    down: migration_20260120_200918.down,
+    name: '20260120_200918',
+  },
+  {
+    up: migration_20260127_082521.up,
+    down: migration_20260127_082521.down,
+    name: '20260127_082521',
+  },
+  {
+    up: migration_20260203_000001_create_memberships_tables.up,
+    down: migration_20260203_000001_create_memberships_tables.down,
+    name: '20260203_000001_create_memberships_tables',
+  },
+  {
+    up: migration_20260203_000001_create_plans_tables.up,
+    down: migration_20260203_000001_create_plans_tables.down,
+    name: '20260203_000001_create_plans_tables',
+  },
+  {
+    up: migration_20260203_000002_plans_allow_multiple_bookings_per_lesson.up,
+    down: migration_20260203_000002_plans_allow_multiple_bookings_per_lesson.down,
+    name: '20260203_000002_plans_allow_multiple_bookings_per_lesson',
+  },
+  {
+    up: migration_20260211_200756.up,
+    down: migration_20260211_200756.down,
+    name: '20260211_200756'
+  },
+  {
+    up: migration_20260226_users_stripe_customers_table.up,
+    down: migration_20260226_users_stripe_customers_table.down,
+    name: '20260226_users_stripe_customers_table',
   },
 ];

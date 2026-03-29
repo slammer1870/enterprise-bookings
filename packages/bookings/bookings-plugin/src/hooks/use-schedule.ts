@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Lesson } from "@repo/shared-types";
 
-import { getLessonsQuery } from "@repo/shared-utils";
+import { getLessonsQuery } from "@repo/shared-utils/query";
 
 export const useSchedule = (date: Date) => {
   const [lessons, setLessons] = useState<Lesson[]>([]);

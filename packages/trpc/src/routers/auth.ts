@@ -1,14 +1,66 @@
 import { publicProcedure } from "../trpc";
 import { z } from "zod";
-import { generatePasswordSaltHash } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 import crypto from "crypto";
 import { findSafe, createSafe } from "../utils/collections";
 import { TRPCError } from "@trpc/server";
 
 export const authRouter = {
   getSession: publicProcedure.query(async ({ ctx }) => {
-    const session = await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false });
-    return session?.user ? session : null;
+    const toId = (value: unknown): string | null => {
+      if (typeof value === "string" && value.trim()) return value;
+      if (typeof value === "number" && Number.isFinite(value)) return String(value);
+      return null;
+    };
+
+    const sanitizeUser = (u: any) => {
+      if (!u || typeof u !== "object") return null;
+      const id = toId(u.id);
+      if (!id) return null;
+      return {
+        id,
+        name: typeof u.name === "string" ? u.name : null,
+        email: typeof u.email === "string" ? u.email : null,
+        roles: Array.isArray(u.roles) ? u.roles : Array.isArray(u.role) ? u.role : [],
+        registrationTenantId:
+          typeof u.registrationTenant === "number"
+            ? u.registrationTenant
+            : u.registrationTenant && typeof u.registrationTenant === "object"
+              ? (typeof (u.registrationTenant as any).id === "number"
+                  ? (u.registrationTenant as any).id
+                  : typeof (u.registrationTenant as any).id === "string"
+                    ? parseInt((u.registrationTenant as any).id, 10)
+                    : null)
+              : null,
+      };
+    };
+
+    const sanitizeSession = (s: any) => {
+      if (!s || typeof s !== "object") return null;
+      const user = sanitizeUser((s as any).user);
+      if (!user) return null;
+      return {
+        session: {
+          id: toId((s as any)?.session?.id) ?? toId((s as any)?.id),
+          expiresAt:
+            typeof (s as any)?.session?.expiresAt === "string"
+              ? (s as any).session.expiresAt
+              : typeof (s as any)?.expiresAt === "string"
+                ? (s as any).expiresAt
+                : null,
+        },
+        user,
+      };
+    };
+
+    // Prefer Better Auth session when configured (magic-link login uses this).
+    if (ctx.betterAuth?.api?.getSession) {
+      const raw = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+      return sanitizeSession(raw);
+    }
+
+    const raw = await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false });
+    return sanitizeSession(raw);
   }),
   registerPasswordless: publicProcedure
     .input(

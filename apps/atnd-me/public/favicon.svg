@@ -1,0 +1,12 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#16A34A"></rect>
+
+  <!-- Inner circle -->
+  <circle cx="32" cy="32" r="18" fill="#F3F4F6"></circle>
+
+  <!-- Letter -->
+  <text x="32" y="38" text-anchor="middle" font-size="24" font-weight="700" font-family="Inter, system-ui, -apple-system, sans-serif" fill="#16A34A">
+    a
+  </text>
+</svg>

@@ -1,4 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
 'use client'
 
 import { adminClient, magicLinkClient } from 'better-auth/client/plugins'
@@ -14,7 +13,7 @@ export function createAppAuthClient({
   baseURL,
   enableAdmin = true,
   enableMagicLink = false,
-}: CreateAppAuthClientArgs) {
+}: CreateAppAuthClientArgs): ReturnType<typeof createAuthClient> {
   const resolvedBaseURL =
     baseURL ||
     process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||

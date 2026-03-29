@@ -21,7 +21,7 @@ import { User } from "@repo/shared-types";
 
 import { createLesson } from "../bookings/lesson-helpers";
 
-import { paymentIntentSucceeded } from "@repo/payments-plugin";
+import { paymentIntentSucceeded } from "@repo/bookings-payments";
 
 import type Stripe from "stripe";
 
@@ -44,7 +44,6 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
   afterAll(async () => {
     if (payload) {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       await (payload.db as any).destroy();
     }
   });
@@ -114,7 +113,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       }
 
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -129,15 +128,15 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       });
 
       expect(bookingsAfter.docs.length).toBe(1);
-      expect(bookingsAfter.docs[0].status).toBe("confirmed");
+      expect(bookingsAfter.docs[0]?.status).toBe("confirmed");
       const lessonId =
-        typeof bookingsAfter.docs[0].lesson === "object"
-          ? bookingsAfter.docs[0].lesson?.id
-          : bookingsAfter.docs[0].lesson;
+        typeof bookingsAfter.docs[0]?.lesson === "object"
+          ? bookingsAfter.docs[0]?.lesson?.id
+          : bookingsAfter.docs[0]?.lesson;
       const userId =
-        typeof bookingsAfter.docs[0].user === "object"
-          ? bookingsAfter.docs[0].user?.id
-          : bookingsAfter.docs[0].user;
+        typeof bookingsAfter.docs[0]?.user === "object"
+          ? bookingsAfter.docs[0]?.user?.id
+          : bookingsAfter.docs[0]?.user;
       expect(lessonId).toBe(lesson.id);
       expect(userId).toBe(user.id);
     },
@@ -206,7 +205,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Call the webhook handler
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -283,7 +282,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Call the webhook handler
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -417,7 +416,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Call the webhook handler
       await paymentIntentSucceeded({
-        event: mockEvent,
+        event: mockEvent as any,
         payload,
       });
 
@@ -496,6 +495,179 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
         (booking) => booking.status === "confirmed"
       );
       expect(confirmedBookings.length).toBeGreaterThanOrEqual(3);
+    },
+    TEST_TIMEOUT
+  );
+
+  it(
+    "should create multiple bookings when lessonId and quantity are in payment intent metadata",
+    async () => {
+      if (!payload) {
+        throw new Error("Payload is not initialized");
+      }
+
+      const user = (await payload.create({
+        collection: "users",
+        data: {
+          email: "payment-test-quantity@test.com",
+          password: "test",
+          stripeCustomerId: "cus_test_quantity",
+        },
+      })) as User;
+
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option for Quantity",
+          places: 10,
+          description: "Test Class Option for Quantity",
+        },
+      });
+
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 14,
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location Quantity",
+      });
+
+      const existingBefore = await payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: lesson.id },
+          user: { equals: user.id },
+        },
+      });
+      expect(existingBefore.docs.length).toBe(0);
+
+      const mockEvent = {
+        data: {
+          object: {
+            id: "pi_test_quantity",
+            customer: "cus_test_quantity",
+            metadata: {
+              lessonId: lesson.id.toString(),
+              quantity: "2",
+            },
+          } as unknown as Stripe.PaymentIntent,
+        },
+      };
+
+      await paymentIntentSucceeded({
+        event: mockEvent as any,
+        payload,
+      });
+
+      const bookingsAfter = await payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: lesson.id },
+          user: { equals: user.id },
+        },
+        depth: 0,
+      });
+
+      expect(bookingsAfter.docs.length).toBe(2);
+      expect(bookingsAfter.docs.every((b) => b.status === "confirmed")).toBe(true);
+    },
+    TEST_TIMEOUT
+  );
+
+  it(
+    "should cap created bookings to remainingCapacity when quantity in metadata exceeds capacity",
+    async () => {
+      if (!payload) {
+        throw new Error("Payload is not initialized");
+      }
+
+      const user = (await payload.create({
+        collection: "users",
+        data: {
+          email: "payment-test-cap@test.com",
+          password: "test",
+          stripeCustomerId: "cus_test_cap",
+        },
+      })) as User;
+
+      const otherUser = (await payload.create({
+        collection: "users",
+        data: {
+          email: "payment-test-cap-other@test.com",
+          password: "test",
+        },
+      })) as User;
+
+      const classOption = await payload.create({
+        collection: "class-options",
+        data: {
+          name: "Test Class Option for Cap",
+          places: 2,
+          description: "Test Class Option for Cap",
+        },
+      });
+
+      const lesson = await createLesson(payload, {
+        startHoursOffset: 15,
+        durationHours: 1,
+        classOption: classOption.id,
+        location: "Test Location Cap",
+      });
+
+      await payload.create({
+        collection: "bookings",
+        data: {
+          lesson: lesson.id,
+          user: otherUser.id,
+          status: "confirmed",
+        },
+      });
+
+      const existingForUser = await payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: lesson.id },
+          user: { equals: user.id },
+        },
+      });
+      expect(existingForUser.docs.length).toBe(0);
+
+      const mockEvent = {
+        data: {
+          object: {
+            id: "pi_test_cap",
+            customer: "cus_test_cap",
+            metadata: {
+              lessonId: lesson.id.toString(),
+              quantity: "2",
+            },
+          } as unknown as Stripe.PaymentIntent,
+        },
+      };
+
+      await paymentIntentSucceeded({
+        event: mockEvent as any,
+        payload,
+      });
+
+      const bookingsAfter = await payload.find({
+        collection: "bookings",
+        where: {
+          lesson: { equals: lesson.id },
+          user: { equals: user.id },
+        },
+        depth: 0,
+      });
+
+      expect(bookingsAfter.docs.length).toBe(1);
+      expect(bookingsAfter.docs[0]?.status).toBe("confirmed");
+
+      const allForLesson = await payload.find({
+        collection: "bookings",
+        where: { lesson: { equals: lesson.id } },
+        depth: 0,
+      });
+      const confirmedCount = allForLesson.docs.filter((b) => b.status === "confirmed").length;
+      expect(confirmedCount).toBe(2);
     },
     TEST_TIMEOUT
   );

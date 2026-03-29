@@ -90,6 +90,8 @@
   --waitlist-foreground: hsl(0 0% 98%);
   --children-booked: hsl(271 91% 65%);
   --children-booked-foreground: hsl(0 0% 98%);
+  --modify: hsl(263 70% 50%);
+  --modify-foreground: hsl(0 0% 98%);
   --closed: hsl(0 0% 50%);
   --closed-foreground: hsl(0 0% 98%);
 
@@ -104,6 +106,8 @@
   --waitlist-foreground: hsl(0 0% 98%);
   --children-booked: hsl(271 91% 65%);
   --children-booked-foreground: hsl(0 0% 98%);
+  --modify: hsl(263 70% 55%);
+  --modify-foreground: hsl(0 0% 98%);
   --closed: hsl(0 0% 50%);
   --closed-foreground: hsl(0 0% 98%);
 }
@@ -162,6 +166,8 @@
   --color-waitlist-foreground: var(--waitlist-foreground);
   --color-childrenBooked: var(--children-booked);
   --color-childrenBooked-foreground: var(--children-booked-foreground);
+  --color-modify: var(--modify);
+  --color-modify-foreground: var(--modify-foreground);
   --color-closed: var(--closed);
   --color-closed-foreground: var(--closed-foreground);
 }
@@ -247,6 +253,16 @@
   }
   .text-childrenBooked-foreground {
     color: var(--children-booked-foreground);
+  }
+
+  .bg-modify {
+    background-color: var(--modify);
+  }
+  .hover\:bg-modify\/90:hover {
+    background-color: color-mix(in srgb, var(--modify) 90%, transparent);
+  }
+  .text-modify-foreground {
+    color: var(--modify-foreground);
   }
 
   .bg-closed {

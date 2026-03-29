@@ -1,10 +1,7 @@
 'use client'
 
 import type { Plan, Subscription } from '@repo/shared-types'
-import { PlanView } from '@repo/payments-next'
-import { useSubscriptionActions } from '@repo/payments-next'
-import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
-import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
+import { PlanList, PlanDetail, useSubscriptionActions } from '@repo/membership-next'
 
 export function DashboardMembershipPanel({
   plans,
@@ -37,9 +34,15 @@ export function DashboardMembershipPanel({
     return <PlanList plans={plans} actionLabel="Subscribe" onAction={handleCreateCheckoutSession} />
   }
 
-  return (
-    <PlanDetail plan={subscription.plan} actionLabel="Manage Subscription" onAction={openCustomerPortal} />
+  const handleOpenCustomerPortal = async (
+    _planId: string,
+    _metadata?: { [key: string]: string | undefined },
+  ) => {
+    await openCustomerPortal()
+  }
 
+  return (
+    <PlanDetail plan={subscription.plan} actionLabel="Manage Subscription" onAction={handleOpenCustomerPortal} />
   )
 }
 

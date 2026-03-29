@@ -75,6 +75,10 @@ export function ChildrenManageNoValidSubscription({
               onClick={() =>
                 createCustomerUpgradePortal({
                   productId: (plan as any).stripeProductId as string,
+                  returnUrl:
+                    typeof window !== "undefined"
+                      ? window.location.href
+                      : undefined,
                 })
               }
             >

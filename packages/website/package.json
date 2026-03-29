@@ -16,15 +16,24 @@
     "react-hook-form": "*"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@types/react": "*",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3"
   },
   "dependencies": {
     "@repo/analytics": "workspace:*",
+    "@repo/bookings-next": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*",
-    "monaco-editor": "^0.52.2"
+    "monaco-editor": "^0.52.2",
+    "lucide-react": "0.554.0"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   }
 }

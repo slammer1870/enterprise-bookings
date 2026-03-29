@@ -32,6 +32,9 @@ export const CustomSelect: React.FC<
       value: string;
     }[]
   >([]);
+  const [stripeAccountId, setStripeAccountId] = React.useState<string | null>(
+    null
+  );
 
   // Use local state to track value, initialized from props
   // SelectInput will handle form updates via the path prop
@@ -39,18 +42,39 @@ export const CustomSelect: React.FC<
 
   React.useEffect(() => {
     const getStripeOptions = async () => {
+      let optionsFetch: Response | null = null;
       try {
         setLoading(true);
-        const optionsFetch = await fetch(apiUrl, {
+        optionsFetch = await fetch(apiUrl, {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
         });
 
+        if (!optionsFetch.ok) {
+          const text = await optionsFetch.text().catch(() => "");
+          const message =
+            text && text.trim().length > 0 ? text : `Failed to load ${dataLabel}`;
+          setOptions([
+            {
+              label: message,
+              value: "",
+            },
+          ]);
+          toast.error(message);
+          return;
+        }
+
         const res = await optionsFetch.json();
 
         if (res?.data) {
+          const acct =
+            typeof res?.meta?.stripeAccountId === "string" &&
+            res.meta.stripeAccountId.trim().length > 0
+              ? res.meta.stripeAccountId.trim()
+              : null;
+          setStripeAccountId(acct);
           const fetchedOptions = res.data.reduce(
             (
               acc: { label: any; value: any }[],
@@ -87,7 +111,7 @@ export const CustomSelect: React.FC<
           } else {
             setOptions(fetchedOptions);
           }
-          setLoading(false);
+          return;
         }
       } catch (error) {
         console.error(error); // eslint-disable-line no-console
@@ -96,6 +120,7 @@ export const CustomSelect: React.FC<
           value: "",
         },]);
         toast.error("Error fetching options: " + (error as Error).message);
+      } finally {
         setLoading(false);
       }
     };
@@ -112,8 +137,13 @@ export const CustomSelect: React.FC<
 
   const normalizedValue = typeof value === "string" ? value : "";
 
-  const href = `https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-    }${dataLabel}/${normalizedValue}`;
+  const dashboardBase = `https://dashboard.stripe.com/${
+    process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
+  }`;
+  const stripeAccountQuery = stripeAccountId
+    ? `?stripe_account=${encodeURIComponent(stripeAccountId)}`
+    : "";
+  const href = `${dashboardBase}${dataLabel}/${normalizedValue}${stripeAccountQuery}`;
 
   return (
     <div className="mb-4">
@@ -128,8 +158,7 @@ export const CustomSelect: React.FC<
       >
         {`Select the related Stripe data or `}
         <a
-          href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-            }${dataLabel}/create`}
+          href={`${dashboardBase}${dataLabel}/create${stripeAccountQuery}`}
           rel="noopener noreferrer"
           style={{ color: "var(--theme-text)" }}
           target="_blank"
@@ -176,8 +205,7 @@ export const CustomSelect: React.FC<
             }}
           >
             <a
-              href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_IS_TEST_KEY ? "test/" : ""
-                }${dataLabel}/${normalizedValue}`}
+              href={href}
               rel="noreferrer noopener"
               target="_blank"
             >

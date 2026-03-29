@@ -57,7 +57,10 @@ export const config: Config = {
       connectionString: process.env.DATABASE_URI,
     },
   }),
-  sharp,
+  // Wrap `sharp` to match Payload's expected SharpDependency signature.
+  // (The `sharp` package has multiple overloads, including `sharp(options?)`,
+  // which can fail assignment against Payload's stricter `(input?, options?)` type.)
+  sharp: ((input, options) => sharp(input as any, options)) as Config["sharp"],
   plugins: [
     payloadCloudPlugin(),
     rolesPlugin({

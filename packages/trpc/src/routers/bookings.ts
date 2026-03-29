@@ -3,29 +3,177 @@ import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
 import { protectedProcedure, requireCollections } from "../trpc";
-import { findByIdSafe, findSafe, createSafe, updateSafe } from "../utils/collections";
+import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from "../utils/collections";
+import {
+  getTenantSlug,
+  resolveTenantId,
+  resolveTenantIdFromLessonId,
+  assertLessonBelongsToTenant,
+  getDocTenantId,
+} from "../utils/tenant";
 
-import { Booking, ClassOption, Lesson, Subscription } from "@repo/shared-types";
+import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
+import {
+  getMaxSubscriptionQuantityPerLesson,
+  hasReachedSubscriptionLimit,
+  getRemainingSessionsInPeriod,
+  canUseSubscriptionForBooking,
+} from "@repo/shared-services";
 
 export const bookingsRouter = {
+  /**
+   * Schedule UX shortcut for single-slot lessons:
+   * - If viewer has an eligible active subscription for the lesson, book immediately.
+   * - Otherwise redirect to the lesson booking page so payment/subscription options are available.
+   *
+   * This intentionally avoids navigating to the generic booking page for cases where the
+   * viewer can only ever book 1 slot and the flow is decided by membership state.
+   */
+  bookSingleSlotLessonOrRedirect: protectedProcedure
+    .use(requireCollections("lessons", "bookings", "class-options", "subscriptions"))
+    .input(z.object({ lessonId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const { lessonId } = input;
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+      }
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 2,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+      if (!lesson) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      const classOptionId =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any).id
+          : (lesson.classOption as any);
+      const classOption =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any)
+          : classOptionId != null
+            ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+                depth: 2,
+                overrideAccess: Boolean(tenantId),
+                user: ctx.user,
+              })
+            : null;
+
+      // Child lessons are handled on the children booking page.
+      if ((classOption as any)?.type === "child") {
+        return { redirectUrl: `/bookings/children/${lessonId}` };
+      }
+
+      const paymentMethods = (classOption as any)?.paymentMethods as
+        | { allowedDropIn?: any; allowedPlans?: any[] }
+        | undefined;
+      const hasPaymentMethods = Boolean(
+        paymentMethods?.allowedDropIn || (paymentMethods?.allowedPlans?.length ?? 0) > 0
+      );
+      const dropInAllowsMultiple =
+        (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerLesson === true;
+      const planAllowsMultiple = Array.isArray((paymentMethods as any)?.allowedPlans)
+        ? (paymentMethods as any).allowedPlans.some(
+            (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerLesson === true
+          )
+        : false;
+      const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
+      const singleSlotOnly = !allowsMultipleBookingsForViewer;
+
+      // If this isn't a single-slot lesson, fall back to the normal booking page flow.
+      if (!singleSlotOnly) {
+        return { redirectUrl: `/bookings/${lessonId}` };
+      }
+
+      // If already booked, no-op (stay on schedule).
+      const existingConfirmed = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: {
+          and: [
+            { lesson: { equals: lessonId } },
+            { user: { equals: ctx.user.id } },
+            { status: { equals: "confirmed" } },
+          ],
+        },
+        depth: 0,
+        limit: 1,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+      if (existingConfirmed.docs.length > 0) {
+        return { redirectUrl: null };
+      }
+
+      const allowedPlanIds =
+        (paymentMethods as any)?.allowedPlans?.map((p: any) =>
+          typeof p === "object" && p != null ? p.id : p
+        ) ?? [];
+
+      // No membership option configured -> redirect to manage.
+      if (!Array.isArray(allowedPlanIds) || allowedPlanIds.length === 0) {
+        return { redirectUrl: `/bookings/${lessonId}` };
+      }
+
+      // Find the first eligible subscription the viewer can use for this lesson.
+      const subs = await findSafe<Subscription>(ctx.payload, "subscriptions", {
+        where: {
+          and: [
+            { user: { equals: ctx.user.id } },
+            { plan: { in: allowedPlanIds } },
+          ],
+        },
+        depth: 2,
+        limit: 25,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      const lessonStart = new Date(lesson.startTime);
+      const usable = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
+
+      if (!usable) {
+        return { redirectUrl: `/bookings/${lessonId}` };
+      }
+
+      const limitReached = await hasReachedSubscriptionLimit(usable as any, ctx.payload, lessonStart);
+      if (limitReached) {
+        return { redirectUrl: `/bookings/${lessonId}/manage` };
+      }
+
+      // Book directly (mark as subscription-backed) using the viewer context.
+      await createSafe(
+        ctx.payload,
+        "bookings",
+        ({
+          lesson: Number(lessonId),
+          user: Number(ctx.user.id),
+          status: "confirmed",
+          paymentMethodUsed: "subscription",
+          subscriptionIdUsed: Number((usable as any).id),
+        } as unknown) as Record<string, unknown>,
+        { overrideAccess: false, user: ctx.user }
+      );
+
+      return { redirectUrl: null };
+    }),
   checkIn: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Fetch lesson with full depth for business logic validation
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        lessonId,
-        {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
         depth: 3,
-        overrideAccess: false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
-        }
-      );
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -33,6 +181,7 @@ export const bookingsRouter = {
           message: `Lesson with id ${lessonId} not found`,
         });
       }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Business Logic: Handle children's lessons differently
       if (lesson.classOption.type === "child") {
@@ -58,11 +207,11 @@ export const bookingsRouter = {
         });
 
         if (existingBooking.docs.length === 0) {
-          // Create new booking
+          // Create new booking (coerce IDs to number for Payload relationship fields)
           return await createSafe(ctx.payload, "bookings", {
-              lesson: lessonId,
-              user: ctx.user.id,
-              status: "confirmed",
+            lesson: Number(lessonId),
+            user: Number(ctx.user.id),
+            status: "confirmed",
           }, {
             overrideAccess: false,
             user: ctx.user,
@@ -70,7 +219,7 @@ export const bookingsRouter = {
         } else {
           // Update existing booking
           return await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-              status: "confirmed",
+            status: "confirmed",
           }, {
             overrideAccess: false,
             user: ctx.user,
@@ -140,8 +289,8 @@ export const bookingsRouter = {
       }
 
       const created = await createSafe<Booking>(ctx.payload, "bookings", {
-        lesson: input.lessonId,
-        user: input.userId,
+        lesson: Number(input.lessonId),
+        user: Number(input.userId),
         status: "confirmed",
       }, {
         overrideAccess: false,
@@ -154,16 +303,13 @@ export const bookingsRouter = {
     .use(requireCollections("lessons", "bookings", "subscriptions", "users"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        input.id,
-        {
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
         depth: 3,
-        overrideAccess: false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
-        }
-      );
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -171,11 +317,12 @@ export const bookingsRouter = {
           message: `Lesson with id ${input.id} not found`,
         });
       }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, input.id);
 
       const booking = await createSafe<Booking>(ctx.payload, "bookings", {
-          lesson: input.id,
-          user: ctx.user.id,
-          status: "confirmed",
+        lesson: Number(input.id),
+        user: Number(ctx.user.id),
+        status: "confirmed",
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -183,6 +330,562 @@ export const bookingsRouter = {
 
       return booking;
     }),
+  createBookings: protectedProcedure
+    .use(requireCollections("lessons", "bookings", "subscriptions"))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        quantity: z.number().min(1),
+        status: z.enum(["confirmed", "pending"]).optional(),
+        /** When provided, bookings are created as confirmed using this subscription (no payment). */
+        subscriptionId: z.number().optional(),
+        /** When provided with subscriptionId, these pending booking IDs are confirmed (updated) instead of creating new ones. */
+        pendingBookingIds: z.array(z.number()).optional(),
+        /** When provided, bookings are created as confirmed using this class pass (no payment). */
+        classPassId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }): Promise<Booking[]> => {
+      const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds, classPassId } = input;
+      const status =
+        subscriptionId != null || classPassId != null ? "confirmed" : (statusInput ?? "confirmed");
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+      }
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 0,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${lessonId} not found`,
+        });
+      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      // Only load a fully populated classOption if we need its payment method config.
+      if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, "class-options")) {
+        const co = lesson.classOption as any;
+        const coId = typeof co === "object" && co != null ? co.id : co;
+        const needsFetch =
+          typeof co !== "object" ||
+          co == null ||
+          (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
+
+        if (coId != null && needsFetch) {
+          const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+            depth: 2,
+            overrideAccess: Boolean(tenantId),
+            user: ctx.user,
+          });
+          if (populated) {
+            (lesson as any).classOption = populated as any;
+          }
+        }
+      }
+
+      // Validate quantity against remaining capacity
+      const maxQuantity = Math.max(1, lesson.remainingCapacity || 1);
+      if (quantity > maxQuantity) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot book more than ${maxQuantity} slot${maxQuantity !== 1 ? 's' : ''}. Only ${maxQuantity} available.`,
+        });
+      }
+
+      if (quantity < 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Quantity must be at least 1",
+        });
+      }
+
+      let paymentMethodUsed: "subscription" | "class_pass" | undefined;
+      let subscriptionIdUsed: number | undefined;
+
+      if (subscriptionId != null) {
+        if (status !== "confirmed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Booking with subscription must be confirmed.",
+          });
+        }
+        const allowedPlanIds =
+          (lesson.classOption as ClassOption)?.paymentMethods?.allowedPlans?.map(
+            (p: { id?: number }) => (typeof p === "object" && p != null ? p.id : p)
+          ) ?? [];
+        if (!allowedPlanIds?.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This lesson does not allow membership booking.",
+          });
+        }
+        const subResult = await findSafe<Subscription>(
+          ctx.payload,
+          "subscriptions",
+          {
+            where: {
+              id: { equals: subscriptionId },
+              user: { equals: ctx.user.id },
+              plan: { in: allowedPlanIds },
+            },
+            limit: 1,
+            depth: 2,
+            overrideAccess: false,
+            user: ctx.user,
+          }
+        );
+        const subscription = subResult.docs[0];
+        if (!subscription) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized subscription for this lesson.",
+          });
+        }
+        if (!canUseSubscriptionForBooking(subscription.status)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Your membership payment is past due. Please update payment in the customer portal.",
+          });
+        }
+        const limitReached = await hasReachedSubscriptionLimit(
+          subscription,
+          ctx.payload,
+          new Date(lesson.startTime)
+        );
+        if (limitReached) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You have reached your membership session limit for this period.",
+          });
+        }
+        const remaining = await getRemainingSessionsInPeriod(
+          subscription,
+          ctx.payload,
+          new Date(lesson.startTime)
+        );
+        if (remaining != null && remaining < quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `You have ${remaining} session${remaining === 1 ? "" : "s"} left this period. Reduce quantity or use another payment method.`,
+          });
+        }
+        paymentMethodUsed = "subscription";
+        subscriptionIdUsed = subscriptionId;
+      }
+
+      let classPassIdUsed: number | undefined;
+      if (classPassId != null) {
+        if (status !== "confirmed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Booking with class pass must be confirmed.",
+          });
+        }
+        if (!hasCollection(ctx.payload, "class-passes")) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Class passes are not available in this application.",
+          });
+        }
+        const classOptionWithPasses = lesson.classOption as ClassOption & {
+          paymentMethods?: { allowedClassPasses?: (number | { id: number })[] };
+        };
+        const allowedTypeIds =
+          classOptionWithPasses?.paymentMethods?.allowedClassPasses?.map(
+            (p: { id?: number } | number) =>
+              typeof p === "object" && p != null && "id" in p ? p.id : p
+          ) ?? [];
+        if (allowedTypeIds.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This lesson does not allow class pass booking.",
+          });
+        }
+        const lessonTenantIdForPass =
+          typeof lesson.tenant === "object" && lesson.tenant != null
+            ? (lesson.tenant as { id: number }).id
+            : (lesson.tenant as number | undefined) ?? null;
+        if (lessonTenantIdForPass == null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Lesson has no tenant.",
+          });
+        }
+        const passResult = await findSafe(
+          ctx.payload,
+          "class-passes",
+          {
+            where: {
+              id: { equals: classPassId },
+              user: { equals: ctx.user.id },
+              tenant: { equals: lessonTenantIdForPass },
+              type: { in: allowedTypeIds },
+              status: { equals: "active" },
+              quantity: { greater_than: 0 },
+              expirationDate: { greater_than: new Date().toISOString() },
+            },
+            limit: 1,
+            depth: 2,
+            overrideAccess: false,
+            user: ctx.user,
+          }
+        );
+        const passDoc = passResult.docs[0] as
+          | {
+              id: number;
+              quantity: number;
+              type?: number | { id: number; allowMultipleBookingsPerLesson?: boolean };
+            }
+          | undefined;
+        if (!passDoc) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized class pass for this lesson.",
+          });
+        }
+        const passTypeId =
+          typeof passDoc.type === "object" && passDoc.type != null
+            ? (passDoc.type as { id: number }).id
+            : passDoc.type;
+        let passType: { allowMultipleBookingsPerLesson?: boolean } | null = null;
+        if (passTypeId != null && hasCollection(ctx.payload, "class-pass-types")) {
+          const typeDoc = await findByIdSafe(
+            ctx.payload,
+            "class-pass-types",
+            passTypeId,
+            { depth: 0, overrideAccess: true }
+          );
+          passType = typeDoc as { allowMultipleBookingsPerLesson?: boolean } | null;
+        }
+        const allowMultiple = passType?.allowMultipleBookingsPerLesson === true;
+        if (quantity > 1 && !allowMultiple) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This class pass allows only one slot per lesson. Reduce quantity to 1 or use a different pass.",
+          });
+        }
+        if (passDoc.quantity < quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Not enough credits on this pass. You have ${passDoc.quantity}; need ${quantity}.`,
+          });
+        }
+        paymentMethodUsed = "class_pass";
+        classPassIdUsed = classPassId;
+      }
+
+      // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerLesson
+      if (status === "confirmed") {
+        const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
+          Number(ctx.user.id),
+          lesson,
+          ctx.payload
+        );
+        if (maxSubQty != null && quantity > maxSubQty) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              maxSubQty === 0
+                ? "You already have a booking for this lesson. Your membership allows one slot per lesson."
+                : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per lesson for this plan.`,
+          });
+        }
+      }
+
+      const lessonTenantId =
+        typeof lesson.tenant === "object" && lesson.tenant != null
+          ? (lesson.tenant as { id: number }).id
+          : (lesson.tenant as number | undefined) ?? null;
+
+      // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
+      const confirmedBookings: Booking[] = [];
+      const confirmPendingWithClassPass =
+        classPassId != null &&
+        pendingBookingIds != null &&
+        pendingBookingIds.length > 0 &&
+        paymentMethodUsed === "class_pass" &&
+        classPassIdUsed != null;
+
+      if (
+        subscriptionId != null &&
+        pendingBookingIds != null &&
+        pendingBookingIds.length > 0 &&
+        paymentMethodUsed === "subscription" &&
+        subscriptionIdUsed != null
+      ) {
+        if (pendingBookingIds.length > quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "pendingBookingIds count cannot exceed quantity.",
+          });
+        }
+        const pendingResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            id: { in: pendingBookingIds },
+            lesson: { equals: lessonId },
+            user: { equals: ctx.user.id },
+            status: { equals: "pending" },
+          },
+          limit: pendingBookingIds.length + 1,
+          depth: 1,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+        if (pendingResult.docs.length !== pendingBookingIds.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized pending bookings for this lesson.",
+          });
+        }
+        for (const doc of pendingResult.docs) {
+          const id = doc.id as number;
+          const updated = await updateSafe<Booking>(
+            ctx.payload,
+            "bookings",
+            id,
+            {
+              status: "confirmed",
+              paymentMethodUsed: "subscription",
+              subscriptionIdUsed,
+            } as Partial<Booking>,
+            // System operation: confirming pending bookings after membership selection.
+            // Ownership was validated by the pendingResult query above.
+            { overrideAccess: true }
+          );
+          confirmedBookings.push(updated as Booking);
+          if (hasCollection(ctx.payload, "transactions")) {
+            const existingTx = await ctx.payload.find({
+              collection: "transactions" as import("payload").CollectionSlug,
+              where: { booking: { equals: id } },
+              limit: 1,
+              overrideAccess: true,
+            });
+            if (existingTx.totalDocs === 0) {
+              await ctx.payload.create({
+                collection: "transactions" as import("payload").CollectionSlug,
+                data: {
+                  booking: id,
+                  paymentMethod: "subscription",
+                  subscriptionId: subscriptionIdUsed,
+                  ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                } as Record<string, unknown>,
+                overrideAccess: true,
+              });
+            }
+          }
+        }
+      }
+
+      if (confirmPendingWithClassPass) {
+        if (pendingBookingIds!.length > quantity) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "pendingBookingIds count cannot exceed quantity.",
+          });
+        }
+        const pendingResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            id: { in: pendingBookingIds! },
+            lesson: { equals: lessonId },
+            user: { equals: ctx.user.id },
+            status: { equals: "pending" },
+          },
+          limit: pendingBookingIds!.length + 1,
+          depth: 1,
+          overrideAccess: false,
+          user: ctx.user,
+        });
+        if (pendingResult.docs.length !== pendingBookingIds!.length) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized pending bookings for this lesson.",
+          });
+        }
+        for (const doc of pendingResult.docs) {
+          const id = doc.id as number;
+          const updated = await updateSafe<Booking>(
+            ctx.payload,
+            "bookings",
+            id,
+            {
+              status: "confirmed",
+              paymentMethodUsed: "class_pass",
+              classPassIdUsed: classPassIdUsed!,
+            } as Partial<Booking>,
+            // System operation: confirming pending bookings after selecting a class pass.
+            // Ownership was validated by the pendingResult query above.
+            { overrideAccess: true }
+          );
+          confirmedBookings.push(updated as Booking);
+          if (hasCollection(ctx.payload, "transactions")) {
+            const existingTx = await ctx.payload.find({
+              collection: "transactions" as import("payload").CollectionSlug,
+              where: { booking: { equals: id } },
+              limit: 1,
+              overrideAccess: true,
+            });
+            if (existingTx.totalDocs === 0) {
+              await ctx.payload.create({
+                collection: "transactions" as import("payload").CollectionSlug,
+                data: {
+                  booking: id,
+                  paymentMethod: "class_pass",
+                  classPassId: classPassIdUsed!,
+                  ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                } as Record<string, unknown>,
+                overrideAccess: true,
+              });
+            }
+          }
+        }
+      }
+
+      // Create any additional new bookings (when not confirming pending, or quantity > pendingBookingIds.length)
+      const createCount =
+        confirmedBookings.length > 0 ? quantity - confirmedBookings.length : quantity;
+      const baseData: Record<string, unknown> = {
+        lesson: Number(lessonId),
+        user: Number(ctx.user.id),
+        status: status,
+      };
+      if (paymentMethodUsed) (baseData as any).paymentMethodUsed = paymentMethodUsed;
+      if (subscriptionIdUsed != null) (baseData as any).subscriptionIdUsed = subscriptionIdUsed;
+      if (classPassIdUsed != null) (baseData as any).classPassIdUsed = classPassIdUsed;
+
+      for (let i = 0; i < createCount; i++) {
+        const booking = await createSafe<Booking>(
+          ctx.payload,
+          "bookings",
+          baseData,
+          {
+            overrideAccess: false,
+            user: ctx.user,
+          }
+        );
+        confirmedBookings.push(booking as Booking);
+        // Create transaction for class_pass so decrement hook can find it; also decrement pass here so it runs reliably
+        if (
+          paymentMethodUsed === "class_pass" &&
+          classPassIdUsed != null &&
+          hasCollection(ctx.payload, "transactions")
+        ) {
+          const bookingId = (booking as { id: number }).id;
+          const existingTx = await ctx.payload.find({
+            collection: "transactions" as import("payload").CollectionSlug,
+            where: { booking: { equals: bookingId } },
+            limit: 1,
+            overrideAccess: true,
+          });
+          if (existingTx.totalDocs === 0) {
+            await ctx.payload.create({
+              collection: "transactions" as import("payload").CollectionSlug,
+              data: {
+                booking: bookingId,
+                paymentMethod: "class_pass",
+                classPassId: classPassIdUsed,
+                ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+              } as Record<string, unknown>,
+              overrideAccess: true,
+            });
+          }
+          const pass = (await ctx.payload.findByID({
+            collection: "class-passes" as import("payload").CollectionSlug,
+            id: classPassIdUsed,
+            depth: 0,
+            // System operation: class pass decrement is enforced by earlier ownership checks,
+            // but users typically cannot update class passes directly.
+            overrideAccess: true,
+          })) as { quantity?: number; status?: string } | null;
+          if (pass && typeof pass.quantity === "number") {
+            const nextQty = Math.max(0, pass.quantity - 1);
+            const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
+            await ctx.payload.update({
+              collection: "class-passes" as import("payload").CollectionSlug,
+              id: classPassIdUsed,
+              data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
+              overrideAccess: true,
+            });
+          }
+        }
+      }
+
+      return confirmedBookings;
+    }),
+
+  /**
+   * Returns valid class passes for the current user for the given lesson.
+   * Only passes that belong to the lesson's tenant and match the class option's allowed pass types,
+   * with status active, quantity > 0, and expirationDate in the future.
+   */
+  getValidClassPassesForLesson: protectedProcedure
+    .input(z.object({ lessonId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-passes")) {
+        return [];
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+      }
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.lessonId, {
+        depth: 2,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+      if (!lesson) {
+        return [];
+      }
+      const classOption =
+        typeof lesson.classOption === "object" ? lesson.classOption : null;
+      const classOptionWithPasses = classOption as (typeof classOption) & {
+        paymentMethods?: { allowedClassPasses?: unknown[] };
+      };
+      const allowedClassPasses = classOptionWithPasses?.paymentMethods?.allowedClassPasses;
+      if (!allowedClassPasses || !Array.isArray(allowedClassPasses) || allowedClassPasses.length === 0) {
+        return [];
+      }
+      const allowedTypeIds = (allowedClassPasses as (number | { id: number })[])
+        .map((p) => (typeof p === "object" && p != null && "id" in p ? p.id : p))
+        .filter((id): id is number => typeof id === "number");
+      if (allowedTypeIds.length === 0) return [];
+
+      const lessonTenantId =
+        typeof lesson.tenant === "object" && lesson.tenant != null
+          ? (lesson.tenant as { id: number }).id
+          : (lesson.tenant as number | undefined) ?? null;
+      if (lessonTenantId == null) return [];
+
+      const now = new Date().toISOString();
+      const result = await findSafe(
+        ctx.payload,
+        "class-passes",
+        {
+          where: {
+            user: { equals: ctx.user.id },
+            tenant: { equals: lessonTenantId },
+            type: { in: allowedTypeIds },
+            status: { equals: "active" },
+            quantity: { greater_than: 0 },
+            expirationDate: { greater_than: now },
+          },
+          limit: 50,
+          depth: 1,
+          sort: "expirationDate",
+          overrideAccess: false,
+          user: ctx.user,
+        }
+      );
+      return result.docs;
+    }),
+
   createOrUpdateBooking: protectedProcedure
     .use(requireCollections("lessons", "bookings"))
     .input(
@@ -207,9 +910,9 @@ export const bookingsRouter = {
 
       if (booking.docs.length === 0) {
         return await createSafe(ctx.payload, "bookings", {
-            lesson: id,
-            user: ctx.user.id,
-            status,
+          lesson: Number(id),
+          user: Number(ctx.user.id),
+          status,
         }, {
           overrideAccess: false,
           user: ctx.user,
@@ -217,7 +920,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status,
+        status,
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -230,15 +933,16 @@ export const bookingsRouter = {
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }): Promise<Booking> => {
       const { id } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: id },
+          id: { equals: id },
           user: { equals: ctx.user.id },
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
+        overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
@@ -249,15 +953,63 @@ export const bookingsRouter = {
         });
       }
 
-      const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status: "cancelled",
+      if (tenantId) {
+        const docTenantId = getDocTenantId(booking.docs[0] as any);
+        if (docTenantId != null && docTenantId !== tenantId) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `Booking with id ${input.id} not found`,
+          });
+        }
+      }
+
+      const updatedBooking = await updateSafe(ctx.payload, "bookings", id, {
+        status: "cancelled",
       }, {
-        overrideAccess: false,
+        overrideAccess: tenantId ? true : false,
         user: ctx.user,
       });
 
       return updatedBooking as Booking;
     }),
+
+  /**
+   * Cancel all of the current user's pending bookings for a lesson.
+   * Used when the user leaves the booking checkout page so capacity is released.
+   */
+  cancelPendingBookingsForLesson: protectedProcedure
+    .use(requireCollections("bookings"))
+    .input(z.object({ lessonId: z.number() }))
+    .mutation(async ({ ctx, input }): Promise<{ cancelled: number }> => {
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+
+      const pending = await findSafe(ctx.payload, "bookings", {
+        where: {
+          and: [
+            { lesson: { equals: input.lessonId } },
+            { user: { equals: ctx.user.id } },
+            { status: { equals: "pending" } },
+          ],
+        },
+        limit: 100,
+        depth: 0,
+        overrideAccess: tenantId ? true : false,
+        user: ctx.user,
+      });
+
+      let cancelled = 0;
+      for (const doc of pending.docs) {
+        const id = doc.id as number;
+        if (id == null) continue;
+        await updateSafe(ctx.payload, "bookings", id, { status: "cancelled" }, {
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        });
+        cancelled += 1;
+      }
+      return { cancelled };
+    }),
+
   joinWaitlist: protectedProcedure
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
@@ -275,7 +1027,7 @@ export const bookingsRouter = {
 
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-            status: "waiting",
+          status: "waiting",
         }, {
           overrideAccess: false,
           user: ctx.user,
@@ -285,9 +1037,9 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-          lesson: input.id,
-          user: ctx.user.id,
-          status: "waiting",
+        lesson: Number(input.id),
+        user: Number(ctx.user.id),
+        status: "waiting",
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -319,7 +1071,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status: "cancelled",
+        status: "cancelled",
       }, {
         overrideAccess: false,
         user: ctx.user,
@@ -336,9 +1088,9 @@ export const bookingsRouter = {
         "lessons",
         input.id,
         {
-        depth: 3,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 3,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -450,9 +1202,9 @@ export const bookingsRouter = {
         "users",
         input.childId,
         {
-        depth: 4,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 4,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -476,7 +1228,7 @@ export const bookingsRouter = {
 
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-            status: status,
+          status: status,
         }, {
           overrideAccess: false,
           user: child,
@@ -486,9 +1238,9 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-          lesson: input.lessonId,
-          user: child.id,
-          status: status,
+        lesson: Number(input.lessonId),
+        user: Number(child.id),
+        status: status,
       }, {
         overrideAccess: false,
         user: child,
@@ -522,9 +1274,9 @@ export const bookingsRouter = {
         "users",
         input.childId,
         {
-        depth: 4,
-        overrideAccess: false,
-        user: ctx.user,
+          depth: 4,
+          overrideAccess: false,
+          user: ctx.user,
         }
       );
 
@@ -536,7 +1288,7 @@ export const bookingsRouter = {
       }
 
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
-          status: "cancelled",
+        status: "cancelled",
       }, {
         overrideAccess: false,
         user: child,
@@ -561,6 +1313,244 @@ export const bookingsRouter = {
 
       return bookings.docs.map((booking: any) => booking as Booking);
     }),
+  getUserBookingsForLesson: protectedProcedure
+    .use(requireCollections("bookings"))
+    .input(z.object({ lessonId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+      }
+
+      const bookings = await findSafe(ctx.payload, "bookings", {
+        where: {
+          lesson: { equals: input.lessonId },
+          user: { equals: ctx.user.id },
+          status: { not_equals: "cancelled" },
+        },
+        depth: 2,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+
+      const filteredBookings = tenantId
+        ? bookings.docs.filter((b: any) => {
+            const docTid = getDocTenantId(b);
+            return docTid === null || docTid === tenantId;
+          })
+        : bookings.docs;
+
+      return filteredBookings.map((booking: any) => booking as Booking);
+    }),
+  /**
+   * Unified schedule mutation: set the current viewer's booking intent for a lesson.
+   *
+   * This is designed for the schedule button UX:
+   * - one endpoint for book/cancel/waitlist actions
+   * - returns a scheduleState snapshot so the UI can update predictably
+   */
+  setMyBookingForLesson: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        intent: z.enum(["confirm", "cancel", "joinWaitlist", "leaveWaitlist"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { lessonId, intent } = input;
+
+      const viewerIdRaw: any = (ctx.user as any)?.id;
+      const viewerId =
+        typeof viewerIdRaw === "string" ? parseInt(viewerIdRaw, 10) : viewerIdRaw;
+      if (!viewerId || Number.isNaN(viewerId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid user ID" });
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+      }
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 0,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      const classOptionId =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any).id
+          : (lesson.classOption as any);
+      const classOption =
+        typeof lesson.classOption === "object" && lesson.classOption !== null
+          ? (lesson.classOption as any)
+          : classOptionId != null && hasCollection(ctx.payload, "class-options")
+            ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+                depth: 0,
+                overrideAccess: Boolean(tenantId),
+                user: ctx.user,
+              })
+            : null;
+
+      const places =
+        classOption && typeof (classOption as any).places === "number"
+          ? (classOption as any).places
+          : null;
+      const isChildClass = classOption && (classOption as any).type === "child";
+
+      const computeScheduleState = async (): Promise<LessonScheduleState> => {
+        const now = new Date();
+        const start = new Date(lesson.startTime);
+        const startMs = start.getTime();
+        const lockOutTime = typeof (lesson as any).lockOutTime === "number" ? (lesson as any).lockOutTime : 0;
+
+        const closed =
+          Number.isFinite(startMs) &&
+          (now.getTime() >= startMs ||
+            (lockOutTime > 0 && now.getTime() >= startMs - lockOutTime * 60_000));
+
+        const confirmedCountResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            and: [{ lesson: { equals: lessonId } }, { status: { equals: "confirmed" } }],
+          },
+          depth: 0,
+          limit: 0,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        });
+        const totalConfirmedCount = confirmedCountResult.totalDocs;
+        const isFull = typeof places === "number" ? totalConfirmedCount >= places : false;
+
+        const viewerBookingsResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            and: [
+              { lesson: { equals: lessonId } },
+              { status: { in: ["confirmed", "waiting"] } },
+              isChildClass ? { "user.parentUser": { equals: viewerId } } : { user: { equals: viewerId } },
+            ],
+          },
+          depth: 0,
+          limit: 0,
+          overrideAccess: tenantId ? true : false,
+          user: ctx.user,
+        });
+
+        const viewerConfirmedIds = (viewerBookingsResult.docs as any[])
+          .filter((b) => b.status === "confirmed")
+          .map((b) => Number(b.id))
+          .filter((n) => Number.isFinite(n));
+        const viewerWaitingIds = (viewerBookingsResult.docs as any[])
+          .filter((b) => b.status === "waiting")
+          .map((b) => Number(b.id))
+          .filter((n) => Number.isFinite(n));
+
+        const availability: LessonScheduleState["availability"] = closed ? "closed" : isFull ? "full" : "open";
+
+        let action: LessonScheduleState["action"] = "book";
+        if (availability === "closed") action = "closed";
+        else if (isChildClass) action = "manageChildren";
+        else if (viewerConfirmedIds.length >= 2) action = "modify";
+        else if (viewerConfirmedIds.length === 1) action = "cancel";
+        else if (viewerWaitingIds.length > 0) action = "leaveWaitlist";
+        else if (availability === "full") action = "joinWaitlist";
+        else action = "book";
+
+        const labelByAction: Record<LessonScheduleState["action"], string> = {
+          book: "Book",
+          cancel: "Cancel Booking",
+          modify: "Modify Booking",
+          joinWaitlist: "Join Waitlist",
+          leaveWaitlist: "Leave Waitlist",
+          closed: "Closed",
+          loginToBook: "Book",
+          manageChildren: "Manage Children",
+        };
+
+        return {
+          availability,
+          viewer: {
+            confirmedIds: viewerConfirmedIds,
+            confirmedCount: viewerConfirmedIds.length,
+            waitingIds: viewerWaitingIds,
+            waitingCount: viewerWaitingIds.length,
+          },
+          action,
+          label: labelByAction[action],
+        };
+      };
+
+      // Child lessons are handled on the dedicated children booking page.
+      if (isChildClass) {
+        return {
+          scheduleState: await computeScheduleState(),
+          redirectUrl: `/bookings/children/${lessonId}`,
+        };
+      }
+
+      const currentState = await computeScheduleState();
+
+      // Execute intent
+      if (intent === "confirm") {
+        if (currentState.availability === "closed") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Lesson is closed" });
+        }
+        if (currentState.viewer.confirmedCount === 0) {
+          await createSafe(ctx.payload, "bookings", {
+            lesson: Number(lessonId),
+            user: Number(viewerId),
+            status: "confirmed",
+          }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } else if (intent === "cancel") {
+        if (currentState.viewer.confirmedCount >= 2) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Multiple bookings exist; manage bookings to cancel",
+          });
+        }
+        const bookingId = currentState.viewer.confirmedIds[0];
+        if (bookingId) {
+          await updateSafe(ctx.payload, "bookings", bookingId, { status: "cancelled" }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } else if (intent === "joinWaitlist") {
+        if (currentState.availability !== "full") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Lesson is not full" });
+        }
+        if (currentState.viewer.waitingCount === 0 && currentState.viewer.confirmedCount === 0) {
+          await createSafe(ctx.payload, "bookings", {
+            lesson: Number(lessonId),
+            user: Number(viewerId),
+            status: "waiting",
+          }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      } else if (intent === "leaveWaitlist") {
+        for (const bookingId of currentState.viewer.waitingIds) {
+          await updateSafe(ctx.payload, "bookings", bookingId, { status: "cancelled" }, {
+            overrideAccess: false,
+            user: ctx.user,
+          });
+        }
+      }
+
+      return {
+        scheduleState: await computeScheduleState(),
+      };
+    }),
   /**
    * Validates if a user can be checked in for a lesson and attempts check-in if possible.
    * This is designed to be called at the page level before rendering booking components.
@@ -572,18 +1562,13 @@ export const bookingsRouter = {
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      // Fetch lesson with full depth for validation
-      const lesson = await findByIdSafe<Lesson>(
-        ctx.payload,
-        "lessons",
-        lessonId,
-        {
-          depth: 3,
-          overrideAccess: false,
-          user: ctx.user,
-        }
-      );
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 0,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
 
       if (!lesson) {
         throw new TRPCError({
@@ -591,6 +1576,7 @@ export const bookingsRouter = {
           message: `Lesson with id ${lessonId} not found`,
         });
       }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Check if lesson status allows immediate check-in
       if (!['active', 'trialable'].includes(lesson.bookingStatus || '')) {
@@ -601,10 +1587,27 @@ export const bookingsRouter = {
         };
       }
 
+      console.log("User is authenticated:", ctx.user);
+
       // Attempt check-in by calling the existing checkIn procedure logic
       try {
         // Business Logic: Handle children's lessons differently
-        if (lesson.classOption.type === "child") {
+        const classOptionId =
+          typeof lesson.classOption === "object" && lesson.classOption !== null
+            ? (lesson.classOption as any).id
+            : (lesson.classOption as any);
+        const classOption =
+          typeof lesson.classOption === "object" && lesson.classOption !== null
+            ? (lesson.classOption as any)
+            : classOptionId != null && hasCollection(ctx.payload, "class-options")
+              ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+                  depth: 0,
+                  overrideAccess: Boolean(tenantId),
+                  user: ctx.user,
+                })
+              : null;
+
+        if ((classOption as any)?.type === "child") {
           return {
             shouldRedirect: false,
             error: "REDIRECT_TO_CHILDREN_BOOKING",
@@ -627,9 +1630,19 @@ export const bookingsRouter = {
 
         if (existingBooking.docs.length === 0) {
           // Create new booking
+          // Ensure user ID is a number for Payload validation
+          const userId = typeof ctx.user.id === 'string' ? parseInt(ctx.user.id, 10) : ctx.user.id;
+          
+          if (!userId || isNaN(userId as number)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid user ID",
+            });
+          }
+
           await createSafe(ctx.payload, "bookings", {
-            lesson: lessonId,
-            user: ctx.user.id,
+            lesson: Number(lessonId),
+            user: Number(userId),
             status: "confirmed",
           }, {
             overrideAccess: false,
@@ -652,6 +1665,7 @@ export const bookingsRouter = {
           reason: null,
         };
       } catch (error: any) {
+        console.error("Error validating and attempting check-in:", error);
         // If booking creation/update fails due to membership/payment issues
         return {
           shouldRedirect: false,
@@ -660,5 +1674,192 @@ export const bookingsRouter = {
           redirectUrl: `/bookings/${lessonId}`,
         };
       }
+    }),
+  setMyBookingQuantityForLesson: protectedProcedure
+    .use(requireCollections("lessons", "bookings"))
+    .input(
+      z.object({
+        lessonId: z.number(),
+        desiredQuantity: z.number().min(0),
+      })
+    )
+    .mutation(async ({ ctx, input }): Promise<Booking[]> => {
+      const { lessonId, desiredQuantity } = input;
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+        depth: 0,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+
+      if (!lesson) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Lesson with id ${lessonId} not found`,
+        });
+      }
+      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+
+      // Ensure classOption has paymentMethods if we need subscription-based quantity rules.
+      if (hasCollection(ctx.payload, "class-options")) {
+        const co = lesson.classOption as any;
+        const coId = typeof co === "object" && co != null ? co.id : co;
+        const needsFetch =
+          typeof co !== "object" ||
+          co == null ||
+          (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
+        if (coId != null && needsFetch) {
+          const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+            depth: 2,
+            overrideAccess: Boolean(tenantId),
+            user: ctx.user,
+          });
+          if (populated) {
+            (lesson as any).classOption = populated as any;
+          }
+        }
+      }
+
+      const currentBookings = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: {
+          lesson: { equals: lessonId },
+          user: { equals: ctx.user.id },
+          status: { not_equals: "cancelled" },
+        },
+        depth: 1,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+
+      const filteredBookings = tenantId
+        ? currentBookings.docs.filter((b: any) => {
+            const docTid = getDocTenantId(b);
+            return docTid === null || docTid === tenantId;
+          })
+        : currentBookings.docs;
+
+      // Compute current confirmed bookings count
+      const confirmedBookings = filteredBookings.filter(
+        (booking) => booking.status === "confirmed"
+      );
+      const currentConfirmed = confirmedBookings.length;
+
+      // No-op: desired equals current
+      if (desiredQuantity === currentConfirmed) {
+        return confirmedBookings as Booking[];
+      }
+
+      // Increasing quantity: create additional bookings
+      if (desiredQuantity > currentConfirmed) {
+        const additional = desiredQuantity - currentConfirmed;
+
+        // Validate capacity
+        const maxAdditional = lesson.remainingCapacity || 0;
+        if (additional > maxAdditional) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Cannot book more than ${maxAdditional} additional slot${maxAdditional !== 1 ? 's' : ''}. Only ${maxAdditional} available.`,
+          });
+        }
+
+        // Enforce subscription allowMultipleBookingsPerLesson when adding confirmed bookings
+        const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
+          Number(ctx.user.id),
+          lesson,
+          ctx.payload
+        );
+        if (maxSubQty != null) {
+          const maxAdditionalFromSub = Math.max(0, maxSubQty - currentConfirmed);
+          if (additional > maxAdditionalFromSub) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                maxAdditionalFromSub === 0
+                  ? "You already have the maximum bookings for this lesson. Your membership allows one slot per lesson."
+                  : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per lesson. You can add ${maxAdditionalFromSub} more.`,
+            });
+          }
+        }
+
+        // Create additional bookings
+        const newBookings: Booking[] = [];
+        for (let i = 0; i < additional; i++) {
+          const booking = await createSafe<Booking>(
+            ctx.payload,
+            "bookings",
+            {
+              lesson: Number(lessonId),
+              user: Number(ctx.user.id),
+              status: "confirmed",
+            },
+            {
+              overrideAccess: false,
+              user: ctx.user,
+            }
+          );
+          newBookings.push(booking as Booking);
+        }
+
+        // Fetch the newly created bookings with same depth as existing ones for consistency
+        const newBookingIds = newBookings.map(b => b.id).filter((id): id is number => typeof id === 'number');
+        if (newBookingIds.length > 0) {
+          const fetchedNewBookings = await findSafe<Booking>(ctx.payload, "bookings", {
+            where: {
+              id: { in: newBookingIds },
+            },
+            depth: 1,
+            overrideAccess: tenantId ? true : false,
+            user: ctx.user,
+          });
+
+          // Return all confirmed bookings (existing + newly fetched with consistent depth)
+          return [...confirmedBookings, ...fetchedNewBookings.docs] as Booking[];
+        }
+
+        // Return all confirmed bookings (existing + new)
+        return [...confirmedBookings, ...newBookings] as Booking[];
+      }
+
+      // Decreasing quantity: cancel some bookings (newest-first by createdAt)
+      if (desiredQuantity < currentConfirmed) {
+        const toCancel = currentConfirmed - desiredQuantity;
+
+        // Sort confirmed bookings by createdAt descending (newest first)
+        const sortedBookings = [...confirmedBookings].sort((a, b) => {
+          const aTime = new Date(a.createdAt || 0).getTime();
+          const bTime = new Date(b.createdAt || 0).getTime();
+          return bTime - aTime; // Descending order
+        });
+
+        // Cancel the newest bookings
+        for (let i = 0; i < toCancel && i < sortedBookings.length; i++) {
+          const bookingToCancel = sortedBookings[i];
+          if (!bookingToCancel) continue;
+
+          const bookingId = bookingToCancel.id;
+          if (!bookingId) continue;
+
+          await updateSafe(
+            ctx.payload,
+            "bookings",
+            bookingId as number,
+            {
+              status: "cancelled",
+            },
+            {
+              overrideAccess: tenantId ? true : false,
+              user: ctx.user,
+            }
+          );
+        }
+
+        // Return remaining confirmed bookings
+        const remainingBookings = sortedBookings.slice(toCancel);
+        return remainingBookings as Booking[];
+      }
+
+      // Should never reach here, but return empty array as fallback
+      return [];
     }),
 } satisfies TRPCRouterRecord;

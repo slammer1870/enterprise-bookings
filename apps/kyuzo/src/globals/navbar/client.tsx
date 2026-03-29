@@ -9,7 +9,6 @@ import Link from 'next/link'
 
 export const NavbarGlobal: React.FC<{ data: NavbarType }> = ({ data: _data }) => {
 
-
   return (
     <div className="w-full top-0 left-0 absolute z-50">
       <div className="flex items-center justify-start mx-auto p-4">

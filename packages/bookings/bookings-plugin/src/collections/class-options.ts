@@ -7,7 +7,7 @@ import type {
 
 import { BookingsPluginConfig } from "../types";
 
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 
 import type { User, AccessControls, HooksConfig } from "@repo/shared-types/";
 
@@ -58,32 +58,30 @@ const defaultHooks: HooksConfig = {};
 export const generateClassOptionsCollection = (
   config: BookingsPluginConfig
 ) => {
+  const overrides = config?.classOptionsOverrides;
   const classOptionsConfig: CollectionConfig = {
-    ...(config?.classOptionsOverrides || {}),
+    ...(overrides || {}),
     slug: "class-options",
     defaultSort: "updatedAt",
     labels: {
-      ...(config?.classOptionsOverrides?.labels || defaultLabels),
+      ...(overrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.classOptionsOverrides?.access &&
-      typeof config?.classOptionsOverrides?.access === "function"
-        ? config.classOptionsOverrides.access({ defaultAccess })
+      ...(overrides?.access && typeof overrides?.access === "function"
+        ? overrides.access({ defaultAccess })
         : defaultAccess),
     },
     admin: {
-      ...(config?.classOptionsOverrides?.admin || defaultAdmin),
+      ...(overrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.classOptionsOverrides?.hooks &&
-      typeof config?.classOptionsOverrides?.hooks === "function"
-        ? config.classOptionsOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks && typeof overrides?.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields:
-      config?.classOptionsOverrides?.fields &&
-      typeof config?.classOptionsOverrides?.fields === "function"
-        ? config.classOptionsOverrides.fields({ defaultFields })
+      overrides?.fields && typeof overrides?.fields === "function"
+        ? overrides.fields({ defaultFields })
         : defaultFields,
   };
 

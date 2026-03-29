@@ -2,6 +2,7 @@
   "name": "@repo/eslint-config",
   "version": "0.0.0",
   "dependencies": {
+    "eslint-config-prettier": "^10.1.8",
     "vitest": "4.0.12"
   },
   "devDependencies": {
@@ -9,7 +10,6 @@
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
     "@vercel/style-guide": "^6.0.0",
-    "eslint-config-prettier": "^10.1.8",
     "eslint-config-turbo": "^2.6.1",
     "eslint-plugin-only-warn": "^1.1.0",
     "typescript": "5.9.3"

@@ -12,6 +12,52 @@ export type Instructor = {
   active?: boolean | null;
 };
 
+/**
+ * Minimal lesson DTO for schedule/homepage views.
+ *
+ * Security note: This intentionally excludes payment provider fields, tenant objects,
+ * and relationship docs that shouldn't be exposed to the client.
+ */
+export type ScheduleInstructor = {
+  id: number;
+  name?: string | null;
+  profileImage?: { url: string } | null;
+};
+
+export type ScheduleClassOption = {
+  id: number;
+  name: string;
+  type?: "adult" | "child";
+};
+
+export type ScheduleLesson = {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  classOption: ScheduleClassOption;
+  location: string;
+  instructor?: ScheduleInstructor | null;
+  remainingCapacity: number;
+  bookingStatus:
+    | "active"
+    | "waitlist"
+    | "waiting"
+    | "closed"
+    | "booked"
+    | "trialable"
+    | "childrenBooked"
+    | "multipleBooked";
+  /** Tenant ID only (never a full tenant object). */
+  tenant?: number | null;
+  /** Resolved timezone for formatting/query consumers. */
+  timeZone?: string;
+  /** Schedule-specific view model computed server-side (tRPC). */
+  scheduleState?: LessonScheduleState;
+  /** Optional: confirmed booking count for the viewer. */
+  myBookingCount?: number;
+};
+
 export type Lesson = {
   id: number;
   date: string;
@@ -22,6 +68,13 @@ export type Lesson = {
   instructor?: Instructor | null;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
+  /**
+   * Per-viewer booking status (legacy).
+   *
+   * NOTE: This is computed via a Payload `afterRead` hook and can be expensive / inconsistent
+   * across different query paths (tenant context, overrideAccess). New schedule UI should prefer
+   * `scheduleState` which is computed in tRPC in a single batch.
+   */
   bookingStatus:
     | "active"
     | "waitlist"
@@ -29,8 +82,62 @@ export type Lesson = {
     | "closed"
     | "booked"
     | "trialable"
-    | "childrenBooked";
+    | "childrenBooked"
+    | "multipleBooked";
   originalLockOutTime?: number;
+  /** Present in multi-tenant apps; ID or populated tenant info. */
+  tenant?: number | { id: number; slug?: string; timeZone?: string | null } | null;
+  /** Resolved timezone for formatting/query consumers. */
+  timeZone?: string;
+  /**
+   * Schedule-specific view model computed server-side (tRPC).
+   * When present, UI should render buttons from this instead of `bookingStatus`.
+   */
+  scheduleState?: LessonScheduleState;
+  /**
+   * Optional: Number of confirmed bookings the current user has for this lesson.
+   * Provided by lessons.getByDate to avoid N+1 queries in CheckInButton.
+   * If not provided, CheckInButton will fetch it separately (backwards compatible).
+   */
+  myBookingCount?: number;
+};
+
+export type LessonAvailability = "open" | "full" | "closed";
+
+export type LessonViewerAction =
+  | "book"
+  | "cancel"
+  | "modify"
+  | "joinWaitlist"
+  | "leaveWaitlist"
+  | "closed"
+  | "loginToBook"
+  | "manageChildren";
+
+export type LessonScheduleState = {
+  availability: LessonAvailability;
+  viewer: {
+    confirmedIds: number[];
+    confirmedCount: number;
+    waitingIds: number[];
+    waitingCount: number;
+  };
+  /**
+   * True when the lesson's booking/payment configuration effectively limits the viewer
+   * to a single booking slot (e.g. membership/drop-in rules disallow multi-booking).
+   * When true, schedule UX can attempt direct booking/cancellation without extra navigation.
+   */
+  singleSlotOnly?: boolean;
+  /**
+   * UI intent for the primary CTA.
+   * The client should treat this as authoritative for schedule buttons.
+   */
+  action: LessonViewerAction;
+  /**
+   * Optional server-precomputed label for the CTA.
+   * When omitted, the client may derive a label from `action`.
+   */
+  label?: string;
 };
 
 export interface Booking {

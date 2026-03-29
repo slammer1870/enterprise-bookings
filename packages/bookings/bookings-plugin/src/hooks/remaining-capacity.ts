@@ -40,16 +40,26 @@ export const getRemainingCapacity: FieldHook = async ({
       return classOption.places;
     }
 
+    // Count confirmed + pending (pending only if created in last 5 min so abandoned checkout frees the spot quickly)
+    const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const bookings = await req.payload.find({
       collection: "bookings",
       depth: 1,
       where: {
-        lesson: {
-          equals: data.id,
-        },
-        status: {
-          equals: "confirmed",
-        },
+        and: [
+          { lesson: { equals: data.id } },
+          {
+            or: [
+              { status: { equals: "confirmed" } },
+              {
+                and: [
+                  { status: { equals: "pending" } },
+                  { createdAt: { greater_than: pendingCutoff } },
+                ],
+              },
+            ],
+          },
+        ],
       },
       limit: 0,
       context: {
@@ -57,7 +67,7 @@ export const getRemainingCapacity: FieldHook = async ({
       },
     });
 
-    const remaining = classOption.places - bookings.docs.length;
+    const remaining = classOption.places - bookings.totalDocs;
 
     return remaining;
   } catch (error: any) {

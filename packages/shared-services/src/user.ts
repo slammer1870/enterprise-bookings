@@ -1,24 +1,16 @@
 "use server";
 
-import { generatePasswordSaltHash } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 
 import * as crypto from "crypto";
 
 import { stringify } from "qs-esm";
 import type { Where } from "payload";
 
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { cookies } from "next/headers.js";
+import { redirect } from "next/navigation.js";
 
 import type { User } from "@repo/shared-types";
-
-const query: Where = {
-  color: {
-    equals: "mint",
-  },
-  // This query could be much more complex
-  // and qs-esm would handle it beautifully
-};
 
 type GetOrCreateUserProps = {
   name: string;

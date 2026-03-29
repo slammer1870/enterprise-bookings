@@ -1,0 +1,90 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
+import dotenv from 'dotenv'
+
+// Load .env from this package so test workers and webServer use the same DB (DATABASE_URI)
+// when run from monorepo root (e.g. turbo) or from apps/atnd-me.
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, '.env') })
+
+// payload-auth uses directory imports that Node ESM rejects; this import hook registers a resolver.
+const payloadAuthRegister = path.resolve(__dirname, 'scripts/register-payload-auth-loader.mjs')
+const nodeOptionsWithLoader = `--no-deprecation --import ${payloadAuthRegister}`
+
+import { defineConfig, devices } from '@playwright/test'
+
+// Ensure all Playwright workers inherit these env flags.
+// Payload's drizzle adapter will attempt schema push in-process unless this is set,
+// which can collide with the already-migrated test DB (e.g. enum type already exists).
+process.env.PW_E2E_PROFILE ??= 'true'
+// Skip expensive default tenant data creation (class options, pages, lessons, etc.)
+// during test setup to avoid timeouts.
+process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA ??= 'true'
+
+// Use production build for e2e tests (faster, more stable, cacheable by Turbo)
+const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  // CI has been flaky with multiple workers against the shared multi-tenant test DB.
+  // Keep local prod runs fast, but serialize CI to reduce transient booking/form failures.
+  workers: process.env.CI ? 1 : useProductionBuild ? 2 : 1,
+  timeout: 60_000,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list'], ['html']],
+  use: {
+    baseURL: 'http://localhost:3000',
+    actionTimeout: 30000,
+    navigationTimeout: 60000,
+    trace: 'off',
+    screenshot: 'off',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: useProductionBuild
+    ? {
+        // Production mode: `next start` (requires build first)
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e',
+        url: 'http://localhost:3000/admin',
+        timeout: 120000,
+        reuseExistingServer: !process.env.CI,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          NODE_ENV: 'production',
+          NODE_OPTIONS: nodeOptionsWithLoader,
+          ENABLE_TEST_WEBHOOKS: 'true', // Mock Stripe/create-payment-intent in e2e (avoid "No such destination" for placeholder accounts)
+          PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+          PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
+          // Same DB as test workers so tenant/lesson data created in fixtures is visible to the app
+          ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
+          ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
+        },
+      }
+    : {
+        // Dev mode fallback: `next dev` with payload-auth loader (no build required, slower)
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev:e2e',
+        url: 'http://localhost:3000/admin',
+        // Admin route compilation can be slow on fresh builds / CI
+        timeout: 600000,
+        reuseExistingServer: !process.env.CI,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          NODE_ENV: 'development',
+          CI: 'true',
+          NODE_OPTIONS: nodeOptionsWithLoader,
+          ENABLE_TEST_MAGIC_LINKS: 'true',
+          ENABLE_TEST_WEBHOOKS: 'true',
+          PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+          PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
+          ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
+          ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
+        },
+      },
+})

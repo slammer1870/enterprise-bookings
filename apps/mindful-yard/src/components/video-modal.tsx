@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { Play, X } from 'lucide-react'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@repo/ui/components/ui/dialog'
 import { Button } from '@repo/ui/components/ui/button'
-import { Media } from '@/payload-types'
-
 interface VideoModalProps {
   videoSrc: string
 }

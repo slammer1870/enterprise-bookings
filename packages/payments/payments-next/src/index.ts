@@ -1,10 +1,13 @@
 // payments-next package
 export { PaymentMethods } from "./components/payment-methods";
 export { MembershipPaymentMethods } from "./components/membership-payment-methods";
-export { PlanView } from "./components/plan-view";
+export { PlanView, useSubscriptionActions } from "@repo/membership-next";
 
 // Drop-in components
-export { DropInView } from "./components/drop-ins";
+export {
+  DropInView,
+  type FeeBreakdownComponentProps,
+} from "./components/drop-ins";
 export { PriceView } from "./components/drop-ins/price";
 
 // Payment components
@@ -19,4 +22,3 @@ export { PaymentDetailsForm } from "./components/ui/payment-details-form";
 
 // Hooks
 export { usePayment } from "./hooks/use-payment";
-export { useSubscriptionActions } from "./hooks/use-subscription-actions";

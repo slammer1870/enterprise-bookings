@@ -1,6 +1,6 @@
 import { FieldHook } from "payload";
 
-export const isSubscribed: FieldHook = async ({ req, data, context }) => {
+export const isSubscribed: FieldHook = async ({ req, data, context: _context }) => {
   const { user, payload } = req;
   if (!user) return false;
 

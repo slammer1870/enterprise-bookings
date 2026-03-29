@@ -1,7 +1,7 @@
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 
-import type { AppRouter } from "./root";
-import { appRouter } from "./root";
+import type { AppRouter, AppRouterOptions } from "./root";
+import { appRouter, createAppRouter } from "./root";
 import { createTRPCContext } from "./trpc";
 
 /**
@@ -21,8 +21,8 @@ type RouterInputs = inferRouterInputs<AppRouter>;
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 // Export server-side utilities
-export { createTRPCContext, appRouter };
-export type { AppRouter, RouterInputs, RouterOutputs };
+export { createTRPCContext, appRouter, createAppRouter };
+export type { AppRouter, AppRouterOptions, RouterInputs, RouterOutputs };
 
 // Export client-side utilities
 export { TRPCReactProvider, useTRPC } from "./client";

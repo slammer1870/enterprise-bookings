@@ -100,7 +100,7 @@ function LoginFormContent() {
       </CardHeader>
       <CardContent>
         {form.formState.errors.root && (
-          <div className="bg-red-50 p-3 rounded-md mb-4 text-red-600 text-sm">
+          <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             {form.formState.errors.root.message}
           </div>
         )}
@@ -128,7 +128,7 @@ function LoginFormContent() {
                     <FormLabel>Password</FormLabel>
                     <Link
                       href="/forgot-password"
-                      className="text-sm font-light"
+                      className="text-sm font-light text-muted-foreground hover:text-foreground"
                     >
                       Forgot password?
                     </Link>
@@ -147,7 +147,7 @@ function LoginFormContent() {
             <Button
               type="submit"
               disabled={form.formState.isSubmitting}
-              className="w-full bg-black text-white hover:bg-gray-800"
+              className="w-full"
               variant="default"
             >
               {form.formState.isSubmitting ? "Sending..." : "Submit"}
@@ -155,9 +155,9 @@ function LoginFormContent() {
           </form>
         </Form>
         <CardFooter className="flex items-center justify-end mt-2 pr-0">
-          <div className="text-sm text-gray-500 flex items-center gap-2 ">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <p>Don&apos;t have an account?</p>
-            <Link href="/register" className="text-black">
+            <Link href="/register" className="text-foreground hover:text-primary">
               Click here to register
             </Link>
           </div>

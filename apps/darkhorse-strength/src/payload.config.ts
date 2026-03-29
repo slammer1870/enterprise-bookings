@@ -22,23 +22,22 @@ import { Posts } from '@repo/website/src/collections/posts'
 import { rolesPlugin } from '@repo/roles'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
+import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { paymentsPlugin } from '@repo/payments-plugin'
-import { membershipsPlugin } from '@repo/memberships'
+import {
+  bookingsPaymentsPlugin,
+  subscriptionCreated,
+  subscriptionUpdated,
+  subscriptionCanceled,
+  productUpdated,
+} from '@repo/bookings-payments'
 
-import { subscriptionCreated } from '@repo/memberships/src/webhooks/subscription-created'
-import { subscriptionUpdated } from '@repo/memberships/src/webhooks/subscription-updated'
-import { subscriptionCanceled } from '@repo/memberships/src/webhooks/subscription-canceled'
-import { productUpdated } from '@repo/memberships/src/webhooks/product-updated'
-
-import { Lesson, User } from '@repo/shared-types'
+import { User } from '@repo/shared-types'
 
 import {
   bookingCreateMembershipDropinAccess,
   bookingUpdateMembershipDropinAccess,
 } from '@repo/shared-services/src/access/booking-membership-dropin'
-
-import { isAdminOrOwner } from '@repo/bookings-plugin/src/access/bookings'
 
 import { checkRole } from '@repo/shared-utils'
 import { getLastCheckIn } from './hooks/get-last-checkin'
@@ -76,10 +75,10 @@ export default buildConfig({
         process.env.DATABASE_URI ||
         'postgres://postgres:brugrappling@localhost:5432/darkhorse_strength',
     },
-    ...(process.env.NODE_ENV === 'test' || process.env.CI
+    ...(process.env.NODE_ENV === 'test' || process.env.CI || process.env.PW_E2E_PROFILE
       ? {
           migrations,
-          push: false, // Disable automatic schema pushing in test/CI - rely on migrations only
+          push: false, // Disable automatic schema pushing in test/CI/E2E - rely on migrations only
         }
       : {}),
   }),
@@ -87,6 +86,8 @@ export default buildConfig({
   plugins: [
     payloadCloudPlugin(),
     betterAuthPlugin(betterAuthPluginOptions as any),
+    // Must run after betterAuthPlugin to fix timestamp validation issues
+    fixBetterAuthTimestamps(),
     rolesPlugin({
       enabled: true,
       roles: ['user', 'admin'],
@@ -111,42 +112,50 @@ export default buildConfig({
         }),
       },
     }),
-    paymentsPlugin({
-      enabled: true,
-      enableDropIns: false,
-      acceptedPaymentMethods: ['card'],
-    }),
-    membershipsPlugin({
-      enabled: true,
-      paymentMethodSlugs: ['class-options'],
-      subscriptionOverrides: {
-        fields: ({ defaultFields }) => [
-          ...defaultFields,
-          {
-            name: 'lastCheckIn',
-            type: 'date',
-            required: false,
-            validate: () => {
-              return true
-            },
-            admin: {
-              date: {
-                pickerAppearance: 'dayOnly',
+    bookingsPaymentsPlugin({
+      membership: {
+        enabled: true,
+        paymentMethodSlugs: ['class-options'],
+        // Allow read of priceJSON so booking/checkout UI can read Stripe price id (createCustomerCheckoutSession needs it)
+        plansOverrides: {
+          fields: ({ defaultFields }) =>
+            defaultFields.map((field) => {
+              if ('name' in field && field.name === 'priceJSON') {
+                const access = (field as { access?: Record<string, unknown> }).access ?? {}
+                return { ...field, access: { ...access, read: () => true } } as typeof field
+              }
+              return field
+            }),
+        },
+        subscriptionOverrides: {
+          fields: ({ defaultFields }) => [
+            ...defaultFields,
+            {
+              name: 'lastCheckIn',
+              type: 'date',
+              required: false,
+              validate: () => {
+                return true
               },
-              description:
-                'Last confirmed booking date. Automatically updated when bookings are confirmed.',
-              position: 'sidebar',
-              components: {
-                Cell: '@/fields/last-check-in',
+              admin: {
+                date: {
+                  pickerAppearance: 'dayOnly',
+                },
+                description:
+                  'Last confirmed booking date. Automatically updated when bookings are confirmed.',
+                position: 'sidebar',
+                components: {
+                  Cell: '@/fields/last-check-in',
+                },
+                readOnly: true,
               },
-              readOnly: true,
+              hooks: {
+                // Fallback hook to ensure lastCheckIn is always up-to-date when reading
+                afterRead: [getLastCheckIn],
+              },
             },
-            hooks: {
-              // Fallback hook to ensure lastCheckIn is always up-to-date when reading
-              afterRead: [getLastCheckIn],
-            },
-          },
-        ],
+          ],
+        },
       },
     }),
     stripePlugin({

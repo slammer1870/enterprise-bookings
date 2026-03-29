@@ -112,10 +112,12 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
+    homepage: Homepage;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    homepage: HomepageSelect<false> | HomepageSelect<true>;
   };
   locale: null;
   user: User & {
@@ -206,10 +208,10 @@ export interface Page {
     | MediaBlock
     | ArchiveBlock
     | FormBlock
-    | SaaSHeroBlock
+    | MarketingHeroBlock
     | FeaturesBlock
     | CaseStudiesBlock
-    | SaaSCallToActionBlock
+    | MarketingCtaBlock
   )[];
   meta?: {
     title?: string | null;
@@ -779,9 +781,9 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSHeroBlock".
+ * via the `definition` "MarketingHeroBlock".
  */
-export interface SaaSHeroBlock {
+export interface MarketingHeroBlock {
   headline: string;
   subheadline?: {
     root: {
@@ -834,7 +836,7 @@ export interface SaaSHeroBlock {
   backgroundColor?: ('default' | 'subtle' | 'muted') | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'saasHero';
+  blockType: 'marketingHero';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -956,9 +958,9 @@ export interface CaseStudiesBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSCallToActionBlock".
+ * via the `definition` "MarketingCtaBlock".
  */
-export interface SaaSCallToActionBlock {
+export interface MarketingCtaBlock {
   heading: string;
   description?: {
     root: {
@@ -1007,7 +1009,7 @@ export interface SaaSCallToActionBlock {
   alignment?: ('left' | 'center' | 'right') | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'saasCta';
+  blockType: 'marketingCta';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1317,10 +1319,10 @@ export interface PagesSelect<T extends boolean = true> {
         mediaBlock?: T | MediaBlockSelect<T>;
         archive?: T | ArchiveBlockSelect<T>;
         formBlock?: T | FormBlockSelect<T>;
-        saasHero?: T | SaaSHeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
         features?: T | FeaturesBlockSelect<T>;
         caseStudies?: T | CaseStudiesBlockSelect<T>;
-        saasCta?: T | SaaSCallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
       };
   meta?:
     | T
@@ -1421,9 +1423,9 @@ export interface FormBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSHeroBlock_select".
+ * via the `definition` "MarketingHeroBlock_select".
  */
-export interface SaaSHeroBlockSelect<T extends boolean = true> {
+export interface MarketingHeroBlockSelect<T extends boolean = true> {
   headline?: T;
   subheadline?: T;
   links?:
@@ -1522,9 +1524,9 @@ export interface CaseStudiesBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SaaSCallToActionBlock_select".
+ * via the `definition` "MarketingCtaBlock_select".
  */
-export interface SaaSCallToActionBlockSelect<T extends boolean = true> {
+export interface MarketingCtaBlockSelect<T extends boolean = true> {
   heading?: T;
   description?: T;
   links?:
@@ -2048,6 +2050,82 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
+ * Content for the site homepage (base URL). Edit here to control what appears at /.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage".
+ */
+export interface Homepage {
+  id: number;
+  hero: {
+    type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
+    richText?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+    links?:
+      | {
+          link: {
+            type?: ('reference' | 'custom') | null;
+            newTab?: boolean | null;
+            reference?:
+              | ({
+                  relationTo: 'pages';
+                  value: number | Page;
+                } | null)
+              | ({
+                  relationTo: 'posts';
+                  value: number | Post;
+                } | null);
+            url?: string | null;
+            label: string;
+            /**
+             * Choose how the link should be rendered.
+             */
+            appearance?: ('default' | 'outline') | null;
+          };
+          id?: string | null;
+        }[]
+      | null;
+    media?: (number | null) | Media;
+  };
+  layout: (
+    | CallToActionBlock
+    | ContentBlock
+    | MediaBlock
+    | ArchiveBlock
+    | FormBlock
+    | MarketingHeroBlock
+    | FeaturesBlock
+    | CaseStudiesBlock
+    | MarketingCtaBlock
+  )[];
+  meta?: {
+    /**
+     * Used for the browser tab and search results. Defaults to "ATND | Modern Bespoke Booking Software" if empty.
+     */
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Open graph / social sharing image.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
@@ -2088,6 +2166,57 @@ export interface FooterSelect<T extends boolean = true> {
               label?: T;
             };
         id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage_select".
+ */
+export interface HomepageSelect<T extends boolean = true> {
+  hero?:
+    | T
+    | {
+        type?: T;
+        richText?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    type?: T;
+                    newTab?: T;
+                    reference?: T;
+                    url?: T;
+                    label?: T;
+                    appearance?: T;
+                  };
+              id?: T;
+            };
+        media?: T;
+      };
+  layout?:
+    | T
+    | {
+        cta?: T | CallToActionBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+        mediaBlock?: T | MediaBlockSelect<T>;
+        archive?: T | ArchiveBlockSelect<T>;
+        formBlock?: T | FormBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
+      };
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
       };
   updatedAt?: T;
   createdAt?: T;

@@ -13,7 +13,7 @@ import { magicLink } from "../strategies/magic-link";
 import { register } from "../endpoints/register";
 
 import { adminOrUser } from "../access/admin-or-user";
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 
 // Constants
 const DEFAULT_MAX_LOGIN_ATTEMPTS = 20;

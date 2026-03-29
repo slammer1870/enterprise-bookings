@@ -1,0 +1,142 @@
+import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
+
+/**
+ * Kyuzo uses bookings-payments membership plugin (collection slug: "memberships").
+ *
+ * In CI/test we run with `push: false`, so the DB schema must be created via migrations.
+ * Older Kyuzo migrations created a "plans" table; this migration creates the current
+ * "memberships" tables + enums and points existing FKs (subscriptions, rels tables) at it.
+ */
+export async function up({ db }: MigrateUpArgs): Promise<void> {
+  await db.execute(sql`
+    -- Enums used by memberships fields
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_memberships_sessions_information_interval"
+        AS ENUM('day', 'week', 'month', 'quarter', 'year');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_memberships_price_information_interval"
+        AS ENUM('day', 'week', 'month', 'year');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_memberships_status"
+        AS ENUM('active', 'inactive');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    DO $$ BEGIN
+      CREATE TYPE "public"."enum_memberships_type"
+        AS ENUM('adult', 'child');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    -- Tables
+    CREATE TABLE IF NOT EXISTS "memberships_features" (
+      "_order" integer NOT NULL,
+      "_parent_id" integer NOT NULL,
+      "id" varchar PRIMARY KEY NOT NULL,
+      "feature" varchar
+    );
+
+    CREATE TABLE IF NOT EXISTS "memberships" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" varchar NOT NULL,
+      "features" jsonb,
+      "sessions_information_sessions" numeric,
+      "sessions_information_interval_count" numeric,
+      "sessions_information_interval" "enum_memberships_sessions_information_interval",
+      "sessions_information_allow_multiple_bookings_per_lesson" boolean DEFAULT true,
+      "stripe_product_id" varchar,
+      "price_information_price" numeric,
+      "price_information_interval_count" numeric,
+      "price_information_interval" "enum_memberships_price_information_interval" DEFAULT 'month',
+      "price_j_s_o_n" varchar,
+      "status" "enum_memberships_status" DEFAULT 'active' NOT NULL,
+      "skip_sync" boolean DEFAULT false,
+      "type" "enum_memberships_type" DEFAULT 'adult',
+      "quantity" numeric,
+      "updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+      "created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+    );
+
+    -- memberships_features FK + indexes
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'memberships_features_parent_id_fk') THEN
+        ALTER TABLE "memberships_features"
+          ADD CONSTRAINT "memberships_features_parent_id_fk"
+          FOREIGN KEY ("_parent_id") REFERENCES "public"."memberships"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$;
+
+    CREATE INDEX IF NOT EXISTS "memberships_features_order_idx" ON "memberships_features" USING btree ("_order");
+    CREATE INDEX IF NOT EXISTS "memberships_features_parent_id_idx" ON "memberships_features" USING btree ("_parent_id");
+    CREATE INDEX IF NOT EXISTS "memberships_updated_at_idx" ON "memberships" USING btree ("updated_at");
+    CREATE INDEX IF NOT EXISTS "memberships_created_at_idx" ON "memberships" USING btree ("created_at");
+
+    -- Point subscriptions.plan_id at memberships (drop legacy FK to plans if present)
+    ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "subscriptions_plan_id_plans_id_fk";
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_plan_id_memberships_id_fk') THEN
+        ALTER TABLE "subscriptions"
+          ADD CONSTRAINT "subscriptions_plan_id_memberships_id_fk"
+          FOREIGN KEY ("plan_id") REFERENCES "public"."memberships"("id")
+          ON DELETE set null ON UPDATE no action;
+      END IF;
+    END $$;
+
+    -- Ensure rel-table FKs exist now that memberships exists
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'class_options_rels' AND column_name = 'memberships_id'
+      ) THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'class_options_rels_memberships_fk') THEN
+          ALTER TABLE "class_options_rels"
+            ADD CONSTRAINT "class_options_rels_memberships_fk"
+            FOREIGN KEY ("memberships_id") REFERENCES "public"."memberships"("id")
+            ON DELETE cascade ON UPDATE no action;
+        END IF;
+      END IF;
+    END $$;
+
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'memberships_id'
+      ) THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payload_locked_documents_rels_memberships_fk') THEN
+          ALTER TABLE "payload_locked_documents_rels"
+            ADD CONSTRAINT "payload_locked_documents_rels_memberships_fk"
+            FOREIGN KEY ("memberships_id") REFERENCES "public"."memberships"("id")
+            ON DELETE cascade ON UPDATE no action;
+        END IF;
+      END IF;
+    END $$;
+  `)
+}
+
+export async function down({ db }: MigrateDownArgs): Promise<void> {
+  await db.execute(sql`
+    ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT IF EXISTS "payload_locked_documents_rels_memberships_fk";
+    ALTER TABLE "class_options_rels" DROP CONSTRAINT IF EXISTS "class_options_rels_memberships_fk";
+    ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "subscriptions_plan_id_memberships_id_fk";
+    DO $$ BEGIN
+      IF to_regclass('public.plans') IS NOT NULL THEN
+        ALTER TABLE "subscriptions"
+          ADD CONSTRAINT "subscriptions_plan_id_plans_id_fk"
+          FOREIGN KEY ("plan_id") REFERENCES "public"."plans"("id")
+          ON DELETE set null ON UPDATE no action;
+      END IF;
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+    DROP TABLE IF EXISTS "memberships_features" CASCADE;
+    DROP TABLE IF EXISTS "memberships" CASCADE;
+
+    DROP TYPE IF EXISTS "public"."enum_memberships_type";
+    DROP TYPE IF EXISTS "public"."enum_memberships_status";
+    DROP TYPE IF EXISTS "public"."enum_memberships_price_information_interval";
+    DROP TYPE IF EXISTS "public"."enum_memberships_sessions_information_interval";
+  `)
+}
+

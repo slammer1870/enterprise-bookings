@@ -10,19 +10,39 @@ export type BetterAuthEmailConfig = {
   fromName?: string
 }
 
+function sanitizeFromAddress(input: unknown): string | undefined {
+  const s = typeof input === 'string' ? input.trim() : ''
+  if (!s) return undefined
+  if (s.includes('\n') || s.includes('\r') || s.includes(' ')) return undefined
+  if (!s.includes('@')) return undefined
+  if (s.length > 254) return undefined
+  return s
+}
+
+function sanitizeFromName(input: unknown): string | undefined {
+  const s = typeof input === 'string' ? input.trim() : ''
+  if (!s) return undefined
+  // Protect against broken env injection (e.g. "ATNDSTRIPE_CONNECT_CLIENT_ID=...").
+  if (s.includes('\n') || s.includes('\r') || s.includes('=')) return undefined
+  if (s.length > 120) return undefined
+  return s
+}
+
 export function resolveBetterAuthEmailConfig(
   config?: Partial<BetterAuthEmailConfig>,
 ): BetterAuthEmailConfig {
   return {
     enabled: config?.enabled ?? false,
-    fromAddress: config?.fromAddress || process.env.DEFAULT_FROM_ADDRESS || process.env.RESEND_FROM,
-    fromName: config?.fromName || process.env.DEFAULT_FROM_NAME,
+    fromAddress: sanitizeFromAddress(
+      config?.fromAddress || process.env.DEFAULT_FROM_ADDRESS || process.env.RESEND_FROM,
+    ),
+    fromName: sanitizeFromName(config?.fromName || process.env.DEFAULT_FROM_NAME),
   }
 }
 
 export function formatFrom(fromName: string | undefined, fromAddress: string | undefined): string {
-  const address = fromAddress || 'hello@example.com'
-  const name = fromName || 'Example App'
+  const address = sanitizeFromAddress(fromAddress) || 'hello@example.com'
+  const name = sanitizeFromName(fromName) || 'Example App'
   return name ? `${name} <${address}>` : address
 }
 

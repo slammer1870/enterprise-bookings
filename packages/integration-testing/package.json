@@ -2,12 +2,13 @@
   "name": "@repo/integration-testing",
   "version": "0.0.1",
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@payloadcms/db-postgres": "*",
     "@payloadcms/payload-cloud": "*",
     "@payloadcms/richtext-lexical": "*",
     "monaco-editor": "^0.52.2",
     "@repo/bookings-plugin": "workspace:*",
-    "@repo/memberships": "workspace:*",
+    "@repo/bookings-payments": "workspace:*",
     "@repo/payments-plugin": "workspace:*",
     "@repo/roles": "workspace:*",
     "@repo/shared-services": "workspace:*",
@@ -16,12 +17,16 @@
     "@repo/testing-config": "workspace:*",
     "@repo/payload-testing": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
     "payload": "*",
-    "sharp": "0.34.5",
+    "sharp": "0.33.5",
+    "typescript": "5.9.3",
     "vitest": "4.0.12"
   },
   "private": true,
   "scripts": {
-    "test": "vitest --hook-timeout=1000000"
+    "test": "vitest --hook-timeout=1000000",
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   }
 }

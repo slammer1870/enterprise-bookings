@@ -272,11 +272,20 @@ describe("Booking tests", () => {
         },
       });
 
-      const response = await restClient.PATCH(`/bookings/${booking.id}`, {
-        body: JSON.stringify({
-          status: "cancelled",
-        }),
-      });
+      const response = await restClient
+        .login({
+          credentials: {
+            email: user.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.PATCH(`/bookings/${booking.id}`, {
+            body: JSON.stringify({
+              status: "cancelled",
+            }),
+          })
+        );
 
       expect(response.status).toBe(200);
     },

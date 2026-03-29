@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { Lesson, Transaction, User, Booking } from '@repo/shared-types'
+import { Lesson, Transaction, User } from '@repo/shared-types'
 
 import { render } from '@react-email/components'
 
@@ -73,7 +73,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
     })) as Transaction
 
     // Create a booking for each attendee
-    for (const attendee of attendees) {
+    for (const _attendee of attendees) {
       await payload.create({
         collection: 'bookings',
         data: {

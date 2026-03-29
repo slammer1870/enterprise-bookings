@@ -39,7 +39,10 @@
     "react-dom": "*",
     "@tanstack/react-query": "*"
   },
-  "scripts": {},
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  },
   "type": "module",
   "types": "./src/index.ts"
 }

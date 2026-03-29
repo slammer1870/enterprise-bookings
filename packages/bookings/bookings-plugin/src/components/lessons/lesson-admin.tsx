@@ -5,10 +5,14 @@ import Link from "next/link";
 import { DatePicker } from "./date-picker";
 
 import { Button, Gutter } from "@payloadcms/ui";
-
 import { Toaster } from "sonner";
 
-import { BasePayload } from "payload";
+import type { BasePayload, CollectionSlug } from "payload";
+import { headers } from "next/headers";
+import { createLocalReq } from "payload";
+import { cookies } from "next/headers";
+import { checkRole } from "@repo/shared-utils";
+import type { User as SharedUser } from "@repo/shared-types";
 
 import { LessonLoading } from "./lesson-loading";
 import { FetchLessons } from "./fetch-lessons";
@@ -18,8 +22,54 @@ export const LessonAdmin: React.FC<{
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
+  const hasTenantsCollection = payload.config.collections.some((collection) => collection.slug === "tenants");
+  // Get headers to authenticate user and create req object
+  // This allows the multi-tenant plugin to filter lessons by tenant
+  const requestHeaders = await headers();
+  const { user } = await payload.auth({ headers: requestHeaders });
+  
+  // Create a Payload request object with user context
+  // The multi-tenant plugin will use this to filter by tenant
+  let req = user
+    ? await createLocalReq({ user }, payload)
+    : undefined;
+
+  const cookieStore = await cookies();
+  const isAdmin = user && checkRole(['admin'], user as unknown as SharedUser);
+
+  // 1) Respect admin TenantSelector: when user picks a tenant, filter to that tenant.
+  // The multi-tenant plugin sets the selected tenant in the 'payload-tenant' cookie.
+  const payloadTenant = cookieStore.get('payload-tenant')?.value;
+  if (payloadTenant && req) {
+    const tenantId = /^\d+$/.test(payloadTenant) ? Number(payloadTenant) : payloadTenant;
+    if (!req.context) req.context = {};
+    req.context.tenant = tenantId;
+  } else if (!isAdmin && req && hasTenantsCollection) {
+    // 2) Fallback: tenant from subdomain (tenant-slug, set by middleware)
+    const tenantSlug = cookieStore.get('tenant-slug')?.value;
+    if (tenantSlug) {
+      try {
+        const tenantResult = await payload.find({
+          collection: "tenants" as CollectionSlug,
+          where: { slug: { equals: tenantSlug } },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true,
+        });
+        if (tenantResult.docs[0]) {
+          const tid = tenantResult.docs[0].id;
+          const tenantId = typeof tid === 'number' ? tid : parseInt(String(tid), 10);
+          if (!req.context) req.context = {};
+          req.context.tenant = tenantId;
+        }
+      } catch (error) {
+        console.error('Error looking up tenant in admin view:', error);
+      }
+    }
+  }
+
   return (
-    <Gutter>
+    <Gutter className="!pt-0">
       <div className="flex flex-row justify-start items-center mb-4 gap-3">
         <h1>Lessons</h1>
         <Link
@@ -31,7 +81,11 @@ export const LessonAdmin: React.FC<{
             Create New
           </Button>
         </Link>
-        <span className="w-full text-center font-medium text-lg hidden md:block"></span>
+        <span className="flex-1" />
+        <div
+          id="lessons-bulk-bar-portal"
+          className="flex items-center justify-end min-h-[2.5rem]"
+        />
       </div>
       <div className="flex flex-col md:flex-row">
         <div className="mb-8 md:mb-0 md:mr-8">
@@ -39,17 +93,19 @@ export const LessonAdmin: React.FC<{
         </div>
         <div className="flex flex-col w-full">
           <Suspense
-            key={
-              searchParams[
-                "where[or][0][and][0][startTime][greater_than_equal]"
-              ] as string
-            }
+            key={[
+              searchParams["where[or][0][and][0][startTime][greater_than_equal]"] as string,
+              req?.context?.tenant ?? "all",
+            ]
+              .filter(Boolean)
+              .join("|")}
             fallback={<LessonLoading />}
           >
             <FetchLessons
               payload={payload}
               searchParams={searchParams}
               params={params}
+              req={req}
             />
           </Suspense>
         </div>

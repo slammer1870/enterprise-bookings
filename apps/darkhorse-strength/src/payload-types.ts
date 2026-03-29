@@ -67,21 +67,21 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    accounts: Account;
-    sessions: Session;
-    verifications: Verification;
     'admin-invitations': AdminInvitation;
     media: Media;
     pages: Page;
     posts: Post;
+    accounts: Account;
+    sessions: Session;
+    verifications: Verification;
     instructors: Instructor;
     lessons: Lesson;
     'class-options': ClassOption;
     bookings: Booking;
-    transactions: Transaction;
-    users: User;
     subscriptions: Subscription;
     plans: Plan;
+    transactions: Transaction;
+    users: User;
     forms: Form;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
@@ -94,30 +94,32 @@ export interface Config {
     lessons: {
       bookings: 'bookings';
     };
-    users: {
-      lessons: 'lessons';
-      userSubscription: 'subscriptions';
-    };
     plans: {
       'class-optionsPaymentMethods': 'class-options';
     };
+    users: {
+      lessons: 'lessons';
+      account: 'accounts';
+      session: 'sessions';
+      userSubscription: 'subscriptions';
+    };
   };
   collectionsSelect: {
-    accounts: AccountsSelect<false> | AccountsSelect<true>;
-    sessions: SessionsSelect<false> | SessionsSelect<true>;
-    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
+    accounts: AccountsSelect<false> | AccountsSelect<true>;
+    sessions: SessionsSelect<false> | SessionsSelect<true>;
+    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     instructors: InstructorsSelect<false> | InstructorsSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
-    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -129,6 +131,7 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
+  fallbackLocale: null;
   globals: {
     scheduler: Scheduler;
   };
@@ -169,180 +172,14 @@ export interface UserAuthOperations {
   };
 }
 /**
- * Accounts are used to store user accounts for authentication providers
- *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts".
+ * via the `definition` "admin-invitations".
  */
-export interface Account {
+export interface AdminInvitation {
   id: number;
-  /**
-   * The user that the account belongs to
-   */
-  user: number | User;
-  /**
-   * The id of the account as provided by the SSO or equal to userId for credential accounts
-   */
-  accountId: string;
-  /**
-   * The id of the provider as provided by the SSO
-   */
-  providerId: string;
-  /**
-   * The access token of the account. Returned by the provider
-   */
-  accessToken?: string | null;
-  /**
-   * The refresh token of the account. Returned by the provider
-   */
-  refreshToken?: string | null;
-  /**
-   * The date and time when the access token will expire
-   */
-  accessTokenExpiresAt?: string | null;
-  /**
-   * The date and time when the refresh token will expire
-   */
-  refreshTokenExpiresAt?: string | null;
-  /**
-   * The scope of the account. Returned by the provider
-   */
-  scope?: string | null;
-  /**
-   * The id token for the account. Returned by the provider
-   */
-  idToken?: string | null;
-  /**
-   * The hashed password of the account. Mainly used for email and password authentication
-   */
-  password?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  lessons?: {
-    docs?: (number | Lesson)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Users chosen display name
-   */
-  name?: string | null;
-  /**
-   * Whether the email of the user has been verified
-   */
-  emailVerified: boolean;
-  /**
-   * The image of the user
-   */
-  image?: string | null;
-  /**
-   * The role of the user
-   */
   role: 'admin' | 'user';
-  updatedAt: string;
-  createdAt: string;
-  /**
-   * Whether the user is banned from the platform
-   */
-  banned?: boolean | null;
-  /**
-   * The reason for the ban
-   */
-  banReason?: string | null;
-  /**
-   * The date and time when the ban will expire
-   */
-  banExpires?: string | null;
-  roles?: ('user' | 'admin')[] | null;
-  stripeCustomerId?: string | null;
-  userSubscription?: {
-    docs?: (number | Subscription)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * The email of the user
-   */
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
- */
-export interface Lesson {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the lesson will be closed for new bookings.
-   */
-  lockOutTime: number;
-  originalLockOutTime?: number | null;
-  location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
- */
-export interface Instructor {
-  id: number;
-  /**
-   * The user associated with this instructor
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * Instructor profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this instructor is active and can be assigned to lessons
-   */
-  active?: boolean | null;
+  token: string;
+  url?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -364,189 +201,6 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
- */
-export interface ClassOption {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans".
- */
-export interface Plan {
-  id: number;
-  name: string;
-  /**
-   * Features that are included in this plan
-   */
-  features?:
-    | {
-        feature?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Sessions included in this plan (if applicable)
-   */
-  sessionsInformation?: {
-    sessions?: number | null;
-    intervalCount?: number | null;
-    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-  };
-  stripeProductId?: string | null;
-  /**
-   * Price information for the plan
-   */
-  priceInformation?: {
-    /**
-     * Price of the plan
-     */
-    price?: number | null;
-    /**
-     * Number of intervals per period
-     */
-    intervalCount?: number | null;
-    /**
-     * How often the price is charged
-     */
-    interval?: ('day' | 'week' | 'month' | 'year') | null;
-  };
-  priceJSON?: string | null;
-  /**
-   * Status of the plan
-   */
-  status: 'active' | 'inactive';
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  user: number | User;
-  lesson: number | Lesson;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
- */
-export interface Subscription {
-  id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  /**
-   * Last confirmed booking date. Automatically updated when bookings are confirmed.
-   */
-  lastCheckIn?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Sessions are active sessions for users. They are used to authenticate users with a session token
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions".
- */
-export interface Session {
-  id: number;
-  /**
-   * The user that the session belongs to
-   */
-  user: number | User;
-  /**
-   * The unique session token
-   */
-  token: string;
-  /**
-   * The date and time when the session will expire
-   */
-  expiresAt: string;
-  /**
-   * The IP address of the device
-   */
-  ipAddress?: string | null;
-  /**
-   * The user agent information of the device
-   */
-  userAgent?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  /**
-   * The admin who is impersonating this session
-   */
-  impersonatedBy?: (number | null) | User;
-}
-/**
- * Verifications are used to verify authentication requests
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications".
- */
-export interface Verification {
-  id: number;
-  /**
-   * The identifier of the verification request
-   */
-  identifier: string;
-  /**
-   * The value to be verified
-   */
-  value: string;
-  /**
-   * The date and time when the verification request will expire
-   */
-  expiresAt: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations".
- */
-export interface AdminInvitation {
-  id: number;
-  role: 'admin' | 'user';
-  token: string;
-  url?: string | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -937,18 +591,412 @@ export interface Post {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Accounts are used to store user accounts for authentication providers
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts".
+ */
+export interface Account {
+  id: number;
+  /**
+   * The id of the account as provided by the SSO or equal to userId for credential accounts
+   */
+  accountId: string;
+  /**
+   * The id of the provider as provided by the SSO
+   */
+  providerId: string;
+  /**
+   * The user that the account belongs to
+   */
+  user: number | User;
+  /**
+   * The access token of the account. Returned by the provider
+   */
+  accessToken?: string | null;
+  /**
+   * The refresh token of the account. Returned by the provider
+   */
+  refreshToken?: string | null;
+  /**
+   * The id token for the account. Returned by the provider
+   */
+  idToken?: string | null;
+  /**
+   * The date and time when the access token will expire
+   */
+  accessTokenExpiresAt?: string | null;
+  /**
+   * The date and time when the refresh token will expire
+   */
+  refreshTokenExpiresAt?: string | null;
+  /**
+   * The scope of the account. Returned by the provider
+   */
+  scope?: string | null;
+  /**
+   * The hashed password of the account. Mainly used for email and password authentication
+   */
+  password?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  lessons?: {
+    docs?: (number | Lesson)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Users chosen display name
+   */
+  name: string;
+  /**
+   * Whether the email of the user has been verified
+   */
+  emailVerified: boolean;
+  /**
+   * The image of the user
+   */
+  image?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The role/ roles of the user
+   */
+  role?: ('admin' | 'user')[] | null;
+  /**
+   * Whether the user is banned from the platform
+   */
+  banned?: boolean | null;
+  /**
+   * The reason for the ban
+   */
+  banReason?: string | null;
+  /**
+   * The date and time when the ban will expire
+   */
+  banExpires?: string | null;
+  account?: {
+    docs?: (number | Account)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  session?: {
+    docs?: (number | Session)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  roles?: ('user' | 'admin')[] | null;
+  stripeCustomerId?: string | null;
+  stripeCustomers?:
+    | {
+        stripeAccountId: string;
+        stripeCustomerId: string;
+        id?: string | null;
+      }[]
+    | null;
+  userSubscription?: {
+    docs?: (number | Subscription)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * The email of the user
+   */
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  /**
+   * The time in minutes before the lesson will be closed for new bookings.
+   */
+  lockOutTime: number;
+  originalLockOutTime?: number | null;
+  location?: string | null;
+  instructor?: (number | null) | Instructor;
+  classOption: number | ClassOption;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Status of the lesson
+   */
+  bookingStatus?: string | null;
+  /**
+   * Whether the lesson is active and will be shown on the schedule
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "instructors".
+ */
+export interface Instructor {
+  id: number;
+  /**
+   * The user associated with this instructor
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * Instructor profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this instructor is active and can be assigned to lessons
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-options".
+ */
+export interface ClassOption {
+  id: number;
+  name: string;
+  /**
+   * How many people can book this class option?
+   */
+  places: number;
+  description: string;
+  paymentMethods?: {
+    /**
+     * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
+     */
+    allowedPlans?: (number | Plan)[] | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans".
+ */
+export interface Plan {
+  id: number;
+  name: string;
+  /**
+   * Features that are included in this plan
+   */
+  features?:
+    | {
+        feature?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
+   */
+  sessionsInformation: {
+    sessions?: number | null;
+    intervalCount?: number | null;
+    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+    /**
+     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
+     */
+    allowMultipleBookingsPerLesson: boolean;
+  };
+  stripeProductId?: string | null;
+  /**
+   * Price information for the plan
+   */
+  priceInformation?: {
+    /**
+     * Price of the plan
+     */
+    price?: number | null;
+    /**
+     * Number of intervals per period
+     */
+    intervalCount?: number | null;
+    /**
+     * How often the price is charged
+     */
+    interval?: ('day' | 'week' | 'month' | 'year') | null;
+  };
+  priceJSON?: string | null;
+  /**
+   * Status of the plan
+   */
+  status: 'active' | 'inactive';
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  'class-optionsPaymentMethods'?: {
+    docs?: (number | ClassOption)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  user: number | User;
+  lesson: number | Lesson;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  /**
+   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
+   */
+  transactions?: (number | Transaction)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions".
  */
 export interface Transaction {
   id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Subscription id when paymentMethod is subscription (booking created by subscription).
+   */
+  subscriptionId?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * Sessions are active sessions for users. They are used to authenticate users with a session token
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions".
+ */
+export interface Session {
+  id: number;
+  /**
+   * The date and time when the session will expire
+   */
+  expiresAt: string;
+  /**
+   * The unique session token
+   */
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * The IP address of the device
+   */
+  ipAddress?: string | null;
+  /**
+   * The user agent information of the device
+   */
+  userAgent?: string | null;
+  /**
+   * The user that the session belongs to
+   */
+  user: number | User;
+  /**
+   * The admin who is impersonating this session
+   */
+  impersonatedBy?: (number | null) | User;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions".
+ */
+export interface Subscription {
+  id: number;
+  user: number | User;
+  plan: number | Plan;
+  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
+  startDate?: string | null;
+  endDate?: string | null;
+  cancelAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  /**
+   * Skip syncing to Stripe
+   */
+  skipSync?: boolean | null;
+  /**
+   * Last confirmed booking date. Automatically updated when bookings are confirmed.
+   */
+  lastCheckIn?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Verifications are used to verify authentication requests
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications".
+ */
+export interface Verification {
+  id: number;
+  /**
+   * The identifier of the verification request
+   */
+  identifier: string;
+  /**
+   * The value to be verified
+   */
+  value: string;
+  /**
+   * The date and time when the verification request will expire
+   */
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1084,18 +1132,6 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'accounts';
-        value: number | Account;
-      } | null)
-    | ({
-        relationTo: 'sessions';
-        value: number | Session;
-      } | null)
-    | ({
-        relationTo: 'verifications';
-        value: number | Verification;
-      } | null)
-    | ({
         relationTo: 'admin-invitations';
         value: number | AdminInvitation;
       } | null)
@@ -1110,6 +1146,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'posts';
         value: number | Post;
+      } | null)
+    | ({
+        relationTo: 'accounts';
+        value: number | Account;
+      } | null)
+    | ({
+        relationTo: 'sessions';
+        value: number | Session;
+      } | null)
+    | ({
+        relationTo: 'verifications';
+        value: number | Verification;
       } | null)
     | ({
         relationTo: 'instructors';
@@ -1128,20 +1176,20 @@ export interface PayloadLockedDocument {
         value: number | Booking;
       } | null)
     | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
         relationTo: 'subscriptions';
         value: number | Subscription;
       } | null)
     | ({
         relationTo: 'plans';
         value: number | Plan;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'forms';
@@ -1192,49 +1240,6 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts_select".
- */
-export interface AccountsSelect<T extends boolean = true> {
-  user?: T;
-  accountId?: T;
-  providerId?: T;
-  accessToken?: T;
-  refreshToken?: T;
-  accessTokenExpiresAt?: T;
-  refreshTokenExpiresAt?: T;
-  scope?: T;
-  idToken?: T;
-  password?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions_select".
- */
-export interface SessionsSelect<T extends boolean = true> {
-  user?: T;
-  token?: T;
-  expiresAt?: T;
-  ipAddress?: T;
-  userAgent?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  impersonatedBy?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications_select".
- */
-export interface VerificationsSelect<T extends boolean = true> {
-  identifier?: T;
-  value?: T;
-  expiresAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1464,6 +1469,49 @@ export interface PostsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts_select".
+ */
+export interface AccountsSelect<T extends boolean = true> {
+  accountId?: T;
+  providerId?: T;
+  user?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  idToken?: T;
+  accessTokenExpiresAt?: T;
+  refreshTokenExpiresAt?: T;
+  scope?: T;
+  password?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions_select".
+ */
+export interface SessionsSelect<T extends boolean = true> {
+  expiresAt?: T;
+  token?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  ipAddress?: T;
+  userAgent?: T;
+  user?: T;
+  impersonatedBy?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications_select".
+ */
+export interface VerificationsSelect<T extends boolean = true> {
+  identifier?: T;
+  value?: T;
+  expiresAt?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "instructors_select".
  */
 export interface InstructorsSelect<T extends boolean = true> {
@@ -1519,54 +1567,9 @@ export interface BookingsSelect<T extends boolean = true> {
   user?: T;
   lesson?: T;
   status?: T;
+  transactions?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  amount?: T;
-  currency?: T;
-  status?: T;
-  paymentMethod?: T;
-  createdBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  lessons?: T;
-  name?: T;
-  emailVerified?: T;
-  image?: T;
-  role?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
-  roles?: T;
-  stripeCustomerId?: T;
-  userSubscription?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1603,6 +1606,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
+        allowMultipleBookingsPerLesson?: T;
       };
   stripeProductId?: T;
   priceInformation?:
@@ -1618,6 +1622,61 @@ export interface PlansSelect<T extends boolean = true> {
   'class-optionsPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
+  subscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  lessons?: T;
+  name?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  roles?: T;
+  stripeCustomerId?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
+  userSubscription?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

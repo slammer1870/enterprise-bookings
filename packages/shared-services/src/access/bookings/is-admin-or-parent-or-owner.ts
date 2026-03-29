@@ -5,7 +5,7 @@ import { checkRole } from "@repo/shared-utils";
 
 export const isBookingAdminOrParentOrOwner: Access = ({
   req: { user },
-  id,
+  id: _id,
 }) => {
   if (!user) {
     return false;

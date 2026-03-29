@@ -2,13 +2,14 @@ import React from "react";
 
 import Image from "next/image";
 
-import { format } from "date-fns";
-
 import { Lesson } from "@repo/shared-types";
+import { formatInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils/timezone";
 
 import CheckInButton from "./checkin-button";
 
 export function LessonDetail({ lesson }: { lesson: Lesson }) {
+  const timeZone = resolveLessonTimeZone(lesson);
+
   return (
     <div
       className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
@@ -16,8 +17,8 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
     >
       <div>
         <div className="text-sm font-light">
-          {format(new Date(lesson.startTime), "HH:mm a")} -{" "}
-          {format(new Date(lesson.endTime), "HH:mm a")}
+          {formatInTimeZone(lesson.startTime, "HH:mm a", timeZone)} -{" "}
+          {formatInTimeZone(lesson.endTime, "HH:mm a", timeZone)}
         </div>
         <div className="text-xl font-medium">
           {lesson.classOption.name}{" "}

@@ -5,12 +5,13 @@
   "type": "module",
   "types": "./src/index.ts",
   "dependencies": {
-    "@repo/shared-types": "workspace:*",
-    "@repo/trpc": "workspace:*",
-    "@repo/ui": "workspace:*",
     "@repo/auth-next": "workspace:*",
     "@repo/children": "workspace:*",
     "@repo/payments-next": "workspace:*",
+    "@repo/shared-types": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
+    "@repo/trpc": "workspace:*",
+    "@repo/ui": "workspace:*",
     "@tanstack/react-query": "*",
     "date-fns": "^4.1.0",
     "lucide-react": "0.554.0",
@@ -21,14 +22,27 @@
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
+    "@repo/testing-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.1",
     "@types/node": "^24.10.1",
     "@types/react": "*",
     "@types/react-dom": "19.2.3",
-    "typescript": "5.9.3"
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.12"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   },
   "peerDependencies": {
     "@repo/analytics": "workspace:*"
   }
 }
-

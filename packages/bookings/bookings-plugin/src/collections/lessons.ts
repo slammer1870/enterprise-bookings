@@ -8,8 +8,14 @@ import {
 
 import { getRemainingCapacity } from "../hooks/remaining-capacity";
 import { getBookingStatus } from "../hooks/booking-status";
-import { checkRole } from "@repo/shared-utils/src/check-role";
+import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types/";
+import {
+  combineDateAndTimeInTimeZone,
+  extractUtcWallClock,
+  resolveTimeZone,
+} from "@repo/shared-utils";
+import { TZDate } from "@date-fns/tz";
 
 import type { BookingsPluginConfig } from "../types";
 
@@ -17,6 +23,11 @@ import { AccessControls, HooksConfig } from "@repo/shared-types";
 
 import { lessonReadAccess } from "../access/lessons";
 import { setLockout } from "../hooks/set-lockout";
+
+const hasTenantsCollection = (req: any): boolean => {
+  const collections = req?.payload?.config?.collections;
+  return Array.isArray(collections) && collections.some((collection: any) => collection?.slug === "tenants");
+};
 
 const parseTimeString = (value: unknown): { hours: number; minutes: number } | null => {
   if (typeof value !== "string") return null;
@@ -64,6 +75,142 @@ const coerceToDateForTimeOnlyField = (value: unknown): Date | null => {
   return null;
 };
 
+const isCanonicalDateTimeString = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return /T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value);
+};
+
+/** Get a valid date from siblingData.date or from value (e.g. full ISO string). Used so API create works when date is not yet in siblingData or is localized. */
+const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date | null => {
+  const raw = siblingData?.date;
+  if (raw != null) {
+    const str =
+      typeof raw === "string"
+        ? raw
+        : raw instanceof Date
+          ? raw.toISOString()
+          : typeof raw === "object" && raw !== null
+            ? (Object.values(raw)[0] as string | undefined)
+            : undefined;
+    const d = str != null ? new Date(str) : raw instanceof Date ? raw : null;
+    if (d instanceof Date && !Number.isNaN(d.getTime())) return d;
+  }
+  const time = coerceToDateForTimeOnlyField(value);
+  if (time && !Number.isNaN(time.getTime())) return time;
+  return null;
+};
+
+const getDefaultTimeZone = (req: { payload?: { config?: { admin?: { timezones?: { defaultTimezone?: string } } } } } | undefined) =>
+  resolveTimeZone(req?.payload?.config?.admin?.timezones?.defaultTimezone);
+
+const getTenantIdFromValue = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    const id = (value as { id?: unknown }).id;
+    return typeof id === "number"
+      ? id
+      : typeof id === "string"
+        ? Number(id)
+        : null;
+  }
+  return null;
+};
+
+const getTenantTimeZoneFromValue = (value: unknown): string | null => {
+  if (!value || typeof value !== "object") return null;
+  return typeof (value as { timeZone?: unknown }).timeZone === "string"
+    ? ((value as { timeZone?: string }).timeZone ?? null)
+    : null;
+};
+
+const getWallClockTimeInTimeZone = (
+  value: unknown,
+  timeZone?: string
+): {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  milliseconds: number;
+} | null => {
+  if (typeof value === "string") {
+    const parsedTime = parseTimeString(value);
+    if (parsedTime) {
+      return {
+        hours: parsedTime.hours,
+        minutes: parsedTime.minutes,
+        seconds: 0,
+        milliseconds: 0,
+      };
+    }
+  }
+
+  if (value instanceof Date || typeof value === "string") {
+    const parsedDate = new Date(value);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      if (timeZone) {
+        const zonedDate = new TZDate(parsedDate, timeZone);
+        return {
+          hours: zonedDate.getHours(),
+          minutes: zonedDate.getMinutes(),
+          seconds: zonedDate.getSeconds(),
+          milliseconds: zonedDate.getMilliseconds(),
+        };
+      }
+
+      return extractUtcWallClock(parsedDate);
+    }
+  }
+
+  return null;
+};
+
+const resolveLessonTimeZoneForValidation = (
+  siblingData: Record<string, unknown>,
+  fallbackTimeZone: string
+) => {
+  const siblingTenantTimeZone = getTenantTimeZoneFromValue(siblingData?.tenant);
+  if (siblingTenantTimeZone) return resolveTimeZone(siblingTenantTimeZone, fallbackTimeZone);
+  return fallbackTimeZone;
+};
+
+const resolveLessonTimeZone = async ({
+  req,
+  siblingData,
+}: {
+  req: any;
+  siblingData: Record<string, unknown>;
+}) => {
+  const fallbackTimeZone = getDefaultTimeZone(req);
+  const siblingTenantTimeZone = getTenantTimeZoneFromValue(siblingData?.tenant);
+  if (siblingTenantTimeZone) return resolveTimeZone(siblingTenantTimeZone, fallbackTimeZone);
+
+  const tenantId = getTenantIdFromValue(siblingData?.tenant ?? req?.context?.tenant);
+  if (!tenantId || !req?.payload?.findByID || !hasTenantsCollection(req)) return fallbackTimeZone;
+
+  try {
+    const tenant = await req.payload.findByID({
+      collection: "tenants",
+      id: tenantId,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    });
+
+    return resolveTimeZone(
+      typeof tenant?.timeZone === "string" ? tenant.timeZone : null,
+      fallbackTimeZone
+    );
+  } catch {
+    return fallbackTimeZone;
+  }
+};
+
 const defaultFields: Field[] = [
   {
     type: "row",
@@ -92,33 +239,21 @@ const defaultFields: Field[] = [
         },
         hooks: {
           beforeChange: [
-            ({ value, siblingData }) => {
-              const date = new Date(siblingData.date);
+            async ({ value, siblingData, req }) => {
+              if (typeof value === "undefined") return value;
+              if (isCanonicalDateTimeString(value)) return value;
+              const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
+              if (!base) return value;
 
-              // Extract the date parts from value1
-              const year = date.getFullYear();
-              const month = date.getMonth();
-              const day = date.getDate(); // Extract date from sibling data
+              const timeZone = await resolveLessonTimeZone({
+                req,
+                siblingData: (siblingData || {}) as Record<string, unknown>,
+              });
 
-              const time = coerceToDateForTimeOnlyField(value);
+              const time = getWallClockTimeInTimeZone(value, timeZone);
               if (!time) return value;
 
-              const hours = time.getHours();
-              const minutes = time.getMinutes();
-              const seconds = time.getSeconds();
-              const milliseconds = time.getMilliseconds();
-
-              value = new Date(
-                year,
-                month,
-                day,
-                hours,
-                minutes,
-                seconds,
-                milliseconds
-              );
-
-              return value;
+              return combineDateAndTimeInTimeZone(base, time, timeZone).toISOString();
             },
           ],
         },
@@ -134,33 +269,21 @@ const defaultFields: Field[] = [
         },
         hooks: {
           beforeChange: [
-            ({ value, siblingData }) => {
-              const date = new Date(siblingData.date);
+            async ({ value, siblingData, req }) => {
+              if (typeof value === "undefined") return value;
+              if (isCanonicalDateTimeString(value)) return value;
+              const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
+              if (!base) return value;
 
-              // Extract the date parts from value1
-              const year = date.getFullYear();
-              const month = date.getMonth();
-              const day = date.getDate(); // Extract date from sibling data
+              const timeZone = await resolveLessonTimeZone({
+                req,
+                siblingData: (siblingData || {}) as Record<string, unknown>,
+              });
 
-              const time = coerceToDateForTimeOnlyField(value);
+              const time = getWallClockTimeInTimeZone(value, timeZone);
               if (!time) return value;
 
-              const hours = time.getHours();
-              const minutes = time.getMinutes();
-              const seconds = time.getSeconds();
-              const milliseconds = time.getMilliseconds();
-
-              value = new Date(
-                year,
-                month,
-                day,
-                hours,
-                minutes,
-                seconds,
-                milliseconds
-              );
-
-              return value;
+              return combineDateAndTimeInTimeZone(base, time, timeZone).toISOString();
             },
           ],
         },
@@ -170,34 +293,27 @@ const defaultFields: Field[] = [
             date: string;
           };
           if (value && siblingData.startTime && siblingData.date) {
-            // Apply the same transformation logic as beforeChange hooks
-            const date = new Date(siblingData.date);
-            const year = date.getFullYear();
-            const month = date.getMonth();
-            const day = date.getDate();
-
-            // Transform endTime
-            const endTimeRaw = new Date(value);
-            const endTime = new Date(
-              year,
-              month,
-              day,
-              endTimeRaw.getHours(),
-              endTimeRaw.getMinutes(),
-              endTimeRaw.getSeconds(),
-              endTimeRaw.getMilliseconds()
+            const fallbackTimeZone = getDefaultTimeZone((options as { req?: any }).req);
+            const timeZone = resolveLessonTimeZoneForValidation(
+              options.siblingData as Record<string, unknown>,
+              fallbackTimeZone
             );
+            const endTimeParts = getWallClockTimeInTimeZone(value, timeZone);
+            const startTimeParts = getWallClockTimeInTimeZone(
+              siblingData.startTime,
+              timeZone
+            );
+            if (!endTimeParts || !startTimeParts) return true;
 
-            // Transform startTime
-            const startTimeRaw = new Date(siblingData.startTime);
-            const startTime = new Date(
-              year,
-              month,
-              day,
-              startTimeRaw.getHours(),
-              startTimeRaw.getMinutes(),
-              startTimeRaw.getSeconds(),
-              startTimeRaw.getMilliseconds()
+            const endTime = combineDateAndTimeInTimeZone(
+              siblingData.date,
+              endTimeParts,
+              timeZone
+            );
+            const startTime = combineDateAndTimeInTimeZone(
+              siblingData.date,
+              startTimeParts,
+              timeZone
             );
             if (endTime <= startTime) {
               return "End time must be greater than start time";
@@ -453,31 +569,29 @@ const defaultHooks: HooksConfig = {
 };
 
 export const generateLessonCollection = (config: BookingsPluginConfig) => {
+  const overrides = config?.lessonOverrides;
   const lessonConfig: CollectionConfig = {
-    ...(config?.lessonOverrides || {}),
+    ...(overrides || {}),
     slug: "lessons",
     labels: {
-      ...(config?.lessonOverrides?.labels || defaultLabels),
+      ...(overrides?.labels || defaultLabels),
     },
     access: {
-      ...(config?.lessonOverrides?.access &&
-      typeof config?.lessonOverrides?.access === "function"
-        ? config.lessonOverrides.access({ defaultAccess })
+      ...(overrides?.access && typeof overrides?.access === "function"
+        ? overrides.access({ defaultAccess })
         : defaultAccess),
     },
     admin: {
-      ...(config?.lessonOverrides?.admin || defaultAdmin),
+      ...(overrides?.admin || defaultAdmin),
     },
     hooks: {
-      ...(config?.lessonOverrides?.hooks &&
-      typeof config?.lessonOverrides?.hooks === "function"
-        ? config.lessonOverrides.hooks({ defaultHooks })
+      ...(overrides?.hooks && typeof overrides?.hooks === "function"
+        ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
     fields:
-      config?.lessonOverrides?.fields &&
-      typeof config?.lessonOverrides?.fields === "function"
-        ? config.lessonOverrides.fields({ defaultFields })
+      overrides?.fields && typeof overrides?.fields === "function"
+        ? overrides.fields({ defaultFields })
         : defaultFields,
   };
 

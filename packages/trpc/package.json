@@ -10,9 +10,11 @@
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint . --fix",
     "build": "pnpm trpc:generate || true",
-    "trpc:generate": "pnpm tsc --project tsconfig.json"
+    "trpc:generate": "pnpm tsc --project tsconfig.json",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@date-fns/tz": "^1.4.1",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

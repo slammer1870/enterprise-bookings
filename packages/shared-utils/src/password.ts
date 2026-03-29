@@ -1,4 +1,4 @@
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 const defaultPasswordValidator = (password: string): string | true => {
   if (!password) return "No password was given";
@@ -69,8 +69,8 @@ export const verifyLegacyPayloadPassword = async (
     
     // Use timing-safe comparison to prevent timing attacks
     return crypto.timingSafeEqual(
-      Buffer.from(computedHash, "hex"),
-      Buffer.from(hash, "hex")
+      new Uint8Array(Buffer.from(computedHash, "hex")),
+      new Uint8Array(Buffer.from(hash, "hex"))
     );
   } catch {
     return false;

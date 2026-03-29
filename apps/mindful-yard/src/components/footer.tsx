@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 const Footer = () => {
   return (
     <footer className="body-font w-full bg-transparent text-gray-500 bg-gray-200 text-sm">

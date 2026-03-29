@@ -3,8 +3,7 @@ import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
 
 import { appRouter, createTRPCContext } from '@repo/trpc'
 
-import { getPayload } from 'payload'
-import config from '@payload-config'
+import { getPayload } from '@/lib/payload'
 import { stripe } from '@/lib/stripe'
 
 /**
@@ -28,7 +27,7 @@ export const OPTIONS = () => {
 }
 
 const handler = async (req: NextRequest) => {
-  const payload = await getPayload({ config })
+  const payload = await getPayload()
 
   const response = await fetchRequestHandler({
     endpoint: '/api/trpc',

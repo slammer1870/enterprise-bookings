@@ -3,11 +3,11 @@ import type {
   CollectionAfterDeleteHook,
 } from "payload";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "../../../utils/next-cache";
 
 import type { Post } from "@repo/shared-types";
 
-export const revalidatePost: CollectionAfterChangeHook<Post> = ({
+export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
   doc,
   previousDoc,
   req: { payload, context },
@@ -18,9 +18,9 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
 
       payload.logger.info(`Revalidating post at path: ${path}`);
 
-      revalidatePath(path);
-      revalidateTag("posts");
-      revalidateTag("posts-sitemap");
+      await revalidatePath(path);
+      await revalidateTag("posts");
+      await revalidateTag("posts-sitemap");
     }
 
     // If the post was previously published, we need to revalidate the old path
@@ -37,7 +37,7 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = ({
   return doc;
 };
 
-export const revalidateDelete: CollectionAfterDeleteHook<Post> = ({
+export const revalidateDelete: CollectionAfterDeleteHook<Post> = async ({
   doc,
   req: { context },
 }) => {

@@ -1,6 +1,5 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
   "globalEnv": ["NODE_ENV", "CI"],
   "tasks": {
     "build": {
@@ -11,11 +10,22 @@
         "BLOB_READ_WRITE_TOKEN",
         "POSTGRES_URL"
       ],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "inputs": [
+        "src/**",
+        "public/**",
+        "package.json",
+        "tsconfig*.json",
+        "next.config.*",
+        "tailwind.config.*",
+        ".env*",
+        "!src/**/*.test.*",
+        "!src/**/*.spec.*"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"],
+      "env": ["NEXT_PHASE", "LOGS_STRIPE_PROXY", "DEFAULT_FROM_ADDRESS", "NEXT_PUBLIC_BETTER_AUTH_URL", "RESEND_FROM", "DEFAULT_FROM_NAME", "RESEND_API_KEY", "BETTER_AUTH_SECRET", "ENABLE_TEST_MAGIC_LINKS", "ENABLE_TEST_WEBHOOKS", "TZ"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
@@ -42,12 +52,13 @@
       "cache": false
     },
     "test:e2e": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["build"],
       "env": [
         "DATABASE_URI",
         "PAYLOAD_SECRET",
         "NEXT_PUBLIC_SERVER_URL",
-        "STRIPE_SECRET_KEY"
+        "STRIPE_SECRET_KEY",
+        "E2E_USE_PROD"
       ],
       "inputs": [
         "tests/e2e/**",
@@ -55,15 +66,17 @@
         "package.json",
         ".env*"
       ],
-      "outputs": ["playwright-report/**", "test-results/**"]
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "cache": false
     },
     "test:e2e:ci": {
-      "dependsOn": ["^ci"],
+      "dependsOn": ["build"],
       "env": [
         "DATABASE_URI",
         "PAYLOAD_SECRET",
         "NEXT_PUBLIC_SERVER_URL",
-        "STRIPE_SECRET_KEY"
+        "STRIPE_SECRET_KEY",
+        "E2E_USE_PROD"
       ],
       "inputs": [
         "tests/e2e/**",
@@ -71,7 +84,8 @@
         "package.json",
         ".env*"
       ],
-      "outputs": ["playwright-report/**", "test-results/**"]
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "cache": false
     },
     "payload": {
       "cache": false
@@ -83,7 +97,8 @@
       "cache": false
     },
     "ci": {
-      "dependsOn": ["^ci"]
+      "dependsOn": ["^ci"],
+      "env": ["DATABASE_URI", "PAYLOAD_SECRET"]
     }
   }
 }

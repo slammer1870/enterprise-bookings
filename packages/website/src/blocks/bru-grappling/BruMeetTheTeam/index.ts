@@ -1,0 +1,2 @@
+export { BruMeetTheTeamBlock } from './Component'
+

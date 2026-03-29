@@ -2,13 +2,19 @@
   "name": "@repo/shared-utils",
   "version": "0.0.1",
   "dependencies": {
+    "@date-fns/tz": "^1.4.1",
     "@repo/shared-types": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "crypto": "^1.0.1",
+    "date-fns": "^4.1.0",
     "qs": "^6.14.0"
   },
   "devDependencies": {
-    "@types/qs": "^6.14.0"
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/qs": "^6.14.0",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "stripe": "*"
@@ -18,5 +24,31 @@
   ],
   "main": "src/index.ts",
   "type": "module",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./timezone": {
+      "types": "./src/timezone.ts",
+      "default": "./src/timezone.ts"
+    },
+    "./query": {
+      "types": "./src/query.ts",
+      "default": "./src/query.ts"
+    },
+    "./utm": {
+      "types": "./src/utm.ts",
+      "default": "./src/utm.ts"
+    },
+    "./password": {
+      "types": "./src/password.ts",
+      "default": "./src/password.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
+  }
 }

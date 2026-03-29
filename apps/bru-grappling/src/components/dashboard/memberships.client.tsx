@@ -1,9 +1,7 @@
 'use client'
 
 import type { Plan } from '@repo/shared-types'
-import { PlanDetail } from '@repo/memberships/src/components/plans/plan-detail'
-import { PlanList } from '@repo/memberships/src/components/plans/plan-list'
-import { useSubscriptionActions } from '@repo/payments-next'
+import { PlanList, PlanDetail, useSubscriptionActions } from '@repo/membership-next'
 
 export function DashboardMemberships({
   allowedPlans,

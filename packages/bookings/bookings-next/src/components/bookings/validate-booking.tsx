@@ -45,14 +45,14 @@ export const ValidateBooking = async ({
       {validationResult && (
         <div className="space-y-2">
           {validationResult.error && validationResult.error !== 'REDIRECT_TO_CHILDREN_BOOKING' && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               <p className="font-medium">Validation Error</p>
               <p>{validationResult.error}</p>
             </div>
           )}
           
           {validationResult.reason && !validationResult.shouldRedirect && (
-            <div className="rounded-md bg-blue-50 p-4 text-sm text-blue-800">
+            <div className="rounded-md border border-primary/20 bg-primary/10 p-4 text-sm text-foreground">
               <p className="font-medium">Status</p>
               <p>{validationResult.reason}</p>
             </div>

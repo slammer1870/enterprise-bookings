@@ -86,7 +86,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           setLoading(false);
           break;
 
-        case "booked":
+        case "booked": {
           const ok = await confirm();
           if (ok) {
             setLoading(true);
@@ -94,7 +94,8 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           }
           setLoading(false);
           break;
-        case "waiting":
+        }
+        case "waiting": {
           const ok2 = await confirm();
           if (ok2) {
             setLoading(true);
@@ -102,6 +103,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           }
           setLoading(false);
           break;
+        }
         default:
           toast.error("Unknown status");
           setLoading(false);
@@ -116,7 +118,11 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   const getButtonClassName = () => {
     const baseClasses = "w-full";
     
-    if (status === "active" || status === "trialable") {
+    if (status === "trialable") {
+      return `${baseClasses} bg-blue-600 hover:bg-blue-700 text-white`;
+    }
+
+    if (status === "active") {
       return `${baseClasses} bg-checkin hover:bg-checkin/90 text-checkin-foreground`;
     }
     
@@ -135,6 +141,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     booked: "default",
     waiting: "default",
     childrenBooked: "outline",
+    multipleBooked: "outline",
   };
 
   return (

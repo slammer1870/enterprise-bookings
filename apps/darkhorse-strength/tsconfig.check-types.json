@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "next.config.mjs",
+    "next-sitemap.config.cjs",
+    "redirects.js",
+    "src/app/(payload)/admin/importMap.ts"
+  ]
+}

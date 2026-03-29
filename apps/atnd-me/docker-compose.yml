@@ -1,0 +1,22 @@
+# atnd-me app only (for Coolify). Postgres is provided by Coolify or externally.
+# Build from repo root: docker compose -f apps/atnd-me/docker-compose.yml build
+# Run: docker compose -f apps/atnd-me/docker-compose.yml up
+
+version: '3'
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: apps/atnd-me/Dockerfile
+      args:
+        DATABASE_URI: ${DATABASE_URI}
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Set these in Coolify or .env: DATABASE_URI, PAYLOAD_SECRET, NEXT_PUBLIC_SERVER_URL
+    restart: unless-stopped

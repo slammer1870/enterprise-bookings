@@ -1,0 +1,62 @@
+import type { CollectionAfterChangeHook, CollectionAfterDeleteHook } from 'payload'
+
+import type { Post } from '../../../payload-types'
+import { revalidatePath, revalidateTag } from '../../../utilities/next-cache'
+
+export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
+  doc,
+  previousDoc,
+  req: { payload, context },
+}) => {
+  if (!context.disableRevalidate) {
+    try {
+      if (doc._status === 'published') {
+        const path = `/posts/${doc.slug}`
+
+        payload.logger.info(`Revalidating post at path: ${path}`)
+
+        await revalidatePath(path)
+        await revalidateTag('posts-sitemap')
+      }
+
+      // If the post was previously published, we need to revalidate the old path
+      if (previousDoc._status === 'published' && doc._status !== 'published') {
+        const oldPath = `/posts/${previousDoc.slug}`
+
+        payload.logger.info(`Revalidating old post at path: ${oldPath}`)
+
+        revalidatePath(oldPath)
+        revalidateTag('posts-sitemap')
+      }
+    } catch (error) {
+      // Ignore revalidation errors when running outside Next.js context (e.g., seed scripts)
+      // This is expected when seeding the database without a running Next.js server
+      if (error instanceof Error && error.message.includes('static generation store missing')) {
+        payload.logger.warn('Skipping revalidation (not in Next.js request context)')
+      } else {
+        throw error
+      }
+    }
+  }
+  return doc
+}
+
+export const revalidateDelete: CollectionAfterDeleteHook<Post> = async ({ doc, req: { context, payload } }) => {
+  if (!context.disableRevalidate) {
+    try {
+      const path = `/posts/${doc?.slug}`
+
+      revalidatePath(path)
+      revalidateTag('posts-sitemap')
+    } catch (error) {
+      // Ignore revalidation errors when running outside Next.js context (e.g., seed scripts)
+      if (error instanceof Error && error.message.includes('static generation store missing')) {
+        payload.logger.warn('Skipping revalidation (not in Next.js request context)')
+      } else {
+        throw error
+      }
+    }
+  }
+
+  return doc
+}

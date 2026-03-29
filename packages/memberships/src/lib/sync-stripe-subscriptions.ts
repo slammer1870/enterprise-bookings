@@ -6,7 +6,8 @@ import type { Payload } from "payload";
 
 import Stripe from "stripe";
 
-import { generatePasswordSaltHash, stripe } from "@repo/shared-utils";
+import { stripe } from "@repo/shared-utils";
+import { generatePasswordSaltHash } from "@repo/shared-utils/password";
 
 import { Plan, User } from "@repo/shared-types";
 
@@ -81,8 +82,8 @@ export const syncStripeSubscriptions = async (payload: Payload) => {
             stripeCustomerId: customer.id,
             password: hash,
             salt,
-            ...(('emailVerified' in payload.collections.users.config.fields) && { emailVerified: true }),
-            ...(('role' in payload.collections.users.config.fields) && { role: 'user' }),
+            ...(payload.collections.users && ('emailVerified' in payload.collections.users.config.fields) && { emailVerified: true }),
+            ...(payload.collections.users && ('role' in payload.collections.users.config.fields) && { role: 'user' }),
           } as any,
           draft: false,
         });
