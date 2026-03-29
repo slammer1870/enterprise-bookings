@@ -151,6 +151,83 @@ describe("Lesson tests", () => {
   );
 
   it(
+    "normalizes lesson time-only fields when date payload is an object",
+    async () => {
+      const timeZone = "Europe/Dublin";
+      const lessonDate = new TZDate(2026, 3, 15, 0, 0, 0, 0, timeZone);
+
+      const lesson = (await payload.create({
+        collection: "lessons",
+        data: {
+          date: {
+            raw: "legacy-form-date",
+            value: lessonDate.toISOString(),
+          },
+          startTime: "10:00",
+          endTime: "11:00",
+          classOption: classOption.id,
+          location: "Object Date Save",
+        },
+      })) as Lesson;
+
+      const start = new TZDate(new Date(String(lesson.startTime)), timeZone);
+      const end = new TZDate(new Date(String(lesson.endTime)), timeZone);
+
+      expect(start.getDate()).toBe(15);
+      expect(start.getMonth()).toBe(3);
+      expect(start.getFullYear()).toBe(2026);
+      expect(start.getHours()).toBe(10);
+      expect(end.getHours()).toBe(11);
+    },
+    TEST_TIMEOUT
+  );
+
+  it(
+    "normalizes updated lesson time-only fields when date payload is an object",
+    async () => {
+      const timeZone = "Europe/Dublin";
+      const originalLesson = (await payload.create({
+        collection: "lessons",
+        data: {
+          date: new TZDate(2026, 4, 1, 0, 0, 0, 0, timeZone).toISOString(),
+          startTime: "08:00",
+          endTime: "09:00",
+          classOption: classOption.id,
+          location: "Legacy Payload Update",
+        },
+      })) as Lesson;
+
+      const updatedDate = new TZDate(2026, 4, 2, 0, 0, 0, 0, timeZone);
+      const updated = (await payload.update({
+        collection: "lessons",
+        id: originalLesson.id,
+        data: {
+          date: {
+            raw: "legacy-form-date",
+            value: updatedDate.toISOString(),
+          },
+          startTime: "10:30",
+          endTime: "11:30",
+          classOption: classOption.id,
+          location: "Legacy Payload Update",
+        },
+      })) as Lesson;
+
+      const start = new TZDate(new Date(String(updated.startTime)), timeZone);
+      const end = new TZDate(new Date(String(updated.endTime)), timeZone);
+
+      expect(start.getFullYear()).toBe(2026);
+      expect(start.getMonth()).toBe(4);
+      expect(start.getDate()).toBe(2);
+      expect(start.getHours()).toBe(10);
+      expect(start.getMinutes()).toBe(30);
+      expect(end.getHours()).toBe(11);
+      expect(end.getMinutes()).toBe(30);
+    },
+    TEST_TIMEOUT
+  );
+
+  it(
     "should should get the lessons endpoint",
     async () => {
       const response = await restClient.GET("/lessons");

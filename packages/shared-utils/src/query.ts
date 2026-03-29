@@ -1,9 +1,12 @@
 import * as qs from "qs";
 
-import { getDayRange } from "./date";
+import { getDayBoundsInTimeZone } from "./timezone";
 
-export const getLessonsQuery = (date: Date) => {
-  const { startOfDay, endOfDay } = getDayRange(date);
+export const getLessonsQuery = (
+  date: Date,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+) => {
+  const { startOfDay, endOfDay } = getDayBoundsInTimeZone(date, timeZone);
 
   const query = {
     depth: 3,
