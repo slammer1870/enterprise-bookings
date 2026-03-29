@@ -11,14 +11,46 @@ export function uniqueClassName(base: string): string {
   return `${base} ${suffix}`
 }
 
+async function pickLessonTime(
+  page: any,
+  fieldId: 'startTime' | 'endTime',
+  labels: string[],
+) {
+  const input = page.locator(`#field-${fieldId}`).getByRole('textbox')
+  await input.click()
+  await page.waitForTimeout(200)
+
+  // Payload frequently uses react-datepicker; prefer clicking the time list item.
+  for (const label of labels) {
+    const timeItem = page.locator(`.react-datepicker__time-list-item:has-text("${label}")`).first()
+    if ((await timeItem.count()) > 0) {
+      await timeItem.click()
+      await page.waitForTimeout(200)
+      if (((await input.inputValue().catch(() => '')) || '').trim() !== '') return input
+    }
+  }
+
+  // Fallback: type into the input (some setups accept direct typing).
+  for (const label of labels) {
+    await input.clear().catch(() => {})
+    await input.fill(label)
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Tab')
+    await page.waitForTimeout(200)
+    if (((await input.inputValue().catch(() => '')) || '').trim() !== '') return input
+  }
+
+  return input
+}
+
 export async function createClassOption(
   page: Page,
-  options: { name: string; description: string; places?: string },
+  options: { name: string; description: string; places?: string; readyPath?: string },
 ): Promise<void> {
-  const { name, description, places = '10' } = options
+  const { name, description, places = '10', readyPath = '/api/health' } = options
   const p: any = page as any
 
-  await waitForServerReady(p.context().request)
+  await waitForServerReady(p.context().request, { path: readyPath })
   await p.goto('/admin/collections/class-options', {
     waitUntil: 'domcontentloaded',
     timeout: 120000,
@@ -38,16 +70,16 @@ export async function createClassOption(
   await p.getByRole('textbox', { name: /Description/i }).fill(description)
 }
 
-/**
- * Set the lesson date to tomorrow and time to 10:00–11:00.
- * Returns the Date instance for tomorrow.
- */
-export async function setLessonTomorrowAtTenToEleven(page: Page): Promise<Date> {
+export async function setLessonDateAndTime(
+  page: Page,
+  targetDate: Date,
+  options?: {
+    startLabels?: string[]
+    endLabels?: string[]
+  },
+): Promise<void> {
   const p: any = page as any
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  const tomorrowDateStr = tomorrow.toLocaleDateString('en-GB', {
+  const targetDateStr = targetDate.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -56,44 +88,27 @@ export async function setLessonTomorrowAtTenToEleven(page: Page): Promise<Date> 
   const dateInput = p.locator('#field-date').getByRole('textbox')
   await dateInput.click()
   await dateInput.clear().catch(() => {})
-  await dateInput.fill(tomorrowDateStr)
+  await dateInput.fill(targetDateStr)
   await p.keyboard.press('Tab')
   await p.waitForTimeout(300)
   await expect(dateInput).not.toHaveValue('', { timeout: 10000 })
 
-  const pickTime = async (fieldId: 'startTime' | 'endTime', labels: string[]) => {
-    const input = p.locator(`#field-${fieldId}`).getByRole('textbox')
-    await input.click()
-    await p.waitForTimeout(200)
-
-    // Payload frequently uses react-datepicker; prefer clicking the time list item.
-    for (const label of labels) {
-      const timeItem = p.locator(`.react-datepicker__time-list-item:has-text("${label}")`).first()
-      if ((await timeItem.count()) > 0) {
-        await timeItem.click()
-        await p.waitForTimeout(200)
-        if (((await input.inputValue().catch(() => '')) || '').trim() !== '') return input
-      }
-    }
-
-    // Fallback: type into the input (some setups accept direct typing).
-    for (const label of labels) {
-      await input.clear().catch(() => {})
-      await input.fill(label)
-      await p.keyboard.press('Enter')
-      await p.keyboard.press('Tab')
-      await p.waitForTimeout(200)
-      if (((await input.inputValue().catch(() => '')) || '').trim() !== '') return input
-    }
-
-    return input
-  }
-
-  const startTimeInput = await pickTime('startTime', ['10:00 AM', '10:00'])
+  const startTimeInput = await pickLessonTime(p, 'startTime', options?.startLabels ?? ['10:00 AM', '10:00'])
   await expect(startTimeInput).not.toHaveValue('', { timeout: 10000 })
 
-  const endTimeInput = await pickTime('endTime', ['11:00 AM', '11:00'])
+  const endTimeInput = await pickLessonTime(p, 'endTime', options?.endLabels ?? ['11:00 AM', '11:00'])
   await expect(endTimeInput).not.toHaveValue('', { timeout: 10000 })
+}
+
+/**
+ * Set the lesson date to tomorrow and time to 10:00–11:00.
+ * Returns the Date instance for tomorrow.
+ */
+export async function setLessonTomorrowAtTenToEleven(page: Page): Promise<Date> {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  await setLessonDateAndTime(page, tomorrow)
 
   return tomorrow
 }

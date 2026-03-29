@@ -5,6 +5,7 @@ import { LessonsListWithSelection } from "./lessons-list-with-selection";
 import { BasePayload, PayloadRequest } from "payload";
 
 import { getLessons } from "../../data/lessons";
+import { getLessonStartTimeFilter } from "../../utils/lesson-search-params";
 
 export const FetchLessons: React.FC<{
   params: any;
@@ -13,8 +14,7 @@ export const FetchLessons: React.FC<{
   req?: PayloadRequest;
 }> = async ({ searchParams, payload, params, req }) => {
   const lessons = await getLessons(payload, searchParams, params, req);
-  const date = typeof searchParams?.date === "string" ? searchParams.date : "";
-  const listKey = date || "default";
+  const listKey = getLessonStartTimeFilter(searchParams) || "default";
 
   return <LessonsListWithSelection lessons={lessons} listKey={listKey} />;
 };

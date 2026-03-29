@@ -15,9 +15,11 @@ import { Lesson, Transaction } from "@repo/shared-types";
 import { formatDateInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils";
 import * as React from "react";
 
+type BookingConfirmationTransaction = Pick<Transaction, "amount">;
+
 interface BookingConfirmationEmailProps {
   lesson: Lesson;
-  transaction?: Transaction;
+  transaction?: BookingConfirmationTransaction;
   numberOfGuests?: number;
 }
 

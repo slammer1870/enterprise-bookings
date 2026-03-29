@@ -75,13 +75,6 @@ const coerceToDateForTimeOnlyField = (value: unknown): Date | null => {
   return null;
 };
 
-const isCanonicalDateTimeString = (value: unknown): value is string => {
-  if (typeof value !== "string") return false;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return false;
-  return /T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value);
-};
-
 /** Get a valid date from siblingData.date or from value (e.g. full ISO string). Used so API create works when date is not yet in siblingData or is localized. */
 const getBaseDate = (siblingData: Record<string, unknown>, value: unknown): Date | null => {
   const raw = siblingData?.date;
@@ -285,7 +278,6 @@ const defaultFields: Field[] = [
           beforeChange: [
             async ({ value, siblingData, req }) => {
               if (typeof value === "undefined") return value;
-              if (isCanonicalDateTimeString(value)) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
@@ -315,7 +307,6 @@ const defaultFields: Field[] = [
           beforeChange: [
             async ({ value, siblingData, req }) => {
               if (typeof value === "undefined") return value;
-              if (isCanonicalDateTimeString(value)) return value;
               const base = getBaseDate((siblingData || {}) as Record<string, unknown>, value);
               if (!base) return value;
 
@@ -623,7 +614,6 @@ const defaultHooks: HooksConfig = {
           const normalizeTimeField = (fieldName: "startTime" | "endTime") => {
             const rawValue = siblingData?.[fieldName];
             if (typeof rawValue === "undefined") return;
-            if (isCanonicalDateTimeString(rawValue)) return;
 
             const time = getWallClockTimeInTimeZone(rawValue, timeZone);
             if (!time) return;

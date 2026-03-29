@@ -68,7 +68,7 @@ function LessonTableContent({ lessons }: { lessons: Lesson[] }) {
     return (
       <TableRow className="[&_td]:py-1.5">
         <TableCell colSpan={6} className="text-center">
-          No classes for today
+          No classes for selected date
         </TableCell>
       </TableRow>
     );
