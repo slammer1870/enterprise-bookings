@@ -333,9 +333,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   );
   
   ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-03-29T16:22:34.379Z';
-  ALTER TABLE "media" ADD COLUMN "tenant_id" integer;
-  ALTER TABLE "media" ADD COLUMN "is_public" boolean DEFAULT false;
-  ALTER TABLE "tenants" ADD COLUMN "time_zone" varchar;
+  DO $$ BEGIN
+    ALTER TABLE "media" ADD COLUMN "tenant_id" integer;
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$;
+  DO $$ BEGIN
+    ALTER TABLE "media" ADD COLUMN "is_public" boolean DEFAULT false;
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$;
+  DO $$ BEGIN
+    ALTER TABLE "tenants" ADD COLUMN "time_zone" varchar;
+  EXCEPTION WHEN duplicate_column THEN NULL;
+  END $$;
   ALTER TABLE "pages_blocks_dh_hero" ADD CONSTRAINT "pages_blocks_dh_hero_background_image_id_media_id_fk" FOREIGN KEY ("background_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "pages_blocks_dh_hero" ADD CONSTRAINT "pages_blocks_dh_hero_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "pages_blocks_dh_team_team_members" ADD CONSTRAINT "pages_blocks_dh_team_team_members_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
@@ -472,8 +481,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "_pages_v_blocks_dh_groups_path_idx" ON "_pages_v_blocks_dh_groups" USING btree ("_path");
   CREATE INDEX "_pages_v_blocks_dh_groups_hero_image_idx" ON "_pages_v_blocks_dh_groups" USING btree ("hero_image_id");
   CREATE INDEX "_pages_v_blocks_dh_groups_cta_cta_form_idx" ON "_pages_v_blocks_dh_groups" USING btree ("cta_form_id");
-  ALTER TABLE "media" ADD CONSTRAINT "media_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
-  CREATE INDEX "media_tenant_idx" ON "media" USING btree ("tenant_id");
+  DO $$ BEGIN
+    ALTER TABLE "media" ADD CONSTRAINT "media_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
+  EXCEPTION WHEN duplicate_object THEN NULL;
+  END $$;
+  CREATE INDEX IF NOT EXISTS "media_tenant_idx" ON "media" USING btree ("tenant_id");
   END IF;
   END $$;
 `)
