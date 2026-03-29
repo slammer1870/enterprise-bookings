@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { Lesson, Transaction, User } from '@repo/shared-types'
+import { Lesson, User } from '@repo/shared-types'
 
 import { render } from '@react-email/components'
 
@@ -61,17 +61,6 @@ export const createCashBooking = async (bookingData: BookingData) => {
       }
     }
 
-    const transaction = (await payload.create({
-      collection: 'transactions',
-      data: {
-        amount: totalPrice,
-        paymentMethod: 'cash',
-        currency: 'EUR',
-        status: 'pending',
-        createdBy: userId,
-      },
-    })) as Transaction
-
     // Create a booking for each attendee
     for (const _attendee of attendees) {
       await payload.create({
@@ -80,7 +69,6 @@ export const createCashBooking = async (bookingData: BookingData) => {
           lesson: lessonId,
           user: userId,
           status: 'confirmed',
-          transaction: transaction.id,
         },
       })
     }
@@ -88,7 +76,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
     const emailConfirmation = await render(
       BookingConfirmationEmail({
         lesson,
-        transaction: transaction as Transaction,
+        transaction: { amount: totalPrice },
         numberOfGuests: attendees.length,
       }),
     )

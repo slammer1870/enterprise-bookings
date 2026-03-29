@@ -21,8 +21,6 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import { resendAdapter } from '@payloadcms/email-resend'
 
-import { Transaction } from '@repo/shared-types'
-
 import {
   bookingCreateDropinAccess,
   bookingUpdateDropinAccess,
@@ -101,15 +99,16 @@ export default buildConfig({
                   try {
                     if (!doc.transaction || !req.user) return
 
-                    const transaction = (await req.payload.findByID({
-                      collection: 'transactions',
-                      id: doc.transaction,
-                      depth: 3,
-                    })) as Transaction
-
-                    if (transaction.createdBy?.id !== req.user.id) {
+                    const bookingUserId =
+                      typeof doc.user === 'object' && doc.user !== null ? doc.user.id : doc.user
+                    if (bookingUserId !== req.user.id) {
                       return
                     }
+
+                    const transactionId =
+                      typeof doc.transaction === 'object' && doc.transaction !== null
+                        ? doc.transaction.id
+                        : doc.transaction
 
                     await req.payload.update({
                       collection: 'bookings',
@@ -117,7 +116,7 @@ export default buildConfig({
                         and: [
                           {
                             transaction: {
-                              equals: transaction.id,
+                              equals: transactionId,
                             },
                           },
                           {

@@ -23,7 +23,9 @@ export const LessonAdmin: React.FC<{
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
-  const hasTenantsCollection = payload.config.collections.some((collection) => collection.slug === "tenants");
+  const hasTenantsCollection = payload.config.collections.some(
+    (collection) => String(collection.slug) === "tenants",
+  );
   // Get headers to authenticate user and create req object
   // This allows the multi-tenant plugin to filter lessons by tenant
   const requestHeaders = await headers();
