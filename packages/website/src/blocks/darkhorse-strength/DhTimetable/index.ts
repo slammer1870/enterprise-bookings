@@ -1,0 +1,1 @@
+export { DhTimetableBlock } from './Component'

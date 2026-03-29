@@ -1,0 +1,1 @@
+export { DhPricingBlock } from './Component'

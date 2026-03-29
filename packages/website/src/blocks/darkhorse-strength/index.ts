@@ -1,0 +1,7 @@
+export { DhHero } from './DhHero/config'
+export { DhTeam } from './DhTeam/config'
+export { DhTimetable } from './DhTimetable/config'
+export { DhTestimonials } from './DhTestimonials/config'
+export { DhPricing } from './DhPricing/config'
+export { DhContact } from './DhContact/config'
+export { DhGroups } from './DhGroups/config'

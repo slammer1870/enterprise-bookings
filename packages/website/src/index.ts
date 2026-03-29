@@ -33,6 +33,15 @@ export {
   BruContact,
   BruHeroWaitlist,
 } from "./blocks/bru-grappling";
+export {
+  DhHero,
+  DhTeam,
+  DhTimetable,
+  DhTestimonials,
+  DhPricing,
+  DhContact,
+  DhGroups,
+} from "./blocks/darkhorse-strength";
 
 // Export hooks
 export { revalidatePage, revalidateDelete } from "./hooks/revalidate-page"; 

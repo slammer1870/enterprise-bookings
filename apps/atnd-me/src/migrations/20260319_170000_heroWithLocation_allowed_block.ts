@@ -1,4 +1,4 @@
-import { MigrateUpArgs, sql } from '@payloadcms/db-postgres'
+import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
 
 /**
  * Ensure tenants.allowedBlocks enum includes `heroWithLocation`.
@@ -16,4 +16,6 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     END $$;
   `)
 }
+
+export async function down({ db: _db }: MigrateDownArgs): Promise<void> {}
 

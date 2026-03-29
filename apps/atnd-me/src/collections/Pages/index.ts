@@ -28,6 +28,13 @@ import {
   BruTestimonials,
   BruContact,
   BruHeroWaitlist,
+  DhHero,
+  DhTeam,
+  DhTimetable,
+  DhTestimonials,
+  DhPricing,
+  DhContact,
+  DhGroups,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
@@ -88,6 +95,14 @@ const availableBlocks = [
   BruTestimonials,
   BruContact,
   BruHeroWaitlist,
+  // Dark Horse Strength (tenant-scoped extras)
+  DhHero,
+  DhTeam,
+  DhTimetable,
+  DhTestimonials,
+  DhPricing,
+  DhContact,
+  DhGroups,
   // Croí Lán (tenant-scoped extras)
   CroiLanHeroWithLocation,
 ]

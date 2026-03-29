@@ -267,6 +267,13 @@ export interface Page {
     | BruTestimonialsBlock
     | BruContactBlock
     | BruHeroWaitlistBlock
+    | DhHeroBlock
+    | DhTeamBlock
+    | DhTimetableBlock
+    | DhTestimonialsBlock
+    | DhPricingBlock
+    | DhContactBlock
+    | DhGroupsBlock
     | CroiLanHeroWithLocationBlock
   )[];
   meta?: {
@@ -326,6 +333,13 @@ export interface Tenant {
         | 'bruTestimonials'
         | 'bruContact'
         | 'bruHeroWaitlist'
+        | 'dhHero'
+        | 'dhTeam'
+        | 'dhTimetable'
+        | 'dhTestimonials'
+        | 'dhPricing'
+        | 'dhContact'
+        | 'dhGroups'
         | 'clHeroLoc'
         | 'threeColumnLayout'
       )[]
@@ -1207,6 +1221,13 @@ export interface ThreeColumnLayoutBlock {
         | BruTestimonialsBlock
         | BruContactBlock
         | BruHeroWaitlistBlock
+        | DhHeroBlock
+        | DhTeamBlock
+        | DhTimetableBlock
+        | DhTestimonialsBlock
+        | DhPricingBlock
+        | DhContactBlock
+        | DhGroupsBlock
         | CroiLanHeroWithLocationBlock
       )[]
     | null;
@@ -2033,6 +2054,160 @@ export interface BruHeroWaitlistBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'bruHeroWaitlist';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhHeroBlock".
+ */
+export interface DhHeroBlock {
+  heading: string;
+  subheading: string;
+  backgroundImage: number | Media;
+  ctaLink: string;
+  ctaTitle: string;
+  ctaDescription: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhHero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhTeamBlock".
+ */
+export interface DhTeamBlock {
+  title: string;
+  teamImage: number | Media;
+  teamMembers?:
+    | {
+        name: string;
+        image: number | Media;
+        bio: string;
+        id?: string | null;
+      }[]
+    | null;
+  aboutTitle: string;
+  aboutContent?:
+    | {
+        paragraph: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhTeam';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhTimetableBlock".
+ */
+export interface DhTimetableBlock {
+  title: string;
+  description: string;
+  timeSlots?:
+    | {
+        time: string;
+        monday?: string | null;
+        tuesday?: string | null;
+        wednesday?: string | null;
+        thursday?: string | null;
+        friday?: string | null;
+        saturday?: string | null;
+        sunday?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  legend: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhTimetable';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhTestimonialsBlock".
+ */
+export interface DhTestimonialsBlock {
+  title: string;
+  description: string;
+  videos?:
+    | {
+        youtubeId: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhTestimonials';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhPricingBlock".
+ */
+export interface DhPricingBlock {
+  title: string;
+  description: string;
+  pricingOptions?:
+    | {
+        title: string;
+        price: string;
+        features?:
+          | {
+              feature: string;
+              id?: string | null;
+            }[]
+          | null;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhPricing';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhContactBlock".
+ */
+export interface DhContactBlock {
+  locationTitle: string;
+  locationDescription: string;
+  mapEmbedUrl: string;
+  address: string;
+  email: string;
+  phone: string;
+  form: number | Form;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhContact';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhGroupsBlock".
+ */
+export interface DhGroupsBlock {
+  heroImage: number | Media;
+  benefits?:
+    | {
+        icon: number | Media;
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  features?:
+    | {
+        image: number | Media;
+        title: string;
+        description: string;
+        id?: string | null;
+      }[]
+    | null;
+  cta: {
+    title: string;
+    description: string;
+    form: number | Form;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dhGroups';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2961,6 +3136,13 @@ export interface PagesSelect<T extends boolean = true> {
         bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
         bruContact?: T | BruContactBlockSelect<T>;
         bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        dhHero?: T | DhHeroBlockSelect<T>;
+        dhTeam?: T | DhTeamBlockSelect<T>;
+        dhTimetable?: T | DhTimetableBlockSelect<T>;
+        dhTestimonials?: T | DhTestimonialsBlockSelect<T>;
+        dhPricing?: T | DhPricingBlockSelect<T>;
+        dhContact?: T | DhContactBlockSelect<T>;
+        dhGroups?: T | DhGroupsBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   meta?:
@@ -3169,6 +3351,13 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
         bruContact?: T | BruContactBlockSelect<T>;
         bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        dhHero?: T | DhHeroBlockSelect<T>;
+        dhTeam?: T | DhTeamBlockSelect<T>;
+        dhTimetable?: T | DhTimetableBlockSelect<T>;
+        dhTestimonials?: T | DhTestimonialsBlockSelect<T>;
+        dhPricing?: T | DhPricingBlockSelect<T>;
+        dhContact?: T | DhContactBlockSelect<T>;
+        dhGroups?: T | DhGroupsBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   id?: T;
@@ -3546,6 +3735,155 @@ export interface BruHeroWaitlistBlockSelect<T extends boolean = true> {
   form?: T;
   enableIntro?: T;
   introContent?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhHeroBlock_select".
+ */
+export interface DhHeroBlockSelect<T extends boolean = true> {
+  heading?: T;
+  subheading?: T;
+  backgroundImage?: T;
+  ctaLink?: T;
+  ctaTitle?: T;
+  ctaDescription?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhTeamBlock_select".
+ */
+export interface DhTeamBlockSelect<T extends boolean = true> {
+  title?: T;
+  teamImage?: T;
+  teamMembers?:
+    | T
+    | {
+        name?: T;
+        image?: T;
+        bio?: T;
+        id?: T;
+      };
+  aboutTitle?: T;
+  aboutContent?:
+    | T
+    | {
+        paragraph?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhTimetableBlock_select".
+ */
+export interface DhTimetableBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  timeSlots?:
+    | T
+    | {
+        time?: T;
+        monday?: T;
+        tuesday?: T;
+        wednesday?: T;
+        thursday?: T;
+        friday?: T;
+        saturday?: T;
+        sunday?: T;
+        id?: T;
+      };
+  legend?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhTestimonialsBlock_select".
+ */
+export interface DhTestimonialsBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  videos?:
+    | T
+    | {
+        youtubeId?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhPricingBlock_select".
+ */
+export interface DhPricingBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  pricingOptions?:
+    | T
+    | {
+        title?: T;
+        price?: T;
+        features?:
+          | T
+          | {
+              feature?: T;
+              id?: T;
+            };
+        note?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhContactBlock_select".
+ */
+export interface DhContactBlockSelect<T extends boolean = true> {
+  locationTitle?: T;
+  locationDescription?: T;
+  mapEmbedUrl?: T;
+  address?: T;
+  email?: T;
+  phone?: T;
+  form?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DhGroupsBlock_select".
+ */
+export interface DhGroupsBlockSelect<T extends boolean = true> {
+  heroImage?: T;
+  benefits?:
+    | T
+    | {
+        icon?: T;
+        text?: T;
+        id?: T;
+      };
+  features?:
+    | T
+    | {
+        image?: T;
+        title?: T;
+        description?: T;
+        id?: T;
+      };
+  cta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        form?: T;
+      };
   id?: T;
   blockName?: T;
 }

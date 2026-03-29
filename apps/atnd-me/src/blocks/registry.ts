@@ -35,6 +35,13 @@ import {
   BruTestimonials,
   BruContact,
   BruHeroWaitlist,
+  DhHero,
+  DhTeam,
+  DhTimetable,
+  DhTestimonials,
+  DhPricing,
+  DhContact,
+  DhGroups,
 } from '@repo/website'
 
 const allBlocks: Block[] = [
@@ -68,6 +75,14 @@ const allBlocks: Block[] = [
   BruTestimonials,
   BruContact,
   BruHeroWaitlist,
+  // Dark Horse Strength (tenant-scoped extras)
+  DhHero,
+  DhTeam,
+  DhTimetable,
+  DhTestimonials,
+  DhPricing,
+  DhContact,
+  DhGroups,
   // Croí Lán (tenant-scoped extras)
   CroiLanHeroWithLocation,
 ]

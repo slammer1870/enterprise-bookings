@@ -59,11 +59,13 @@ import * as migration_20260305_footer_nav_items_icon from './20260305_footer_nav
 import * as migration_20260305_footer_styling_padding from './20260305_footer_styling_padding';
 import * as migration_20260318_tenants_apple_pay_domain_association from './20260318_tenants_apple_pay_domain_association';
 import * as migration_20260319_131730_clHeroLoc_pages_block from './20260319_131730_clHeroLoc_pages_block';
+import * as migration_20260319_170000_heroWithLocation_allowed_block from './20260319_170000_heroWithLocation_allowed_block';
 import * as migration_20260319_footer_nav_items_icon_location from './20260319_footer_nav_items_icon_location';
 import * as migration_20260319_media_is_public from './20260319_media_is_public';
 import * as migration_20260319_media_tenant_id from './20260319_media_tenant_id';
 import * as migration_20260325_tenants_timezone from './20260325_tenants_timezone';
 import * as migration_20260326_form_submissions_tenant_id from './20260326_form_submissions_tenant_id';
+import * as migration_20260329_162234 from './20260329_162234';
 
 export const migrations = [
   {
@@ -372,28 +374,38 @@ export const migrations = [
     name: '20260319_131730_clHeroLoc_pages_block',
   },
   {
+    up: migration_20260319_170000_heroWithLocation_allowed_block.up,
+    down: migration_20260319_170000_heroWithLocation_allowed_block.down,
+    name: '20260319_170000_heroWithLocation_allowed_block',
+  },
+  {
     up: migration_20260319_footer_nav_items_icon_location.up,
     down: migration_20260319_footer_nav_items_icon_location.down,
-    name: '20260319_footer_nav_items_icon_location'
+    name: '20260319_footer_nav_items_icon_location',
   },
   {
     up: migration_20260319_media_is_public.up,
     down: migration_20260319_media_is_public.down,
-    name: '20260319_media_is_public'
+    name: '20260319_media_is_public',
   },
   {
     up: migration_20260319_media_tenant_id.up,
     down: migration_20260319_media_tenant_id.down,
-    name: '20260319_media_tenant_id'
+    name: '20260319_media_tenant_id',
   },
   {
     up: migration_20260325_tenants_timezone.up,
     down: migration_20260325_tenants_timezone.down,
-    name: '20260325_tenants_timezone'
+    name: '20260325_tenants_timezone',
   },
   {
     up: migration_20260326_form_submissions_tenant_id.up,
     down: migration_20260326_form_submissions_tenant_id.down,
-    name: '20260326_form_submissions_tenant_id'
+    name: '20260326_form_submissions_tenant_id',
+  },
+  {
+    up: migration_20260329_162234.up,
+    down: migration_20260329_162234.down,
+    name: '20260329_162234'
   },
 ];

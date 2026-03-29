@@ -1,0 +1,1 @@
+export { DhTeamBlock } from './Component'
