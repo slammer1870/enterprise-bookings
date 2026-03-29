@@ -10,7 +10,10 @@ import * as migration_20251202_210000_add_better_auth_user_columns from './20251
 import * as migration_20251205_183120 from './20251205_183120';
 import * as migration_20251206_110241 from './20251206_110241';
 import * as migration_20260120_201317 from './20260120_201317';
+import * as migration_20260128_000001_locked_documents_rels_memberships from './20260128_000001_locked_documents_rels_memberships';
 import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
+import * as migration_20260329_094748 from './20260329_094748';
+
 export const migrations = [
   {
     up: migration_20250717_093529.up,
@@ -70,11 +73,21 @@ export const migrations = [
   {
     up: migration_20260120_201317.up,
     down: migration_20260120_201317.down,
-    name: '20260120_201317'
+    name: '20260120_201317',
+  },
+  {
+    up: migration_20260128_000001_locked_documents_rels_memberships.up,
+    down: migration_20260128_000001_locked_documents_rels_memberships.down,
+    name: '20260128_000001_locked_documents_rels_memberships',
   },
   {
     up: migration_20260226_users_stripe_customers_table.up,
     down: migration_20260226_users_stripe_customers_table.down,
     name: '20260226_users_stripe_customers_table',
+  },
+  {
+    up: migration_20260329_094748.up,
+    down: migration_20260329_094748.down,
+    name: '20260329_094748'
   },
 ];

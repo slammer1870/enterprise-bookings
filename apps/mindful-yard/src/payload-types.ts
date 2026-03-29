@@ -78,8 +78,8 @@ export interface Config {
     'class-options': ClassOption;
     bookings: Booking;
     'drop-ins': DropIn;
-    users: User;
     transactions: Transaction;
+    users: User;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -111,8 +111,8 @@ export interface Config {
     'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -254,6 +254,13 @@ export interface User {
     totalDocs?: number;
   };
   stripeCustomerId?: string | null;
+  stripeCustomers?:
+    | {
+        stripeAccountId: string;
+        stripeCustomerId: string;
+        id?: string | null;
+      }[]
+    | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -377,7 +384,7 @@ export interface DropIn {
         id?: string | null;
       }[]
     | null;
-  paymentMethods: 'cash'[];
+  paymentMethods: 'card'[];
   'class-optionsPaymentMethods'?: {
     docs?: (number | ClassOption)[];
     hasNextPage?: boolean;
@@ -399,20 +406,41 @@ export interface Booking {
    * Associated transaction for this booking
    */
   transaction?: (number | null) | Transaction;
+  /**
+   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
+   */
+  transactions?: (number | Transaction)[] | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
+ * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions".
  */
 export interface Transaction {
   id: number;
-  amount: number;
-  currency: 'EUR' | 'USD';
-  status: 'pending' | 'completed' | 'failed';
-  paymentMethod: 'cash' | 'card';
-  createdBy?: (number | null) | User;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Subscription id when paymentMethod is subscription (booking created by subscription).
+   */
+  subscriptionId?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -748,12 +776,12 @@ export interface PayloadLockedDocument {
         value: number | DropIn;
       } | null)
     | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
         relationTo: 'transactions';
         value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1007,6 +1035,7 @@ export interface BookingsSelect<T extends boolean = true> {
   lesson?: T;
   status?: T;
   transaction?: T;
+  transactions?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1035,6 +1064,19 @@ export interface DropInsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
+  subscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
@@ -1053,19 +1095,13 @@ export interface UsersSelect<T extends boolean = true> {
   account?: T;
   session?: T;
   stripeCustomerId?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  amount?: T;
-  currency?: T;
-  status?: T;
-  paymentMethod?: T;
-  createdBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
