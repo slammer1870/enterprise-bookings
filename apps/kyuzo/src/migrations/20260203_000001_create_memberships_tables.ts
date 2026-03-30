@@ -74,6 +74,13 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE INDEX IF NOT EXISTS "memberships_updated_at_idx" ON "memberships" USING btree ("updated_at");
     CREATE INDEX IF NOT EXISTS "memberships_created_at_idx" ON "memberships" USING btree ("created_at");
 
+    -- Legacy safety: some deployed DBs may not yet have plans.features.
+    DO $$ BEGIN
+      IF to_regclass('public.plans') IS NOT NULL THEN
+        ALTER TABLE "public"."plans" ADD COLUMN IF NOT EXISTS "features" jsonb;
+      END IF;
+    END $$;
+
     -- Migrate legacy "plans" data into "memberships" when present.
     DO $$ BEGIN
       IF to_regclass('public.plans') IS NOT NULL THEN
