@@ -2,12 +2,11 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { seoPlugin } from '@payloadcms/plugin-seo'
-import { stripePlugin } from '@payloadcms/plugin-stripe'
 import { resendAdapter } from '@payloadcms/email-resend'
 
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
-import { buildConfig, type CollectionSlug, SharpDependency } from 'payload'
+import { buildConfig, SharpDependency } from 'payload'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -15,31 +14,17 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { migrations } from './migrations'
 
-import { bookingsPlugin } from '@repo/bookings-plugin'
 import { betterAuthPlugin } from 'payload-auth/better-auth'
 import { betterAuthPluginOptions } from './lib/auth/options'
 import { fixBetterAuthRoleField } from './plugins/fix-better-auth-role-field'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { rolesPlugin } from '@repo/roles'
-import {
-  bookingsPaymentsPlugin,
-  subscriptionCreated,
-  subscriptionUpdated,
-  subscriptionCanceled,
-  productUpdated,
-} from '@repo/bookings-payments'
 
 import { Navbar } from './globals/navbar/config'
 import { Footer } from './globals/footer/config'
 import { Pages } from './collections/Pages'
 
-import {
-  childrenCreateBookingMembershipAccess,
-  childrenUpdateBookingMembershipAccess,
-} from '@repo/shared-services/src/access/children-booking-membership'
-
 import { Posts } from '@repo/website/src/collections/posts'
-import { isBookingAdminOrParentOrOwner } from '@repo/shared-services/src/access/bookings/is-admin-or-parent-or-owner'
 
 import { newsletter } from './hook/newsletter'
 import { checkRole } from '@repo/shared-utils'
