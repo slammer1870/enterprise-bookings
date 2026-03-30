@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { ClassOption, Lesson, User } from '@repo/shared-types'
@@ -7,6 +8,8 @@ import { TZDate } from '@date-fns/tz'
 
 const TEST_TIMEOUT = 120000
 const HOOK_TIMEOUT = 300000
+const fixCurrentTimeForSchedulerWindow = (iso: string) =>
+  vi.spyOn(Date, 'now').mockReturnValue(new Date(iso).getTime())
 
 describe('Scheduler DST (Europe/Dublin) regression', () => {
   let payload: Payload
@@ -87,6 +90,9 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   it(
     'reproduces the DST boundary regression when scheduler is configured on 29th March from a 26th March planning date',
     async () => {
+      const nowSpy = fixCurrentTimeForSchedulerWindow('2026-03-30T12:00:00.000Z')
+
+      try {
       const timeZone = 'Europe/Dublin'
       // Simulate scheduler being configured with a start date that sits on the
       // first Monday after DST starts (29 March), while the admin is planning it
@@ -228,6 +234,9 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(10)
       expect(mondayStart.getDate()).toBe(30)
+      } finally {
+        nowSpy.mockRestore()
+      }
     },
     TEST_TIMEOUT,
   )
@@ -235,6 +244,9 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   it(
     'handles the Autumn DST boundary in Europe/Dublin without day drift',
     async () => {
+      const nowSpy = fixCurrentTimeForSchedulerWindow('2026-10-26T12:00:00.000Z')
+
+      try {
       const timeZone = 'Europe/Dublin'
       // Simulate a scheduler configured at the start of the autumn fallback window.
       const startDate = '2026-10-25' // Sunday in production examples, DST ends this weekend
@@ -364,6 +376,9 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(9)
       expect(mondayStart.getDate()).toBe(26)
+      } finally {
+        nowSpy.mockRestore()
+      }
     },
     TEST_TIMEOUT,
   )
