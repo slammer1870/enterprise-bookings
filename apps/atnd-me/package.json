@@ -32,6 +32,7 @@
     "@daveyplate/better-auth-ui": "^3.2.11",
     "@date-fns/tz": "^1.4.1",
     "@payloadcms/admin-bar": "workspace:*",
+    "@payloadcms/email-resend": "3.70.0",
     "@payloadcms/db-postgres": "workspace:*",
     "@payloadcms/live-preview-react": "workspace:*",
     "@payloadcms/next": "workspace:*",
