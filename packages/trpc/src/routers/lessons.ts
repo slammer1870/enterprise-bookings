@@ -242,14 +242,14 @@ export const lessonsRouter = {
       try {
         // Prefer Better Auth session when configured (magic-link login uses this),
         // but degrade to a logged-out viewer when auth lookup throws (e.g. "No User").
-        let user: any = null;
-        if (ctx.betterAuth?.api?.getSession) {
+      let user: any = ctx.user ?? null;
+      if (!user && ctx.betterAuth?.api?.getSession) {
           try {
             user = (await ctx.betterAuth.api.getSession({ headers: ctx.headers }))?.user ?? null;
           } catch {
             user = null;
           }
-        } else {
+      } else if (!user) {
           try {
             user = (await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false }))?.user ?? null;
           } catch {
