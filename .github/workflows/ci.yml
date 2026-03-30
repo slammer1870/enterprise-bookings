@@ -269,6 +269,7 @@ jobs:
         working-directory: ${{ matrix.app.app_path }}
 
       - name: Cache Next.js build cache (${{ matrix.app.name }})
+        id: next-cache
         uses: actions/cache@v4
         with:
           path: ${{ matrix.app.app_path }}/.next/cache
@@ -296,7 +297,17 @@ jobs:
         working-directory: ${{ matrix.app.app_path }}
 
       - name: Build ${{ matrix.app.name }} for E2E (production build)
-        run: pnpm run build
+        run: |
+          set +e
+          pnpm run build
+          build_status=$?
+          if [ $build_status -ne 0 ]; then
+            echo "Build failed. Clearing .next cache and retrying once to recover from possible cache corruption."
+            rm -rf .next
+            pnpm run build
+            build_status=$?
+          fi
+          exit $build_status
         working-directory: ${{ matrix.app.app_path }}
         env:
           E2E_USE_PROD: "true"

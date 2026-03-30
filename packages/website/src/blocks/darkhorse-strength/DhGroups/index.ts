@@ -1,0 +1,1 @@
+export { DhGroupsBlock } from './Component'

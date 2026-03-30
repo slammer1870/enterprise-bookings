@@ -29,6 +29,13 @@ import { BruMeetTheTeamBlock } from '@repo/website/src/blocks/bru-grappling/BruM
 import { BruTestimonialsBlock } from '@repo/website/src/blocks/bru-grappling/BruTestimonials'
 import { BruContactBlock } from '@repo/website/src/blocks/bru-grappling/BruContact'
 import { BruHeroWaitlistBlock } from '@repo/website/src/blocks/bru-grappling/BruHeroWaitlist'
+import { DhHeroBlock } from '@repo/website/src/blocks/darkhorse-strength/DhHero'
+import { DhTeamBlock } from '@repo/website/src/blocks/darkhorse-strength/DhTeam'
+import { DhTimetableBlock } from '@repo/website/src/blocks/darkhorse-strength/DhTimetable'
+import { DhTestimonialsBlock } from '@repo/website/src/blocks/darkhorse-strength/DhTestimonials'
+import { DhPricingBlock } from '@repo/website/src/blocks/darkhorse-strength/DhPricing'
+import { DhContactBlock } from '@repo/website/src/blocks/darkhorse-strength/DhContact'
+import { DhGroupsBlock } from '@repo/website/src/blocks/darkhorse-strength/DhGroups'
 
 // Export the block components registry — heterogeneous block props, so typed loosely
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,4 +71,11 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   bruTestimonials: BruTestimonialsBlock,
   bruContact: BruContactBlock,
   bruHeroWaitlist: BruHeroWaitlistBlock,
+  dhHero: DhHeroBlock,
+  dhTeam: DhTeamBlock,
+  dhTimetable: DhTimetableBlock,
+  dhTestimonials: DhTestimonialsBlock,
+  dhPricing: DhPricingBlock,
+  dhContact: DhContactBlock,
+  dhGroups: DhGroupsBlock,
 }

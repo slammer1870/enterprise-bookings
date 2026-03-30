@@ -8,6 +8,8 @@ import { getUserTenantIds } from '@/access/tenant-scoped'
 
 export type TenantForConnect = {
   id: number
+  slug?: string | null
+  domain?: string | null
   stripeConnectAccountId?: string | null
   stripeConnectOnboardingStatus?: string | null
 }
@@ -61,7 +63,13 @@ export async function resolveTenantForConnect(
       id: parseInt(slugOrId, 10),
       depth: 0,
       overrideAccess: true,
-      select: { id: true, stripeConnectAccountId: true, stripeConnectOnboardingStatus: true } as any,
+      select: {
+        id: true,
+        slug: true,
+        domain: true,
+        stripeConnectAccountId: true,
+        stripeConnectOnboardingStatus: true,
+      } as any,
     })
     return t as TenantForConnect | null
   }
@@ -71,7 +79,13 @@ export async function resolveTenantForConnect(
     limit: 1,
     depth: 0,
     overrideAccess: true,
-    select: { id: true, stripeConnectAccountId: true, stripeConnectOnboardingStatus: true } as any,
+    select: {
+      id: true,
+      slug: true,
+      domain: true,
+      stripeConnectAccountId: true,
+      stripeConnectOnboardingStatus: true,
+    } as any,
   })
   return (result.docs[0] as TenantForConnect) ?? null
 }

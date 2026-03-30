@@ -1,0 +1,1 @@
+export { DhHeroBlock } from './Component'

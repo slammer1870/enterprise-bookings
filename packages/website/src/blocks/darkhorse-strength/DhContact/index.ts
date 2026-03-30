@@ -1,0 +1,1 @@
+export { DhContactBlock } from './Component'

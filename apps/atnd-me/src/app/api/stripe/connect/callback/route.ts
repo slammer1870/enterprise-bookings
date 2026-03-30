@@ -7,7 +7,7 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { verifyConnectState } from '@/lib/stripe-connect/authorize'
 import { exchangeCodeForStripeConnectAccount } from '@/lib/stripe-connect/callbackExchange'
-import { getServerSideURL } from '@/utilities/getURL'
+import { getRequestOrigin } from '@/utilities/getURL'
 
 const SUCCESS_REDIRECT = '/admin'
 const ERROR_REDIRECT = '/admin'
@@ -22,7 +22,7 @@ function getCurrentUserId(request: NextRequest): number | null {
 }
 
 export async function GET(request: NextRequest) {
-  const baseUrl = getServerSideURL().replace(/\/$/, '')
+  const baseUrl = getRequestOrigin(request.headers).replace(/\/$/, '')
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const state = searchParams.get('state')

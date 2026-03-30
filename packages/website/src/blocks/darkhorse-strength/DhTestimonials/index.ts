@@ -1,0 +1,1 @@
+export { DhTestimonialsBlock } from './Component'

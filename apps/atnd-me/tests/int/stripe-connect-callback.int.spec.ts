@@ -154,6 +154,7 @@ describe('Stripe Connect callback route (step 2.4)', () => {
   it(
     'on successful exchange: updates tenant stripeConnectAccountId and sets stripeConnectOnboardingStatus to pending',
     async () => {
+      const callbackHost = 'callback-tenant.localhost:3000'
       vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockResolvedValue({
         stripe_user_id: 'acct_cb_test_123',
         stripe_account_id: 'acct_cb_test_123',
@@ -163,13 +164,20 @@ describe('Stripe Connect callback route (step 2.4)', () => {
         request({
           code: 'auth_code_ok',
           state: validState,
-          headers: { 'x-test-user-id': String(adminUser.id) },
+          headers: {
+            'x-test-user-id': String(adminUser.id),
+            host: callbackHost,
+          },
         }),
       )
 
       expect(res.status).toBe(302)
       const location = res.headers.get('location') ?? ''
-      expect(location).toMatch(/success|admin|tenant/i)
+      expect(location).toBe(`http://${callbackHost}/admin?stripe_connect=success`)
+      expect(callbackExchange.exchangeCodeForStripeConnectAccount).toHaveBeenCalledWith(
+        'auth_code_ok',
+        `http://${callbackHost}/api/stripe/connect/callback`,
+      )
 
       const updated = await payload.findByID({
         collection: 'tenants',

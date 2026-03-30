@@ -33,6 +33,13 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   bruTestimonials: 'Testimonials (Brú)',
   bruContact: 'Contact (Brú)',
   bruHeroWaitlist: 'Hero Waitlist (Brú)',
+  dhHero: 'Hero (Dark Horse)',
+  dhTeam: 'Team (Dark Horse)',
+  dhTimetable: 'Timetable (Dark Horse)',
+  dhTestimonials: 'Testimonials (Dark Horse)',
+  dhPricing: 'Pricing (Dark Horse)',
+  dhContact: 'Contact (Dark Horse)',
+  dhGroups: 'Groups (Dark Horse)',
   clHeroLoc: 'Croí Lán – Hero with Location',
 }
 
