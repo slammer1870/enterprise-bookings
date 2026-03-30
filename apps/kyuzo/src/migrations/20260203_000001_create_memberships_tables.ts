@@ -81,6 +81,13 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       END IF;
     END $$;
 
+    -- Legacy safety: some deployed DBs may not yet have plans.sessions_information_allow_multiple_bookings_per_lesson.
+    DO $$ BEGIN
+      IF to_regclass('public.plans') IS NOT NULL THEN
+        ALTER TABLE "public"."plans" ADD COLUMN IF NOT EXISTS "sessions_information_allow_multiple_bookings_per_lesson" boolean DEFAULT true;
+      END IF;
+    END $$;
+
     -- Migrate legacy "plans" data into "memberships" when present.
     DO $$ BEGIN
       IF to_regclass('public.plans') IS NOT NULL THEN
