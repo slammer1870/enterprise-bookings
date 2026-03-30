@@ -39,17 +39,17 @@ export const Users: CollectionConfig = {
             nameValue === undefined
           ) {
             const email = (data as any).email || 'User'
-            ;(data as any).name =
-              typeof email === 'string' ? email.split('@')[0] || 'User' : 'User'
+              ; (data as any).name =
+                typeof email === 'string' ? email.split('@')[0] || 'User' : 'User'
           }
 
           // Keep in sync with `betterAuthPluginOptions.users.defaultRole`
           if (!('role' in data) || (data as any).role == null) {
-            ;(data as any).role = 'user'
+            ; (data as any).role = 'user'
           }
           // rolesPlugin adds `roles` (hasMany). Keep a consistent default.
           if (!('roles' in data) || (data as any).roles == null) {
-            ;(data as any).roles = ['user']
+            ; (data as any).roles = ['user']
           }
         }
         return data
@@ -65,7 +65,7 @@ export const Users: CollectionConfig = {
             String((data as any).name || '').trim() === ''
           ) {
             const email = (data as any).email || 'User'
-            ;(data as any).name = email.split('@')[0] || 'User'
+              ; (data as any).name = email.split('@')[0] || 'User'
           }
         }
         return data
@@ -74,47 +74,6 @@ export const Users: CollectionConfig = {
   },
   fields: [
     // Note: 'image' field is provided by better-auth
-    {
-      name: 'lessons',
-      type: 'join',
-      collection: 'lessons',
-      on: 'instructor',
-      admin: {
-        condition: () => false,
-      },
-    },
-    {
-      // NOTE: avoid naming collisions with db adapters / internal "parent" semantics
-      // (we've seen flaky auth-session writes in CI with a self-referencing relationship named "parent")
-      name: 'parentUser',
-      type: 'relationship',
-      relationTo: 'users',
-      hasMany: false,
-      admin: {
-        position: 'sidebar',
-        description: 'Parent of the user',
-        condition: ({ children }) => {
-          if (children && children.docs.length > 0) {
-            return false
-          }
-          return true
-        },
-      },
-    },
-    {
-      name: 'children',
-      type: 'join',
-      collection: 'users',
-      on: 'parentUser',
-      admin: {
-        condition: ({ children }) => {
-          if (children && children.docs.length > 0) {
-            return true
-          }
-          return false
-        },
-      },
-    },
     // Email added by default
     // Add more fields as needed
   ],
