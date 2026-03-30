@@ -31,22 +31,9 @@ function getPlatformOrigin(): string | null {
   }
 }
 
-function addNoStoreHeaders(response: NextResponse): void {
-  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
-  response.headers.set('Pragma', 'no-cache')
-  response.headers.set('Expires', '0')
-  response.headers.set('Surrogate-Control', 'no-store')
-  response.headers.set('CDN-Cache-Control', 'no-store')
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isBrowserHtmlRequest =
-    request.method === 'GET' &&
-    (request.headers.get('accept')?.includes('text/html') === true ||
-      request.headers.get('sec-fetch-dest') === 'document')
   const isPayloadAdmin = pathname.startsWith('/admin')
-  const shouldAddNoStore = isBrowserHtmlRequest || isPayloadAdmin
   const hostHeader = request.headers.get('host') || ''
   const hostname = hostHeader.split(':')[0] ?? hostHeader
   const isLocalhost = hostname.includes('localhost')
@@ -138,9 +125,7 @@ export async function middleware(request: NextRequest) {
     if (isLocalhost && (request.nextUrl.port || request.nextUrl.protocol === 'http:')) {
       url.port = request.nextUrl.port || '3000'
     }
-    const redirectResponse = NextResponse.redirect(url)
-    if (shouldAddNoStore) addNoStoreHeaders(redirectResponse)
-    return redirectResponse
+    return NextResponse.redirect(url)
   }
 
   if (!subdomain) {
@@ -169,12 +154,8 @@ export async function middleware(request: NextRequest) {
         rootHostname,
         platformOrigin,
       })
-      if (authCheck) {
-        if (shouldAddNoStore) addNoStoreHeaders(authCheck)
-        return authCheck
-      }
+      if (authCheck) return authCheck
     }
-    if (shouldAddNoStore) addNoStoreHeaders(response)
     return response
   }
 
@@ -279,13 +260,9 @@ export async function middleware(request: NextRequest) {
       rootHostname,
       platformOrigin,
     })
-    if (authCheck) {
-      if (shouldAddNoStore) addNoStoreHeaders(authCheck)
-      return authCheck
-    }
+    if (authCheck) return authCheck
   }
 
-  if (shouldAddNoStore) addNoStoreHeaders(response)
   return response
 }
 
@@ -377,10 +354,7 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     isLoginRoute,
     authStatus: res.status,
   })
-  if (loginRouteRedirect) {
-    addNoStoreHeaders(loginRouteRedirect)
-    return loginRouteRedirect
-  }
+  if (loginRouteRedirect) return loginRouteRedirect
 
   if (res.status === 401) {
     if (isLoginRoute) return null
@@ -389,9 +363,7 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/admin/login'
     loginUrl.search = ''
-    const loginRedirect = NextResponse.redirect(loginUrl)
-    addNoStoreHeaders(loginRedirect)
-    return loginRedirect
+    return NextResponse.redirect(loginUrl)
   }
 
   if (res.status !== 403) return null
@@ -417,7 +389,6 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   }
 
   const redirectResponse = NextResponse.redirect(redirectUrl)
-  addNoStoreHeaders(redirectResponse)
 
   // Clear both host-scoped and domain-scoped cookies.
   redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/'))
