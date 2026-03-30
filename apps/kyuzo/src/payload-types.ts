@@ -719,6 +719,13 @@ export interface User {
   };
   roles?: ('user' | 'admin')[] | null;
   stripeCustomerId?: string | null;
+  stripeCustomers?:
+    | {
+        stripeAccountId: string;
+        stripeCustomerId: string;
+        id?: string | null;
+      }[]
+    | null;
   userSubscription?: {
     docs?: (number | Subscription)[];
     hasNextPage?: boolean;
@@ -844,14 +851,14 @@ export interface Plan {
   /**
    * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
    */
-  sessionsInformation?: {
+  sessionsInformation: {
     sessions?: number | null;
     intervalCount?: number | null;
     interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
     /**
      * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
      */
-    allowMultipleBookingsPerLesson?: boolean | null;
+    allowMultipleBookingsPerLesson: boolean;
   };
   stripeProductId?: string | null;
   /**
@@ -1775,6 +1782,13 @@ export interface UsersSelect<T extends boolean = true> {
   session?: T;
   roles?: T;
   stripeCustomerId?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
   userSubscription?: T;
   email?: T;
   resetPasswordToken?: T;

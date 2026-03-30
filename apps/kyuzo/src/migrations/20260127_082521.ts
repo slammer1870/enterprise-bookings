@@ -10,6 +10,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   );
   
   ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-27T08:25:20.944Z';
+  UPDATE "users"
+    SET "name" = COALESCE(
+      NULLIF(TRIM("name"), ''),
+      CASE
+        WHEN "email" IS NOT NULL AND POSITION('@' IN "email") > 0 THEN split_part("email", '@', 1)
+        ELSE 'User'
+      END
+    )
+  WHERE "name" IS NULL OR TRIM("name") = '';
   ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-27T08:25:21.079Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-27T08:25:21.079Z';
