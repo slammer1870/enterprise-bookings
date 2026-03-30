@@ -94,6 +94,37 @@ export function HeaderAuthMenu({
           size="sm"
           variant="outline"
           className="w-full justify-center cursor-pointer"
+          disabled={billingLoading}
+          onClick={async () => {
+            if (billingLoading) return
+            setBillingLoading(true)
+            try {
+              const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
+              if (!res.ok) {
+                const txt = await res.text().catch(() => '')
+                throw new Error(txt && txt.trim() ? txt : 'Failed to open billing portal')
+              }
+              const json = (await res.json()) as { url?: unknown }
+              const url = typeof json?.url === 'string' ? json.url : ''
+              if (!url) throw new Error('Billing portal URL missing')
+              window.location.assign(url)
+            } catch (e) {
+              // Fallback to keep the user in a sane state.
+              console.error(e)
+              router.refresh()
+            } finally {
+              setBillingLoading(false)
+            }
+          }}
+        >
+          {billingLoading ? 'Opening billing portal…' : 'Billing portal'}
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full justify-center cursor-pointer"
           onClick={async () => {
             await signOut()
             router.refresh()
