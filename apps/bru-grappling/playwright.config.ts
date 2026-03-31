@@ -33,7 +33,7 @@ export default defineConfig({
   webServer: useProductionBuild
     ? {
         // Production mode: `next start` (requires build first)
-        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start',
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm build && pnpm start',
         url: 'http://localhost:3000/api/health',
         timeout: 120000,
         reuseExistingServer: !process.env.CI,

@@ -13,6 +13,7 @@ import type { User, Lesson } from '@repo/shared-types'
 
 const TEST_TIMEOUT = 60000
 const HOOK_TIMEOUT = 300000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Class pass booking UI (Phase 4.6)', () => {
   let payload: Payload
@@ -44,7 +45,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       data: {
         name: 'CP UI Tenant',
         slug: 'cp-ui-tenant',
-        stripeConnectAccountId: 'acct_cp_ui_1',
+        stripeConnectAccountId: `acct_e2e_connected_cp_ui_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,

@@ -188,6 +188,17 @@ export const Tenants: CollectionConfig = {
     },
     // Stripe Connect (step 2.1) – admin and tenant-admin can read; only admin can update (OAuth/webhooks set these)
     {
+      name: 'stripeConnectStatus',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: '@/components/admin/StripeConnectStatus',
+        },
+      },
+    },
+    // Stripe Connect (step 2.1) – admin and tenant-admin can read; only admin can update (OAuth/webhooks set these)
+    {
       name: 'stripeConnectAccountId',
       type: 'text',
       required: false,

@@ -41,7 +41,7 @@ export default createReactConfig({
 });
 ```
 
-**Use for:** Apps like `boatyard-sauna` that test React components
+**Use for:** Frontend app packages that test React components
 
 ### Node with React Config (`node-with-react.ts`)
 For packages that need React plugins but run in Node.js environment.

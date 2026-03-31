@@ -26,6 +26,8 @@ import { createPaymentIntentSucceededEvent } from '../helpers/stripe-webhook-eve
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const connectAccountId = `acct_payment_webhook_${runId}`
 
 function request(body: string, signature = 't=123,v1=valid') {
   return new NextRequest('http://localhost/api/stripe/webhook', {
@@ -55,7 +57,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       data: {
         name: 'Payment Webhook Tenant',
         slug: `payment-webhook-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_payment_webhook',
+        stripeConnectAccountId: connectAccountId,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
@@ -171,7 +173,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     async () => {
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_1',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_123',
         metadata: {
           tenantId: String(tenantId),
@@ -291,7 +293,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_confirm',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_confirm_789',
         metadata: {
           tenantId: String(tenantId),
@@ -361,7 +363,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_qty2',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_qty2',
         metadata: {
           tenantId: String(tenantId),
@@ -482,7 +484,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_cap',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_cap',
         metadata: {
           tenantId: String(tenantId),

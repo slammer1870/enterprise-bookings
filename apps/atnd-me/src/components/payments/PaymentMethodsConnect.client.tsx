@@ -14,6 +14,7 @@ export function PaymentMethodsConnect(props: ComponentProps<typeof PaymentMethod
     <PaymentMethods
       {...props}
       createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
+      createCheckoutSessionUrl="/api/stripe/connect/create-checkout-session"
       FeeBreakdownComponent={DropInFeeBreakdown}
       successUrl={props.successUrl ?? "/success"}
     />

@@ -20,6 +20,7 @@ vi.mock('@/lib/stripe/platform', () => ({
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Plans soft delete (Phase 4.5)', () => {
   let payload: Payload
@@ -49,7 +50,7 @@ describe('Plans soft delete (Phase 4.5)', () => {
       data: {
         name: 'Plans Soft Delete Tenant',
         slug: `plans-soft-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_mock',
+        stripeConnectAccountId: `acct_mock_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,

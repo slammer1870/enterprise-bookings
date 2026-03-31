@@ -41,10 +41,25 @@ type PaymentMethodsProps = {
    */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
   /**
+   * Override the endpoint used to create a subscription checkout session.
+   * Defaults to tRPC `payments.createCustomerCheckoutSession`.
+   */
+  createCheckoutSessionUrl?: string;
+  /**
    * URL to redirect to after successful payment (checkout session, customer portal, drop-in).
    * Defaults to /dashboard for backwards compatibility with apps that use that route.
    */
   successUrl?: string;
+};
+
+type CheckoutSessionInput = {
+  priceId: string;
+  quantity?: number;
+  metadata?: Record<string, string>;
+  discountCode?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  mode: "subscription" | "payment";
 };
 
 /** Pass-like shape from getValidClassPassesForLesson */
@@ -202,6 +217,7 @@ export function PaymentMethods({
   onPaymentSuccess: _onPaymentSuccess,
   onPaymentRedirectStart,
   createPaymentIntentUrl,
+  createCheckoutSessionUrl,
   FeeBreakdownComponent,
   successUrl: successUrlProp,
 }: PaymentMethodsProps) {
@@ -285,22 +301,64 @@ export function PaymentMethods({
   const upgradeOptions = subscriptionData?.upgradeOptions ?? [];
   const eligiblePlansForQuantity = subscriptionData?.eligiblePlansForQuantity ?? null;
 
-  // Create checkout session mutation for plans
-  const { mutateAsync: createCheckoutSession } = useMutation(
+  const startCheckoutRedirect = (session: { url: string | null }) => {
+    if (session.url) {
+      onPaymentRedirectStart?.();
+      router.push(session.url);
+    } else {
+      toast.error("Failed to create checkout session");
+    }
+  };
+
+  const handleCheckoutError = (error: { message?: string }) => {
+    toast.error(error.message || "Failed to create checkout session");
+  };
+
+  // Create checkout session mutation for plans (default: tRPC)
+  const { mutateAsync: createCheckoutSessionWithTRPC } = useMutation(
     trpc.payments.createCustomerCheckoutSession.mutationOptions({
-      onSuccess: (session: { url: string | null }) => {
-        if (session.url) {
-          onPaymentRedirectStart?.();
-          router.push(session.url);
-        } else {
-          toast.error("Failed to create checkout session");
-        }
-      },
-      onError: (error: { message?: string }) => {
-        toast.error(error.message || "Failed to create checkout session");
-      },
+      onSuccess: startCheckoutRedirect,
+      onError: handleCheckoutError,
     })
   );
+
+  const { mutateAsync: createCheckoutSessionWithAPI } = useMutation({
+    mutationFn: async (variables: CheckoutSessionInput) => {
+      if (!createCheckoutSessionUrl) {
+        throw new Error("Checkout session endpoint is not configured");
+      }
+
+      const response = await fetch(createCheckoutSessionUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(variables),
+      });
+
+      if (!response.ok) {
+        let message = "Failed to create checkout session";
+        try {
+          const payload = await response.json();
+          if (typeof payload?.error === "string") {
+            message = payload.error;
+          }
+        } catch {
+          // Ignore parse failures and use fallback message
+        }
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: startCheckoutRedirect,
+    onError: handleCheckoutError,
+  });
+
+  const createCheckoutSession = createCheckoutSessionUrl
+    ? async (variables: CheckoutSessionInput) => createCheckoutSessionWithAPI(variables)
+    : async (variables: CheckoutSessionInput) => createCheckoutSessionWithTRPC(variables);
 
   // Create customer portal mutation
   const { mutateAsync: createCustomerPortal } = useMutation(

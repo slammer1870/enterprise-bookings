@@ -372,9 +372,8 @@ export const lessonsRouter = {
           req: queryOptions.req,
           // Avoid expensive per-viewer virtual fields (bookingStatus/remainingCapacity/bookings join)
           // in the schedule query path. We'll compute what schedule needs in a single batch below.
-          // Type assertion: select shape is correct for apps with a lessons collection; apps
-          // without lessons (e.g. boatyard-sauna) use a different Config so the inferred select
-          // type doesn't include these fields. Runtime is correct when lessons exists.
+        // Type assertion: select shape is correct for applications with a lessons collection.
+        // For apps without lessons, a different Config keeps inferred select types in sync.
           select: {
             id: true,
             date: true,

@@ -13,6 +13,7 @@ vi.mock('@/lib/stripe/platform', () => ({
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Stripe product sync (Phase 4.5)', () => {
   let payload: Payload
@@ -42,7 +43,7 @@ describe('Stripe product sync (Phase 4.5)', () => {
       data: {
         name: 'Tenant With Connect',
         slug: `with-connect-${Date.now()}`,
-        stripeConnectAccountId: 'acct_sync_test',
+        stripeConnectAccountId: `acct_sync_test_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,

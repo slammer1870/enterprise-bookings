@@ -111,3 +111,160 @@ export async function createTenantPaymentIntent(
     client_secret: pi.client_secret,
   }
 }
+
+export type CreateTenantCheckoutSessionParams = {
+  tenant: TenantStripeLike & { id?: number }
+  price: string
+  mode: 'payment' | 'subscription'
+  quantity?: number
+  metadata?: Record<string, string>
+  successUrl?: string
+  cancelUrl?: string
+  customerId?: string | null
+  /**
+   * Direct checkout fee amount in cents. If omitted and `productType` + `payload` are provided,
+   * the value is calculated from `classPriceAmount`.
+   */
+  bookingFeeAmount?: number
+  classPriceAmount?: number
+  productType?: BookingFeeProductType
+  payload?: Payload
+  subscriptionApplicationFeePercent?: number
+  disableTestShortCircuit?: boolean
+}
+
+export async function createTenantCheckoutSession(
+  params: CreateTenantCheckoutSessionParams,
+): Promise<{ id: string; url: string | null }> {
+  const {
+    tenant,
+    price,
+    mode,
+    quantity = 1,
+    metadata,
+    successUrl = '/',
+    cancelUrl = '/',
+    customerId,
+    bookingFeeAmount,
+    classPriceAmount: overrideClassPriceAmount,
+    productType,
+    payload,
+    subscriptionApplicationFeePercent,
+    disableTestShortCircuit,
+  } = params
+
+  requireTenantConnectAccount(tenant)
+  const { accountId } = getTenantStripeContext(tenant)
+  if (!accountId) {
+    throw new Error('Tenant Connect account id is missing')
+  }
+
+  const isE2eTestMode = process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+  if (!disableTestShortCircuit && isE2eTestMode) {
+    const mockId = `cs_test_${Date.now()}`
+    return { id: mockId, url: '/' }
+  }
+
+  if (isStripeTestAccount(accountId)) {
+    const mockId = `cs_test_${Date.now()}`
+    return { id: mockId, url: '/' }
+  }
+
+  const stripe = getPlatformStripe()
+  const stripeOptions = { stripeAccount: accountId }
+
+  const lineItems: Array<Record<string, unknown>> = [{ price, quantity }]
+  const normalizedMetadata: Record<string, string> = { ...metadata }
+  let classPriceAmount = overrideClassPriceAmount
+  let resolvedBookingFeeAmount = bookingFeeAmount
+  let recurringPrice: { interval?: string; interval_count?: number } | null = null
+  let currency: string | null = null
+
+  if (mode === 'subscription' && (resolvedBookingFeeAmount != null || productType)) {
+    const priceRecord = await stripe.prices.retrieve(price, { expand: [] }, stripeOptions)
+    currency = priceRecord?.currency ? String(priceRecord.currency).toLowerCase() : null
+    recurringPrice =
+      priceRecord?.recurring && typeof priceRecord.recurring === 'object'
+        ? {
+            interval: priceRecord.recurring.interval,
+            interval_count: priceRecord.recurring.interval_count,
+          }
+        : null
+    if (classPriceAmount == null && typeof priceRecord?.unit_amount === 'number') {
+      classPriceAmount = priceRecord.unit_amount * quantity
+    }
+  }
+
+  if (
+    resolvedBookingFeeAmount == null &&
+    productType &&
+    payload &&
+    tenant.id != null &&
+    classPriceAmount != null
+  ) {
+    resolvedBookingFeeAmount = await calculateBookingFeeAmount({
+      tenantId: tenant.id,
+      productType,
+      classPriceAmount,
+      payload,
+    })
+  }
+
+  if (mode === 'subscription' && resolvedBookingFeeAmount != null && resolvedBookingFeeAmount > 0) {
+    if (!recurringPrice) {
+      throw new Error('Cannot add booking fee line item without recurring subscription price metadata')
+    }
+
+    lineItems.push({
+      quantity: 1,
+      price_data: {
+        currency: currency ?? 'eur',
+        product_data: {
+          name: 'Booking fee',
+          description: 'Platform booking fee',
+        },
+        unit_amount: resolvedBookingFeeAmount,
+        recurring: {
+          interval: recurringPrice.interval || 'month',
+          interval_count: recurringPrice.interval_count ?? 1,
+        },
+      },
+    })
+  }
+
+  if (tenant.id != null) {
+    normalizedMetadata.tenantId = String(tenant.id)
+  }
+  if (classPriceAmount != null) {
+    normalizedMetadata.classPriceAmount = String(classPriceAmount)
+  }
+  if (resolvedBookingFeeAmount != null) {
+    normalizedMetadata.bookingFeeAmount = String(resolvedBookingFeeAmount)
+  }
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode,
+      line_items: lineItems,
+      ...(typeof customerId === 'string' && customerId.trim() ? { customer: customerId.trim() } : {}),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: normalizedMetadata,
+      ...(mode === 'subscription'
+        ? {
+            subscription_data: {
+              metadata: normalizedMetadata,
+              ...(typeof subscriptionApplicationFeePercent === 'number' && subscriptionApplicationFeePercent > 0
+                ? {
+                    application_fee_percent: subscriptionApplicationFeePercent,
+                  }
+                : {}),
+            },
+          }
+        : {}),
+    },
+    stripeOptions,
+  )
+
+  return { id: session.id, url: session.url ?? null }
+}
