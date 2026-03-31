@@ -768,12 +768,16 @@ export const bookingsRouter = {
           "bookings",
           baseData,
           {
-            overrideAccess: false,
-            user: ctx.user,
+            // Access and capacity have already been validated in this mutation using the
+            // authenticated user and tenant-scoped lesson lookup above. Create with
+            // elevated access so pending manage-flow bookings are not rejected by
+            // collection access during this server-side operation.
+            overrideAccess: true,
           }
         );
         confirmedBookings.push(booking as Booking);
-        // Create transaction for class_pass so decrement hook can find it; also decrement pass here so it runs reliably
+        // Create transaction for class_pass so decrement hook can find it; also decrement
+        // immediately for newly created confirmed bookings in this flow.
         if (
           paymentMethodUsed === "class_pass" &&
           classPassIdUsed != null &&

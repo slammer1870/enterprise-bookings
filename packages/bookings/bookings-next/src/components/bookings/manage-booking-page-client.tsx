@@ -19,6 +19,32 @@ import { Loader2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
 import { format } from 'date-fns'
 
+type PaymentMethodsLike = {
+  allowedDropIn?: {
+    adjustable?: boolean
+    allowMultipleBookingsPerLesson?: boolean
+  } | null
+  allowedPlans?:
+    | Array<{
+        sessionsInformation?: { allowMultipleBookingsPerLesson?: boolean } | null
+      }>
+    | null
+  allowedClassPasses?:
+    | Array<{
+        allowMultipleBookingsPerLesson?: boolean
+      }>
+    | null
+} | null
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function asPaymentMethodsLike(value: unknown): PaymentMethodsLike {
+  if (!isObject(value)) return null
+  return value as PaymentMethodsLike
+}
+
 interface ManageBookingPageClientProps {
   lesson: Lesson
   /**
@@ -205,10 +231,25 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [isAbandoningCheckout, setIsAbandoningCheckout] = useState(false)
 
   // Check if lesson has payment methods configured
+  const paymentMethods = asPaymentMethodsLike(lesson.classOption?.paymentMethods)
   const hasPaymentMethods = Boolean(
-    lesson.classOption.paymentMethods?.allowedDropIn ||
-    lesson.classOption.paymentMethods?.allowedPlans?.length
+    paymentMethods?.allowedDropIn ||
+      (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
+      (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
   )
+  const dropInAllowsMultiple =
+    paymentMethods?.allowedDropIn?.adjustable === true ||
+    paymentMethods?.allowedDropIn?.allowMultipleBookingsPerLesson === true
+  const planAllowsMultiple =
+    paymentMethods?.allowedPlans?.some(
+      (plan) => plan.sessionsInformation?.allowMultipleBookingsPerLesson === true
+    ) ?? false
+  const classPassAllowsMultiple =
+    paymentMethods?.allowedClassPasses?.some(
+      (classPass) => classPass.allowMultipleBookingsPerLesson === true
+    ) ?? false
+  const allowsMultipleBookingsForViewer =
+    !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple || classPassAllowsMultiple
 
   const { mutate: cancelBooking, mutateAsync: cancelBookingAsync, isPending: isCancelling } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
@@ -660,7 +701,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  const maxTotalQuantity = activeBookings.length + lesson.remainingCapacity
+  const maxTotalQuantity = allowsMultipleBookingsForViewer
+    ? activeBookings.length + lesson.remainingCapacity
+    : Math.max(activeBookings.length, 1)
   const minQuantity = 0 // allow cancelling all via quantity control
 
   return (
@@ -683,8 +726,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             <div>
               <p className="font-medium">Number of bookings</p>
               <p className="text-sm text-muted-foreground">
-                Up to {maxTotalQuantity} total booking
-                {maxTotalQuantity !== 1 ? 's' : ''} available for this lesson.
+                {allowsMultipleBookingsForViewer
+                  ? `Up to ${maxTotalQuantity} total booking${maxTotalQuantity !== 1 ? 's' : ''} available for this lesson.`
+                  : 'Only 1 slot per booking.'}
               </p>
             </div>
             <div className="flex items-center gap-3">

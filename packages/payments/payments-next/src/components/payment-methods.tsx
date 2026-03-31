@@ -17,6 +17,10 @@ import {
   type FeeBreakdownComponentProps,
 } from "./drop-ins";
 import { toast } from "sonner";
+import {
+  getMembershipPlansForView,
+  planAllowsMultipleBookingsPerLesson,
+} from "./membership-plan-filter";
 
 type PaymentMethodsProps = {
   lesson: Lesson;
@@ -168,41 +172,6 @@ function dropInAllowsMultiple(dropIn: unknown): boolean {
   if (!dropIn || typeof dropIn !== "object") return false;
   const d = dropIn as { adjustable?: boolean };
   return d.adjustable === true;
-}
-
-/**
- * Returns true if the plan allows multiple bookings per lesson.
- * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
- * Multi-booking is controlled only by the explicit flag.
- */
-function planAllowsMultipleBookingsPerLesson(plan: unknown): boolean {
-  if (!plan || typeof plan !== "object") return false;
-  const p = plan as {
-    sessionsInformation?: {
-      sessions?: number;
-      allowMultipleBookingsPerLesson?: boolean;
-    };
-  };
-  return p.sessionsInformation?.allowMultipleBookingsPerLesson === true;
-}
-
-/**
- * Returns true if the plan's capacity can cover at least `requiredQuantity` bookings in a period.
- * Uses only the plan's session limit (sessions per period), not the user's usage.
- * Unlimited plans (no sessionsInformation or sessions <= 0) always return true.
- * Otherwise returns true when plan.sessionsInformation.sessions >= requiredQuantity.
- */
-function planCanCoverQuantity(plan: unknown, requiredQuantity: number): boolean {
-  if (requiredQuantity <= 0) return true;
-  if (!plan || typeof plan !== "object") return false;
-  const p = plan as {
-    sessionsInformation?: {
-      sessions?: number;
-    };
-  };
-  const si = p.sessionsInformation;
-  if (!si || si.sessions == null || si.sessions <= 0) return true; // Unlimited
-  return si.sessions >= requiredQuantity;
 }
 
 /**
@@ -509,37 +478,17 @@ export function PaymentMethods({
   const allowedClassPasses = (lesson.classOption.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
     ?.allowedClassPasses;
 
-  const activeAllowedPlans = allowedPlanDocs.filter((plan) => plan.status === "active");
-  let activePlans = activeAllowedPlans;
-
-  // When quantity > 1, the server can return an eligibility-filtered plan list that accounts for:
-  // - explicit multi-booking flag
-  // - remaining sessions in the user's current period (used + selectedQuantity <= limit)
-  if (quantity > 1 && Array.isArray(eligiblePlansForQuantity)) {
-    activePlans = eligiblePlansForQuantity.filter((p) => p.status === "active");
-  } else {
-    // Fallback: filter by plan capacity only (not by user's usage): show only plans whose
-    // per-period session limit can cover the selected quantity (sessions >= quantity or unlimited).
-    activePlans = activePlans.filter((plan) => planCanCoverQuantity(plan, quantity));
-  }
+  const plansForView = getMembershipPlansForView({
+    allowedPlanDocs,
+    eligiblePlansForQuantity,
+    quantity,
+    subscription,
+  });
+  let activePlans = plansForView.filter((plan) => plan.status === "active");
 
   const hasSubscriptionWithPlan =
     subscription &&
     allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
-
-  // Allow legacy inactive plan usage: keep inactive plans out of the subscribe/upgrade list,
-  // but include the current subscription plan in the PlanView matching check so users don't
-  // see "you do not have a plan..." when their subscribed plan is inactive.
-  const currentSubscriptionPlan =
-    subscription && subscription.plan && typeof subscription.plan === "object" && subscription.plan != null
-      ? (subscription.plan as Plan)
-      : null;
-  const subscriptionPlanIsAllowed =
-    currentSubscriptionPlan != null && allowedPlanDocs.some((p) => p.id === currentSubscriptionPlan.id);
-  const plansForView: Plan[] =
-    subscriptionPlanIsAllowed && currentSubscriptionPlan?.status !== "active"
-      ? [currentSubscriptionPlan, ...activePlans]
-      : activePlans;
 
   const userPlanAllowsMultiple =
     subscription?.plan &&
@@ -557,13 +506,6 @@ export function PaymentMethods({
     !subscriptionLimitReached &&
     (remainingSessions === null || remainingSessions >= quantity) &&
     (quantity <= 1 || Boolean(userPlanAllowsMultiple));
-
-  // When quantity > 1: only show plans that allow multiple bookings per lesson
-  if (quantity > 1) {
-    activePlans = activePlans.filter((plan) =>
-      planAllowsMultipleBookingsPerLesson(plan)
-    );
-  }
 
   // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
   const classPassesWithEnoughCredits: ClassPassForLesson[] = Array.isArray(validClassPasses)
