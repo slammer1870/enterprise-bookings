@@ -1486,7 +1486,9 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 
 ### 4) Next implementation stage
 
-- Start Phase 2.5 (Stripe sync for Stripe-backed collections).
+- Start class pass functionality as the next immediate milestone, with booking UX parity to drop-ins and subscriptions.
+- Implement tenant-aware class pass purchase, booking eligibility, booking confirmation, and atomic pass decrement behavior.
+- Hide the class pass option entirely when the selected booking quantity is greater than the user’s remaining eligible pass balance.
 
 ---
 

@@ -19,6 +19,9 @@ import {
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
   canUseSubscriptionForBooking,
+  filterValidClassPassesForLesson,
+  type LessonLike,
+  type ClassPassLike,
 } from "@repo/shared-services";
 
 export const bookingsRouter = {
@@ -825,7 +828,7 @@ export const bookingsRouter = {
    * with status active, quantity > 0, and expirationDate in the future.
    */
   getValidClassPassesForLesson: protectedProcedure
-    .input(z.object({ lessonId: z.number() }))
+    .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
       if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-passes")) {
         return [];
@@ -883,7 +886,12 @@ export const bookingsRouter = {
           user: ctx.user,
         }
       );
-      return result.docs;
+      return filterValidClassPassesForLesson(
+        lesson as unknown as LessonLike,
+        result.docs as ClassPassLike[],
+        new Date(),
+        input.quantity ?? 1
+      );
     }),
 
   createOrUpdateBooking: protectedProcedure

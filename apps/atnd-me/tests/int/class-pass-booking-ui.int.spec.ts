@@ -23,6 +23,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   let classOptionId: number
   let classPassTypeId: number
   let classPassId: number
+  let limitedClassPassId: number
   let lessonId: number
 
   const createCaller = async () => {
@@ -91,10 +92,13 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         slug: `cp-ui-5pack-${Date.now()}`,
         quantity: 5,
         tenant: testTenantId,
+        status: 'active',
+        allowMultipleBookingsPerLesson: true,
         priceInformation: { price: 29.99 },
       },
+      draft: false,
       overrideAccess: true,
-    })
+    } as Parameters<typeof payload.create>[0])
     classPassTypeId = cpt.id as number
 
     await payload.update({
@@ -120,6 +124,22 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       overrideAccess: true,
     })
     classPassId = pass.id as number
+
+    const limitedPass = await payload.create({
+      collection: 'class-passes',
+      data: {
+        user: user.id,
+        tenant: testTenantId,
+        type: classPassTypeId,
+        quantity: 2,
+        expirationDate: future.toISOString().slice(0, 10),
+        purchasedAt: new Date().toISOString(),
+        price: 1999,
+        status: 'active',
+      },
+      overrideAccess: true,
+    })
+    limitedClassPassId = limitedPass.id as number
 
     const start = new Date()
     start.setDate(start.getDate() + 1)
@@ -148,7 +168,11 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       try {
         await payload.delete({ collection: 'bookings', where: { lesson: { equals: lessonId } }, overrideAccess: true })
         await payload.delete({ collection: 'lessons', where: { id: { equals: lessonId } }, overrideAccess: true })
-        await payload.delete({ collection: 'class-passes', where: { id: { equals: classPassId } }, overrideAccess: true })
+        await payload.delete({
+          collection: 'class-passes',
+          where: { id: { in: [classPassId, limitedClassPassId] } },
+          overrideAccess: true,
+        })
         await payload.delete({ collection: 'class-pass-types', where: { id: { equals: classPassTypeId } }, overrideAccess: true })
         await payload.delete({ collection: 'class-options', where: { id: { equals: classOptionId } }, overrideAccess: true })
         await payload.delete({ collection: 'users', where: { id: { equals: user.id } }, overrideAccess: true })
@@ -176,6 +200,23 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       expect(found).toBeDefined()
       expect(found.quantity).toBe(5)
       expect(found.status).toBe('active')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'getValidClassPassesForLesson hides passes that cannot cover the requested quantity',
+    async () => {
+      const caller = await createCaller()
+      const getValid = (caller as any).bookings?.getValidClassPassesForLesson
+      if (typeof getValid !== 'function') {
+        expect(getValid).toBeDefined()
+        return
+      }
+      const passes = await getValid({ lessonId, quantity: 3 })
+      expect(Array.isArray(passes)).toBe(true)
+      expect(passes.find((p: any) => p.id === classPassId)).toBeDefined()
+      expect(passes.find((p: any) => p.id === limitedClassPassId)).toBeUndefined()
     },
     TEST_TIMEOUT,
   )
@@ -224,6 +265,28 @@ describe('Class pass booking UI (Phase 4.6)', () => {
           classPassId: 999999,
         }),
       ).rejects.toThrow()
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'createBookings with classPassId is rejected when requested quantity exceeds remaining credits',
+    async () => {
+      const caller = await createCaller()
+      await expect(
+        (caller as any).bookings.createBookings({
+          lessonId,
+          quantity: 3,
+          classPassId: limitedClassPassId,
+        }),
+      ).rejects.toThrow(/not enough credits/i)
+
+      const passAfter = await payload.findByID({
+        collection: 'class-passes',
+        id: limitedClassPassId,
+        depth: 0,
+      }) as any
+      expect(passAfter.quantity).toBe(2)
     },
     TEST_TIMEOUT,
   )

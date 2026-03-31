@@ -56,6 +56,17 @@ describe('class-pass-booking (Phase 4.6)', () => {
     expect(result[0]?.id).toBe(2)
   })
 
+  it('excludes passes that cannot cover the requested quantity', () => {
+    const future = new Date(Date.now() + 86400000).toISOString()
+    const passes: ClassPassLike[] = [
+      { id: 1, tenant: tenantId, type: 10, status: 'active', quantity: 2, expirationDate: future },
+      { id: 2, tenant: tenantId, type: 10, status: 'active', quantity: 3, expirationDate: future },
+    ]
+    const result = filterValidClassPassesForLesson(lesson, passes, new Date(), 3)
+    expect(result).toHaveLength(1)
+    expect(result[0]?.id).toBe(2)
+  })
+
   it('excludes expired passes', () => {
     const past = new Date(Date.now() - 86400000).toISOString()
     const future = new Date(Date.now() + 86400000).toISOString()

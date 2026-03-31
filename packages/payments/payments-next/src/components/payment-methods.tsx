@@ -291,6 +291,7 @@ export function PaymentMethods({
   const { data: validClassPasses = [] } = useQuery(
     trpc.bookings.getValidClassPassesForLesson.queryOptions({
       lessonId: lesson.id,
+      quantity,
     })
   );
 
@@ -566,14 +567,18 @@ export function PaymentMethods({
 
   // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
   const classPassesWithEnoughCredits: ClassPassForLesson[] = Array.isArray(validClassPasses)
-    ? validClassPasses.filter(
-        (p: unknown): p is ClassPassForLesson =>
-          typeof p === "object" &&
-          p != null &&
-          "id" in p &&
-          typeof (p as ClassPassForLesson).quantity === "number" &&
-          (p as ClassPassForLesson).quantity! >= quantity
-      )
+    ? validClassPasses.flatMap((p) => {
+        if (
+          typeof p !== "object" ||
+          p == null ||
+          typeof (p as { id?: unknown }).id !== "number" ||
+          typeof (p as { quantity?: unknown }).quantity !== "number" ||
+          ((p as { quantity: number }).quantity < quantity)
+        ) {
+          return [];
+        }
+        return [p as ClassPassForLesson];
+      })
     : [];
   const hasClassPassTab =
     Boolean(allowedClassPasses?.length) && classPassesWithEnoughCredits.length > 0;

@@ -24,10 +24,13 @@ Use this checklist after any Stripe Connect or webhook-related change.
   - `pnpm --filter atnd-me exec vitest run --config ./vitest.config.mts tests/int/payment-methods-require-connect.int.spec.ts`
 - [ ] Stripe payment routing + subscriptions:
   - `pnpm --filter atnd-me exec vitest run --config ./vitest.config.mts tests/int/stripe-payment-webhooks.int.spec.ts tests/int/payments-connect-routing.int.spec.ts`
+- [ ] Stripe Checkout session creation:
+  - `pnpm --filter atnd-me exec vitest run --config ./vitest.config.mts tests/int/stripe-connect-create-checkout-session.int.spec.ts`
 
 ## 3) Run focused Stripe-connect unit checks
 
 - [ ] `pnpm --filter atnd-me exec vitest run --config ./vitest.unit.config.mts tests/unit/stripe-connect/env.test.ts tests/unit/stripe-connect/products.test.ts tests/unit/stripe-connect/coupons.test.ts tests/unit/stripe-connect/booking-fee.test.ts`
+- [ ] `pnpm --filter atnd-me exec vitest run --config ./vitest.unit.config.mts tests/unit/stripe-connect/charges.test.ts`
 
 ## 4) Optional full checkpoint
 

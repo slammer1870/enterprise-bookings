@@ -14,9 +14,7 @@ import {
 test.describe('Booking with class pass (Phase 4.6)', () => {
   test.describe.configure({ timeout: 90_000, mode: 'serial' })
 
-  // TODO: Class pass tab appears only when getValidClassPassesForLesson returns passes; ensure client
-  // tRPC request sends session cookies for tenant subdomain so the procedure finds the user's pass.
-  test.fixme('lesson with class pass only: user with valid pass sees Class pass tab and can confirm', async ({
+  test('lesson with class pass only: user with valid pass sees Class pass tab and can confirm', async ({
     page,
     testData,
   }) => {

@@ -22,6 +22,7 @@ import { HorizontalRuleFeatureClient as HorizontalRuleFeatureClient_e70f5e05f09f
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { SlugField as SlugField_3817bf644402e67bfe6577f60ef982de } from '@payloadcms/ui'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
+import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
@@ -31,7 +32,6 @@ import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from 
 import { LessonAdmin as LessonAdmin_a8ce920709833e15274cf94b2365830c } from '@repo/bookings-plugin/src/components/lessons/lesson-admin'
 import { default as default_9ffd6949b6f61cfae4948d705a06c4b3 } from '@/components/admin/RequireStripeConnectField'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
-import { default as default_5a4abff5e1f4f4f0ab2c1e8ea1d9b2f1 } from '@/components/admin/StripeConnectStatus'
 import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
 import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
@@ -73,6 +73,7 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/ui#SlugField": SlugField_3817bf644402e67bfe6577f60ef982de,
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
+  "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
@@ -81,7 +82,6 @@ export const importMap = {
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
   "@repo/bookings-plugin/src/components/lessons/lesson-admin#LessonAdmin": LessonAdmin_a8ce920709833e15274cf94b2365830c,
   "@/components/admin/RequireStripeConnectField#default": default_9ffd6949b6f61cfae4948d705a06c4b3,
-  "@/components/admin/StripeConnectStatus#default": default_5a4abff5e1f4f4f0ab2c1e8ea1d9b2f1,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
   "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
