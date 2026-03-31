@@ -287,9 +287,10 @@ export const lessonsRouter = {
         const { startOfDay, endOfDay } = getDayBoundsInTimeZone(input.date, timeZone);
 
         // Schedule UX: don't allow browsing past days, and don't show lessons that already ended today.
-        const now = new Date();
+        // Use Date.now so test suites can stub current time deterministically.
+        const now = Date.now();
         const { startOfDay: todayStart } = getDayBoundsInTimeZone(
-          now.toISOString(),
+          new Date(now).toISOString(),
           timeZone
         );
         if (endOfDay.getTime() < todayStart.getTime()) {

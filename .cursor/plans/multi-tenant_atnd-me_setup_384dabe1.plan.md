@@ -4,35 +4,35 @@ overview: Convert atnd-me app to multi-tenant architecture using Payload's multi
 todos:
   - id: setup-test-infrastructure
     content: Create test utilities and helpers for multi-tenant testing
-    status: pending
+    status: done
   - id: write-plugin-tests
     content: Write integration tests for multi-tenant plugin configuration
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
   - id: install-plugin
     content: Install @payloadcms/plugin-multi-tenant package
-    status: pending
+    status: done
     dependencies:
       - write-plugin-tests
   - id: write-tenants-collection-tests
     content: Write integration tests for Tenants collection (creation, access control)
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
   - id: create-tenants-collection
     content: Create Tenants collection with name, slug, and domain fields, including onboarding hook
-    status: pending
+    status: done
     dependencies:
       - write-tenants-collection-tests
   - id: write-tenant-onboarding-tests
     content: Write integration tests for tenant onboarding (default data creation)
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
   - id: implement-tenant-onboarding
     content: Create hook to automatically create default data (home page, class options, lessons, navbar, footer) when tenant is created
-    status: pending
+    status: done
     dependencies:
       - write-tenant-onboarding-tests
       - create-tenants-collection
@@ -40,22 +40,22 @@ todos:
       - convert-footer-to-collection
   - id: convert-header-to-collection
     content: "Convert Header global to Navbar collection with isGlobal: true"
-    status: pending
+    status: done
     dependencies:
       - create-tenants-collection
   - id: convert-footer-to-collection
     content: "Convert Footer global to Footer collection with isGlobal: true"
-    status: pending
+    status: done
     dependencies:
       - create-tenants-collection
   - id: convert-scheduler-to-collection
     content: "Convert scheduler global to Scheduler collection with isGlobal: true"
-    status: pending
+    status: done
     dependencies:
       - create-tenants-collection
   - id: configure-multi-tenant-plugin
     content: Add multi-tenant plugin to plugins array with all collections configured
-    status: pending
+    status: done
     dependencies:
       - install-plugin
       - create-tenants-collection
@@ -64,98 +64,98 @@ todos:
       - convert-scheduler-to-collection
   - id: write-roles-tests
     content: Write integration tests for role configuration (admin, tenant-admin, user)
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
   - id: update-roles-config
     content: Update roles plugin and better auth options to include admin, tenant-admin, and user roles
-    status: pending
+    status: done
     dependencies:
       - write-roles-tests
       - configure-multi-tenant-plugin
   - id: update-package-access-controls
     content: Override bookings plugin access controls in atnd-me to support tenant-admin role
-    status: pending
+    status: done
     dependencies:
       - update-roles-config
   - id: write-booking-access-tests
     content: Write integration tests for booking access control (MVP - no payment validation, cross-tenant bookings)
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
       - write-user-access-tests
   - id: implement-booking-access-controls
     content: Create custom booking access controls for MVP (tenant-admin support, no payment validation)
-    status: pending
+    status: done
     dependencies:
       - write-booking-access-tests
       - configure-multi-tenant-plugin
       - update-package-access-controls
   - id: add-user-tenant-fields
     content: Add registrationTenant and tenant fields to Users collection with validation for tenant-admin
-    status: pending
+    status: done
     dependencies:
       - update-roles-config
   - id: write-user-access-tests
     content: Write integration tests for user access control (super admin, tenant-admin, cross-tenant visibility)
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
       - write-roles-tests
   - id: implement-user-access-control
     content: Create custom access control for users collection with super admin, tenant-admin, and user permissions
-    status: pending
+    status: done
     dependencies:
       - write-user-access-tests
       - add-user-tenant-fields
   - id: implement-tenant-access-control
     content: Create access control functions for all tenant-scoped collections (pages, lessons, etc.)
-    status: pending
+    status: done
     dependencies:
       - implement-user-access-control
   - id: write-middleware-tests
     content: Write unit tests for middleware tenant detection and context setting
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
   - id: create-middleware
     content: Create Next.js middleware to detect subdomain and set tenant context
-    status: pending
+    status: done
     dependencies:
       - write-middleware-tests
       - configure-multi-tenant-plugin
   - id: write-frontend-routing-tests
     content: Write E2E tests for subdomain routing, marketing landing page, and tenants listing page
-    status: pending
+    status: done
     dependencies:
       - setup-test-infrastructure
   - id: create-marketing-landing-page
     content: Create marketing landing page at root route with link to tenants page
-    status: pending
+    status: done
     dependencies:
       - write-frontend-routing-tests
       - create-middleware
   - id: create-tenants-listing-page
     content: Create /tenants page that lists all tenants with links to their subdomains
-    status: pending
+    status: done
     dependencies:
       - create-marketing-landing-page
       - create-tenants-collection
   - id: update-payload-config
     content: Update payload.config.ts to remove globals and add new collections
-    status: pending
+    status: done
     dependencies:
       - convert-header-to-collection
       - convert-footer-to-collection
       - convert-scheduler-to-collection
   - id: create-migration
     content: Create database migration to add tenant fields and migrate existing data
-    status: pending
+    status: done
     dependencies:
       - configure-multi-tenant-plugin
   - id: update-seed-script
     content: Update seed script to create default tenant and assign existing data
-    status: pending
+    status: done
     dependencies:
       - create-tenants-collection
       - create-migration
@@ -224,6 +224,7 @@ The MVP will be structured to easily add payment functionality later:
 
 1. **Phase 1** – Multi-tenant MVP (tenant collections, roles, frontend, onboarding)
 2. **Phase 2** – Payment functionality (Stripe Connect, class passes, booking fees)
+
 2.5 **Phase 2.5** – Stripe sync for Stripe-backed collections (admin as source of truth; create/update/archive in Stripe for plans/memberships, class pass types, discount codes, etc.)
 3. **Phase 3** – Custom tenant-scoped blocks
 4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
@@ -1448,22 +1449,44 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 
 1. **Tenant-admin admin panel access** ✅ — `adminRoles: ['admin', 'tenant-admin']` in `src/lib/auth/options.ts`.
 2. **Users read/update scoping (userTenantAccess)** ✅ — `userTenantRead` / `userTenantUpdate` in `src/access/userTenantAccess.ts`; Users collection uses them for `read` and `update`.
-  - (was) Plan: `userTenantAccess.ts` — read: super-admin all; tenant-admin only users in their tenant; users see themselves or users visible by registrationTenant/bookings-in-tenant.  
-  - Current: Users `read` is “admin => all, else authenticated” with no query constraint; tenant-admins could see all users.  
-  - Action: Implement User read (and update) rules per plan (e.g. in `userTenantAccess.ts` and wire to Users access, or extend existing access with the right query constraints).
+  - ✅ Confirmed: implemented with tenant-aware query constraints plus self/booking visibility rules.
 3. **Central tenant helpers** ✅ — `getTenantContext.ts` and `getTenantFromLesson.ts` in `src/utilities`; used by `/api/tenant`, `getNavbarFooterForRequest`, `bookingAccess`.
 4. **Globals cleanup** ✅ — `payload.config.ts` has `globals: [PlatformFees]` only; Header/Footer removed.
-  - (was) Plan: “Remove Header, Footer from globals (now collections)”.  
-  - Current: `payload.config.ts` still has `globals: [Header, FooterGlobal]` alongside Navbar/Footer collections.  
-  - Action: Remove Header/Footer from globals once all usage is on Navbar/Footer collections, or document why both remain.
+  - ✅ Confirmed: `globals` currently contains `PlatformFees` only.
 5. **Optional – tenantAccess.ts** — Not added; `tenant-scoped.ts` covers behavior. No action required.
-  - (was) Plan: “tenantAccess.ts – collection-level access for tenant-scoped collections”.  
-  - Current: `tenant-scoped.ts` provides tenant-scoped create/update/delete/read.  
-  - Action: Only if you want a separate file or naming; behavior is largely covered by existing tenant-scoped access.
+  - Optional: keep `tenant-scoped.ts` for existing behavior unless a naming cleanup is required.
 
 ### Summary
 
 **Phase 1 is complete.** All MVP multi-tenant items are implemented: (1) tenant-admin in `adminRoles` for admin panel access, (2) User read/update scoping (tenant-admin and “visible users” rules), and (3) optional tenant helpers and globals cleanup. Next: Phase 2 (Payment Functionality).
+
+## Current Implementation To-Do
+
+### 1) Phase 1 closeout / hardening
+
+- Verify `userTenantAccess` reads for users are fully constrained (super-admin all, tenant-admin only in their tenant, users themselves/visible-user rules).
+- Remove Header/Footer from `payload.config.ts` if still registered as globals.
+- Confirm no remaining code paths rely on Header/Footer global access.
+- Decide whether to keep `tenant-scoped.ts` only or add a separate `tenantAccess.ts` helper file.
+
+### 2) Phase 2 verification before moving forward
+
+- Run full Phase 2 unit/integration/E2E test suite and fix failures.
+- Verify `subscription.created` and subscription lifecycle webhook handling is fully wired and tested.
+- Re-run tenant-isolation payment checks after test fixes.
+
+### 3) Phase 2.9 security / operations hardening
+
+- [x] Verify OAuth `state` is signed, tenant/user-bound, and TTL-checked.
+- [x] Ensure webhook signature verification uses raw request body.
+- [x] Confirm Stripe event idempotency (ignore duplicate webhook events).
+- [x] Validate tenant isolation for Connect operations (no client-controlled `tenantId`).
+- [x] Ensure all writes to tenant-scoped collections set `req.context.tenant`.
+- [x] Add/confirm audit logs for connect/disconnect with tenantId and actor userId.
+
+### 4) Next implementation stage
+
+- Start Phase 2.5 (Stripe sync for Stripe-backed collections).
 
 ---
 

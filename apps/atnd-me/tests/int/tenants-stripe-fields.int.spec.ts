@@ -5,6 +5,8 @@ import type { User } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const testAccountId = (suffix: string) => `acct_${runId}_${suffix}`
 
 type TenantWithStripe = {
   id: number
@@ -103,13 +105,14 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
   it(
     'tenant doc includes Stripe fields when created/read by admin',
     async () => {
+      const accountId = testAccountId('test123')
       const slug = `stripe-created-${Date.now()}`
       const created = await payload.create({
         collection: 'tenants',
         data: {
           name: 'Tenant With Stripe',
           slug,
-          stripeConnectAccountId: 'acct_test123',
+          stripeConnectAccountId: accountId,
           stripeConnectOnboardingStatus: 'active',
           stripeConnectConnectedAt: new Date().toISOString(),
         },
@@ -119,7 +122,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
 
       expect(created).toBeDefined()
       const doc = created as TenantWithStripe
-      expect(doc.stripeConnectAccountId).toBe('acct_test123')
+      expect(doc.stripeConnectAccountId).toBe(accountId)
       expect(doc.stripeConnectOnboardingStatus).toBe('active')
       expect(doc.stripeConnectConnectedAt).toBeDefined()
 
@@ -129,7 +132,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
         user: adminUser,
         overrideAccess: false,
       }) as TenantWithStripe
-      expect(found.stripeConnectAccountId).toBe('acct_test123')
+      expect(found.stripeConnectAccountId).toBe(accountId)
       expect(found.stripeConnectOnboardingStatus).toBe('active')
     },
     TEST_TIMEOUT,
@@ -141,7 +144,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
       await payload.update({
         collection: 'tenants',
         id: testTenantId,
-        data: { stripeConnectAccountId: 'acct_original' },
+        data: { stripeConnectAccountId: testAccountId('original') },
         user: adminUser,
         overrideAccess: false,
       })
@@ -149,7 +152,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
       await payload.update({
         collection: 'tenants',
         id: testTenantId,
-        data: { stripeConnectAccountId: 'acct_tampered' },
+        data: { stripeConnectAccountId: testAccountId('tampered') },
         user: tenantAdminUser,
         overrideAccess: false,
       })
@@ -160,7 +163,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
         user: adminUser,
         overrideAccess: false,
       }) as TenantWithStripe
-      expect(after.stripeConnectAccountId).toBe('acct_original')
+      expect(after.stripeConnectAccountId).toBe(testAccountId('original'))
     },
     TEST_TIMEOUT,
   )
@@ -172,7 +175,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
         collection: 'tenants',
         id: testTenantId,
         data: {
-          stripeConnectAccountId: 'acct_tenantadmin',
+          stripeConnectAccountId: testAccountId('tenantadmin'),
           stripeConnectOnboardingStatus: 'active',
         },
         user: adminUser,
@@ -188,7 +191,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
 
       expect(found).toBeDefined()
       expect(found.stripeConnectOnboardingStatus).toBe('active')
-      expect(found.stripeConnectAccountId).toBe('acct_tenantadmin')
+      expect(found.stripeConnectAccountId).toBe(testAccountId('tenantadmin'))
     },
     TEST_TIMEOUT,
   )

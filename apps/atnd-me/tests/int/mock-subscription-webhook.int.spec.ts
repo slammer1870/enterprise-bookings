@@ -16,6 +16,7 @@ import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/test/mock-subscription-created-webhook/route'
 
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('mock-subscription-created-webhook', () => {
   let payload: Payload
@@ -24,8 +25,8 @@ describe('mock-subscription-created-webhook', () => {
   let planId: number
   let lessonId: number
   let userEmail: string
-  const accountId = 'acct_mock_sub_test'
-  const stripeCustomerId = 'cus_mock_sub_test'
+  const accountId = `acct_mock_sub_test_${runId}`
+  const stripeCustomerId = `cus_mock_sub_test_${runId}`
 
   beforeAll(async () => {
     process.env.STRIPE_CONNECT_WEBHOOK_SECRET =

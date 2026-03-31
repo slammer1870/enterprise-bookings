@@ -52,7 +52,7 @@ export default async function ClassPassPurchasePage({
 
   return (
     <div className="container max-w-md py-8">
-      <ClassPassPurchaseForm tenantSlug={tenantSlug} defaultQuantity={1} />
+      <ClassPassPurchaseForm defaultQuantity={1} />
     </div>
   )
 }
