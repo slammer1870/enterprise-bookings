@@ -287,10 +287,11 @@ type EnforceArgs = {
 
 function resolveLoginRouteRedirect(args: {
   request: NextRequest
+  response: NextResponse
   isLoginRoute: boolean
   authStatus: number
 }): NextResponse | null {
-  const { request, isLoginRoute, authStatus } = args
+  const { request, response, isLoginRoute, authStatus } = args
   if (!isLoginRoute) return null
   if (authStatus === 401) return null
   if (authStatus === 403) return null
@@ -299,7 +300,9 @@ function resolveLoginRouteRedirect(args: {
   const adminUrl = request.nextUrl.clone()
   adminUrl.pathname = '/admin'
   adminUrl.search = ''
-  return NextResponse.redirect(adminUrl)
+  const redirectResponse = NextResponse.redirect(adminUrl)
+  copySetCookieHeaders(response, redirectResponse)
+  return redirectResponse
 }
 
 function clearCookieHeader(name: string, path: string, domain?: string | null): string {
@@ -329,8 +332,27 @@ function clearCookieEverywhere(args: {
   }
 }
 
+function copySetCookieHeaders(source: NextResponse, target: NextResponse) {
+  const getSetCookie = (source.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
+  const setCookies = typeof getSetCookie === 'function'
+    ? getSetCookie.call(source.headers)
+    : []
+
+  if (setCookies.length > 0) {
+    for (const cookie of setCookies) {
+      target.headers.append('Set-Cookie', cookie)
+    }
+    return
+  }
+
+  const setCookieHeader = source.headers.get('set-cookie')
+  if (setCookieHeader) {
+    target.headers.append('Set-Cookie', setCookieHeader)
+  }
+}
+
 async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextResponse | null> {
-  const { request, response: _response, rootHostname, platformOrigin } = args
+  const { request, response, rootHostname, platformOrigin } = args
 
   const { pathname } = request.nextUrl
   const isLoginRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/')
@@ -351,6 +373,7 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
 
   const loginRouteRedirect = resolveLoginRouteRedirect({
     request,
+    response,
     isLoginRoute,
     authStatus: res.status,
   })
@@ -363,7 +386,9 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/admin/login'
     loginUrl.search = ''
-    return NextResponse.redirect(loginUrl)
+    const redirectResponse = NextResponse.redirect(loginUrl)
+    copySetCookieHeaders(response, redirectResponse)
+    return redirectResponse
   }
 
   if (res.status !== 403) return null
