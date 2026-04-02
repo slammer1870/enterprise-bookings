@@ -250,6 +250,13 @@ export async function createTenantCheckoutSession(
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: normalizedMetadata,
+      ...(mode === 'payment'
+        ? {
+            payment_intent_data: {
+              metadata: normalizedMetadata,
+            },
+          }
+        : {}),
       ...(mode === 'subscription'
         ? {
             subscription_data: {

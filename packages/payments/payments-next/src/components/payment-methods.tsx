@@ -74,23 +74,41 @@ type ClassPassForLesson = {
   type?: number | { name?: string };
 };
 
+type PurchasableClassPassType = {
+  id: number;
+  name: string;
+  description?: string | null;
+  quantity: number;
+  allowMultipleBookingsPerLesson: boolean;
+  price?: number | null;
+  priceId: string;
+};
+
 function ClassPassTabContent({
   passes,
+  purchasablePassTypes,
   quantity,
-  pendingBookingIds: _pendingBookingIds,
-  lessonId: _lessonId,
   onConfirm,
+  onPurchase,
 }: {
   passes: ClassPassForLesson[];
+  purchasablePassTypes: PurchasableClassPassType[];
   quantity: number;
-  pendingBookingIds?: number[];
-  lessonId: number;
   onConfirm: (_classPassId: number) => Promise<void>;
+  onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
 }) {
   const [selectedPassId, setSelectedPassId] = useState<number | null>(
     passes.length === 1 && passes[0] != null ? passes[0].id : null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [purchasePassTypeId, setPurchasePassTypeId] = useState<number | null>(null);
+
+  // Auto-select when the single valid pass loads asynchronously (queries resolve after mount)
+  useEffect(() => {
+    if (passes.length === 1 && passes[0] != null && selectedPassId == null) {
+      setSelectedPassId(passes[0].id);
+    }
+  }, [passes, selectedPassId]);
 
   const handleConfirm = async () => {
     if (selectedPassId == null) return;
@@ -102,65 +120,123 @@ function ClassPassTabContent({
     }
   };
 
+  if (passes.length === 0 && purchasablePassTypes.length === 0) {
+    return (
+      <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
+        <p className="font-medium">No valid class pass</p>
+        <p className="mt-1">
+          You don&apos;t have a valid class pass for this lesson. Contact the organiser to obtain one.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Use a class pass to book. This will use {quantity} credit{quantity !== 1 ? "s" : ""} from your pass.
-      </p>
-      <div className="space-y-2">
-        {passes.map((pass) => {
-          const typeName =
-            typeof pass.type === "object" && pass.type != null && "name" in pass.type
-              ? (pass.type as { name?: string }).name
-              : "Class pass";
-          const exp =
-            pass.expirationDate != null
-              ? new Date(pass.expirationDate).toLocaleDateString()
-              : null;
-          return (
-            <div
-              key={pass.id}
-              className="flex items-center justify-between rounded-md border p-3"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-medium">{typeName}</span>
-                <span className="text-sm text-muted-foreground">
-                  {pass.quantity ?? 0} credit{(pass.quantity ?? 0) !== 1 ? "s" : ""} remaining
-                  {exp ? ` · Expires ${exp}` : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="classPass"
-                  checked={selectedPassId === pass.id}
-                  onChange={() => setSelectedPassId(pass.id)}
-                  className="h-4 w-4"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPassId(pass.id);
-                    void handleConfirm();
-                  }}
-                  disabled={isSubmitting}
-                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      {passes.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Use a class pass to book. This will use {quantity} credit{quantity !== 1 ? "s" : ""} from your pass.
+          </p>
+          <div className="space-y-2">
+            {passes.map((pass) => {
+              const typeName =
+                typeof pass.type === "object" && pass.type != null && "name" in pass.type
+                  ? (pass.type as { name?: string }).name
+                  : "Class pass";
+              const exp =
+                pass.expirationDate != null
+                  ? new Date(pass.expirationDate).toLocaleDateString()
+                  : null;
+              return (
+                <div
+                  key={pass.id}
+                  className="flex items-center justify-between rounded-md border p-3"
                 >
-                  Use this pass
-                </button>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium">{typeName}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {pass.quantity ?? 0} credit{(pass.quantity ?? 0) !== 1 ? "s" : ""} remaining
+                      {exp ? ` · Expires ${exp}` : ""}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="classPass"
+                      checked={selectedPassId === pass.id}
+                      onChange={() => setSelectedPassId(pass.id)}
+                      className="h-4 w-4"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPassId(pass.id);
+                        void handleConfirm();
+                      }}
+                      disabled={isSubmitting}
+                      className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      Use this pass
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={selectedPassId == null || isSubmitting}
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isSubmitting ? "Booking..." : "Confirm with class pass"}
+          </button>
+        </div>
+      )}
+      {purchasablePassTypes.length > 0 && (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Buy a class pass</p>
+            <p className="text-sm text-muted-foreground">
+              No valid pass yet? Buy one here, then return to confirm this booking with it.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {purchasablePassTypes.map((passType) => (
+              <div key={passType.id} className="rounded-md border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="font-medium">{passType.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {passType.quantity} credit{passType.quantity !== 1 ? "s" : ""}
+                      {passType.price != null ? ` · €${passType.price.toFixed(2)}` : ""}
+                    </div>
+                    {passType.description ? (
+                      <p className="text-sm text-muted-foreground">{passType.description}</p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setPurchasePassTypeId(passType.id);
+                        await onPurchase(passType);
+                      } finally {
+                        setPurchasePassTypeId((current) => (current === passType.id ? null : current));
+                      }
+                    }}
+                    disabled={purchasePassTypeId != null}
+                    className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+                  >
+                    {purchasePassTypeId === passType.id ? "Redirecting..." : "Buy pass"}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        onClick={handleConfirm}
-        disabled={selectedPassId == null || isSubmitting}
-        className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-      >
-        {isSubmitting ? "Booking…" : "Confirm with class pass"}
-      </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -172,6 +248,26 @@ function dropInAllowsMultiple(dropIn: unknown): boolean {
   if (!dropIn || typeof dropIn !== "object") return false;
   const d = dropIn as { adjustable?: boolean };
   return d.adjustable === true;
+}
+
+function getPendingBookingIds(pendingBookings?: Booking[]): number[] {
+  const ids: number[] = [];
+  const seen = new Set<number>();
+  for (const booking of pendingBookings ?? []) {
+    if (String(booking.status).toLowerCase() !== "pending") {
+      continue;
+    }
+    const id = Number(booking.id);
+    if (!Number.isFinite(id)) {
+      continue;
+    }
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
 }
 
 /**
@@ -193,7 +289,9 @@ export function PaymentMethods({
   const trpc = useTRPC();
   const router = useRouter();
 
-  const quantity = pendingBookings?.length ?? quantityProp ?? 1;
+  const pendingBookingIds = getPendingBookingIds(pendingBookings);
+  const hasPendingBookings = pendingBookingIds.length > 0;
+  const quantity = hasPendingBookings ? pendingBookingIds.length : quantityProp ?? 1;
 
   const tenantId =
     lesson.tenant != null
@@ -259,6 +357,12 @@ export function PaymentMethods({
   // Get valid class passes for this lesson (Phase 4.6)
   const { data: validClassPasses = [] } = useQuery(
     trpc.bookings.getValidClassPassesForLesson.queryOptions({
+      lessonId: lesson.id,
+      quantity,
+    })
+  );
+  const { data: purchasableClassPassTypes = [] } = useQuery(
+    trpc.bookings.getPurchasableClassPassTypesForLesson.queryOptions({
       lessonId: lesson.id,
       quantity,
     })
@@ -414,10 +518,8 @@ export function PaymentMethods({
       lessonId: String(lesson.id),
       ...(tenantId != null && { tenantId: String(tenantId) }),
     };
-    if (pendingBookings && pendingBookings.length > 0) {
-      metaWithTenant.bookingIds = pendingBookings
-        .map((b) => b.id)
-        .join(",");
+    if (hasPendingBookings) {
+      metaWithTenant.bookingIds = pendingBookingIds.join(",");
     }
 
     const origin =
@@ -446,6 +548,39 @@ export function PaymentMethods({
       mode: "subscription",
       successUrl: `${successPath}${tenantQ}`,
       cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
+    });
+  };
+
+  const handleCreateClassPassCheckout = async (passType: PurchasableClassPassType) => {
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SERVER_URL || "";
+    const currentPath =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search || ""}`
+        : `/bookings/${lesson.id}`;
+    const tenantIdForMeta =
+      lesson.tenant != null
+        ? typeof lesson.tenant === "object" && "id" in lesson.tenant
+          ? lesson.tenant.id
+          : lesson.tenant
+        : undefined;
+
+    await createCheckoutSession({
+      priceId: passType.priceId,
+      quantity: 1,
+      mode: "payment",
+      metadata: {
+        type: "class_pass_purchase",
+        classPassTypeId: String(passType.id),
+        lessonId: String(lesson.id),
+        bookingQuantity: String(quantity),
+        ...(tenantIdForMeta != null ? { tenantId: String(tenantIdForMeta) } : {}),
+        ...(hasPendingBookings ? { bookingIds: pendingBookingIds.join(",") } : {}),
+      },
+      successUrl: `${origin}${currentPath}`,
+      cancelUrl: `${origin}${currentPath}`,
     });
   };
 
@@ -522,8 +657,21 @@ export function PaymentMethods({
         return [p as ClassPassForLesson];
       })
     : [];
-  const hasClassPassTab =
-    Boolean(allowedClassPasses?.length) && classPassesWithEnoughCredits.length > 0;
+  const purchasablePassesForQuantity: PurchasableClassPassType[] = Array.isArray(purchasableClassPassTypes)
+    ? purchasableClassPassTypes.flatMap((passType) => {
+        if (
+          typeof passType !== "object" ||
+          passType == null ||
+          typeof passType.id !== "number" ||
+          typeof passType.priceId !== "string" ||
+          passType.priceId.length === 0
+        ) {
+          return [];
+        }
+        return [passType as PurchasableClassPassType];
+      })
+    : [];
+  const hasClassPassTab = Boolean(allowedClassPasses?.length);
 
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
@@ -544,26 +692,25 @@ export function PaymentMethods({
       hasDropInTab && dropInAllowsMultiple(allowedDropIn as DropIn);
   }
 
+  const availableTabs = useMemo(() => {
+    const tabs: string[] = [];
+    if (hasMembershipTab) tabs.push("membership");
+    if (hasClassPassTab) tabs.push("classpass");
+    if (hasDropInTab) tabs.push("dropin");
+    return tabs;
+  }, [hasMembershipTab, hasDropInTab, hasClassPassTab]);
+
   // Controlled tab so we can auto-switch when the active tab is no longer available
-  const defaultTab = hasMembershipTab
-    ? "membership"
-    : hasClassPassTab
-      ? "classpass"
-      : "dropin";
+  const defaultTab = availableTabs[0] ?? "dropin";
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // When user changes quantity or tab becomes unavailable, switch to a valid tab
+  // When active tab becomes unavailable (or invalid), switch to a valid tab.
   useEffect(() => {
-    if (activeTab === "membership" && !hasMembershipTab) {
-      setActiveTab(hasClassPassTab ? "classpass" : "dropin");
-    } else if (activeTab === "classpass" && !hasClassPassTab) {
-      setActiveTab(hasMembershipTab ? "membership" : "dropin");
-    } else if (activeTab === "dropin" && !hasDropInTab) {
-      setActiveTab(hasMembershipTab ? "membership" : "classpass");
-    } else if (!["membership", "dropin", "classpass"].includes(activeTab)) {
+    if (availableTabs.length === 0) return;
+    if (!availableTabs.includes(activeTab)) {
       setActiveTab(defaultTab);
     }
-  }, [hasMembershipTab, hasDropInTab, hasClassPassTab, defaultTab, activeTab]);
+  }, [activeTab, availableTabs, defaultTab]);
 
   // Important: keep this after hooks so changing quantity doesn't break hook order.
   if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
@@ -608,27 +755,17 @@ export function PaymentMethods({
           <TabsContent value="classpass">
             <ClassPassTabContent
               passes={classPassesWithEnoughCredits}
+              purchasablePassTypes={purchasablePassesForQuantity}
               quantity={quantity}
-              pendingBookingIds={
-                pendingBookings && pendingBookings.length > 0
-                  ? pendingBookings.map((b) => b.id as number)
-                  : undefined
-              }
-              lessonId={lesson.id}
               onConfirm={async (classPassId: number) => {
                 await createBookingsWithClassPass({
                   lessonId: lesson.id,
-                  quantity:
-                    pendingBookings && pendingBookings.length > 0
-                      ? pendingBookings.length
-                      : quantity,
+                  quantity: hasPendingBookings ? pendingBookingIds.length : quantity,
                   classPassId,
-                  pendingBookingIds:
-                    pendingBookings && pendingBookings.length > 0
-                      ? pendingBookings.map((b) => b.id as number)
-                      : undefined,
+                  pendingBookingIds: hasPendingBookings ? pendingBookingIds : undefined,
                 });
               }}
+              onPurchase={handleCreateClassPassCheckout}
             />
           </TabsContent>
         )}
@@ -652,10 +789,7 @@ export function PaymentMethods({
               onConfirmBookingWithSubscription={
                 subscription?.id != null
                   ? async (subscriptionId: number) => {
-                      const pendingIds =
-                        pendingBookings && pendingBookings.length > 0
-                          ? pendingBookings.map((b) => b.id as number)
-                          : undefined;
+                      const pendingIds = hasPendingBookings ? pendingBookingIds : undefined;
                       await createBookingsWithSubscription({
                         lessonId: lesson.id,
                         quantity: pendingIds ? pendingIds.length : quantity,
@@ -680,11 +814,9 @@ export function PaymentMethods({
                 FeeBreakdownComponent={FeeBreakdownComponent}
                 returnUrl={successUrlProp}
                 metadata={
-                  pendingBookings && pendingBookings.length > 0
+                  hasPendingBookings
                     ? {
-                        bookingIds: pendingBookings
-                          .map((b) => b.id)
-                          .join(","),
+                        bookingIds: pendingBookingIds.join(","),
                         lessonId: lesson.id.toString(),
                       }
                     : {

@@ -45,7 +45,7 @@ export const beforeClassPassTypeChange: CollectionBeforeChangeHook = async ({
       );
     }
 
-    newDoc.priceJSON = price;
+    newDoc.priceJSON = price ? JSON.stringify(price) : null;
     newDoc.priceInformation = {
       price: price?.unit_amount != null ? price.unit_amount / 100 : undefined,
     };

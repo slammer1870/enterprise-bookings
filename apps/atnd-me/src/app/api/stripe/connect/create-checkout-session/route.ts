@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
   const metadata = {
     ...metadataFromBody,
     tenantId: String(tenant.id),
+    ...(metadataFromBody?.type === 'class_pass_purchase' ? { userId: String(userId) } : {}),
   }
 
   const quantity = typeof body.quantity === 'number' && Number.isFinite(body.quantity) && body.quantity > 0 ? body.quantity : 1

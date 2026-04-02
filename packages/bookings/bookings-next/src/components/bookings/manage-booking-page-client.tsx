@@ -175,10 +175,15 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     }
   }, [pendingFromServer, activeBookings.length])
 
-  // Keep pendingBookings in sync with server when in payment flow (e.g. after user updates quantity)
+  // Keep pendingBookings in sync with server when in payment flow (e.g. after user updates quantity).
+  // Guard: only override when the server has data — avoids a race where isInPaymentFlow just became true
+  // but the query is still stale (pendingFromServer = []), which would wipe freshly-created pending
+  // booking IDs and trigger the "cancel on leave" cleanup effect prematurely.
   useEffect(() => {
     if (!isInPaymentFlow) return
-    setPendingBookings(pendingFromServer)
+    if (pendingFromServer.length > 0) {
+      setPendingBookings(pendingFromServer)
+    }
   }, [isInPaymentFlow, pendingFromServer])
 
   // Keep desired pending quantity in sync with actual pending count when in payment flow

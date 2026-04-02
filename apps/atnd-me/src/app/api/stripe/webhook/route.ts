@@ -77,19 +77,34 @@ export async function POST(request: NextRequest) {
     const bookingIdsToConfirm = parseBookingIds(meta)
     const paymentIntentTenantContext = tenant ? { tenant: tenant.id } : null
 
-    // Class pass purchase (no bookingIds)
+    // Class pass purchase
     if (
       tenant &&
       meta.type === 'class_pass_purchase' &&
-      !meta.bookingId &&
-      !meta.bookingIds
+      !meta.bookingId
     ) {
       const userId = meta.userId
-      const quantity = meta.quantity ? parseInt(meta.quantity, 10) : 0
+      const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
       const expirationDays = meta.expirationDays ? parseInt(meta.expirationDays, 10) : 365
       const totalCents = meta.totalCents ? parseInt(meta.totalCents, 10) : 0
       const transactionId = obj?.id ?? null
-      if (userId && quantity >= 1) {
+      if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
+        const classPassType = (await payload.findByID({
+          collection: 'class-pass-types' as import('payload').CollectionSlug,
+          id: classPassTypeId,
+          depth: 0,
+          overrideAccess: true,
+        }).catch(() => null)) as { quantity?: number } | null
+        const passCredits =
+          classPassType && typeof classPassType.quantity === 'number'
+            ? classPassType.quantity
+            : 0
+
+        if (passCredits < 1) {
+          markStripeConnectEventProcessed(event.id)
+          return NextResponse.json({ received: true }, { status: 200 })
+        }
+
         const now = new Date()
         const expirationDate = new Date(now)
         expirationDate.setDate(expirationDate.getDate() + expirationDays)
@@ -99,7 +114,8 @@ export async function POST(request: NextRequest) {
           data: {
             user: Number(userId),
             tenant: tenant.id,
-            quantity,
+            type: classPassTypeId,
+            quantity: passCredits,
             expirationDate: expirationDate.toISOString().slice(0, 10),
             purchasedAt: now.toISOString().slice(0, 10),
             price: totalCents,
