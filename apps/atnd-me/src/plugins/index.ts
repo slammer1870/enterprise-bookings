@@ -492,6 +492,13 @@ export const plugins: Plugin[] = [
       },
       lessons: {
         tenantFieldOverrides: { admin: { disableBulkEdit: true } },
+        // Disable the plugin's withTenantAccess wrapper for lessons.
+        // Our custom `lessonsRead` access function already handles all tenant scoping
+        // (admin, tenant-admin with DB fallback, public/regular users via request context).
+        // The plugin's wrapper causes a bug for authenticated better-auth users: their session
+        // object has collection='users' but no `tenants` array (not saved to JWT), so
+        // withTenantAccess generates { tenant: { in: [] } } which matches no documents.
+        useTenantAccess: false,
       },
       instructors: {},
       'class-options': {},
