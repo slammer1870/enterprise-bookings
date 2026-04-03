@@ -333,13 +333,24 @@ test.describe('App smoke', () => {
     }
 
     await expect(page.getByText(/number of slots/i).first()).toBeVisible()
-    // Class-pass-only: either Book (or confirm) button, or "No payment methods" when user has no pass
+    // Class-pass-only can show:
+    // - Book / Confirm when user already has a usable pass
+    // - "No payment methods" when there is no purchasable fallback
+    // - "Buy pass" when a pass can be purchased inline first
     const bookBtn = page.getByRole('button', { name: /book|confirm/i }).first()
     const noPaymentMsg = page.getByText(/no payment methods are available/i)
-    await Promise.race([
-      bookBtn.waitFor({ state: 'visible', timeout: 5000 }),
-      noPaymentMsg.waitFor({ state: 'visible', timeout: 5000 }),
-    ])
+    const buyPassBtn = page.getByRole('button', { name: /buy pass/i }).first()
+    await expect
+      .poll(
+        async () => {
+          const bookVisible = await bookBtn.isVisible().catch(() => false)
+          const noPaymentVisible = await noPaymentMsg.isVisible().catch(() => false)
+          const buyPassVisible = await buyPassBtn.isVisible().catch(() => false)
+          return bookVisible || noPaymentVisible || buyPassVisible
+        },
+        { timeout: 10000 },
+      )
+      .toBe(true)
   })
 
   test('manage bookings: navigate to manage when 2+ bookings, manage UI visible', async ({

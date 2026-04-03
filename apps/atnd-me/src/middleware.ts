@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { isBaseHostRequest } from '@/utilities/tenantRequest'
 
 /** Root hostname from NEXT_PUBLIC_SERVER_URL (e.g. atnd-me.com) for cookie domain and subdomain logic. */
 function getRootHostname(): string | null {
@@ -40,6 +41,27 @@ export async function middleware(request: NextRequest) {
   const rootHostname = getRootHostname()
   const platformOrigin = getPlatformOrigin()
 
+  const clearTenantContextCookies = (response: NextResponse) => {
+    clearCookieEverywhere({
+      response,
+      name: 'tenant-slug',
+      paths: ['/', '/admin', '/admin/'],
+      domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
+    })
+    clearCookieEverywhere({
+      response,
+      name: PAYLOAD_TENANT_COOKIE,
+      paths: ['/', '/admin', '/admin/'],
+      domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
+    })
+    clearCookieEverywhere({
+      response,
+      name: 'tenant-id',
+      paths: ['/', '/admin', '/admin/'],
+      domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
+    })
+  }
+
   // Skip middleware for static/API paths (admin is handled below so we can set tenant cookie from subdomain).
   if (
     pathname.startsWith('/api') ||
@@ -52,9 +74,9 @@ export async function middleware(request: NextRequest) {
     // proactively clear tenant cookies even for API/static requests. Otherwise a user can
     // carry a stale `tenant-slug` from a previous tenant subdomain session while browsing
     // the root site, and APIs may behave as if a tenant is selected.
-    if (rootHostname && hostname === rootHostname) {
+    if (isBaseHostRequest(request.headers)) {
       const response = NextResponse.next()
-      response.cookies.delete('tenant-slug')
+      clearTenantContextCookies(response)
       return response
     }
 
@@ -143,8 +165,7 @@ export async function middleware(request: NextRequest) {
     // Do not delete tenant cookies on /admin: every admin request was getting Set-Cookie delete
     // which caused the admin dashboard to constantly reload. Only clear on frontend routes.
     if (!pathname.startsWith('/admin')) {
-      response.cookies.delete('tenant-id')
-      response.cookies.delete('tenant-slug')
+      clearTenantContextCookies(response)
     }
     // Enforce tenant-admin tenant isolation in admin UI (root domain = no tenant).
     if (isPayloadAdmin) {

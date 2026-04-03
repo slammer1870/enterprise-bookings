@@ -51,10 +51,16 @@ describe('Middleware', () => {
     })
 
     it('treats root domain as no tenant and clears cookies', async () => {
-      const res = await middleware(createMockRequest('atnd-me.com', '/'))
+      const req = new NextRequest('http://atnd-me.com/', {
+        headers: {
+          host: 'atnd-me.com',
+          cookie: 'tenant-slug=acme; payload-tenant=7',
+        },
+      })
+      const res = await middleware(req)
       const setCookie = res.headers.get('set-cookie')
-      expect(setCookie).not.toContain('tenant-slug=tenant')
-      expect(setCookie).not.toContain('tenant-slug=atnd')
+      expect(setCookie).toContain('tenant-slug=; Path=/; Max-Age=0')
+      expect(setCookie).toContain('payload-tenant=; Path=/; Max-Age=0')
     })
 
     it('extracts tenant from subdomain when host ends with root hostname', async () => {

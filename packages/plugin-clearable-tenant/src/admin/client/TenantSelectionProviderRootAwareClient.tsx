@@ -376,7 +376,14 @@ export function TenantSelectionProviderRootAwareClient({
         }
         const match = tenantOptions.find((o) => String(o.value) === String(tenantId))
         if (!match) return
-        if (String(selectedTenantID) !== String(tenantId)) {
+
+        // Edit pages can hydrate with the selector label already resolved while the cookie is still
+        // empty or stale. Keep the cookie in sync with the document tenant either way.
+        const cookieTenant = getTenantCookie()
+        if (
+          String(selectedTenantID) !== String(tenantId) ||
+          String(cookieTenant ?? '') !== String(tenantId)
+        ) {
           setTenant({ id: match.value, refresh: false })
         }
       })

@@ -10,6 +10,7 @@ const TEST_TIMEOUT = 60000 // 60 seconds
 describe('Tenant API Resolution', () => {
   let payload: Payload
   let testTenant: Tenant
+  let secondTenant: Tenant
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -25,6 +26,15 @@ describe('Tenant API Resolution', () => {
       overrideAccess: true,
     })) as Tenant
 
+    secondTenant = (await payload.create({
+      collection: 'tenants',
+      data: {
+        name: 'API Resolution Fallback Tenant',
+        slug: `api-resolve-fallback-${Date.now()}`,
+      },
+      overrideAccess: true,
+    })) as Tenant
+
     // Wait a bit for any async operations to complete
     await new Promise(resolve => setTimeout(resolve, 1000))
   }, HOOK_TIMEOUT)
@@ -35,6 +45,11 @@ describe('Tenant API Resolution', () => {
         await payload.delete({
           collection: 'tenants',
           id: testTenant.id,
+          overrideAccess: true,
+        })
+        await payload.delete({
+          collection: 'tenants',
+          id: secondTenant.id,
           overrideAccess: true,
         })
       } catch {
@@ -180,6 +195,27 @@ describe('Tenant API Resolution', () => {
       }
       const context = await getTenantContext(payload, { cookies })
       expect(context).toBeNull()
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'getTenantContext prefers tenant-slug over payload-tenant when cookies disagree',
+    async () => {
+      const context = await getTenantContext(payload, {
+        cookies: {
+          get: (name: string) => {
+            if (name === 'tenant-slug') return { value: testTenant.slug }
+            if (name === 'payload-tenant') return { value: String(secondTenant.id) }
+            return undefined
+          },
+        },
+        headers: new Headers({ host: `${testTenant.slug}.localhost:3000` }),
+      })
+
+      expect(context).not.toBeNull()
+      expect(context?.id).toBe(testTenant.id)
+      expect(context?.slug).toBe(testTenant.slug)
     },
     TEST_TIMEOUT,
   )

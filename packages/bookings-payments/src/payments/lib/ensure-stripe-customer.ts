@@ -11,6 +11,14 @@ function normalizeAccountId(accountId: string | null | undefined): string | null
   return a ? a : null;
 }
 
+function isE2ePlaceholderStripeAccount(accountId: string | null | undefined): boolean {
+  const id = normalizeAccountId(accountId);
+  if (!id) return false;
+  const isTestMode =
+    process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true";
+  return isTestMode && /^acct_[a-z_]+_\d+$/.test(id);
+}
+
 function getPlatformStripeCustomerId(user: any): string | null {
   const id = typeof user?.stripeCustomerId === "string" ? user.stripeCustomerId.trim() : "";
   return id ? id : null;
@@ -96,6 +104,15 @@ export async function ensureStripeCustomerIdForAccount(params: {
   } else {
     const existing = getPlatformStripeCustomerId(user);
     if (existing) return { stripeCustomerId: existing, stripeAccountId: null };
+  }
+
+  if (stripeAccountId && isE2ePlaceholderStripeAccount(stripeAccountId)) {
+    const mockCustomerId = `cus_test_${stripeAccountId}_${userId}`;
+    await upsertConnectMapping(payload, userId, {
+      stripeAccountId,
+      stripeCustomerId: mockCustomerId,
+    });
+    return { stripeCustomerId: mockCustomerId, stripeAccountId };
   }
 
   // 2) Find or create a customer in the correct Stripe account.

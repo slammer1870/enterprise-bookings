@@ -11,6 +11,11 @@ import {
 import { defaultBlockSlugs } from '../../blocks/registry'
 import { getBlocksForTenant } from '../../utilities/getBlocksForTenant'
 import {
+  getPayloadTenantIdFromRequest,
+  getTenantSlugFromRequest,
+  isBaseHostRequest,
+} from '@/utilities/tenantRequest'
+import {
   Hero,
   About,
   Location,
@@ -129,6 +134,46 @@ const pageBlocks = [
 
 const allPageBlockSlugs: string[] = pageBlocks.map((b) => b.slug!).filter(Boolean)
 
+function getTenantIdFromPageRequestSync(req: {
+  context?: { tenant?: unknown; __resolvedTenantIdFromSlug?: unknown; __resolvedTenantIdFromHost?: unknown }
+  cookies?: { get?: (name: string) => { value?: string } | undefined }
+  headers?: { get?: (name: string) => string | null }
+}): number | string | null {
+  const ctxTenant = req.context?.tenant
+  if (ctxTenant) {
+    return typeof ctxTenant === 'object' && ctxTenant !== null && 'id' in ctxTenant
+      ? (ctxTenant as { id: number | string }).id
+      : (ctxTenant as number | string)
+  }
+
+  const cachedTenantId =
+    req.context?.__resolvedTenantIdFromSlug ?? req.context?.__resolvedTenantIdFromHost ?? null
+  if (typeof cachedTenantId === 'number' || typeof cachedTenantId === 'string') {
+    return cachedTenantId
+  }
+
+  const headerGetter = req.headers?.get?.bind(req.headers)
+  const cookieHeader = headerGetter?.('cookie') ?? ''
+  const getCookieFromHeader = (name: string): string | null => {
+    if (!cookieHeader) return null
+    const m = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+    if (!m?.[1]) return null
+    try {
+      return decodeURIComponent(m[1])
+    } catch {
+      return m[1]
+    }
+  }
+
+  const payloadTenantFromHeaderRaw = getCookieFromHeader('payload-tenant')
+  const payloadTenantFromHeader =
+    payloadTenantFromHeaderRaw && /^\d+$/.test(payloadTenantFromHeaderRaw)
+      ? parseInt(payloadTenantFromHeaderRaw, 10)
+      : null
+
+  return getPayloadTenantIdFromRequest({ cookies: req.cookies }) ?? payloadTenantFromHeader
+}
+
 async function resolveTenantIdForPageWrite(req: {
   context?: { tenant?: unknown; __resolvedTenantIdFromSlug?: unknown; __resolvedTenantIdFromHost?: unknown }
   cookies?: { get?: (name: string) => { value?: string } | undefined }
@@ -145,11 +190,9 @@ async function resolveTenantIdForPageWrite(req: {
     }) => Promise<{ docs?: Array<{ id?: number | string }> }>
   }
 }): Promise<number | string | null> {
-  const ctxTenant = req.context?.tenant
-  if (ctxTenant) {
-    return typeof ctxTenant === 'object' && ctxTenant !== null && 'id' in ctxTenant
-      ? (ctxTenant as { id: number | string }).id
-      : (ctxTenant as number | string)
+  const syncTenantId = getTenantIdFromPageRequestSync(req)
+  if (typeof syncTenantId === 'number' || typeof syncTenantId === 'string') {
+    return syncTenantId
   }
 
   const cookieStore = req.cookies
@@ -166,11 +209,11 @@ async function resolveTenantIdForPageWrite(req: {
     }
   }
 
-  const payloadTenant =
-    cookieStore?.get?.('payload-tenant')?.value ?? getCookieFromHeader('payload-tenant') ?? null
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    return parseInt(payloadTenant, 10)
-  }
+  const payloadTenantFromHeaderRaw = getCookieFromHeader('payload-tenant')
+  const payloadTenantFromHeader =
+    payloadTenantFromHeaderRaw && /^\d+$/.test(payloadTenantFromHeaderRaw)
+      ? parseInt(payloadTenantFromHeaderRaw, 10)
+      : null
 
   const cachedTenantId =
     req.context?.__resolvedTenantIdFromSlug ?? req.context?.__resolvedTenantIdFromHost ?? null
@@ -178,8 +221,16 @@ async function resolveTenantIdForPageWrite(req: {
     return cachedTenantId
   }
 
+  const payloadTenantId = getPayloadTenantIdFromRequest({ cookies: cookieStore }) ?? payloadTenantFromHeader
+  if (isBaseHostRequest(req.headers)) {
+    return payloadTenantId
+  }
+
   const tenantSlug =
-    cookieStore?.get?.('tenant-slug')?.value ?? getCookieFromHeader('tenant-slug') ?? null
+    getTenantSlugFromRequest({
+      cookies: cookieStore,
+      headers: req.headers,
+    }) ?? getCookieFromHeader('tenant-slug') ?? null
   if (!tenantSlug || !req.payload) return null
 
   const result = await req.payload
@@ -195,7 +246,9 @@ async function resolveTenantIdForPageWrite(req: {
     .catch(() => null)
 
   const tenantId = result?.docs?.[0]?.id
-  return typeof tenantId === 'number' || typeof tenantId === 'string' ? tenantId : null
+  if (typeof tenantId === 'number' || typeof tenantId === 'string') return tenantId
+
+  return payloadTenantId
 }
 
 /** Extract allowed block slugs from the document's tenant only (not navbar context). Base pages get default blocks. */
@@ -243,11 +296,6 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
     | undefined
   const tenant = data?.tenant
   if (!tenant) {
-    // When running server-side code paths (migrations, seeds, tests) we often use overrideAccess
-    // and the request may have no user. In that case, allow all blocks for global pages.
-    // Access control still prevents unauthenticated users from creating/updating pages.
-    if (!r?.user) return allPageBlockSlugs
-
     // Prefer the tenant implied by request context (subdomain / middleware) when `data.tenant`
     // hasn't been synced into the form yet (common on create pages during initial hydration).
     const rawCtxTenant = r?.context?.tenant
@@ -257,7 +305,7 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
 
     if (typeof ctxTenantId === 'number' || typeof ctxTenantId === 'string') {
       try {
-        const tenantDoc = await r.payload?.findByID({
+        const tenantDoc = await r?.payload?.findByID({
           collection: 'tenants',
           id: ctxTenantId,
           depth: 0,
@@ -283,6 +331,11 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
         // fall back to user-based behavior below
       }
     }
+
+    // When running server-side code paths (migrations, seeds, tests) we often use overrideAccess
+    // and the request may have no user. If we still couldn't resolve a tenant from context/cookies,
+    // allow all blocks for truly global pages.
+    if (!r?.user) return allPageBlockSlugs
 
     const tenantIds = getUserTenantIds((r.user ?? null) as unknown as SharedUser | null)
     if (tenantIds === null) return allPageBlockSlugs

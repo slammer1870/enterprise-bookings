@@ -2,6 +2,11 @@ import type { Access, Payload, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
+import {
+  getPayloadTenantIdFromRequest,
+  getTenantSlugFromHost,
+  getTenantSlugFromRequest,
+} from '@/utilities/tenantRequest'
 
 /**
  * Get tenant IDs that a user has access to
@@ -129,16 +134,11 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
 
   const ctx = (req.context ??= {}) as Record<string, unknown>
 
-  const payloadTenant =
-    req.cookies?.get?.('payload-tenant')?.value ?? getCookieFromRequestHeader(req, 'payload-tenant') ?? null
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    const id = parseInt(payloadTenant, 10)
-    ctx.__resolvedTenantIdFromPayloadCookie = id
-    return id
-  }
-
   const tenantSlug =
-    req.cookies?.get?.('tenant-slug')?.value ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
+    getTenantSlugFromRequest({
+      cookies: req.cookies,
+      headers: req.headers as Headers | undefined,
+    }) ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
   if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
     const cached = ctx.__resolvedTenantIdFromSlug
     if (typeof cached === 'number' && Number.isFinite(cached)) return cached
@@ -161,6 +161,12 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
     }
   }
 
+  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: req.cookies })
+  if (payloadTenant) {
+    ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+    return payloadTenant
+  }
+
   const cachedHostTenant = ctx.__resolvedTenantIdFromHost
   if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
     return cachedHostTenant
@@ -170,26 +176,7 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
   const hostname = String(hostHeader).split(':')[0] ?? ''
   if (!hostname) return null
 
-  const rootHostname = (() => {
-    const url = process.env.NEXT_PUBLIC_SERVER_URL
-    if (!url) return null
-    try {
-      return new URL(url).hostname
-    } catch {
-      return null
-    }
-  })()
-
-  const isLocalhost = hostname.includes('localhost')
-  let slugFromSubdomain: string | null = null
-
-  if (isLocalhost) {
-    const parts = hostname.split('.')
-    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') slugFromSubdomain = parts[0]
-  } else if (rootHostname && hostname.endsWith('.' + rootHostname)) {
-    const prefix = hostname.slice(0, -(rootHostname.length + 1))
-    slugFromSubdomain = prefix.split('.')[0] || null
-  }
+  const slugFromSubdomain = getTenantSlugFromHost(req.headers as Headers | undefined)
 
   const where =
     slugFromSubdomain

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { getTenantSlug } from '../../src/utilities/getTenantContext'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { getTenantContext, getTenantSlug } from '../../src/utilities/getTenantContext'
 
 /**
  * Step 3 - getTenantContext helper
@@ -7,6 +7,10 @@ import { getTenantSlug } from '../../src/utilities/getTenantContext'
  * Tests for extracting tenant slug from request-like sources and resolving to tenant context.
  */
 describe('getTenantSlug (slug extraction)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('extracts slug from cookies', async () => {
     const cookieStore = {
       get: (name: string) =>
@@ -65,5 +69,23 @@ describe('getTenantSlug (slug extraction)', () => {
       cookies: await asyncCookies(),
     })
     expect(slug).toBe('async-tenant')
+  })
+
+  it('ignores payload-tenant fallback on the platform base host', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
+
+    const payload = {
+      findByID: vi.fn(),
+    }
+
+    const tenant = await getTenantContext(payload as never, {
+      cookies: {
+        get: (name: string) => (name === 'payload-tenant' ? { value: '42' } : undefined),
+      },
+      headers: new Headers({ host: 'atnd-preview.org' }),
+    })
+
+    expect(tenant).toBeNull()
+    expect(payload.findByID).not.toHaveBeenCalled()
   })
 })
