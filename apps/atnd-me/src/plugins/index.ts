@@ -200,6 +200,7 @@ export const plugins: Plugin[] = [
   bookingsPlugin({
     enabled: true,
     lessonOverrides: {
+      versions: false,
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: lessonsRead, // Preserve tenant scoping while hiding past/inactive lessons from public schedule
