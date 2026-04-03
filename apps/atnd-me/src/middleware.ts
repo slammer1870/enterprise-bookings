@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { isBaseHostRequest } from '@/utilities/tenantRequest'
 
 /** Root hostname from NEXT_PUBLIC_SERVER_URL (e.g. atnd-me.com) for cookie domain and subdomain logic. */
 function getRootHostname(): string | null {
@@ -70,16 +69,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/sitemap') ||
     pathname.startsWith('/robots.txt')
   ) {
-    // If we're on the platform root host (e.g. atnd.me) with no subdomain tenant context,
-    // proactively clear tenant cookies even for API/static requests. Otherwise a user can
-    // carry a stale `tenant-slug` from a previous tenant subdomain session while browsing
-    // the root site, and APIs may behave as if a tenant is selected.
-    if (isBaseHostRequest(request.headers)) {
-      const response = NextResponse.next()
-      clearTenantContextCookies(response)
-      return response
-    }
-
+    // Never mutate tenant cookies for API/static requests. Follow-up admin requests can lack a
+    // reliable Referer header, and clearing here wipes the sidebar tenant selection after route
+    // changes. Stale cookie cleanup is handled on real frontend page requests below.
     return NextResponse.next()
   }
 

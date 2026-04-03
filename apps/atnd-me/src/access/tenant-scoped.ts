@@ -4,6 +4,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import {
   getPayloadTenantIdFromRequest,
+  isBaseHostRequest,
   getTenantSlugFromHost,
   getTenantSlugFromRequest,
 } from '@/utilities/tenantRequest'
@@ -133,6 +134,16 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
   if (contextTenantId) return contextTenantId
 
   const ctx = (req.context ??= {}) as Record<string, unknown>
+  const isBaseHost = isBaseHostRequest(req.headers as Headers | undefined)
+
+  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: req.cookies })
+  if (isBaseHost) {
+    if (payloadTenant) {
+      ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+      return payloadTenant
+    }
+    return null
+  }
 
   const tenantSlug =
     getTenantSlugFromRequest({
@@ -161,7 +172,6 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
     }
   }
 
-  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: req.cookies })
   if (payloadTenant) {
     ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
     return payloadTenant
@@ -385,8 +395,17 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
   // Public read - allow access (multi-tenant plugin will filter by request context)
   if (!user) return true
   
-  // Admin can read all documents
+  // Admin can read all documents, but when the admin sidebar selected a tenant
+  // we should scope list data to that tenant on the server as well.
   if (checkRole(['admin'], user as unknown as SharedUser)) {
+    const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
+    if (resolvedTenantId != null) {
+      return {
+        tenant: {
+          equals: resolvedTenantId,
+        },
+      }
+    }
     return true
   }
   

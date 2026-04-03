@@ -93,7 +93,10 @@ export function TenantSelectionProviderRootAwareClient({
 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
-  const [selectedTenantID, setSelectedTenantID] = React.useState(initialValue)
+  const [selectedTenantID, setSelectedTenantID] = React.useState<string | number | undefined>(() => {
+    if (initialValue != null && initialValue !== '') return initialValue
+    return getTenantCookie()
+  })
   const [modified, setModified] = React.useState(false)
   const [entityType, setEntityType] = React.useState<'document' | 'global' | undefined>(undefined)
   const { user } = useAuth()
@@ -195,6 +198,12 @@ export function TenantSelectionProviderRootAwareClient({
       if (canonicalId !== undefined && canonicalId !== null && canonicalId !== '') {
         setPayloadTenantCookie(String(canonicalId), getCookieDomain)
       } else {
+        console.info('[tenant-provider] deleteTenantCookie:setTenantAndCookie', {
+          pathname,
+          initialValue,
+          selectedTenantID,
+          tenantOptions: tenantOptions.map((option) => option.value),
+        })
         deleteTenantCookie(getCookieDomain)
       }
 
@@ -248,16 +257,45 @@ export function TenantSelectionProviderRootAwareClient({
       )
       const result = await res.json()
       if (result.tenantOptions && userID) {
-        setTenantOptions(result.tenantOptions)
-        if (result.tenantOptions.length === 1) {
-          setSelectedTenantID(result.tenantOptions[0].value)
-          setPayloadTenantCookie(String(result.tenantOptions[0].value), getCookieDomain)
+        const nextOptions = result.tenantOptions as TenantOption[]
+        setTenantOptions(nextOptions)
+
+        const cookieTenant = getTenantCookie()
+        if (cookieTenant) {
+          const cookieMatch = nextOptions.find((o) => String(o.value) === String(cookieTenant))
+          if (cookieMatch) {
+            setSelectedTenantID(cookieMatch.value)
+            setPayloadTenantCookie(String(cookieMatch.value), getCookieDomain)
+            if (
+              String(initialValue ?? '') !== String(cookieMatch.value) &&
+              !isOnTenantRequiredCreatePage &&
+              !isOnRootDocCollection
+            ) {
+              router.refresh()
+            }
+            return
+          }
+        }
+
+        const singleOption = nextOptions[0]
+        if (nextOptions.length === 1 && singleOption) {
+          setSelectedTenantID(singleOption.value)
+          setPayloadTenantCookie(String(singleOption.value), getCookieDomain)
         }
       }
     } catch {
       toast.error('Error fetching tenants')
     }
-  }, [config.routes.api, tenantsCollectionSlug, userID, getCookieDomain])
+  }, [
+    config.routes.api,
+    tenantsCollectionSlug,
+    userID,
+    getCookieDomain,
+    initialValue,
+    isOnTenantRequiredCreatePage,
+    isOnRootDocCollection,
+    router,
+  ])
 
   const syncTenantsRef = React.useRef(syncTenants)
   syncTenantsRef.current = syncTenants
@@ -275,28 +313,55 @@ export function TenantSelectionProviderRootAwareClient({
       hasSyncedForUser.current = false
       hasAppliedInitialTenant.current = false
     }
-    const cookieMismatch = initialValue != null && String(initialValue) !== getTenantCookie()
+    const cookieTenant = getTenantCookie()
+    const cookieMismatch =
+      initialValue != null
+        ? String(initialValue) !== String(cookieTenant ?? '')
+        : Boolean(cookieTenant)
     const shouldSync = (userChanged || cookieMismatch) && !hasSyncedForUser.current
     if (shouldSync) {
       if (userID) {
         hasSyncedForUser.current = true
         void syncTenantsRef.current()
-      } else {
+      } else if (userChanged) {
+        console.info('[tenant-provider] deleteTenantCookie:userChanged-no-user', {
+          pathname,
+          initialValue,
+          previousUserID: prevUserID.current,
+          userID,
+          selectedTenantID,
+          tenantOptions: tenantOptions.map((option) => option.value),
+        })
         setSelectedTenantID(undefined)
         deleteTenantCookie(getCookieDomain)
         if (tenantOptions.length > 0) setTenantOptions([])
         router.refresh()
       }
-      prevUserID.current = userID
     }
+    prevUserID.current = userID
   }, [userID, userChanged, initialValue, router, getCookieDomain, tenantOptions.length])
 
   React.useEffect(() => {
-    if ((initialValue == null || initialValue === '') && !hasAppliedInitialTenant.current) {
+    if (hasAppliedInitialTenant.current) return
+    if (initialValue != null && initialValue !== '') {
       hasAppliedInitialTenant.current = true
-      setTenant({ id: undefined, refresh: true })
+      return
     }
-  }, [initialValue, setTenant])
+
+    const cookieTenant = getTenantCookie()
+    if (cookieTenant) {
+      hasAppliedInitialTenant.current = true
+      const match = tenantOptions.find((o) => String(o.value) === String(cookieTenant))
+      if (match) {
+        setSelectedTenantID(match.value)
+      }
+      return
+    }
+
+    if (initialValue == null || initialValue === '') {
+      hasAppliedInitialTenant.current = true
+    }
+  }, [initialValue, tenantOptions])
 
   React.useEffect(() => {
     if (!selectedTenantID && tenantOptions.length > 0 && entityType === 'global') {
@@ -316,6 +381,35 @@ export function TenantSelectionProviderRootAwareClient({
     canClearTenantOnCurrentRoute,
     setTenant,
   ])
+
+  React.useEffect(() => {
+    if (selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== '') return
+
+    const cookieTenant = getTenantCookie()
+    if (!cookieTenant) return
+
+    const match = tenantOptions.find((o) => String(o.value) === String(cookieTenant))
+    if (!match) return
+
+    setSelectedTenantID(match.value)
+    if (String(initialValue ?? '') !== String(match.value)) {
+      router.refresh()
+    }
+  }, [pathname, selectedTenantID, tenantOptions, initialValue, router])
+
+  React.useEffect(() => {
+    const activeTenantID =
+      selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== ''
+        ? selectedTenantID
+        : initialValue
+
+    if (activeTenantID === undefined || activeTenantID === null || activeTenantID === '') return
+
+    const cookieTenant = getTenantCookie()
+    if (String(cookieTenant ?? '') === String(activeTenantID)) return
+
+    setPayloadTenantCookie(String(activeTenantID), getCookieDomain)
+  }, [selectedTenantID, initialValue, getCookieDomain, pathname])
 
   const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
   const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(null)

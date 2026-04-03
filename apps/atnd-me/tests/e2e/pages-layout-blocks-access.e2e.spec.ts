@@ -537,12 +537,12 @@ test.describe('Pages layout blocks access (create/update)', () => {
         'Block picker options not detectable with current selectors; layout block access covered by int test and smoke e2e.'
       )
     }
-    // Admin selection should persist on the create page, but admins still retain access
-    // to the full block catalog. Tenant-restricted block visibility is covered by the
-    // tenant-admin cases below and by the integration tests.
+    // On the base host, selecting a tenant should scope the create form to that tenant's
+    // current block set. "No tenant selected" coverage for the full admin catalog lives in
+    // Case 1a, and the tenant-restricted behavior is exercised more deeply below.
     expectBlocksIncludeDefault(visible)
-    expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
-    expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
+    expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
+    expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
   })
 
   test('Case 2: Tenant-admin with no allowedBlocks sees only default blocks', async ({

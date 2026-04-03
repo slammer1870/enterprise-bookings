@@ -1,7 +1,10 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './helpers/fixtures'
 import { loginAsSuperAdmin, BASE_URL } from './helpers/auth-helpers'
-import { getPayloadInstance, createTestPage } from './helpers/data-helpers'
+import {
+  getPayloadInstance,
+  createTestPage,
+} from './helpers/data-helpers'
 
 const ADMIN_VIEWPORT = { width: 1440, height: 900 }
 const isCI = Boolean(
@@ -53,6 +56,7 @@ async function ensureSidebarOpen(page: Page) {
 
   await getTenantSelector(page).waitFor({ state: 'visible', timeout: CI.sidebarTimeout })
 }
+
 
 test.describe('Admin tenant selector — clearing on list shows all tenants', () => {
   test.describe.configure({ mode: 'serial', timeout: 90_000 })
@@ -139,6 +143,93 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
 
     // Cleanup is handled by migrate:fresh per test run; avoid deletes to reduce flake.
     void payload
+  })
+
+  test('base-url admin preserves selected tenant context when navigating between collections', async ({
+    page,
+    testData,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
+
+    const tenant1 = testData.tenants[0]
+    const tenant2 = testData.tenants[1]
+    if (!tenant1?.id || !tenant1?.name) throw new Error('Test setup requires tenant1')
+    if (!tenant2?.id || !tenant2?.name) throw new Error('Test setup requires tenant2')
+
+    const tenant1PageTitle = `E2E tenant-nav pages t1 ${testData.workerIndex}`
+    const tenant2PageTitle = `E2E tenant-nav pages t2 ${testData.workerIndex}`
+    await createTestPage(
+      tenant1.id,
+      `e2e-tenant-nav-pages-t1-${testData.workerIndex}`,
+      tenant1PageTitle,
+    )
+    await createTestPage(
+      tenant2.id,
+      `e2e-tenant-nav-pages-t2-${testData.workerIndex}`,
+      tenant2PageTitle,
+    )
+
+    const origin = new URL(BASE_URL).origin
+
+    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: String(tenant1.id), url: `${origin}/` },
+      { name: 'payload-tenant', value: String(tenant1.id), url: `${origin}/admin/` },
+    ])
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(
+      getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant1.name), 'i')).first(),
+    ).toBeVisible({ timeout: 20_000 })
+
+    await expect(page.getByText(tenant1PageTitle)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(tenant2PageTitle)).toHaveCount(0)
+
+    await page.goto(`${BASE_URL}/admin/collections/lessons`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant1.name), 'i')).first()).toBeVisible({
+      timeout: 20_000,
+    })
+    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+      timeout: 20_000,
+    })
+
+    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant1.name), 'i')).first()).toBeVisible({
+      timeout: 20_000,
+    })
+
+    await expect(page.getByText(tenant1PageTitle)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(tenant2PageTitle)).toHaveCount(0)
+
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: String(tenant2.id), url: `${origin}/` },
+      { name: 'payload-tenant', value: String(tenant2.id), url: `${origin}/admin/` },
+    ])
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(
+      getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant2.name), 'i')).first(),
+    ).toBeVisible({ timeout: 20_000 })
+
+    await expect(page.getByText(tenant2PageTitle)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(tenant1PageTitle)).toHaveCount(0)
+
+    await page.goto(`${BASE_URL}/admin/collections/lessons`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+      timeout: 20_000,
+    })
+
+    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    await expect(page.getByText(tenant2PageTitle)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(tenant1PageTitle)).toHaveCount(0)
   })
 })
 
