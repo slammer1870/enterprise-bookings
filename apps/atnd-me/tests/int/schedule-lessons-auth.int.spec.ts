@@ -27,6 +27,8 @@ describe('Schedule lessons visibility for authenticated users', () => {
   let testTenant: Tenant
   let testLesson: Lesson
   let inactiveLesson: Lesson
+  /** Lesson that started and ended earlier today — must still appear on today's schedule. */
+  let endedTodayLesson: Lesson
   let instructorUser: User
   let instructorId: number
   let profileImageId: number
@@ -200,6 +202,27 @@ describe('Schedule lessons visibility for authenticated users', () => {
       },
       overrideAccess: true,
     })) as Lesson
+
+    // A lesson that started and ended earlier today. The schedule should still show it
+    // because the rule is "no lessons from yesterday or earlier", not "endTime >= now".
+    const endedStart = new Date()
+    endedStart.setHours(endedStart.getHours() - 2, 0, 0, 0)
+    const endedEnd = new Date()
+    endedEnd.setHours(endedEnd.getHours() - 1, 0, 0, 0)
+
+    endedTodayLesson = (await payload.create({
+      collection: 'lessons',
+      draft: false,
+      data: {
+        date: endedStart.toISOString(),
+        startTime: endedStart.toISOString(),
+        endTime: endedEnd.toISOString(),
+        classOption: classOption.id,
+        active: true,
+        tenant: testTenant.id,
+      },
+      overrideAccess: true,
+    })) as Lesson
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -213,6 +236,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
         await payload.delete({
           collection: 'lessons',
           where: { id: { equals: inactiveLesson.id } },
+        })
+        await payload.delete({
+          collection: 'lessons',
+          where: { id: { equals: endedTodayLesson.id } },
         })
         if (planId) {
           await payload.delete({
@@ -419,6 +446,158 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } finally {
         authSpy.mockRestore()
       }
+    },
+    TEST_TIMEOUT,
+  )
+
+  // ─── Regressions for the three bugs fixed in this PR ───────────────────────
+
+  it(
+    'shows lessons that ended earlier today for unauthenticated users (endTime >= now must not filter today)',
+    async () => {
+      // Before the fix, lessonsRead added `endTime >= now` for public users, hiding
+      // lessons that had already ended but started today. The correct rule is:
+      // "no access to yesterday or earlier", not "endTime must be in the future".
+      const mockHeaders = new Headers()
+      mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
+
+      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+
+      const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({ user: null } as any)
+      try {
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({ date: new Date().toISOString() })
+
+        const lessonIds = lessons.map((l) => l.id)
+        expect(lessonIds).toContain(endedTodayLesson.id)
+      } finally {
+        authSpy.mockRestore()
+      }
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'shows lessons that ended earlier today for authenticated users',
+    async () => {
+      const mockHeaders = new Headers()
+      mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
+
+      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+
+      const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
+        user: regularUser as any,
+      } as any)
+      try {
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({ date: new Date().toISOString() })
+
+        const lessonIds = lessons.map((l) => l.id)
+        expect(lessonIds).toContain(endedTodayLesson.id)
+      } finally {
+        authSpy.mockRestore()
+      }
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'returns empty schedule when requesting a past day (yesterday or earlier)',
+    async () => {
+      const mockHeaders = new Headers()
+      mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
+
+      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+
+      const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({ user: null } as any)
+      try {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({ date: yesterday.toISOString() })
+
+        // getByDate short-circuits to [] when endOfDay < today's start
+        expect(lessons).toHaveLength(0)
+      } finally {
+        authSpy.mockRestore()
+      }
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'better-auth session user (collection="users", no tenants) can see lessons via getByDate',
+    async () => {
+      // Regression: the multi-tenant plugin's withTenantAccess wrapper checked
+      // user.collection === 'users' and added { tenant: { in: user.tenants ?? [] } }.
+      // better-auth session users have collection:'users' set (via prepareUser/getFieldsToSign)
+      // but the `tenants` array is not saved to the JWT, so getUserTenantIDs returned [].
+      // The resulting { tenant: { in: [] } } constraint matched nothing → empty schedule.
+      // Fix: useTenantAccess: false on the lessons collection so withTenantAccess never runs.
+      const betterAuthSessionUser = {
+        ...regularUser,
+        collection: 'users', // set by payload-auth's prepareUser via getFieldsToSign
+        tenants: undefined,   // NOT in the JWT payload — the trigger for the empty-array bug
+      }
+
+      const mockHeaders = new Headers()
+      mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
+
+      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+
+      const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
+        user: betterAuthSessionUser as any,
+      } as any)
+      try {
+        const caller = appRouter.createCaller(ctx)
+        const lessons = await caller.lessons.getByDate({
+          date: new Date(testLesson.startTime).toISOString(),
+        })
+
+        const lessonIds = lessons.map((l) => l.id)
+        expect(lessonIds).toContain(testLesson.id)
+        expect(lessons.length).toBeGreaterThan(0)
+
+        // Inactive lessons must still be hidden even with this user format
+        expect(lessonIds).not.toContain(inactiveLesson.id)
+      } finally {
+        authSpy.mockRestore()
+      }
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'better-auth session user (collection="users", no tenants) can access getByIdForBooking without NOT_FOUND',
+    async () => {
+      // Regression: getByIdForBooking used overrideAccess:false with ctx.user set to the
+      // better-auth session user (collection:'users', tenants:undefined). withTenantAccess
+      // added { tenant: { in: [] } } → findByID returned null → TRPCError NOT_FOUND →
+      // createBookingPage caught it and redirected to errorRedirectPath ('/').
+      // Fix: useTenantAccess:false for lessons disables the wrapper entirely.
+      const betterAuthSessionUser = {
+        ...regularUser,
+        collection: 'users',
+        tenants: undefined,
+      }
+
+      const mockHeaders = new Headers()
+      mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
+
+      // Inject the better-auth-format user directly (isTestEnv path in createTRPCContext)
+      const ctx = await createTRPCContext({
+        headers: mockHeaders,
+        payload,
+        user: betterAuthSessionUser,
+      })
+
+      const caller = appRouter.createCaller(ctx)
+
+      // testLesson is 2 h in the future → bookingStatus === 'active' → should not throw
+      await expect(caller.lessons.getByIdForBooking({ id: testLesson.id })).resolves.toMatchObject({
+        id: testLesson.id,
+      })
     },
     TEST_TIMEOUT,
   )

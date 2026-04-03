@@ -346,6 +346,40 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   return false
 }
 
+async function resolveTenantAdminReadConstraint(args: {
+  req: {
+    user?: unknown
+    payload: Payload
+    context?: Record<string, unknown>
+    cookies?: {
+      get?: (name: string) => { value?: string } | undefined
+    }
+    headers?: {
+      get?: (name: string) => string | null
+    }
+  }
+}): Promise<Where | false> {
+  const { req } = args
+  const tenantIds = await resolveTenantAdminTenantIds({ user: req.user, payload: req.payload })
+  if (tenantIds.length === 0) return false
+
+  const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
+  if (resolvedTenantId != null) {
+    if (!tenantIds.includes(resolvedTenantId)) return false
+    return {
+      tenant: {
+        equals: resolvedTenantId,
+      },
+    }
+  }
+
+  return {
+    tenant: {
+      in: tenantIds,
+    },
+  }
+}
+
 /**
  * Access control for reading tenant-scoped documents with tenant filtering
  * Used for collections where tenant-admin should only see their tenant's data
@@ -357,7 +391,7 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
  * the user's tenants array. This allows cross-tenant booking - users can see lessons
  * for the tenant they're viewing, regardless of their tenant assignments.
  */
-export const tenantScopedReadFiltered: Access = ({ req }) => {
+export const tenantScopedReadFiltered: Access = async ({ req }) => {
   const user = req.user
   const contextTenant = req.context?.tenant
   
@@ -371,14 +405,7 @@ export const tenantScopedReadFiltered: Access = ({ req }) => {
   
   // Tenant-admin can only read documents from their assigned tenants
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null || tenantIds.length === 0) return false
-    
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+    return await resolveTenantAdminReadConstraint({ req })
   }
   
   // Regular users: Allow read access for booking purposes
@@ -416,13 +443,7 @@ export const tenantScopedPublicReadStrict: Access = async ({ req }) => {
   }
 
   if (user && checkRole(['tenant-admin'], user as SharedUser)) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
-    if (tenantIds.length === 0) return false
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+    return await resolveTenantAdminReadConstraint({ req })
   }
 
   const tenantId = await resolveTenantIdFromRequest(req as RequestLike)
