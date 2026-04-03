@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // --- Mocks that must be set up before importing the modules under test ---
 const mockDraftMode = vi.fn()
 const mockCookies = vi.fn()
+const mockHeaders = vi.fn()
 
 vi.mock('next/headers', () => ({
   draftMode: () => mockDraftMode(),
   cookies: () => mockCookies(),
+  headers: () => mockHeaders(),
 }))
 
 const mockGetPayload = vi.fn()
@@ -26,6 +28,7 @@ describe('public root docs can resolve referenced media', () => {
     vi.clearAllMocks()
     mockDraftMode.mockResolvedValue({ isEnabled: false })
     mockCookies.mockResolvedValue({ get: vi.fn() })
+    mockHeaders.mockResolvedValue(new Headers())
     mockGetTenantWithBranding.mockResolvedValue(null)
   })
 
@@ -75,6 +78,26 @@ describe('public root docs can resolve referenced media', () => {
         }),
       }),
     )
+  })
+
+  it('queryPageBySlug passes request headers so tenant hosts resolve on first load', async () => {
+    const headersList = new Headers({ host: 'brugrappling.atnd-preview.org' })
+    mockHeaders.mockResolvedValue(headersList)
+    mockGetTenantContext.mockResolvedValue({ id: 2 })
+
+    const payload = {
+      find: vi.fn().mockResolvedValue({ docs: [{ id: 10, layout: [] }] }),
+    }
+    mockGetPayload.mockResolvedValue(payload)
+
+    const { queryPageBySlug } = await import('../../src/app/(frontend)/[slug]/queryPageBySlug')
+
+    await queryPageBySlug({ slug: 'home' })
+
+    expect(mockGetTenantContext).toHaveBeenCalledWith(payload, {
+      cookies: expect.anything(),
+      headers: headersList,
+    })
   })
 
   it('root navbar/footer fetch uses overrideAccess and sufficient depth', async () => {
