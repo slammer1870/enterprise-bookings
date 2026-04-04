@@ -723,6 +723,52 @@ test.describe('Admin Tenant Selector (clearable-tenant plugin)', () => {
     await expect(clearBtn).not.toBeVisible()
   })
 
+  test('required tenant create modal releases overlay after continue so document can be saved', async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(ADMIN_VIEWPORT)
+    await loginAsSuperAdmin(page, 'admin@test.com', { request })
+    await ensureSidebarOpen(page)
+    const tenants = await fetchTenantOptionsFromAPI(page)
+    expect(tenants.length).toBeGreaterThanOrEqual(2)
+    const tenant1 = tenants[0]
+
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: '', url: `${ADMIN_ORIGIN}/` },
+      { name: 'payload-tenant', value: '', url: `${ADMIN_ORIGIN}/admin/` },
+    ])
+
+    await page.goto(`${ADMIN_ORIGIN}/admin/collections/posts/create`, { waitUntil: 'load' })
+
+    const dialog = page.getByRole('dialog', { name: /select tenant/i })
+    await expect(dialog).toBeVisible({ timeout: 15_000 })
+
+    const modalCombo = dialog.getByRole('combobox').first()
+    await modalCombo.click().catch(() => null)
+    await page.getByRole('option', { name: new RegExp(escapeRegex(tenant1.name), 'i') }).first().click()
+    await dialog.getByRole('button', { name: /continue/i }).click()
+
+    await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/posts/create'), {
+      timeout: 15_000,
+    })
+    await expect(dialog).not.toBeVisible({ timeout: 15_000 })
+
+    await page.getByRole('textbox', { name: /title/i }).fill(`Modal overlay regression ${Date.now()}`)
+
+    const createResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/api/posts') &&
+        !response.url().includes('/api/posts/') &&
+        response.status() === 201,
+      { timeout: 20_000 },
+    )
+
+    await page.getByRole('button', { name: /save/i }).first().click({ timeout: 10_000 })
+    await createResponse
+  })
+
   test('saving document after changing tenant selector persists selected tenant on the document', async ({
     page,
     request,

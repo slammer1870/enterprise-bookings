@@ -54,19 +54,24 @@ export function SelectTenantForCreateModal({
     if (selectedValue != null && selectedValue !== '') {
       setIsReloading(true)
       setTenant({ id: selectedValue, refresh: false })
+      if (portalEl) portalEl.style.pointerEvents = 'none'
       onClose()
       // In production, we've seen the create UI remain un-interactable after tenant selection
-      // until a manual reload. Force a reload to ensure the admin app re-hydrates with the
-      // correct tenant context.
+      // when the modal portal container survives just long enough to intercept clicks.
+      // Yield a frame before reloading so React can commit the close and release the overlay.
       if (typeof window !== 'undefined') {
-        window.location.reload()
+        window.requestAnimationFrame(() => {
+          window.setTimeout(() => {
+            window.location.reload()
+          }, 0)
+        })
         return
       }
       router.refresh()
     } else {
       onClose()
     }
-  }, [selectedValue, setTenant, onClose, router])
+  }, [selectedValue, setTenant, portalEl, onClose, router])
 
   const confirmDisabled = selectedValue == null || selectedValue === ''
 
