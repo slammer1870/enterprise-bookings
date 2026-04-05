@@ -14,9 +14,8 @@ function normalizeAccountId(accountId: string | null | undefined): string | null
 function isE2ePlaceholderStripeAccount(accountId: string | null | undefined): boolean {
   const id = normalizeAccountId(accountId);
   if (!id) return false;
-  const isTestMode =
-    process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true";
-  return isTestMode && /^acct_[a-z_]+_\d+$/.test(id);
+  const isE2eWebhookMode = process.env.ENABLE_TEST_WEBHOOKS === "true";
+  return isE2eWebhookMode && /^acct_[a-z_]+_\d+$/.test(id);
 }
 
 function getPlatformStripeCustomerId(user: any): string | null {

@@ -4,9 +4,8 @@ import { stripe } from "@repo/shared-utils";
 function isE2ePlaceholderStripeAccount(accountId: string | null | undefined): boolean {
   const id = typeof accountId === "string" ? accountId.trim() : "";
   if (!id) return false;
-  const isTestMode =
-    process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true";
-  return isTestMode && /^acct_[a-z_]+_\d+$/.test(id);
+  const isE2eWebhookMode = process.env.ENABLE_TEST_WEBHOOKS === "true";
+  return isE2eWebhookMode && /^acct_[a-z_]+_\d+$/.test(id);
 }
 
 function getTenantIdFromDataOrReq(data: any, req: any): number | null {
