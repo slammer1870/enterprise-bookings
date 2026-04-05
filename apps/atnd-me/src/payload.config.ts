@@ -22,6 +22,7 @@ import { getServerSideURL } from './utilities/getURL'
 import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
+import { resolvePayloadEmailConfig } from './utilities/emailConfig'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -103,11 +104,7 @@ export default buildConfig({
   },
   // This config helps us configure global or default features that the other editors can inherit
   editor: defaultLexical,
-  email: resendAdapter({
-    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
-    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
-    apiKey: process.env.RESEND_API_KEY || '',
-  }),
+  email: resendAdapter(resolvePayloadEmailConfig(process.env)),
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI || '',

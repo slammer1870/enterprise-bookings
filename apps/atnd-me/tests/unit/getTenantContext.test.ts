@@ -88,4 +88,31 @@ describe('getTenantSlug (slug extraction)', () => {
     expect(tenant).toBeNull()
     expect(payload.findByID).not.toHaveBeenCalled()
   })
+
+  it('allows payload-tenant fallback when the request host is unavailable', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
+
+    const payload = {
+      findByID: vi.fn(async () => ({
+        id: 42,
+        slug: 'acme',
+        name: 'Acme Gym',
+        domain: null,
+      })),
+    }
+
+    const tenant = await getTenantContext(payload as never, {
+      cookies: {
+        get: (name: string) => (name === 'payload-tenant' ? { value: '42' } : undefined),
+      },
+    })
+
+    expect(tenant).toEqual({
+      id: 42,
+      slug: 'acme',
+      name: 'Acme Gym',
+      domain: null,
+    })
+    expect(payload.findByID).toHaveBeenCalledOnce()
+  })
 })

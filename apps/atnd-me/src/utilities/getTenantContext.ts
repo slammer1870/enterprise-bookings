@@ -77,6 +77,41 @@ export type TenantContext = {
   domain?: string | null
 }
 
+export type TenantRequestSource = TenantSlugSource & {
+  context?: {
+    tenant?: unknown
+  }
+}
+
+export function getTenantIdFromContext(context?: TenantRequestSource['context']): number | string | null {
+  const rawTenant = context?.tenant
+  if (rawTenant == null) return null
+
+  if (typeof rawTenant === 'number' || typeof rawTenant === 'string') {
+    return rawTenant
+  }
+
+  if (typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant) {
+    const tenantId = (rawTenant as { id?: unknown }).id
+    if (typeof tenantId === 'number' || typeof tenantId === 'string') {
+      return tenantId
+    }
+  }
+
+  return null
+}
+
+export async function getTenantIdForCreateRequest(
+  payload: Payload,
+  source?: TenantRequestSource | null,
+): Promise<number | string | null> {
+  const contextTenantId = getTenantIdFromContext(source?.context)
+  if (contextTenantId != null && contextTenantId !== '') return contextTenantId
+
+  const tenant = await getTenantContext(payload, source)
+  return tenant?.id ?? null
+}
+
 /**
  * Tenant with branding fields for white labeling (logo, description).
  */
@@ -131,7 +166,8 @@ export async function getTenantContext(
     }
   }
 
-  // Fallback: Admin TenantSelector on root domain (payload-tenant cookie stores tenant ID)
+  // Fallback: admin TenantSelector cookie. Ignore it on the platform base host so
+  // public/root-host requests do not inherit stale admin tenant selection.
   if (isBaseHostRequest(source?.headers)) return null
 
   const tenantId = getPayloadTenantIdFromRequest(source)
@@ -231,8 +267,6 @@ export async function getTenantWithBranding(
   }
 
   // Fallback: Admin TenantSelector (payload-tenant cookie stores tenant ID)
-  if (isBaseHostRequest(source?.headers)) return null
-
   const tenantId = getPayloadTenantIdFromRequest(source)
   if (!tenantId) return null
   try {

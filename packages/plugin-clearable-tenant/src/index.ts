@@ -42,6 +42,49 @@ const PACKAGE_GLOBAL_VIEW_REDIRECT_PATH =
   '@repo/plugin-clearable-tenant/rsc#GlobalViewRedirectRootAware'
 
 type AdminEntry = { path?: string; serverProps?: Record<string, unknown> } | string
+type FieldLike = {
+  name?: string
+  fields?: FieldLike[]
+  tabs?: Array<{ fields?: FieldLike[] }>
+}
+
+const TENANT_SELECTOR_SYNC_FIELD_NAME = '_tenantSelectorSync'
+const TENANT_SELECTOR_SYNC_COMPONENT_PATH =
+  '@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField'
+
+function hasFieldNamed(fields: FieldLike[] | undefined, fieldName: string): boolean {
+  if (!Array.isArray(fields)) return false
+
+  return fields.some((field) => {
+    if (field?.name === fieldName) return true
+    if (hasFieldNamed(field?.fields, fieldName)) return true
+
+    return Array.isArray(field?.tabs)
+      ? field.tabs.some((tab) => hasFieldNamed(tab?.fields, fieldName))
+      : false
+  })
+}
+
+function appendTenantSelectorSyncField(fields: unknown): CollectionConfig['fields'] {
+  if (!Array.isArray(fields)) return fields as CollectionConfig['fields']
+  if (hasFieldNamed(fields as FieldLike[], TENANT_SELECTOR_SYNC_FIELD_NAME)) {
+    return fields as CollectionConfig['fields']
+  }
+
+  return [
+    ...fields,
+    {
+      name: TENANT_SELECTOR_SYNC_FIELD_NAME,
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: TENANT_SELECTOR_SYNC_COMPONENT_PATH,
+        },
+      },
+    },
+  ] as CollectionConfig['fields']
+}
 
 /**
  * Payload plugin: replaces multi-tenant's TenantSelector with a clearable one,
@@ -156,6 +199,7 @@ export const clearableTenantPlugin =
         const existingBeforeChange = Array.isArray(col.hooks?.beforeChange) ? col.hooks.beforeChange : []
         return {
           ...col,
+          fields: appendTenantSelectorSyncField(col.fields),
           hooks: {
             ...col.hooks,
             beforeChange: [...existingBeforeChange, syncTenantHook],

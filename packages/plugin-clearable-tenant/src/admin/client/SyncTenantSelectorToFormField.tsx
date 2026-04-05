@@ -36,12 +36,27 @@ export function SyncTenantSelectorToFormField(): React.ReactElement | null {
 
   React.useLayoutEffect(() => {
     if (!collectionHasTenantField) return
-    // Relationship fields accept id or { id }; Payload typically accepts the id.
     const value =
       selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== ''
         ? selectedTenantID
         : null
     setValue(value)
+
+    if (typeof document === 'undefined') return
+
+    const selectorValue = value == null ? '' : String(value)
+    const escapedPath =
+      typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(documentTenantFieldName)
+        : documentTenantFieldName.replace(/["\\]/g, '\\$&')
+    const input = document.querySelector<HTMLInputElement>(`input[name="${escapedPath}"]`)
+
+    if (!input) return
+    if (input.value === selectorValue) return
+
+    input.value = selectorValue
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
   }, [collectionHasTenantField, selectedTenantID, setValue])
 
   return null

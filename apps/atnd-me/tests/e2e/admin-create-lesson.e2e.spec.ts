@@ -52,11 +52,37 @@ function formatCalendarButtonLabel(date: Date): string {
   return `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${day}${suffix}, ${date.getFullYear()}`
 }
 
+function getTenantSelector(page: Parameters<typeof test>[0]['page']) {
+  return page.getByTestId('tenant-selector')
+}
+
+async function ensureSidebarOpen(page: Parameters<typeof test>[0]['page']) {
+  await page.waitForLoadState('domcontentloaded').catch(() => null)
+
+  if (await getTenantSelector(page).isVisible().catch(() => false)) {
+    return
+  }
+
+  const openMenuButton = page.getByRole('button', { name: /open\s+menu/i })
+  const closeMenuButton = page.getByRole('button', { name: /close\s+menu/i })
+
+  await Promise.race([
+    openMenuButton.waitFor({ state: 'visible', timeout: 10_000 }),
+    closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }),
+  ]).catch(() => null)
+
+  if (await openMenuButton.isVisible().catch(() => false)) {
+    await openMenuButton.click({ timeout: 10_000 }).catch(() => null)
+    await closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => null)
+    await page.waitForTimeout(250)
+  }
+
+  await getTenantSelector(page).waitFor({ state: 'visible', timeout: 20_000 })
+}
+
 async function chooseTenantInCreateModal(page: Parameters<typeof test>[0]['page'], tenantName: string) {
   const dialog = page.getByRole('dialog', { name: /select tenant/i })
-  await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => null)
-  const isVisible = await dialog.isVisible().catch(() => false)
-  if (!isVisible) return
+  await expect(dialog).toBeVisible({ timeout: 10000 })
 
   const combobox = dialog.getByRole('combobox').first()
   await combobox.click({ timeout: 5000 })
@@ -80,6 +106,35 @@ async function chooseTenantInCreateModal(page: Parameters<typeof test>[0]['page'
   await continueButton.click()
   await page.waitForLoadState('load').catch(() => null)
   await expect(dialog).not.toBeVisible({ timeout: 15000 })
+}
+
+async function ensureTenantSelectedForCreate(
+  page: Parameters<typeof test>[0]['page'],
+  tenant: { id: number; name: string; slug?: string | null },
+) {
+  const dialog = page.getByRole('dialog', { name: /select tenant/i })
+  const modalVisible = await dialog.isVisible().catch(() => false)
+  if (modalVisible) {
+    await chooseTenantInCreateModal(page, tenant.name)
+    return
+  }
+
+  const { hostname, origin } = new URL(page.url())
+  const isTenantHost = hostname.endsWith('.localhost') && hostname !== 'localhost'
+  if (isTenantHost) {
+    return
+  }
+
+  await page.context().addCookies([
+    { name: 'payload-tenant', value: String(tenant.id), url: `${origin}/` },
+    { name: 'payload-tenant', value: String(tenant.id), url: `${origin}/admin/` },
+    { name: 'payload-tenant', value: String(tenant.id), url: `${origin}/admin/collections/` },
+  ])
+  await page.reload({ waitUntil: 'load' })
+  await ensureSidebarOpen(page)
+  await expect(
+    getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant.name), 'i')).first(),
+  ).toBeVisible({ timeout: 20_000 })
 }
 
 async function openLessonsDashboardForDate(
@@ -127,15 +182,15 @@ test.describe('Admin lesson creation date regression', () => {
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
     await page.goto(`${BASE_URL}/admin`, { waitUntil: 'load' })
 
-    const tenantName = testData.tenants[0]?.name
-    if (!tenantName) throw new Error('Expected tenant fixture for admin lesson creation test')
+    const tenant = testData.tenants[0]
+    if (!tenant?.id || !tenant?.name) throw new Error('Expected tenant fixture for admin lesson creation test')
 
     const className = uniqueClassName('ATND Admin Lesson')
     await page.goto('/admin/collections/class-options/create', {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
-    await chooseTenantInCreateModal(page, tenantName)
+    await ensureTenantSelectedForCreate(page, tenant)
     await page.getByRole('textbox', { name: /^Name\s*\*?$/i }).fill(className)
     await page.getByRole('spinbutton', { name: /Places/i }).fill('10')
     await page
@@ -156,7 +211,7 @@ test.describe('Admin lesson creation date regression', () => {
       timeout: process.env.CI ? 120000 : 60000,
     })
 
-    await chooseTenantInCreateModal(page, tenantName)
+    await ensureTenantSelectedForCreate(page, tenant)
     await selectClassOptionInLessonForm(page, className)
     await setLessonDateAndTime(page, targetDate)
     await saveLesson(page)

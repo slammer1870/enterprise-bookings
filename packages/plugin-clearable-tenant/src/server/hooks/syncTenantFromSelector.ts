@@ -9,6 +9,29 @@ export type SyncTenantFromSelectorOptions = {
 
 type CookieAwareRequest = PayloadRequest & {
   cookies?: { get: (name: string) => { value?: string } | undefined }
+  headers?: Headers | { get?: (name: string) => string | null | undefined }
+}
+
+function getCookieHeader(req: CookieAwareRequest): string | undefined {
+  const headerValue = req?.headers?.get?.('cookie') ?? req?.headers?.get?.('Cookie')
+  if (typeof headerValue !== 'string') return undefined
+  return headerValue
+}
+
+function getCookieValueFromHeader(cookieHeader: string, name: string): string | undefined {
+  const cookies = cookieHeader.split(';')
+  for (const cookie of cookies) {
+    const [rawName, ...rawValue] = cookie.split('=')
+    if (rawName?.trim() !== name) continue
+    const value = rawValue.join('=').trim()
+    if (value === '') return undefined
+    try {
+      return decodeURIComponent(value)
+    } catch {
+      return value
+    }
+  }
+  return undefined
 }
 
 /**
@@ -18,8 +41,13 @@ type CookieAwareRequest = PayloadRequest & {
  */
 function getTenantIdFromRequest(req: CookieAwareRequest): string | number | undefined {
   const cookieStore = req?.cookies
-  if (cookieStore === undefined) return undefined
-  const value = cookieStore?.get?.(PAYLOAD_TENANT_COOKIE)?.value
+  const value =
+    cookieStore?.get?.(PAYLOAD_TENANT_COOKIE)?.value ??
+    (() => {
+      const cookieHeader = getCookieHeader(req)
+      if (cookieHeader == null) return undefined
+      return getCookieValueFromHeader(cookieHeader, PAYLOAD_TENANT_COOKIE)
+    })()
   if (value === undefined || value === null || value === '') return undefined
   const trimmed = String(value).trim()
   if (trimmed === '') return undefined
@@ -32,7 +60,7 @@ function getTenantIdFromRequest(req: CookieAwareRequest): string | number | unde
  * we skip syncing so we don't overwrite tenant set by req.context.tenant or other hooks.
  */
 function hasCookieStore(req: CookieAwareRequest): boolean {
-  return req?.cookies !== undefined
+  return req?.cookies !== undefined || getCookieHeader(req) !== undefined
 }
 
 /**
@@ -64,7 +92,10 @@ export function createSyncTenantFromSelectorHook(
     const tenantId = getTenantIdFromRequest(req as CookieAwareRequest)
     const dataRecord = data as Record<string, unknown>
     if (tenantId === undefined || tenantId === null || tenantId === '') {
-      dataRecord[documentTenantFieldName] = null
+      const currentTenantValue = dataRecord[documentTenantFieldName]
+      if (currentTenantValue === null || currentTenantValue === '') {
+        dataRecord[documentTenantFieldName] = null
+      }
       return data
     }
     dataRecord[documentTenantFieldName] = tenantId

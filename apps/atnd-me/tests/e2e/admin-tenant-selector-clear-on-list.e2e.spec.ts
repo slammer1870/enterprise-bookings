@@ -25,36 +25,22 @@ function getTenantSelector(page: Page) {
 
 async function ensureSidebarOpen(page: Page) {
   await page.waitForLoadState('domcontentloaded').catch(() => null)
-  if (isCI) await page.waitForTimeout(1000)
+  if (isCI) await page.waitForTimeout(250)
 
   // In some admin layouts (esp. wide viewports), the sidebar is always visible and
   // the "Open menu" / "Close menu" buttons are not rendered at all.
-  if (await getTenantSelector(page).isVisible().catch(() => false)) {
+  const tenantSelector = getTenantSelector(page)
+  if (await tenantSelector.isVisible().catch(() => false)) {
     return
   }
 
   const openMenuButton = page.getByRole('button', { name: /open\s+menu/i })
-  const closeMenuButton = page.getByRole('button', { name: /close\s+menu/i })
-
-  await Promise.race([
-    openMenuButton.waitFor({ state: 'visible', timeout: 10_000 }),
-    closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }),
-  ]).catch(() => null)
 
   if (await openMenuButton.isVisible().catch(() => false)) {
     await openMenuButton.click({ timeout: 10_000 }).catch(() => null)
-    await closeMenuButton.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => null)
-    await page.waitForTimeout(250)
   }
 
-  await page
-    .waitForResponse(
-      (res) => res.url().includes('populate-tenant-options') && res.request().method() === 'GET',
-      { timeout: CI.sidebarTimeout },
-    )
-    .catch(() => null)
-
-  await getTenantSelector(page).waitFor({ state: 'visible', timeout: CI.sidebarTimeout })
+  await expect(tenantSelector).toBeVisible({ timeout: CI.sidebarTimeout })
 }
 
 
