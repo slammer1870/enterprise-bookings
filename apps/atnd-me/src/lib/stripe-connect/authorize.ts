@@ -8,26 +8,35 @@ import { getStripeConnectEnv } from '@/lib/stripe/platform'
 
 const STATE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
-export type ConnectStatePayload = { tenantId: number; userId: number; exp: number; nonce: string }
+export type ConnectStatePayload = {
+  tenantId: number
+  userId: number
+  exp: number
+  nonce: string
+  returnTo?: string
+}
 
 /** Build state string for tests (e.g. expired state when exp is in the past). */
 export function buildConnectState(
   tenantId: number,
   userId: number,
   exp: number = Date.now() + STATE_TTL_MS,
+  returnTo?: string,
 ): string {
   const { webhookSecret } = getStripeConnectEnv()
   const nonce = createHmac('sha256', webhookSecret)
     .update(`${tenantId}:${userId}:${exp}:${Math.random()}`)
     .digest('hex')
     .slice(0, 16)
-  const payload = JSON.stringify({ tenantId, userId, exp, nonce })
+  const payload = JSON.stringify({ tenantId, userId, exp, nonce, returnTo })
   const signature = createHmac('sha256', webhookSecret).update(payload).digest('base64url')
   return Buffer.from(payload, 'utf8').toString('base64url') + '.' + signature
 }
 
 /** Verify state signature and expiry; return tenantId and userId. */
-export function verifyConnectState(state: string): { tenantId: number; userId: number } {
+export function verifyConnectState(
+  state: string,
+): { tenantId: number; userId: number; returnTo?: string } {
   const { webhookSecret } = getStripeConnectEnv()
   const parts = state.split('.')
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -46,17 +55,28 @@ export function verifyConnectState(state: string): { tenantId: number; userId: n
   if (typeof payload.tenantId !== 'number' || typeof payload.userId !== 'number') {
     throw new Error('Invalid state: missing tenant or user binding')
   }
-  return { tenantId: payload.tenantId, userId: payload.userId }
+  if (payload.returnTo != null) {
+    try {
+      const parsed = new URL(payload.returnTo)
+      if (!/^https?:$/.test(parsed.protocol)) {
+        throw new Error('Invalid returnTo protocol')
+      }
+    } catch {
+      throw new Error('Invalid state: bad returnTo URL')
+    }
+  }
+  return { tenantId: payload.tenantId, userId: payload.userId, returnTo: payload.returnTo }
 }
 
 export function buildStripeConnectAuthorizeUrl(
   tenantId: number,
   userId: number,
   redirectBaseUrl: string,
+  returnTo?: string,
 ): { url: string; state: string } {
   const { connectClientId } = getStripeConnectEnv()
   const exp = Date.now() + STATE_TTL_MS
-  const state = buildConnectState(tenantId, userId, exp)
+  const state = buildConnectState(tenantId, userId, exp, returnTo)
 
   const redirectUri = `${redirectBaseUrl.replace(/\/$/, '')}/api/stripe/connect/callback`
   const params = new URLSearchParams({

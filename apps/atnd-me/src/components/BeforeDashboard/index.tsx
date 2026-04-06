@@ -1,5 +1,8 @@
+'use client'
+
 import { Banner } from '@payloadcms/ui/elements/Banner'
 import React from 'react'
+import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 
 import { SeedButton } from './SeedButton'
 import './index.scss'
@@ -7,8 +10,21 @@ import './index.scss'
 const baseClass = 'before-dashboard'
 
 const BeforeDashboard: React.FC = () => {
+  const stripeNotice =
+    typeof window !== 'undefined'
+      ? getStripeConnectNoticeFromSearch(window.location.search)
+      : null
+
   return (
     <div className={baseClass}>
+      {stripeNotice ? (
+        <Banner
+          className={`${baseClass}__banner`}
+          type={stripeNotice.tone === 'error' ? 'error' : 'success'}
+        >
+          <h4>{stripeNotice.message}</h4>
+        </Banner>
+      ) : null}
       <Banner className={`${baseClass}__banner`} type="success">
         <h4>Welcome to your dashboard!</h4>
       </Banner>

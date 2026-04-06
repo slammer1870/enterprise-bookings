@@ -7,37 +7,9 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@payloadcms/ui'
 import { isTenantAdmin } from '@/utilities/check-admin-role'
+import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 
 type Status = { connected: boolean; tenantSlug?: string } | null
-type ConnectNotice = { tone: 'success' | 'error'; message: string } | null
-
-function getConnectNotice(status: Status): ConnectNotice {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  const searchParams = new URLSearchParams(window.location.search)
-  const connectState = searchParams.get('stripe_connect')
-  const rawMessage = searchParams.get('message')?.trim()
-
-  if (connectState === 'success') {
-    return {
-      tone: 'success',
-      message: status?.connected
-        ? 'Stripe connected successfully.'
-        : 'Stripe onboarding returned successfully. Final confirmation may take a moment.',
-    }
-  }
-
-  if (connectState === 'error') {
-    return {
-      tone: 'error',
-      message: rawMessage || 'Stripe onboarding could not be completed.',
-    }
-  }
-
-  return null
-}
 
 export const StripeConnectStatus: React.FC = () => {
   const { user } = useAuth()
@@ -73,7 +45,12 @@ export const StripeConnectStatus: React.FC = () => {
   if (status === null) {
     return null
   }
-  const notice = getConnectNotice(status)
+  const notice =
+    typeof window !== 'undefined'
+      ? getStripeConnectNoticeFromSearch(window.location.search, {
+          connected: status?.connected,
+        })
+      : null
   if (status.connected) {
     return (
       <div data-testid="stripe-connect-status">

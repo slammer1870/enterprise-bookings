@@ -134,20 +134,19 @@ describe('Stripe Connect callback route (step 2.4)', () => {
   )
 
   it(
-    'rejects when current user does not match state.userId (step 2.9 CSRF)',
+    'redirects Stripe errors back to the tenant return URL from signed state',
     async () => {
-      const validState = buildConnectState(testTenantId, adminUser.id as number)
+      const returnTo = 'http://tenant-callback.localhost:3000/admin'
+      const validState = buildConnectState(testTenantId, adminUser.id as number, undefined, returnTo)
       const res = await GET(
         request({
-          code: 'auth_code_123',
           state: validState,
-          headers: { 'x-test-user-id': '999999' },
+          error: 'access_denied',
         }),
       )
       expect(res.status).toBe(302)
       const location = res.headers.get('location') ?? ''
-      expect(location).toContain('stripe_connect=error')
-      expect(location).toMatch(/user.?mismatch|message=/i)
+      expect(location).toBe(`${returnTo}?stripe_connect=error&message=access_denied`)
       expect(callbackExchange.exchangeCodeForStripeConnectAccount).not.toHaveBeenCalled()
     },
     TEST_TIMEOUT,
@@ -156,18 +155,18 @@ describe('Stripe Connect callback route (step 2.4)', () => {
   it(
     'on successful exchange: updates tenant stripeConnectAccountId and sets stripeConnectOnboardingStatus to pending',
     async () => {
-      const callbackHost = 'callback-tenant.localhost:3000'
+      const callbackHost = 'platform.localhost:3000'
+      const returnTo = 'http://tenant-success.localhost:3000/admin'
       vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockResolvedValue({
         stripe_user_id: callbackAccountId,
         stripe_account_id: callbackAccountId,
       })
-      const validState = buildConnectState(testTenantId, adminUser.id as number)
+      const validState = buildConnectState(testTenantId, adminUser.id as number, undefined, returnTo)
       const res = await GET(
         request({
           code: 'auth_code_ok',
           state: validState,
           headers: {
-            'x-test-user-id': String(adminUser.id),
             host: callbackHost,
           },
         }),
@@ -175,10 +174,10 @@ describe('Stripe Connect callback route (step 2.4)', () => {
 
       expect(res.status).toBe(302)
       const location = res.headers.get('location') ?? ''
-      expect(location).toBe(`http://${callbackHost}/admin?stripe_connect=success`)
+      expect(location).toBe(`${returnTo}?stripe_connect=success`)
       expect(callbackExchange.exchangeCodeForStripeConnectAccount).toHaveBeenCalledWith(
         'auth_code_ok',
-        `http://${callbackHost}/api/stripe/connect/callback`,
+        'http://localhost:3000/api/stripe/connect/callback',
       )
 
       const updated = await payload.findByID({
@@ -195,21 +194,21 @@ describe('Stripe Connect callback route (step 2.4)', () => {
   it(
     'on failed exchange: does not update tenant account/status, stores error in stripeConnectLastError',
     async () => {
+      const returnTo = 'http://tenant-fail.localhost:3000/admin'
       vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockRejectedValue(
         new Error('invalid_grant: code already used'),
       )
-      const validState = buildConnectState(failTenantId, adminUser.id as number)
+      const validState = buildConnectState(failTenantId, adminUser.id as number, undefined, returnTo)
       const res = await GET(
         request({
           code: 'used_code',
           state: validState,
-          headers: { 'x-test-user-id': String(adminUser.id) },
         }),
       )
 
       expect(res.status).toBe(302)
       const location = res.headers.get('location') ?? ''
-      expect(location).toMatch(/error|fail/i)
+      expect(location).toBe(`${returnTo}?stripe_connect=error&message=invalid_grant%3A+code+already+used`)
 
       const updated = await payload.findByID({
         collection: 'tenants',

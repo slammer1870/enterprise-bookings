@@ -8,6 +8,7 @@ import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
 import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/stripe/connect/authorize/route'
+import { verifyConnectState } from '@/lib/stripe-connect/authorize'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -205,7 +206,7 @@ describe('Stripe Connect authorize route (step 2.3)', () => {
   )
 
   it(
-    'builds Stripe Connect URL with stable callback when tenant-admin requests their tenant',
+    'builds Stripe Connect URL with shared callback and tenant return URL in state',
     async () => {
       const tenantSlug = `authorize-subdomain-${Date.now()}`
       await payload.update({
@@ -227,9 +228,12 @@ describe('Stripe Connect authorize route (step 2.3)', () => {
       const location = res.headers.get('location')
       const authorizeUrl = new URL(location)
       const redirectUri = authorizeUrl.searchParams.get('redirect_uri')
+      const state = authorizeUrl.searchParams.get('state')
+      const parsedState = state ? verifyConnectState(state) : null
       expect(location).toContain('connect.stripe.com/oauth/authorize')
       expect(location).toMatch(/client_id=ca_test_placeholder|client_id=/)
-      expect(redirectUri).toBe(`http://${tenantSlug}.localhost:3000/api/stripe/connect/callback`)
+      expect(redirectUri).toBe('http://localhost:3000/api/stripe/connect/callback')
+      expect(parsedState?.returnTo).toBe(`http://${tenantSlug}.localhost:3000/admin`)
       expect(location).toMatch(/state=/)
     },
     TEST_TIMEOUT,
