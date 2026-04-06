@@ -294,6 +294,9 @@ const defaultHooks: HooksConfig = {
               and: [
                 { lesson: { equals: lessonId } },
                 { status: { equals: "confirmed" } },
+                // Exclude the current booking so a cancellation is immediately reflected even
+                // if the DB transaction hasn't committed yet when this afterChange hook runs.
+                { id: { not_equals: doc.id } },
               ],
             },
             depth: 0,
@@ -304,7 +307,7 @@ const defaultHooks: HooksConfig = {
           .then((res) => res.totalDocs)
           .catch(() => 0);
 
-        // Check if current booking is confirmed OR if any existing bookings are confirmed.
+        // Check if current booking is confirmed OR if any OTHER bookings are confirmed.
         const hasConfirmedBooking = doc.status === "confirmed" || confirmedCount > 0;
 
         if (hasConfirmedBooking) {

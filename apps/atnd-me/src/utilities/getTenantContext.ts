@@ -1,5 +1,9 @@
 import type { Payload } from 'payload'
-import { getPlatformHostname } from './getURL'
+import {
+  getPayloadTenantIdFromRequest,
+  getTenantSlugFromRequest,
+  isBaseHostRequest,
+} from './tenantRequest'
 
 /**
  * Source for extracting tenant slug (cookies, headers, URL params).
@@ -23,45 +27,7 @@ export type TenantSlugSource = {
 export async function getTenantSlug(
   source?: TenantSlugSource | null
 ): Promise<string | null> {
-  if (!source) return null
-
-  const cookieValue = source.cookies?.get?.('tenant-slug')?.value
-  if (cookieValue) return cookieValue
-
-  const headerValue = source.headers?.get?.('x-tenant-slug')
-  if (headerValue) return headerValue
-
-  const paramValue = source.searchParams?.get?.('slug')
-  if (paramValue) return paramValue
-
-  return null
-}
-
-function getTenantSlugFromHost(headers?: Headers | null): string | null {
-  const host = headers?.get('x-forwarded-host')?.split(',')[0]?.trim() || headers?.get('host')?.trim()
-  if (!host) return null
-
-  const hostname = host.split(':')[0] ?? host
-  const platformHostname = getPlatformHostname()
-
-  if (hostname.includes('localhost')) {
-    const parts = hostname.split('.')
-    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') {
-      return parts[0]
-    }
-    return null
-  }
-
-  if (!platformHostname || hostname === platformHostname) {
-    return null
-  }
-
-  if (hostname.endsWith(`.${platformHostname}`)) {
-    const prefix = hostname.slice(0, -(platformHostname.length + 1))
-    return prefix.split('.')[0] || null
-  }
-
-  return null
+  return getTenantSlugFromRequest(source)
 }
 
 async function findTenantByHost(payload: Payload, headers?: Headers | null) {
@@ -69,7 +35,15 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
   if (!host) return null
 
   const hostname = host.split(':')[0] ?? host
-  const platformHostname = getPlatformHostname()
+  const platformHostname = (() => {
+    const url = process.env.NEXT_PUBLIC_SERVER_URL
+    if (!url) return null
+    try {
+      return new URL(url).hostname
+    } catch {
+      return null
+    }
+  })()
 
   if (!hostname || hostname.includes('localhost')) return null
   if (platformHostname && (hostname === platformHostname || hostname.endsWith(`.${platformHostname}`))) {
@@ -103,6 +77,41 @@ export type TenantContext = {
   domain?: string | null
 }
 
+export type TenantRequestSource = TenantSlugSource & {
+  context?: {
+    tenant?: unknown
+  }
+}
+
+export function getTenantIdFromContext(context?: TenantRequestSource['context']): number | string | null {
+  const rawTenant = context?.tenant
+  if (rawTenant == null) return null
+
+  if (typeof rawTenant === 'number' || typeof rawTenant === 'string') {
+    return rawTenant
+  }
+
+  if (typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant) {
+    const tenantId = (rawTenant as { id?: unknown }).id
+    if (typeof tenantId === 'number' || typeof tenantId === 'string') {
+      return tenantId
+    }
+  }
+
+  return null
+}
+
+export async function getTenantIdForCreateRequest(
+  payload: Payload,
+  source?: TenantRequestSource | null,
+): Promise<number | string | null> {
+  const contextTenantId = getTenantIdFromContext(source?.context)
+  if (contextTenantId != null && contextTenantId !== '') return contextTenantId
+
+  const tenant = await getTenantContext(payload, source)
+  return tenant?.id ?? null
+}
+
 /**
  * Tenant with branding fields for white labeling (logo, description).
  */
@@ -120,7 +129,7 @@ export async function getTenantContext(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<TenantContext | null> {
-  const slug = (await getTenantSlug(source)) || getTenantSlugFromHost(source?.headers)
+  const slug = await getTenantSlug(source)
   if (slug) {
     const result = await payload.find({
       collection: 'tenants',
@@ -157,12 +166,12 @@ export async function getTenantContext(
     }
   }
 
-  // Fallback: Admin TenantSelector on root domain (payload-tenant cookie stores tenant ID)
-  const cookieStore = source?.cookies
-  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
-  if (!payloadTenant || !/^\d+$/.test(payloadTenant)) return null
+  // Fallback: admin TenantSelector cookie. Ignore it on the platform base host so
+  // public/root-host requests do not inherit stale admin tenant selection.
+  if (isBaseHostRequest(source?.headers)) return null
 
-  const tenantId = parseInt(payloadTenant, 10)
+  const tenantId = getPayloadTenantIdFromRequest(source)
+  if (!tenantId) return null
   try {
     const tenant = await payload.findByID({
       collection: 'tenants',
@@ -195,9 +204,7 @@ export async function getTenantWithBranding(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<TenantWithBranding | null> {
-  const cookieStore = source?.cookies
-
-  const slug = (await getTenantSlug(source)) || getTenantSlugFromHost(source?.headers)
+  const slug = await getTenantSlug(source)
   // Prefer explicit tenant slug (subdomain/custom-domain resolution) over admin selector cookie.
   if (slug) {
     const result = await payload.find({
@@ -260,10 +267,8 @@ export async function getTenantWithBranding(
   }
 
   // Fallback: Admin TenantSelector (payload-tenant cookie stores tenant ID)
-  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
-  if (!payloadTenant || !/^\d+$/.test(payloadTenant)) return null
-
-  const tenantId = parseInt(payloadTenant, 10)
+  const tenantId = getPayloadTenantIdFromRequest(source)
+  if (!tenantId) return null
   try {
     const tenant = await payload.findByID({
       collection: 'tenants',

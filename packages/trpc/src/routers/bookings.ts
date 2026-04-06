@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
+import type Stripe from "stripe";
 import { protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from "../utils/collections";
 import {
@@ -13,12 +14,15 @@ import {
 } from "../utils/tenant";
 
 import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
-import { checkRole } from "@repo/shared-utils";
+import { checkRole, stripe } from "@repo/shared-utils";
 import {
   getMaxSubscriptionQuantityPerLesson,
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
   canUseSubscriptionForBooking,
+  filterValidClassPassesForLesson,
+  type LessonLike,
+  type ClassPassLike,
 } from "@repo/shared-services";
 
 export const bookingsRouter = {
@@ -603,6 +607,27 @@ export const bookingsRouter = {
         typeof lesson.tenant === "object" && lesson.tenant != null
           ? (lesson.tenant as { id: number }).id
           : (lesson.tenant as number | undefined) ?? null;
+      const tenantDoc =
+        lessonTenantId != null && hasCollection(ctx.payload, "tenants")
+          ? await ctx.payload
+              .findByID({
+                collection: "tenants" as any,
+                id: lessonTenantId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              .catch(() => null)
+          : null;
+      const tenantStripeAccountId =
+        tenantDoc &&
+        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+        (tenantDoc as any).stripeConnectAccountId.trim() &&
+        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+          ? String((tenantDoc as any).stripeConnectAccountId).trim()
+          : null;
+      const stripeOpts = tenantStripeAccountId
+        ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
 
       // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
       const confirmedBookings: Booking[] = [];
@@ -765,12 +790,16 @@ export const bookingsRouter = {
           "bookings",
           baseData,
           {
-            overrideAccess: false,
-            user: ctx.user,
+            // Access and capacity have already been validated in this mutation using the
+            // authenticated user and tenant-scoped lesson lookup above. Create with
+            // elevated access so pending manage-flow bookings are not rejected by
+            // collection access during this server-side operation.
+            overrideAccess: true,
           }
         );
         confirmedBookings.push(booking as Booking);
-        // Create transaction for class_pass so decrement hook can find it; also decrement pass here so it runs reliably
+        // Create transaction for class_pass so decrement hook can find it; also decrement
+        // immediately for newly created confirmed bookings in this flow.
         if (
           paymentMethodUsed === "class_pass" &&
           classPassIdUsed != null &&
@@ -825,7 +854,7 @@ export const bookingsRouter = {
    * with status active, quantity > 0, and expirationDate in the future.
    */
   getValidClassPassesForLesson: protectedProcedure
-    .input(z.object({ lessonId: z.number() }))
+    .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
       if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-passes")) {
         return [];
@@ -883,7 +912,193 @@ export const bookingsRouter = {
           user: ctx.user,
         }
       );
-      return result.docs;
+      return filterValidClassPassesForLesson(
+        lesson as unknown as LessonLike,
+        result.docs as ClassPassLike[],
+        new Date(),
+        input.quantity ?? 1
+      );
+    }),
+
+  getPurchasableClassPassTypesForLesson: protectedProcedure
+    .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
+    .query(async ({ ctx, input }) => {
+      if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-pass-types")) {
+        return [];
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+      }
+
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.lessonId, {
+        depth: 2,
+        overrideAccess: Boolean(tenantId),
+        user: ctx.user,
+      });
+      if (!lesson) {
+        return [];
+      }
+
+      const classOption =
+        typeof lesson.classOption === "object" ? lesson.classOption : null;
+      const classOptionWithPasses = classOption as (typeof classOption) & {
+        paymentMethods?: { allowedClassPasses?: unknown[] };
+      };
+      const allowedClassPasses = classOptionWithPasses?.paymentMethods?.allowedClassPasses;
+      if (!Array.isArray(allowedClassPasses) || allowedClassPasses.length === 0) {
+        return [];
+      }
+
+      const allowedTypeIds = (allowedClassPasses as (number | { id: number })[])
+        .map((passType) =>
+          typeof passType === "object" && passType != null && "id" in passType ? passType.id : passType
+        )
+        .filter((id): id is number => typeof id === "number");
+      if (allowedTypeIds.length === 0) return [];
+
+      const lessonTenantId =
+        typeof lesson.tenant === "object" && lesson.tenant != null
+          ? (lesson.tenant as { id: number }).id
+          : (lesson.tenant as number | undefined) ?? null;
+      const tenantDoc =
+        lessonTenantId != null && hasCollection(ctx.payload, "tenants")
+          ? await ctx.payload
+              .findByID({
+                collection: "tenants" as any,
+                id: lessonTenantId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              .catch(() => null)
+          : null;
+      const tenantStripeAccountId =
+        tenantDoc &&
+        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+        (tenantDoc as any).stripeConnectAccountId.trim() &&
+        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+          ? String((tenantDoc as any).stripeConnectAccountId).trim()
+          : null;
+      const stripeOpts = tenantStripeAccountId
+        ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
+
+      const accessible = await findSafe(ctx.payload, "class-pass-types", {
+        where: {
+          id: { in: allowedTypeIds },
+          status: { equals: "active" },
+          ...(lessonTenantId != null ? { tenant: { equals: lessonTenantId } } : {}),
+        },
+        limit: allowedTypeIds.length,
+        depth: 0,
+        overrideAccess: false,
+        user: ctx.user,
+      });
+
+      const requiredQuantity = Math.max(1, input.quantity ?? 1);
+      const docs = await Promise.all(
+        accessible.docs.map(async (doc) => {
+          const typeId = typeof doc?.id === "number" ? doc.id : null;
+          if (typeId == null) return null;
+
+          const fullDoc = await findByIdSafe(ctx.payload, "class-pass-types", typeId, {
+            depth: 0,
+            overrideAccess: true,
+          });
+          if (!fullDoc) return null;
+
+          const passQuantity =
+            typeof (fullDoc as { quantity?: unknown }).quantity === "number"
+              ? ((fullDoc as { quantity: number }).quantity)
+              : 0;
+          const allowMultiple =
+            (fullDoc as { allowMultipleBookingsPerLesson?: unknown }).allowMultipleBookingsPerLesson === true;
+
+          if (passQuantity < requiredQuantity) return null;
+          if (requiredQuantity > 1 && !allowMultiple) return null;
+
+          // Extract priceId from priceJSON (may be a JSON string or a stored object)
+          const rawPriceJsonField = (fullDoc as { priceJSON?: unknown }).priceJSON;
+          let priceId: string | null = null;
+          let priceSource: "priceJSON-string" | "priceJSON-object" | "stripeProduct-default_price" | "missing" =
+            "missing";
+          if (typeof rawPriceJsonField === "string" && rawPriceJsonField.trim().startsWith("{")) {
+            try {
+              const parsed = JSON.parse(rawPriceJsonField) as { id?: unknown };
+              if (typeof parsed?.id === "string" && parsed.id.trim().length > 0) {
+                priceId = parsed.id.trim();
+                priceSource = "priceJSON-string";
+              }
+            } catch {
+              priceId = null;
+            }
+          } else if (typeof rawPriceJsonField === "object" && rawPriceJsonField !== null) {
+            const obj = rawPriceJsonField as { id?: unknown };
+            if (typeof obj.id === "string" && obj.id.trim().length > 0) {
+              priceId = obj.id.trim();
+              priceSource = "priceJSON-object";
+            }
+          }
+          // Fall back to stripeProductId: fetch the product's default price from Stripe
+          if (priceId == null) {
+            const stripeProductId =
+              typeof (fullDoc as { stripeProductId?: unknown }).stripeProductId === "string"
+                ? (fullDoc as { stripeProductId: string }).stripeProductId
+                : null;
+            if (stripeProductId && stripe) {
+              try {
+                const product = await stripe.products.retrieve(stripeProductId, {
+                  expand: ["default_price"],
+                }, stripeOpts);
+                const defaultPrice = product.default_price as { id?: string } | null | undefined;
+                if (typeof defaultPrice?.id === "string" && defaultPrice.id.trim().length > 0) {
+                  priceId = defaultPrice.id.trim();
+                  priceSource = "stripeProduct-default_price";
+                }
+              } catch {
+                priceId = null;
+              }
+            }
+          }
+          ctx.payload.logger.info?.(
+            {
+              lessonId: input.lessonId,
+              tenantId: lessonTenantId,
+              stripeAccount: tenantStripeAccountId,
+              classPassTypeId: typeId,
+              stripeProductId:
+                typeof (fullDoc as { stripeProductId?: unknown }).stripeProductId === "string"
+                  ? (fullDoc as { stripeProductId: string }).stripeProductId
+                  : null,
+              priceId,
+              priceSource,
+            },
+            "[bookings] resolved purchasable class pass price",
+          );
+
+          return {
+            id: typeId,
+            name:
+              typeof (fullDoc as { name?: unknown }).name === "string"
+                ? (fullDoc as { name: string }).name
+                : "Class pass",
+            description:
+              typeof (fullDoc as { description?: unknown }).description === "string"
+                ? (fullDoc as { description: string }).description
+                : null,
+            quantity: passQuantity,
+            allowMultipleBookingsPerLesson: allowMultiple,
+            price:
+              typeof (fullDoc as { priceInformation?: { price?: unknown } }).priceInformation?.price === "number"
+                ? ((fullDoc as { priceInformation: { price: number } }).priceInformation.price)
+                : null,
+            priceId,
+          };
+        })
+      );
+
+      return docs.filter((doc): doc is NonNullable<typeof doc> => doc != null && doc.priceId != null);
     }),
 
   createOrUpdateBooking: protectedProcedure

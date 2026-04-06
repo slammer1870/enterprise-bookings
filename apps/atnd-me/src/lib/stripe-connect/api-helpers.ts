@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
+import { getTenantIdentifierFromRequest } from '@/utilities/tenantRequest'
 
 export type TenantForConnect = {
   id: number
@@ -16,16 +17,13 @@ export type TenantForConnect = {
 
 /** Resolve tenant slug/id from request (headers, cookies, searchParams). Supports test mode. */
 export function resolveTenantSlugOrId(request: NextRequest): string | null {
-  if (process.env.NODE_ENV === 'test') {
-    const id = request.headers.get('x-tenant-id')
-    if (id) return id
-  }
-  return (
-    request.headers.get('x-tenant-slug') ??
-    request.headers.get('x-tenant-id') ??
-    request.cookies.get('tenant-slug')?.value ??
-    request.nextUrl.searchParams.get('tenantSlug') ??
-    null
+  return getTenantIdentifierFromRequest(
+    {
+      headers: request.headers,
+      cookies: request.cookies,
+      searchParams: request.nextUrl.searchParams,
+    },
+    { allowNumericHeaderId: process.env.NODE_ENV === 'test' },
   )
 }
 
@@ -57,7 +55,7 @@ export async function resolveTenantForConnect(
   payload: any,
   slugOrId: string
 ): Promise<TenantForConnect | null> {
-  if (process.env.NODE_ENV === 'test' && /^\d+$/.test(slugOrId)) {
+  if (/^\d+$/.test(slugOrId)) {
     const t = await payload.findByID({
       collection: 'tenants',
       id: parseInt(slugOrId, 10),

@@ -158,8 +158,21 @@ export interface ClassOption {
   type?: "adult" | "child";
   paymentMethods?: {
     allowedDropIn?: DropIn;
+    allowedClassPasses?: ClassPassType[];
     allowedPlans?: Plan[];
   };
+}
+
+export interface ClassPassType {
+  id: number;
+  name?: string | null;
+  slug?: string | null;
+  quantity?: number | null;
+  allowMultipleBookingsPerLesson?: boolean;
+  status?: "active" | "inactive" | null;
+  priceInformation?: {
+    price?: number | null;
+  } | null;
 }
 
 export type Attendee = {

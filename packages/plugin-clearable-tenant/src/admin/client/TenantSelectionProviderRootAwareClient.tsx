@@ -5,7 +5,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
 import { createPathHelpers, getCollectionEditParams, isOptionalTenantCollectionRoute } from '../../shared/pathHelpers'
-import { deleteTenantCookie, getTenantCookie, setPayloadTenantCookie } from '../../shared/cookieHelpers'
+import {
+  deleteTenantContextCookies,
+  deleteTenantCookie,
+  getTenantCookie,
+  setPayloadTenantCookie,
+} from '../../shared/cookieHelpers'
 import { PreventEnterSubmitOnCreatePage } from './PreventEnterSubmitOnCreatePage'
 import { SelectTenantForCreateModal } from './SelectTenantForCreateModal'
 
@@ -69,6 +74,7 @@ type Props = {
   children: React.ReactNode
   initialTenantOptions: TenantOption[]
   initialValue: string | number | undefined
+  initialUserRoles?: string[]
   tenantsCollectionSlug: string
   rootDocCollections?: string[]
   collectionsRequireTenantOnCreate?: string[]
@@ -83,6 +89,7 @@ export function TenantSelectionProviderRootAwareClient({
   children,
   initialTenantOptions,
   initialValue,
+  initialUserRoles = [],
   tenantsCollectionSlug,
   rootDocCollections = ['navbar', 'footer'],
   collectionsRequireTenantOnCreate = [],
@@ -93,7 +100,10 @@ export function TenantSelectionProviderRootAwareClient({
 }: Props) {
   const pathname = usePathname()
   const router = useRouter()
-  const [selectedTenantID, setSelectedTenantID] = React.useState(initialValue)
+  const [selectedTenantID, setSelectedTenantID] = React.useState<string | number | undefined>(() => {
+    if (initialValue != null && initialValue !== '') return initialValue
+    return getTenantCookie()
+  })
   const [modified, setModified] = React.useState(false)
   const [entityType, setEntityType] = React.useState<'document' | 'global' | undefined>(undefined)
   const { user } = useAuth()
@@ -103,6 +113,7 @@ export function TenantSelectionProviderRootAwareClient({
   const userChanged = userID !== prevUserID.current
   const hasSyncedForUser = React.useRef(false)
   const hasAppliedInitialTenant = React.useRef(false)
+  const hasExplicitTenantClear = React.useRef(false)
   const [tenantOptions, setTenantOptions] = React.useState(initialTenantOptions)
 
   const getRootHostname = React.useCallback((): string | null => {
@@ -172,11 +183,15 @@ export function TenantSelectionProviderRootAwareClient({
       }),
     [pathname, rootDocCollections, collectionsWithTenantField, collectionsRequireTenantOnCreate],
   )
-  const isAdminUser = Boolean(user && (user as { roles?: string[] })?.roles?.includes?.('admin'))
+  const rawUserRoles = (user as { roles?: unknown[] } | undefined)?.roles
+  const effectiveRoles = Array.isArray(rawUserRoles)
+    ? rawUserRoles.filter((role): role is string => typeof role === 'string')
+    : initialUserRoles
+  const isAdminUser = effectiveRoles.includes('admin')
   const isTenantAdminUser =
-    Boolean(user) &&
-    (user as { roles?: string[] })?.roles?.includes?.('tenant-admin') === true &&
-    !(user as { roles?: string[] })?.roles?.includes?.('admin')
+    effectiveRoles.includes('tenant-admin') && !effectiveRoles.includes('admin')
+  const requiresExplicitTenantSelectionOnCreate =
+    isOnTenantRequiredCreatePage || (isTenantAdminUser && isCreateRequireTenantForTenantAdminPath(pathname))
 
   const findTenantOption = React.useCallback(
     (id: string | number | undefined) => {
@@ -186,23 +201,49 @@ export function TenantSelectionProviderRootAwareClient({
     [tenantOptions],
   )
 
+  const clearTenantSelection = React.useCallback(
+    ({ refresh }: { refresh?: boolean }) => {
+      hasExplicitTenantClear.current = true
+      setSelectedTenantID(undefined)
+      deleteTenantContextCookies(getCookieDomain)
+
+      void (async () => {
+        try {
+          await fetch('/api/admin/clear-tenant-cookie', {
+            method: 'POST',
+            credentials: 'include',
+          })
+        } catch {
+          // Ignore when the host app does not expose an admin clear route.
+        } finally {
+          if (refresh && !isOnTenantRequiredCreatePage && !isOnRootDocCollection) {
+            router.refresh()
+          }
+        }
+      })()
+    },
+    [router, getCookieDomain, isOnTenantRequiredCreatePage, isOnRootDocCollection],
+  )
+
   const setTenantAndCookie = React.useCallback(
     ({ id, refresh }: { id?: string | number; refresh?: boolean }) => {
       const matched = findTenantOption(id)
       const canonicalId = matched?.value ?? id
-      setSelectedTenantID(canonicalId)
 
       if (canonicalId !== undefined && canonicalId !== null && canonicalId !== '') {
+        hasExplicitTenantClear.current = false
+        setSelectedTenantID(canonicalId)
         setPayloadTenantCookie(String(canonicalId), getCookieDomain)
       } else {
-        deleteTenantCookie(getCookieDomain)
+        clearTenantSelection({ refresh })
+        return
       }
 
       if (refresh && !isOnTenantRequiredCreatePage && !isOnRootDocCollection) {
         router.refresh()
       }
     },
-    [router, findTenantOption, isOnTenantRequiredCreatePage, isOnRootDocCollection, tenantOptions, getCookieDomain],
+    [router, findTenantOption, isOnTenantRequiredCreatePage, isOnRootDocCollection, getCookieDomain, clearTenantSelection],
   )
 
   const setTenant = React.useCallback(
@@ -247,17 +288,52 @@ export function TenantSelectionProviderRootAwareClient({
         { credentials: 'include', method: 'GET' },
       )
       const result = await res.json()
-      if (result.tenantOptions && userID) {
-        setTenantOptions(result.tenantOptions)
-        if (result.tenantOptions.length === 1) {
-          setSelectedTenantID(result.tenantOptions[0].value)
-          setPayloadTenantCookie(String(result.tenantOptions[0].value), getCookieDomain)
+      if (!Array.isArray(result.tenantOptions)) return
+
+      const nextOptions = result.tenantOptions as TenantOption[]
+      setTenantOptions(nextOptions)
+      const isExplicitClearActive = hasExplicitTenantClear.current && canClearTenantOnCurrentRoute
+
+      if (isExplicitClearActive) {
+        setSelectedTenantID(undefined)
+        return
+      }
+
+      const cookieTenant = getTenantCookie()
+      if (cookieTenant) {
+        const cookieMatch = nextOptions.find((o) => String(o.value) === String(cookieTenant))
+        if (cookieMatch) {
+          setSelectedTenantID(cookieMatch.value)
+          setPayloadTenantCookie(String(cookieMatch.value), getCookieDomain)
+          if (
+            String(initialValue ?? '') !== String(cookieMatch.value) &&
+            !isOnTenantRequiredCreatePage &&
+            !isOnRootDocCollection
+          ) {
+            router.refresh()
+          }
+          return
         }
+      }
+
+      const singleOption = nextOptions[0]
+      if (nextOptions.length === 1 && singleOption) {
+        setSelectedTenantID(singleOption.value)
+        setPayloadTenantCookie(String(singleOption.value), getCookieDomain)
       }
     } catch {
       toast.error('Error fetching tenants')
     }
-  }, [config.routes.api, tenantsCollectionSlug, userID, getCookieDomain])
+  }, [
+    config.routes.api,
+    tenantsCollectionSlug,
+    getCookieDomain,
+    initialValue,
+    isOnTenantRequiredCreatePage,
+    isOnRootDocCollection,
+    router,
+    canClearTenantOnCurrentRoute,
+  ])
 
   const syncTenantsRef = React.useRef(syncTenants)
   syncTenantsRef.current = syncTenants
@@ -275,31 +351,65 @@ export function TenantSelectionProviderRootAwareClient({
       hasSyncedForUser.current = false
       hasAppliedInitialTenant.current = false
     }
-    const cookieMismatch = initialValue != null && String(initialValue) !== getTenantCookie()
-    const shouldSync = (userChanged || cookieMismatch) && !hasSyncedForUser.current
+    const cookieTenant = getTenantCookie()
+    const isExplicitClearActive = hasExplicitTenantClear.current && canClearTenantOnCurrentRoute
+    const needsInitialTenantOptions = tenantOptions.length === 0
+    const cookieMismatch =
+      initialValue != null
+        ? String(initialValue) !== String(cookieTenant ?? '')
+        : Boolean(cookieTenant)
+    const shouldSync =
+      !hasSyncedForUser.current &&
+      (userChanged || needsInitialTenantOptions || (cookieMismatch && !isExplicitClearActive))
     if (shouldSync) {
-      if (userID) {
+      if (userID || needsInitialTenantOptions) {
         hasSyncedForUser.current = true
         void syncTenantsRef.current()
-      } else {
+      } else if (userChanged) {
+        console.info('[tenant-provider] deleteTenantCookie:userChanged-no-user', {
+          pathname,
+          initialValue,
+          previousUserID: prevUserID.current,
+          userID,
+          selectedTenantID,
+          tenantOptions: tenantOptions.map((option) => option.value),
+        })
         setSelectedTenantID(undefined)
         deleteTenantCookie(getCookieDomain)
         if (tenantOptions.length > 0) setTenantOptions([])
         router.refresh()
       }
-      prevUserID.current = userID
     }
-  }, [userID, userChanged, initialValue, router, getCookieDomain, tenantOptions.length])
+    prevUserID.current = userID
+  }, [userID, userChanged, initialValue, router, getCookieDomain, tenantOptions.length, canClearTenantOnCurrentRoute])
 
   React.useEffect(() => {
-    if ((initialValue == null || initialValue === '') && !hasAppliedInitialTenant.current) {
+    if (hasAppliedInitialTenant.current) return
+    if (initialValue != null && initialValue !== '') {
       hasAppliedInitialTenant.current = true
-      setTenant({ id: undefined, refresh: true })
+      return
     }
-  }, [initialValue, setTenant])
+
+    const cookieTenant = getTenantCookie()
+    if (cookieTenant) {
+      hasAppliedInitialTenant.current = true
+      const match = tenantOptions.find((o) => String(o.value) === String(cookieTenant))
+      if (match) {
+        setSelectedTenantID(match.value)
+      }
+      return
+    }
+
+    if (initialValue == null || initialValue === '') {
+      hasAppliedInitialTenant.current = true
+    }
+  }, [initialValue, tenantOptions])
 
   React.useEffect(() => {
     if (!selectedTenantID && tenantOptions.length > 0 && entityType === 'global') {
+      // Required create routes should force an explicit selection via the modal instead of
+      // silently defaulting to the first tenant.
+      if (requiresExplicitTenantSelectionOnCreate) return
       // If current route supports "all tenants" (clearable selector), do not auto-pick
       // the first tenant. This would make it impossible to view unscoped list results.
       if (canClearTenantOnCurrentRoute) return
@@ -313,9 +423,42 @@ export function TenantSelectionProviderRootAwareClient({
     entityType,
     isOnRootDocCollection,
     isOnDashboard,
+    requiresExplicitTenantSelectionOnCreate,
     canClearTenantOnCurrentRoute,
     setTenant,
   ])
+
+  React.useEffect(() => {
+    if (selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== '') return
+    if (canClearTenantOnCurrentRoute) return
+
+    const cookieTenant = getTenantCookie()
+    if (!cookieTenant) return
+
+    const match = tenantOptions.find((o) => String(o.value) === String(cookieTenant))
+    if (!match) return
+
+    setSelectedTenantID(match.value)
+    if (String(initialValue ?? '') !== String(match.value)) {
+      router.refresh()
+    }
+  }, [pathname, selectedTenantID, tenantOptions, initialValue, router, canClearTenantOnCurrentRoute])
+
+  React.useEffect(() => {
+    const activeTenantID =
+      selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== ''
+        ? selectedTenantID
+        : hasExplicitTenantClear.current
+          ? undefined
+          : initialValue
+
+    if (activeTenantID === undefined || activeTenantID === null || activeTenantID === '') return
+
+    const cookieTenant = getTenantCookie()
+    if (String(cookieTenant ?? '') === String(activeTenantID)) return
+
+    setPayloadTenantCookie(String(activeTenantID), getCookieDomain)
+  }, [selectedTenantID, initialValue, getCookieDomain, pathname])
 
   const [showSelectTenantModal, setShowSelectTenantModal] = React.useState(false)
   const [createModalCollectionSlug, setCreateModalCollectionSlug] = React.useState<string | null>(null)
@@ -376,7 +519,14 @@ export function TenantSelectionProviderRootAwareClient({
         }
         const match = tenantOptions.find((o) => String(o.value) === String(tenantId))
         if (!match) return
-        if (String(selectedTenantID) !== String(tenantId)) {
+
+        // Edit pages can hydrate with the selector label already resolved while the cookie is still
+        // empty or stale. Keep the cookie in sync with the document tenant either way.
+        const cookieTenant = getTenantCookie()
+        if (
+          String(selectedTenantID) !== String(tenantId) ||
+          String(cookieTenant ?? '') !== String(tenantId)
+        ) {
           setTenant({ id: match.value, refresh: false })
         }
       })
@@ -428,12 +578,10 @@ export function TenantSelectionProviderRootAwareClient({
     const noTenant = selectedTenantID === undefined || selectedTenantID === null || selectedTenantID === ''
     if (!noTenant) return
     if (tenantOptions.length === 1) return
-    // populate-tenant-options / RSC hydration can still be in flight — do not redirect yet.
-    if (tenantOptions.length === 0) return
     const createMatch = pathname.match(/\/collections\/([^/]+)\/create$/)
     const collectionSlug = createMatch?.[1]
     if (!collectionSlug) return
-    if (tenantOptions.length > 1) {
+    if (tenantOptions.length === 0 || tenantOptions.length > 1) {
       if (createModalShownForPath.current !== pathname) {
         createModalShownForPath.current = pathname
         setCreateModalCollectionSlug(collectionSlug)
@@ -463,19 +611,13 @@ export function TenantSelectionProviderRootAwareClient({
       requireTenantAdminSet.has(collectionSlug) &&
       isTenantAdminUser &&
       noTenant &&
-      tenantOptions.length > 1
+      tenantOptions.length !== 1
 
     if (isTenantRequiredCreate) {
-      if (tenantOptions.length > 0) {
-        if (createModalShownForPath.current !== pathname) {
-          createModalShownForPath.current = pathname
-          setCreateModalCollectionSlug(collectionSlug!)
-          setShowSelectTenantModal(true)
-        }
-      } else {
-        const listPath = pathname.replace(/\/create$/, '')
-        router.replace(listPath)
-        toast.error('Please select a tenant first, then create a new document.')
+      if (createModalShownForPath.current !== pathname) {
+        createModalShownForPath.current = pathname
+        setCreateModalCollectionSlug(collectionSlug!)
+        setShowSelectTenantModal(true)
       }
     } else if (isCreateRequireTenantForTenantAdmin) {
       if (createModalShownForPath.current !== pathname) {

@@ -5,7 +5,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
-import type { Field } from 'payload'
+import type { Field, Payload } from 'payload'
 import { Plugin } from 'payload'
 import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
@@ -20,6 +20,7 @@ import { filterSchedulerGlobal } from './filter-scheduler-global'
 import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { validateClassOptionNameUniqueWithinTenant } from '@/hooks/validateClassOptionNameUniqueWithinTenant'
+import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { lessonsRead } from '@/access/lessonsRead'
 import {
@@ -28,6 +29,7 @@ import {
   tenantScopedDelete,
   tenantScopedReadFiltered,
   tenantScopedPublicReadStrict,
+  getUserTenantIds,
 } from '../access/tenant-scoped'
 import {
   productsRequireStripeConnectRead,
@@ -93,6 +95,86 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
   }
 
   return getServerSideURL()
+}
+
+async function assignTenantOnCreateFromRequest({
+  data,
+  operation,
+  req,
+}: {
+  data: Record<string, unknown> | undefined
+  operation: 'create' | 'update'
+  req: {
+    context?: Record<string, unknown>
+    cookies?: { get: (name: string) => { value?: string } | undefined }
+    headers?: Headers
+    payload: Payload
+  }
+}) {
+  if (operation !== 'create' || !data || data.tenant) return data
+
+  const tenantId = await getTenantIdForCreateRequest(req.payload, {
+    context: req.context,
+    cookies: req.cookies,
+    headers: req.headers,
+  })
+
+  if (tenantId != null && tenantId !== '') {
+    data.tenant = tenantId
+  }
+
+  return data
+}
+
+function createTenantSelectorSyncField(): Field {
+  return {
+    name: '_tenantSelectorSync',
+    type: 'ui',
+    admin: {
+      position: 'sidebar',
+      components: {
+        Field: '@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField',
+      },
+    },
+  }
+}
+
+function createTenantRelationshipField(): Field {
+  return {
+    name: 'tenant',
+    type: 'relationship',
+    relationTo: 'tenants',
+    required: true,
+    label: 'Tenant',
+    index: true,
+    admin: {
+      position: 'sidebar',
+      hidden: true,
+      description: 'Controlled by the tenant selector when creating tenant-scoped documents.',
+    },
+    filterOptions: ({ req }) => {
+      const tenantIds = getUserTenantIds((req.user ?? null) as SharedUser | null)
+      if (tenantIds === null) return true
+      if (Array.isArray(tenantIds) && tenantIds.length > 0) {
+        return { id: { in: tenantIds } }
+      }
+      return true
+    },
+  }
+}
+
+function withExplicitTenantSyncFields(defaultFields: Field[]): Field[] {
+  const fields = [...defaultFields]
+
+  if (!fields.some((field) => 'name' in field && field.name === 'tenant')) {
+    fields.unshift(createTenantRelationshipField())
+  }
+
+  if (!fields.some((field) => 'name' in field && field.name === '_tenantSelectorSync')) {
+    fields.push(createTenantSelectorSyncField())
+  }
+
+  return fields
 }
 
 export const plugins: Plugin[] = [
@@ -200,6 +282,23 @@ export const plugins: Plugin[] = [
   bookingsPlugin({
     enabled: true,
     lessonOverrides: {
+      versions: false,
+      fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
+      hooks: ({ defaultHooks }) => {
+        const d = defaultHooks as Record<string, unknown>
+        return {
+          ...defaultHooks,
+          beforeValidate: [
+            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+              await assignTenantOnCreateFromRequest({
+                data: data as Record<string, unknown> | undefined,
+                operation,
+                req,
+              }),
+            ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
+          ],
+        }
+      },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: lessonsRead, // Preserve tenant scoping while hiding past/inactive lessons from public schedule
@@ -217,7 +316,7 @@ export const plugins: Plugin[] = [
         delete: tenantScopedDelete,
       }),
       fields: ({ defaultFields }) => [
-        ...defaultFields.map((f) =>
+        ...withExplicitTenantSyncFields(defaultFields).map((f) =>
           'name' in f && f.name === 'name' ? { ...f, unique: false } : f,
         ),
         {
@@ -241,6 +340,12 @@ export const plugins: Plugin[] = [
         return {
           ...defaultHooks,
           beforeValidate: [
+            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+              await assignTenantOnCreateFromRequest({
+                data: data as Record<string, unknown> | undefined,
+                operation,
+                req,
+              }),
             validateClassOptionNameUniqueWithinTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
           ],
@@ -257,6 +362,7 @@ export const plugins: Plugin[] = [
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,
       }),
+      fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
     },
     bookingOverrides: {
       fields: ({ defaultFields }) => [
@@ -491,10 +597,18 @@ export const plugins: Plugin[] = [
         customTenantField: true,
       },
       lessons: {
+        customTenantField: true,
         tenantFieldOverrides: { admin: { disableBulkEdit: true } },
+        // Disable the plugin's withTenantAccess wrapper for lessons.
+        // Our custom `lessonsRead` access function already handles all tenant scoping
+        // (admin, tenant-admin with DB fallback, public/regular users via request context).
+        // The plugin's wrapper causes a bug for authenticated better-auth users: their session
+        // object has collection='users' but no `tenants` array (not saved to JWT), so
+        // withTenantAccess generates { tenant: { in: [] } } which matches no documents.
+        useTenantAccess: false,
       },
-      instructors: {},
-      'class-options': {},
+      instructors: { customTenantField: true },
+      'class-options': { customTenantField: true },
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
       // From @repo/bookings-payments
       'class-pass-types': {}, // Pass types (e.g. Fitness Only, Sauna Only); tenant-scoped
@@ -540,7 +654,26 @@ export const plugins: Plugin[] = [
       'scheduler',
     ],
     collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
-    collectionsWithTenantField: ['pages', 'navbar', 'footer'],
+    collectionsWithTenantField: [
+      'pages',
+      'navbar',
+      'footer',
+      'lessons',
+      'instructors',
+      'class-options',
+      'bookings',
+      'class-pass-types',
+      'class-passes',
+      'transactions',
+      'drop-ins',
+      'plans',
+      'discount-codes',
+      'subscriptions',
+      'media',
+      'forms',
+      'form-submissions',
+      'scheduler',
+    ],
     documentTenantFieldName: 'tenant',
     // Used by the selector→document sync hook. We want tenant-admin autosave drafts
     // (Pages create flow) to pick up the selected tenant automatically, while still

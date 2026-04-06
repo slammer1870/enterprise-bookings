@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { cookies, headers } from 'next/headers'
+import { getTenantSlug } from '@/utilities/getTenantContext'
+import { getRequestHostname } from '@/utilities/tenantRequest'
 
 /**
  * 404 Not Found page
@@ -10,9 +12,9 @@ import { cookies, headers } from 'next/headers'
  */
 export default async function NotFound() {
   const cookieStore = await cookies()
-  const tenantSlug = cookieStore.get('tenant-slug')?.value
   const headersList = await headers()
-  const hostname = headersList.get('host') || ''
+  const tenantSlug = await getTenantSlug({ cookies: cookieStore, headers: headersList })
+  const hostname = getRequestHostname(headersList) ?? ''
 
   // If there's a tenant slug but we're showing 404, the tenant is invalid
   const isInvalidTenant = !!tenantSlug

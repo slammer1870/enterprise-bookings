@@ -10,6 +10,8 @@ import type { User } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const stripeConnectAccountId = `acct_test_payments_${runId}`
 
 describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
   let payload: Payload
@@ -100,7 +102,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
         id: testTenantId,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_payments',
+          stripeConnectAccountId,
         },
         overrideAccess: true,
       })

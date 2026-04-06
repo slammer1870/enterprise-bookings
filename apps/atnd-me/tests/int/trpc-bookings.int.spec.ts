@@ -7,6 +7,10 @@ import type { User, Lesson, ClassOption } from '@repo/shared-types'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
+const runId = Math.random().toString(36).slice(2, 10)
+const subscriptionConnectAccountId = `acct_e2e_connected_subscription_${runId}`
+const scheduleShortcutAccountId = `acct_e2e_connected_schedule_shortcut_${runId}`
+const scheduleShortcutPastDueAccountId = `acct_e2e_connected_schedule_shortcut_past_due_${runId}`
 
 describe('tRPC Bookings Integration Tests', () => {
   let payload: Payload
@@ -1790,7 +1794,7 @@ describe('tRPC Bookings Integration Tests', () => {
         id: testTenant.id,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_subscription',
+          stripeConnectAccountId: subscriptionConnectAccountId,
         },
         overrideAccess: true,
       })
@@ -1867,7 +1871,7 @@ describe('tRPC Bookings Integration Tests', () => {
         id: testTenant.id,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_subscription',
+          stripeConnectAccountId: subscriptionConnectAccountId,
         },
         overrideAccess: true,
       })
@@ -1961,7 +1965,7 @@ describe('tRPC Bookings Integration Tests', () => {
         id: testTenant.id,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_subscription',
+          stripeConnectAccountId: subscriptionConnectAccountId,
         },
         overrideAccess: true,
       })
@@ -2092,7 +2096,7 @@ describe('tRPC Bookings Integration Tests', () => {
         id: testTenant.id,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_subscription',
+          stripeConnectAccountId: subscriptionConnectAccountId,
         },
         overrideAccess: true,
       })
@@ -2189,7 +2193,7 @@ describe('tRPC Bookings Integration Tests', () => {
         id: testTenant.id,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_schedule_shortcut',
+          stripeConnectAccountId: scheduleShortcutAccountId,
         },
         overrideAccess: true,
       })
@@ -2311,7 +2315,7 @@ describe('tRPC Bookings Integration Tests', () => {
         id: testTenant.id,
         data: {
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_test_schedule_shortcut_past_due',
+          stripeConnectAccountId: scheduleShortcutPastDueAccountId,
         },
         overrideAccess: true,
       })

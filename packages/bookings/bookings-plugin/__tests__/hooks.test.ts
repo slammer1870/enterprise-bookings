@@ -408,6 +408,57 @@ describe("Hook tests", () => {
     );
 
     it(
+      "should set lockout to 0 when booking is confirmed then restore on cancel (full cycle)",
+      async () => {
+        // This is the primary regression test for the cancel-doesn't-reset bug.
+        // Sequence: lesson created with lockOutTime=45 → user books → lockOutTime set to 0
+        //           → user cancels → lockOutTime must restore to 45.
+        const lesson = await payload.create({
+          collection: "lessons",
+          data: {
+            date: new Date(),
+            startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+            endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+            classOption: classOption.id,
+            location: "Test Location",
+            lockOutTime: 45,
+            originalLockOutTime: 45,
+          },
+        });
+
+        // Step 1: book — hook must set lockOutTime to 0
+        const booking = await payload.create({
+          collection: "bookings",
+          data: {
+            lesson: lesson.id,
+            user: user.id,
+            status: "confirmed",
+          },
+        });
+
+        const lessonAfterBook = await payload.findByID({
+          collection: "lessons",
+          id: lesson.id,
+        });
+        expect((lessonAfterBook as any).lockOutTime).toBe(0);
+
+        // Step 2: cancel — hook must restore lockOutTime to originalLockOutTime (45)
+        await payload.update({
+          collection: "bookings",
+          id: booking.id,
+          data: { status: "cancelled" },
+        });
+
+        const lessonAfterCancel = await payload.findByID({
+          collection: "lessons",
+          id: lesson.id,
+        });
+        expect((lessonAfterCancel as any).lockOutTime).toBe(45);
+      },
+      TEST_TIMEOUT
+    );
+
+    it(
       "should restore original lockout when no confirmed bookings remain",
       async () => {
         const lesson = await payload.create({
@@ -432,31 +483,137 @@ describe("Hook tests", () => {
           },
         });
 
-        // Wait for hook to set lockout to 0
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // Cancel the booking
+        // Cancel the booking — afterChange hooks are awaited synchronously,
+        // so the lesson should be updated by the time payload.update resolves.
         await payload.update({
           collection: "bookings",
           id: booking.id,
-          data: {
-            status: "cancelled",
-          },
+          data: { status: "cancelled" },
         });
-
-        // Wait longer for async hook to restore original lockout
-        await new Promise((resolve) => setTimeout(resolve, 1000));
 
         const updatedLesson = await payload.findByID({
           collection: "lessons",
           id: lesson.id,
         });
 
-        // The hook should restore the original lockout time (45) when no confirmed bookings remain
-        // Note: This is an async operation, so we check that it's either restored or still 0
-        // (if the hook hasn't completed yet, which is acceptable for this test)
-        const lockOutTime = (updatedLesson as any).lockOutTime;
-        expect([0, 45]).toContain(lockOutTime);
+        expect((updatedLesson as any).lockOutTime).toBe(45);
+      },
+      TEST_TIMEOUT
+    );
+
+    it(
+      "should keep lockout at 0 when one of several confirmed bookings is cancelled",
+      async () => {
+        // Two users book. One cancels. The other is still confirmed, so lockOutTime must stay 0.
+        const user2 = await payload.create({
+          collection: "users",
+          data: { email: `lockout-multi-${Date.now()}@test.com`, password: "test" },
+        });
+
+        const lesson = await payload.create({
+          collection: "lessons",
+          data: {
+            date: new Date(),
+            startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+            endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+            classOption: classOption.id,
+            location: "Test Location",
+            lockOutTime: 45,
+            originalLockOutTime: 45,
+          },
+        });
+
+        const booking1 = await payload.create({
+          collection: "bookings",
+          data: { lesson: lesson.id, user: user.id, status: "confirmed" },
+        });
+
+        await payload.create({
+          collection: "bookings",
+          data: { lesson: lesson.id, user: user2.id, status: "confirmed" },
+        });
+
+        // Verify both bookings drove lockOutTime to 0
+        const lessonAfterBothBooked = await payload.findByID({
+          collection: "lessons",
+          id: lesson.id,
+        });
+        expect((lessonAfterBothBooked as any).lockOutTime).toBe(0);
+
+        // Cancel only one of the two bookings
+        await payload.update({
+          collection: "bookings",
+          id: booking1.id,
+          data: { status: "cancelled" },
+        });
+
+        // The second booking is still confirmed — lockOutTime must remain 0
+        const lessonAfterOneCancel = await payload.findByID({
+          collection: "lessons",
+          id: lesson.id,
+        });
+        expect((lessonAfterOneCancel as any).lockOutTime).toBe(0);
+      },
+      TEST_TIMEOUT
+    );
+
+    it(
+      "should restore lockout when all confirmed bookings are cancelled",
+      async () => {
+        // Two users book, both cancel — lockOutTime should restore to originalLockOutTime.
+        const user2 = await payload.create({
+          collection: "users",
+          data: { email: `lockout-both-cancel-${Date.now()}@test.com`, password: "test" },
+        });
+
+        const lesson = await payload.create({
+          collection: "lessons",
+          data: {
+            date: new Date(),
+            startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+            endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+            classOption: classOption.id,
+            location: "Test Location",
+            lockOutTime: 45,
+            originalLockOutTime: 45,
+          },
+        });
+
+        const booking1 = await payload.create({
+          collection: "bookings",
+          data: { lesson: lesson.id, user: user.id, status: "confirmed" },
+        });
+
+        const booking2 = await payload.create({
+          collection: "bookings",
+          data: { lesson: lesson.id, user: user2.id, status: "confirmed" },
+        });
+
+        // Cancel first booking — second is still confirmed, lockOutTime stays 0
+        await payload.update({
+          collection: "bookings",
+          id: booking1.id,
+          data: { status: "cancelled" },
+        });
+
+        const lessonAfterFirstCancel = await payload.findByID({
+          collection: "lessons",
+          id: lesson.id,
+        });
+        expect((lessonAfterFirstCancel as any).lockOutTime).toBe(0);
+
+        // Cancel second booking — no confirmed bookings remain, lockOutTime must restore
+        await payload.update({
+          collection: "bookings",
+          id: booking2.id,
+          data: { status: "cancelled" },
+        });
+
+        const lessonAfterBothCancelled = await payload.findByID({
+          collection: "lessons",
+          id: lesson.id,
+        });
+        expect((lessonAfterBothCancelled as any).lockOutTime).toBe(45);
       },
       TEST_TIMEOUT
     );

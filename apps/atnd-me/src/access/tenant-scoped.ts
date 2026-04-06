@@ -2,6 +2,12 @@ import type { Access, Payload, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
+import {
+  getPayloadTenantIdFromRequest,
+  isBaseHostRequest,
+  getTenantSlugFromHost,
+  getTenantSlugFromRequest,
+} from '@/utilities/tenantRequest'
 
 /**
  * Get tenant IDs that a user has access to
@@ -128,17 +134,22 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
   if (contextTenantId) return contextTenantId
 
   const ctx = (req.context ??= {}) as Record<string, unknown>
+  const isBaseHost = isBaseHostRequest(req.headers as Headers | undefined)
 
-  const payloadTenant =
-    req.cookies?.get?.('payload-tenant')?.value ?? getCookieFromRequestHeader(req, 'payload-tenant') ?? null
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    const id = parseInt(payloadTenant, 10)
-    ctx.__resolvedTenantIdFromPayloadCookie = id
-    return id
+  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: req.cookies })
+  if (isBaseHost) {
+    if (payloadTenant) {
+      ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+      return payloadTenant
+    }
+    return null
   }
 
   const tenantSlug =
-    req.cookies?.get?.('tenant-slug')?.value ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
+    getTenantSlugFromRequest({
+      cookies: req.cookies,
+      headers: req.headers as Headers | undefined,
+    }) ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
   if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
     const cached = ctx.__resolvedTenantIdFromSlug
     if (typeof cached === 'number' && Number.isFinite(cached)) return cached
@@ -161,6 +172,11 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
     }
   }
 
+  if (payloadTenant) {
+    ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+    return payloadTenant
+  }
+
   const cachedHostTenant = ctx.__resolvedTenantIdFromHost
   if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
     return cachedHostTenant
@@ -170,26 +186,7 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
   const hostname = String(hostHeader).split(':')[0] ?? ''
   if (!hostname) return null
 
-  const rootHostname = (() => {
-    const url = process.env.NEXT_PUBLIC_SERVER_URL
-    if (!url) return null
-    try {
-      return new URL(url).hostname
-    } catch {
-      return null
-    }
-  })()
-
-  const isLocalhost = hostname.includes('localhost')
-  let slugFromSubdomain: string | null = null
-
-  if (isLocalhost) {
-    const parts = hostname.split('.')
-    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') slugFromSubdomain = parts[0]
-  } else if (rootHostname && hostname.endsWith('.' + rootHostname)) {
-    const prefix = hostname.slice(0, -(rootHostname.length + 1))
-    slugFromSubdomain = prefix.split('.')[0] || null
-  }
+  const slugFromSubdomain = getTenantSlugFromHost(req.headers as Headers | undefined)
 
   const where =
     slugFromSubdomain
@@ -346,6 +343,40 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   return false
 }
 
+async function resolveTenantAdminReadConstraint(args: {
+  req: {
+    user?: unknown
+    payload: Payload
+    context?: Record<string, unknown>
+    cookies?: {
+      get?: (name: string) => { value?: string } | undefined
+    }
+    headers?: {
+      get?: (name: string) => string | null
+    }
+  }
+}): Promise<Where | false> {
+  const { req } = args
+  const tenantIds = await resolveTenantAdminTenantIds({ user: req.user, payload: req.payload })
+  if (tenantIds.length === 0) return false
+
+  const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
+  if (resolvedTenantId != null) {
+    if (!tenantIds.includes(resolvedTenantId)) return false
+    return {
+      tenant: {
+        equals: resolvedTenantId,
+      },
+    }
+  }
+
+  return {
+    tenant: {
+      in: tenantIds,
+    },
+  }
+}
+
 /**
  * Access control for reading tenant-scoped documents with tenant filtering
  * Used for collections where tenant-admin should only see their tenant's data
@@ -357,28 +388,30 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
  * the user's tenants array. This allows cross-tenant booking - users can see lessons
  * for the tenant they're viewing, regardless of their tenant assignments.
  */
-export const tenantScopedReadFiltered: Access = ({ req }) => {
+export const tenantScopedReadFiltered: Access = async ({ req }) => {
   const user = req.user
   const contextTenant = req.context?.tenant
   
   // Public read - allow access (multi-tenant plugin will filter by request context)
   if (!user) return true
   
-  // Admin can read all documents
+  // Admin can read all documents, but when the admin sidebar selected a tenant
+  // we should scope list data to that tenant on the server as well.
   if (checkRole(['admin'], user as unknown as SharedUser)) {
+    const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
+    if (resolvedTenantId != null) {
+      return {
+        tenant: {
+          equals: resolvedTenantId,
+        },
+      }
+    }
     return true
   }
   
   // Tenant-admin can only read documents from their assigned tenants
   if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null || tenantIds.length === 0) return false
-    
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+    return await resolveTenantAdminReadConstraint({ req })
   }
   
   // Regular users: Allow read access for booking purposes
@@ -416,13 +449,7 @@ export const tenantScopedPublicReadStrict: Access = async ({ req }) => {
   }
 
   if (user && checkRole(['tenant-admin'], user as SharedUser)) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
-    if (tenantIds.length === 0) return false
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+    return await resolveTenantAdminReadConstraint({ req })
   }
 
   const tenantId = await resolveTenantIdFromRequest(req as RequestLike)

@@ -10,6 +10,25 @@ test.describe('Tenant Routing & Subdomain Detection', () => {
       const tenantContext = await getTenantContext(page)
       expect(tenantContext).toBeNull()
     })
+
+    test('should clear stale tenant cookies when returning to the root host', async ({ page, testData }) => {
+      const tenant = testData.tenants[0]
+      if (!tenant?.slug || !tenant?.id) throw new Error('Test setup requires a tenant')
+
+      await page.context().addCookies([
+        { name: 'tenant-slug', value: tenant.slug, url: 'http://localhost:3000/' },
+        { name: 'payload-tenant', value: String(tenant.id), url: 'http://localhost:3000/' },
+      ])
+
+      await navigateToRoot(page)
+
+      await expect(page.getByText(/Welcome to ATND ME/i)).toBeVisible()
+      await expect(await getTenantContext(page)).toBeNull()
+
+      const rootCookies = await page.context().cookies(['http://localhost:3000/'])
+      expect(rootCookies.find((cookie) => cookie.name === 'tenant-slug')?.value ?? '').toBe('')
+      expect(rootCookies.find((cookie) => cookie.name === 'payload-tenant')?.value ?? '').toBe('')
+    })
   })
 
   test.describe('Valid Subdomain Routing', () => {

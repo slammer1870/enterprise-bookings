@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { buildStripeConnectAuthorizeUrl } from '@/lib/stripe-connect/authorize'
-import { getTenantSiteURL } from '@/utilities/getURL'
+import { getServerSideURL } from '@/utilities/getURL'
 import {
   getCurrentUser,
   resolveTenantSlugOrId,
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: tenant not accessible' }, { status: 403 })
     }
 
-    const baseUrl = getTenantSiteURL(tenant, request.headers).replace(/\/$/, '')
+    const baseUrl = getServerSideURL().replace(/\/$/, '')
     const { url } = buildStripeConnectAuthorizeUrl(tenant.id, user.id as number, baseUrl)
     return NextResponse.redirect(url, 302)
   } catch (err) {

@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
         stripeConnectConnectedAt: new Date().toISOString(),
         stripeConnectLastError: null,
       },
+      context: { tenant: tenantId },
       overrideAccess: true,
       select: { id: true } as any,
     })
@@ -87,12 +88,19 @@ export async function GET(request: NextRequest) {
     )
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
+    console.error('[Stripe Connect] connect callback failed', {
+      tenantId,
+      userId: stateUserId,
+      message,
+      code,
+    })
     await payload.update({
       collection: 'tenants',
       id: tenantId,
       data: {
         stripeConnectLastError: message,
       },
+      context: { tenant: tenantId },
       overrideAccess: true,
       select: { id: true } as any,
     })

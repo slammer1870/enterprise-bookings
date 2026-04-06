@@ -205,7 +205,7 @@ describe('Stripe Connect authorize route (step 2.3)', () => {
   )
 
   it(
-    'builds Stripe Connect URL when tenant-admin requests their tenant',
+    'builds Stripe Connect URL with stable callback when tenant-admin requests their tenant',
     async () => {
       const tenantSlug = `authorize-subdomain-${Date.now()}`
       await payload.update({
@@ -229,7 +229,7 @@ describe('Stripe Connect authorize route (step 2.3)', () => {
       const redirectUri = authorizeUrl.searchParams.get('redirect_uri')
       expect(location).toContain('connect.stripe.com/oauth/authorize')
       expect(location).toMatch(/client_id=ca_test_placeholder|client_id=/)
-      expect(redirectUri).toBe(`http://${tenantSlug}.localhost:3000/api/stripe/connect/callback`)
+      expect(redirectUri).toBe('http://localhost:3000/api/stripe/connect/callback')
       expect(location).toMatch(/state=/)
     },
     TEST_TIMEOUT,

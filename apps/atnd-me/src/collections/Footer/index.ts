@@ -5,6 +5,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { revalidateFooter } from './hooks/revalidateFooter'
 import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
+import { getRequestHostname, getTenantSlugFromRequest, isBaseHostRequest } from '@/utilities/tenantRequest'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -185,27 +186,11 @@ export const Footer: CollectionConfig = {
           } else {
             // Fallback: on tenant subdomains, tenant selector may default to "no tenant" (null).
             // Use the tenant-slug cookie set by middleware to resolve the tenant id.
-            const rootHostname = (() => {
-              const url = process.env.NEXT_PUBLIC_SERVER_URL
-              if (!url) return null
-              try {
-                return new URL(url).hostname
-              } catch {
-                return null
-              }
-            })()
-
-            const requestHost = req.headers?.get?.('host')?.split(':')[0] ?? ''
-            const isTenantHost =
-              !rootHostname ||
-              (requestHost && rootHostname && requestHost !== rootHostname)
+            const requestHost = getRequestHostname(req.headers)
+            const isTenantHost = Boolean(requestHost) && !isBaseHostRequest(req.headers)
 
             if (isTenantHost) {
-              const cookieHeader = req.headers?.get?.('cookie') ?? ''
-              const match = typeof cookieHeader === 'string'
-                ? cookieHeader.match(/(?:^|;\s*)tenant-slug=([^;]*)/)
-                : null
-              const slug = match?.[1] ? decodeURIComponent(match[1]).trim().toLowerCase() : null
+              const slug = getTenantSlugFromRequest({ headers: req.headers })?.toLowerCase() ?? null
               if (slug && /^[a-z0-9-]+$/.test(slug)) {
                 try {
                   const result = await req.payload.find({

@@ -136,7 +136,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
   const buttonVariant: Record<Lesson["bookingStatus"], ButtonVariant> = {
     closed: "ghost",
     waitlist: "outline",
-    trialable: "default",
+    trialable: null,
     active: "default",
     booked: "default",
     waiting: "default",

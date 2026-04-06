@@ -27,6 +27,7 @@ vi.mock('@repo/shared-utils', async (importOriginal) => {
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Stripe plans proxy (Phase 4.5)', () => {
   let payload: Payload
@@ -55,7 +56,7 @@ describe('Stripe plans proxy (Phase 4.5)', () => {
       data: {
         name: 'Plans Proxy Tenant',
         slug: `plans-proxy-${Date.now()}`,
-        stripeConnectAccountId: 'acct_plans_proxy',
+        stripeConnectAccountId: `acct_plans_proxy_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,

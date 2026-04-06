@@ -240,7 +240,6 @@ This optimization works for **all applications** in the monorepo:
 - kyuzo
 - darkhorse-strength
 - bru-grappling
-- boatyard-sauna
 - atnd (if has e2e tests)
 
 **Custom config (reference atnd-me):**

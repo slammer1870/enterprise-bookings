@@ -75,20 +75,36 @@ export async function POST(request: NextRequest) {
     const accountId = getAccountIdFromEvent(event)
     const tenant = await resolveTenant(payload, accountId, meta.tenantId)
     const bookingIdsToConfirm = parseBookingIds(meta)
+    const paymentIntentTenantContext = tenant ? { tenant: tenant.id } : null
 
-    // Class pass purchase (no bookingIds)
+    // Class pass purchase
     if (
       tenant &&
       meta.type === 'class_pass_purchase' &&
-      !meta.bookingId &&
-      !meta.bookingIds
+      !meta.bookingId
     ) {
       const userId = meta.userId
-      const quantity = meta.quantity ? parseInt(meta.quantity, 10) : 0
+      const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
       const expirationDays = meta.expirationDays ? parseInt(meta.expirationDays, 10) : 365
       const totalCents = meta.totalCents ? parseInt(meta.totalCents, 10) : 0
       const transactionId = obj?.id ?? null
-      if (userId && quantity >= 1) {
+      if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
+        const classPassType = (await payload.findByID({
+          collection: 'class-pass-types' as import('payload').CollectionSlug,
+          id: classPassTypeId,
+          depth: 0,
+          overrideAccess: true,
+        }).catch(() => null)) as { quantity?: number } | null
+        const passCredits =
+          classPassType && typeof classPassType.quantity === 'number'
+            ? classPassType.quantity
+            : 0
+
+        if (passCredits < 1) {
+          markStripeConnectEventProcessed(event.id)
+          return NextResponse.json({ received: true }, { status: 200 })
+        }
+
         const now = new Date()
         const expirationDate = new Date(now)
         expirationDate.setDate(expirationDate.getDate() + expirationDays)
@@ -98,13 +114,15 @@ export async function POST(request: NextRequest) {
           data: {
             user: Number(userId),
             tenant: tenant.id,
-            quantity,
+            type: classPassTypeId,
+            quantity: passCredits,
             expirationDate: expirationDate.toISOString().slice(0, 10),
             purchasedAt: now.toISOString().slice(0, 10),
             price: totalCents,
             status: 'active',
             ...(transactionId ? { transactionId } : {}),
           } as Record<string, unknown>,
+          ...(paymentIntentTenantContext ? { context: paymentIntentTenantContext } : {}),
           overrideAccess: true,
         })
       }
@@ -115,6 +133,7 @@ export async function POST(request: NextRequest) {
       await confirmBookingsFromPaymentIntent(payload, bookingIdsToConfirm, {
         paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
         tenantId: tenant.id,
+        tenantContext: paymentIntentTenantContext,
       })
     }
     // Legacy quantity-based flow (lessonId + userId, no explicit bookingIds)
@@ -135,6 +154,7 @@ export async function POST(request: NextRequest) {
           quantity,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
           tenantId: tenant.id,
+          tenantContext: paymentIntentTenantContext,
         })
       }
     }
@@ -175,6 +195,7 @@ export async function POST(request: NextRequest) {
   }
 
   const tenantId = tenant.id
+  const tenantContext = { tenant: tenantId }
 
   if (isSubscriptionEvent) {
     const obj = event.data?.object as {
@@ -272,6 +293,7 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
                 tenantId,
                 subscriptionId: existingSub.id,
+                tenantContext,
               })
             } catch (e) {
               payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
@@ -301,6 +323,7 @@ export async function POST(request: NextRequest) {
           cancelAt: stripeDateOnly(cancelAt),
           skipSync: true,
         } as Record<string, unknown>,
+        context: tenantContext,
         overrideAccess: true,
       })
       const subId = created.id as number
@@ -319,6 +342,7 @@ export async function POST(request: NextRequest) {
               userId: user.id,
               tenantId,
               subscriptionId: subId,
+              tenantContext,
             })
           } catch (e) {
             payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
@@ -361,6 +385,7 @@ export async function POST(request: NextRequest) {
           collection: 'subscriptions' as import('payload').CollectionSlug,
           id: sub.id,
           data: updateData,
+          ...(tenantContext ? { context: tenantContext } : {}),
           overrideAccess: true,
         })
       } else {
@@ -414,6 +439,7 @@ export async function POST(request: NextRequest) {
                   cancelAt: stripeDateOnly(cancelAt),
                   skipSync: true,
                 } as Record<string, unknown>,
+                context: tenantContext,
                 overrideAccess: true,
               })
               const subId = createdSub.id as number
@@ -431,6 +457,7 @@ export async function POST(request: NextRequest) {
                       userId: user.id,
                       tenantId,
                       subscriptionId: subId,
+                      tenantContext,
                     })
                   } catch (e) {
                     payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
@@ -461,6 +488,7 @@ export async function POST(request: NextRequest) {
             cancelAt: stripeDateOnly(cancelAt) ?? new Date().toISOString().slice(0, 10),
             skipSync: true,
           } as Record<string, unknown>,
+          ...(tenantContext ? { context: tenantContext } : {}),
           overrideAccess: true,
         })
       }
@@ -476,6 +504,7 @@ export async function POST(request: NextRequest) {
       collection: 'tenants',
       id: tenant.id,
       data: { stripeConnectOnboardingStatus: status },
+      ...(tenantContext ? { context: tenantContext } : {}),
       overrideAccess: true,
       select: { id: true } as any,
     })
@@ -487,10 +516,15 @@ export async function POST(request: NextRequest) {
         stripeConnectAccountId: null,
         stripeConnectOnboardingStatus: 'deauthorized',
       },
+      ...(tenantContext ? { context: tenantContext } : {}),
       overrideAccess: true,
       select: { id: true } as any,
     })
-    console.info('[Stripe Connect] deauthorized', { tenantId: tenant.id })
+    console.info('[Stripe Connect] deauthorized', {
+      tenantId: tenant.id,
+      eventId: event.id,
+      eventType: event.type,
+    })
   }
 
   markStripeConnectEventProcessed(event.id)

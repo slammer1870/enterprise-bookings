@@ -17,6 +17,8 @@ import * as callbackExchange from '@/lib/stripe-connect/callbackExchange'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const callbackAccountId = `acct_cb_test_123_${runId}`
 
 describe('Stripe Connect callback route (step 2.4)', () => {
   let payload: Payload
@@ -156,8 +158,8 @@ describe('Stripe Connect callback route (step 2.4)', () => {
     async () => {
       const callbackHost = 'callback-tenant.localhost:3000'
       vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockResolvedValue({
-        stripe_user_id: 'acct_cb_test_123',
-        stripe_account_id: 'acct_cb_test_123',
+        stripe_user_id: callbackAccountId,
+        stripe_account_id: callbackAccountId,
       })
       const validState = buildConnectState(testTenantId, adminUser.id as number)
       const res = await GET(
@@ -184,7 +186,7 @@ describe('Stripe Connect callback route (step 2.4)', () => {
         id: testTenantId,
         overrideAccess: true,
       })
-      expect(updated.stripeConnectAccountId).toBe('acct_cb_test_123')
+      expect(updated.stripeConnectAccountId).toBe(callbackAccountId)
       expect(updated.stripeConnectOnboardingStatus).toBe('pending')
     },
     TEST_TIMEOUT,

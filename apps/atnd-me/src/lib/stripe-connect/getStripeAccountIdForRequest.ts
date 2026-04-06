@@ -5,6 +5,7 @@
  */
 import type { PayloadRequest } from 'payload'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
+import { getPayloadTenantIdFromRequest, getTenantSlugFromRequest } from '@/utilities/tenantRequest'
 
 function getTenantIdFromRequest(req: PayloadRequest): number | null {
   const ctx = req?.context as { tenant?: unknown } | undefined
@@ -24,10 +25,17 @@ function getTenantIdFromRequest(req: PayloadRequest): number | null {
       return Number.isFinite(n) ? n : null
     }
   }
-  // Payload/Next may attach cookies to the request
+
   const cookieStore = (req as PayloadRequest & { cookies?: { get: (name: string) => { value?: string } | undefined } }).cookies
-  const payloadTenant = cookieStore?.get?.('payload-tenant')?.value
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) return parseInt(payloadTenant, 10)
+  const tenantSlug = getTenantSlugFromRequest({ cookies: cookieStore })
+  if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
+    const cachedId = (req.context as Record<string, unknown> | undefined)?.__stripeTenantIdFromSlug
+    if (typeof cachedId === 'number' && Number.isFinite(cachedId)) return cachedId
+    return null
+  }
+
+  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: cookieStore })
+  if (payloadTenant) return payloadTenant
   return null
 }
 
@@ -36,7 +44,28 @@ function getTenantIdFromRequest(req: PayloadRequest): number | null {
  * Returns null if no tenant, tenant not found, or tenant has no Connect account / not active.
  */
 export async function getStripeAccountIdForRequest(req: PayloadRequest): Promise<string | null> {
-  const tenantId = getTenantIdFromRequest(req)
+  let tenantId = getTenantIdFromRequest(req)
+  if (tenantId == null) {
+    const cookieStore = (req as PayloadRequest & { cookies?: { get: (name: string) => { value?: string } | undefined } }).cookies
+    const tenantSlug = getTenantSlugFromRequest({ cookies: cookieStore })
+    if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
+      const tenantFromSlug = await req.payload.find({
+        collection: 'tenants',
+        where: { slug: { equals: tenantSlug } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        select: { id: true } as any,
+      }).catch(() => null)
+      const id = tenantFromSlug?.docs?.[0]?.id
+      if (typeof id === 'number' && Number.isFinite(id)) {
+        tenantId = id
+        if (req.context) {
+          ;(req.context as Record<string, unknown>).__stripeTenantIdFromSlug = id
+        }
+      }
+    }
+  }
   if (tenantId == null) return null
   const tenant = await req.payload.findByID({
     collection: 'tenants',

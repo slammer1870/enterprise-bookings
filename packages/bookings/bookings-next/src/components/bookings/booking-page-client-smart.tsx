@@ -123,9 +123,14 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     paymentMethods?.allowedPlans?.some(
       (p) => p.sessionsInformation?.allowMultipleBookingsPerLesson === true
     ) ?? false
+  const classPassAllowsMultiple =
+    paymentMethods?.allowedClassPasses?.some((pass) => {
+      if (!isObject(pass)) return false
+      return pass.allowMultipleBookingsPerLesson === true
+    }) ?? false
   // Match server-side gating: if payment methods exist, only allow multi-quantity when at least one method supports it.
   const allowsMultipleBookingsForViewer =
-    !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple
+    !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple || classPassAllowsMultiple
   const maxQuantity = allowsMultipleBookingsForViewer ? capacityMaxQuantity : 1
 
   useEffect(() => {

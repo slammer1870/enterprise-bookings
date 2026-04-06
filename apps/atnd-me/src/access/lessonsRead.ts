@@ -1,5 +1,4 @@
 import type { Access, Where } from 'payload'
-import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { tenantScopedPublicReadStrict } from './tenant-scoped'
 
@@ -7,11 +6,14 @@ import { tenantScopedPublicReadStrict } from './tenant-scoped'
  * Lessons read access:
  * - Admin / tenant-admin: unchanged (full visibility per existing tenant scoping rules)
  * - Authenticated regular users: unchanged
- * - Public: do not allow reading lessons that have already ended and do not
- *   expose inactive lessons
+ * - Public: do not expose inactive lessons
  *
- * This prevents “past lessons” and inactive lessons from being visible in client-facing schedule views
- * without relying on each API layer to remember to filter.
+ * NOTE: We intentionally do NOT filter by endTime here. The rule is
+ * "users can see all of today's lessons (even after they end) but not
+ * yesterday's lessons or earlier". That boundary is date- and timezone-
+ * dependent; the getByDate tRPC router handles it correctly using the
+ * tenant's timezone. Filtering by `endTime >= now` here would incorrectly
+ * hide lessons that started earlier today, breaking the full-day schedule view.
  */
 export const lessonsRead: Access = async (args) => {
   const base = await tenantScopedPublicReadStrict(args)
@@ -22,24 +24,12 @@ export const lessonsRead: Access = async (args) => {
     return base
   }
 
-  const nowIso = new Date().toISOString()
-
   const publicVisibilityConstraint: Where = {
-    and: [
-      {
-        endTime: {
-          greater_than_equal: nowIso,
-        },
-      },
-      {
-        active: {
-          equals: true,
-        },
-      },
-    ],
+    active: {
+      equals: true,
+    },
   }
 
-  // Merge base constraint (if any) with the public visibility constraints
   if (base === true) {
     return publicVisibilityConstraint
   }
@@ -51,4 +41,3 @@ export const lessonsRead: Access = async (args) => {
     ],
   }
 }
-

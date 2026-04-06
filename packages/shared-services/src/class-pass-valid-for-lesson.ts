@@ -41,7 +41,8 @@ function toIdArray(val: unknown): number[] {
 export function filterValidClassPassesForLesson(
   lesson: LessonLike,
   passes: ClassPassLike[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  requiredQuantity = 1,
 ): ClassPassLike[] {
   const tenantId = toId(
     typeof lesson.tenant === 'object' && lesson.tenant != null ? lesson.tenant : (lesson.tenant as number)
@@ -59,7 +60,7 @@ export function filterValidClassPassesForLesson(
     if (passTypeId == null || !allowedTypeIds.includes(passTypeId)) return false
     if (pass.status !== 'active') return false
     const q = pass.quantity ?? 0
-    if (q <= 0) return false
+    if (q < Math.max(1, requiredQuantity)) return false
     const exp = pass.expirationDate
     if (!exp || exp <= nowIso) return false
     return true

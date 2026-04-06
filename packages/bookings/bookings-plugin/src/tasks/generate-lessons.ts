@@ -233,6 +233,9 @@ export const generateLessonsFromSchedule: TaskHandler<
       rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
         ? (rawTenant as { id: string | number }).id
         : (rawTenant as string | number | undefined)
+    const numericTenantId =
+      tenantId == null ? null : typeof tenantId === 'number' ? tenantId : Number(tenantId)
+    const hasTenantContext = numericTenantId != null && !Number.isNaN(numericTenantId)
 
     // IMPORTANT: Keep `currentDate` as a timezone-aware date.
     // Converting to a plain `Date` and then reading Y/M/D via getters will use the
@@ -325,10 +328,10 @@ export const generateLessonsFromSchedule: TaskHandler<
         }
 
         // Add tenant filter if tenant context is available
-        if (tenantId) {
+        if (hasTenantContext) {
           existingLessonWhere.and.push({
             tenant: {
-              equals: tenantId,
+              equals: numericTenantId,
             },
           })
         }
@@ -375,24 +378,29 @@ export const generateLessonsFromSchedule: TaskHandler<
           continue;
         }
 
+        const lessonData: Record<string, unknown> = {
+          date: lessonDate.toISOString(),
+          startTime: lessonStartTime.toISOString(),
+          endTime: lessonEndTime.toISOString(),
+          classOption: classOptionIdNum,
+          location: timeSlot.location || null,
+          instructor: toId(timeSlot.instructor) ?? undefined,
+          lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
+          active: timeSlot.active !== false,
+        }
+
+        if (hasTenantContext) {
+          lessonData.tenant = numericTenantId
+        }
+
         await payload.create({
           collection: "lessons",
-          data: {
-            date: lessonDate.toISOString(),
-            startTime: lessonStartTime.toISOString(),
-            endTime: lessonEndTime.toISOString(),
-            classOption: classOptionIdNum,
-            location: timeSlot.location || null,
-            instructor: toId(timeSlot.instructor) ?? undefined,
-            lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
-            active: timeSlot.active || true,
-            // Explicitly set tenant if available in context (for multi-tenant support)
-            ...(tenantId ? { tenant: typeof tenantId === 'number' ? tenantId : Number(tenantId) } : {}),
-          },
+          data: lessonData as any,
           context: {
             ...(req.context || {}),
             skipLessonTimeNormalization: true,
           },
+          draft: false,
           req,
           overrideAccess: true,
         });

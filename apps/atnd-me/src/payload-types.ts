@@ -837,7 +837,10 @@ export interface Plan {
  */
 export interface ClassOption {
   id: number;
-  tenant?: (number | null) | Tenant;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
   name: string;
   /**
    * How many people can book this class option?
@@ -2543,7 +2546,10 @@ export interface Scheduler {
  */
 export interface Instructor {
   id: number;
-  tenant?: (number | null) | Tenant;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
   /**
    * The user associated with this instructor
    */
@@ -2647,7 +2653,10 @@ export interface Verification {
  */
 export interface Lesson {
   id: number;
-  tenant?: (number | null) | Tenant;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
   date: string;
   startTime: string;
   endTime: string;

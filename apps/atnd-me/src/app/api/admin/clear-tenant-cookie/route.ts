@@ -11,6 +11,8 @@ import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { checkRole } from '@repo/shared-utils'
 
 const COOKIE_NAME = 'payload-tenant'
+const TENANT_SLUG_COOKIE_NAME = 'tenant-slug'
+const TENANT_ID_COOKIE_NAME = 'tenant-id'
 
 function getRootHostname(): string | null {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -22,9 +24,9 @@ function getRootHostname(): string | null {
   }
 }
 
-function clearCookieHeader(path: string, domain?: string | null): string {
+function clearCookieHeader(name: string, path: string, domain?: string | null): string {
   const domainAttr = domain ? `; Domain=${domain}` : ''
-  return `${COOKIE_NAME}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+  return `${name}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
 }
 
 export async function POST(request: NextRequest) {
@@ -40,19 +42,27 @@ export async function POST(request: NextRequest) {
     }
 
     const res = NextResponse.json({ ok: true })
-    // Clear for both path=/ and path=/admin so the cookie is gone regardless of how the plugin set it
-    res.headers.append('Set-Cookie', clearCookieHeader('/'))
-    res.headers.append('Set-Cookie', clearCookieHeader('/admin'))
-    res.headers.append('Set-Cookie', clearCookieHeader('/admin/'))
+    // Clear all known legacy admin paths so the cookie is gone regardless of how it was set.
+    for (const name of [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]) {
+      res.headers.append('Set-Cookie', clearCookieHeader(name, '/'))
+      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin'))
+      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/'))
+      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections'))
+      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections/'))
+    }
 
     // Also clear any domain-scoped cookie (Domain=.rootHostname). This can exist even when
     // the current request is on the root hostname (e.g. user previously visited admin on a subdomain).
     const rootHostname = getRootHostname()
     if (rootHostname) {
       const domain = rootHostname === 'localhost' ? '.localhost' : `.${rootHostname}`
-      res.headers.append('Set-Cookie', clearCookieHeader('/', domain))
-      res.headers.append('Set-Cookie', clearCookieHeader('/admin', domain))
-      res.headers.append('Set-Cookie', clearCookieHeader('/admin/', domain))
+      for (const name of [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]) {
+        res.headers.append('Set-Cookie', clearCookieHeader(name, '/', domain))
+        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin', domain))
+        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/', domain))
+        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections', domain))
+        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections/', domain))
+      }
     }
 
     return res

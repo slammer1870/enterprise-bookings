@@ -92,7 +92,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     DO $$ BEGIN
       ALTER TABLE "tenants_allowed_blocks" ALTER COLUMN "value" SET DATA TYPE text;
       DROP TYPE "public"."enum_tenants_allowed_blocks";
-      CREATE TYPE "public"."enum_tenants_allowed_blocks" AS ENUM('location', 'healthBenefits', 'sectionTagline', 'faqs', 'mediaBlock', 'archive', 'formBlock', 'threeColumnLayout');
+      CREATE TYPE "public"."enum_tenants_allowed_blocks" AS ENUM('heroScheduleSanctuary', 'location', 'healthBenefits', 'sectionTagline', 'faqs', 'mediaBlock', 'archive', 'formBlock', 'threeColumnLayout');
       ALTER TABLE "tenants_allowed_blocks" ALTER COLUMN "value" SET DATA TYPE "public"."enum_tenants_allowed_blocks" USING "value"::"public"."enum_tenants_allowed_blocks";
     EXCEPTION WHEN duplicate_object OR undefined_object THEN
       NULL;

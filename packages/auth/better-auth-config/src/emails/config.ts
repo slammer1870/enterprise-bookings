@@ -24,8 +24,16 @@ function sanitizeFromName(input: unknown): string | undefined {
   if (!s) return undefined
   // Protect against broken env injection (e.g. "ATNDSTRIPE_CONNECT_CLIENT_ID=...").
   if (s.includes('\n') || s.includes('\r') || s.includes('=')) return undefined
-  if (s.length > 120) return undefined
-  return s
+
+  const ascii = s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .trim()
+
+  if (!ascii) return undefined
+  if (ascii.length > 120) return undefined
+  return ascii
 }
 
 export function resolveBetterAuthEmailConfig(

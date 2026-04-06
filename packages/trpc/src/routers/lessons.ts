@@ -287,9 +287,10 @@ export const lessonsRouter = {
         const { startOfDay, endOfDay } = getDayBoundsInTimeZone(input.date, timeZone);
 
         // Schedule UX: don't allow browsing past days, and don't show lessons that already ended today.
-        const now = new Date();
+        // Use Date.now so test suites can stub current time deterministically.
+        const now = Date.now();
         const { startOfDay: todayStart } = getDayBoundsInTimeZone(
-          now.toISOString(),
+          new Date(now).toISOString(),
           timeZone
         );
         if (endOfDay.getTime() < todayStart.getTime()) {
@@ -299,16 +300,6 @@ export const lessonsRouter = {
         // Requirement: users shouldn't be able to browse yesterday or earlier, but
         // today's schedule should still show the full day.
 
-        // Build where clause with date range and tenant filter
-        // CRITICAL: We MUST explicitly filter by tenant in the where clause.
-        // The access control (tenantScopedReadFiltered) also returns a tenant filter,
-        // but having the explicit filter ensures the query works correctly.
-        // Payload combines access control constraints with where clauses, and having
-        // both ensures the tenant filter is applied even if there are issues with
-        // how Payload combines them.
-        //
-        // This allows cross-tenant booking - users can see lessons for the tenant
-        // they're viewing (from subdomain), regardless of their tenant assignments.
         const dayRangeClause = {
           startTime: {
             greater_than_equal: startOfDay.toISOString(),
@@ -316,10 +307,16 @@ export const lessonsRouter = {
           },
         };
 
+        // Always filter out inactive lessons at the query level.
+        // When overrideAccess: true (below), lessonsRead doesn't run so we must
+        // apply the active constraint explicitly.
+        const activeClause = { active: { equals: true } };
+
         const whereClause: any = tenantId
           ? {
               and: [
                 dayRangeClause,
+                activeClause,
                 {
                   tenant: {
                     equals: tenantId,
@@ -328,7 +325,7 @@ export const lessonsRouter = {
               ],
             }
           : {
-              and: [dayRangeClause],
+              and: [dayRangeClause, activeClause],
             };
 
         const queryOptions: {
@@ -342,10 +339,14 @@ export const lessonsRouter = {
           // Keep lesson query shallow; we will populate + sanitize classOption ourselves.
           depth: 0,
           sort: "startTime",
-          // Enforce Payload access controls. Tenant scoping is handled via:
-          // - explicit whereClause tenant filter (when tenantId is resolved)
-          // - req.context.tenant passed below (multi-tenant plugin + access functions)
-          overrideAccess: false,
+          // When tenantId is set, bypass Payload access controls and rely solely on the
+          // explicit whereClause filters (tenant + active + day range). This prevents the
+          // multi-tenant plugin's withTenantAccess wrapper from adding { tenant: { in: [] } }
+          // for authenticated better-auth users whose session object lacks the `tenants`
+          // relationship (it is not saved to the JWT). With overrideAccess: true the
+          // lessonsRead access function does not run, so we must supply the active filter
+          // directly in whereClause (done above).
+          overrideAccess: true,
         };
 
         // Set tenant context on req for multi-tenant plugin filtering
@@ -358,10 +359,6 @@ export const lessonsRouter = {
           payload: ctx.payload, // Explicitly set payload property
         } as any;
 
-        // Use payload.find directly to pass req with tenant context
-        // When tenantId is set, we use overrideAccess: true to bypass the multi-tenant
-        // plugin's automatic filtering (which filters by user's tenants array) and rely
-        // on our explicit where clause filter (which filters by subdomain tenant).
         const lessons = await ctx.payload.find({
           collection: "lessons" as CollectionSlug,
           where: queryOptions.where,
@@ -371,9 +368,8 @@ export const lessonsRouter = {
           req: queryOptions.req,
           // Avoid expensive per-viewer virtual fields (bookingStatus/remainingCapacity/bookings join)
           // in the schedule query path. We'll compute what schedule needs in a single batch below.
-          // Type assertion: select shape is correct for apps with a lessons collection; apps
-          // without lessons (e.g. boatyard-sauna) use a different Config so the inferred select
-          // type doesn't include these fields. Runtime is correct when lessons exists.
+        // Type assertion: select shape is correct for applications with a lessons collection.
+        // For apps without lessons, a different Config keeps inferred select types in sync.
           select: {
             id: true,
             date: true,

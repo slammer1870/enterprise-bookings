@@ -21,6 +21,7 @@ import * as webhookProcessed from '../../src/lib/stripe-connect/webhookProcessed
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 function request(body: string, signature = 't=123,v1=valid') {
   return new NextRequest('http://localhost/api/stripe/webhook', {
@@ -38,10 +39,10 @@ describe('Stripe subscription webhooks (Connect)', () => {
   let tenantId: number
   let userId: number
   let planId: number
-  const accountId = 'acct_sub_webhook_test'
-  const stripeCustomerId = 'cus_sub_test_123'
-  const stripeProductId = 'prod_sub_plan_123'
-  const subId = 'sub_test_123'
+  const accountId = `acct_sub_webhook_test_${runId}`
+  const stripeCustomerId = `cus_sub_test_123_${runId}`
+  const stripeProductId = `prod_sub_plan_123_${runId}`
+  const subId = `sub_test_123_${runId}`
 
   beforeAll(async () => {
     const payloadConfig = await config

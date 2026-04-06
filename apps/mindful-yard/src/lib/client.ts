@@ -2,12 +2,15 @@
 
 import { createAppAuthClient, getCallbackUrl } from '@repo/better-auth-config/client'
 
-export const authClient = createAppAuthClient({
+export const authClient: ReturnType<typeof createAppAuthClient> = createAppAuthClient({
   enableMagicLink: true,
   enableAdmin: true,
 })
 
-export const { signIn, signUp, signOut, useSession } = authClient
+export const signIn: typeof authClient.signIn = authClient.signIn
+export const signUp: typeof authClient.signUp = authClient.signUp
+export const signOut: typeof authClient.signOut = authClient.signOut
+export const useSession: typeof authClient.useSession = authClient.useSession
 // magicLink is conditionally available when enableMagicLink is true
 export const magicLink = (authClient as any).magicLink
 

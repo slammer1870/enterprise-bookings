@@ -1,5 +1,5 @@
 import { getPayload } from '@/lib/payload'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { draftMode } from 'next/headers'
@@ -23,38 +23,13 @@ import { getTenantWithBranding } from '@/utilities/getTenantContext'
 export default async function RootPage() {
   const { isEnabled: draft } = await draftMode()
   const cookieStore = await cookies()
-  const tenantSlug = cookieStore.get('tenant-slug')?.value
+  const headersList = await headers()
+  const payload = await getPayload()
+  const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
+  const tenantSlug = tenant?.slug ?? null
 
   // If tenant context exists, render the home page at / instead of redirecting
   if (tenantSlug) {
-    const payload = await getPayload()
-
-    // Validate that the tenant exists
-    let tenantExists = false
-    try {
-      const tenantResult = await payload.find({
-        collection: 'tenants',
-        where: {
-          slug: {
-            equals: tenantSlug,
-          },
-        },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-      })
-
-      tenantExists = Boolean(tenantResult.docs[0])
-    } catch (error) {
-      // If lookup fails, show 404
-      console.error('Error validating tenant:', error)
-    }
-    // If tenant doesn't exist, show 404
-    if (!tenantExists) {
-      const { notFound } = await import('next/navigation')
-      notFound()
-    }
-
     // Render the tenant's home page (slug "home") at /
     const page = await queryPageBySlug({ slug: 'home' })
     if (page) {
@@ -74,8 +49,6 @@ export default async function RootPage() {
 
   // For root domain (no subdomain), try to load an editable landing page
   // Look for a page with slug "root" with no tenant (global marketing page)
-  const payload = await getPayload()
-  
   // Try to find a root page (slug "root" with no tenant)
   // Use overrideAccess to bypass tenant filtering for root domain pages
   let page: RequiredDataFromCollectionSlug<'pages'> | null = null
@@ -161,10 +134,11 @@ export default async function RootPage() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies()
+  const headersList = await headers()
   const payload = await getPayload()
-  const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore })
+  const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
 
-  if (cookieStore.get('tenant-slug')?.value) {
+  if (tenantBranding?.slug) {
     const homePage = await queryPageBySlug({ slug: 'home' })
     if (homePage) {
       return generateMeta({

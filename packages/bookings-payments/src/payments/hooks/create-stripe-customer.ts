@@ -1,6 +1,13 @@
 import type { CollectionBeforeChangeHook } from "payload";
 import { stripe } from "@repo/shared-utils";
 
+function isE2ePlaceholderStripeAccount(accountId: string | null | undefined): boolean {
+  const id = typeof accountId === "string" ? accountId.trim() : "";
+  if (!id) return false;
+  const isE2eWebhookMode = process.env.ENABLE_TEST_WEBHOOKS === "true";
+  return isE2eWebhookMode && /^acct_[a-z_]+_\d+$/.test(id);
+}
+
 function getTenantIdFromDataOrReq(data: any, req: any): number | null {
   const reg = data?.registrationTenant;
   if (typeof reg === "number" && Number.isFinite(reg)) return reg;
@@ -77,6 +84,19 @@ export const createStripeCustomer: CollectionBeforeChangeHook = async ({
       return { ...data, stripeCustomers: next };
     }
     return { ...data, stripeCustomerId: fake };
+  }
+
+  if (stripeAccountId && !hasConnectMapping && isE2ePlaceholderStripeAccount(stripeAccountId)) {
+    const fake = `cus_test_${stripeAccountId}_${Date.now()}`;
+    const existing = Array.isArray(data?.stripeCustomers) ? data.stripeCustomers : [];
+    const next = [
+      ...existing.filter((x: any) => x?.stripeAccountId !== stripeAccountId),
+      { stripeAccountId, stripeCustomerId: fake },
+    ];
+    return {
+      ...data,
+      stripeCustomers: next,
+    };
   }
 
   // If tenant is connected, create the customer *on the connected account* and store per-account mapping.
