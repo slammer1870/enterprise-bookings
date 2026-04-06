@@ -251,4 +251,38 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'resolves tenant from numeric metadata.tenantId outside test-only header flow',
+    async () => {
+      const res = await POST(
+        request({
+          headers: { 'x-test-user-id': String(regularUser.id) },
+          body: {
+            priceId: 'price_sub_1',
+            quantity: 1,
+            mode: 'payment',
+            metadata: { tenantId: String(activeTenantId), type: 'class_pass_purchase' },
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      const payloadRes = (await res.json()) as { id: string; url: string }
+      expect(payloadRes).toEqual({ id: 'cs_test_123', url: 'https://checkout.test/session' })
+      expect(mockEnsureStripeCustomerIdForAccount).toHaveBeenCalledTimes(1)
+      expect(mockCreateTenantCheckoutSession).toHaveBeenCalledTimes(1)
+      expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant: expect.objectContaining({ id: activeTenantId }),
+          metadata: expect.objectContaining({
+            tenantId: String(activeTenantId),
+            type: 'class_pass_purchase',
+            userId: String(regularUser.id),
+          }),
+        }),
+      )
+    },
+    TEST_TIMEOUT,
+  )
 })

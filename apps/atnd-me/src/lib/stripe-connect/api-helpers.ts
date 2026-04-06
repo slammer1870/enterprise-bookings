@@ -55,7 +55,7 @@ export async function resolveTenantForConnect(
   payload: any,
   slugOrId: string
 ): Promise<TenantForConnect | null> {
-  if (process.env.NODE_ENV === 'test' && /^\d+$/.test(slugOrId)) {
+  if (/^\d+$/.test(slugOrId)) {
     const t = await payload.findByID({
       collection: 'tenants',
       id: parseInt(slugOrId, 10),

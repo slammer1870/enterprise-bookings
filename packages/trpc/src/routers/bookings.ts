@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
+import type Stripe from "stripe";
 import { protectedProcedure, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from "../utils/collections";
 import {
@@ -606,6 +607,27 @@ export const bookingsRouter = {
         typeof lesson.tenant === "object" && lesson.tenant != null
           ? (lesson.tenant as { id: number }).id
           : (lesson.tenant as number | undefined) ?? null;
+      const tenantDoc =
+        lessonTenantId != null && hasCollection(ctx.payload, "tenants")
+          ? await ctx.payload
+              .findByID({
+                collection: "tenants" as any,
+                id: lessonTenantId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              .catch(() => null)
+          : null;
+      const tenantStripeAccountId =
+        tenantDoc &&
+        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+        (tenantDoc as any).stripeConnectAccountId.trim() &&
+        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+          ? String((tenantDoc as any).stripeConnectAccountId).trim()
+          : null;
+      const stripeOpts = tenantStripeAccountId
+        ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
 
       // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
       const confirmedBookings: Booking[] = [];
@@ -940,6 +962,27 @@ export const bookingsRouter = {
         typeof lesson.tenant === "object" && lesson.tenant != null
           ? (lesson.tenant as { id: number }).id
           : (lesson.tenant as number | undefined) ?? null;
+      const tenantDoc =
+        lessonTenantId != null && hasCollection(ctx.payload, "tenants")
+          ? await ctx.payload
+              .findByID({
+                collection: "tenants" as any,
+                id: lessonTenantId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              .catch(() => null)
+          : null;
+      const tenantStripeAccountId =
+        tenantDoc &&
+        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+        (tenantDoc as any).stripeConnectAccountId.trim() &&
+        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+          ? String((tenantDoc as any).stripeConnectAccountId).trim()
+          : null;
+      const stripeOpts = tenantStripeAccountId
+        ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
+        : undefined;
 
       const accessible = await findSafe(ctx.payload, "class-pass-types", {
         where: {
@@ -978,11 +1021,14 @@ export const bookingsRouter = {
           // Extract priceId from priceJSON (may be a JSON string or a stored object)
           const rawPriceJsonField = (fullDoc as { priceJSON?: unknown }).priceJSON;
           let priceId: string | null = null;
+          let priceSource: "priceJSON-string" | "priceJSON-object" | "stripeProduct-default_price" | "missing" =
+            "missing";
           if (typeof rawPriceJsonField === "string" && rawPriceJsonField.trim().startsWith("{")) {
             try {
               const parsed = JSON.parse(rawPriceJsonField) as { id?: unknown };
               if (typeof parsed?.id === "string" && parsed.id.trim().length > 0) {
                 priceId = parsed.id.trim();
+                priceSource = "priceJSON-string";
               }
             } catch {
               priceId = null;
@@ -991,6 +1037,7 @@ export const bookingsRouter = {
             const obj = rawPriceJsonField as { id?: unknown };
             if (typeof obj.id === "string" && obj.id.trim().length > 0) {
               priceId = obj.id.trim();
+              priceSource = "priceJSON-object";
             }
           }
           // Fall back to stripeProductId: fetch the product's default price from Stripe
@@ -1003,16 +1050,32 @@ export const bookingsRouter = {
               try {
                 const product = await stripe.products.retrieve(stripeProductId, {
                   expand: ["default_price"],
-                });
+                }, stripeOpts);
                 const defaultPrice = product.default_price as { id?: string } | null | undefined;
                 if (typeof defaultPrice?.id === "string" && defaultPrice.id.trim().length > 0) {
                   priceId = defaultPrice.id.trim();
+                  priceSource = "stripeProduct-default_price";
                 }
               } catch {
                 priceId = null;
               }
             }
           }
+          ctx.payload.logger.info?.(
+            {
+              lessonId: input.lessonId,
+              tenantId: lessonTenantId,
+              stripeAccount: tenantStripeAccountId,
+              classPassTypeId: typeId,
+              stripeProductId:
+                typeof (fullDoc as { stripeProductId?: unknown }).stripeProductId === "string"
+                  ? (fullDoc as { stripeProductId: string }).stripeProductId
+                  : null,
+              priceId,
+              priceSource,
+            },
+            "[bookings] resolved purchasable class pass price",
+          );
 
           return {
             id: typeId,
