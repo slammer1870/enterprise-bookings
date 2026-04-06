@@ -139,8 +139,8 @@ test.describe('Drop-in multi-quantity discount', () => {
 
     await page.getByRole('tab', { name: /drop-?in/i }).click()
 
-    // Baseline: quantity 1 shows €10.00 (class price and/or total; avoid strict mode with .first())
-    await expect(page.getByText(/total:/i)).toBeVisible({ timeout: 15_000 })
+    // Baseline: quantity 1 shows class price €10.00 and total €11.00 in the price breakdown.
+    await expect(page.getByText(/^Total$/i)).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('€10.00').first()).toBeVisible({ timeout: 15_000 })
 
     // Wait for the *discounted* payment intent request when quantity becomes 2 (price should be 18.00).

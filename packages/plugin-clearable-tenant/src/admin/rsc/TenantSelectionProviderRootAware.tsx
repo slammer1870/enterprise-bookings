@@ -140,6 +140,7 @@ type Props = {
   collectionsWithTenantField?: string[]
   documentTenantFieldName?: string
   getCookieDomain?: () => string | undefined
+  initialUserRoles?: string[]
 }
 
 export async function TenantSelectionProviderRootAware(props: Props) {
@@ -201,10 +202,16 @@ export async function TenantSelectionProviderRootAware(props: Props) {
     // When payload/user not passed (e.g. Payload admin not passing serverProps), still mount client provider so it can fetch options.
   }
 
+  const initialUserRoles =
+    user && typeof user === 'object' && Array.isArray((user as { roles?: unknown }).roles)
+      ? ((user as { roles: string[] }).roles ?? [])
+      : []
+
   return (
     <TenantSelectionProviderRootAwareClient
       initialTenantOptions={tenantOptions}
       initialValue={initialValue}
+      initialUserRoles={initialUserRoles}
       tenantsCollectionSlug={tenantsCollectionSlug}
       rootDocCollections={rootDocCollections}
       collectionsRequireTenantOnCreate={collectionsRequireTenantOnCreate}

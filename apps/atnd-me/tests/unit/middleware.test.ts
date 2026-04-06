@@ -70,6 +70,14 @@ describe('Middleware', () => {
       expect(setCookie).toContain('tenant-slug=acme')
     })
 
+    it('rewrites tenant root requests to /home while keeping tenant cookies in sync', async () => {
+      const res = await middleware(createMockRequest('acme.atnd-me.com', '/'))
+      const setCookie = res.headers.get('set-cookie')
+
+      expect(res.headers.get('x-middleware-rewrite')).toBe('http://acme.atnd-me.com/home')
+      expect(setCookie).toContain('tenant-slug=acme')
+    })
+
     it('sets cookie domain to root hostname so cookie works across subdomains', async () => {
       const res = await middleware(createMockRequest('studio-one.atnd-me.com', '/'))
       const setCookie = res.headers.get('set-cookie')
@@ -125,6 +133,7 @@ describe('Middleware', () => {
       const res = await middleware(createMockRequest('studio.example.com', '/'))
       const setCookie = res.headers.get('set-cookie')
       expect(setCookie).toBeTruthy()
+      expect(res.headers.get('x-middleware-rewrite')).toBe('http://studio.example.com/home')
       expect(setCookie).toContain('tenant-slug=acme')
       // Custom domain: cookie must not be scoped to platform (no Domain=.atnd-me.com)
       expect(setCookie).not.toContain('Domain=.atnd-me.com')

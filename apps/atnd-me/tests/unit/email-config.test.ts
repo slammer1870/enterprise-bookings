@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { resolvePayloadEmailConfig, sanitizeFromAddress, sanitizeFromName } from '../../src/utilities/emailConfig'
 
 describe('payload email config', () => {
+  it('transliterates accented from names to ASCII', () => {
+    expect(sanitizeFromName('Brú Grappling')).toBe('Bru Grappling')
+  })
+
   it('rejects malformed from names that contain injected env assignments', () => {
     expect(
       sanitizeFromName('ATNDSTRIPE_CONNECT_CLIENT_ID=ca_ToyRWEM489rFH0rlQm7N7rLgHQ1Bjq0I'),

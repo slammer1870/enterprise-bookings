@@ -65,6 +65,28 @@ describe('Magic-link email tenant From header', () => {
     expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
   })
 
+  it('transliterates accented tenant names in the From header', async () => {
+    const findImpl = vi.fn(async ({ collection, where }: any) => {
+      expect(collection).toBe('tenants')
+      expect(where).toEqual({ domain: { equals: 'bru.example.com' } })
+      return { docs: [{ name: 'Brú Grappling', domain: 'bru.example.com' }] }
+    })
+
+    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+
+    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
+      email: 'person@example.com',
+      token: 'tok',
+      url: 'https://bru.example.com/api/auth/magic-link?token=tok',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [_url, init] = fetchMock.mock.calls[0] as any[]
+    const payload = JSON.parse(init.body)
+    expect(payload.subject).toMatch(/^Sign in to Brú Grappling\b/)
+    expect(payload.from).toBe('Bru Grappling <auth@bru.example.com>')
+  })
+
   it('uses tenant name and auth@atnd.me for platform subdomains', async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {
       expect(collection).toBe('tenants')

@@ -44,19 +44,19 @@ export async function middleware(request: NextRequest) {
     clearCookieEverywhere({
       response,
       name: 'tenant-slug',
-      paths: ['/', '/admin', '/admin/'],
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
       domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
     })
     clearCookieEverywhere({
       response,
       name: PAYLOAD_TENANT_COOKIE,
-      paths: ['/', '/admin', '/admin/'],
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
       domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
     })
     clearCookieEverywhere({
       response,
       name: 'tenant-id',
-      paths: ['/', '/admin', '/admin/'],
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
       domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
     })
   }
@@ -172,6 +172,15 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  const tenantRootRewriteUrl =
+    pathname === '/'
+      ? (() => {
+          const rewriteUrl = request.nextUrl.clone()
+          rewriteUrl.pathname = '/home'
+          return rewriteUrl
+        })()
+      : null
+
   const response = isPayloadAdmin
     ? NextResponse.next({
       request: {
@@ -182,7 +191,9 @@ export async function middleware(request: NextRequest) {
         })(),
       },
     })
-    : NextResponse.next()
+    : tenantRootRewriteUrl
+      ? NextResponse.rewrite(tenantRootRewriteUrl)
+      : NextResponse.next()
   const cookieOptions: { httpOnly: boolean; sameSite: 'lax'; path: string; domain?: string } = {
     httpOnly: false,
     sameSite: 'lax',
@@ -209,7 +220,7 @@ export async function middleware(request: NextRequest) {
     clearCookieEverywhere({
       response,
       name: 'tenant-slug',
-      paths: ['/', '/admin', '/admin/'],
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
       domains: [undefined, domainScoped],
     })
     response.cookies.set('tenant-slug', subdomain, cookieOptions)
@@ -258,7 +269,7 @@ export async function middleware(request: NextRequest) {
       clearCookieEverywhere({
         response,
         name: PAYLOAD_TENANT_COOKIE,
-        paths: ['/', '/admin', '/admin/'],
+        paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
         domains: [undefined, domainScoped],
       })
       response.cookies.set(PAYLOAD_TENANT_COOKIE, String(tenantIdToSet), cookieOptions)
@@ -432,6 +443,8 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/'))
   redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin'))
   redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/'))
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections'))
+  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/'))
   redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/'))
   redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/'))
 
@@ -440,6 +453,8 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/', domain))
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin', domain))
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/', domain))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections', domain))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/', domain))
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/', domain))
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/', domain))
   }

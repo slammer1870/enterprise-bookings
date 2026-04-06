@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin, BASE_URL } from './helpers/auth-helpers'
 import {
@@ -52,11 +53,11 @@ function formatCalendarButtonLabel(date: Date): string {
   return `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${day}${suffix}, ${date.getFullYear()}`
 }
 
-function getTenantSelector(page: Parameters<typeof test>[0]['page']) {
+function getTenantSelector(page: Page) {
   return page.getByTestId('tenant-selector')
 }
 
-async function ensureSidebarOpen(page: Parameters<typeof test>[0]['page']) {
+async function ensureSidebarOpen(page: Page) {
   await page.waitForLoadState('domcontentloaded').catch(() => null)
 
   if (await getTenantSelector(page).isVisible().catch(() => false)) {
@@ -80,7 +81,7 @@ async function ensureSidebarOpen(page: Parameters<typeof test>[0]['page']) {
   await getTenantSelector(page).waitFor({ state: 'visible', timeout: 20_000 })
 }
 
-async function chooseTenantInCreateModal(page: Parameters<typeof test>[0]['page'], tenantName: string) {
+async function chooseTenantInCreateModal(page: Page, tenantName: string) {
   const dialog = page.getByRole('dialog', { name: /select tenant/i })
   await expect(dialog).toBeVisible({ timeout: 10000 })
 
@@ -109,7 +110,7 @@ async function chooseTenantInCreateModal(page: Parameters<typeof test>[0]['page'
 }
 
 async function ensureTenantSelectedForCreate(
-  page: Parameters<typeof test>[0]['page'],
+  page: Page,
   tenant: { id: number; name: string; slug?: string | null },
 ) {
   const dialog = page.getByRole('dialog', { name: /select tenant/i })
@@ -138,7 +139,7 @@ async function ensureTenantSelectedForCreate(
 }
 
 async function openLessonsDashboardForDate(
-  page: Parameters<typeof test>[0]['page'],
+  page: Page,
   targetDate: Date,
 ) {
   await page.goto('/admin/collections/lessons', {
@@ -173,6 +174,63 @@ async function openLessonsDashboardForDate(
 
 test.describe('Admin lesson creation date regression', () => {
   test.setTimeout(180000)
+
+  test('creating a lesson from the lessons screen requires selecting a tenant first', async ({
+    page,
+    request,
+    testData,
+  }) => {
+    await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
+    await page.goto(`${BASE_URL}/admin`, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
+    const origin = new URL(BASE_URL).origin
+    await page.context().addCookies([
+      { name: 'payload-tenant', value: '', url: `${origin}/` },
+      { name: 'payload-tenant', value: '', url: `${origin}/admin/` },
+      { name: 'payload-tenant', value: '', url: `${origin}/admin/collections/` },
+    ])
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(getTenantSelector(page).getByText(/select a value/i).first()).toBeVisible({
+      timeout: 20_000,
+    })
+
+    await page.goto('/admin/collections/lessons', {
+      waitUntil: 'domcontentloaded',
+      timeout: process.env.CI ? 120000 : 60000,
+    })
+    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+      timeout: process.env.CI ? 120000 : 60000,
+    })
+
+    const createNewLink = page.getByRole('link', { name: /create new/i }).first()
+    const createNewButton = page.getByRole('button', { name: /create new/i }).first()
+
+    if (await createNewLink.isVisible().catch(() => false)) {
+      await createNewLink.click()
+    } else {
+      await createNewButton.click()
+    }
+
+    await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/lessons/create'), {
+      timeout: process.env.CI ? 120000 : 60000,
+    })
+
+    const dialog = page.getByRole('dialog', { name: /select tenant/i })
+    const continueButton = dialog.getByRole('button', { name: /continue/i })
+
+    await expect(dialog).toBeVisible({ timeout: 20_000 })
+    await expect(continueButton).toBeDisabled({ timeout: 10_000 })
+
+    const modalMustStayOpenUntilSelectionMs = process.env.CI ? 5_000 : 3_000
+    const start = Date.now()
+    while (Date.now() - start < modalMustStayOpenUntilSelectionMs) {
+      await expect(dialog).toBeVisible({ timeout: 2_000 })
+      await expect(continueButton).toBeDisabled({ timeout: 2_000 })
+      await page.waitForTimeout(250)
+    }
+  })
 
   test('lesson created from /create appears on the selected future date in the lessons dashboard', async ({
     page,

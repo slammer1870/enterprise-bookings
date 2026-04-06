@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/fixtures'
-import { loginAsTenantAdmin } from './helpers/auth-helpers'
+import { loginAsRegularUserViaApi, loginAsTenantAdmin } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { getPayloadInstance } from './helpers/data-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
@@ -223,5 +223,108 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
     })
 
     expect(lessonInDb).toBeTruthy()
+  })
+
+  test('regular user can open a scheduled lesson and sees the allowed class pass type available to buy', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]
+    const user = testData.users.user1
+    const workerIndex = testData.workerIndex
+    const tenantSlug = tenant.slug
+
+    if (!tenant?.id || !tenantSlug || !user?.email) {
+      throw new Error('Expected tenant and regular user fixtures for class pass booking visibility test')
+    }
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectAccountId: null,
+      },
+      overrideAccess: true,
+    })
+
+    const classPassTypeName = `Schedule Booking Pass ${tenant.id}-w${workerIndex}-${Date.now()}`
+    const classPassType = await payload.create({
+      collection: 'class-pass-types',
+      draft: false,
+      data: {
+        name: classPassTypeName,
+        slug: `schedule-booking-pass-${tenant.id}-${workerIndex}-${Date.now()}`,
+        quantity: 5,
+        tenant: tenant.id,
+        status: 'active',
+        allowMultipleBookingsPerLesson: true,
+        priceInformation: { price: 25 },
+        priceJSON: JSON.stringify({
+          id: `price_schedule_booking_${tenant.id}_${workerIndex}_${Date.now()}`,
+        }),
+        skipSync: true,
+        stripeProductId: `prod_schedule_booking_${tenant.id}_${workerIndex}_${Date.now()}`,
+      },
+      overrideAccess: true,
+    }) as { id: number }
+
+    const className = uniqueClassName(`ATND Schedule Book CP ${tenant.id}`)
+    const classOption = await payload.create({
+      collection: 'class-options',
+      data: {
+        name: className,
+        places: 10,
+        description: 'E2E class option for public schedule -> booking class pass purchase visibility',
+        tenant: tenant.id,
+        paymentMethods: {
+          allowedClassPasses: [classPassType.id],
+        },
+      },
+      overrideAccess: true,
+    }) as { id: number }
+
+    const targetDate = addDays(new Date(), 6)
+    targetDate.setHours(0, 0, 0, 0)
+
+    const lessonId = await createPublishedLesson({
+      payload,
+      tenantId: tenant.id,
+      classOptionId: classOption.id,
+      targetDate,
+    })
+
+    await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug })
+    await navigateToTenant(page, tenantSlug, '/')
+    await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/home', {
+      timeout: 15000,
+    }).catch(() => null)
+
+    await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
+    await advanceScheduleToDate(page, targetDate)
+
+    const lessonTitle = page.getByText(className, { exact: true }).first()
+    await expect(lessonTitle).toBeVisible({ timeout: 20000 })
+
+    const lessonRow = lessonTitle.locator('xpath=ancestor::div[contains(@class,"border-b")]').first()
+    await lessonRow.getByRole('button', { name: /^book$/i }).click()
+
+    await page.waitForURL((url) => url.pathname === `/bookings/${lessonId}`, {
+      timeout: 15000,
+    })
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+
+    await expect(
+      page.getByText(/select quantity|payment methods|choose how many slots/i).first(),
+    ).toBeVisible({ timeout: 15000 })
+
+    const classPassTab = page.getByRole('tab', { name: /class pass/i })
+    await expect(classPassTab).toBeVisible({ timeout: 15000 })
+    await classPassTab.click()
+
+    await expect(page.getByText(/buy a class pass/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(classPassTypeName, { exact: true })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('button', { name: /buy pass/i })).toBeVisible({ timeout: 10000 })
   })
 })

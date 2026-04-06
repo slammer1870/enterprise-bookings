@@ -54,6 +54,14 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     },
     [setTenant],
   )
+  const clearSelectedTenant = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      switchTenant(undefined)
+    },
+    [switchTenant],
+  )
 
   const handleChange = React.useCallback(
     (option: ReactSelectOption | ReactSelectOption[] | null | undefined) => {
@@ -120,6 +128,8 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     // The doc's tenant is controlled by the selector (synced to the hidden `tenant` relationship field).
     (isOnNavbarOrFooter && isDocumentLikeView) ||
     (!isOnNavbarOrFooter && !canClearTenantOnCurrentRoute && entityType !== 'global' && isDocumentLikeView)
+  const hasSelectedTenant =
+    selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== ''
 
   return (
     <div
@@ -137,6 +147,33 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
         readOnly={readOnly}
         value={selectedTenantID as Parameters<typeof SelectInput>[0]['value']}
       />
+      {canClear && !readOnly && hasSelectedTenant ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <button
+            type="button"
+            aria-label="Clear tenant"
+            title="Clear tenant"
+            onMouseDown={clearSelectedTenant}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            style={{
+              appearance: 'none',
+              border: '1px solid var(--theme-elevation-250)',
+              borderRadius: '4px',
+              background: 'var(--theme-elevation-50)',
+              color: 'var(--theme-text)',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              lineHeight: 1.2,
+              padding: '0.35rem 0.5rem',
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      ) : null}
       <ConfirmationModal
         body={t('general:changesNotSaved')}
         cancelLabel={t('general:stayOnThisPage')}
