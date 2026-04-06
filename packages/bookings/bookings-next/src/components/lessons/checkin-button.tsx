@@ -69,6 +69,7 @@ export const CheckInButton = ({
 
   const action: LessonScheduleState["action"] = scheduleState?.action ?? "book";
   const label = scheduleState?.label ?? labelByAction[action];
+  const isTrialBooking = action === "book" && label.toLowerCase().includes("trial");
 
   const { mutateAsync: setMyBooking, isPending } = useMutation(
     trpc.bookings.setMyBookingForLesson.mutationOptions({
@@ -172,7 +173,11 @@ export const CheckInButton = ({
     <>
       <ConfirmationDialog />
       <Button
-        className={classNameByAction[action]}
+        className={
+          isTrialBooking
+            ? "w-full bg-trialable hover:bg-trialable/90 text-trialable-foreground"
+            : classNameByAction[action]
+        }
         disabled={disabled}
         onClick={handleClick}
       >
