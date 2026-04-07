@@ -607,28 +607,6 @@ export const bookingsRouter = {
         typeof lesson.tenant === "object" && lesson.tenant != null
           ? (lesson.tenant as { id: number }).id
           : (lesson.tenant as number | undefined) ?? null;
-      const tenantDoc =
-        lessonTenantId != null && hasCollection(ctx.payload, "tenants")
-          ? await ctx.payload
-              .findByID({
-                collection: "tenants" as any,
-                id: lessonTenantId,
-                depth: 0,
-                overrideAccess: true,
-              })
-              .catch(() => null)
-          : null;
-      const tenantStripeAccountId =
-        tenantDoc &&
-        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
-        (tenantDoc as any).stripeConnectAccountId.trim() &&
-        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
-          ? String((tenantDoc as any).stripeConnectAccountId).trim()
-          : null;
-      const stripeOpts = tenantStripeAccountId
-        ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
-        : undefined;
-
       const decrementClassPassCredits = async (count: number) => {
         if (classPassIdUsed == null || count <= 0) return;
         const pass = (await ctx.payload.findByID({

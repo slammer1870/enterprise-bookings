@@ -53,19 +53,27 @@ export const beforeClassPassTypeChange: CollectionBeforeChangeHook = async ({
     const tenantDoc =
       tenantId != null && Number.isFinite(tenantId)
         ? await payload.findByID({
-            collection: "tenants",
+            collection: "tenants" as any,
             id: tenantId,
             depth: 0,
             overrideAccess: true,
           }).catch(() => null)
         : null;
+    const tenantDocRecord = tenantDoc as unknown as Record<string, unknown> | null;
+    const tenantStripeAccountIdValue =
+      tenantDocRecord && typeof tenantDocRecord.stripeConnectAccountId === "string"
+        ? tenantDocRecord.stripeConnectAccountId
+        : null;
+    const tenantStripeAccountId = tenantStripeAccountIdValue?.trim() ?? "";
+    const tenantStripeOnboardingStatus =
+      tenantDocRecord && typeof tenantDocRecord.stripeConnectOnboardingStatus === "string"
+        ? tenantDocRecord.stripeConnectOnboardingStatus
+        : null;
     const stripeOpts =
-      tenantDoc &&
-      typeof (tenantDoc as { stripeConnectAccountId?: unknown }).stripeConnectAccountId === "string" &&
-      typeof (tenantDoc as { stripeConnectOnboardingStatus?: unknown }).stripeConnectOnboardingStatus === "string" &&
-      (tenantDoc as { stripeConnectOnboardingStatus?: string }).stripeConnectOnboardingStatus === "active"
+      tenantStripeAccountId &&
+      tenantStripeOnboardingStatus === "active"
         ? {
-            stripeAccount: (tenantDoc as { stripeConnectAccountId: string }).stripeConnectAccountId.trim(),
+            stripeAccount: tenantStripeAccountId,
           }
         : undefined;
 
