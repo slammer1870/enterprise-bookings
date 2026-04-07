@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ManageBookingPageClient } from '../../src/components/bookings/manage-booking-page-client'
 import type { Lesson, Booking } from '@repo/shared-types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -66,6 +66,7 @@ describe('ManageBookingPageClient', () => {
   let mockCancelBooking: ReturnType<typeof vi.fn>
   let mockCreateBookings: ReturnType<typeof vi.fn>
   let mockSetBookingQuantity: ReturnType<typeof vi.fn>
+  let mockCancelPendingBookingsForLesson: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -77,6 +78,7 @@ describe('ManageBookingPageClient', () => {
     mockCancelBooking = vi.fn().mockResolvedValue({})
     mockCreateBookings = vi.fn().mockResolvedValue([])
     mockSetBookingQuantity = vi.fn().mockResolvedValue([])
+    mockCancelPendingBookingsForLesson = vi.fn().mockResolvedValue({ cancelled: 0 })
 
     const mockConfirm = vi.fn().mockResolvedValue(true)
     ;(useTRPC as any).mockReturnValue({
@@ -112,7 +114,7 @@ describe('ManageBookingPageClient', () => {
         },
         cancelPendingBookingsForLesson: {
           mutationOptions: () => ({
-            mutationFn: vi.fn().mockResolvedValue({ cancelled: 0 }),
+            mutationFn: mockCancelPendingBookingsForLesson,
           }),
         },
       },
@@ -142,7 +144,7 @@ describe('ManageBookingPageClient', () => {
         cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
         createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
         setMyBookingQuantityForLesson: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: vi.fn().mockResolvedValue({ cancelled: 0 }) }) },
+        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForLesson }) },
       },
       lessons: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
@@ -187,7 +189,7 @@ describe('ManageBookingPageClient', () => {
         cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
         createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
         setMyBookingQuantityForLesson: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: vi.fn().mockResolvedValue({ cancelled: 0 }) }) },
+        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForLesson }) },
       },
       lessons: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
@@ -211,5 +213,88 @@ describe('ManageBookingPageClient', () => {
     })
     expect(screen.getByText(/pending booking/i)).toBeInTheDocument()
     expect(screen.getByTestId('payment-methods-stub')).toBeInTheDocument()
+  })
+
+  it('does not cancel pending bookings when payment flow quantity changes in place', async () => {
+    const lesson = createMockLesson({ hasPaymentMethods: true })
+    ;(lesson.classOption as any).paymentMethods.allowedDropIn.adjustable = true
+    const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
+    let serverBookings = [createMockBooking(1, 'confirmed')]
+    const newPendingBooking = createMockBooking(101, 'pending')
+    mockCreateBookings.mockImplementation(async () => {
+      serverBookings = [...serverBookings, newPendingBooking]
+      return [newPendingBooking]
+    })
+
+    ;(useTRPC as any).mockReturnValue({
+      bookings: {
+        getUserBookingsForLesson: {
+          queryKey: (opts: { lessonId: number }) => ['bookings', 'getUserBookingsForLesson', opts],
+          queryOptions: (opts: { lessonId: number }) => ({
+            queryKey: ['bookings', 'getUserBookingsForLesson', opts],
+            queryFn: () => serverBookings,
+            initialData: serverBookings,
+          }),
+        },
+        cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
+        createBookings: { mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({ mutationFn: mockCreateBookings, onSuccess: opts?.onSuccess, onError: opts?.onError }) },
+        setMyBookingQuantityForLesson: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
+        cancelPendingBookingsForLesson: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForLesson }) },
+      },
+      lessons: {
+        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+      },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ManageBookingPageClient lesson={lesson} initialBookings={serverBookings} PaymentMethodsComponent={PaymentMethodsStub} />
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/update booking quantity/i)).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByLabelText('Increase quantity'))
+    fireEvent.click(screen.getByRole('button', { name: 'Update Bookings' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Complete Payment')).toBeInTheDocument()
+    })
+
+    expect(mockCreateBookings).toHaveBeenCalled()
+    expect(mockCreateBookings.mock.calls[0]?.[0]).toEqual({
+      lessonId: 1,
+      quantity: 1,
+      status: 'pending',
+    })
+    expect(mockCancelPendingBookingsForLesson).not.toHaveBeenCalled()
+    expect(screen.getByTestId('pending-booking-quantity')).toHaveTextContent('1')
+  })
+
+  it('cancels pending bookings when the checkout flow unmounts', async () => {
+    const lesson = createMockLesson({ hasPaymentMethods: true })
+    const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
+    const pendingBookings = [createMockBooking(101, 'pending')]
+
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <ManageBookingPageClient lesson={lesson} initialBookings={pendingBookings} PaymentMethodsComponent={PaymentMethodsStub} />
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Complete Payment')).toBeInTheDocument()
+    })
+
+    unmount()
+
+    await waitFor(() => {
+      expect(mockCancelPendingBookingsForLesson).toHaveBeenCalled()
+    })
+    expect(mockCancelPendingBookingsForLesson.mock.calls[0]?.[0]).toEqual({ lessonId: 1 })
   })
 })

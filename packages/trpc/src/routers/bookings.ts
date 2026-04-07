@@ -629,6 +629,28 @@ export const bookingsRouter = {
         ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
         : undefined;
 
+      const decrementClassPassCredits = async (count: number) => {
+        if (classPassIdUsed == null || count <= 0) return;
+        const pass = (await ctx.payload.findByID({
+          collection: "class-passes" as import("payload").CollectionSlug,
+          id: classPassIdUsed,
+          depth: 0,
+          // System operation: class pass decrement is enforced by earlier ownership checks,
+          // but users typically cannot update class passes directly.
+          overrideAccess: true,
+        })) as { quantity?: number; status?: string } | null;
+        if (!pass || typeof pass.quantity !== "number") return;
+
+        const nextQty = Math.max(0, pass.quantity - count);
+        const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
+        await ctx.payload.update({
+          collection: "class-passes" as import("payload").CollectionSlug,
+          id: classPassIdUsed,
+          data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
+          overrideAccess: true,
+        });
+      };
+
       // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
       const confirmedBookings: Booking[] = [];
       const confirmPendingWithClassPass =
@@ -770,6 +792,7 @@ export const bookingsRouter = {
             }
           }
         }
+        await decrementClassPassCredits(confirmedBookings.length);
       }
 
       // Create any additional new bookings (when not confirming pending, or quantity > pendingBookingIds.length)
@@ -824,24 +847,7 @@ export const bookingsRouter = {
               overrideAccess: true,
             });
           }
-          const pass = (await ctx.payload.findByID({
-            collection: "class-passes" as import("payload").CollectionSlug,
-            id: classPassIdUsed,
-            depth: 0,
-            // System operation: class pass decrement is enforced by earlier ownership checks,
-            // but users typically cannot update class passes directly.
-            overrideAccess: true,
-          })) as { quantity?: number; status?: string } | null;
-          if (pass && typeof pass.quantity === "number") {
-            const nextQty = Math.max(0, pass.quantity - 1);
-            const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
-            await ctx.payload.update({
-              collection: "class-passes" as import("payload").CollectionSlug,
-              id: classPassIdUsed,
-              data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
-              overrideAccess: true,
-            });
-          }
+          await decrementClassPassCredits(1);
         }
       }
 

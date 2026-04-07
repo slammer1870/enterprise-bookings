@@ -156,6 +156,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [desiredPendingQuantity, setDesiredPendingQuantity] = useState<number>(0)
   // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
   const paymentRedirectInProgressRef = useRef(false)
+  const hasPendingBookingsRef = useRef(false)
 
   const { mutateAsync: cancelPendingForLesson } = useMutation(
     trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
@@ -186,6 +187,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     }
   }, [isInPaymentFlow, pendingFromServer])
 
+  useEffect(() => {
+    hasPendingBookingsRef.current = pendingBookings.length > 0
+  }, [pendingBookings.length])
+
   // Keep desired pending quantity in sync with actual pending count when in payment flow
   useEffect(() => {
     if (!isInPaymentFlow || pendingBookings.length === 0) return
@@ -202,9 +207,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
   // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
   useEffect(() => {
-    if (!isInPaymentFlow || pendingBookings.length === 0) return
+    if (!isInPaymentFlow) return
     const lessonId = lesson.id
     const handleBeforeUnload = () => {
+      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
       if (cancelPendingApiUrl) {
         fetch(cancelPendingApiUrl, {
@@ -218,10 +224,11 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
       cancelPendingForLesson({ lessonId }).catch(() => {})
     }
-  }, [isInPaymentFlow, pendingBookings.length, lesson.id, cancelPendingForLesson, cancelPendingApiUrl])
+  }, [isInPaymentFlow, lesson.id, cancelPendingForLesson, cancelPendingApiUrl])
 
   // Keep the UI in sync with the server-backed booking count.
   // This prevents the quantity control from getting stuck at 0 before the query resolves.
