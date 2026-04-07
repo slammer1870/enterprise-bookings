@@ -137,6 +137,33 @@ describe('createTenantCheckoutSession', () => {
     expect(sessionOptions).toEqual({ stripeAccount: 'acct_prod_xyz' })
   })
 
+  it('adds Stripe discounts when a promotion code id is provided', async () => {
+    await createTenantCheckoutSession({
+      tenant: connectedTenant,
+      price: 'price_discounted',
+      mode: 'payment',
+      quantity: 1,
+      metadata: { bookingId: 'bk_discount' },
+      customerId: 'cus_discount',
+      promotionCodeId: 'promo_123',
+      disableTestShortCircuit: true,
+    })
+
+    expect(mockCheckoutSessionCreate).toHaveBeenCalledTimes(1)
+    const [createArgs, sessionOptions] = mockCheckoutSessionCreate.mock.calls[0] ?? []
+    expect(createArgs).toMatchObject({
+      mode: 'payment',
+      customer: 'cus_discount',
+      line_items: [{ price: 'price_discounted', quantity: 1 }],
+      discounts: [{ promotion_code: 'promo_123' }],
+      metadata: {
+        tenantId: '101',
+        bookingId: 'bk_discount',
+      },
+    })
+    expect(sessionOptions).toEqual({ stripeAccount: 'acct_prod_xyz' })
+  })
+
   it('short-circuits session creation in test-like environments', async () => {
     const result = await createTenantCheckoutSession({
       tenant: connectedTenant,

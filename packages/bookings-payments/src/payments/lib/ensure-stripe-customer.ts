@@ -15,7 +15,7 @@ function isE2ePlaceholderStripeAccount(accountId: string | null | undefined): bo
   const id = normalizeAccountId(accountId);
   if (!id) return false;
   const isE2eWebhookMode = process.env.ENABLE_TEST_WEBHOOKS === "true";
-  return isE2eWebhookMode && /^acct_[a-z_]+_\d+$/.test(id);
+  return isE2eWebhookMode && /^acct_[a-z0-9_]+$/.test(id);
 }
 
 function getPlatformStripeCustomerId(user: any): string | null {

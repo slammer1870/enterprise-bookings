@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lesson, Booking, DropIn, type Plan } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@repo/ui/components/ui/tabs";
+import { Input } from "@repo/ui/components/ui/input";
+import { Button } from "@repo/ui/components/ui/button";
 import { PlanView } from "@repo/membership-next";
 import {
   DropInView,
@@ -49,6 +51,8 @@ type PaymentMethodsProps = {
    * Defaults to tRPC `payments.createCustomerCheckoutSession`.
    */
   createCheckoutSessionUrl?: string;
+  /** Optional endpoint used to validate a customer-entered discount code before checkout. */
+  validateDiscountCodeUrl?: string;
   /**
    * URL to redirect to after successful payment (checkout session, customer portal, drop-in).
    * Defaults to /dashboard for backwards compatibility with apps that use that route.
@@ -283,11 +287,23 @@ export function PaymentMethods({
   onPaymentRedirectStart,
   createPaymentIntentUrl,
   createCheckoutSessionUrl,
+  validateDiscountCodeUrl,
   FeeBreakdownComponent,
   successUrl: successUrlProp,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialDiscountCode = (searchParams?.get("discount") || "").trim() || undefined;
+  const [discountCodeInput, setDiscountCodeInput] = useState(initialDiscountCode ?? "");
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState(
+    validateDiscountCodeUrl ? undefined : initialDiscountCode
+  );
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [discountSuccess, setDiscountSuccess] = useState<string | null>(
+    validateDiscountCodeUrl ? null : initialDiscountCode ? "Promo code applied." : null
+  );
+  const [isValidatingDiscountCode, setIsValidatingDiscountCode] = useState(false);
 
   const pendingBookingIds = getPendingBookingIds(pendingBookings);
   const hasPendingBookings = pendingBookingIds.length > 0;
@@ -387,6 +403,76 @@ export function PaymentMethods({
   const handleCheckoutError = (error: { message?: string }) => {
     toast.error(error.message || "Failed to create checkout session");
   };
+
+  const validateDiscountCode = useCallback(async (rawDiscountCode: string) => {
+    const normalizedCode = rawDiscountCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      setAppliedDiscountCode(undefined);
+      setDiscountError(null);
+      setDiscountSuccess(null);
+      return false;
+    }
+
+    if (!/^[A-Z0-9]{3,24}$/.test(normalizedCode)) {
+      setAppliedDiscountCode(undefined);
+      setDiscountSuccess(null);
+      setDiscountError("Code must be 3-24 characters, letters and numbers only.");
+      return false;
+    }
+
+    if (!validateDiscountCodeUrl) {
+      setAppliedDiscountCode(normalizedCode);
+      setDiscountError(null);
+      setDiscountSuccess("Promo code applied.");
+      return true;
+    }
+
+    setIsValidatingDiscountCode(true);
+    setDiscountError(null);
+    setDiscountSuccess(null);
+    try {
+      const response = await fetch(validateDiscountCodeUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          discountCode: normalizedCode,
+          metadata: tenantId != null ? { tenantId: String(tenantId), lessonId: String(lesson.id) } : { lessonId: String(lesson.id) },
+        }),
+      });
+
+      if (!response.ok) {
+        let message = "Invalid or inactive discount code.";
+        try {
+          const payload = await response.json();
+          if (typeof payload?.error === "string") {
+            message = payload.error;
+          }
+        } catch {
+          // Ignore parse failures and use fallback message
+        }
+        setAppliedDiscountCode(undefined);
+        setDiscountError(message);
+        return false;
+      }
+
+      setDiscountCodeInput(normalizedCode);
+      setAppliedDiscountCode(normalizedCode);
+      setDiscountSuccess("Promo code applied.");
+      return true;
+    } finally {
+      setIsValidatingDiscountCode(false);
+    }
+  }, [lesson.id, tenantId, validateDiscountCodeUrl]);
+
+  useEffect(() => {
+    if (!initialDiscountCode || !validateDiscountCodeUrl) {
+      return;
+    }
+    void validateDiscountCode(initialDiscountCode);
+  }, [initialDiscountCode, validateDiscountCode, validateDiscountCodeUrl]);
 
   // Create checkout session mutation for plans (default: tRPC)
   const { mutateAsync: createCheckoutSessionWithTRPC } = useMutation(
@@ -548,6 +634,7 @@ export function PaymentMethods({
       mode: "subscription",
       successUrl: `${successPath}${tenantQ}`,
       cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
+      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 
@@ -581,6 +668,7 @@ export function PaymentMethods({
       },
       successUrl: `${origin}${currentPath}`,
       cancelUrl: `${origin}${currentPath}`,
+      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 
@@ -732,6 +820,64 @@ export function PaymentMethods({
         <p className="font-light text-sm">
           Please select a payment method to continue:
         </p>
+      </div>
+      <div className="rounded-md border p-4 space-y-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Promo code</p>
+          <p className="text-sm text-muted-foreground">
+            Enter a customer-facing discount code before checkout.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            aria-label="Promo code"
+            placeholder="Enter promo code"
+            value={discountCodeInput}
+            onChange={(event) => {
+              const nextValue = event.target.value.toUpperCase();
+              setDiscountCodeInput(nextValue);
+              if (
+                appliedDiscountCode &&
+                nextValue.trim().toUpperCase() !== appliedDiscountCode.trim().toUpperCase()
+              ) {
+                setAppliedDiscountCode(undefined);
+              }
+              setDiscountError(null);
+              setDiscountSuccess(null);
+            }}
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isValidatingDiscountCode}
+              onClick={() => {
+                void validateDiscountCode(discountCodeInput);
+              }}
+            >
+              {isValidatingDiscountCode ? "Applying..." : "Apply"}
+            </Button>
+            {appliedDiscountCode ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAppliedDiscountCode(undefined);
+                  setDiscountError(null);
+                  setDiscountSuccess(null);
+                }}
+              >
+                Remove
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        {discountError ? (
+          <p className="text-sm text-destructive">{discountError}</p>
+        ) : null}
+        {!discountError && discountSuccess ? (
+          <p className="text-sm text-green-600">{discountSuccess}</p>
+        ) : null}
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex w-full justify-around gap-4">

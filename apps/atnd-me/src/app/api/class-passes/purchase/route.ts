@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   const totalCents = DEFAULT_PRICE_CENTS * quantity
 
   const placeholderAccount =
-    /^acct_[a-z_]+_\d+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
+    /^acct_[a-z0-9_]+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
   if (isStripeTestAccount(tenant.stripeConnectAccountId) || placeholderAccount) {
     const mockId = `pi_test_${Date.now()}`
     return NextResponse.json({

@@ -18,6 +18,7 @@ const runId = Math.random().toString(36).slice(2, 10)
 describe('Stripe product sync (Phase 4.5)', () => {
   let payload: Payload
   let adminUser: User
+  let tenantAdminUser: User
   let tenantWithConnectId: number
   let tenantWithoutConnectId: number
 
@@ -50,6 +51,26 @@ describe('Stripe product sync (Phase 4.5)', () => {
     })
     tenantWithConnectId = tenantWith.id as number
 
+    const createdTenantAdmin = (await payload.create({
+      collection: 'users',
+      data: {
+        name: 'Tenant Admin Product Sync',
+        email: `tenant-admin-sync-${Date.now()}@test.com`,
+        password: 'test',
+        roles: ['tenant-admin'],
+        emailVerified: true,
+        tenants: [{ tenant: tenantWithConnectId }],
+      },
+      draft: false,
+      overrideAccess: true,
+    } as Parameters<typeof payload.create>[0])) as User
+    tenantAdminUser = (await payload.findByID({
+      collection: 'users',
+      id: createdTenantAdmin.id,
+      depth: 2,
+      overrideAccess: true,
+    })) as User
+
     const tenantWithout = await payload.create({
       collection: 'tenants',
       data: {
@@ -75,7 +96,10 @@ describe('Stripe product sync (Phase 4.5)', () => {
   afterAll(async () => {
     if (payload) {
       try {
-        await payload.delete({ collection: 'users', where: { id: { equals: adminUser.id } } })
+        await payload.delete({
+          collection: 'users',
+          where: { id: { in: [adminUser.id, tenantAdminUser.id] } },
+        })
         await payload.delete({
           collection: 'tenants',
           where: { id: { in: [tenantWithConnectId, tenantWithoutConnectId] } },
@@ -86,6 +110,100 @@ describe('Stripe product sync (Phase 4.5)', () => {
       await payload.db?.destroy?.()
     }
   })
+
+  it(
+    'tenant-admin can create and update a priced plan and Stripe sync still runs',
+    async () => {
+      const created = await payload.create({
+        collection: 'plans',
+        data: {
+          name: 'Tenant Admin Sync Plan',
+          tenant: tenantWithConnectId,
+          priceInformation: { price: 12.5, interval: 'month', intervalCount: 1 },
+        },
+        user: tenantAdminUser,
+        context: { tenant: tenantWithConnectId },
+        overrideAccess: false,
+      })
+
+      const createdDoc = (await payload.findByID({
+        collection: 'plans',
+        id: created.id,
+        overrideAccess: true,
+      })) as Record<string, unknown>
+      expect(createdDoc.stripeProductId).toBe('prod_sync_1')
+
+      const updated = await payload.update({
+        collection: 'plans',
+        id: created.id,
+        data: {
+          priceInformation: { price: 15, interval: 'month', intervalCount: 1 },
+        },
+        user: tenantAdminUser,
+        context: { tenant: tenantWithConnectId },
+        overrideAccess: false,
+      })
+
+      expect(updated).toBeDefined()
+
+      await expect(
+        payload.delete({
+          collection: 'plans',
+          id: created.id,
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow(/archived instead of deleted/i)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'tenant-admin can create and update a priced class-pass-type and Stripe sync still runs',
+    async () => {
+      const created = await payload.create({
+        collection: 'class-pass-types',
+        data: {
+          name: 'Tenant Admin Sync Pass',
+          slug: `tenant-admin-sync-pass-${Date.now()}`,
+          quantity: 10,
+          tenant: tenantWithConnectId,
+          priceInformation: { price: 39.99 },
+        },
+        user: tenantAdminUser,
+        context: { tenant: tenantWithConnectId },
+        overrideAccess: false,
+      })
+
+      const createdDoc = (await payload.findByID({
+        collection: 'class-pass-types',
+        id: created.id,
+        overrideAccess: true,
+      })) as Record<string, unknown>
+      expect(createdDoc.stripeProductId).toBe('prod_sync_1')
+
+      const updated = await payload.update({
+        collection: 'class-pass-types',
+        id: created.id,
+        data: {
+          priceInformation: { price: 45 },
+        },
+        user: tenantAdminUser,
+        context: { tenant: tenantWithConnectId },
+        overrideAccess: false,
+      })
+
+      expect(updated).toBeDefined()
+
+      await expect(
+        payload.delete({
+          collection: 'class-pass-types',
+          id: created.id,
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow(/archived instead of deleted/i)
+    },
+    TEST_TIMEOUT,
+  )
 
   it(
     'create plan with tenant Connect → doc has stripeProductId',

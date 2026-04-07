@@ -44,6 +44,7 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
   let regularUser: User
   let activeTenantId: number
   let inactiveTenantId: number
+  let activeDiscountCodeId: number
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -85,6 +86,20 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
       overrideAccess: true,
     })
     inactiveTenantId = inactiveTenant.id as number
+
+    const discountCode = await payload.create({
+      collection: 'discount-codes',
+      data: {
+        name: 'Checkout Route Discount',
+        code: `SAVE${runId}`.slice(0, 24).toUpperCase(),
+        type: 'percentage_off',
+        value: 20,
+        duration: 'once',
+        tenant: activeTenantId,
+      },
+      overrideAccess: true,
+    })
+    activeDiscountCodeId = discountCode.id as number
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -97,6 +112,11 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
         await payload.delete({
           collection: 'tenants',
           where: { id: { in: [activeTenantId, inactiveTenantId] } },
+        })
+        await payload.delete({
+          collection: 'discount-codes',
+          where: { id: { equals: activeDiscountCodeId } },
+          overrideAccess: true,
         })
       } catch {
         // ignore cleanup failures
@@ -248,6 +268,60 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
       expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
         expect.objectContaining({ customerId: 'cus_test_123' }),
       )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'resolves an active tenant discount code and forwards Stripe promotion code id',
+    async () => {
+      const discountCode = await payload.findByID({
+        collection: 'discount-codes',
+        id: activeDiscountCodeId,
+        overrideAccess: true,
+      })
+
+      const res = await POST(
+        request({
+          headers: { 'x-test-user-id': String(regularUser.id), 'x-tenant-id': String(activeTenantId) },
+          body: {
+            priceId: 'price_sub_discounted',
+            quantity: 1,
+            mode: 'subscription',
+            discountCode: discountCode.code,
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          promotionCodeId: discountCode.stripePromotionCodeId,
+        }),
+      )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'rejects invalid or inactive discount codes',
+    async () => {
+      const res = await POST(
+        request({
+          headers: { 'x-test-user-id': String(regularUser.id), 'x-tenant-id': String(activeTenantId) },
+          body: {
+            priceId: 'price_sub_discounted',
+            quantity: 1,
+            mode: 'subscription',
+            discountCode: 'NOTREAL',
+          },
+        }),
+      )
+
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body).toMatchObject({ error: 'Invalid or inactive discount code.' })
+      expect(mockCreateTenantCheckoutSession).not.toHaveBeenCalled()
     },
     TEST_TIMEOUT,
   )

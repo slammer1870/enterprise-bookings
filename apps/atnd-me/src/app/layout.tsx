@@ -51,7 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
         : {
             icon: '/favicon.ico',
             shortcut: '/favicon.ico',
-            apple: '/favicon.svg',
+            apple: '/favicon.ico',
           },
     }
   } catch {
@@ -66,7 +66,7 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: '/favicon.ico',
       shortcut: '/favicon.ico',
-      apple: '/favicon.svg',
+      apple: '/favicon.ico',
     },
   }
 }

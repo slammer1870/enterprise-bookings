@@ -38,6 +38,7 @@ import {
   productsRequireStripeConnectDelete,
   productsRequireStripeConnectAdmin,
   adminOnlyFieldAccess,
+  adminOrTenantAdminFieldAccess,
 } from '../access/productsRequireStripeConnect'
 import { plansReadWithSoftDelete } from '../access/plansWithSoftDelete'
 import { classPassTypesReadWithSoftDelete } from '../access/classPassTypesWithSoftDelete'
@@ -175,6 +176,21 @@ function withExplicitTenantSyncFields(defaultFields: Field[]): Field[] {
   }
 
   return fields
+}
+
+type NestedFieldAccess = typeof adminOnlyFieldAccess
+
+function withNestedFieldAccess(field: Field, access: NestedFieldAccess): Field {
+  const next = { ...field, access } as Field
+
+  if ('fields' in next && Array.isArray(next.fields)) {
+    return {
+      ...next,
+      fields: next.fields.map((child) => withNestedFieldAccess(child, access)),
+    } as Field
+  }
+
+  return next
 }
 
 export const plugins: Plugin[] = [
@@ -480,7 +496,10 @@ export const plugins: Plugin[] = [
           [
             ...defaultFields.map((field) => {
               const name = 'name' in field ? field.name : undefined
-              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+              if (name === 'priceInformation') {
+                return withNestedFieldAccess(field, adminOrTenantAdminFieldAccess)
+              }
+              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON') {
                 return { ...field, access: adminOnlyFieldAccess }
               }
               return field
@@ -543,7 +562,10 @@ export const plugins: Plugin[] = [
           [
             ...defaultFields.map((field) => {
               const name = 'name' in field ? field.name : undefined
-              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+              if (name === 'priceInformation') {
+                return withNestedFieldAccess(field, adminOrTenantAdminFieldAccess)
+              }
+              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON') {
                 return { ...field, access: adminOnlyFieldAccess }
               }
               return field

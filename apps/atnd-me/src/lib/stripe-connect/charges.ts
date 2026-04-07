@@ -49,7 +49,7 @@ export async function createTenantPaymentIntent(
 
   const isE2eTestMode =
     process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
-  if (isStripeTestAccount(accountId) || (isE2eTestMode && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+  if (isStripeTestAccount(accountId) || (isE2eTestMode && /^acct_[a-z0-9_]+$/.test(accountId))) {
     const mockId = `pi_test_${Date.now()}`
     return { id: mockId, client_secret: `${mockId}_secret_test` }
   }
@@ -118,6 +118,7 @@ export type CreateTenantCheckoutSessionParams = {
   mode: 'payment' | 'subscription'
   quantity?: number
   metadata?: Record<string, string>
+  promotionCodeId?: string
   successUrl?: string
   cancelUrl?: string
   customerId?: string | null
@@ -142,6 +143,7 @@ export async function createTenantCheckoutSession(
     mode,
     quantity = 1,
     metadata,
+    promotionCodeId,
     successUrl = '/',
     cancelUrl = '/',
     customerId,
@@ -249,6 +251,11 @@ export async function createTenantCheckoutSession(
       ...(typeof customerId === 'string' && customerId.trim() ? { customer: customerId.trim() } : {}),
       success_url: successUrl,
       cancel_url: cancelUrl,
+      ...(typeof promotionCodeId === 'string' && promotionCodeId.trim()
+        ? {
+            discounts: [{ promotion_code: promotionCodeId.trim() }],
+          }
+        : {}),
       metadata: normalizedMetadata,
       ...(mode === 'payment'
         ? {

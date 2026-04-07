@@ -12,12 +12,15 @@ import {
 } from '@/lib/stripe-connect/api-helpers'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
+import { resolveTenantPromotionCodeId } from '@/lib/stripe-connect/discountCodes'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 
 type CheckoutSessionBody = {
   priceId?: string
   quantity?: number
   metadata?: Record<string, unknown>
+  discountCode?: string
+  promotionCodeId?: string
   successUrl?: string
   cancelUrl?: string
   mode?: 'subscription' | 'payment'
@@ -112,6 +115,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid tenant id' }, { status: 400 })
   }
 
+  let promotionCodeId =
+    typeof body.promotionCodeId === 'string' && body.promotionCodeId.trim().length > 0
+      ? body.promotionCodeId.trim()
+      : undefined
+
+  if (!promotionCodeId && typeof body.discountCode === 'string' && body.discountCode.trim().length > 0) {
+    promotionCodeId = await resolveTenantPromotionCodeId(payload, tenantId, body.discountCode)
+    if (!promotionCodeId) {
+      return NextResponse.json({ error: 'Invalid or inactive discount code.' }, { status: 400 })
+    }
+  }
+
   const userName = typeof user.name === 'string' ? user.name : null
 
   let customerId: string
@@ -197,6 +212,7 @@ export async function POST(request: NextRequest) {
       successUrl,
       cancelUrl,
       customerId,
+      promotionCodeId,
       payload,
       bookingFeeAmount,
       productType: mode === 'subscription' ? 'subscription' : undefined,
