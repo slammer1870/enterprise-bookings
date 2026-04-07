@@ -69,7 +69,7 @@ export const CheckInButton = ({
 
   const action: LessonScheduleState["action"] = scheduleState?.action ?? "book";
   const label = scheduleState?.label ?? labelByAction[action];
-  const isTrialBooking = action === "book" && label.toLowerCase().includes("trial");
+  const isTrialBooking = label.toLowerCase().includes("trial");
 
   const { mutateAsync: setMyBooking, isPending } = useMutation(
     trpc.bookings.setMyBookingForLesson.mutationOptions({
