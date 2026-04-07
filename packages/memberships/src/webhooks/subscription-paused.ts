@@ -56,8 +56,8 @@ export const subscriptionPaused: StripeWebhookHandler<{
         cancelAt: event.data.object.cancel_at
           ? new Date(event.data.object.cancel_at * 1000).toISOString()
           : null,
-        skipSync: true, // Prevent Stripe API call in beforeChange hook
       },
+      context: { skipStripeSync: true },
     });
   } catch (error) {
     payload.logger.error(`Error pausing subscription: ${error}`);

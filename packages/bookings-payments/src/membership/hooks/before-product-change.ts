@@ -11,6 +11,10 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
 }) => {
   const { payload } = req;
   const newDoc: Record<string, unknown> = data;
+  if (req.context?.skipStripeSync) {
+    if (logs) payload.logger?.info?.("Skipping product 'beforeChange' hook via request context");
+    return newDoc;
+  }
   const stripeProductId =
     typeof data.stripeProductId === "string" && data.stripeProductId.trim().length > 0
       ? data.stripeProductId.trim()

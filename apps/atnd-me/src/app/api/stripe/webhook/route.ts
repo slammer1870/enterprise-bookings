@@ -321,9 +321,8 @@ export async function POST(request: NextRequest) {
           startDate: stripeDateOnly(currentPeriodStart),
           endDate: stripeDateOnly(currentPeriodEnd),
           cancelAt: stripeDateOnly(cancelAt),
-          skipSync: true,
         } as Record<string, unknown>,
-        context: tenantContext,
+        context: { ...(tenantContext ?? {}), skipStripeSync: true },
         overrideAccess: true,
       })
       const subId = created.id as number
@@ -365,7 +364,6 @@ export async function POST(request: NextRequest) {
       const sub = subResult.docs[0] as { id: number } | undefined
       if (sub) {
         const updateData: Record<string, unknown> = {
-          skipSync: true,
         }
         if (event.type === 'customer.subscription.paused') {
           updateData.status = 'paused'
@@ -385,7 +383,7 @@ export async function POST(request: NextRequest) {
           collection: 'subscriptions' as import('payload').CollectionSlug,
           id: sub.id,
           data: updateData,
-          ...(tenantContext ? { context: tenantContext } : {}),
+          context: { ...(tenantContext ?? {}), skipStripeSync: true },
           overrideAccess: true,
         })
       } else {
@@ -437,9 +435,8 @@ export async function POST(request: NextRequest) {
                   startDate: stripeDateOnly(currentPeriodStart),
                   endDate: stripeDateOnly(currentPeriodEnd),
                   cancelAt: stripeDateOnly(cancelAt),
-                  skipSync: true,
                 } as Record<string, unknown>,
-                context: tenantContext,
+                context: { ...(tenantContext ?? {}), skipStripeSync: true },
                 overrideAccess: true,
               })
               const subId = createdSub.id as number
@@ -486,9 +483,8 @@ export async function POST(request: NextRequest) {
             status: 'canceled',
             endDate: stripeDateOnly(currentPeriodEnd) ?? new Date().toISOString().slice(0, 10),
             cancelAt: stripeDateOnly(cancelAt) ?? new Date().toISOString().slice(0, 10),
-            skipSync: true,
           } as Record<string, unknown>,
-          ...(tenantContext ? { context: tenantContext } : {}),
+          context: { ...(tenantContext ?? {}), skipStripeSync: true },
           overrideAccess: true,
         })
       }

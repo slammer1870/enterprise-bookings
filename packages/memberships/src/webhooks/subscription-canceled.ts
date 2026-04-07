@@ -62,8 +62,8 @@ export const subscriptionCanceled: StripeWebhookHandler<{
         cancelAt: event.data.object.cancel_at
           ? new Date(event.data.object.cancel_at * 1000).toISOString()
           : new Date().toISOString(),
-        skipSync: true, // Prevent Stripe API call in beforeChange hook
       },
+      context: { skipStripeSync: true },
     });
 
     // Only update bookings if we have a valid planId (Stripe product ID)

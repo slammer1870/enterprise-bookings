@@ -71,7 +71,6 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
       data: {
         stripeProductId: productId,
         priceJSON: JSON.stringify({ id: priceId }),
-        skipSync: true,
       },
       context: { ...req.context, skipStripeSync: true },
       req,
@@ -120,7 +119,7 @@ export const planBeforeDeleteArchive: CollectionBeforeDeleteHook = async ({ id, 
   await req.payload.update({
     collection: 'plans',
     id,
-    data: { deletedAt: new Date().toISOString(), skipSync: true },
+    data: { deletedAt: new Date().toISOString() },
     context: { skipStripeSync: true },
     req,
   })

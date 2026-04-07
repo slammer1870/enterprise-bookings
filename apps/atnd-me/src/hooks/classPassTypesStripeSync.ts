@@ -66,7 +66,6 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
       data: {
         stripeProductId: productId,
         priceJSON: JSON.stringify({ id: priceId }),
-        skipSync: true,
       },
       context: { ...req.context, skipStripeSync: true },
       req,
@@ -109,7 +108,7 @@ export const classPassTypeBeforeDeleteArchive: CollectionBeforeDeleteHook = asyn
   await req.payload.update({
     collection: 'class-pass-types',
     id,
-    data: { deletedAt: new Date().toISOString(), skipSync: true },
+    data: { deletedAt: new Date().toISOString() },
     context: { skipStripeSync: true },
     req,
   })

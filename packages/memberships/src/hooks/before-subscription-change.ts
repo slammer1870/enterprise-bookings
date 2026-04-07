@@ -14,6 +14,11 @@ export const beforeSubscriptionChange: CollectionBeforeChangeHook = async ({
     skipSync: false, // Set back to 'false' so that all changes continue to sync to Stripe
   };
 
+  if (req.context?.skipStripeSync) {
+    if (logs) payload.logger.info(`Skipping product 'beforeChange' hook via request context`);
+    return newDoc;
+  }
+
   if (data.skipSync) {
     if (logs) payload.logger.info(`Skipping product 'beforeChange' hook`);
     return newDoc;

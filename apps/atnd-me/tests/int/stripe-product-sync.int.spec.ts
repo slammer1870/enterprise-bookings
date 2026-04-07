@@ -132,6 +132,7 @@ describe('Stripe product sync (Phase 4.5)', () => {
         overrideAccess: true,
       })) as Record<string, unknown>
       expect(createdDoc.stripeProductId).toBe('prod_sync_1')
+      expect(createdDoc.skipSync).toBe(false)
 
       const updated = await payload.update({
         collection: 'plans',
@@ -180,6 +181,7 @@ describe('Stripe product sync (Phase 4.5)', () => {
         overrideAccess: true,
       })) as Record<string, unknown>
       expect(createdDoc.stripeProductId).toBe('prod_sync_1')
+      expect(createdDoc.skipSync).toBe(false)
 
       const updated = await payload.update({
         collection: 'class-pass-types',

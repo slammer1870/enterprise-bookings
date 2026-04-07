@@ -267,12 +267,13 @@ describe('Stripe subscription webhooks (Connect)', () => {
         overrideAccess: true,
       })
       expect(subs.docs).toHaveLength(1)
-      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string; stripeSubscriptionId?: string }
+      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string; stripeSubscriptionId?: string; skipSync?: boolean }
       expect(sub.tenant).toBe(tenantId)
       expect(sub.user).toBe(userId)
       expect(sub.plan).toBe(planId)
       expect(sub.status).toBe('active')
       expect(sub.stripeSubscriptionId).toBe(subId)
+      expect(sub.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -304,8 +305,9 @@ describe('Stripe subscription webhooks (Connect)', () => {
         collection: 'subscriptions' as import('payload').CollectionSlug,
         id: existingSubId,
         overrideAccess: true,
-      }) as { status?: string; endDate?: string | null }
+      }) as { status?: string; endDate?: string | null; skipSync?: boolean }
       expect(updated.status).toBe('past_due')
+      expect(updated.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -337,9 +339,10 @@ describe('Stripe subscription webhooks (Connect)', () => {
         collection: 'subscriptions' as import('payload').CollectionSlug,
         id: existingSubId,
         overrideAccess: true,
-      }) as { status?: string; endDate?: string | null }
+      }) as { status?: string; endDate?: string | null; skipSync?: boolean }
       expect(updated.status).toBe('canceled')
       expect(updated.endDate).toBeTruthy()
+      expect(updated.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -411,11 +414,12 @@ describe('Stripe subscription webhooks (Connect)', () => {
         overrideAccess: true,
       })
       expect(subs.docs).toHaveLength(1)
-      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string }
+      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string; skipSync?: boolean }
       expect(sub.tenant).toBe(tenantId)
       expect(sub.user).toBe(userId)
       expect(sub.plan).toBe(planId)
       expect(sub.status).toBe('active')
+      expect(sub.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
