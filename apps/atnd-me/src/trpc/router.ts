@@ -18,7 +18,13 @@ export const appRouter = createAppRouter({
         productType: 'subscription',
         classPriceAmount: classPriceAmountCents,
       }),
-    getDropInFeeBreakdown: async ({ payload, lessonId, classPriceCents }) => {
+    getDropInFeeBreakdown: async ({
+      payload,
+      lessonId,
+      classPriceCents,
+      originalClassPriceCents,
+      promoDiscountCents,
+    }) => {
       const lesson = (await payload.findByID({
         collection: 'lessons',
         id: lessonId,
@@ -35,6 +41,8 @@ export const appRouter = createAppRouter({
       if (!tenantId) {
         return {
           classPriceCents,
+          originalClassPriceCents,
+          promoDiscountCents,
           bookingFeeCents: 0,
           totalCents: classPriceCents,
         }
@@ -47,6 +55,8 @@ export const appRouter = createAppRouter({
       })
       return {
         classPriceCents,
+        originalClassPriceCents,
+        promoDiscountCents,
         bookingFeeCents,
         totalCents: classPriceCents + bookingFeeCents,
       }

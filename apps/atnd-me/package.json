@@ -20,7 +20,7 @@
     "reinstall": "cross-env NODE_OPTIONS=--no-deprecation rm -rf node_modules && rm pnpm-lock.yaml && pnpm --ignore-workspace install",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "start:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" ENABLE_TEST_MAGIC_LINKS=true ENABLE_TEST_WEBHOOKS=true STRIPE_CONNECT_CLIENT_ID=test_client_id STRIPE_CONNECT_WEBHOOK_SECRET=test_webhook_secret node ./scripts/start-standalone-e2e.mjs",
-    "test": "pnpm run test:int && pnpm run test:e2e",
+    "test": "pnpm run test:unit && pnpm run test:int && pnpm run test:e2e",
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" pnpm exec playwright test --config=playwright.config.ts",
     "test:e2e:ci": "cross-env CI=1 PW_TEST_HTML_REPORT_OPEN=never PW_E2E_SKIP_DEFAULT_TENANT_DATA=true NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" pnpm exec playwright test --config=playwright.config.ts",
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",

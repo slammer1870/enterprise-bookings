@@ -14,7 +14,15 @@ export type GetDropInFeeBreakdown = (_params: {
   payload: any;
   lessonId: number;
   classPriceCents: number;
-}) => Promise<{ classPriceCents: number; bookingFeeCents: number; totalCents: number }>;
+  originalClassPriceCents?: number;
+  promoDiscountCents?: number;
+}) => Promise<{
+  classPriceCents: number;
+  originalClassPriceCents?: number;
+  promoDiscountCents?: number;
+  bookingFeeCents: number;
+  totalCents: number;
+}>;
 
 export type CreatePaymentsRouterDeps = {
   getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
@@ -279,6 +287,8 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           z.object({
             lessonId: z.number(),
             classPriceCents: z.number().min(0),
+            originalClassPriceCents: z.number().min(0).optional(),
+            promoDiscountCents: z.number().min(0).optional(),
           })
         )
         .query(({ ctx, input }) =>
@@ -286,6 +296,8 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             payload: ctx.payload,
             lessonId: input.lessonId,
             classPriceCents: input.classPriceCents,
+            originalClassPriceCents: input.originalClassPriceCents,
+            promoDiscountCents: input.promoDiscountCents,
           })
         ),
     }),
@@ -598,6 +610,8 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       };
       if (promotionCodeId) {
         sessionParams.discounts = [{ promotion_code: promotionCodeId }];
+      } else {
+        sessionParams.allow_promotion_codes = true;
       }
       if (input.mode === "subscription") {
         sessionParams.subscription_data = {

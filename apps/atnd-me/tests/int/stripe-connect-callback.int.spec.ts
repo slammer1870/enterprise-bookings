@@ -9,6 +9,11 @@ vi.mock('@/lib/stripe-connect/callbackExchange', () => ({
 }))
 vi.mock('@/lib/stripe/platform', () => ({
   getPlatformStripe: vi.fn(),
+  getStripeConnectEnv: vi.fn(() => ({
+    platformSecretKey: 'sk_test_placeholder',
+    connectClientId: 'ca_test_placeholder',
+    webhookSecret: 'whsec_placeholder',
+  })),
 }))
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'

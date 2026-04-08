@@ -70,6 +70,13 @@ type CheckoutSessionInput = {
   mode: "subscription" | "payment";
 };
 
+type ValidatedDiscount = {
+  code: string;
+  type: "percentage_off" | "amount_off";
+  value: number;
+  currency?: string | null;
+};
+
 /** Pass-like shape from getValidClassPassesForLesson */
 type ClassPassForLesson = {
   id: number;
@@ -296,9 +303,10 @@ export function PaymentMethods({
   const searchParams = useSearchParams();
   const initialDiscountCode = (searchParams?.get("discount") || "").trim() || undefined;
   const [discountCodeInput, setDiscountCodeInput] = useState(initialDiscountCode ?? "");
-  const [appliedDiscountCode, setAppliedDiscountCode] = useState(
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | undefined>(
     validateDiscountCodeUrl ? undefined : initialDiscountCode
   );
+  const [appliedDiscount, setAppliedDiscount] = useState<ValidatedDiscount | undefined>();
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [discountSuccess, setDiscountSuccess] = useState<string | null>(
     validateDiscountCodeUrl ? null : initialDiscountCode ? "Promo code applied." : null
@@ -408,6 +416,7 @@ export function PaymentMethods({
     const normalizedCode = rawDiscountCode.trim().toUpperCase();
     if (!normalizedCode) {
       setAppliedDiscountCode(undefined);
+      setAppliedDiscount(undefined);
       setDiscountError(null);
       setDiscountSuccess(null);
       return false;
@@ -415,6 +424,7 @@ export function PaymentMethods({
 
     if (!/^[A-Z0-9]{3,24}$/.test(normalizedCode)) {
       setAppliedDiscountCode(undefined);
+      setAppliedDiscount(undefined);
       setDiscountSuccess(null);
       setDiscountError("Code must be 3-24 characters, letters and numbers only.");
       return false;
@@ -422,6 +432,7 @@ export function PaymentMethods({
 
     if (!validateDiscountCodeUrl) {
       setAppliedDiscountCode(normalizedCode);
+      setAppliedDiscount(undefined);
       setDiscountError(null);
       setDiscountSuccess("Promo code applied.");
       return true;
@@ -454,12 +465,35 @@ export function PaymentMethods({
           // Ignore parse failures and use fallback message
         }
         setAppliedDiscountCode(undefined);
+        setAppliedDiscount(undefined);
         setDiscountError(message);
         return false;
       }
 
+      const payload = (await response.json()) as {
+        discountCode?: string;
+        discount?: {
+          type?: ValidatedDiscount["type"];
+          value?: number;
+          currency?: string | null;
+        };
+      };
+      const resolvedCode =
+        typeof payload.discountCode === "string" && payload.discountCode.trim()
+          ? payload.discountCode.trim().toUpperCase()
+          : normalizedCode;
       setDiscountCodeInput(normalizedCode);
-      setAppliedDiscountCode(normalizedCode);
+      setAppliedDiscountCode(resolvedCode);
+      setAppliedDiscount(
+        payload.discount?.type && typeof payload.discount?.value === "number"
+          ? {
+              code: resolvedCode,
+              type: payload.discount.type,
+              value: payload.discount.value,
+              currency: payload.discount.currency ?? null,
+            }
+          : undefined
+      );
       setDiscountSuccess("Promo code applied.");
       return true;
     } finally {
@@ -634,7 +668,6 @@ export function PaymentMethods({
       mode: "subscription",
       successUrl: `${successPath}${tenantQ}`,
       cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
-      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 
@@ -668,7 +701,6 @@ export function PaymentMethods({
       },
       successUrl: `${origin}${currentPath}`,
       cancelUrl: `${origin}${currentPath}`,
-      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 
@@ -821,64 +853,6 @@ export function PaymentMethods({
           Please select a payment method to continue:
         </p>
       </div>
-      <div className="rounded-md border p-4 space-y-3">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Promo code</p>
-          <p className="text-sm text-muted-foreground">
-            Enter a customer-facing discount code before checkout.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            aria-label="Promo code"
-            placeholder="Enter promo code"
-            value={discountCodeInput}
-            onChange={(event) => {
-              const nextValue = event.target.value.toUpperCase();
-              setDiscountCodeInput(nextValue);
-              if (
-                appliedDiscountCode &&
-                nextValue.trim().toUpperCase() !== appliedDiscountCode.trim().toUpperCase()
-              ) {
-                setAppliedDiscountCode(undefined);
-              }
-              setDiscountError(null);
-              setDiscountSuccess(null);
-            }}
-          />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={isValidatingDiscountCode}
-              onClick={() => {
-                void validateDiscountCode(discountCodeInput);
-              }}
-            >
-              {isValidatingDiscountCode ? "Applying..." : "Apply"}
-            </Button>
-            {appliedDiscountCode ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setAppliedDiscountCode(undefined);
-                  setDiscountError(null);
-                  setDiscountSuccess(null);
-                }}
-              >
-                Remove
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        {discountError ? (
-          <p className="text-sm text-destructive">{discountError}</p>
-        ) : null}
-        {!discountError && discountSuccess ? (
-          <p className="text-sm text-green-600">{discountSuccess}</p>
-        ) : null}
-      </div>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex w-full justify-around gap-4">
           {hasMembershipTab && (
@@ -950,11 +924,73 @@ export function PaymentMethods({
         )}
         {hasDropInTab && (
           <TabsContent value="dropin">
+            <div className="mb-4 rounded-md border p-4 space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Promo code</p>
+                <p className="text-sm text-muted-foreground">
+                  Apply your promo code before completing a drop-in booking.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  aria-label="Promo code"
+                  placeholder="Enter promo code"
+                  value={discountCodeInput}
+                  onChange={(event) => {
+                    const nextValue = event.target.value.toUpperCase();
+                    setDiscountCodeInput(nextValue);
+                    if (
+                      appliedDiscountCode &&
+                      nextValue.trim().toUpperCase() !== appliedDiscountCode.trim().toUpperCase()
+                    ) {
+                      setAppliedDiscountCode(undefined);
+                      setAppliedDiscount(undefined);
+                    }
+                    setDiscountError(null);
+                    setDiscountSuccess(null);
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isValidatingDiscountCode}
+                    onClick={() => {
+                      void validateDiscountCode(discountCodeInput);
+                    }}
+                  >
+                    {isValidatingDiscountCode ? "Applying..." : "Apply"}
+                  </Button>
+                  {appliedDiscountCode ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAppliedDiscountCode(undefined);
+                        setAppliedDiscount(undefined);
+                        setDiscountError(null);
+                        setDiscountSuccess(null);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {discountError ? (
+                <p className="text-sm text-destructive">{discountError}</p>
+              ) : null}
+              {!discountError && discountSuccess ? (
+                <p className="text-sm text-green-600">{discountSuccess}</p>
+              ) : null}
+            </div>
             {allowedDropIn ? (
               <DropInView
                 bookingStatus={lesson.bookingStatus}
                 dropIn={allowedDropIn as DropIn}
                 quantity={quantity}
+                discountCode={appliedDiscountCode}
+                discount={appliedDiscount}
                 onPaymentRedirectStart={onPaymentRedirectStart}
                 createPaymentIntentUrl={createPaymentIntentUrl}
                 FeeBreakdownComponent={FeeBreakdownComponent}

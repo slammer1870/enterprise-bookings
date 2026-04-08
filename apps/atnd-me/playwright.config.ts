@@ -20,6 +20,9 @@ process.env.PW_E2E_PROFILE ??= 'true'
 // Skip expensive default tenant data creation (class options, pages, lessons, etc.)
 // during test setup to avoid timeouts.
 process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA ??= 'true'
+// Ensure Playwright workers use the same Stripe test-mode shortcuts as the web server.
+process.env.ENABLE_TEST_WEBHOOKS ??= 'true'
+process.env.ENABLE_TEST_MAGIC_LINKS ??= 'true'
 
 // Use production build for e2e tests (faster, more stable, cacheable by Turbo)
 const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
@@ -48,10 +51,11 @@ export default defineConfig({
   ],
   webServer: useProductionBuild
     ? {
-        // Production mode: `next start` (requires build first)
-        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e',
+        // Production mode: build the standalone app, then launch it.
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm build && pnpm start:e2e',
         url: 'http://localhost:3000/admin',
-        timeout: 120000,
+        // Building the standalone app can exceed 2 minutes on cold or uncached runs.
+        timeout: 600000,
         reuseExistingServer: !process.env.CI,
         stdout: 'pipe',
         stderr: 'pipe',

@@ -115,7 +115,15 @@ describe('validate-discount-code API route', () => {
       const res = await POST(request({ discountCode: discountCode.code }))
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body).toEqual({ valid: true, discountCode: discountCode.code })
+      expect(body).toEqual({
+        valid: true,
+        discountCode: discountCode.code,
+        discount: {
+          type: 'percentage_off',
+          value: 20,
+          currency: null,
+        },
+      })
     },
     TEST_TIMEOUT,
   )

@@ -47,9 +47,7 @@ export async function createTenantPaymentIntent(
     throw new Error('Tenant Connect account id is missing')
   }
 
-  const isE2eTestMode =
-    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
-  if (isStripeTestAccount(accountId) || (isE2eTestMode && /^acct_[a-z0-9_]+$/.test(accountId))) {
+  if (isStripeTestAccount(accountId)) {
     const mockId = `pi_test_${Date.now()}`
     return { id: mockId, client_secret: `${mockId}_secret_test` }
   }
@@ -255,7 +253,9 @@ export async function createTenantCheckoutSession(
         ? {
             discounts: [{ promotion_code: promotionCodeId.trim() }],
           }
-        : {}),
+        : {
+            allow_promotion_codes: true,
+          }),
       metadata: normalizedMetadata,
       ...(mode === 'payment'
         ? {

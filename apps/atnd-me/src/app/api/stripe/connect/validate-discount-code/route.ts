@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 
 import { getPayload } from '@/lib/payload'
 import { resolveTenantForConnect, resolveTenantSlugOrId } from '@/lib/stripe-connect/api-helpers'
-import { validateTenantDiscountCode } from '@/lib/stripe-connect/discountCodes'
+import { resolveTenantDiscountCode } from '@/lib/stripe-connect/discountCodes'
 
 type ValidateDiscountCodeBody = {
   discountCode?: string
@@ -52,10 +52,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found or not stripe-connected' }, { status: 404 })
   }
 
-  const isValid = await validateTenantDiscountCode(payload, tenant.id, discountCode)
-  if (!isValid) {
+  const discount = await resolveTenantDiscountCode(payload, tenant.id, discountCode)
+  if (!discount) {
     return NextResponse.json({ error: 'Invalid or inactive discount code.' }, { status: 400 })
   }
 
-  return NextResponse.json({ valid: true, discountCode })
+  return NextResponse.json({
+    valid: true,
+    discountCode: discount.code,
+    discount: {
+      type: discount.type,
+      value: discount.value,
+      currency: discount.currency ?? null,
+    },
+  })
 }
