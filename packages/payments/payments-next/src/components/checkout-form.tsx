@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   PaymentElement,
   useStripe,
@@ -180,6 +180,22 @@ export default function CheckoutForm({
   const [isZeroAmountBooking, setIsZeroAmountBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const paymentIntentRequestIdRef = useRef(0);
+
+  const metadataKey = useMemo(() => {
+    if (!metadata) return "null";
+
+    return JSON.stringify(
+      Object.fromEntries(
+        Object.entries(metadata).sort(([left], [right]) => left.localeCompare(right))
+      )
+    );
+  }, [metadata]);
+
+  const stableMetadata = useMemo(
+    () => (metadataKey === "null" ? undefined : (JSON.parse(metadataKey) as Record<string, string>)),
+    [metadataKey]
+  );
 
   const buildReturnUrl = (bookingIds?: number[]) => {
     const origin =
@@ -200,6 +216,7 @@ export default function CheckoutForm({
 
   useEffect(() => {
     const createCheckoutSession = async () => {
+      const requestId = ++paymentIntentRequestIdRef.current;
       try {
         setIsLoading(true);
         setError(null);
@@ -220,7 +237,7 @@ export default function CheckoutForm({
           credentials: "include",
           body: JSON.stringify({
             price,
-            metadata,
+            metadata: stableMetadata,
           }),
         });
 
@@ -242,11 +259,17 @@ export default function CheckoutForm({
             errorMessage = "Server error - please try again later";
           }
 
-          setError(errorMessage);
+          if (paymentIntentRequestIdRef.current === requestId) {
+            setError(errorMessage);
+          }
           return;
         }
 
         const data = (await response.json()) as PaymentIntentBootstrapResponse;
+
+        if (paymentIntentRequestIdRef.current !== requestId) {
+          return;
+        }
 
         if (data.zeroAmount) {
           setClientSecret(null);
@@ -271,14 +294,18 @@ export default function CheckoutForm({
         );
       } catch (err) {
         console.error("Error creating payment intent:", err);
-        setError("Network error - please check your connection and try again");
+        if (paymentIntentRequestIdRef.current === requestId) {
+          setError("Network error - please check your connection and try again");
+        }
       } finally {
-        setIsLoading(false);
+        if (paymentIntentRequestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
       }
     };
 
     createCheckoutSession();
-  }, [price, metadata, createPaymentIntentUrl]);
+  }, [price, metadataKey, createPaymentIntentUrl]);
 
   if (error) {
     return (
@@ -315,7 +342,7 @@ export default function CheckoutForm({
                   credentials: "include",
                   body: JSON.stringify({
                     price,
-                    metadata,
+                    metadata: stableMetadata,
                     confirmOnly: true,
                   }),
                 });
