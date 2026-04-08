@@ -7,6 +7,8 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { verifyConnectState } from '@/lib/stripe-connect/authorize'
 import { exchangeCodeForStripeConnectAccount } from '@/lib/stripe-connect/callbackExchange'
+import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
+import { getPlatformStripe } from '@/lib/stripe/platform'
 import { getRequestOrigin, getServerSideURL } from '@/utilities/getURL'
 
 const ERROR_REDIRECT = '/admin'
@@ -64,12 +66,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await exchangeCodeForStripeConnectAccount(code, redirectUri)
+    const account = await getPlatformStripe().accounts.retrieve(result.stripe_account_id)
+    const onboardingStatus = getStripeConnectOnboardingStatus(account)
     await payload.update({
       collection: 'tenants',
       id: tenantId,
       data: {
         stripeConnectAccountId: result.stripe_account_id,
-        stripeConnectOnboardingStatus: 'pending',
+        stripeConnectOnboardingStatus: onboardingStatus,
         stripeConnectConnectedAt: new Date().toISOString(),
         stripeConnectLastError: null,
       },

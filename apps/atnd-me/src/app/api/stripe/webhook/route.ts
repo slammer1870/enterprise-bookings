@@ -30,6 +30,7 @@ import {
   confirmBookingsFromSubscriptionMetadata,
   findOrCreateAndConfirmBookingForLesson,
 } from '@/lib/stripe-connect/webhook'
+import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -494,8 +495,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === 'account.updated') {
-    const obj = (event.data?.object ?? {}) as { charges_enabled?: boolean }
-    const status = obj.charges_enabled === true ? 'active' : 'restricted'
+    const obj = (event.data?.object ?? {}) as Parameters<
+      typeof getStripeConnectOnboardingStatus
+    >[0]
+    const status = getStripeConnectOnboardingStatus(obj)
     await payload.update({
       collection: 'tenants',
       id: tenant.id,

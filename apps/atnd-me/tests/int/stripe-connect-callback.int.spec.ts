@@ -7,6 +7,9 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 vi.mock('@/lib/stripe-connect/callbackExchange', () => ({
   exchangeCodeForStripeConnectAccount: vi.fn(),
 }))
+vi.mock('@/lib/stripe/platform', () => ({
+  getPlatformStripe: vi.fn(),
+}))
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
@@ -14,6 +17,7 @@ import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/stripe/connect/callback/route'
 import { buildConnectState } from '@/lib/stripe-connect/authorize'
 import * as callbackExchange from '@/lib/stripe-connect/callbackExchange'
+import { getPlatformStripe } from '@/lib/stripe/platform'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -69,6 +73,7 @@ describe('Stripe Connect callback route (step 2.4)', () => {
     process.env.STRIPE_CONNECT_CLIENT_ID = process.env.STRIPE_CONNECT_CLIENT_ID || 'ca_test_placeholder'
     process.env.STRIPE_CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || 'whsec_placeholder'
     vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockReset()
+    vi.mocked(getPlatformStripe).mockReset()
   })
 
   afterAll(async () => {
@@ -153,7 +158,7 @@ describe('Stripe Connect callback route (step 2.4)', () => {
   )
 
   it(
-    'on successful exchange: updates tenant stripeConnectAccountId and sets stripeConnectOnboardingStatus to pending',
+    'on successful exchange: updates tenant stripeConnectAccountId and sets stripeConnectOnboardingStatus to active when the account is fully enabled',
     async () => {
       const callbackHost = 'platform.localhost:3000'
       const returnTo = 'http://tenant-success.localhost:3000/admin'
@@ -161,6 +166,22 @@ describe('Stripe Connect callback route (step 2.4)', () => {
         stripe_user_id: callbackAccountId,
         stripe_account_id: callbackAccountId,
       })
+      vi.mocked(getPlatformStripe).mockReturnValue({
+        accounts: {
+          retrieve: vi.fn().mockResolvedValue({
+            charges_enabled: true,
+            payouts_enabled: true,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: null,
+              currently_due: [],
+              eventually_due: [],
+              past_due: [],
+              pending_verification: [],
+            },
+          }),
+        },
+      } as never)
       const validState = buildConnectState(testTenantId, adminUser.id as number, undefined, returnTo)
       const res = await GET(
         request({
@@ -180,6 +201,51 @@ describe('Stripe Connect callback route (step 2.4)', () => {
         'http://localhost:3000/api/stripe/connect/callback',
       )
 
+      const updated = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        overrideAccess: true,
+      })
+      expect(updated.stripeConnectAccountId).toBe(callbackAccountId)
+      expect(updated.stripeConnectOnboardingStatus).toBe('active')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'on successful exchange: keeps tenant pending when Stripe account still has outstanding requirements',
+    async () => {
+      const returnTo = 'http://tenant-pending.localhost:3000/admin'
+      vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockResolvedValue({
+        stripe_user_id: callbackAccountId,
+        stripe_account_id: callbackAccountId,
+      })
+      vi.mocked(getPlatformStripe).mockReturnValue({
+        accounts: {
+          retrieve: vi.fn().mockResolvedValue({
+            charges_enabled: false,
+            payouts_enabled: false,
+            details_submitted: false,
+            requirements: {
+              disabled_reason: 'requirements.past_due',
+              currently_due: ['business_profile.url'],
+              eventually_due: [],
+              past_due: ['external_account'],
+              pending_verification: [],
+            },
+          }),
+        },
+      } as never)
+      const validState = buildConnectState(testTenantId, adminUser.id as number, undefined, returnTo)
+
+      const res = await GET(
+        request({
+          code: 'auth_code_pending',
+          state: validState,
+        }),
+      )
+
+      expect(res.status).toBe(302)
       const updated = await payload.findByID({
         collection: 'tenants',
         id: testTenantId,

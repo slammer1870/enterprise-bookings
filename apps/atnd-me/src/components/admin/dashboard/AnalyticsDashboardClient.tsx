@@ -4,7 +4,8 @@
  * Phase 4 – Analytics dashboard (client): fetches /api/analytics and renders summary + trend chart.
  */
 import React, { useEffect, useState } from 'react'
-import { Gutter } from '@payloadcms/ui'
+import { Banner, Gutter } from '@payloadcms/ui'
+import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 import { BookingsTrendChart } from './BookingsTrendChart'
 
 type Summary = {
@@ -45,6 +46,9 @@ export const AnalyticsDashboardClient: React.FC<{
   const [error, setError] = useState<string | null>(null)
   const [presetIndex, setPresetIndex] = useState(1)
   const [comparePrevious, setComparePrevious] = useState(false)
+  const [stripeNotice] = useState(() =>
+    typeof window !== 'undefined' ? getStripeConnectNoticeFromSearch(window.location.search) : null,
+  )
 
   const preset = PRESETS[Math.min(presetIndex, PRESETS.length - 1)] ?? PRESETS[0]
   const days = preset.days
@@ -53,6 +57,15 @@ export const AnalyticsDashboardClient: React.FC<{
   dateFrom.setDate(dateFrom.getDate() - days)
   const dateFromStr = toYYYYMMDD(dateFrom)
   const dateToStr = toYYYYMMDD(dateTo)
+
+  useEffect(() => {
+    if (!stripeNotice || typeof window === 'undefined') return
+
+    const url = new URL(window.location.href)
+    url.searchParams.delete('stripe_connect')
+    url.searchParams.delete('message')
+    window.history.replaceState({}, '', url.toString())
+  }, [stripeNotice])
 
   useEffect(() => {
     let cancelled = false
@@ -86,6 +99,14 @@ export const AnalyticsDashboardClient: React.FC<{
   return (
     <Gutter>
       <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>Analytics</h1>
+
+      {stripeNotice ? (
+        <div style={{ marginBottom: '1rem' }}>
+          <Banner type={stripeNotice.tone === 'error' ? 'error' : 'success'}>
+            <h4>{stripeNotice.message}</h4>
+          </Banner>
+        </div>
+      ) : null}
 
       <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {PRESETS.map((p, i) => (

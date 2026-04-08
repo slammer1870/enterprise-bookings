@@ -115,7 +115,20 @@ describe('Stripe Connect webhook (step 2.5)', () => {
         id: 'evt_account_updated_1',
         type: 'account.updated',
         account: webhookAccountId,
-        data: { object: { charges_enabled: true } },
+        data: {
+          object: {
+            charges_enabled: true,
+            payouts_enabled: true,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: null,
+              currently_due: [],
+              eventually_due: [],
+              past_due: [],
+              pending_verification: [],
+            },
+          },
+        },
       }
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
       const res = await POST(request(JSON.stringify(event)))
@@ -129,6 +142,42 @@ describe('Stripe Connect webhook (step 2.5)', () => {
       })
       expect(updated.stripeConnectOnboardingStatus).toBe('active')
       expect(updated.stripeConnectAccountId).toBe(webhookAccountId)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'processes account.updated with incomplete requirements as restricted',
+    async () => {
+      const event = {
+        id: 'evt_account_updated_restricted_1',
+        type: 'account.updated',
+        account: webhookAccountId,
+        data: {
+          object: {
+            charges_enabled: false,
+            payouts_enabled: false,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: 'requirements.pending_verification',
+              currently_due: [],
+              eventually_due: ['individual.verification.document'],
+              past_due: [],
+              pending_verification: ['individual.verification.document'],
+            },
+          },
+        },
+      }
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const updated = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        overrideAccess: true,
+      })
+      expect(updated.stripeConnectOnboardingStatus).toBe('restricted')
     },
     TEST_TIMEOUT,
   )
