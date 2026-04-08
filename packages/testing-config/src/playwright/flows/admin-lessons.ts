@@ -11,6 +11,10 @@ export function uniqueClassName(base: string): string {
   return `${base} ${suffix}`
 }
 
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 async function pickLessonTime(
   page: any,
   fieldId: 'startTime' | 'endTime',
@@ -119,8 +123,12 @@ export async function selectClassOptionInLessonForm(page: Page, className: strin
 
   await expect(classOptionCombobox).toBeVisible({ timeout: 20000 })
   await classOptionCombobox.click()
+  await classOptionCombobox.fill(className)
 
-  const option = p.getByRole('option', { name: className })
+  const option = p
+    .getByRole('listbox')
+    .getByRole('option', { name: new RegExp(`^${escapeRegex(className)}$`) })
+    .first()
   await expect(option).toBeVisible({ timeout: 20000 })
   await option.click()
 }

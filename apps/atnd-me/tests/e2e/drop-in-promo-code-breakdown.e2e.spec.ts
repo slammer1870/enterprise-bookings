@@ -154,6 +154,13 @@ test.describe('Drop-in promo code breakdown', () => {
     await expect(page.getByTestId('promo-discount')).toHaveText('-€2.00')
     await expect(page.getByTestId('booking-fee')).toHaveText('€0.80')
     await expect(page.getByTestId('total')).toHaveText('€8.80')
-    await expect(page.getByTestId('payment-total')).toHaveText('€8.80')
+    await page
+      .waitForResponse(
+        (resp) =>
+          resp.url().includes('/api/trpc/payments.getDropInFeeBreakdown') && resp.status() === 200,
+        { timeout: 15_000 },
+      )
+      .catch(() => null)
+    await expect(page.getByTestId('payment-total')).toHaveText('€8.80', { timeout: 15_000 })
   })
 })

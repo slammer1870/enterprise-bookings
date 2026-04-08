@@ -16,6 +16,7 @@ const CI = {
   clearTimeout: isCI ? 20_000 : 10_000,
   clearedStateDurationMs: isCI ? 10_000 : 6_000,
 }
+const PAGES_LIST_URL = `${BASE_URL}/admin/collections/pages?limit=100&sort=-updatedAt`
 
 function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -176,7 +177,7 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
       { name: 'tenant-slug', value: tenant1.slug, url: `${origin}/admin/` },
     ])
 
-    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await page.goto(PAGES_LIST_URL, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
     // Select tenant1 explicitly via the same cookie/context mechanism the selector writes to.
@@ -258,7 +259,7 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
 
     const origin = new URL(BASE_URL).origin
 
-    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await page.goto(PAGES_LIST_URL, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
     await page.context().addCookies([
       { name: 'payload-tenant', value: String(tenant1.id), url: `${origin}/` },
@@ -282,7 +283,7 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
       timeout: 20_000,
     })
 
-    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await page.goto(PAGES_LIST_URL, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
     await expect(getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant1.name), 'i')).first()).toBeVisible({
       timeout: 20_000,
@@ -310,7 +311,7 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
       timeout: 20_000,
     })
 
-    await page.goto(`${BASE_URL}/admin/collections/pages`, { waitUntil: 'load' })
+    await page.goto(PAGES_LIST_URL, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
     await expect(page.getByText(tenant2PageTitle)).toBeVisible({ timeout: 20_000 })

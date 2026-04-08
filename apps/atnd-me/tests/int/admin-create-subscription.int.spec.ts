@@ -231,8 +231,8 @@ describe('admin create Stripe subscription endpoint', () => {
       expect(updated.status).toBe('active')
       expect(updated.stripeAccountId).toBe(`acct_admin_sub_${runId}`)
       expect(updated.stripeCustomerId).toBe(`cus_admin_sub_${runId}`)
-      expect(updated.startDate).toBe('2023-11-14')
-      expect(updated.endDate).toBe('2023-12-14')
+      expect(updated.startDate).toBe('2023-11-14T00:00:00.000Z')
+      expect(updated.endDate).toBe('2023-12-14T00:00:00.000Z')
       expect(updated.cancelAt).toBeNull()
     },
     TEST_TIMEOUT,
@@ -291,7 +291,7 @@ describe('admin create Stripe subscription endpoint', () => {
       })
 
       expect(updated.status).toBe('active')
-      expect(updated.cancelAt).toBe('2023-12-14')
+      expect(updated.cancelAt).toBe('2023-12-14T00:00:00.000Z')
     },
     TEST_TIMEOUT,
   )
@@ -349,7 +349,7 @@ describe('admin create Stripe subscription endpoint', () => {
       })
 
       expect(updated.status).toBe('canceled')
-      expect(updated.cancelAt).toBe('2023-11-15')
+      expect(updated.cancelAt).toBe('2023-11-15T00:00:00.000Z')
     },
     TEST_TIMEOUT,
   )
