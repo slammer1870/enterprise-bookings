@@ -15,6 +15,7 @@ import {
   reservePendingBookings,
   formatCapacityError,
 } from '@/lib/booking/payment-intent'
+import { confirmBookingsFromPaymentIntent } from '@/lib/stripe-connect/webhook/confirm-bookings'
 import { formatAmountForStripe } from '@repo/shared-utils'
 
 export const dynamic = 'force-dynamic'
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
   if (price == null || Number.isNaN(price)) {
     return NextResponse.json({ error: 'Missing price' }, { status: 400 })
   }
+  const confirmOnly = body.confirmOnly === true
 
   const metadata = coerceMetadata(body.metadata)
   const lessonIdRaw = metadata?.lessonId
@@ -126,6 +128,41 @@ export async function POST(request: NextRequest) {
   }
 
   const classPriceAmountCents = formatAmountForStripe(price, 'eur')
+
+  if (classPriceAmountCents <= 0) {
+    if (!confirmOnly) {
+      return NextResponse.json({ zeroAmount: true, amount: 0 }, { status: 200 })
+    }
+
+    if (bookingIds.length === 0) {
+      try {
+        bookingIds = await reservePendingBookings(payload, {
+          lessonId,
+          userId: user.id,
+          user,
+          tenantId,
+          quantity,
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Capacity exceeded'
+        return NextResponse.json({ error: msg }, { status: 400 })
+      }
+    }
+
+    const resolvedBookingIds = bookingIds
+      .map((id) => parseInt(id, 10))
+      .filter((id) => Number.isFinite(id))
+
+    await confirmBookingsFromPaymentIntent(payload, resolvedBookingIds, {
+      tenantId,
+      tenantContext: { tenant: tenantId },
+    })
+
+    return NextResponse.json(
+      { zeroAmount: true, amount: 0, bookingIds: resolvedBookingIds },
+      { status: 200 }
+    )
+  }
 
   if (isTestMode) {
     return NextResponse.json(
