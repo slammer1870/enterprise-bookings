@@ -140,4 +140,56 @@ describe('Discount codes (Phase 4.5)', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'keeps Stripe-immutable fields unchanged after sync while allowing local-only updates',
+    async () => {
+      const created = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lock Test',
+          code: `LOCK${Date.now()}`.slice(0, 24),
+          type: 'percentage_off',
+          value: 20,
+          duration: 'once',
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      await payload.update({
+        collection: 'discount-codes',
+        id: created.id,
+        data: {
+          name: 'Renamed Lock Test',
+          code: 'SHOULDNOTAPPLY',
+          value: 50,
+          duration: 'forever',
+          maxRedemptions: 99,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.update>[0])
+
+      const updated = await payload.findByID({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })
+
+      expect(updated.name).toBe('Renamed Lock Test')
+      expect(updated.code).toBe(created.code)
+      expect(updated.value).toBe(created.value)
+      expect(updated.duration).toBe(created.duration)
+      expect(updated.maxRedemptions).toBe(created.maxRedemptions)
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
 })

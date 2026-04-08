@@ -15,6 +15,28 @@ import {
 import { createTenantCouponAndPromoCode, deactivateTenantPromotionCode } from '@/lib/stripe-connect/coupons'
 import { getTenantStripeContext, type TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 
+const stripeImmutableFieldAccess = {
+  update: ({ doc }: { doc?: Record<string, unknown> | null }) =>
+    !doc?.stripeCouponId && !doc?.stripePromotionCodeId,
+}
+
+function restoreStripeImmutableFields(
+  data: Record<string, unknown>,
+  previousDoc: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...data,
+    code: previousDoc.code,
+    type: previousDoc.type,
+    value: previousDoc.value,
+    currency: previousDoc.currency,
+    duration: previousDoc.duration,
+    durationInMonths: previousDoc.durationInMonths,
+    maxRedemptions: previousDoc.maxRedemptions,
+    redeemBy: previousDoc.redeemBy,
+  }
+}
+
 async function getTenantForDoc(
   payload: import('payload').Payload,
   tenantId: number,
@@ -57,6 +79,7 @@ export const DiscountCodes: CollectionConfig = {
       type: 'text',
       label: 'Code',
       required: true,
+      access: stripeImmutableFieldAccess,
       admin: { description: 'Customer-facing code (e.g. SUMMER20). Uppercase alphanumeric.' },
       validate: (val: unknown) => {
         if (!val || typeof val !== 'string') return 'Code is required'
@@ -69,6 +92,7 @@ export const DiscountCodes: CollectionConfig = {
       type: 'select',
       label: 'Discount type',
       required: true,
+      access: stripeImmutableFieldAccess,
       options: [
         { label: 'Percentage off', value: 'percentage_off' },
         { label: 'Amount off', value: 'amount_off' },
@@ -79,6 +103,7 @@ export const DiscountCodes: CollectionConfig = {
       type: 'number',
       label: 'Value',
       required: true,
+      access: stripeImmutableFieldAccess,
       admin: {
         description: 'For percentage: 1–100. For amount off: amount in cents (e.g. 500 = €5).',
       },
@@ -92,11 +117,23 @@ export const DiscountCodes: CollectionConfig = {
     },
     {
       name: 'currency',
-      type: 'text',
+      type: 'select',
       label: 'Currency',
-      admin: { description: 'Required for amount off (e.g. eur)', condition: (_: unknown, siblingData: Record<string, unknown> | undefined) => siblingData?.type === 'amount_off' },
+      defaultValue: 'eur',
+      access: stripeImmutableFieldAccess,
+      options: [
+        { label: 'EUR', value: 'eur' },
+        { label: 'GBP', value: 'gbp' },
+        { label: 'USD', value: 'usd' },
+      ],
+      admin: { description: 'Required for amount off.', condition: (_: unknown, siblingData: Record<string, unknown> | undefined) => siblingData?.type === 'amount_off' },
       validate: (val: unknown, { siblingData }: { siblingData?: Record<string, unknown> }) => {
-        if (siblingData?.type === 'amount_off' && (!val || typeof val !== 'string' || val.length !== 3)) return 'Currency is required (3 letters) for amount off'
+        if (
+          siblingData?.type === 'amount_off' &&
+          (!val || typeof val !== 'string' || !['eur', 'gbp', 'usd'].includes(val))
+        ) {
+          return 'Currency is required for amount off'
+        }
         return true
       },
     },
@@ -105,6 +142,7 @@ export const DiscountCodes: CollectionConfig = {
       type: 'select',
       label: 'Duration',
       required: true,
+      access: stripeImmutableFieldAccess,
       options: [
         { label: 'Once', value: 'once' },
         { label: 'Forever', value: 'forever' },
@@ -115,6 +153,7 @@ export const DiscountCodes: CollectionConfig = {
       name: 'durationInMonths',
       type: 'number',
       label: 'Duration (months)',
+      access: stripeImmutableFieldAccess,
       admin: { condition: (_: unknown, siblingData: Record<string, unknown> | undefined) => siblingData?.duration === 'repeating' },
       validate: (val: unknown, { siblingData }: { siblingData?: Record<string, unknown> }) => {
         if (siblingData?.duration === 'repeating' && (val == null || typeof val !== 'number' || val < 1)) return 'Required when duration is Repeating (min 1)'
@@ -125,12 +164,14 @@ export const DiscountCodes: CollectionConfig = {
       name: 'maxRedemptions',
       type: 'number',
       label: 'Max redemptions',
+      access: stripeImmutableFieldAccess,
       admin: { description: 'Leave empty for unlimited' },
     },
     {
       name: 'redeemBy',
       type: 'date',
       label: 'Redeem by',
+      access: stripeImmutableFieldAccess,
       admin: { description: 'No redemptions after this date' },
     },
     {
@@ -160,6 +201,17 @@ export const DiscountCodes: CollectionConfig = {
     },
   ],
   hooks: {
+    beforeChange: [
+      async ({ data, operation, originalDoc }) => {
+        if (operation !== 'update' || !data || !originalDoc) return data
+        if (!originalDoc.stripeCouponId && !originalDoc.stripePromotionCodeId) return data
+
+        return restoreStripeImmutableFields(
+          data as Record<string, unknown>,
+          originalDoc as Record<string, unknown>,
+        )
+      },
+    ],
     afterChange: [
       async ({ doc, operation, req, previousDoc }) => {
         if (req.context?.skipStripeSync) return
