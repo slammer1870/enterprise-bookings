@@ -180,6 +180,10 @@ function withExplicitTenantSyncFields(defaultFields: Field[]): Field[] {
 
 type NestedFieldAccess = typeof adminOnlyFieldAccess
 
+const stripeManagedSubscriptionFieldAccess = {
+  update: ({ doc }: { doc?: Record<string, unknown> | null }) => !doc?.stripeSubscriptionId,
+}
+
 function withNestedFieldAccess(field: Field, access: NestedFieldAccess): Field {
   const next = { ...field, access } as Field
 
@@ -187,6 +191,30 @@ function withNestedFieldAccess(field: Field, access: NestedFieldAccess): Field {
     return {
       ...next,
       fields: next.fields.map((child) => withNestedFieldAccess(child, access)),
+    } as Field
+  }
+
+  return next
+}
+
+function lockStripeManagedSubscriptionFields(field: Field): Field {
+  const name = 'name' in field ? field.name : undefined
+  const next = { ...field } as Field
+
+  if (name === 'status' || name === 'cancelAt' || name === 'startDate' || name === 'endDate') {
+    return {
+      ...next,
+      access: {
+        ...(('access' in next && typeof next.access === 'object' && next.access) ? next.access : {}),
+        ...stripeManagedSubscriptionFieldAccess,
+      },
+    } as Field
+  }
+
+  if ('fields' in next && Array.isArray(next.fields)) {
+    return {
+      ...next,
+      fields: next.fields.map((child) => lockStripeManagedSubscriptionFields(child)),
     } as Field
   }
 
@@ -504,6 +532,22 @@ export const plugins: Plugin[] = [
               }
               return field
             }),
+            {
+              name: 'stripeProductDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'product',
+                      label: 'View product in Stripe',
+                    },
+                  },
+                },
+              },
+            },
             { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
@@ -570,6 +614,22 @@ export const plugins: Plugin[] = [
               }
               return field
             }),
+            {
+              name: 'stripeProductDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'product',
+                      label: 'View product in Stripe',
+                    },
+                  },
+                },
+              },
+            },
             { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
@@ -586,6 +646,52 @@ export const plugins: Plugin[] = [
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
         },
+        fields: ({ defaultFields }) =>
+          [
+            ...defaultFields.map((field) => lockStripeManagedSubscriptionFields(field)),
+            {
+              name: 'createStripeSubscriptionAction',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: '@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton',
+                },
+              },
+            },
+            {
+              name: 'stripeSubscriptionDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'subscription',
+                      label: 'View subscription in Stripe',
+                    },
+                  },
+                },
+              },
+            },
+            {
+              name: 'stripeCustomerDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'customer',
+                      label: 'View customer in Stripe',
+                    },
+                  },
+                },
+              },
+            },
+          ] as Field[],
       },
     },
   }),

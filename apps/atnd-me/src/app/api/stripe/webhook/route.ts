@@ -1,9 +1,10 @@
 /**
- * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*.
+ * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*, product.*, price.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
 import { NextResponse } from 'next/server'
+import type Stripe from 'stripe'
 
 /** Format Stripe Unix timestamp as date-only (YYYY-MM-DD) for Payload dayOnly date fields. */
 function stripeDateOnly(unix: number | null | undefined): string | null {
@@ -30,6 +31,10 @@ import {
   confirmBookingsFromSubscriptionMetadata,
   findOrCreateAndConfirmBookingForLesson,
 } from '@/lib/stripe-connect/webhook'
+import {
+  getStripeProductIdFromWebhookObject,
+  syncStripeProductToPayload,
+} from '@/lib/stripe-connect/webhook/sync-products'
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
 
 export async function POST(request: NextRequest) {
@@ -197,6 +202,50 @@ export async function POST(request: NextRequest) {
 
   const tenantId = tenant.id
   const tenantContext = { tenant: tenantId }
+  const isProductSyncEvent =
+    event.type === 'product.updated' ||
+    event.type === 'product.deleted' ||
+    event.type === 'price.created' ||
+    event.type === 'price.updated' ||
+    event.type === 'price.deleted'
+
+  if (isProductSyncEvent) {
+    if (!accountId) {
+      payload.logger?.info?.(`product sync event skipped: missing account id (event=${event.type})`)
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    const stripeProductId = getStripeProductIdFromWebhookObject(
+      event.data?.object as Record<string, unknown> | undefined,
+    )
+
+    if (!stripeProductId) {
+      payload.logger?.info?.(`product sync event skipped: missing stripe product id (event=${event.type})`)
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    try {
+      await syncStripeProductToPayload({
+        payload,
+        tenantId,
+        accountId,
+        stripeProductId,
+        fallbackProduct:
+          event.type === 'product.deleted'
+            ? ((event.data?.object as Record<string, unknown> | undefined) as Partial<Stripe.Product> | undefined)
+            : undefined,
+      })
+    } catch (error) {
+      payload.logger?.error?.(
+        `Failed to sync Stripe product ${stripeProductId} from webhook ${event.type}: ${error}`,
+      )
+    }
+
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
 
   if (isSubscriptionEvent) {
     const obj = event.data?.object as {

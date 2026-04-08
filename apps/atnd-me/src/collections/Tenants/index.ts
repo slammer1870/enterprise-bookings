@@ -207,6 +207,22 @@ export const Tenants: CollectionConfig = {
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
     {
+      name: 'stripeConnectDashboardLink',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: {
+            path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+            clientProps: {
+              target: 'account',
+              label: 'View account in Stripe',
+            },
+          },
+        },
+      },
+    },
+    {
       name: 'stripeConnectOnboardingStatus',
       type: 'select',
       required: false,

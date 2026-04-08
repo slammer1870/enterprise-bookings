@@ -24,6 +24,17 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
           ((originalDoc as Record<string, unknown>).stripeProductId as string).trim().length > 0
         ? ((originalDoc as Record<string, unknown>).stripeProductId as string).trim()
         : null;
+  const originalStripeProductId =
+    originalDoc &&
+    typeof originalDoc === "object" &&
+    typeof (originalDoc as Record<string, unknown>).stripeProductId === "string" &&
+    ((originalDoc as Record<string, unknown>).stripeProductId as string).trim().length > 0
+      ? ((originalDoc as Record<string, unknown>).stripeProductId as string).trim()
+      : null;
+  const isSameStripeProduct =
+    stripeProductId != null &&
+    originalStripeProductId != null &&
+    stripeProductId === originalStripeProductId;
 
   if (data.skipSync) {
     if (logs) payload.logger?.info?.("Skipping product 'beforeChange' hook");
@@ -35,6 +46,18 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
       payload.logger?.info?.(
         "No Stripe product assigned to this document, skipping product 'beforeChange' hook"
       );
+    return newDoc;
+  }
+
+  // Preserve manual admin edits for already-linked products. We only hydrate from Stripe
+  // when linking a different product or when the local document omitted pricing data.
+  if (isSameStripeProduct && data.priceInformation !== undefined) {
+    if (logs) {
+      payload.logger?.info?.(
+        "Preserving manual price information for existing Stripe product"
+      );
+    }
+    newDoc.stripeProductId = stripeProductId;
     return newDoc;
   }
 

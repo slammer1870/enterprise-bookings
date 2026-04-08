@@ -215,6 +215,22 @@ export const DiscountCodes: CollectionConfig = {
       access: { read: ({ req: { user } }) => checkRole(['admin', 'tenant-admin'], user as SharedUser) },
     },
     {
+      name: 'stripePromotionCodeDashboardLink',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: {
+            path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+            clientProps: {
+              target: 'promotion-code',
+              label: 'View promotion code in Stripe',
+            },
+          },
+        },
+      },
+    },
+    {
       name: 'status',
       type: 'select',
       label: 'Status',

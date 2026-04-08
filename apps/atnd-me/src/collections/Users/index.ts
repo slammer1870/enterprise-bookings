@@ -193,6 +193,22 @@ export const Users: CollectionConfig = {
         },
       },
     },
+    {
+      name: 'stripeCustomerDashboardLink',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: {
+            path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+            clientProps: {
+              target: 'customer',
+              label: 'View customer in Stripe',
+            },
+          },
+        },
+      },
+    },
   ],
   timestamps: true,
 }

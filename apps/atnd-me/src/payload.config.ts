@@ -23,6 +23,9 @@ import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
 import { resolvePayloadEmailConfig } from './utilities/emailConfig'
+import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/create-subscription'
+import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
+import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -137,6 +140,9 @@ export default buildConfig({
         getStripeAccountIdForRequest,
       }),
     },
+    createSubscriptionInStripeEndpoint,
+    updateStripeSubscriptionEndpoint,
+    stripeDashboardLinkEndpoint,
   ],
   plugins,
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),

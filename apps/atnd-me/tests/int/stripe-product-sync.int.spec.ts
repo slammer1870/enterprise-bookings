@@ -1,7 +1,7 @@
 /**
  * Phase 4.5 – Stripe product sync: create plan/class-pass-type (tenant with Connect) → doc has stripeProductId; update syncs; archive on delete.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
@@ -14,6 +14,9 @@ vi.mock('@/lib/stripe/platform', () => ({
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
 const runId = Math.random().toString(36).slice(2, 10)
+const productsCreateMock = vi.fn().mockResolvedValue({ id: 'prod_sync_1', default_price: 'price_sync_1' })
+const productsUpdateMock = vi.fn().mockResolvedValue({ id: 'prod_sync_1' })
+const pricesCreateMock = vi.fn().mockResolvedValue({ id: 'price_sync_1' })
 
 describe('Stripe product sync (Phase 4.5)', () => {
   let payload: Payload
@@ -84,14 +87,20 @@ describe('Stripe product sync (Phase 4.5)', () => {
 
     vi.mocked(getPlatformStripe).mockReturnValue({
       products: {
-        create: vi.fn().mockResolvedValue({ id: 'prod_sync_1', default_price: 'price_sync_1' }),
-        update: vi.fn().mockResolvedValue({ id: 'prod_sync_1' }),
+        create: productsCreateMock,
+        update: productsUpdateMock,
       },
       prices: {
-        create: vi.fn().mockResolvedValue({ id: 'price_sync_1' }),
+        create: pricesCreateMock,
       },
     } as never)
   }, HOOK_TIMEOUT)
+
+  beforeEach(() => {
+    productsCreateMock.mockClear()
+    productsUpdateMock.mockClear()
+    pricesCreateMock.mockClear()
+  })
 
   afterAll(async () => {
     if (payload) {
@@ -146,6 +155,20 @@ describe('Stripe product sync (Phase 4.5)', () => {
       })
 
       expect(updated).toBeDefined()
+      expect(pricesCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          product: 'prod_sync_1',
+          unit_amount: 1500,
+          currency: 'eur',
+          recurring: expect.objectContaining({ interval: 'month', interval_count: 1 }),
+        }),
+        expect.objectContaining({ stripeAccount: `acct_sync_test_${runId}` }),
+      )
+      expect(productsUpdateMock).toHaveBeenCalledWith(
+        'prod_sync_1',
+        { default_price: 'price_sync_1' },
+        expect.objectContaining({ stripeAccount: `acct_sync_test_${runId}` }),
+      )
 
       await expect(
         payload.delete({
@@ -195,6 +218,19 @@ describe('Stripe product sync (Phase 4.5)', () => {
       })
 
       expect(updated).toBeDefined()
+      expect(pricesCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          product: 'prod_sync_1',
+          unit_amount: 4500,
+          currency: 'eur',
+        }),
+        expect.objectContaining({ stripeAccount: `acct_sync_test_${runId}` }),
+      )
+      expect(productsUpdateMock).toHaveBeenCalledWith(
+        'prod_sync_1',
+        { default_price: 'price_sync_1' },
+        expect.objectContaining({ stripeAccount: `acct_sync_test_${runId}` }),
+      )
 
       await expect(
         payload.delete({
