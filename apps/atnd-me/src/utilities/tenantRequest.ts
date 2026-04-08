@@ -65,7 +65,9 @@ export function getTenantSlugFromRequest(source?: TenantRequestSource | null): s
   if (!source) return null
 
   const cookieValue = source.cookies?.get?.('tenant-slug')?.value?.trim()
-  if (cookieValue) return cookieValue
+  // Ignore stale tenant-slug cookies on the platform root host. Root-host requests should only
+  // derive tenant context from explicit headers/params or the actual request hostname.
+  if (cookieValue && !isBaseHostRequest(source.headers)) return cookieValue
 
   const headerValue = source.headers?.get?.('x-tenant-slug')?.trim()
   if (headerValue) return headerValue

@@ -51,8 +51,8 @@ export default defineConfig({
   ],
   webServer: useProductionBuild
     ? {
-        // Production mode: build the standalone app, then launch it.
-        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm build && pnpm start:e2e',
+        // Production mode: reuse the existing build, then launch it.
+        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e',
         url: 'http://localhost:3000/admin',
         // Building the standalone app can exceed 2 minutes on cold or uncached runs.
         timeout: 600000,

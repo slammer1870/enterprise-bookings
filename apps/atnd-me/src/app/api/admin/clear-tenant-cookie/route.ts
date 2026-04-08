@@ -13,6 +13,7 @@ import { checkRole } from '@repo/shared-utils'
 const COOKIE_NAME = 'payload-tenant'
 const TENANT_SLUG_COOKIE_NAME = 'tenant-slug'
 const TENANT_ID_COOKIE_NAME = 'tenant-id'
+const TENANT_COOKIE_NAMES = [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]
 
 function getRootHostname(): string | null {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -29,6 +30,30 @@ function clearCookieHeader(name: string, path: string, domain?: string | null): 
   return `${name}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
 }
 
+function getPathsToClear(request: NextRequest): string[] {
+  const basePaths = ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/']
+  const rawReferer = request.headers.get('referer')
+
+  if (!rawReferer) return basePaths
+
+  try {
+    const refererPathname = new URL(rawReferer).pathname || '/'
+    const parts = refererPathname.split('/').filter(Boolean)
+    const dynamicPaths = new Set<string>()
+
+    let current = ''
+    for (const part of parts) {
+      current += `/${part}`
+      dynamicPaths.add(current)
+      dynamicPaths.add(`${current}/`)
+    }
+
+    return Array.from(new Set([...basePaths, ...dynamicPaths]))
+  } catch {
+    return basePaths
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const payload = await getPayload()
@@ -42,13 +67,13 @@ export async function POST(request: NextRequest) {
     }
 
     const res = NextResponse.json({ ok: true })
+    const pathsToClear = getPathsToClear(request)
+
     // Clear all known legacy admin paths so the cookie is gone regardless of how it was set.
-    for (const name of [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]) {
-      res.headers.append('Set-Cookie', clearCookieHeader(name, '/'))
-      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin'))
-      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/'))
-      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections'))
-      res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections/'))
+    for (const name of TENANT_COOKIE_NAMES) {
+      for (const path of pathsToClear) {
+        res.headers.append('Set-Cookie', clearCookieHeader(name, path))
+      }
     }
 
     // Also clear any domain-scoped cookie (Domain=.rootHostname). This can exist even when
@@ -56,12 +81,10 @@ export async function POST(request: NextRequest) {
     const rootHostname = getRootHostname()
     if (rootHostname) {
       const domain = rootHostname === 'localhost' ? '.localhost' : `.${rootHostname}`
-      for (const name of [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]) {
-        res.headers.append('Set-Cookie', clearCookieHeader(name, '/', domain))
-        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin', domain))
-        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/', domain))
-        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections', domain))
-        res.headers.append('Set-Cookie', clearCookieHeader(name, '/admin/collections/', domain))
+      for (const name of TENANT_COOKIE_NAMES) {
+        for (const path of pathsToClear) {
+          res.headers.append('Set-Cookie', clearCookieHeader(name, path, domain))
+        }
       }
     }
 

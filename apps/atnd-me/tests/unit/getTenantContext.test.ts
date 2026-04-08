@@ -41,6 +41,22 @@ describe('getTenantSlug (slug extraction)', () => {
     expect(slug).toBe('cookie-tenant')
   })
 
+  it('ignores tenant-slug cookie on the platform base host but still honors explicit headers', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
+
+    const cookieStore = {
+      get: (name: string) =>
+        name === 'tenant-slug' ? { value: 'cookie-tenant' } : undefined,
+    }
+    const headers = new Headers({
+      host: 'atnd-preview.org',
+      'x-tenant-slug': 'header-tenant',
+    })
+
+    const slug = await getTenantSlug({ cookies: cookieStore, headers })
+    expect(slug).toBe('header-tenant')
+  })
+
   it('extracts slug from searchParams when cookie and header are missing', async () => {
     const searchParams = new URLSearchParams()
     searchParams.set('slug', 'param-tenant')
