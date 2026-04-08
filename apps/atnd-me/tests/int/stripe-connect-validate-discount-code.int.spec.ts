@@ -27,6 +27,7 @@ describe('validate-discount-code API route', () => {
   let regularUser: User
   let activeTenantId: number
   let activeDiscountCodeId: number
+  let activeAmountDiscountCodeId: number
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -70,6 +71,21 @@ describe('validate-discount-code API route', () => {
       overrideAccess: true,
     })
     activeDiscountCodeId = discountCode.id as number
+
+    const amountDiscountCode = await payload.create({
+      collection: 'discount-codes',
+      data: {
+        name: 'Validate Discount Route Amount Discount',
+        code: `AMT${runId}`.slice(0, 24).toUpperCase(),
+        type: 'amount_off',
+        value: 10.5,
+        currency: 'eur',
+        duration: 'once',
+        tenant: activeTenantId,
+      },
+      overrideAccess: true,
+    })
+    activeAmountDiscountCodeId = amountDiscountCode.id as number
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -81,7 +97,7 @@ describe('validate-discount-code API route', () => {
         })
         await payload.delete({
           collection: 'discount-codes',
-          where: { id: { equals: activeDiscountCodeId } },
+          where: { id: { in: [activeDiscountCodeId, activeAmountDiscountCodeId] } },
           overrideAccess: true,
         })
         await payload.delete({
@@ -135,6 +151,31 @@ describe('validate-discount-code API route', () => {
       expect(res.status).toBe(400)
       const body = await res.json()
       expect(body).toMatchObject({ error: 'Invalid or inactive discount code.' })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'returns amount-off discounts in currency units',
+    async () => {
+      const discountCode = await payload.findByID({
+        collection: 'discount-codes',
+        id: activeAmountDiscountCodeId,
+        overrideAccess: true,
+      })
+
+      const res = await POST(request({ discountCode: discountCode.code }))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual({
+        valid: true,
+        discountCode: discountCode.code,
+        discount: {
+          type: 'amount_off',
+          value: 10.5,
+          currency: 'eur',
+        },
+      })
     },
     TEST_TIMEOUT,
   )

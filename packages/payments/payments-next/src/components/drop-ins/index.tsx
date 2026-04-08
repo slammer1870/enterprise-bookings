@@ -45,7 +45,7 @@ function applyPromoDiscount(params: {
     discount.type === "amount_off" &&
     (!discount.currency || discount.currency.toLowerCase() === "eur")
   ) {
-    promoDiscountAmount = discount.value / 100;
+    promoDiscountAmount = discount.value;
   }
 
   promoDiscountAmount = Math.max(0, Math.min(amount, Number(promoDiscountAmount.toFixed(2))));

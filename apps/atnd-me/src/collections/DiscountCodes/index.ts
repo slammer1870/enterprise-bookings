@@ -20,6 +20,23 @@ const stripeImmutableFieldAccess = {
     !doc?.stripeCouponId && !doc?.stripePromotionCodeId,
 }
 
+function toStripeMinorUnitAmount(value: number): number {
+  return Math.round(value * 100)
+}
+
+function normalizeDiscountCodeData(data: Record<string, unknown>): Record<string, unknown> {
+  const type = data.type
+
+  if (type === 'percentage_off') {
+    return {
+      ...data,
+      currency: null,
+    }
+  }
+
+  return data
+}
+
 function restoreStripeImmutableFields(
   data: Record<string, unknown>,
   previousDoc: Record<string, unknown>,
@@ -105,13 +122,22 @@ export const DiscountCodes: CollectionConfig = {
       required: true,
       access: stripeImmutableFieldAccess,
       admin: {
-        description: 'For percentage: 1–100. For amount off: amount in cents (e.g. 500 = €5).',
+        description: 'For percentage: 1-100. For amount off: amount with up to 2 decimal places (e.g. 5.00).',
+        step: 0.01,
+        components: {
+          Field: '@/components/admin/DiscountCodeValueField#DiscountCodeValueField',
+        },
       },
       validate: (val: unknown, { siblingData }: { siblingData?: Record<string, unknown> }) => {
         if (val == null) return 'Value is required'
         const t = siblingData?.type
         if (t === 'percentage_off' && (typeof val !== 'number' || val < 1 || val > 100)) return 'Percentage must be 1–100'
-        if (t === 'amount_off' && (typeof val !== 'number' || val <= 0)) return 'Amount must be positive'
+        if (t === 'amount_off') {
+          if (typeof val !== 'number' || val <= 0) return 'Amount must be positive'
+          if (Math.abs(val * 100 - Math.round(val * 100)) > Number.EPSILON) {
+            return 'Amount must have at most 2 decimal places'
+          }
+        }
         return true
       },
     },
@@ -203,11 +229,14 @@ export const DiscountCodes: CollectionConfig = {
   hooks: {
     beforeChange: [
       async ({ data, operation, originalDoc }) => {
-        if (operation !== 'update' || !data || !originalDoc) return data
-        if (!originalDoc.stripeCouponId && !originalDoc.stripePromotionCodeId) return data
+        if (!data) return data
+
+        const normalizedData = normalizeDiscountCodeData(data as Record<string, unknown>)
+        if (operation !== 'update' || !originalDoc) return normalizedData
+        if (!originalDoc.stripeCouponId && !originalDoc.stripePromotionCodeId) return normalizedData
 
         return restoreStripeImmutableFields(
-          data as Record<string, unknown>,
+          normalizedData,
           originalDoc as Record<string, unknown>,
         )
       },
@@ -231,7 +260,12 @@ export const DiscountCodes: CollectionConfig = {
           const { couponId, promotionCodeId } = await createTenantCouponAndPromoCode({
             tenant,
             code: String(doc.code).toUpperCase(),
-            ...(type === 'percentage_off' ? { percent_off: Number(doc.value) } : { amount_off: Number(doc.value), currency: (doc.currency as string) || 'eur' }),
+            ...(type === 'percentage_off'
+              ? { percent_off: Number(doc.value) }
+              : {
+                  amount_off: toStripeMinorUnitAmount(Number(doc.value)),
+                  currency: (doc.currency as string) || 'eur',
+                }),
             duration,
             ...(duration === 'repeating' && doc.durationInMonths != null && { duration_in_months: Number(doc.durationInMonths) }),
             ...(doc.maxRedemptions != null && { max_redemptions: Number(doc.maxRedemptions) }),

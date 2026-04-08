@@ -2309,13 +2309,13 @@ export interface DiscountCode {
   code: string;
   type: 'percentage_off' | 'amount_off';
   /**
-   * For percentage: 1–100. For amount off: amount in cents (e.g. 500 = €5).
+   * For percentage: 1-100. For amount off: amount with up to 2 decimal places (e.g. 5.00).
    */
   value: number;
   /**
-   * Required for amount off (e.g. eur)
+   * Required for amount off.
    */
-  currency?: string | null;
+  currency?: ('eur' | 'gbp' | 'usd') | null;
   duration: 'once' | 'forever' | 'repeating';
   durationInMonths?: number | null;
   /**
