@@ -841,7 +841,7 @@ async function migrateDropIns(
   }
 }
 
-async function migrateClassOptions(
+async function migrateEventTypes(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
@@ -849,14 +849,14 @@ async function migrateClassOptions(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'class-options')
+  const table = await resolveTableName(pool, 'event-types')
   if (!table) {
-    console.warn('ClassOptions: source table not found, skipping')
+    console.warn('EventTypes: source table not found, skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`ClassOptions: source rows=${rows.length}`)
+  console.log(`EventTypes: source rows=${rows.length}`)
 
   // If tenant isn't Stripe-connected, enabling payments will fail. Default to off unless explicitly requested.
   const tenant = await payload.findByID({
@@ -878,7 +878,7 @@ async function migrateClassOptions(
     if (args.upsertByNaturalKey) {
       // Name isn't globally unique; best effort within tenant.
       const res = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { and: [{ tenant: { equals: Number(tenantId) } }, { name: { equals: name } }] } as any,
         limit: 1,
         depth: 0,
@@ -919,7 +919,7 @@ async function migrateClassOptions(
 
     if (args.includePaymentMethods && !canEnablePayments) {
       console.warn(
-        `ClassOptions: omitting paymentMethods for "${name}" because tenant stripeConnectOnboardingStatus=${String(
+        `EventTypes: omitting paymentMethods for "${name}" because tenant stripeConnectOnboardingStatus=${String(
           stripeStatus ?? 'unset',
         )}`,
       )
@@ -931,7 +931,7 @@ async function migrateClassOptions(
     }
 
     const created = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data,
       req,
       overrideAccess: true,
@@ -940,7 +940,7 @@ async function migrateClassOptions(
   }
 }
 
-async function migrateInstructors(
+async function migrateStaffMembers(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
@@ -948,20 +948,20 @@ async function migrateInstructors(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'instructors')
+  const table = await resolveTableName(pool, 'staffMembers')
   if (!table) {
-    console.warn('Instructors: source table not found, skipping')
+    console.warn('StaffMembers: source table not found, skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`Instructors: source rows=${rows.length}`)
+  console.log(`StaffMembers: source rows=${rows.length}`)
   for (const row of rows) {
     const sourceId = row.id as Id
     const userId = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
     const mappedUserId = userId != null ? maps.userIdMap.get(userId) : null
     if (mappedUserId == null) {
-      console.warn(`Instructors: skipping id=${String(sourceId)} (user not mapped)`)
+      console.warn(`StaffMembers: skipping id=${String(sourceId)} (user not mapped)`)
       continue
     }
 
@@ -980,7 +980,7 @@ async function migrateInstructors(
     }
 
     const created = await payload.create({
-      collection: 'instructors',
+      collection: 'staffMembers',
       data,
       req,
       overrideAccess: true,
@@ -989,7 +989,7 @@ async function migrateInstructors(
   }
 }
 
-async function migrateLessons(
+async function migrateTimeslots(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
@@ -997,29 +997,29 @@ async function migrateLessons(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'lessons')
+  const table = await resolveTableName(pool, 'timeslots')
   if (!table) {
-    console.warn('Lessons: source table not found, skipping')
+    console.warn('Timeslots: source table not found, skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`Lessons: source rows=${rows.length}`)
+  console.log(`Timeslots: source rows=${rows.length}`)
   for (const row of rows) {
     const sourceId = row.id as Id
-    const sourceClassOption = getRowValueAny<Id>(row, [
+    const sourceEventType = getRowValueAny<Id>(row, [
       'classOption',
       'class_option',
       'classOptionId',
       'class_option_id',
     ])
-    const mappedClassOption = sourceClassOption != null ? maps.classOptionIdMap.get(sourceClassOption) : null
-    if (mappedClassOption == null) {
-      console.warn(`Lessons: skipping id=${String(sourceId)} (classOption not mapped)`)
+    const mappedEventType = sourceEventType != null ? maps.classOptionIdMap.get(sourceEventType) : null
+    if (mappedEventType == null) {
+      console.warn(`Timeslots: skipping id=${String(sourceId)} (classOption not mapped)`)
       continue
     }
-    const sourceInstructor = getRowValueAny<Id>(row, ['instructor', 'instructorId', 'instructor_id'])
-    const mappedInstructor = sourceInstructor != null ? maps.instructorIdMap.get(sourceInstructor) : null
+    const sourceStaffMember = getRowValueAny<Id>(row, ['instructor', 'instructorId', 'instructor_id'])
+    const mappedStaffMember = sourceStaffMember != null ? maps.instructorIdMap.get(sourceStaffMember) : null
 
     const data = omitNil({
       tenant: Number(tenantId),
@@ -1029,8 +1029,8 @@ async function migrateLessons(
       lockOutTime: Number(getRowValue(row, 'lockOutTime') ?? getRowValue(row, 'lock_out_time') ?? 0),
       originalLockOutTime: getRowValue(row, 'originalLockOutTime') ?? null,
       location: getRowValue(row, 'location') ?? null,
-      instructor: mappedInstructor ?? null,
-      classOption: mappedClassOption,
+      instructor: mappedStaffMember ?? null,
+      classOption: mappedEventType,
       remainingCapacity: getRowValue(row, 'remainingCapacity') ?? null,
       bookingStatus: getRowValue(row, 'bookingStatus') ?? null,
       active: getRowValue(row, 'active') ?? true,
@@ -1042,7 +1042,7 @@ async function migrateLessons(
     }
 
     const created = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data,
       req,
       overrideAccess: true,
@@ -1124,10 +1124,10 @@ async function migrateBookings(
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceUser = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
-    const sourceLesson = getRowValueAny<Id>(row, ['lesson', 'lessonId', 'lesson_id'])
+    const sourceTimeslot = getRowValueAny<Id>(row, ['lesson', 'lessonId', 'lesson_id'])
     const mappedUser = sourceUser != null ? maps.userIdMap.get(sourceUser) : null
-    const mappedLesson = sourceLesson != null ? maps.lessonIdMap.get(sourceLesson) : null
-    if (mappedUser == null || mappedLesson == null) {
+    const mappedTimeslot = sourceTimeslot != null ? maps.lessonIdMap.get(sourceTimeslot) : null
+    if (mappedUser == null || mappedTimeslot == null) {
       console.warn(`Bookings: skipping id=${String(sourceId)} (user/lesson not mapped)`)
       continue
     }
@@ -1135,7 +1135,7 @@ async function migrateBookings(
     const data = omitNil({
       tenant: Number(tenantId),
       user: mappedUser,
-      lesson: mappedLesson,
+      lesson: mappedTimeslot,
       status: getRowValue(row, 'status') ?? 'confirmed',
       // atnd-me uses these helper fields; safe to omit here
     })
@@ -1422,9 +1422,9 @@ async function main() {
     if (!args.skipBookingData) {
       await migratePlans(sourcePool, payload, req, tenantId, maps, args)
       await migrateDropIns(sourcePool, payload, req, tenantId, maps, args)
-      await migrateClassOptions(sourcePool, payload, req, tenantId, maps, args)
-      await migrateInstructors(sourcePool, payload, req, tenantId, maps, args)
-      await migrateLessons(sourcePool, payload, req, tenantId, maps, args)
+      await migrateEventTypes(sourcePool, payload, req, tenantId, maps, args)
+      await migrateStaffMembers(sourcePool, payload, req, tenantId, maps, args)
+      await migrateTimeslots(sourcePool, payload, req, tenantId, maps, args)
       await migrateSubscriptions(sourcePool, payload, req, tenantId, maps, args)
       await migrateBookings(sourcePool, payload, req, tenantId, maps, args)
       await migrateTransactions(sourcePool, payload, req, tenantId, maps, args)

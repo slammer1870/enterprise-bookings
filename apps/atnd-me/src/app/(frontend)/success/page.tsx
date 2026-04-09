@@ -63,9 +63,9 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
         <Button asChild>
           <Link href="/">Back to home</Link>
         </Button>
-        {receipt?.lesson && (
+        {receipt?.timeslot && (
           <Button variant="outline" asChild>
-            <Link href={`/bookings/${receipt.lesson.id}`}>View booking</Link>
+            <Link href={`/bookings/${receipt.timeslot.id}`}>View booking</Link>
           </Button>
         )}
       </div>

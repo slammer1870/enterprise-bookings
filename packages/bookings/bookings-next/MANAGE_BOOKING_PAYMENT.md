@@ -13,7 +13,7 @@ When a user increases their booking quantity on the manage bookings page:
 ```tsx
 import { ManageBookingPageClient } from '@repo/bookings-next'
 
-export default function ManageBookingPage({ lesson }: { lesson: Lesson }) {
+export default function ManageBookingPage({ lesson }: { lesson: Timeslot }) {
   return <ManageBookingPageClient lesson={lesson} />
 }
 ```
@@ -26,7 +26,7 @@ When your lesson has payment methods configured (`allowedDropIn` or `allowedPlan
 import { ManageBookingPageClient } from '@repo/bookings-next'
 import { PaymentMethods } from '@repo/payments-next'
 
-export default function ManageBookingPage({ lesson }: { lesson: Lesson }) {
+export default function ManageBookingPage({ lesson }: { lesson: Timeslot }) {
   return (
     <ManageBookingPageClient 
       lesson={lesson}
@@ -50,7 +50,7 @@ Your `PaymentMethodsComponent` should accept these props:
 
 ```tsx
 interface PaymentMethodsComponentProps {
-  lesson: Lesson
+  lesson: Timeslot
   pendingBookings?: Booking[]
   onPaymentSuccess?: () => void
 }
@@ -63,7 +63,7 @@ interface PaymentMethodsComponentProps {
 ## Example: Custom Payment Component
 
 ```tsx
-import { Lesson, Booking } from '@repo/shared-types'
+import { Timeslot, Booking } from '@repo/shared-types'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import { Button } from '@repo/ui/components/ui/button'
 
@@ -72,7 +72,7 @@ function CustomPaymentMethods({
   pendingBookings = [], 
   onPaymentSuccess 
 }: {
-  lesson: Lesson
+  lesson: Timeslot
   pendingBookings?: Booking[]
   onPaymentSuccess?: () => void
 }) {

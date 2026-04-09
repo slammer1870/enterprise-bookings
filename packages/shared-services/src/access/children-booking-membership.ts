@@ -1,6 +1,6 @@
-import { Booking, Lesson, User } from "@repo/shared-types";
+import { Booking, Timeslot, User } from "@repo/shared-types";
 import { AccessArgs, CollectionSlug } from "payload";
-import { validateLessonStatus, validateLessonPaymentMethods } from "../lesson";
+import { validateTimeslotStatus, validateTimeslotPaymentMethods } from "../timeslot";
 import { checkRole } from "@repo/shared-utils";
 
 export const childrenCreateBookingMembershipAccess = async ({
@@ -50,34 +50,34 @@ export const childrenCreateBookingMembershipAccess = async ({
   if (checkRole(["admin"], user)) return true;
 
   // Payload access `data` shape can vary depending on caller (local API, REST, custom actions).
-  // Prefer the relationship field `lesson`, but fall back to common alternate keys.
-  const rawLesson: any =
+  // Prefer the relationship field `timeslot`, but fall back to common alternate keys.
+  const rawTimeslot: any =
     (data as any)?.lesson ??
-    (data as any)?.lessonId ??
+    (data as any)?.timeslotId ??
     (data as any)?.lesson_id;
 
-  if (!rawLesson) {
+  if (!rawTimeslot) {
     payload.logger.error(
-      `Lesson is required (lessonId: ${String((data as any)?.lessonId)})`
+      `Timeslot is required (timeslotId: ${String((data as any)?.timeslotId)})`
     );
     return false;
   }
 
-  const lessonId = typeof rawLesson === "object" ? rawLesson.id : rawLesson;
+  const timeslotId = typeof rawTimeslot === "object" ? rawTimeslot.id : rawTimeslot;
 
   try {
-    const lesson = (await payload.findByID({
-      collection: "lessons" as CollectionSlug,
-      id: lessonId,
+    const timeslot = (await payload.findByID({
+      collection: "timeslots" as CollectionSlug,
+      id: timeslotId,
       depth: 3,
-    })) as unknown as Lesson;
+    })) as unknown as Timeslot;
 
-    if (!lesson) {
-      payload.logger.error(`Lesson not found (lessonId: ${lessonId})`);
+    if (!timeslot) {
+      payload.logger.error(`Timeslot not found (timeslotId: ${timeslotId})`);
       return false;
     }
 
-    if (lesson.classOption.type == "child") {
+    if (timeslot.eventType.type == "child") {
       if (!user.parentUser) {
         payload.logger.error(`User has no parent (userId: ${userId})`);
         return false;
@@ -92,9 +92,9 @@ export const childrenCreateBookingMembershipAccess = async ({
       })) as User;
     }
 
-    if (lesson.bookingStatus === "waitlist" && data?.status === "waiting") {
+    if (timeslot.bookingStatus === "waitlist" && data?.status === "waiting") {
       payload.logger.info(
-        `User is on waitlist (userId: ${userId}, lessonId: ${lessonId})`
+        `User is on waitlist (userId: ${userId}, timeslotId: ${timeslotId})`
       );
       return true;
     }
@@ -104,14 +104,14 @@ export const childrenCreateBookingMembershipAccess = async ({
       return true;
     }
 
-    if (!validateLessonStatus(lesson)) {
+    if (!validateTimeslotStatus(timeslot)) {
       payload.logger.error(
-        `Lesson status is not valid (lessonId: ${lesson.id})`
+        `Timeslot status is not valid (timeslotId: ${timeslot.id})`
       );
       return false;
     }
 
-    return await validateLessonPaymentMethods(lesson, user, payload);
+    return await validateTimeslotPaymentMethods(timeslot, user, payload);
 
     //check that number of children is booked is less than the number of or equal number of children on plan
   } catch (error) {
@@ -134,14 +134,14 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
   const searchParams = req.searchParams;
 
-  const lessonId = searchParams?.get("where[and][0][lesson][equals]") || id;
+  const timeslotId = searchParams?.get("where[and][0][timeslot][equals]") || id;
   const userId =
     searchParams?.get("where[and][1][user][equals]") ||
     (typeof req.user === "object" ? req.user.id : req.user);
 
-  // If we don't have lessonId or userId, this might be a read operation
+  // If we don't have timeslotId or userId, this might be a read operation
   // In that case, we can return true since read access is handled separately
-  if (!lessonId || !userId) {
+  if (!timeslotId || !userId) {
     // If this is called during a read operation (no specific booking ID), allow it
     // The actual read access control is handled by the read access function
     // Silently return false - this is expected during read operations
@@ -170,7 +170,7 @@ export const childrenUpdateBookingMembershipAccess = async ({
       const bookingQuery = await payload.find({
         collection: "bookings" as CollectionSlug,
         where: {
-          lesson: { equals: lessonId },
+          timeslot: { equals: timeslotId },
           user: { equals: userId },
         },
         depth: 3,
@@ -184,13 +184,13 @@ export const childrenUpdateBookingMembershipAccess = async ({
       return false;
     }
 
-    const lesson = (await payload.findByID({
-      collection: "lessons" as CollectionSlug,
-      id: booking.lesson.id,
+    const timeslot = (await payload.findByID({
+      collection: "timeslots" as CollectionSlug,
+      id: booking.timeslot.id,
       depth: 3,
-    })) as unknown as Lesson;
+    })) as unknown as Timeslot;
 
-    if (lesson.classOption.type == "child") {
+    if (timeslot.eventType.type == "child") {
       if (!user?.parentUser) {
         req.payload.logger.error(`User has no parent (userId: ${userId})`);
         return false;
@@ -205,9 +205,9 @@ export const childrenUpdateBookingMembershipAccess = async ({
       })) as User;
     }
 
-    if (!lesson || !user) {
+    if (!timeslot || !user) {
       req.payload.logger.error(
-        `Lesson or user not found (lessonId: ${lessonId}, userId: ${userId})`
+        `Timeslot or user not found (timeslotId: ${timeslotId}, userId: ${userId})`
       );
       return false;
     }
@@ -218,21 +218,21 @@ export const childrenUpdateBookingMembershipAccess = async ({
 
     if (data?.status === "pending") return true;
 
-    if (lesson.bookingStatus === data?.status) {
+    if (timeslot.bookingStatus === data?.status) {
       req.payload.logger.info(
-        `Lesson booking status is the same as the request status (lessonId: ${lessonId}, userId: ${userId}, status: ${data?.status})`
+        `Timeslot booking status is the same as the request status (timeslotId: ${timeslotId}, userId: ${userId}, status: ${data?.status})`
       );
       return true;
     }
 
-    if (!validateLessonStatus(lesson)) {
+    if (!validateTimeslotStatus(timeslot)) {
       req.payload.logger.error(
-        `Lesson status is not valid (lessonId: ${lesson.id})`
+        `Timeslot status is not valid (timeslotId: ${timeslot.id})`
       );
       return false;
     }
 
-    return await validateLessonPaymentMethods(lesson, user, payload);
+    return await validateTimeslotPaymentMethods(timeslot, user, payload);
   } catch (error) {
     req.payload.logger.error(
       `Error in childrenUpdateBookingMembershipAccess: ${error instanceof Error ? error.message : String(error)}`

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
-import type { Tenant, Lesson } from '@repo/shared-types'
+import type { Tenant, Timeslot } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000 // 5 minutes
 const TEST_TIMEOUT = 60000 // 60 seconds
@@ -45,7 +45,7 @@ describe('Tenant Onboarding Hook', () => {
 
       // Verify default class options were created
       // Note: Hook may fail silently if images are missing, but class options should still be created
-      const classOptions = await payload.find({
+      const eventTypes = await payload.find({
         collection: 'event-types',
         where: {
           tenant: {
@@ -57,13 +57,13 @@ describe('Tenant Onboarding Hook', () => {
 
       // Class options should be created even if page creation fails
       // If hook failed completely, this will be 0, which is acceptable for graceful error handling
-      if (classOptions.docs.length > 0) {
-        expect(classOptions.docs.length).toBeGreaterThanOrEqual(3)
+      if (eventTypes.docs.length > 0) {
+        expect(eventTypes.docs.length).toBeGreaterThanOrEqual(3)
         
-        const classOptionNames = classOptions.docs.map((co: any) => co.name)
-        expect(classOptionNames.some((n) => n?.includes('Yoga Class'))).toBe(true)
-        expect(classOptionNames.some((n) => n?.includes('Fitness Class'))).toBe(true)
-        expect(classOptionNames.some((n) => n?.includes('Small Group Class'))).toBe(true)
+        const eventTypeNames = eventTypes.docs.map((co: any) => co.name)
+        expect(eventTypeNames.some((n) => n?.includes('Yoga Class'))).toBe(true)
+        expect(eventTypeNames.some((n) => n?.includes('Fitness Class'))).toBe(true)
+        expect(eventTypeNames.some((n) => n?.includes('Small Group Class'))).toBe(true)
       } else {
         // If no class options were created, the hook likely failed
         // This is acceptable - the hook handles errors gracefully
@@ -101,9 +101,9 @@ describe('Tenant Onboarding Hook', () => {
         payload.logger.warn('Home page not created (likely due to missing images)')
       }
 
-      // Verify default lessons were created (if hook succeeded)
-      if (classOptions.docs.length > 0) {
-        const lessons = await payload.find({
+      // Verify default timeslots were created (if hook succeeded)
+      if (eventTypes.docs.length > 0) {
+        const timeslots = await payload.find({
           collection: 'timeslots',
           where: {
             tenant: {
@@ -113,12 +113,12 @@ describe('Tenant Onboarding Hook', () => {
           overrideAccess: true,
         })
 
-        if (lessons.docs.length > 0) {
-          expect(lessons.docs.length).toBeGreaterThanOrEqual(2)
+        if (timeslots.docs.length > 0) {
+          expect(timeslots.docs.length).toBeGreaterThanOrEqual(2)
           
-          // Verify lessons are in the future
+          // Verify timeslots are in the future
           const now = new Date()
-          for (const lesson of lessons.docs as Lesson[]) {
+          for (const lesson of timeslots.docs as Timeslot[]) {
             const startTime = new Date(lesson.startTime)
             expect(startTime.getTime()).toBeGreaterThan(now.getTime())
           }
@@ -219,7 +219,7 @@ describe('Tenant Onboarding Hook', () => {
       await new Promise(resolve => setTimeout(resolve, 5000))
 
       // Verify tenant1's data is isolated (check class options instead of pages, as pages may fail)
-      const tenant1ClassOptions = await payload.find({
+      const tenant1EventTypes = await payload.find({
         collection: 'event-types',
         where: {
           tenant: {
@@ -230,7 +230,7 @@ describe('Tenant Onboarding Hook', () => {
       })
 
       // Verify tenant2's data is isolated
-      const tenant2ClassOptions = await payload.find({
+      const tenant2EventTypes = await payload.find({
         collection: 'event-types',
         where: {
           tenant: {
@@ -242,13 +242,13 @@ describe('Tenant Onboarding Hook', () => {
 
       // If onboarding hooks succeeded, verify isolation
       // If hooks failed, that's okay - they handle errors gracefully
-      if (tenant1ClassOptions.docs.length > 0 && tenant2ClassOptions.docs.length > 0) {
+      if (tenant1EventTypes.docs.length > 0 && tenant2EventTypes.docs.length > 0) {
         // Verify class options are different (different tenant IDs)
-        const tenant1ClassOptionIds = tenant1ClassOptions.docs.map((co: any) => co.id)
-        const tenant2ClassOptionIds = tenant2ClassOptions.docs.map((co: any) => co.id)
+        const tenant1EventTypeIds = tenant1EventTypes.docs.map((co: any) => co.id)
+        const tenant2EventTypeIds = tenant2EventTypes.docs.map((co: any) => co.id)
         
         // No overlap between tenant class options
-        const overlap = tenant1ClassOptionIds.filter(id => tenant2ClassOptionIds.includes(id))
+        const overlap = tenant1EventTypeIds.filter(id => tenant2EventTypeIds.includes(id))
         expect(overlap.length).toBe(0)
       } else {
         // If hooks failed, at least verify tenants were created and are isolated

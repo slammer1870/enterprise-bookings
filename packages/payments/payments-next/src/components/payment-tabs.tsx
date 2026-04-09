@@ -5,12 +5,12 @@ import {
   TabsTrigger,
 } from "@repo/ui/components/ui/tabs";
 
-import { Lesson } from "@repo/shared-types";
+import { Timeslot } from "@repo/shared-types";
 
 export function PaymentTabs({
   paymentMethods: _paymentMethods,
 }: {
-  paymentMethods: Lesson["classOption"]["paymentMethods"];
+  paymentMethods: Timeslot["eventType"]["paymentMethods"];
 }) {
   return (
     <Tabs defaultValue="cash" className="w-full">

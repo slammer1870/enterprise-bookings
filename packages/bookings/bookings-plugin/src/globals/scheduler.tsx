@@ -1,11 +1,11 @@
 import { Field, GlobalConfig, CollectionSlug } from "payload";
 
-import type { BookingsPluginSlugs } from "../resolve-slugs";
-import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
-function createSchedulerDaysField(slugs: BookingsPluginSlugs): Field {
-  const classOptionsSlug = slugs.classOptions as CollectionSlug;
-  const instructorsSlug = slugs.instructors as CollectionSlug;
+function createSchedulerDaysField(slugs: BookingCollectionSlugs): Field {
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
+  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
 
   return {
     name: "days",
@@ -98,10 +98,10 @@ function createSchedulerDaysField(slugs: BookingsPluginSlugs): Field {
             },
           },
           {
-            name: "classOption",
+            name: "eventType",
             label: "Class Option",
             type: "relationship",
-            relationTo: classOptionsSlug,
+            relationTo: eventTypesSlug,
             hasMany: false,
             admin: {
               description: "Overrides the default class option",
@@ -113,10 +113,10 @@ function createSchedulerDaysField(slugs: BookingsPluginSlugs): Field {
             type: "text",
           },
           {
-            name: "instructor",
-            label: "Instructor",
+            name: "staffMember",
+            label: "StaffMember",
             type: "relationship",
-            relationTo: instructorsSlug,
+            relationTo: staffMembersSlug,
             hasMany: false,
             filterOptions: () => {
               return {
@@ -151,29 +151,29 @@ function createSchedulerDaysField(slugs: BookingsPluginSlugs): Field {
 }
 
 export function createSchedulerGlobal(
-  slugs: BookingsPluginSlugs,
+  slugs: BookingCollectionSlugs,
 ): GlobalConfig {
-  const classOptionsSlug = slugs.classOptions as CollectionSlug;
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
   const days = createSchedulerDaysField(slugs);
 
   return {
     slug: "scheduler",
-    label: "Lesson Scheduler",
+    label: "Timeslot Scheduler",
     admin: {
       group: "Bookings",
-      description: "Create recurring lessons across your weekly schedule",
+      description: "Create recurring timeslots across your weekly schedule",
     },
     hooks: {
       afterChange: [
         async ({ req, doc }) => {
           const job = await req.payload.jobs.queue({
-            task: "generateLessonsFromSchedule",
+            task: "generateTimeslotsFromSchedule",
             input: {
               startDate: doc.startDate,
               endDate: doc.endDate,
               week: doc.week,
               clearExisting: doc.clearExisting,
-              defaultClassOption: doc.defaultClassOption,
+              defaultEventType: doc.defaultEventType,
               lockOutTime: doc.lockOutTime,
             },
           });
@@ -206,7 +206,7 @@ export function createSchedulerGlobal(
         type: "date",
         required: true,
         admin: {
-          description: "When this schedule stops generating lessons",
+          description: "When this schedule stops generating timeslots",
           date: {
             pickerAppearance: "dayOnly",
             displayFormat: "dd/MM/yyyy",
@@ -235,14 +235,14 @@ export function createSchedulerGlobal(
         },
       },
       {
-        name: "defaultClassOption",
+        name: "defaultEventType",
         label: "Default Class Option",
         type: "relationship",
-        relationTo: classOptionsSlug,
+        relationTo: eventTypesSlug,
         required: true,
         admin: {
           description:
-            "Default class type to use when creating lessons (can be overridden per slot)",
+            "Default class type to use when creating timeslots (can be overridden per slot)",
         },
       },
       {
@@ -257,11 +257,11 @@ export function createSchedulerGlobal(
       {
         name: "clearExisting",
         type: "checkbox",
-        label: "Clear Existing Lessons",
+        label: "Clear Existing Timeslots",
         defaultValue: false,
         admin: {
           description:
-            "Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)",
+            "Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)",
         },
       },
     ],
@@ -269,5 +269,5 @@ export function createSchedulerGlobal(
 }
 
 export const schedulerGlobal = createSchedulerGlobal(
-  DEFAULT_BOOKINGS_PLUGIN_SLUGS,
+  DEFAULT_BOOKING_COLLECTION_SLUGS,
 );

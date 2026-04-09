@@ -86,7 +86,7 @@ const days: Field = {
                     },
                 },
                 {
-                    name: 'classOption',
+                    name: 'eventType',
                     type: 'relationship',
                     relationTo: 'event-types',
                     admin: {
@@ -98,7 +98,7 @@ const days: Field = {
                     type: 'text',
                 },
                 {
-                    name: 'instructor',
+                    name: 'staffMember',
                     type: 'relationship',
                     relationTo: 'staff-members',
                 },
@@ -128,7 +128,7 @@ export const Scheduler: CollectionConfig = {
         useAsTitle: 'tenant',
         defaultColumns: ['tenant', 'startDate', 'endDate', 'updatedAt'],
         group: 'Bookings',
-        description: 'Create recurring lessons across your weekly schedule for each tenant',
+        description: 'Create recurring timeslots across your weekly schedule for each tenant',
     },
     access: {
         admin: ({ req: { user } }) => {
@@ -175,13 +175,13 @@ export const Scheduler: CollectionConfig = {
                 }
 
                 const job = await req.payload.jobs.queue({
-                    task: 'generateLessonsFromSchedule',
+                    task: 'generateTimeslotsFromSchedule',
                     input: {
                         startDate: doc.startDate,
                         endDate: doc.endDate,
                         week: doc.week,
                         clearExisting: doc.clearExisting,
-                        defaultClassOption: doc.defaultClassOption,
+                        defaultEventType: doc.defaultEventType,
                         lockOutTime: doc.lockOutTime,
                         tenant: tenantId,
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
@@ -217,7 +217,7 @@ export const Scheduler: CollectionConfig = {
             type: 'date',
             required: true,
             admin: {
-                description: 'When this schedule stops generating lessons',
+                description: 'When this schedule stops generating timeslots',
                 date: {
                     pickerAppearance: 'dayOnly',
                     displayFormat: 'dd/MM/yyyy',
@@ -246,13 +246,13 @@ export const Scheduler: CollectionConfig = {
             },
         },
         {
-            name: 'defaultClassOption',
+            name: 'defaultEventType',
             label: 'Default Class Option',
             type: 'relationship',
             relationTo: 'event-types',
             required: true,
             admin: {
-                description: 'Default class type to use when creating lessons (can be overridden per slot)',
+                description: 'Default class type to use when creating timeslots (can be overridden per slot)',
             },
         },
         {
@@ -267,11 +267,11 @@ export const Scheduler: CollectionConfig = {
         {
             name: 'clearExisting',
             type: 'checkbox',
-            label: 'Clear Existing Lessons',
+            label: 'Clear Existing Timeslots',
             defaultValue: false,
             admin: {
                 description:
-                    'Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)',
+                    'Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)',
             },
         },
     ],

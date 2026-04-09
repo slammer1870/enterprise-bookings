@@ -298,7 +298,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"autosave" boolean
   );
   
-  CREATE TABLE IF NOT EXISTS "lessons" (
+  CREATE TABLE IF NOT EXISTS "timeslots" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"date" timestamp(3) with time zone DEFAULT '2025-07-17T09:35:29.237Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
@@ -580,7 +580,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"media_id" integer,
   	"pages_id" integer,
   	"posts_id" integer,
-  	"lessons_id" integer,
+  	"timeslots_id" integer,
   	"class_options_id" integer,
   	"bookings_id" integer,
   	"transactions_id" integer,
@@ -923,11 +923,11 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
-    ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+    ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
-    ALTER TABLE "lessons" ADD CONSTRAINT "lessons_class_option_id_class_options_id_fk" FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
+    ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_class_option_id_class_options_id_fk" FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
@@ -943,7 +943,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
-    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_lesson_id_lessons_id_fk" FOREIGN KEY ("lesson_id") REFERENCES "public"."lessons"("id") ON DELETE set null ON UPDATE no action;
+    ALTER TABLE "bookings" ADD CONSTRAINT "bookings_lesson_id_timeslots_id_fk" FOREIGN KEY ("lesson_id") REFERENCES "public"."timeslots"("id") ON DELETE set null ON UPDATE no action;
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
@@ -1043,7 +1043,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
-    ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_lessons_fk" FOREIGN KEY ("lessons_id") REFERENCES "public"."lessons"("id") ON DELETE cascade ON UPDATE no action;
+    ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_timeslots_fk" FOREIGN KEY ("timeslots_id") REFERENCES "public"."timeslots"("id") ON DELETE cascade ON UPDATE no action;
    EXCEPTION WHEN OTHERS THEN null;
    END $$;
   DO $$ BEGIN
@@ -1292,10 +1292,10 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX IF NOT EXISTS "_posts_v_updated_at_idx" ON "_posts_v" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "_posts_v_latest_idx" ON "_posts_v" USING btree ("latest");
   CREATE INDEX IF NOT EXISTS "_posts_v_autosave_idx" ON "_posts_v" USING btree ("autosave");
-  CREATE INDEX IF NOT EXISTS "lessons_instructor_idx" ON "lessons" USING btree ("instructor_id");
-  CREATE INDEX IF NOT EXISTS "lessons_class_option_idx" ON "lessons" USING btree ("class_option_id");
-  CREATE INDEX IF NOT EXISTS "lessons_updated_at_idx" ON "lessons" USING btree ("updated_at");
-  CREATE INDEX IF NOT EXISTS "lessons_created_at_idx" ON "lessons" USING btree ("created_at");
+  CREATE INDEX IF NOT EXISTS "timeslots_instructor_idx" ON "timeslots" USING btree ("instructor_id");
+  CREATE INDEX IF NOT EXISTS "timeslots_class_option_idx" ON "timeslots" USING btree ("class_option_id");
+  CREATE INDEX IF NOT EXISTS "timeslots_updated_at_idx" ON "timeslots" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "timeslots_created_at_idx" ON "timeslots" USING btree ("created_at");
   DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'class_options_name_idx') THEN
       EXECUTE 'CREATE UNIQUE INDEX "class_options_name_idx" ON "class_options" USING btree ("name")';
@@ -1393,7 +1393,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_media_id_idx" ON "payload_locked_documents_rels" USING btree ("media_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_pages_id_idx" ON "payload_locked_documents_rels" USING btree ("pages_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_posts_id_idx" ON "payload_locked_documents_rels" USING btree ("posts_id");
-  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_lessons_id_idx" ON "payload_locked_documents_rels" USING btree ("lessons_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_timeslots_id_idx" ON "payload_locked_documents_rels" USING btree ("timeslots_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_class_options_id_idx" ON "payload_locked_documents_rels" USING btree ("class_options_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_bookings_id_idx" ON "payload_locked_documents_rels" USING btree ("bookings_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_transactions_id_idx" ON "payload_locked_documents_rels" USING btree ("transactions_id");
@@ -1480,7 +1480,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP TABLE "posts" CASCADE;
   DROP TABLE "_posts_v_blocks_form_block" CASCADE;
   DROP TABLE "_posts_v" CASCADE;
-  DROP TABLE "lessons" CASCADE;
+  DROP TABLE "timeslots" CASCADE;
   DROP TABLE "class_options" CASCADE;
   DROP TABLE "class_options_rels" CASCADE;
   DROP TABLE "bookings" CASCADE;

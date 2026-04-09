@@ -9,7 +9,7 @@ import { BookingFeeBreakdown } from '@/components/booking/BookingFeeBreakdown'
  * Inner component that runs the query. Only mounted when procedure exists (hooks rules).
  */
 function DropInFeeBreakdownQuery({
-  lessonId,
+  timeslotId,
   classPriceCents,
   originalClassPriceCents,
   promoDiscountCents,
@@ -18,7 +18,7 @@ function DropInFeeBreakdownQuery({
   const procedure = trpc.payments.getDropInFeeBreakdown!
   const { data, isLoading, error } = useQuery(
     procedure.queryOptions({
-      lessonId,
+      timeslotId,
       classPriceCents,
       originalClassPriceCents,
       promoDiscountCents,

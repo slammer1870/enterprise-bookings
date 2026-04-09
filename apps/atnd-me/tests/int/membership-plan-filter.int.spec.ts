@@ -12,7 +12,7 @@ const createPlan = (overrides: Partial<Plan> = {}): Plan =>
       sessions: 10,
       interval: "week",
       intervalCount: 1,
-      allowMultipleBookingsPerLesson: false,
+      allowMultipleBookingsPerTimeslot: false,
     },
     ...overrides,
   }) as unknown as Plan;
@@ -34,7 +34,7 @@ describe("membership plan filtering for booking quantity", () => {
         sessions: 10,
         interval: "week",
         intervalCount: 1,
-        allowMultipleBookingsPerLesson: false,
+        allowMultipleBookingsPerTimeslot: false,
       },
     });
     const familyPlan = createPlan({
@@ -44,7 +44,7 @@ describe("membership plan filtering for booking quantity", () => {
         sessions: 10,
         interval: "week",
         intervalCount: 1,
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
       },
     });
 

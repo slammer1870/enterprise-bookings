@@ -1,4 +1,4 @@
-import { ClassOption } from "./bookings";
+import { EventType } from "./bookings";
 
 import { User } from "./user";
 
@@ -18,7 +18,7 @@ export interface DropIn {
       }[]
     | null;
   paymentMethods: string[];
-  allowedClasses?: (number | ClassOption)[] | null;
+  allowedClasses?: (number | EventType)[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -37,7 +37,7 @@ export interface Plan {
     intervalCount?: number;
     interval?: "day" | "week" | "month" | "quarter" | "year";
     /** When true, subscribers can use multiple credits on the same lesson. */
-    allowMultipleBookingsPerLesson?: boolean;
+    allowMultipleBookingsPerTimeslot?: boolean;
   } | null;
   priceInformation?: {
     price: number;

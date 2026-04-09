@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TZDate } from "@date-fns/tz";
 
-import { generateLessonsFromSchedule } from "../src/tasks/generate-lessons";
+import { generateTimeslotsFromSchedule } from "../src/tasks/generate-timeslots";
 
 describe("Scheduler tests", () => {
   // Production runs in UTC (or a non-Dublin server timezone). Force UTC here so
@@ -17,7 +17,7 @@ describe("Scheduler tests", () => {
   it("does not shift Monday-only schedules to Sunday across Dublin DST start (startDate=Mar 29)", async () => {
     const timeZone = "Europe/Dublin";
 
-    const createdLessons: Array<{ id: number; startTime: string }> = [];
+    const createdTimeslots: Array<{ id: number; startTime: string }> = [];
 
     const payload = {
       config: {
@@ -33,19 +33,19 @@ describe("Scheduler tests", () => {
       },
       find: async (args: any) => {
         // For this regression test we only need "no duplicates exist" behavior.
-        if (args?.collection === "lessons") return { docs: [] };
+        if (args?.collection === "timeslots") return { docs: [] };
         return { docs: [] };
       },
       delete: async () => ({ docs: [] }),
       create: async (args: any) => {
-        if (args?.collection !== "lessons") {
+        if (args?.collection !== "timeslots") {
           throw new Error(`Unexpected create on ${String(args?.collection)}`);
         }
         const next = {
-          id: createdLessons.length + 1,
+          id: createdTimeslots.length + 1,
           startTime: String(args.data.startTime),
         };
-        createdLessons.push(next);
+        createdTimeslots.push(next);
         return next;
       },
     };
@@ -59,12 +59,12 @@ describe("Scheduler tests", () => {
     const slotStart = new TZDate(2000, 0, 1, 10, 0, 0, 0, timeZone);
     const slotEnd = new TZDate(2000, 0, 1, 11, 0, 0, 0, timeZone);
 
-    await (generateLessonsFromSchedule as any)({
+    await (generateTimeslotsFromSchedule as any)({
       input: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         clearExisting: false,
-        defaultClassOption: 1,
+        defaultEventType: 1,
         lockOutTime: 60,
         week: {
           // week.days: 0=Monday ... 6=Sunday
@@ -95,10 +95,10 @@ describe("Scheduler tests", () => {
       } as any,
     });
 
-    expect(createdLessons.length).toBeGreaterThan(0);
+    expect(createdTimeslots.length).toBeGreaterThan(0);
 
-    // All created lessons should land on a Monday in Europe/Dublin.
-    for (const lesson of createdLessons) {
+    // All created timeslots should land on a Monday in Europe/Dublin.
+    for (const lesson of createdTimeslots) {
       const start = new TZDate(new Date(lesson.startTime), timeZone);
       // 0=Sunday, 1=Monday, ...
       expect(start.getDay()).toBe(1);
@@ -108,7 +108,7 @@ describe("Scheduler tests", () => {
   it("does not shift Monday-only schedules to Sunday across Dublin DST end (startDate=Oct 25)", async () => {
     const timeZone = "Europe/Dublin";
 
-    const createdLessons: Array<{ id: number; startTime: string }> = [];
+    const createdTimeslots: Array<{ id: number; startTime: string }> = [];
 
     const payload = {
       config: {
@@ -123,19 +123,19 @@ describe("Scheduler tests", () => {
         warn: () => undefined,
       },
       find: async (args: any) => {
-        if (args?.collection === "lessons") return { docs: [] };
+        if (args?.collection === "timeslots") return { docs: [] };
         return { docs: [] };
       },
       delete: async () => ({ docs: [] }),
       create: async (args: any) => {
-        if (args?.collection !== "lessons") {
+        if (args?.collection !== "timeslots") {
           throw new Error(`Unexpected create on ${String(args?.collection)}`);
         }
         const next = {
-          id: createdLessons.length + 1,
+          id: createdTimeslots.length + 1,
           startTime: String(args.data.startTime),
         };
-        createdLessons.push(next);
+        createdTimeslots.push(next);
         return next;
       },
     };
@@ -148,12 +148,12 @@ describe("Scheduler tests", () => {
     const slotStart = new TZDate(2000, 0, 1, 10, 0, 0, 0, timeZone);
     const slotEnd = new TZDate(2000, 0, 1, 11, 0, 0, 0, timeZone);
 
-    await (generateLessonsFromSchedule as any)({
+    await (generateTimeslotsFromSchedule as any)({
       input: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         clearExisting: false,
-        defaultClassOption: 1,
+        defaultEventType: 1,
         lockOutTime: 60,
         week: {
           days: [
@@ -183,9 +183,9 @@ describe("Scheduler tests", () => {
       } as any,
     });
 
-    expect(createdLessons.length).toBeGreaterThan(0);
+    expect(createdTimeslots.length).toBeGreaterThan(0);
 
-    for (const lesson of createdLessons) {
+    for (const lesson of createdTimeslots) {
       const start = new TZDate(new Date(lesson.startTime), timeZone);
       expect(start.getDay()).toBe(1);
     }

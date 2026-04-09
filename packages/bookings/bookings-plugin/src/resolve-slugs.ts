@@ -1,30 +1,31 @@
 /**
  * Resolved collection slugs for the bookings plugin.
- * Defaults preserve legacy names so other apps in the monorepo stay unchanged.
+ * Defaults use the canonical booking domain names.
  */
-export type BookingsPluginSlugs = {
-  lessons: string;
-  classOptions: string;
-  instructors: string;
+export type BookingCollectionSlugs = {
+  timeslots: string;
+  eventTypes: string;
+  staffMembers: string;
   bookings: string;
 };
 
-export const DEFAULT_BOOKINGS_PLUGIN_SLUGS: BookingsPluginSlugs = {
-  lessons: "lessons",
-  classOptions: "class-options",
-  instructors: "instructors",
+export const DEFAULT_BOOKING_COLLECTION_SLUGS: BookingCollectionSlugs = {
+  timeslots: "timeslots",
+  eventTypes: "event-types",
+  staffMembers: "staff-members",
   bookings: "bookings",
 };
 
-export function resolveBookingsPluginSlugs(config: {
-  slugs?: Partial<BookingsPluginSlugs>;
-}): BookingsPluginSlugs {
+export function resolveBookingCollectionSlugs(config: {
+  slugs?: Partial<BookingCollectionSlugs>;
+}): BookingCollectionSlugs {
   return {
-    lessons: config.slugs?.lessons ?? DEFAULT_BOOKINGS_PLUGIN_SLUGS.lessons,
-    classOptions:
-      config.slugs?.classOptions ?? DEFAULT_BOOKINGS_PLUGIN_SLUGS.classOptions,
-    instructors:
-      config.slugs?.instructors ?? DEFAULT_BOOKINGS_PLUGIN_SLUGS.instructors,
-    bookings: config.slugs?.bookings ?? DEFAULT_BOOKINGS_PLUGIN_SLUGS.bookings,
+    timeslots:
+      config.slugs?.timeslots ?? DEFAULT_BOOKING_COLLECTION_SLUGS.timeslots,
+    eventTypes:
+      config.slugs?.eventTypes ?? DEFAULT_BOOKING_COLLECTION_SLUGS.eventTypes,
+    staffMembers:
+      config.slugs?.staffMembers ?? DEFAULT_BOOKING_COLLECTION_SLUGS.staffMembers,
+    bookings: config.slugs?.bookings ?? DEFAULT_BOOKING_COLLECTION_SLUGS.bookings,
   };
 }

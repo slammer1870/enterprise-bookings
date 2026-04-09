@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { ToggleDate } from "@repo/ui/components/toggle-date";
 
-import { LessonList } from "./lessons/lesson-list";
+import { TimeslotList } from "./timeslots/timeslot-list";
 import { Loader2 } from "lucide-react";
 
 export function Schedule({
@@ -19,9 +19,9 @@ export function Schedule({
    * Defaults to `/bookings/[id]/manage` if not provided.
    * Passed through to CheckInButton components.
    */
-  manageHref?: string | ((lessonId: number) => string);
+  manageHref?: string | ((timeslotId: number) => string);
   /**
-   * When provided (e.g. on root home page), filter lessons to this tenant only.
+   * When provided (e.g. on root home page), filter timeslots to this tenant only.
    */
   tenantId?: number;
 }) {
@@ -29,8 +29,8 @@ export function Schedule({
 
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const { data: lessons, isLoading } = useQuery({
-    ...trpc.lessons.getByDate.queryOptions({
+  const { data: timeslots, isLoading } = useQuery({
+    ...trpc.timeslots.getByDate.queryOptions({
       // Use an ISO instant (not locale-dependent strings like toDateString()).
       // Server will interpret the calendar day in the tenant timezone.
       date: selectedDate.toISOString(),
@@ -55,7 +55,7 @@ export function Schedule({
           <span className="text-sm">Loading schedule...</span>
         </div>
       ) : (
-        <LessonList lessons={Array.isArray(lessons) ? lessons : []} manageHref={manageHref} />
+        <TimeslotList timeslots={Array.isArray(timeslots) ? timeslots : []} manageHref={manageHref} />
       )}
     </div>
   );

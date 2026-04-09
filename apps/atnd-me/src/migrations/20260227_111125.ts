@@ -18,7 +18,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"stripe_customer_id" varchar NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-27T11:11:21.739Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-27T11:11:21.739Z';
   ALTER TABLE "subscriptions" ADD COLUMN IF NOT EXISTS "stripe_account_id" varchar;
   ALTER TABLE "subscriptions" ADD COLUMN IF NOT EXISTS "stripe_customer_id" varchar;
 
@@ -51,7 +51,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP TYPE "public"."enum_tenants_allowed_blocks";
   CREATE TYPE "public"."enum_tenants_allowed_blocks" AS ENUM('marketingHero', 'location', 'healthBenefits', 'sectionTagline', 'faqs', 'features', 'caseStudies', 'marketingCta', 'mediaBlock', 'archive', 'formBlock', 'threeColumnLayout');
   ALTER TABLE "tenants_allowed_blocks" ALTER COLUMN "value" SET DATA TYPE "public"."enum_tenants_allowed_blocks" USING "value"::"public"."enum_tenants_allowed_blocks";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-20T18:28:34.469Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-20T18:28:34.469Z';
   ALTER TABLE "subscriptions" DROP COLUMN "stripe_account_id";
   ALTER TABLE "subscriptions" DROP COLUMN "stripe_customer_id";`)
 }

@@ -10,7 +10,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   );
   
   ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-21T23:07:13.011Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-21T23:07:13.011Z';
   ALTER TABLE "users_role" ADD CONSTRAINT "users_role_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   CREATE INDEX "users_role_order_idx" ON "users_role" USING btree ("order");
   CREATE INDEX "users_role_parent_idx" ON "users_role" USING btree ("parent_id");
@@ -28,6 +28,6 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP INDEX "accounts_refresh_token_expires_at_idx";
   DROP INDEX "verifications_expires_at_idx";
   ALTER TABLE "users" ALTER COLUMN "name" DROP NOT NULL;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-21T17:35:02.953Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-21T17:35:02.953Z';
   ALTER TABLE "users" ADD COLUMN "role" "enum_users_role" DEFAULT 'user' NOT NULL;`)
 }

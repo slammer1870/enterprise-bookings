@@ -1,6 +1,6 @@
 /**
  * Plugin registration: when classPass.enabled, config includes class-pass-types,
- * class-passes, transactions, and class-options has allowedClassPasses (relationship to types) in paymentMethods.
+ * class-passes, transactions, and event-types has allowedClassPasses (relationship to types) in paymentMethods.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildConfig, getPayload, type Payload } from "payload";
@@ -33,8 +33,8 @@ describe("bookingsPaymentsPlugin", () => {
     expect(slugs).toContain("transactions");
   });
 
-  it("injects allowedClassPasses into class-options paymentMethods group", () => {
-    const co = payload.config.collections?.find((c) => c.slug === "class-options");
+  it("injects allowedClassPasses into event-types paymentMethods group", () => {
+    const co = payload.config.collections?.find((c) => c.slug === "event-types");
     expect(co).toBeDefined();
     const group = co?.fields?.find(
       (f) => f.type === "group" && "name" in f && f.name === "paymentMethods"

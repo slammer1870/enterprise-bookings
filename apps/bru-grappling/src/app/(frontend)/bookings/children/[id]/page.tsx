@@ -21,7 +21,7 @@ export default async function ChildrensBookingPage({ params }: BookingPageProps)
     redirect(`/complete-booking?mode=login&callbackUrl=/bookings/${id}`)
   }
 
-  prefetch(trpc.lessons.getByIdForChildren.queryOptions({ id: Number(id) }))
+  prefetch(trpc.timeslots.getByIdForChildren.queryOptions({ id: Number(id) }))
 
   return (
     <HydrateClient>

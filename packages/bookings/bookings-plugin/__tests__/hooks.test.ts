@@ -15,7 +15,7 @@ import { config } from "./config";
 import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 
-import { ClassOption, Lesson, User, Booking } from "@repo/shared-types";
+import { EventType, Timeslot, User, Booking } from "@repo/shared-types";
 
 import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient";
 
@@ -24,7 +24,7 @@ const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can
 
 let payload: Payload;
 let restClient: NextRESTClient;
-let classOption: ClassOption;
+let classOption: EventType;
 let user: User;
 
 describe("Hook tests", () => {
@@ -50,13 +50,13 @@ describe("Hook tests", () => {
 
     // Create test class option
     classOption = (await payload.create({
-      collection: "class-options",
+      collection: "event-types",
       data: {
         name: "Hook Test Class",
         places: 5,
         description: "Test class for hooks",
       },
-    })) as ClassOption;
+    })) as EventType;
   }, HOOK_TIMEOUT);
 
   afterAll(async () => {
@@ -70,7 +70,7 @@ describe("Hook tests", () => {
       "should calculate remaining capacity correctly",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -110,13 +110,13 @@ describe("Hook tests", () => {
         });
 
         // Read the lesson - this will trigger the remainingCapacity hook
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
         // 5 places - 2 bookings = 3 remaining
-        expect((readLesson as Lesson).remainingCapacity).toBe(3);
+        expect((readTimeslot as Timeslot).remainingCapacity).toBe(3);
       },
       TEST_TIMEOUT
     );
@@ -125,7 +125,7 @@ describe("Hook tests", () => {
       "should return full capacity when no bookings exist",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -138,13 +138,13 @@ describe("Hook tests", () => {
         });
 
         // Read the lesson - this will trigger the remainingCapacity hook
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
         // Should return full capacity (5 places)
-        expect((readLesson as Lesson).remainingCapacity).toBe(5);
+        expect((readTimeslot as Timeslot).remainingCapacity).toBe(5);
       },
       TEST_TIMEOUT
     );
@@ -153,7 +153,7 @@ describe("Hook tests", () => {
       "should return 0 when booked out",
       async () => {
         const lesson = (await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
@@ -163,7 +163,7 @@ describe("Hook tests", () => {
             lockOutTime: 30,
             originalLockOutTime: 30,
           },
-        })) as Lesson;
+        })) as Timeslot;
 
         // Create 5 confirmed bookings to fill the class (5 places)
         for (let i = 0; i < 5; i++) {
@@ -178,12 +178,12 @@ describe("Hook tests", () => {
         }
 
         // Read the lesson - this will trigger the remainingCapacity hook
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
-        expect((readLesson as Lesson).remainingCapacity).toBe(0);
+        expect((readTimeslot as Timeslot).remainingCapacity).toBe(0);
       },
       TEST_TIMEOUT
     );
@@ -194,7 +194,7 @@ describe("Hook tests", () => {
       "should return 'active' for a lesson with no bookings",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
@@ -207,12 +207,12 @@ describe("Hook tests", () => {
         });
 
         // Read the lesson - this will trigger the bookingStatus hook
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
-        expect((readLesson as Lesson).bookingStatus).toBe("active");
+        expect((readTimeslot as Timeslot).bookingStatus).toBe("active");
       },
       TEST_TIMEOUT
     );
@@ -221,7 +221,7 @@ describe("Hook tests", () => {
       "should return 'booked' when user has a confirmed booking",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000),
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
@@ -250,7 +250,7 @@ describe("Hook tests", () => {
               password: "test",
             },
           })
-          .then(() => restClient.GET(`/lessons/${lesson.id}`));
+          .then(() => restClient.GET(`/timeslots/${lesson.id}`));
 
         const data = await response.json();
 
@@ -264,7 +264,7 @@ describe("Hook tests", () => {
       "should return 'waitlist' when lesson is full",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000),
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
@@ -297,12 +297,12 @@ describe("Hook tests", () => {
         }
 
         // Read the lesson - this will trigger the bookingStatus hook
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
-        expect((readLesson as Lesson).bookingStatus).toBe("waitlist");
+        expect((readTimeslot as Timeslot).bookingStatus).toBe("waitlist");
       },
       TEST_TIMEOUT
     );
@@ -311,7 +311,7 @@ describe("Hook tests", () => {
       "should return 'closed' when lesson has passed lockout time",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
@@ -324,13 +324,13 @@ describe("Hook tests", () => {
         });
 
         // Read the lesson - this will trigger the bookingStatus hook
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
         // Should be closed because startTime - 30 minutes is in the past
-        expect((readLesson as Lesson).bookingStatus).toBe("closed");
+        expect((readTimeslot as Timeslot).bookingStatus).toBe("closed");
       },
       TEST_TIMEOUT
     );
@@ -341,7 +341,7 @@ describe("Hook tests", () => {
         // Test that the hook handles the case where classOption is missing from data
         // This tests the early return in the hook
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -354,14 +354,14 @@ describe("Hook tests", () => {
         });
 
         // Read the lesson normally - should work fine
-        const readLesson = await payload.findByID({
-          collection: "lessons",
+        const readTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
         // Should return a valid status
         expect(["active", "booked", "waitlist", "closed"]).toContain(
-          (readLesson as Lesson).bookingStatus
+          (readTimeslot as Timeslot).bookingStatus
         );
       },
       TEST_TIMEOUT
@@ -373,7 +373,7 @@ describe("Hook tests", () => {
       "should set lockout to 0 when booking is confirmed",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -397,12 +397,12 @@ describe("Hook tests", () => {
         // Wait a bit for the async hook to complete
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        const updatedLesson = await payload.findByID({
-          collection: "lessons",
+        const updatedTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
-        expect((updatedLesson as any).lockOutTime).toBe(0);
+        expect((updatedTimeslot as any).lockOutTime).toBe(0);
       },
       TEST_TIMEOUT
     );
@@ -414,7 +414,7 @@ describe("Hook tests", () => {
         // Sequence: lesson created with lockOutTime=45 → user books → lockOutTime set to 0
         //           → user cancels → lockOutTime must restore to 45.
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -437,7 +437,7 @@ describe("Hook tests", () => {
         });
 
         const lessonAfterBook = await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lesson.id,
         });
         expect((lessonAfterBook as any).lockOutTime).toBe(0);
@@ -450,7 +450,7 @@ describe("Hook tests", () => {
         });
 
         const lessonAfterCancel = await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lesson.id,
         });
         expect((lessonAfterCancel as any).lockOutTime).toBe(45);
@@ -462,7 +462,7 @@ describe("Hook tests", () => {
       "should restore original lockout when no confirmed bookings remain",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -491,12 +491,12 @@ describe("Hook tests", () => {
           data: { status: "cancelled" },
         });
 
-        const updatedLesson = await payload.findByID({
-          collection: "lessons",
+        const updatedTimeslot = await payload.findByID({
+          collection: "timeslots",
           id: lesson.id,
         });
 
-        expect((updatedLesson as any).lockOutTime).toBe(45);
+        expect((updatedTimeslot as any).lockOutTime).toBe(45);
       },
       TEST_TIMEOUT
     );
@@ -511,7 +511,7 @@ describe("Hook tests", () => {
         });
 
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -535,7 +535,7 @@ describe("Hook tests", () => {
 
         // Verify both bookings drove lockOutTime to 0
         const lessonAfterBothBooked = await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lesson.id,
         });
         expect((lessonAfterBothBooked as any).lockOutTime).toBe(0);
@@ -549,7 +549,7 @@ describe("Hook tests", () => {
 
         // The second booking is still confirmed — lockOutTime must remain 0
         const lessonAfterOneCancel = await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lesson.id,
         });
         expect((lessonAfterOneCancel as any).lockOutTime).toBe(0);
@@ -567,7 +567,7 @@ describe("Hook tests", () => {
         });
 
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -597,7 +597,7 @@ describe("Hook tests", () => {
         });
 
         const lessonAfterFirstCancel = await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lesson.id,
         });
         expect((lessonAfterFirstCancel as any).lockOutTime).toBe(0);
@@ -610,7 +610,7 @@ describe("Hook tests", () => {
         });
 
         const lessonAfterBothCancelled = await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lesson.id,
         });
         expect((lessonAfterBothCancelled as any).lockOutTime).toBe(45);
@@ -622,7 +622,7 @@ describe("Hook tests", () => {
       "should handle deleted lesson gracefully",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -650,7 +650,7 @@ describe("Hook tests", () => {
         // But the async hook might still try to run, so we test that it handles gracefully
         try {
           await payload.delete({
-            collection: "lessons",
+            collection: "timeslots",
             id: lesson.id,
           });
         } catch (error) {
@@ -672,7 +672,7 @@ describe("Hook tests", () => {
       "should handle waitlist notification when capacity becomes available",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -737,7 +737,7 @@ describe("Hook tests", () => {
       "should handle deleted lesson in afterChange hook gracefully",
       async () => {
         const lesson = await payload.create({
-          collection: "lessons",
+          collection: "timeslots",
           data: {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),

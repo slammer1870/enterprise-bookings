@@ -80,7 +80,7 @@ apps/atnd-me/tests/e2e/
 - Navigate to `http://test-tenant-1.localhost:3000`
 - Verify home page content matches tenant-1's default data
 - Verify HeroScheduleBlock is displayed with tenant-1 branding
-- Verify tenant-1's lessons are shown in schedule
+- Verify tenant-1's timeslots are shown in schedule
 
 **Test**: `should set tenant context in headers for API calls`
 - Navigate to `http://test-tenant-1.localhost:3000`
@@ -140,7 +140,7 @@ apps/atnd-me/tests/e2e/
 
 **Test**: `should not show tenant-specific content`
 - Navigate to `http://localhost:3000`
-- Verify no lessons, instructors, or bookings are shown
+- Verify no timeslots, staffMembers, or bookings are shown
 - Verify no tenant-specific navbar/footer
 
 ### 2.2 Tenants Listing Page
@@ -201,19 +201,19 @@ apps/atnd-me/tests/e2e/
 - Verify `where` clause includes tenant filter
 - Verify only tenant-1 pages are returned
 
-### 3.2 Lessons Collection Isolation
+### 3.2 Timeslots Collection Isolation
 
-**Test**: `should show only tenant-1 lessons on tenant-1 subdomain`
+**Test**: `should show only tenant-1 timeslots on tenant-1 subdomain`
 - Create lesson in tenant-1
 - Create lesson in tenant-2
 - Navigate to `http://test-tenant-1.localhost:3000`
-- Verify only tenant-1's lessons appear in schedule
-- Verify tenant-2's lessons do NOT appear
+- Verify only tenant-1's timeslots appear in schedule
+- Verify tenant-2's timeslots do NOT appear
 
-**Test**: `should filter lessons by tenant in tRPC queries`
+**Test**: `should filter timeslots by tenant in tRPC queries`
 - Navigate to `http://test-tenant-1.localhost:3000`
-- Verify Schedule component shows only tenant-1 lessons
-- Verify tRPC `lessons.getByDate` returns only tenant-1 lessons
+- Verify Schedule component shows only tenant-1 timeslots
+- Verify tRPC `timeslots.getByDate` returns only tenant-1 timeslots
 
 **Test**: `should show correct lesson details for tenant`
 - Create lesson in tenant-1 with specific details
@@ -221,19 +221,19 @@ apps/atnd-me/tests/e2e/
 - Verify lesson details match tenant-1's lesson
 - Verify lesson is bookable
 
-### 3.3 Instructors Collection Isolation
+### 3.3 StaffMembers Collection Isolation
 
-**Test**: `should show only tenant-1 instructors on tenant-1 subdomain`
+**Test**: `should show only tenant-1 staffMembers on tenant-1 subdomain`
 - Create instructor in tenant-1
 - Create instructor in tenant-2
 - Navigate to `http://test-tenant-1.localhost:3000`
-- Verify only tenant-1's instructors are shown
-- Verify tenant-2's instructors are NOT shown
+- Verify only tenant-1's staffMembers are shown
+- Verify tenant-2's staffMembers are NOT shown
 
-**Test**: `should filter instructors by tenant in API calls`
+**Test**: `should filter staffMembers by tenant in API calls`
 - Navigate to `http://test-tenant-1.localhost:3000`
-- Intercept API calls to instructors collection
-- Verify only tenant-1 instructors are returned
+- Intercept API calls to staffMembers collection
+- Verify only tenant-1 staffMembers are returned
 
 ### 3.4 Class Options Collection Isolation
 
@@ -280,7 +280,7 @@ apps/atnd-me/tests/e2e/
 - Configure scheduler for tenant-1
 - Navigate to `http://test-tenant-1.localhost:3000`
 - Verify scheduler uses tenant-1's configuration
-- Verify scheduler displays tenant-1's lessons only
+- Verify scheduler displays tenant-1's timeslots only
 
 ---
 
@@ -298,7 +298,7 @@ apps/atnd-me/tests/e2e/
 **Test**: `should allow user to book across tenants`
 - User registered in tenant-1
 - Navigate to `http://test-tenant-2.localhost:3000`
-- Verify user can view tenant-2's lessons
+- Verify user can view tenant-2's timeslots
 - Verify user can create booking in tenant-2
 
 ### 4.2 Cross-Tenant Booking Creation
@@ -378,7 +378,7 @@ apps/atnd-me/tests/e2e/
 - Attempt to create booking
 - Verify booking is prevented or error is shown
 
-**Test**: `should allow booking active lessons only`
+**Test**: `should allow booking active timeslots only`
 - Create inactive lesson
 - Attempt to create booking
 - Verify booking is prevented or error is shown
@@ -460,7 +460,7 @@ apps/atnd-me/tests/e2e/
 - Verify one booking is cancelled (if quantity reaches 0)
 
 **Test**: `should prevent increasing quantity beyond remaining capacity`
-- Lesson has capacity of 10, 8 bookings exist
+- Timeslot has capacity of 10, 8 bookings exist
 - User has booking with quantity 1
 - Attempt to increase to 4
 - Verify increase is prevented or limited to 2
@@ -554,10 +554,10 @@ apps/atnd-me/tests/e2e/
 - Login as tenant-1 admin
 - Navigate to pages collection
 - Verify only tenant-1's pages are shown
-- Navigate to lessons collection
-- Verify only tenant-1's lessons are shown
-- Navigate to instructors collection
-- Verify only tenant-1's instructors are shown
+- Navigate to timeslots collection
+- Verify only tenant-1's timeslots are shown
+- Navigate to staffMembers collection
+- Verify only tenant-1's staffMembers are shown
 
 **Test**: `should allow tenant-admin to create content in their tenant`
 - Login as tenant-1 admin
@@ -584,8 +584,8 @@ apps/atnd-me/tests/e2e/
 - Login as tenant-1 admin
 - Attempt to navigate to tenant-2's pages
 - Verify tenant-2's pages are NOT visible
-- Attempt to access tenant-2's lessons
-- Verify tenant-2's lessons are NOT visible
+- Attempt to access tenant-2's timeslots
+- Verify tenant-2's timeslots are NOT visible
 
 **Test**: `should prevent tenant-admin from creating content in other tenants`
 - Login as tenant-1 admin
@@ -682,7 +682,7 @@ apps/atnd-me/tests/e2e/
 - Login as super admin
 - Create new tenant with name, slug, and domain
 - Verify tenant is created
-- Verify default data is created (home page, class options, lessons, navbar, footer)
+- Verify default data is created (home page, class options, timeslots, navbar, footer)
 - Verify tenant is accessible via subdomain
 
 **Test**: `should allow super admin to update tenant`
@@ -765,13 +765,13 @@ apps/atnd-me/tests/e2e/
 - Verify class options have names, places, and descriptions
 - Verify class options are scoped to the tenant
 
-**Test**: `should create default lessons when tenant is created`
+**Test**: `should create default timeslots when tenant is created`
 - Create new tenant
-- Verify 2-3 default lessons are created
-- Verify lessons are upcoming (future dates)
-- Verify lessons use default class options
-- Verify lessons are active
-- Verify lessons have default lockOutTime
+- Verify 2-3 default timeslots are created
+- Verify timeslots are upcoming (future dates)
+- Verify timeslots use default class options
+- Verify timeslots are active
+- Verify timeslots have default lockOutTime
 
 **Test**: `should create default navbar when tenant is created`
 - Create new tenant
@@ -789,7 +789,7 @@ apps/atnd-me/tests/e2e/
 
 **Test**: `should scope all default data to the tenant`
 - Create new tenant
-- Verify all default data (pages, lessons, class options, navbar, footer) has tenant field set
+- Verify all default data (pages, timeslots, class options, navbar, footer) has tenant field set
 - Verify default data is only visible on tenant's subdomain
 - Verify default data is NOT visible on other tenants' subdomains
 
@@ -812,7 +812,7 @@ apps/atnd-me/tests/e2e/
 **Test**: `should allow tenant-admin to add additional content`
 - Create new tenant
 - Login as tenant-admin
-- Create additional pages, lessons, class options
+- Create additional pages, timeslots, class options
 - Verify new content is created
 - Verify new content is scoped to tenant
 
@@ -855,7 +855,7 @@ apps/atnd-me/tests/e2e/
 - Login as tenant-1 admin
 - Navigate to admin panel
 - Verify tenants collection is NOT visible
-- Verify tenant-scoped collections are visible (pages, lessons, instructors, class-options, bookings, navbar, footer, scheduler)
+- Verify tenant-scoped collections are visible (pages, timeslots, staffMembers, event-types, bookings, navbar, footer, scheduler)
 - Verify users collection is visible (filtered to tenant-1)
 
 **Test**: `should hide tenants collection from tenant-admin`
@@ -894,7 +894,7 @@ apps/atnd-me/tests/e2e/
 ### 11.1 Multi-Tenant Data Integrity
 
 **Test**: `should maintain data isolation when multiple tenants exist`
-- Create 3 tenants with similar content (pages with same slug, lessons with same dates)
+- Create 3 tenants with similar content (pages with same slug, timeslots with same dates)
 - Navigate to each tenant's subdomain
 - Verify each tenant sees only their own content
 - Verify no data leakage between tenants
@@ -925,9 +925,9 @@ apps/atnd-me/tests/e2e/
 **Test**: `should pass tenant context to tRPC queries`
 - Navigate to `http://test-tenant-1.localhost:3000`
 - Verify Schedule component loads
-- Intercept tRPC `lessons.getByDate` query
+- Intercept tRPC `timeslots.getByDate` query
 - Verify tenant context is included in request
-- Verify only tenant-1's lessons are returned
+- Verify only tenant-1's timeslots are returned
 
 **Test**: `should pass tenant context to Payload API calls`
 - Navigate to `http://test-tenant-1.localhost:3000`
@@ -991,7 +991,7 @@ apps/atnd-me/tests/e2e/
 - `createTestTenant(name, slug)` - Create test tenant via API
 
 **Data Helpers**:
-- `createTestLesson(tenantId, data)` - Create test lesson in tenant
+- `createTestTimeslot(tenantId, data)` - Create test lesson in tenant
 - `createTestBooking(userId, lessonId, quantity)` - Create test booking
 - `cleanupTestData()` - Clean up test data
 
@@ -1002,7 +1002,7 @@ apps/atnd-me/tests/e2e/
 ### MVP Features Covered
 
 ✅ Subdomain-based tenant identification
-✅ Tenant-scoped collections (pages, lessons, instructors, class-options, scheduler, navbar, footer)
+✅ Tenant-scoped collections (pages, timeslots, staffMembers, event-types, scheduler, navbar, footer)
 ✅ Role structure (admin, tenant-admin, user)
 ✅ User access control with cross-tenant booking capability
 ✅ Marketing landing page and tenants listing page

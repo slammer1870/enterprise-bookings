@@ -3,7 +3,7 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
    DROP INDEX IF EXISTS "subscriptions_stripe_subscription_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-11-25T19:19:47.014Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-11-25T19:19:47.014Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-11-25T19:19:47.014Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-11-25T19:19:47.014Z';
   ALTER TABLE "media" ADD COLUMN IF NOT EXISTS "sizes_thumbnail_url" varchar;
@@ -42,7 +42,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP INDEX IF EXISTS "media_sizes_card_sizes_card_filename_idx";
   DROP INDEX IF EXISTS "media_sizes_tablet_sizes_tablet_filename_idx";
   DROP INDEX IF EXISTS "media_sizes_desktop_sizes_desktop_filename_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-08-27T10:41:31.725Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-08-27T10:41:31.725Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-08-27T10:41:31.725Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-08-27T10:41:31.725Z';
   CREATE UNIQUE INDEX IF NOT EXISTS "subscriptions_stripe_subscription_id_idx" ON "subscriptions" USING btree ("stripe_subscription_id");

@@ -1,6 +1,6 @@
 import { getPayload, type Payload } from 'payload'
 import config from '../../../src/payload.config'
-import type { Tenant, User, Lesson, ClassOption, Booking, Plan, Subscription } from '@repo/shared-types'
+import type { Tenant, User, Timeslot, EventType, Booking, Plan, Subscription } from '@repo/shared-types'
 
 /**
  * Helper functions for creating test data via Payload API
@@ -235,16 +235,16 @@ export async function createTestUser(
  * @param description - Optional description
  * @param workerIndex - Optional worker index for additional isolation (default: 0)
  */
-export async function createTestClassOption(
+export async function createTestEventType(
   tenantId: string | number,
   name: string,
   places: number = 10,
   description?: string,
   workerIndex: number = 0
-): Promise<ClassOption> {
+): Promise<EventType> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
-  // `class-options.name` is globally unique in this project.
+  // `event-types.name` is globally unique in this project.
   // Scope by tenant ID and worker index for parallel test isolation.
   const workerSuffix = workerIndex > 0 ? ` w${workerIndex}` : ''
   const scopedName = `${name} ${tenantIdNumber}${workerSuffix}`
@@ -257,7 +257,7 @@ export async function createTestClassOption(
     depth: 0,
     overrideAccess: true,
   })
-  const existingDoc = (existing?.docs?.[0] ?? null) as ClassOption | null
+  const existingDoc = (existing?.docs?.[0] ?? null) as EventType | null
   if (existingDoc) return existingDoc
 
   return (await payload.create({
@@ -269,26 +269,26 @@ export async function createTestClassOption(
       tenant: tenantIdNumber,
     },
     overrideAccess: true,
-  })) as ClassOption
+  })) as EventType
 }
 
 /**
  * Create a test lesson
  * @param tenantId - Tenant ID
  * @param classOptionId - Class option ID
- * @param startTime - Lesson start time
- * @param endTime - Lesson end time
+ * @param startTime - Timeslot start time
+ * @param endTime - Timeslot end time
  * @param instructorId - Optional instructor ID
  * @param active - Whether lesson is active (default: true)
  */
-export async function createTestLesson(
+export async function createTestTimeslot(
   tenantId: string | number,
   classOptionId: string | number,
   startTime: Date,
   endTime: Date,
   instructorId?: string | number,
   active: boolean = true
-): Promise<Lesson> {
+): Promise<Timeslot> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
   const classOptionIdNumber = typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
@@ -299,23 +299,25 @@ export async function createTestLesson(
     collection: 'timeslots',
     data: {
       tenant: tenantIdNumber,
-      classOption: classOptionIdNumber,
+      eventType: classOptionIdNumber,
       date,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       lockOutTime: 60, // Default: 60 minutes before lesson
       active,
-      ...(instructorId && { instructor: typeof instructorId === 'string' ? Number(instructorId) : instructorId }),
+      ...(instructorId && {
+        staffMember: typeof instructorId === 'string' ? Number(instructorId) : instructorId,
+      }),
     },
     draft: false,
     overrideAccess: true,
-  })) as Lesson
+  })) as Timeslot
 }
 
 /**
  * Create a test booking
  * @param userId - User ID
- * @param lessonId - Lesson ID
+ * @param lessonId - Timeslot ID
  * @param status - Booking status (default: 'pending')
  */
 export async function createTestBooking(
@@ -330,7 +332,7 @@ export async function createTestBooking(
     collection: 'timeslots',
     id: typeof lessonId === 'string' ? lessonId : String(lessonId),
     overrideAccess: true,
-  })) as Lesson
+  })) as Timeslot
 
   const userIdNumber = typeof userId === 'string' ? Number(userId) : userId
   const lessonIdNumber = typeof lessonId === 'string' ? Number(lessonId) : lessonId
@@ -345,7 +347,7 @@ export async function createTestBooking(
     collection: 'bookings',
     data: {
       user: userIdNumber,
-      lesson: lessonIdNumber,
+      timeslot: lessonIdNumber,
       status,
       tenant: tenantId,
     },
@@ -363,15 +365,20 @@ export async function updateTenantStripeConnect(
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
 
+  const data: Record<string, unknown> = {
+    stripeConnectOnboardingStatus:
+      overrides?.stripeConnectOnboardingStatus ?? 'active',
+  }
+  if (overrides && 'stripeConnectAccountId' in overrides) {
+    data.stripeConnectAccountId = overrides.stripeConnectAccountId
+  } else {
+    data.stripeConnectAccountId = `acct_test_${tenantIdNumber}`
+  }
+
   return (await payload.update({
     collection: 'tenants',
     id: tenantIdNumber,
-    data: {
-      stripeConnectOnboardingStatus:
-        overrides?.stripeConnectOnboardingStatus ?? 'active',
-      stripeConnectAccountId:
-        overrides?.stripeConnectAccountId ?? `acct_test_${tenantIdNumber}`,
-    },
+    data,
     overrideAccess: true,
   })) as Tenant
 }
@@ -380,7 +387,7 @@ export async function createTestPlan(params: {
   tenantId: string | number
   name: string
   sessions: number
-  allowMultipleBookingsPerLesson?: boolean
+  allowMultipleBookingsPerTimeslot?: boolean
   stripeProductId?: string
   priceId?: string
 }): Promise<Plan> {
@@ -393,12 +400,13 @@ export async function createTestPlan(params: {
       tenant: tenantIdNumber,
       name: params.name,
       status: 'active',
+      skipSync: true,
       sessionsInformation: {
         sessions: params.sessions,
         interval: 'week',
         intervalCount: 1,
-        allowMultipleBookingsPerLesson:
-          params.allowMultipleBookingsPerLesson ?? false,
+        allowMultipleBookingsPerTimeslot:
+          params.allowMultipleBookingsPerTimeslot ?? false,
       },
       stripeProductId: params.stripeProductId ?? `prod_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       priceJSON: JSON.stringify({
@@ -409,10 +417,10 @@ export async function createTestPlan(params: {
   })) as Plan
 }
 
-export async function setClassOptionAllowedPlans(
+export async function setEventTypeAllowedPlans(
   classOptionId: string | number,
   planIds: Array<string | number>
-): Promise<ClassOption> {
+): Promise<EventType> {
   const payload = await getPayloadInstance()
   const classOptionIdNumber =
     typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
@@ -426,7 +434,7 @@ export async function setClassOptionAllowedPlans(
       },
     },
     overrideAccess: true,
-  })) as ClassOption
+  })) as EventType
 }
 
 export async function createTestSubscription(params: {

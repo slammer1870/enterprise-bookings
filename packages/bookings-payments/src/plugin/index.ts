@@ -42,11 +42,11 @@ export const bookingsPaymentsPlugin =
     const config = { ...incomingConfig };
     const dropIns = normalizeFeatureOption(pluginOptions.dropIns, {
       enabled: true,
-      paymentMethodSlugs: ["class-options"],
+      paymentMethodSlugs: ["event-types"],
     });
     const classPass = normalizeFeatureOption(pluginOptions.classPass, {
       enabled: true,
-      classOptionsSlug: "class-options",
+      eventTypesSlug: "event-types",
     });
     const membership = normalizeFeatureOption(pluginOptions.membership, {
       enabled: true,

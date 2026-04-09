@@ -11,10 +11,10 @@ import { createBookingAccess } from "../access/bookings";
 
 import { BookingsPluginConfig } from "../types";
 
-import type { BookingsPluginSlugs } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
 
 import {
-  Lesson,
+  Timeslot,
   Booking,
   User,
   HooksConfig,
@@ -27,7 +27,7 @@ import { isAdminOrOwner } from "@repo/shared-services";
 import { render } from "@react-email/components";
 import { WaitlistNotificationEmail } from "../emails/waitlist-notification";
 
-function createBookingDefaultFields(slugs: BookingsPluginSlugs): Field[] {
+function createBookingDefaultFields(slugs: BookingCollectionSlugs): Field[] {
   return [
     {
       name: "user",
@@ -37,10 +37,10 @@ function createBookingDefaultFields(slugs: BookingsPluginSlugs): Field[] {
       required: true,
     },
     {
-      name: "lesson",
-      label: "Lesson",
+      name: "timeslot",
+      label: "Timeslot",
       type: "relationship",
-      relationTo: slugs.lessons as CollectionSlug,
+      relationTo: slugs.timeslots as CollectionSlug,
       maxDepth: 3,
       required: true,
     },
@@ -64,46 +64,46 @@ const defaultAdmin: CollectionAdminOptions = {
   group: false,
 };
 
-function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
-  const lessonsSlug = slugs.lessons;
-  const classOptionsSlug = slugs.classOptions;
+function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
+  const timeslotsSlug = slugs.timeslots;
+  const eventTypesSlug = slugs.eventTypes;
   const bookingsSlug = slugs.bookings;
 
   return {
     beforeValidate: [
       async ({ req, data, operation, originalDoc }) => {
-        const lessonIdRaw = data?.lesson;
-        const lessonId =
-          typeof lessonIdRaw === "object" && lessonIdRaw !== null
-            ? (lessonIdRaw as { id?: unknown }).id
-            : lessonIdRaw;
-        if (lessonId == null) return data;
+        const timeslotIdRaw = data?.timeslot;
+        const timeslotId =
+          typeof timeslotIdRaw === "object" && timeslotIdRaw !== null
+            ? (timeslotIdRaw as { id?: unknown }).id
+            : timeslotIdRaw;
+        if (timeslotId == null) return data;
 
-        const lesson = (await req.payload
+        const timeslot = (await req.payload
           .findByID({
-            collection: lessonsSlug as CollectionSlug,
-            id: lessonId as any,
+            collection: timeslotsSlug as CollectionSlug,
+            id: timeslotId as any,
             depth: 0,
             context: { triggerAfterChange: false },
           })
-          .catch(() => null)) as Lesson | null;
-        if (!lesson) return data;
+          .catch(() => null)) as Timeslot | null;
+        if (!timeslot) return data;
 
         let places: number | null = null;
-        const classOptionRaw = (lesson as any).classOption;
-        if (typeof classOptionRaw === "object" && classOptionRaw !== null) {
-          const maybePlaces = (classOptionRaw as any).places;
+        const eventTypeRaw = (timeslot as any).eventType;
+        if (typeof eventTypeRaw === "object" && eventTypeRaw !== null) {
+          const maybePlaces = (eventTypeRaw as any).places;
           places = typeof maybePlaces === "number" ? maybePlaces : null;
-        } else if (classOptionRaw != null) {
-          const classOption = await req.payload
+        } else if (eventTypeRaw != null) {
+          const eventType = await req.payload
             .findByID({
-              collection: classOptionsSlug as CollectionSlug,
-              id: classOptionRaw as any,
+              collection: eventTypesSlug as CollectionSlug,
+              id: eventTypeRaw as any,
               depth: 0,
               context: { triggerAfterChange: false },
             })
             .catch(() => null);
-          const maybePlaces = (classOption as any)?.places;
+          const maybePlaces = (eventType as any)?.places;
           places = typeof maybePlaces === "number" ? maybePlaces : null;
         }
 
@@ -114,7 +114,7 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
             collection: bookingsSlug as CollectionSlug,
             where: {
               and: [
-                { lesson: { equals: lessonId } },
+                { timeslot: { equals: timeslotId } },
                 { status: { equals: "confirmed" } },
               ],
             },
@@ -136,7 +136,7 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
         const closed = confirmedCount >= places;
 
         if (closed && isBecomingConfirmed) {
-          throw new APIError("This lesson is fully booked", 403);
+          throw new APIError("This timeslot is fully booked", 403);
         }
 
         return data;
@@ -148,40 +148,40 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
           return;
         }
 
-        const lessonId =
-          typeof doc.lesson === "object" ? doc.lesson.id : doc.lesson;
+        const timeslotId =
+          typeof doc.timeslot === "object" ? doc.timeslot.id : doc.timeslot;
 
-        if (!lessonId) {
+        if (!timeslotId) {
           return;
         }
 
         try {
-          const lesson = (await req.payload
+          const timeslot = (await req.payload
             .findByID({
-              collection: lessonsSlug as CollectionSlug,
-              id: lessonId,
+              collection: timeslotsSlug as CollectionSlug,
+              id: timeslotId,
               depth: 0,
               context: { triggerAfterChange: false },
             })
-            .catch(() => null)) as Lesson | null;
-          if (!lesson) return;
+            .catch(() => null)) as Timeslot | null;
+          if (!timeslot) return;
 
-          const classOptionRaw = (lesson as any).classOption;
-          const classOptionId =
-            typeof classOptionRaw === "object" && classOptionRaw !== null
-              ? (classOptionRaw as any).id
-              : classOptionRaw;
-          const classOption = await req.payload
+          const eventTypeRaw = (timeslot as any).eventType;
+          const eventTypeId =
+            typeof eventTypeRaw === "object" && eventTypeRaw !== null
+              ? (eventTypeRaw as any).id
+              : eventTypeRaw;
+          const eventType = await req.payload
             .findByID({
-              collection: classOptionsSlug as CollectionSlug,
-              id: classOptionId as any,
+              collection: eventTypesSlug as CollectionSlug,
+              id: eventTypeId as any,
               depth: 1,
               context: { triggerAfterChange: false },
             })
             .catch(() => null);
           const places =
-            typeof (classOption as any)?.places === "number"
-              ? (classOption as any).places
+            typeof (eventType as any)?.places === "number"
+              ? (eventType as any).places
               : null;
           if (places == null) return;
 
@@ -191,7 +191,7 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
               depth: 0,
               where: {
                 and: [
-                  { lesson: { equals: lessonId } },
+                  { timeslot: { equals: timeslotId } },
                   {
                     or: [
                       { status: { equals: "confirmed" } },
@@ -228,7 +228,7 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
             const bookingsQuery = await req.payload.find({
               collection: bookingsSlug as CollectionSlug,
               where: {
-                lesson: { equals: lesson.id },
+                timeslot: { equals: timeslot.id },
                 status: { equals: "waiting" },
               },
               depth: 1,
@@ -238,8 +238,8 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
 
             const emailTemplate = await render(
               WaitlistNotificationEmail({
-                lesson: { ...(lesson as any), classOption } as Lesson,
-                dashboardUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/bookings/${lesson.id}`,
+                timeslot: { ...(timeslot as any), eventType } as Timeslot,
+                dashboardUrl: `${process.env.NEXT_PUBLIC_SERVER_URL}/bookings/${timeslot.id}`,
               }),
             );
 
@@ -247,7 +247,7 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
               bookings.map((booking) =>
                 req.payload.sendEmail({
                   to: booking.user.email,
-                  subject: "Lesson is now available",
+                  subject: "Timeslot is now available",
                   html: emailTemplate,
                 }),
               ),
@@ -269,30 +269,30 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
           return;
         }
 
-        const lessonId =
-          typeof doc.lesson === "object" ? doc.lesson.id : doc.lesson;
+        const timeslotId =
+          typeof doc.timeslot === "object" ? doc.timeslot.id : doc.timeslot;
 
-        if (!lessonId) {
+        if (!timeslotId) {
           return doc;
         }
 
         try {
-          const lesson = (await req.payload
+          const timeslot = (await req.payload
             .findByID({
-              collection: lessonsSlug as CollectionSlug,
-              id: lessonId,
+              collection: timeslotsSlug as CollectionSlug,
+              id: timeslotId,
               depth: 0,
               context: { triggerAfterChange: false },
             })
-            .catch(() => null)) as Lesson | null;
-          if (!lesson) return doc;
+            .catch(() => null)) as Timeslot | null;
+          if (!timeslot) return doc;
 
           const confirmedCount = await req.payload
             .find({
               collection: bookingsSlug as CollectionSlug,
               where: {
                 and: [
-                  { lesson: { equals: lessonId } },
+                  { timeslot: { equals: timeslotId } },
                   { status: { equals: "confirmed" } },
                   { id: { not_equals: doc.id } },
                 ],
@@ -310,8 +310,8 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
 
           if (hasConfirmedBooking) {
             await req.payload.update({
-              collection: lessonsSlug as CollectionSlug,
-              id: lessonId,
+              collection: timeslotsSlug as CollectionSlug,
+              id: timeslotId,
               data: {
                 lockOutTime: 0,
               },
@@ -319,9 +319,9 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
             });
           } else {
             await req.payload.update({
-              collection: lessonsSlug as CollectionSlug,
-              id: lessonId,
-              data: { lockOutTime: (lesson as any).originalLockOutTime },
+              collection: timeslotsSlug as CollectionSlug,
+              id: timeslotId,
+              data: { lockOutTime: (timeslot as any).originalLockOutTime },
               context: { triggerAfterChange: false },
             });
           }
@@ -353,7 +353,7 @@ function createBookingDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
 
 export const generateBookingCollection = (
   config: BookingsPluginConfig,
-  slugs: BookingsPluginSlugs,
+  slugs: BookingCollectionSlugs,
 ) => {
   const overrides = config?.bookingOverrides;
   const { bookingCreateAccess, bookingUpdateAccess } =

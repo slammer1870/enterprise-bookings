@@ -2,7 +2,7 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:42:37.142Z';
+   ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:42:37.142Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-23T11:42:37.303Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-23T11:42:37.303Z';
   ALTER TABLE "pages" ADD COLUMN IF NOT EXISTS "meta_title" varchar;
@@ -47,7 +47,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP INDEX IF EXISTS "pages_meta_meta_image_idx";
   DROP INDEX IF EXISTS "posts_meta_meta_image_idx";
   DROP INDEX IF EXISTS "_posts_v_version_meta_version_meta_image_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:02:05.409Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:02:05.409Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-23T11:02:05.555Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-23T11:02:05.555Z';
   ALTER TABLE "pages" DROP COLUMN IF EXISTS "meta_title";

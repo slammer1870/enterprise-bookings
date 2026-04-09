@@ -2,10 +2,10 @@ import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin, BASE_URL } from './helpers/auth-helpers'
 import {
-  saveLesson,
+  saveTimeslot,
   saveObjectAndWaitForNavigation,
-  setLessonDateAndTime,
-  selectClassOptionInLessonForm,
+  setTimeslotDateAndTime,
+  selectEventTypeInTimeslotForm,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
 
@@ -138,7 +138,7 @@ async function ensureTenantSelectedForCreate(
   ).toBeVisible({ timeout: 20_000 })
 }
 
-async function openLessonsDashboardForDate(
+async function openTimeslotsDashboardForDate(
   page: Page,
   targetDate: Date,
 ) {
@@ -147,7 +147,7 @@ async function openLessonsDashboardForDate(
     timeout: process.env.CI ? 120000 : 60000,
   })
 
-  await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+  await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
     timeout: process.env.CI ? 120000 : 60000,
   })
 
@@ -175,7 +175,7 @@ async function openLessonsDashboardForDate(
 test.describe('Admin lesson creation date regression', () => {
   test.setTimeout(180000)
 
-  test('creating a lesson from the lessons screen preserves an empty tenant selection until the admin chooses one', async ({
+  test('creating a lesson from the timeslots screen preserves an empty tenant selection until the admin chooses one', async ({
     page,
     request,
     testData,
@@ -200,7 +200,7 @@ test.describe('Admin lesson creation date regression', () => {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
-    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+    await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
       timeout: process.env.CI ? 120000 : 60000,
     })
 
@@ -222,7 +222,7 @@ test.describe('Admin lesson creation date regression', () => {
     })
   })
 
-  test('lesson created from /create appears on the selected future date in the lessons dashboard', async ({
+  test('lesson created from /create appears on the selected future date in the timeslots dashboard', async ({
     page,
     request,
     testData,
@@ -233,7 +233,7 @@ test.describe('Admin lesson creation date regression', () => {
     const tenant = testData.tenants[0]
     if (!tenant?.id || !tenant?.name) throw new Error('Expected tenant fixture for admin lesson creation test')
 
-    const className = uniqueClassName('ATND Admin Lesson')
+    const className = uniqueClassName('ATND Admin Timeslot')
     await page.goto('/admin/collections/event-types/create', {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
@@ -260,11 +260,11 @@ test.describe('Admin lesson creation date regression', () => {
     })
 
     await ensureTenantSelectedForCreate(page, tenant)
-    await selectClassOptionInLessonForm(page, className)
-    await setLessonDateAndTime(page, targetDate)
-    await saveLesson(page)
+    await selectEventTypeInTimeslotForm(page, className)
+    await setTimeslotDateAndTime(page, targetDate)
+    await saveTimeslot(page)
 
-    await openLessonsDashboardForDate(page, targetDate)
+    await openTimeslotsDashboardForDate(page, targetDate)
 
     await expect(page.getByRole('cell', { name: className }).first()).toBeVisible({
       timeout: process.env.CI ? 120000 : 60000,

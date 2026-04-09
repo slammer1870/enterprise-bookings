@@ -63,7 +63,7 @@ describe('Class-pass booking create → booking-transaction', () => {
       collection: 'timeslots',
       data: {
         tenant: tenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -153,7 +153,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         draft: false,
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
           paymentMethodUsed: 'class_pass',
@@ -194,7 +194,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },

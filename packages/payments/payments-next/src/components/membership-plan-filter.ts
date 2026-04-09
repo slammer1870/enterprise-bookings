@@ -1,14 +1,14 @@
 import type { Plan, Subscription } from "@repo/shared-types";
 
-export function planAllowsMultipleBookingsPerLesson(plan: unknown): boolean {
+export function planAllowsMultipleBookingsPerTimeslot(plan: unknown): boolean {
   if (!plan || typeof plan !== "object") return false;
   const p = plan as {
     sessionsInformation?: {
       sessions?: number;
-      allowMultipleBookingsPerLesson?: boolean;
+      allowMultipleBookingsPerTimeslot?: boolean;
     };
   };
-  return p.sessionsInformation?.allowMultipleBookingsPerLesson === true;
+  return p.sessionsInformation?.allowMultipleBookingsPerTimeslot === true;
 }
 
 export function planCanCoverQuantity(plan: unknown, requiredQuantity: number): boolean {
@@ -42,7 +42,7 @@ export function getMembershipPlansForView(args: {
   }
 
   if (quantity > 1) {
-    activePlans = activePlans.filter((plan) => planAllowsMultipleBookingsPerLesson(plan));
+    activePlans = activePlans.filter((plan) => planAllowsMultipleBookingsPerTimeslot(plan));
   }
 
   const currentSubscriptionPlan =

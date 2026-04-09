@@ -2,9 +2,9 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+   CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule');
   CREATE TYPE "public"."enum_payload_jobs_log_state" AS ENUM('failed', 'succeeded');
-  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule');
   CREATE TABLE "payload_jobs_log" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
@@ -80,7 +80,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   DROP TABLE "scheduler_schedule_saturday_slots" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots_skip_dates" CASCADE;
   DROP TABLE "scheduler_schedule_sunday_slots" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-22T16:31:11.457Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-22T16:31:11.457Z';
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" DROP DEFAULT;
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" SET NOT NULL;
   ALTER TABLE "scheduler" ALTER COLUMN "end_date" DROP DEFAULT;
@@ -280,7 +280,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_payload_jobs_fk";
   
   DROP INDEX "payload_locked_documents_rels_payload_jobs_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-21T20:48:03.500Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-21T20:48:03.500Z';
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" SET DEFAULT '2025-07-21T20:48:03.740Z';
   ALTER TABLE "scheduler" ALTER COLUMN "start_date" DROP NOT NULL;
   ALTER TABLE "scheduler" ALTER COLUMN "end_date" SET DEFAULT '2025-07-21T20:48:03.740Z';

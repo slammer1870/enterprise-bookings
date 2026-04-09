@@ -25,12 +25,13 @@ import {
 } from '@/lib/stripe-connect/webhookProcessed'
 import {
   parseBookingIds,
+  getTimeslotIdFromStripeMetadata,
   getAccountIdFromEvent,
   resolveTenant,
   confirmBookingsFromPaymentIntent,
   confirmBookingsFromQuantityFlow,
   confirmBookingsFromSubscriptionMetadata,
-  findOrCreateAndConfirmBookingForLesson,
+  findOrCreateAndConfirmBookingForTimeslot,
 } from '@/lib/stripe-connect/webhook'
 import {
   getStripeProductIdFromWebhookObject,
@@ -144,20 +145,20 @@ export async function POST(request: NextRequest) {
         tenantContext: paymentIntentTenantContext,
       })
     }
-    // Legacy quantity-based flow (lessonId + userId, no explicit bookingIds)
+    // Legacy quantity-based flow (timeslotId or legacy lessonId + userId, no explicit bookingIds)
     else if (
       tenant &&
-      meta.lessonId &&
+      getTimeslotIdFromStripeMetadata(meta) &&
       meta.userId &&
       !meta.type &&
       bookingIdsToConfirm.length === 0
     ) {
-      const lessonId = parseInt(meta.lessonId, 10)
+      const timeslotId = parseInt(getTimeslotIdFromStripeMetadata(meta)!, 10)
       const userId = parseInt(meta.userId, 10)
       const quantity = Math.max(1, parseInt(meta.quantity ?? '1', 10) || 1)
-      if (!Number.isNaN(lessonId) && !Number.isNaN(userId)) {
+      if (!Number.isNaN(timeslotId) && !Number.isNaN(userId)) {
         await confirmBookingsFromQuantityFlow(payload, {
-          lessonId,
+          timeslotId,
           userId,
           quantity,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
@@ -298,7 +299,13 @@ export async function POST(request: NextRequest) {
           current_period_end?: number
         }>
       }
-      metadata?: { lessonId?: string; lesson_id?: string; bookingIds?: string; tenantId?: string }
+      metadata?: {
+        timeslotId?: string
+        timeslot_id?: string
+        lessonId?: string
+        bookingIds?: string
+        tenantId?: string
+      }
     } | undefined
     if (!obj?.id) {
       markStripeConnectEventProcessed(event.id)
@@ -365,23 +372,23 @@ export async function POST(request: NextRequest) {
         // subscription.updated may have created the record first; still run booking confirmation
         const existingSub = existing.docs[0] as { id: number }
         const meta = obj.metadata ?? {}
-        const lessonId = meta.lessonId ?? meta.lesson_id
+        const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
         const bookingIdsFromMeta = parseBookingIds(meta)
         if (bookingIdsFromMeta.length > 0) {
           await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, existingSub.id)
-        } else if (lessonId) {
-          const lessonIdNum = Number(lessonId)
-          if (Number.isFinite(lessonIdNum)) {
+        } else if (timeslotIdRaw) {
+          const timeslotIdNum = Number(timeslotIdRaw)
+          if (Number.isFinite(timeslotIdNum)) {
             try {
-              await findOrCreateAndConfirmBookingForLesson(payload, {
-                lessonId: lessonIdNum,
+              await findOrCreateAndConfirmBookingForTimeslot(payload, {
+                timeslotId: timeslotIdNum,
                 userId: user.id,
                 tenantId,
                 subscriptionId: existingSub.id,
                 tenantContext,
               })
             } catch (e) {
-              payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+              payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
             }
           }
         }
@@ -412,24 +419,24 @@ export async function POST(request: NextRequest) {
       })
       const subId = created.id as number
       const meta = obj.metadata ?? {}
-      const lessonId = meta.lessonId ?? meta.lesson_id
+      const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
       const bookingIdsFromMeta = parseBookingIds(meta)
 
       if (bookingIdsFromMeta.length > 0) {
         await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, subId)
-      } else if (lessonId) {
-        const lessonIdNum = Number(lessonId)
-        if (Number.isFinite(lessonIdNum)) {
+      } else if (timeslotIdRaw) {
+        const timeslotIdNum = Number(timeslotIdRaw)
+        if (Number.isFinite(timeslotIdNum)) {
           try {
-            await findOrCreateAndConfirmBookingForLesson(payload, {
-              lessonId: lessonIdNum,
+            await findOrCreateAndConfirmBookingForTimeslot(payload, {
+              timeslotId: timeslotIdNum,
               userId: user.id,
               tenantId,
               subscriptionId: subId,
               tenantContext,
             })
           } catch (e) {
-            payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+            payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
           }
         }
       }
@@ -526,23 +533,23 @@ export async function POST(request: NextRequest) {
               })
               const subId = createdSub.id as number
               const meta = obj.metadata ?? {}
-              const lessonId = meta.lessonId ?? meta.lesson_id
+              const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
               const bookingIdsFromMeta = parseBookingIds(meta)
               if (bookingIdsFromMeta.length > 0) {
                 await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, subId)
-              } else if (lessonId) {
-                const lessonIdNum = Number(lessonId)
-                if (Number.isFinite(lessonIdNum)) {
+              } else if (timeslotIdRaw) {
+                const timeslotIdNum = Number(timeslotIdRaw)
+                if (Number.isFinite(timeslotIdNum)) {
                   try {
-                    await findOrCreateAndConfirmBookingForLesson(payload, {
-                      lessonId: lessonIdNum,
+                    await findOrCreateAndConfirmBookingForTimeslot(payload, {
+                      timeslotId: timeslotIdNum,
                       userId: user.id,
                       tenantId,
                       subscriptionId: subId,
                       tenantContext,
                     })
                   } catch (e) {
-                    payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+                    payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
                   }
                 }
               }

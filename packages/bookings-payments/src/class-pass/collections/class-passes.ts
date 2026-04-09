@@ -11,7 +11,7 @@ import type { CollectionOverrides } from "../../types";
 const STATUS_OPTIONS = ["active", "expired", "used", "cancelled"] as const;
 
 type ClassPassOpts = {
-  classOptionsSlug?: string;
+  eventTypesSlug?: string;
   adminGroup?: string;
   overrides?: CollectionOverrides;
 };

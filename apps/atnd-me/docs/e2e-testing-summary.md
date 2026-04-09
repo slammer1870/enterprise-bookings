@@ -45,7 +45,7 @@ It is focused on what the suite currently verifies:
 - As a super admin or tenant admin, I can access the admin panel according to role and host rules.
 - As a super admin, tenant-scoped documents lock the tenant selector to the document tenant.
 - As a super admin, I can clear tenant filtering on list views and see cross-tenant content again.
-- As a super admin or tenant admin, I can open the lessons admin route.
+- As a super admin or tenant admin, I can open the timeslots admin route.
 - As a super admin, I can create a lesson in admin and see it on the calendar for the correct date.
 - As an admin, the pages block picker only exposes blocks allowed by role and tenant context.
 
@@ -177,19 +177,19 @@ It is focused on what the suite currently verifies:
 ### `admin-create-lesson.e2e.spec.ts`
 
 **Stories covered**
-- Lesson creation from admin and calendar visibility
+- Timeslot creation from admin and calendar visibility
 
 **Cases and expected outcomes**
 - An admin can create a class option and a future lesson, navigate the calendar, and see that lesson on the expected date.
 
-### `lessons-admin-route.e2e.spec.ts`
+### `timeslots-admin-route.e2e.spec.ts`
 
 **Stories covered**
-- Lessons admin route access for super admin and tenant admin
+- Timeslots admin route access for super admin and tenant admin
 
 **Cases and expected outcomes**
-- A super admin can open the lessons list and see the expected page heading and creation affordance.
-- A tenant admin can also load the lessons route and see tenant-scoped list content or empty/loading states.
+- A super admin can open the timeslots list and see the expected page heading and creation affordance.
+- A tenant admin can also load the timeslots route and see tenant-scoped list content or empty/loading states.
 
 ### `booking-with-class-pass.e2e.spec.ts`
 
@@ -306,7 +306,7 @@ It is focused on what the suite currently verifies:
 
 ## Notes On Implementation Style
 
-- The suite is Playwright-based and uses worker-scoped fixtures plus direct Payload setup helpers to create isolated tenants, users, lessons, bookings, and payment data.
+- The suite is Playwright-based and uses worker-scoped fixtures plus direct Payload setup helpers to create isolated tenants, users, timeslots, bookings, and payment data.
 - Some specs mix browser assertions with API or direct data setup to make edge cases deterministic and keep runtime practical.
 - Several booking flows intentionally simulate external payment completion by creating the resulting records directly rather than attempting a live third-party checkout.
 - The suite is primarily a business-flow regression suite, so most tests assert route stability, visible UI state, and final booking/payment side effects rather than low-level component behavior.

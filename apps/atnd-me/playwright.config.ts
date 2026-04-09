@@ -17,7 +17,7 @@ import { defineConfig, devices } from '@playwright/test'
 // Payload's drizzle adapter will attempt schema push in-process unless this is set,
 // which can collide with the already-migrated test DB (e.g. enum type already exists).
 process.env.PW_E2E_PROFILE ??= 'true'
-// Skip expensive default tenant data creation (class options, pages, lessons, etc.)
+// Skip expensive default tenant data creation (class options, pages, timeslots, etc.)
 // during test setup to avoid timeouts.
 process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA ??= 'true'
 // Ensure Playwright workers use the same Stripe test-mode shortcuts as the web server.

@@ -3,7 +3,7 @@ import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
-import type { User, Lesson, ClassOption } from '@repo/shared-types'
+import type { User, Timeslot, EventType } from '@repo/shared-types'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
@@ -16,8 +16,8 @@ const scheduleShortcutPastDueAccountId = `acct_e2e_connected_schedule_shortcut_p
 describe('tRPC Bookings Integration Tests', () => {
   let payload: Payload
   let user: User
-  let lesson: Lesson
-  let classOption: ClassOption
+  let lesson: Timeslot
+  let eventType: EventType
   let testTenant: { id: number | string; slug: string }
   // Helper to create tenant-scoped documents with tenant automatically added
   const createWithTenant = async <T = any>(
@@ -75,7 +75,7 @@ describe('tRPC Bookings Integration Tests', () => {
     // Use overrideAccess to bypass access controls for test setup
     // Use unique name with timestamp to avoid conflicts
     const uniqueName = `Test Class Option ${Date.now()}`
-    classOption = (await createWithTenant<ClassOption>(
+    eventType = (await createWithTenant<EventType>(
       'event-types',
       {
         name: uniqueName,
@@ -93,13 +93,13 @@ describe('tRPC Bookings Integration Tests', () => {
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0) // 11 AM
 
-    lesson = (await createWithTenant<Lesson>(
+    lesson = (await createWithTenant<Timeslot>(
       'timeslots',
       {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        classOption: classOption.id,
+        eventType: eventType.id,
         location: 'Test Location',
         active: true,
         lockOutTime: 0, // Required field with default value
@@ -125,7 +125,7 @@ describe('tRPC Bookings Integration Tests', () => {
       try {
         await payload.delete({
           collection: 'event-types',
-          where: { id: { equals: classOption.id } },
+          where: { id: { equals: eventType.id } },
         })
       } catch (_e) {
         // Ignore cleanup errors
@@ -167,16 +167,16 @@ describe('tRPC Bookings Integration Tests', () => {
   }
 
   describe('Auth: unauthenticated access is rejected', () => {
-    it('lessons.getByIdForBooking throws when not logged in', async () => {
+    it('timeslots.getByIdForBooking throws when not logged in', async () => {
       const caller = await createUnauthenticatedCaller()
-      await expect(caller.lessons.getByIdForBooking({ id: lesson.id })).rejects.toThrow(
+      await expect(caller.timeslots.getByIdForBooking({ id: lesson.id })).rejects.toThrow(
         'You must be logged in to access this resource'
       )
     })
 
-    it('lessons.getById throws when not logged in', async () => {
+    it('timeslots.getById throws when not logged in', async () => {
       const caller = await createUnauthenticatedCaller()
-      await expect(caller.lessons.getById({ id: lesson.id })).rejects.toThrow(
+      await expect(caller.timeslots.getById({ id: lesson.id })).rejects.toThrow(
         'You must be logged in to access this resource'
       )
     })
@@ -184,14 +184,14 @@ describe('tRPC Bookings Integration Tests', () => {
     it('bookings.createBookings throws when not logged in', async () => {
       const caller = await createUnauthenticatedCaller()
       await expect(
-        caller.bookings.createBookings({ lessonId: lesson.id, quantity: 1 })
+        caller.bookings.createBookings({ timeslotId: lesson.id, quantity: 1 })
       ).rejects.toThrow('You must be logged in to access this resource')
     })
 
-    it('bookings.getUserBookingsForLesson throws when not logged in', async () => {
+    it('bookings.getUserBookingsForTimeslot throws when not logged in', async () => {
       const caller = await createUnauthenticatedCaller()
       await expect(
-        caller.bookings.getUserBookingsForLesson({ lessonId: lesson.id })
+        caller.bookings.getUserBookingsForTimeslot({ timeslotId: lesson.id })
       ).rejects.toThrow('You must be logged in to access this resource')
     })
 
@@ -202,18 +202,18 @@ describe('tRPC Bookings Integration Tests', () => {
       )
     })
 
-    it('bookings.setMyBookingQuantityForLesson throws when not logged in', async () => {
+    it('bookings.setMyBookingQuantityForTimeslot throws when not logged in', async () => {
       const caller = await createUnauthenticatedCaller()
       await expect(
-        caller.bookings.setMyBookingQuantityForLesson({
-          lessonId: lesson.id,
+        caller.bookings.setMyBookingQuantityForTimeslot({
+          timeslotId: lesson.id,
           desiredQuantity: 1,
         })
       ).rejects.toThrow('You must be logged in to access this resource')
     })
   })
 
-  describe('lessons.getByIdForBooking', () => {
+  describe('timeslots.getByIdForBooking', () => {
     it('should fetch a lesson successfully', async () => {
       // Create a fresh lesson for this test to ensure clean state
       // Use tomorrow to ensure lesson is not closed (hasn't started yet)
@@ -223,13 +223,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -242,30 +242,30 @@ describe('tRPC Bookings Integration Tests', () => {
 
       const caller = await createCaller()
 
-      const result = await caller.lessons.getByIdForBooking({ id: testLesson.id })
+      const result = await caller.timeslots.getByIdForBooking({ id: testTimeslot.id })
 
       expect(result).toBeDefined()
-      expect(result.id).toBe(testLesson.id)
-      expect(result.classOption).toBeDefined()
+      expect(result.id).toBe(testTimeslot.id)
+      expect(result.eventType).toBeDefined()
 
       // Cleanup
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
     it('should throw error for non-existent lesson', async () => {
       const caller = await createCaller()
 
-      await expect(caller.lessons.getByIdForBooking({ id: 99999 })).rejects.toThrow()
+      await expect(caller.timeslots.getByIdForBooking({ id: 99999 })).rejects.toThrow()
     }, TEST_TIMEOUT)
 
     it(
       'should throw error when lesson is fully booked',
       async () => {
         // Use a small class option (3 places) to avoid creating many users/bookings and reduce timeout risk
-        const smallClassOption = (await createWithTenant<ClassOption>(
+        const smallEventType = (await createWithTenant<EventType>(
           'event-types',
           {
             name: `Fully Booked Class ${Date.now()}`,
@@ -281,13 +281,13 @@ describe('tRPC Bookings Integration Tests', () => {
         const endTime = new Date(startTime)
         endTime.setHours(12, 0, 0, 0)
 
-        const testLesson = (await createWithTenant<Lesson>(
+        const testTimeslot = (await createWithTenant<Timeslot>(
           'timeslots',
           {
             date: startTime.toISOString(),
             startTime: startTime.toISOString(),
             endTime: endTime.toISOString(),
-            classOption: smallClassOption.id,
+            eventType: smallEventType.id,
             location: 'Test Location',
             active: true,
             lockOutTime: 0, // Required field with default value
@@ -302,7 +302,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
         // Fill up the lesson using overrideAccess for test setup
         const createdUserIds: Array<number | string> = []
-        const places = smallClassOption.places ?? 3
+        const places = smallEventType.places ?? 3
         for (let i = 0; i < places; i++) {
           const otherUser = await payload.create({
             collection: 'users',
@@ -321,7 +321,7 @@ describe('tRPC Bookings Integration Tests', () => {
           await payload.create({
             collection: 'bookings',
             data: {
-              lesson: testLesson.id,
+              timeslot: testTimeslot.id,
               user: otherUser.id,
               tenant: testTenant.id,
               status: 'confirmed',
@@ -330,14 +330,14 @@ describe('tRPC Bookings Integration Tests', () => {
           })
         }
 
-        await expect(caller.lessons.getByIdForBooking({ id: testLesson.id })).rejects.toThrow(
-          'This lesson is fully booked'
+        await expect(caller.timeslots.getByIdForBooking({ id: testTimeslot.id })).rejects.toThrow(
+          'This timeslot is fully booked'
         )
 
         // Cleanup
         await payload.delete({
           collection: 'bookings',
-          where: { lesson: { equals: testLesson.id } },
+          where: { timeslot: { equals: testTimeslot.id } },
           overrideAccess: true,
         })
         await payload.delete({
@@ -347,12 +347,12 @@ describe('tRPC Bookings Integration Tests', () => {
         })
         await payload.delete({
           collection: 'timeslots',
-          where: { id: { equals: testLesson.id } },
+          where: { id: { equals: testTimeslot.id } },
           overrideAccess: true,
         })
         await payload.delete({
           collection: 'event-types',
-          where: { id: { equals: smallClassOption.id } },
+          where: { id: { equals: smallEventType.id } },
           overrideAccess: true,
         })
       },
@@ -368,13 +368,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(13, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -388,13 +388,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       const result = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
 
       expect(result).toBeDefined()
       expect(result.length).toBe(1)
-      expect(result[0]?.lesson).toBe(testLesson.id)
+      expect(result[0]?.timeslot).toBe(testTimeslot.id)
       expect(result[0]?.user).toBe(user.id)
       expect(result[0]?.status).toBe('confirmed')
 
@@ -405,7 +405,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -416,13 +416,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -435,14 +435,14 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       const result = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 3,
       })
 
       expect(result).toBeDefined()
       expect(result.length).toBe(3)
       result.forEach((booking) => {
-        expect(booking.lesson).toBe(testLesson.id)
+        expect(booking.timeslot).toBe(testTimeslot.id)
         expect(booking.user).toBe(user.id)
         expect(booking.status).toBe('confirmed')
       })
@@ -454,7 +454,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -465,13 +465,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -484,11 +484,11 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       // Book most of the slots using overrideAccess to bypass access controls for test setup
-      for (let i = 0; i < classOption.places - 2; i++) {
+      for (let i = 0; i < eventType.places - 2; i++) {
         await payload.create({
           collection: 'bookings',
           data: {
-            lesson: testLesson.id,
+            timeslot: testTimeslot.id,
             user: user.id,
             status: 'confirmed',
           },
@@ -499,7 +499,7 @@ describe('tRPC Bookings Integration Tests', () => {
       // Try to book more than remaining capacity
       await expect(
         caller.bookings.createBookings({
-          lessonId: testLesson.id,
+          timeslotId: testTimeslot.id,
           quantity: 5, // More than remaining (2)
         })
       ).rejects.toThrow()
@@ -507,11 +507,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -520,7 +520,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await expect(
         caller.bookings.createBookings({
-          lessonId: lesson.id,
+          timeslotId: lesson.id,
           quantity: 0,
         })
       ).rejects.toThrow()
@@ -531,7 +531,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await expect(
         caller.bookings.createBookings({
-          lessonId: 99999,
+          timeslotId: 99999,
           quantity: 1,
         })
       ).rejects.toThrow()
@@ -544,13 +544,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(19, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -564,7 +564,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       const result = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
         status: 'pending',
       })
@@ -572,7 +572,7 @@ describe('tRPC Bookings Integration Tests', () => {
       expect(result).toBeDefined()
       expect(result.length).toBe(2)
       result.forEach((booking) => {
-        expect(booking.lesson).toBe(testLesson.id)
+        expect(booking.timeslot).toBe(testTimeslot.id)
         expect(booking.user).toBe(user.id)
         expect(booking.status).toBe('pending')
       })
@@ -584,12 +584,12 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
   })
 
-  describe('bookings.getUserBookingsForLesson', () => {
+  describe('bookings.getUserBookingsForTimeslot', () => {
     it('should fetch user bookings for a lesson', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()
@@ -597,13 +597,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -618,7 +618,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const booking1 = await payload.create({
         collection: 'bookings',
         data: {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: user.id,
           status: 'confirmed',
         },
@@ -628,7 +628,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const booking2 = await payload.create({
         collection: 'bookings',
         data: {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: user.id,
           status: 'confirmed',
         },
@@ -637,8 +637,8 @@ describe('tRPC Bookings Integration Tests', () => {
 
       const caller = await createCaller()
 
-      const result = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
 
       expect(result).toBeDefined()
@@ -653,7 +653,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -664,13 +664,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(11, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -685,7 +685,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const confirmedBooking = await payload.create({
         collection: 'bookings',
         data: {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: user.id,
           status: 'confirmed',
         },
@@ -695,7 +695,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const cancelledBooking = await payload.create({
         collection: 'bookings',
         data: {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: user.id,
           status: 'cancelled',
         },
@@ -704,8 +704,8 @@ describe('tRPC Bookings Integration Tests', () => {
 
       const caller = await createCaller()
 
-      const result = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
 
       expect(result).toBeDefined()
@@ -720,7 +720,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
   })
@@ -734,13 +734,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(11, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -755,7 +755,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const booking = await payload.create({
         collection: 'bookings',
         data: {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: user.id,
           status: 'confirmed',
         },
@@ -785,7 +785,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -817,13 +817,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(13, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -838,7 +838,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const otherUserBooking = await payload.create({
         collection: 'bookings',
         data: {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: otherUser.id,
           status: 'confirmed',
         },
@@ -859,7 +859,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'users',
@@ -868,7 +868,7 @@ describe('tRPC Bookings Integration Tests', () => {
     }, TEST_TIMEOUT)
   })
 
-  describe('bookings.cancelPendingBookingsForLesson', () => {
+  describe('bookings.cancelPendingBookingsForTimeslot', () => {
     it('cancels all of the current user’s pending bookings for the lesson', async () => {
       const startTime = new Date()
       startTime.setDate(startTime.getDate() + 1)
@@ -876,13 +876,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -891,30 +891,30 @@ describe('tRPC Bookings Integration Tests', () => {
       ))
 
       const confirmed = await createWithTenant<any>('bookings', {
-        lesson: testLesson.id,
+        timeslot: testTimeslot.id,
         user: user.id,
         status: 'confirmed',
       })
       const pending1 = await createWithTenant<any>('bookings', {
-        lesson: testLesson.id,
+        timeslot: testTimeslot.id,
         user: user.id,
         status: 'pending',
       })
       const pending2 = await createWithTenant<any>('bookings', {
-        lesson: testLesson.id,
+        timeslot: testTimeslot.id,
         user: user.id,
         status: 'pending',
       })
 
       const caller = await createCaller()
-      const result = await caller.bookings.cancelPendingBookingsForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.cancelPendingBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
 
       expect(result).toEqual({ cancelled: 2 })
 
-      const after = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const after = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       expect(after.length).toBe(1)
       expect(after[0]?.id).toBe(confirmed.id)
@@ -937,7 +937,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -948,13 +948,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -963,15 +963,15 @@ describe('tRPC Bookings Integration Tests', () => {
       ))
 
       const caller = await createCaller()
-      const result = await caller.bookings.cancelPendingBookingsForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.cancelPendingBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
 
       expect(result).toEqual({ cancelled: 0 })
 
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
   })
@@ -985,13 +985,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -1006,40 +1006,40 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create initial booking
       const initialBookings = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
 
       expect(initialBookings.length).toBe(1)
 
       // Get current bookings
-      const bookingsBefore = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const bookingsBefore = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       expect(bookingsBefore.length).toBe(1)
 
       // Increase quantity by creating 2 more bookings
       const additionalBookings = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
       })
 
       expect(additionalBookings.length).toBe(2)
 
       // Verify total bookings
-      const bookingsAfter = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const bookingsAfter = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       expect(bookingsAfter.length).toBe(3)
 
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -1051,13 +1051,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0, // Required field with default value
@@ -1072,15 +1072,15 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create 3 bookings
       const bookings = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 3,
       })
 
       expect(bookings.length).toBe(3)
 
       // Verify initial count
-      const bookingsBefore = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const bookingsBefore = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       expect(bookingsBefore.length).toBe(3)
 
@@ -1088,25 +1088,25 @@ describe('tRPC Bookings Integration Tests', () => {
       await caller.bookings.cancelBooking({ id: bookings[0]!.id })
 
       // Verify decreased count
-      const bookingsAfter = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const bookingsAfter = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       expect(bookingsAfter.length).toBe(2)
 
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
     it('should prevent increasing quantity beyond remaining capacity', async () => {
       // Create a fresh lesson with limited capacity (small places to keep test fast)
-      const smallClassOption = (await createWithTenant<ClassOption>(
+      const smallEventType = (await createWithTenant<EventType>(
         'event-types',
         {
           name: `Small Cap ${Date.now()}`,
@@ -1121,13 +1121,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(19, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: smallClassOption.id,
+          eventType: smallEventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1142,7 +1142,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create 1 booking for test user
       await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
 
@@ -1160,10 +1160,10 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       } as Parameters<typeof payload.create>[0])) as User
 
-      const remainingCapacity = smallClassOption.places - 1
+      const remainingCapacity = smallEventType.places - 1
       for (let i = 0; i < remainingCapacity; i++) {
         await createWithTenant('bookings', {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: otherUser.id,
           status: 'confirmed',
         }, {
@@ -1174,7 +1174,7 @@ describe('tRPC Bookings Integration Tests', () => {
       // Try to increase quantity beyond capacity (should fail)
       await expect(
         caller.bookings.createBookings({
-          lessonId: testLesson.id,
+          timeslotId: testTimeslot.id,
           quantity: 1, // This would exceed capacity
         })
       ).rejects.toThrow()
@@ -1182,15 +1182,15 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'event-types',
-        where: { id: { equals: smallClassOption.id } },
+        where: { id: { equals: smallEventType.id } },
       })
       await payload.delete({
         collection: 'users',
@@ -1199,7 +1199,7 @@ describe('tRPC Bookings Integration Tests', () => {
     }, TEST_TIMEOUT)
   })
 
-  describe('bookings.setMyBookingQuantityForLesson', () => {
+  describe('bookings.setMyBookingQuantityForTimeslot', () => {
     it('should increase quantity from 1 to 3', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()
@@ -1208,13 +1208,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1229,15 +1229,15 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create 1 initial confirmed booking
       const initialBooking = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
 
       expect(initialBooking.length).toBe(1)
 
       // Increase quantity to 3
-      const result = await caller.bookings.setMyBookingQuantityForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.setMyBookingQuantityForTimeslot({
+        timeslotId: testTimeslot.id,
         desiredQuantity: 3,
       })
 
@@ -1247,14 +1247,14 @@ describe('tRPC Bookings Integration Tests', () => {
       // All bookings should be confirmed
       result.forEach((booking) => {
         // Handle both ID and populated object cases
-        const lessonId = typeof booking.lesson === 'object' && booking.lesson !== null
-          ? (booking.lesson as any).id
-          : booking.lesson
+        const timeslotRef = typeof booking.timeslot === 'object' && booking.timeslot !== null
+          ? (booking.timeslot as any).id
+          : booking.timeslot
         const userId = typeof booking.user === 'object' && booking.user !== null
           ? (booking.user as any).id
           : booking.user
         
-        expect(lessonId).toBe(testLesson.id)
+        expect(timeslotRef).toBe(testTimeslot.id)
         expect(userId).toBe(user.id)
         expect(booking.status).toBe('confirmed')
       })
@@ -1263,7 +1263,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const allBookings = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'confirmed' },
         },
@@ -1275,11 +1275,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -1291,13 +1291,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(18, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1312,19 +1312,19 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create 3 confirmed bookings with delays to ensure different createdAt timestamps
       const _booking1 = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
       await new Promise(resolve => setTimeout(resolve, 100)) // Small delay
       
       const _booking2 = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
       await new Promise(resolve => setTimeout(resolve, 100))
       
       const _booking3 = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
       })
 
@@ -1332,7 +1332,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const beforeDecrease = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'confirmed' },
         },
@@ -1341,8 +1341,8 @@ describe('tRPC Bookings Integration Tests', () => {
       expect(beforeDecrease.docs.length).toBe(3)
 
       // Decrease quantity to 1
-      const result = await caller.bookings.setMyBookingQuantityForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.setMyBookingQuantityForTimeslot({
+        timeslotId: testTimeslot.id,
         desiredQuantity: 1,
       })
 
@@ -1354,7 +1354,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const afterDecrease = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'confirmed' },
         },
@@ -1366,7 +1366,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const cancelledBookings = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'cancelled' },
         },
@@ -1377,11 +1377,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -1393,13 +1393,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(20, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1414,7 +1414,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create 2 confirmed bookings
       await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
       })
 
@@ -1422,7 +1422,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const beforeNoOp = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'confirmed' },
         },
@@ -1431,8 +1431,8 @@ describe('tRPC Bookings Integration Tests', () => {
       const beforeIds = beforeNoOp.docs.map(b => Number(b.id)).sort((a, b) => a - b)
 
       // Set quantity to same value (2)
-      const result = await caller.bookings.setMyBookingQuantityForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.setMyBookingQuantityForTimeslot({
+        timeslotId: testTimeslot.id,
         desiredQuantity: 2,
       })
 
@@ -1443,7 +1443,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const afterNoOp = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'confirmed' },
         },
@@ -1457,11 +1457,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
@@ -1473,13 +1473,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1494,7 +1494,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create 2 confirmed bookings for the test user
       await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
       })
 
@@ -1513,10 +1513,10 @@ describe('tRPC Bookings Integration Tests', () => {
       } as Parameters<typeof payload.create>[0])) as User
 
       // Fill remaining capacity with other user's bookings
-      const remainingCapacity = classOption.places - 2
+      const remainingCapacity = eventType.places - 2
       for (let i = 0; i < remainingCapacity; i++) {
         await createWithTenant('bookings', {
-          lesson: testLesson.id,
+          timeslot: testTimeslot.id,
           user: otherUser.id,
           status: 'confirmed',
         }, {
@@ -1526,10 +1526,10 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Try to increase quantity beyond capacity (should fail)
       // User has 2 bookings, lesson has 0 remaining capacity
-      // Trying to increase to classOption.places + 1 should fail
+      // Trying to increase to eventType.places + 1 should fail
       await expect(
-        caller.bookings.setMyBookingQuantityForLesson({
-          lessonId: testLesson.id,
+        caller.bookings.setMyBookingQuantityForTimeslot({
+          timeslotId: testTimeslot.id,
           desiredQuantity: 3, // Would require 1 more slot, but capacity is 0
         })
       ).rejects.toThrow()
@@ -1538,7 +1538,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const bookings = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: user.id },
           status: { equals: 'confirmed' },
         },
@@ -1549,11 +1549,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'users',
@@ -1569,13 +1569,13 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(22, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1602,7 +1602,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Create bookings for other user using overrideAccess
       await createWithTenant('bookings', {
-        lesson: testLesson.id,
+        timeslot: testTimeslot.id,
         user: otherUser.id,
         status: 'confirmed',
       }, {
@@ -1614,8 +1614,8 @@ describe('tRPC Bookings Integration Tests', () => {
       // Try to modify other user's bookings (should fail or only affect current user's bookings)
       // Since we're authenticated as `user`, we should only be able to modify our own bookings
       // If other user has bookings, we should not be able to affect them
-      const result = await caller.bookings.setMyBookingQuantityForLesson({
-        lessonId: testLesson.id,
+      const result = await caller.bookings.setMyBookingQuantityForTimeslot({
+        timeslotId: testTimeslot.id,
         desiredQuantity: 1,
       })
 
@@ -1635,7 +1635,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const otherUserBookings = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: testLesson.id },
+          timeslot: { equals: testTimeslot.id },
           user: { equals: otherUser.id },
           status: { equals: 'confirmed' },
         },
@@ -1646,11 +1646,11 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
       try {
         await payload.delete({
@@ -1664,20 +1664,20 @@ describe('tRPC Bookings Integration Tests', () => {
   })
 
   describe('pending and confirmed bookings (checkout return edge case)', () => {
-    it('setMyBookingQuantityForLesson only considers confirmed; pending bookings remain untouched', async () => {
+    it('setMyBookingQuantityForTimeslot only considers confirmed; pending bookings remain untouched', async () => {
       const startTime = new Date()
       startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(10, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(11, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1689,28 +1689,28 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // 2 confirmed
       await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
       })
       // 3 pending (e.g. user added more and went to checkout, then left)
       const pendingBookings = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 3,
         status: 'pending',
       })
       expect(pendingBookings.length).toBe(3)
 
-      // setMyBookingQuantityForLesson(2) should be a no-op: 2 confirmed, desired 2. Pending must not be cancelled.
-      const result = await caller.bookings.setMyBookingQuantityForLesson({
-        lessonId: testLesson.id,
+      // setMyBookingQuantityForTimeslot(2) should be a no-op: 2 confirmed, desired 2. Pending must not be cancelled.
+      const result = await caller.bookings.setMyBookingQuantityForTimeslot({
+        timeslotId: testTimeslot.id,
         desiredQuantity: 2,
       })
       expect(result).toBeDefined()
       expect(result.length).toBe(2)
       result.forEach((b) => expect(b.status).toBe('confirmed'))
 
-      const allBookings = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const allBookings = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       const confirmed = allBookings.filter((b) => b.status === 'confirmed')
       const pending = allBookings.filter((b) => b.status === 'pending')
@@ -1719,28 +1719,28 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
 
-    it('cancelBooking cancels pending bookings; getUserBookingsForLesson then returns only confirmed', async () => {
+    it('cancelBooking cancels pending bookings; getUserBookingsForTimeslot then returns only confirmed', async () => {
       const startTime = new Date()
       startTime.setDate(startTime.getDate() + 2)
       startTime.setHours(9, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(10, 0, 0, 0)
 
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test Location',
           active: true,
           lockOutTime: 0,
@@ -1751,11 +1751,11 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
 
       await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
       })
       const pendingBookings = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 2,
         status: 'pending',
       })
@@ -1764,8 +1764,8 @@ describe('tRPC Bookings Integration Tests', () => {
         await caller.bookings.cancelBooking({ id: booking.id })
       }
 
-      const after = await caller.bookings.getUserBookingsForLesson({
-        lessonId: testLesson.id,
+      const after = await caller.bookings.getUserBookingsForTimeslot({
+        timeslotId: testTimeslot.id,
       })
       const confirmed = after.filter((b) => b.status === 'confirmed')
       const pending = after.filter((b) => b.status === 'pending')
@@ -1774,17 +1774,17 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
       })
       await payload.delete({
         collection: 'timeslots',
-        where: { id: { equals: testLesson.id } },
+        where: { id: { equals: testTimeslot.id } },
       })
     }, TEST_TIMEOUT)
   })
 
-  describe('Subscription booking and getSubscriptionForLesson', () => {
-    it('getSubscriptionForLesson returns needsCustomerPortal and upgradeOptions', async () => {
+  describe('Subscription booking and getSubscriptionForTimeslot', () => {
+    it('getSubscriptionForTimeslot returns needsCustomerPortal and upgradeOptions', async () => {
       const hasPlans = payload.config?.collections?.some((c: any) => c.slug === 'plans')
       const hasSubs = payload.config?.collections?.some((c: any) => c.slug === 'subscriptions')
       if (!hasPlans || !hasSubs) {
@@ -1811,7 +1811,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: {
           paymentMethods: { allowedPlans: [plan.id] },
         },
@@ -1834,7 +1834,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       const caller = await createCaller()
-      const result = await caller.subscriptions.getSubscriptionForLesson({ lessonId: lesson.id })
+      const result = await caller.subscriptions.getSubscriptionForTimeslot({ timeslotId: lesson.id })
       expect(result.subscription).toBeDefined()
       expect(result.subscription?.id).toBe(sub.id)
       expect(result.needsCustomerPortal).toBe(false)
@@ -1845,13 +1845,13 @@ describe('tRPC Bookings Integration Tests', () => {
         data: { status: 'past_due' },
         overrideAccess: true,
       })
-      const resultPastDue = await caller.subscriptions.getSubscriptionForLesson({ lessonId: lesson.id })
+      const resultPastDue = await caller.subscriptions.getSubscriptionForTimeslot({ timeslotId: lesson.id })
       expect(resultPastDue.needsCustomerPortal).toBe(true)
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
       })
@@ -1888,7 +1888,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
       })
@@ -1912,13 +1912,13 @@ describe('tRPC Bookings Integration Tests', () => {
       startTime.setHours(20, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test',
           active: true,
           lockOutTime: 0,
@@ -1927,7 +1927,7 @@ describe('tRPC Bookings Integration Tests', () => {
       ))
       const caller = await createCaller()
       const created = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
         subscriptionId: Number(sub.id),
       })
@@ -1940,12 +1940,12 @@ describe('tRPC Bookings Integration Tests', () => {
       expect(booking.paymentMethodUsed).toBe('subscription')
       expect(booking.subscriptionIdUsed).toBe(sub.id)
       await payload.delete({ collection: 'bookings', where: { id: { equals: created[0]!.id } }, overrideAccess: true })
-      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testTimeslot.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
       })
@@ -1982,7 +1982,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
       })
@@ -2006,13 +2006,13 @@ describe('tRPC Bookings Integration Tests', () => {
       startTime.setHours(20, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test',
           active: true,
           lockOutTime: 0,
@@ -2021,7 +2021,7 @@ describe('tRPC Bookings Integration Tests', () => {
       ))
       const caller = await createCaller()
       const pendingBookings = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
         status: 'pending',
       })
@@ -2029,20 +2029,20 @@ describe('tRPC Bookings Integration Tests', () => {
       pendingBookings.forEach((b) => expect(b.status).toBe('pending'))
 
       const confirmed = await caller.bookings.createBookings({
-        lessonId: testLesson.id,
+        timeslotId: testTimeslot.id,
         quantity: 1,
         subscriptionId: Number(sub.id),
         pendingBookingIds: pendingBookings.map((b) => Number(b.id)),
       })
       expect(confirmed.length).toBe(1)
-      const allForLesson = await payload.find({
+      const allForTimeslot = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
         limit: 10,
         depth: 0,
         overrideAccess: true,
       })
-      expect(allForLesson.totalDocs).toBe(1)
+      expect(allForTimeslot.totalDocs).toBe(1)
       for (const b of confirmed) {
         expect(b.status).toBe('confirmed')
         const doc = await payload.findByID({
@@ -2068,15 +2068,15 @@ describe('tRPC Bookings Integration Tests', () => {
       }
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
         overrideAccess: true,
       })
-      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testTimeslot.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
       })
@@ -2113,7 +2113,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
       })
@@ -2137,13 +2137,13 @@ describe('tRPC Bookings Integration Tests', () => {
       startTime.setHours(21, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(22, 0, 0, 0)
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test',
           active: true,
           lockOutTime: 0,
@@ -2153,17 +2153,17 @@ describe('tRPC Bookings Integration Tests', () => {
       const caller = await createCaller()
       await expect(
         caller.bookings.createBookings({
-          lessonId: testLesson.id,
+          timeslotId: testTimeslot.id,
           quantity: 1,
           subscriptionId: Number(sub.id),
         })
       ).rejects.toThrow(/past due|portal/)
-      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testTimeslot.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
       })
@@ -2193,7 +2193,7 @@ describe('tRPC Bookings Integration Tests', () => {
             interval: 'week',
             intervalCount: 1,
             // Explicitly single-slot for memberships
-            allowMultipleBookingsPerLesson: false,
+            allowMultipleBookingsPerTimeslot: false,
           },
         },
         overrideAccess: true,
@@ -2211,7 +2211,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
       })
@@ -2238,13 +2238,13 @@ describe('tRPC Bookings Integration Tests', () => {
       startTime.setHours(9, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(10, 0, 0, 0)
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test',
           active: true,
           lockOutTime: 0,
@@ -2253,8 +2253,8 @@ describe('tRPC Bookings Integration Tests', () => {
       ))
 
       const caller = await createCaller()
-      const result = await (caller as any).bookings.bookSingleSlotLessonOrRedirect({
-        lessonId: testLesson.id,
+      const result = await (caller as any).bookings.bookSingleSlotTimeslotOrRedirect({
+        timeslotId: testTimeslot.id,
       })
 
       expect(result).toBeDefined()
@@ -2265,7 +2265,7 @@ describe('tRPC Bookings Integration Tests', () => {
         collection: 'bookings',
         where: {
           and: [
-            { lesson: { equals: testLesson.id } },
+            { timeslot: { equals: testTimeslot.id } },
             { user: { equals: user.id } },
             { status: { equals: 'confirmed' } },
           ],
@@ -2280,15 +2280,15 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: testLesson.id } },
+        where: { timeslot: { equals: testTimeslot.id } },
         overrideAccess: true,
       })
-      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testTimeslot.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
       })
@@ -2315,7 +2315,7 @@ describe('tRPC Bookings Integration Tests', () => {
             sessions: 2,
             interval: 'week',
             intervalCount: 1,
-            allowMultipleBookingsPerLesson: false,
+            allowMultipleBookingsPerTimeslot: false,
           },
         },
         overrideAccess: true,
@@ -2333,7 +2333,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
       })
@@ -2360,13 +2360,13 @@ describe('tRPC Bookings Integration Tests', () => {
       startTime.setHours(11, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(12, 0, 0, 0)
-      const testLesson = (await createWithTenant<Lesson>(
+      const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'Test',
           active: true,
           lockOutTime: 0,
@@ -2375,20 +2375,20 @@ describe('tRPC Bookings Integration Tests', () => {
       ))
 
       const caller = await createCaller()
-      const result = await (caller as any).bookings.bookSingleSlotLessonOrRedirect({
-        lessonId: testLesson.id,
+      const result = await (caller as any).bookings.bookSingleSlotTimeslotOrRedirect({
+        timeslotId: testTimeslot.id,
       })
 
       expect(result).toBeDefined()
       // Past-due subscriptions are not directly usable, so the shortcut falls back to
       // the booking page where the membership UI can surface the customer portal flow.
-      expect(result.redirectUrl).toBe(`/bookings/${testLesson.id}`)
+      expect(result.redirectUrl).toBe(`/bookings/${testTimeslot.id}`)
 
       const bookings = await payload.find({
         collection: 'bookings',
         where: {
           and: [
-            { lesson: { equals: testLesson.id } },
+            { timeslot: { equals: testTimeslot.id } },
             { user: { equals: user.id } },
             { status: { equals: 'confirmed' } },
           ],
@@ -2398,12 +2398,12 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       expect(bookings.totalDocs).toBe(0)
 
-      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testTimeslot.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
         collection: 'event-types',
-        id: classOption.id,
+        id: eventType.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
       })

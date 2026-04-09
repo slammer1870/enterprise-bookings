@@ -1,9 +1,9 @@
-import { Booking, ClassOption, User } from "@repo/shared-types";
+import { Booking, EventType, User } from "@repo/shared-types";
 
 import type { CollectionSlug, FieldHook } from "payload";
 
-import type { BookingsPluginSlugs } from "../resolve-slugs";
-import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
 // Constants
 const MILLISECONDS_PER_MINUTE = 60000;
@@ -29,7 +29,7 @@ const getParentId = (user: User): number | null => {
     : (user.parentUser as unknown as number);
 };
 
-const isLessonClosed = (
+const isTimeslotClosed = (
   startTime: string | undefined,
   lockOutTime: number | undefined,
   currentTime: Date
@@ -46,17 +46,17 @@ const isLessonClosed = (
     return false;
   }
 
-  // If lesson has already started, it's closed
+  // If timeslot has already started, it's closed
   if (currentTime.getTime() >= startTimeMs) {
     return true;
   }
 
-  // If lockOutTime is not defined or is null, only check if lesson has started
+  // If lockOutTime is not defined or is null, only check if timeslot has started
   if (lockOutTime === undefined || lockOutTime === null) {
     return false;
   }
 
-  // If lockOutTime is 0, only check if lesson has started (already checked above)
+  // If lockOutTime is 0, only check if timeslot has started (already checked above)
   if (lockOutTime === 0) {
     return false;
   }
@@ -102,16 +102,16 @@ const _hasParentConfirmedBooking = (
   });
 };
 
-const isTrialable = (classOption: ClassOption): boolean => {
+const isTrialable = (eventType: EventType): boolean => {
   return (
-    classOption.paymentMethods?.allowedDropIn?.discountTiers?.some(
+    eventType.paymentMethods?.allowedDropIn?.discountTiers?.some(
       (tier) => tier.type === "trial"
     ) ?? false
   );
 };
 
-export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
-  const classOptionsSlug = slugs.classOptions as CollectionSlug;
+export function createGetBookingStatus(slugs: BookingCollectionSlugs): FieldHook {
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
   const bookingsSlug = slugs.bookings as CollectionSlug;
 
   return async ({ req, data, context }) => {
@@ -119,7 +119,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
     return;
   }
 
-  if (!data?.id || !data?.classOption) {
+  if (!data?.id || !data?.eventType) {
     return "active";
   }
 
@@ -127,12 +127,12 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
   const userId = getUserId(req.user);
 
   try {
-    const classOption = (await req.payload.findByID({
-      collection: classOptionsSlug,
-      id: data.classOption,
-    })) as unknown as ClassOption;
+    const eventType = (await req.payload.findByID({
+      collection: eventTypesSlug,
+      id: data.eventType,
+    })) as unknown as EventType;
 
-    if (!classOption) {
+    if (!eventType) {
       return "active";
     }
 
@@ -145,7 +145,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
       overrideAccess: true,
       where: {
         and: [
-          { lesson: { equals: data.id } },
+          { timeslot: { equals: data.id } },
           { status: { equals: "confirmed" } },
         ],
       },
@@ -159,15 +159,15 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
         ? (confirmedCountResult as any).totalDocs
         : (confirmedCountResult.docs as any[]).length;
 
-    const isFull = confirmedCount >= classOption.places;
-    const trialable = isTrialable(classOption);
+    const isFull = confirmedCount >= eventType.places;
+    const trialable = isTrialable(eventType);
 
-    if (isLessonClosed(data.startTime, undefined, currentTime)) {
+    if (isTimeslotClosed(data.startTime, undefined, currentTime)) {
       return "closed";
     }
 
     // Check children bookings (only for child classes) - check this first
-    if (classOption.type === "child" && userId) {
+    if (eventType.type === "child" && userId) {
       const parentConfirmed = await req.payload.find({
         collection: bookingsSlug,
         depth: 0,
@@ -175,7 +175,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
         overrideAccess: true,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             { "user.parentUser": { equals: userId } },
             { status: { equals: "confirmed" } },
           ],
@@ -188,7 +188,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
       }
     }
 
-    // Check if user already has confirmed bookings for this lesson
+    // Check if user already has confirmed bookings for this timeslot
     if (userId) {
       const userConfirmed = await req.payload.find({
         collection: bookingsSlug,
@@ -197,7 +197,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
         overrideAccess: true,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             { user: { equals: userId } },
             { status: { equals: "confirmed" } },
           ],
@@ -218,7 +218,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
         overrideAccess: true,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             { user: { equals: userId } },
             { status: { equals: "waiting" } },
           ],
@@ -231,8 +231,8 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
       }
     }
 
-    // Check if lesson is closed (lock-out time) - check after user booking status
-    if (isLessonClosed(data.startTime, data.lockOutTime, currentTime)) {
+    // Check if timeslot is closed (lock-out time) - check after user booking status
+    if (isTimeslotClosed(data.startTime, data.lockOutTime, currentTime)) {
       return "closed";
     }
 
@@ -255,7 +255,7 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
         limit: 1,
         where: {
           and: [
-            classOption.type === "child"
+            eventType.type === "child"
               ? {
                   "user.parentUser": {
                     equals: userId,
@@ -290,5 +290,5 @@ export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
 }
 
 export const getBookingStatus = createGetBookingStatus(
-  DEFAULT_BOOKINGS_PLUGIN_SLUGS,
+  DEFAULT_BOOKING_COLLECTION_SLUGS,
 );

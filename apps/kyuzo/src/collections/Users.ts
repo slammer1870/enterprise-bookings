@@ -3,7 +3,7 @@ import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'
 
-import { adminOrUserOrParentOrInstructor } from '@repo/shared-services/src/access/is-admin-or-user-or-parent-or-instructor'
+import { adminOrUserOrParentOrStaffMember } from '@repo/shared-services/src/access/is-admin-or-user-or-parent-or-instructor'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -13,7 +13,7 @@ export const Users: CollectionConfig = {
   },
   access: {
     create: () => true,
-    read: adminOrUserOrParentOrInstructor,
+    read: adminOrUserOrParentOrStaffMember,
     update: ({ req: { user } }) => checkRole(['admin'], user as User),
     delete: ({ req: { user } }) => checkRole(['admin'], user as User),
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
@@ -75,9 +75,9 @@ export const Users: CollectionConfig = {
   fields: [
     // Note: 'image' field is provided by better-auth
     {
-      name: 'lessons',
+      name: 'timeslots',
       type: 'join',
-      collection: 'lessons',
+      collection: 'timeslots',
       on: 'instructor',
       admin: {
         condition: () => false,

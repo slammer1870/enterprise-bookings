@@ -54,13 +54,13 @@ export async function confirmBookingsFromPaymentIntent(
 }
 
 /**
- * Confirm bookings from quantity-based flow (legacy: lessonId + userId + quantity, no explicit bookingIds).
+ * Confirm bookings from quantity-based flow (legacy: timeslotId + userId + quantity, no explicit bookingIds).
  * Finds or creates pending bookings, confirms them, and creates transaction records.
  */
 export async function confirmBookingsFromQuantityFlow(
   payload: PayloadLike,
   opts: {
-    lessonId: number
+    timeslotId: number
     userId: number
     quantity: number
     paymentIntentId?: string
@@ -69,25 +69,25 @@ export async function confirmBookingsFromQuantityFlow(
   }
 ): Promise<void> {
   const tenantContext = opts.tenantContext ?? { tenant: opts.tenantId }
-  const { lessonId, userId, quantity, paymentIntentId, tenantId } = opts
+  const { timeslotId, userId, quantity, paymentIntentId, tenantId } = opts
   const qty = Math.max(1, quantity)
 
-  const lesson = (await payload.findByID({
-    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-    id: lessonId,
+  const timeslot = (await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    id: timeslotId,
     depth: 1,
     overrideAccess: true,
   })) as { remainingCapacity?: number } | null
 
   const remainingCapacity =
-    lesson && typeof lesson.remainingCapacity === 'number'
-      ? Math.max(0, lesson.remainingCapacity)
+    timeslot && typeof timeslot.remainingCapacity === 'number'
+      ? Math.max(0, timeslot.remainingCapacity)
       : 0
 
   const existing = await payload.find({
     collection: 'bookings',
     where: {
-      lesson: { equals: lessonId },
+      timeslot: { equals: timeslotId },
       user: { equals: userId },
     },
     limit: qty * 2,
@@ -133,7 +133,7 @@ export async function confirmBookingsFromQuantityFlow(
     const created = await payload.create({
       collection: 'bookings',
       data: {
-        lesson: lessonId,
+        timeslot: timeslotId,
         user: userId,
         tenant: tenantId,
         status: 'confirmed',
@@ -159,7 +159,7 @@ export async function confirmBookingsFromQuantityFlow(
 
 /**
  * Confirm a single booking and create a subscription transaction if none exists.
- * Used for customer.subscription.created when metadata contains bookingIds or lessonId.
+ * Used for customer.subscription.created when metadata contains bookingIds or timeslotId.
  */
 export async function confirmBookingAndCreateSubscriptionTransaction(
   payload: PayloadLike,
@@ -241,24 +241,24 @@ export async function confirmBookingsFromSubscriptionMetadata(
 }
 
 /**
- * Find or create a booking for user+lesson, confirm it, and create subscription transaction.
- * Used when subscription metadata has lessonId but no explicit bookingIds.
+ * Find or create a booking for user+timeslot, confirm it, and create subscription transaction.
+ * Used when subscription metadata has timeslotId but no explicit bookingIds.
  */
-export async function findOrCreateAndConfirmBookingForLesson(
+export async function findOrCreateAndConfirmBookingForTimeslot(
   payload: PayloadLike,
   opts: {
-    lessonId: number
+    timeslotId: number
     userId: number
     tenantId: number
     subscriptionId: number
     tenantContext?: { tenant?: number } | null
   }
 ): Promise<void> {
-  const { lessonId, userId, tenantId, subscriptionId } = opts
+  const { timeslotId, userId, tenantId, subscriptionId } = opts
   const bookingTenantContext = opts.tenantContext ?? { tenant: tenantId }
-  const lesson = (await payload.findByID({
-    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-    id: lessonId,
+  const timeslot = (await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    id: timeslotId,
     depth: 1,
     overrideAccess: true,
   })) as { tenant?: number | { id: number } } | null
@@ -267,21 +267,21 @@ export async function findOrCreateAndConfirmBookingForLesson(
     collection: 'bookings',
     where: {
       user: { equals: userId },
-      lesson: { equals: lessonId },
+      timeslot: { equals: timeslotId },
     },
     limit: 1,
     overrideAccess: true,
   })
 
   let bookingId: number
-  const bkTenantId = getTenantId(lesson) ?? tenantId
+  const bkTenantId = getTenantId(timeslot) ?? tenantId
 
   if (existing.totalDocs === 0) {
     const created = await payload.create({
       collection: 'bookings',
       draft: false,
       data: {
-        lesson: lessonId,
+        timeslot: timeslotId,
         user: userId,
         status: 'confirmed',
         tenant: tenantId,

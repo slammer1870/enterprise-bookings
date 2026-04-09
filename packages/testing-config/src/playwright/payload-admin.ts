@@ -3,7 +3,7 @@ import { waitForServerReady } from './helpers/server.js'
 
 /**
  * Helper to save an object and wait for navigation, with fallback to extract ID from response.
- * Works for class-options, lessons, and other Payload admin objects.
+ * Works for event-types, timeslots, and other Payload admin objects.
  */
 export async function saveObjectAndWaitForNavigation(
   page: Page,

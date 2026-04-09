@@ -5,7 +5,7 @@ import {
   registerUserWithEmailPassword,
   waitForServerReady,
 } from './helpers'
-import { createClassOption, uniqueClassName } from '@repo/testing-config/src/playwright'
+import { createEventType, uniqueClassName } from '@repo/testing-config/src/playwright'
 import { saveObjectAndWaitForNavigation } from '@repo/testing-config/src/playwright'
 
 test.describe('User booking flow from schedule (kyuzo)', () => {
@@ -26,19 +26,19 @@ test.describe('User booking flow from schedule (kyuzo)', () => {
     tomorrowStart.setHours(0, 0, 0, 0)
 
     const className = uniqueClassName('E2E Booking Test')
-    await createClassOption(page, {
+    await createEventType(page, {
       name: className,
       description: 'A test class option for user booking e2e',
     })
 
     await saveObjectAndWaitForNavigation(page, {
-      apiPath: '/api/class-options',
-      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-      collectionName: 'class-options',
+      apiPath: '/api/event-types',
+      expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
+      collectionName: 'event-types',
     })
 
     const classOptionId = (() => {
-      const m = page.url().match(/\/admin\/collections\/class-options\/(\d+)/)
+      const m = page.url().match(/\/admin\/collections\/event-types\/(\d+)/)
       if (!m?.[1]) throw new Error(`Could not extract class-option id from URL: ${page.url()}`)
       return parseInt(m[1], 10)
     })()
@@ -49,7 +49,7 @@ test.describe('User booking flow from schedule (kyuzo)', () => {
     const desiredEnd = new Date(tomorrowStart)
     desiredEnd.setHours(11, 0, 0, 0)
 
-    const createLessonRes = await page.context().request.post(`/api/lessons`, {
+    const createTimeslotRes = await page.context().request.post(`/api/timeslots`, {
       data: {
         date: tomorrowStart.toISOString(),
         startTime: desiredStart.toISOString(),
@@ -59,14 +59,14 @@ test.describe('User booking flow from schedule (kyuzo)', () => {
       },
     })
 
-    if (!createLessonRes.ok()) {
-      const txt = await createLessonRes.text().catch(() => '')
-      throw new Error(`Failed to create lesson via API: ${createLessonRes.status()} ${txt}`)
+    if (!createTimeslotRes.ok()) {
+      const txt = await createTimeslotRes.text().catch(() => '')
+      throw new Error(`Failed to create lesson via API: ${createTimeslotRes.status()} ${txt}`)
     }
 
-    const lessonJson: any = await createLessonRes.json().catch(() => null)
+    const lessonJson: any = await createTimeslotRes.json().catch(() => null)
     const lessonId = lessonJson?.doc?.id ?? lessonJson?.id
-    if (!lessonId) throw new Error(`Lesson created but no id returned: ${JSON.stringify(lessonJson)}`)
+    if (!lessonId) throw new Error(`Timeslot created but no id returned: ${JSON.stringify(lessonJson)}`)
 
     // Step 2: Log out admin and clear cookies to simulate unauthenticated user
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
@@ -121,7 +121,7 @@ test.describe('User booking flow from schedule (kyuzo)', () => {
 
     // Simulate Stripe subscription webhook confirming booking
     await mockSubscriptionCreatedWebhook(page.context().request, {
-      lessonId: Number(lessonId),
+      timeslotId: Number(lessonId),
       userEmail: email,
     })
 

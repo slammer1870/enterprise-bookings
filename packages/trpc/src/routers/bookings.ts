@@ -8,100 +8,101 @@ import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from ".
 import {
   getTenantSlug,
   resolveTenantId,
-  resolveTenantIdFromLessonId,
-  assertLessonBelongsToTenant,
+  resolveTenantIdFromTimeslotId,
+  assertTimeslotBelongsToTenant,
   getDocTenantId,
+  populateTimeslotEventType,
 } from "../utils/tenant";
 
-import { Booking, ClassOption, Lesson, LessonScheduleState, Subscription } from "@repo/shared-types";
+import { Booking, EventType, Timeslot, TimeslotScheduleState, Subscription } from "@repo/shared-types";
 import { checkRole, stripe } from "@repo/shared-utils";
 import {
-  getMaxSubscriptionQuantityPerLesson,
+  getMaxSubscriptionQuantityPerTimeslot,
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
   canUseSubscriptionForBooking,
-  filterValidClassPassesForLesson,
-  type LessonLike,
+  filterValidClassPassesForTimeslot,
+  type TimeslotLike,
   type ClassPassLike,
 } from "@repo/shared-services";
 
 export const bookingsRouter = {
   /**
-   * Schedule UX shortcut for single-slot lessons:
-   * - If viewer has an eligible active subscription for the lesson, book immediately.
-   * - Otherwise redirect to the lesson booking page so payment/subscription options are available.
+   * Schedule UX shortcut for single-slot timeslots:
+   * - If viewer has an eligible active subscription for the timeslot, book immediately.
+   * - Otherwise redirect to the timeslot booking page so payment/subscription options are available.
    *
    * This intentionally avoids navigating to the generic booking page for cases where the
    * viewer can only ever book 1 slot and the flow is decided by membership state.
    */
-  bookSingleSlotLessonOrRedirect: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings", "classOptions"))
+  bookSingleSlotTimeslotOrRedirect: protectedProcedure
+    .use(requireBookingCollections("timeslots", "bookings", "eventTypes"))
     .use(requireCollections("subscriptions"))
-    .input(z.object({ lessonId: z.number() }))
+    .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const { lessonId } = input;
+      const { timeslotId } = input;
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
-      if (!lesson) {
-        throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Timeslot with id ${timeslotId} not found` });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      const classOptionId =
-        typeof lesson.classOption === "object" && lesson.classOption !== null
-          ? (lesson.classOption as any).id
-          : (lesson.classOption as any);
-      const classOption =
-        typeof lesson.classOption === "object" && lesson.classOption !== null
-          ? (lesson.classOption as any)
-          : classOptionId != null
-            ? await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, classOptionId, {
+      const eventTypeId =
+        typeof timeslot.eventType === "object" && timeslot.eventType !== null
+          ? (timeslot.eventType as any).id
+          : (timeslot.eventType as any);
+      const eventType =
+        typeof timeslot.eventType === "object" && timeslot.eventType !== null
+          ? (timeslot.eventType as any)
+          : eventTypeId != null
+            ? await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, eventTypeId, {
                 depth: 2,
                 overrideAccess: Boolean(tenantId),
                 user: ctx.user,
               })
             : null;
 
-      // Child lessons are handled on the children booking page.
-      if ((classOption as any)?.type === "child") {
-        return { redirectUrl: `/bookings/children/${lessonId}` };
+      // Child timeslots are handled on the children booking page.
+      if ((eventType as any)?.type === "child") {
+        return { redirectUrl: `/bookings/children/${timeslotId}` };
       }
 
-      const paymentMethods = (classOption as any)?.paymentMethods as
+      const paymentMethods = (eventType as any)?.paymentMethods as
         | { allowedDropIn?: any; allowedPlans?: any[] }
         | undefined;
       const hasPaymentMethods = Boolean(
         paymentMethods?.allowedDropIn || (paymentMethods?.allowedPlans?.length ?? 0) > 0
       );
       const dropInAllowsMultiple =
-        (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerLesson === true;
+        (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerTimeslot === true;
       const planAllowsMultiple = Array.isArray((paymentMethods as any)?.allowedPlans)
         ? (paymentMethods as any).allowedPlans.some(
-            (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerLesson === true
+            (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerTimeslot === true
           )
         : false;
       const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
       const singleSlotOnly = !allowsMultipleBookingsForViewer;
 
-      // If this isn't a single-slot lesson, fall back to the normal booking page flow.
+      // If this isn't a single-slot timeslot, fall back to the normal booking page flow.
       if (!singleSlotOnly) {
-        return { redirectUrl: `/bookings/${lessonId}` };
+        return { redirectUrl: `/bookings/${timeslotId}` };
       }
 
       // If already booked, no-op (stay on schedule).
       const existingConfirmed = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           and: [
-            { lesson: { equals: lessonId } },
+            { timeslot: { equals: timeslotId } },
             { user: { equals: ctx.user.id } },
             { status: { equals: "confirmed" } },
           ],
@@ -122,10 +123,10 @@ export const bookingsRouter = {
 
       // No membership option configured -> redirect to manage.
       if (!Array.isArray(allowedPlanIds) || allowedPlanIds.length === 0) {
-        return { redirectUrl: `/bookings/${lessonId}` };
+        return { redirectUrl: `/bookings/${timeslotId}` };
       }
 
-      // Find the first eligible subscription the viewer can use for this lesson.
+      // Find the first eligible subscription the viewer can use for this timeslot.
       const subs = await findSafe<Subscription>(ctx.payload, "subscriptions", {
         where: {
           and: [
@@ -139,16 +140,16 @@ export const bookingsRouter = {
         user: ctx.user,
       });
 
-      const lessonStart = new Date(lesson.startTime);
+      const timeslotStart = new Date(timeslot.startTime);
       const usable = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
 
       if (!usable) {
-        return { redirectUrl: `/bookings/${lessonId}` };
+        return { redirectUrl: `/bookings/${timeslotId}` };
       }
 
-      const limitReached = await hasReachedSubscriptionLimit(usable as any, ctx.payload, lessonStart);
+      const limitReached = await hasReachedSubscriptionLimit(usable as any, ctx.payload, timeslotStart);
       if (limitReached) {
-        return { redirectUrl: `/bookings/${lessonId}/manage` };
+        return { redirectUrl: `/bookings/${timeslotId}/manage` };
       }
 
       // Book directly (mark as subscription-backed). Capacity and subscription were validated above.
@@ -156,7 +157,7 @@ export const bookingsRouter = {
         ctx.payload,
         "bookings",
         ({
-          lesson: Number(lessonId),
+          timeslot: Number(timeslotId),
           user: Number(ctx.user.id),
           status: "confirmed",
           paymentMethodUsed: "subscription",
@@ -168,32 +169,32 @@ export const bookingsRouter = {
       return { redirectUrl: null };
     }),
   checkIn: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
-    .input(z.object({ lessonId: z.number() }))
+    .use(requireBookingCollections("timeslots", "bookings"))
+    .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const { lessonId } = input;
+      const { timeslotId } = input;
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 3,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      if (!lesson) {
+      if (!timeslot) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Lesson with id ${lessonId} not found`,
+          message: `Timeslot with id ${timeslotId} not found`,
         });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      // Business Logic: Handle children's lessons differently
-      if (lesson.classOption.type === "child") {
+      // Business Logic: Handle children's timeslots differently
+      if (timeslot.eventType.type === "child") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "REDIRECT_TO_CHILDREN_BOOKING",
-          cause: { redirectUrl: `/bookings/children/${lessonId}` },
+          cause: { redirectUrl: `/bookings/children/${timeslotId}` },
         });
       }
 
@@ -202,7 +203,7 @@ export const bookingsRouter = {
       try {
         const existingBooking = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
-            lesson: { equals: lessonId },
+            timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
           },
           depth: 2,
@@ -214,7 +215,7 @@ export const bookingsRouter = {
         if (existingBooking.docs.length === 0) {
           // Create new booking (coerce IDs to number for Payload relationship fields)
           return await createSafe(ctx.payload, "bookings", {
-            lesson: Number(lessonId),
+            timeslot: Number(timeslotId),
             user: Number(ctx.user.id),
             status: "confirmed",
           }, {
@@ -236,7 +237,7 @@ export const bookingsRouter = {
           code: "BAD_REQUEST",
           message: "REDIRECT_TO_BOOKING_PAYMENT",
           cause: {
-            redirectUrl: `/bookings/${lessonId}`,
+            redirectUrl: `/bookings/${timeslotId}`,
             originalError: error.message,
           },
         });
@@ -244,9 +245,9 @@ export const bookingsRouter = {
     }),
   kioskCreateOrConfirmBooking: protectedProcedure
     .use(requireCollections("bookings", "users"))
-    .input(z.object({ lessonId: z.number(), userId: z.number() }))
+    .input(z.object({ timeslotId: z.number(), userId: z.number() }))
     .mutation(async ({ ctx, input }): Promise<Booking> => {
-      // Kiosk is an admin-only flow: an admin checks a user into a lesson.
+      // Kiosk is an admin-only flow: an admin checks a user into a timeslot.
       if (!checkRole(["admin"], ctx.user as any)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
       }
@@ -272,7 +273,7 @@ export const bookingsRouter = {
       // Look up an existing booking using the admin context (read access).
       const existingBooking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.lessonId },
+          timeslot: { equals: input.timeslotId },
           user: { equals: input.userId },
         },
         depth: 2,
@@ -294,7 +295,7 @@ export const bookingsRouter = {
       }
 
       const created = await createSafe<Booking>(ctx.payload, "bookings", {
-        lesson: Number(input.lessonId),
+        timeslot: Number(input.timeslotId),
         user: Number(input.userId),
         status: "confirmed",
       }, {
@@ -305,28 +306,28 @@ export const bookingsRouter = {
       return created as Booking;
     }),
   createBooking: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireBookingCollections("timeslots", "bookings"))
     .use(requireCollections("subscriptions", "users"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.id, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.id, {
         depth: 3,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      if (!lesson) {
+      if (!timeslot) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Lesson with id ${input.id} not found`,
+          message: `Timeslot with id ${input.id} not found`,
         });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, input.id);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, input.id);
 
       const booking = await createSafe<Booking>(ctx.payload, "bookings", {
-        lesson: Number(input.id),
+        timeslot: Number(input.id),
         user: Number(ctx.user.id),
         status: "confirmed",
       }, {
@@ -337,11 +338,11 @@ export const bookingsRouter = {
       return booking;
     }),
   createBookings: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireBookingCollections("timeslots", "bookings"))
     .use(requireCollections("subscriptions"))
     .input(
       z.object({
-        lessonId: z.number(),
+        timeslotId: z.number(),
         quantity: z.number().min(1),
         status: z.enum(["confirmed", "pending"]).optional(),
         /** When provided, bookings are created as confirmed using this subscription (no payment). */
@@ -353,31 +354,31 @@ export const bookingsRouter = {
       })
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
-      const { lessonId, quantity, status: statusInput, subscriptionId, pendingBookingIds, classPassId } = input;
+      const { timeslotId, quantity, status: statusInput, subscriptionId, pendingBookingIds, classPassId } = input;
       const status =
         subscriptionId != null || classPassId != null ? "confirmed" : (statusInput ?? "confirmed");
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      if (!lesson) {
+      if (!timeslot) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Lesson with id ${lessonId} not found`,
+          message: `Timeslot with id ${timeslotId} not found`,
         });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      // Only load a fully populated classOption if we need its payment method config.
-      if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)) {
-        const co = lesson.classOption as any;
+      // Only load a fully populated eventType if we need its payment method config.
+      if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)) {
+        const co = timeslot.eventType as any;
         const coId = typeof co === "object" && co != null ? co.id : co;
         const needsFetch =
           typeof co !== "object" ||
@@ -385,19 +386,19 @@ export const bookingsRouter = {
           (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
 
         if (coId != null && needsFetch) {
-          const populated = await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, coId, {
+          const populated = await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, coId, {
             depth: 2,
             overrideAccess: Boolean(tenantId),
             user: ctx.user,
           });
           if (populated) {
-            (lesson as any).classOption = populated as any;
+            (timeslot as any).eventType = populated as any;
           }
         }
       }
 
       // Validate quantity against remaining capacity
-      const maxQuantity = Math.max(1, lesson.remainingCapacity || 1);
+      const maxQuantity = Math.max(1, timeslot.remainingCapacity || 1);
       if (quantity > maxQuantity) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -423,13 +424,13 @@ export const bookingsRouter = {
           });
         }
         const allowedPlanIds =
-          (lesson.classOption as ClassOption)?.paymentMethods?.allowedPlans?.map(
+          (timeslot.eventType as EventType)?.paymentMethods?.allowedPlans?.map(
             (p: { id?: number }) => (typeof p === "object" && p != null ? p.id : p)
           ) ?? [];
         if (!allowedPlanIds?.length) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "This lesson does not allow membership booking.",
+            message: "This timeslot does not allow membership booking.",
           });
         }
         const subResult = await findSafe<Subscription>(
@@ -451,7 +452,7 @@ export const bookingsRouter = {
         if (!subscription) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Invalid or unauthorized subscription for this lesson.",
+            message: "Invalid or unauthorized subscription for this timeslot.",
           });
         }
         if (!canUseSubscriptionForBooking(subscription.status)) {
@@ -463,7 +464,7 @@ export const bookingsRouter = {
         const limitReached = await hasReachedSubscriptionLimit(
           subscription,
           ctx.payload,
-          new Date(lesson.startTime)
+          new Date(timeslot.startTime)
         );
         if (limitReached) {
           throw new TRPCError({
@@ -474,7 +475,7 @@ export const bookingsRouter = {
         const remaining = await getRemainingSessionsInPeriod(
           subscription,
           ctx.payload,
-          new Date(lesson.startTime)
+          new Date(timeslot.startTime)
         );
         if (remaining != null && remaining < quantity) {
           throw new TRPCError({
@@ -500,28 +501,28 @@ export const bookingsRouter = {
             message: "Class passes are not available in this application.",
           });
         }
-        const classOptionWithPasses = lesson.classOption as ClassOption & {
+        const eventTypeWithPasses = timeslot.eventType as EventType & {
           paymentMethods?: { allowedClassPasses?: (number | { id: number })[] };
         };
         const allowedTypeIds =
-          classOptionWithPasses?.paymentMethods?.allowedClassPasses?.map(
+          eventTypeWithPasses?.paymentMethods?.allowedClassPasses?.map(
             (p: { id?: number } | number) =>
               typeof p === "object" && p != null && "id" in p ? p.id : p
           ) ?? [];
         if (allowedTypeIds.length === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "This lesson does not allow class pass booking.",
+            message: "This timeslot does not allow class pass booking.",
           });
         }
-        const lessonTenantIdForPass =
-          typeof lesson.tenant === "object" && lesson.tenant != null
-            ? (lesson.tenant as { id: number }).id
-            : (lesson.tenant as number | undefined) ?? null;
-        if (lessonTenantIdForPass == null) {
+        const timeslotTenantIdForPass =
+          typeof timeslot.tenant === "object" && timeslot.tenant != null
+            ? (timeslot.tenant as { id: number }).id
+            : (timeslot.tenant as number | undefined) ?? null;
+        if (timeslotTenantIdForPass == null) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Lesson has no tenant.",
+            message: "Timeslot has no tenant.",
           });
         }
         const passResult = await findSafe(
@@ -531,7 +532,7 @@ export const bookingsRouter = {
             where: {
               id: { equals: classPassId },
               user: { equals: ctx.user.id },
-              tenant: { equals: lessonTenantIdForPass },
+              tenant: { equals: timeslotTenantIdForPass },
               type: { in: allowedTypeIds },
               status: { equals: "active" },
               quantity: { greater_than: 0 },
@@ -547,20 +548,20 @@ export const bookingsRouter = {
           | {
               id: number;
               quantity: number;
-              type?: number | { id: number; allowMultipleBookingsPerLesson?: boolean };
+              type?: number | { id: number; allowMultipleBookingsPerTimeslot?: boolean };
             }
           | undefined;
         if (!passDoc) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Invalid or unauthorized class pass for this lesson.",
+            message: "Invalid or unauthorized class pass for this timeslot.",
           });
         }
         const passTypeId =
           typeof passDoc.type === "object" && passDoc.type != null
             ? (passDoc.type as { id: number }).id
             : passDoc.type;
-        let passType: { allowMultipleBookingsPerLesson?: boolean } | null = null;
+        let passType: { allowMultipleBookingsPerTimeslot?: boolean } | null = null;
         if (passTypeId != null && hasCollection(ctx.payload, "class-pass-types")) {
           const typeDoc = await findByIdSafe(
             ctx.payload,
@@ -568,14 +569,14 @@ export const bookingsRouter = {
             passTypeId,
             { depth: 0, overrideAccess: true }
           );
-          passType = typeDoc as { allowMultipleBookingsPerLesson?: boolean } | null;
+          passType = typeDoc as { allowMultipleBookingsPerTimeslot?: boolean } | null;
         }
-        const allowMultiple = passType?.allowMultipleBookingsPerLesson === true;
+        const allowMultiple = passType?.allowMultipleBookingsPerTimeslot === true;
         if (quantity > 1 && !allowMultiple) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "This class pass allows only one slot per lesson. Reduce quantity to 1 or use a different pass.",
+              "This class pass allows only one slot per timeslot. Reduce quantity to 1 or use a different pass.",
           });
         }
         if (passDoc.quantity < quantity) {
@@ -588,11 +589,11 @@ export const bookingsRouter = {
         classPassIdUsed = classPassId;
       }
 
-      // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerLesson
+      // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerTimeslot
       if (status === "confirmed") {
-        const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
+        const maxSubQty = await getMaxSubscriptionQuantityPerTimeslot(
           Number(ctx.user.id),
-          lesson,
+          timeslot,
           ctx.payload
         );
         if (maxSubQty != null && quantity > maxSubQty) {
@@ -600,16 +601,16 @@ export const bookingsRouter = {
             code: "BAD_REQUEST",
             message:
               maxSubQty === 0
-                ? "You already have a booking for this lesson. Your membership allows one slot per lesson."
-                : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per lesson for this plan.`,
+                ? "You already have a booking for this timeslot. Your membership allows one slot per timeslot."
+                : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per timeslot for this plan.`,
           });
         }
       }
 
-      const lessonTenantId =
-        typeof lesson.tenant === "object" && lesson.tenant != null
-          ? (lesson.tenant as { id: number }).id
-          : (lesson.tenant as number | undefined) ?? null;
+      const timeslotTenantId =
+        typeof timeslot.tenant === "object" && timeslot.tenant != null
+          ? (timeslot.tenant as { id: number }).id
+          : (timeslot.tenant as number | undefined) ?? null;
       const decrementClassPassCredits = async (count: number) => {
         if (classPassIdUsed == null || count <= 0) return;
         const pass = (await ctx.payload.findByID({
@@ -657,7 +658,7 @@ export const bookingsRouter = {
         const pendingResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
             id: { in: pendingBookingIds },
-            lesson: { equals: lessonId },
+            timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
             status: { equals: "pending" },
           },
@@ -669,7 +670,7 @@ export const bookingsRouter = {
         if (pendingResult.docs.length !== pendingBookingIds.length) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Invalid or unauthorized pending bookings for this lesson.",
+            message: "Invalid or unauthorized pending bookings for this timeslot.",
           });
         }
         for (const doc of pendingResult.docs) {
@@ -702,7 +703,7 @@ export const bookingsRouter = {
                   booking: id,
                   paymentMethod: "subscription",
                   subscriptionId: subscriptionIdUsed,
-                  ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                  ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
                 } as Record<string, unknown>,
                 overrideAccess: true,
               });
@@ -721,7 +722,7 @@ export const bookingsRouter = {
         const pendingResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
             id: { in: pendingBookingIds! },
-            lesson: { equals: lessonId },
+            timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
             status: { equals: "pending" },
           },
@@ -733,7 +734,7 @@ export const bookingsRouter = {
         if (pendingResult.docs.length !== pendingBookingIds!.length) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Invalid or unauthorized pending bookings for this lesson.",
+            message: "Invalid or unauthorized pending bookings for this timeslot.",
           });
         }
         for (const doc of pendingResult.docs) {
@@ -766,7 +767,7 @@ export const bookingsRouter = {
                   booking: id,
                   paymentMethod: "class_pass",
                   classPassId: classPassIdUsed!,
-                  ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                  ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
                 } as Record<string, unknown>,
                 overrideAccess: true,
               });
@@ -780,7 +781,7 @@ export const bookingsRouter = {
       const createCount =
         confirmedBookings.length > 0 ? quantity - confirmedBookings.length : quantity;
       const baseData: Record<string, unknown> = {
-        lesson: Number(lessonId),
+        timeslot: Number(timeslotId),
         user: Number(ctx.user.id),
         status: status,
       };
@@ -795,7 +796,7 @@ export const bookingsRouter = {
           baseData,
           {
             // Access and capacity have already been validated in this mutation using the
-            // authenticated user and tenant-scoped lesson lookup above. Create with
+            // authenticated user and tenant-scoped timeslot lookup above. Create with
             // elevated access so pending manage-flow bookings are not rejected by
             // collection access during this server-side operation.
             overrideAccess: true,
@@ -823,7 +824,7 @@ export const bookingsRouter = {
                 booking: bookingId,
                 paymentMethod: "class_pass",
                 classPassId: classPassIdUsed,
-                ...(lessonTenantId != null ? { tenant: lessonTenantId } : {}),
+                ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
               } as Record<string, unknown>,
               overrideAccess: true,
             });
@@ -836,35 +837,36 @@ export const bookingsRouter = {
     }),
 
   /**
-   * Returns valid class passes for the current user for the given lesson.
-   * Only passes that belong to the lesson's tenant and match the class option's allowed pass types,
+   * Returns valid class passes for the current user for the given timeslot.
+   * Only passes that belong to the timeslot's tenant and match the class option's allowed pass types,
    * with status active, quantity > 0, and expirationDate in the future.
    */
-  getValidClassPassesForLesson: protectedProcedure
-    .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
+  getValidClassPassesForTimeslot: protectedProcedure
+    .input(z.object({ timeslotId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.lessons) || !hasCollection(ctx.payload, "class-passes")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, "class-passes")) {
         return [];
       }
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, input.timeslotId, ctx.bookingsSlugs.timeslots);
       }
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.timeslotId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
-      if (!lesson) {
+      if (!timeslot) {
         return [];
       }
-      const classOption =
-        typeof lesson.classOption === "object" ? lesson.classOption : null;
-      const classOptionWithPasses = classOption as (typeof classOption) & {
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
+      const eventType =
+        typeof timeslot.eventType === "object" ? timeslot.eventType : null;
+      const eventTypeWithPasses = eventType as (typeof eventType) & {
         paymentMethods?: { allowedClassPasses?: unknown[] };
       };
-      const allowedClassPasses = classOptionWithPasses?.paymentMethods?.allowedClassPasses;
+      const allowedClassPasses = eventTypeWithPasses?.paymentMethods?.allowedClassPasses;
       if (!allowedClassPasses || !Array.isArray(allowedClassPasses) || allowedClassPasses.length === 0) {
         return [];
       }
@@ -873,11 +875,11 @@ export const bookingsRouter = {
         .filter((id): id is number => typeof id === "number");
       if (allowedTypeIds.length === 0) return [];
 
-      const lessonTenantId =
-        typeof lesson.tenant === "object" && lesson.tenant != null
-          ? (lesson.tenant as { id: number }).id
-          : (lesson.tenant as number | undefined) ?? null;
-      if (lessonTenantId == null) return [];
+      const timeslotTenantId =
+        typeof timeslot.tenant === "object" && timeslot.tenant != null
+          ? (timeslot.tenant as { id: number }).id
+          : (timeslot.tenant as number | undefined) ?? null;
+      if (timeslotTenantId == null) return [];
 
       const now = new Date().toISOString();
       const result = await findSafe(
@@ -886,7 +888,7 @@ export const bookingsRouter = {
         {
           where: {
             user: { equals: ctx.user.id },
-            tenant: { equals: lessonTenantId },
+            tenant: { equals: timeslotTenantId },
             type: { in: allowedTypeIds },
             status: { equals: "active" },
             quantity: { greater_than: 0 },
@@ -899,41 +901,42 @@ export const bookingsRouter = {
           user: ctx.user,
         }
       );
-      return filterValidClassPassesForLesson(
-        lesson as unknown as LessonLike,
+      return filterValidClassPassesForTimeslot(
+        timeslot as unknown as TimeslotLike,
         result.docs as ClassPassLike[],
         new Date(),
         input.quantity ?? 1
       );
     }),
 
-  getPurchasableClassPassTypesForLesson: protectedProcedure
-    .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
+  getPurchasableClassPassTypesForTimeslot: protectedProcedure
+    .input(z.object({ timeslotId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.lessons) || !hasCollection(ctx.payload, "class-pass-types")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, "class-pass-types")) {
         return [];
       }
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, input.timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.timeslotId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
-      if (!lesson) {
+      if (!timeslot) {
         return [];
       }
 
-      const classOption =
-        typeof lesson.classOption === "object" ? lesson.classOption : null;
-      const classOptionWithPasses = classOption as (typeof classOption) & {
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
+      const eventType =
+        typeof timeslot.eventType === "object" ? timeslot.eventType : null;
+      const eventTypeWithPasses = eventType as (typeof eventType) & {
         paymentMethods?: { allowedClassPasses?: unknown[] };
       };
-      const allowedClassPasses = classOptionWithPasses?.paymentMethods?.allowedClassPasses;
+      const allowedClassPasses = eventTypeWithPasses?.paymentMethods?.allowedClassPasses;
       if (!Array.isArray(allowedClassPasses) || allowedClassPasses.length === 0) {
         return [];
       }
@@ -945,16 +948,16 @@ export const bookingsRouter = {
         .filter((id): id is number => typeof id === "number");
       if (allowedTypeIds.length === 0) return [];
 
-      const lessonTenantId =
-        typeof lesson.tenant === "object" && lesson.tenant != null
-          ? (lesson.tenant as { id: number }).id
-          : (lesson.tenant as number | undefined) ?? null;
+      const timeslotTenantId =
+        typeof timeslot.tenant === "object" && timeslot.tenant != null
+          ? (timeslot.tenant as { id: number }).id
+          : (timeslot.tenant as number | undefined) ?? null;
       const tenantDoc =
-        lessonTenantId != null && hasCollection(ctx.payload, "tenants")
+        timeslotTenantId != null && hasCollection(ctx.payload, "tenants")
           ? await ctx.payload
               .findByID({
                 collection: "tenants" as any,
-                id: lessonTenantId,
+                id: timeslotTenantId,
                 depth: 0,
                 overrideAccess: true,
               })
@@ -975,7 +978,7 @@ export const bookingsRouter = {
         where: {
           id: { in: allowedTypeIds },
           status: { equals: "active" },
-          ...(lessonTenantId != null ? { tenant: { equals: lessonTenantId } } : {}),
+          ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
         },
         limit: allowedTypeIds.length,
         depth: 0,
@@ -1000,7 +1003,7 @@ export const bookingsRouter = {
               ? ((fullDoc as { quantity: number }).quantity)
               : 0;
           const allowMultiple =
-            (fullDoc as { allowMultipleBookingsPerLesson?: unknown }).allowMultipleBookingsPerLesson === true;
+            (fullDoc as { allowMultipleBookingsPerTimeslot?: unknown }).allowMultipleBookingsPerTimeslot === true;
 
           if (passQuantity < requiredQuantity) return null;
           if (requiredQuantity > 1 && !allowMultiple) return null;
@@ -1050,8 +1053,8 @@ export const bookingsRouter = {
           }
           ctx.payload.logger.info?.(
             {
-              lessonId: input.lessonId,
-              tenantId: lessonTenantId,
+              timeslotId: input.timeslotId,
+              tenantId: timeslotTenantId,
               stripeAccount: tenantStripeAccountId,
               classPassTypeId: typeId,
               stripeProductId:
@@ -1075,7 +1078,7 @@ export const bookingsRouter = {
                 ? (fullDoc as { description: string }).description
                 : null,
             quantity: passQuantity,
-            allowMultipleBookingsPerLesson: allowMultiple,
+            allowMultipleBookingsPerTimeslot: allowMultiple,
             price:
               typeof (fullDoc as { priceInformation?: { price?: unknown } }).priceInformation?.price === "number"
                 ? ((fullDoc as { priceInformation: { price: number } }).priceInformation.price)
@@ -1089,7 +1092,7 @@ export const bookingsRouter = {
     }),
 
   createOrUpdateBooking: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireBookingCollections("timeslots", "bookings"))
     .input(
       z.object({
         id: z.number(),
@@ -1101,7 +1104,7 @@ export const bookingsRouter = {
 
       const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: id },
+          timeslot: { equals: id },
           user: { equals: ctx.user.id },
         },
         depth: 2,
@@ -1112,7 +1115,7 @@ export const bookingsRouter = {
 
       if (booking.docs.length === 0) {
         return await createSafe(ctx.payload, "bookings", {
-          lesson: Number(id),
+          timeslot: Number(id),
           user: Number(ctx.user.id),
           status,
         }, {
@@ -1176,19 +1179,19 @@ export const bookingsRouter = {
     }),
 
   /**
-   * Cancel all of the current user's pending bookings for a lesson.
+   * Cancel all of the current user's pending bookings for a timeslot.
    * Used when the user leaves the booking checkout page so capacity is released.
    */
-  cancelPendingBookingsForLesson: protectedProcedure
+  cancelPendingBookingsForTimeslot: protectedProcedure
     .use(requireCollections("bookings"))
-    .input(z.object({ lessonId: z.number() }))
+    .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }): Promise<{ cancelled: number }> => {
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const pending = await findSafe(ctx.payload, "bookings", {
         where: {
           and: [
-            { lesson: { equals: input.lessonId } },
+            { timeslot: { equals: input.timeslotId } },
             { user: { equals: ctx.user.id } },
             { status: { equals: "pending" } },
           ],
@@ -1218,7 +1221,7 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }) => {
       const existingBooking = await findSafe(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.id },
+          timeslot: { equals: input.id },
           user: { equals: ctx.user.id },
         },
         depth: 2,
@@ -1239,7 +1242,7 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-        lesson: Number(input.id),
+        timeslot: Number(input.id),
         user: Number(ctx.user.id),
         status: "waiting",
       }, {
@@ -1255,7 +1258,7 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }) => {
       const booking = await findSafe(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.id },
+          timeslot: { equals: input.id },
           user: { equals: ctx.user.id },
           status: { equals: "waiting" },
         },
@@ -1282,12 +1285,12 @@ export const bookingsRouter = {
       return updatedBooking as Booking;
     }),
   canBookChild: protectedProcedure
-    .use(requireBookingCollections("lessons"))
+    .use(requireBookingCollections("timeslots"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const lesson = await findByIdSafe<Lesson>(
+      const timeslot = await findByIdSafe<Timeslot>(
         ctx.payload,
-        ctx.bookingsSlugs.lessons,
+        ctx.bookingsSlugs.timeslots,
         input.id,
         {
           depth: 3,
@@ -1296,23 +1299,23 @@ export const bookingsRouter = {
         }
       );
 
-      if (!lesson) {
+      if (!timeslot) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Lesson with id ${input.id} not found`,
+          message: `Timeslot with id ${input.id} not found`,
         });
       }
 
-      if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
+      if (timeslot.remainingCapacity && timeslot.remainingCapacity <= 0) {
         return false;
       }
 
-      const classOption = lesson.classOption as ClassOption;
-      if (!classOption || classOption.type !== "child") {
+      const eventType = timeslot.eventType as EventType;
+      if (!eventType || eventType.type !== "child") {
         return false;
       }
 
-      const plans = classOption.paymentMethods?.allowedPlans;
+      const plans = eventType.paymentMethods?.allowedPlans;
 
       if (plans && plans.length > 0) {
         const subscription = await findSafe(ctx.payload, "subscriptions", {
@@ -1335,7 +1338,7 @@ export const bookingsRouter = {
             and: [
               {
                 or: [
-                  { cancelAt: { greater_than: new Date(lesson.startTime) } },
+                  { cancelAt: { greater_than: new Date(timeslot.startTime) } },
                   { cancelAt: { exists: false } },
                 ],
               },
@@ -1369,8 +1372,8 @@ export const bookingsRouter = {
 
         const bookedSessions = await findSafe(ctx.payload, "bookings", {
           where: {
-            lesson: {
-              equals: lesson.id,
+            timeslot: {
+              equals: timeslot.id,
             },
             user: { in: childrenIds },
           },
@@ -1389,11 +1392,11 @@ export const bookingsRouter = {
       return true;
     }),
   createChildBooking: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireBookingCollections("timeslots", "bookings"))
     .use(requireCollections("users"))
     .input(
       z.object({
-        lessonId: z.number(),
+        timeslotId: z.number(),
         childId: z.number(),
         status: z.enum(["confirmed", "pending"]).optional(),
       })
@@ -1420,7 +1423,7 @@ export const bookingsRouter = {
 
       const existingBooking = await findSafe(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.lessonId },
+          timeslot: { equals: input.timeslotId },
           user: { equals: child.id },
         },
         depth: 2,
@@ -1441,7 +1444,7 @@ export const bookingsRouter = {
       }
 
       const booking = await createSafe(ctx.payload, "bookings", {
-        lesson: Number(input.lessonId),
+        timeslot: Number(input.timeslotId),
         user: Number(child.id),
         status: status,
       }, {
@@ -1452,11 +1455,11 @@ export const bookingsRouter = {
     }),
   cancelChildBooking: protectedProcedure
     .use(requireCollections("bookings"))
-    .input(z.object({ lessonId: z.number(), childId: z.number() }))
+    .input(z.object({ timeslotId: z.number(), childId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const booking = await findSafe(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.lessonId },
+          timeslot: { equals: input.timeslotId },
           user: { equals: input.childId },
         },
         depth: 2,
@@ -1468,7 +1471,7 @@ export const bookingsRouter = {
       if (booking.docs.length === 0) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Booking with lesson id ${input.lessonId} and user id ${input.childId} not found`,
+          message: `Booking with timeslot id ${input.timeslotId} and user id ${input.childId} not found`,
         });
       }
 
@@ -1505,7 +1508,7 @@ export const bookingsRouter = {
     .query(async ({ ctx, input }) => {
       const bookings = await findSafe(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.id },
+          timeslot: { equals: input.id },
           "user.parentUser": { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
         },
@@ -1516,18 +1519,18 @@ export const bookingsRouter = {
 
       return bookings.docs.map((booking: any) => booking as Booking);
     }),
-  getUserBookingsForLesson: protectedProcedure
+  getUserBookingsForTimeslot: protectedProcedure
     .use(requireCollections("bookings"))
-    .input(z.object({ lessonId: z.number() }))
+    .input(z.object({ timeslotId: z.number() }))
     .query(async ({ ctx, input }) => {
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, input.timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
       const bookings = await findSafe(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: input.lessonId },
+          timeslot: { equals: input.timeslotId },
           user: { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
         },
@@ -1546,22 +1549,22 @@ export const bookingsRouter = {
       return filteredBookings.map((booking: any) => booking as Booking);
     }),
   /**
-   * Unified schedule mutation: set the current viewer's booking intent for a lesson.
+   * Unified schedule mutation: set the current viewer's booking intent for a timeslot.
    *
    * This is designed for the schedule button UX:
    * - one endpoint for book/cancel/waitlist actions
    * - returns a scheduleState snapshot so the UI can update predictably
    */
-  setMyBookingForLesson: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
+  setMyBookingForTimeslot: protectedProcedure
+    .use(requireBookingCollections("timeslots", "bookings"))
     .input(
       z.object({
-        lessonId: z.number(),
+        timeslotId: z.number(),
         intent: z.enum(["confirm", "cancel", "joinWaitlist", "leaveWaitlist"]),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { lessonId, intent } = input;
+      const { timeslotId, intent } = input;
 
       const viewerIdRaw: any = (ctx.user as any)?.id;
       const viewerId =
@@ -1572,29 +1575,29 @@ export const bookingsRouter = {
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      if (!lesson) {
-        throw new TRPCError({ code: "NOT_FOUND", message: `Lesson with id ${lessonId} not found` });
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Timeslot with id ${timeslotId} not found` });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      const classOptionId =
-        typeof lesson.classOption === "object" && lesson.classOption !== null
-          ? (lesson.classOption as any).id
-          : (lesson.classOption as any);
-      const classOption =
-        typeof lesson.classOption === "object" && lesson.classOption !== null
-          ? (lesson.classOption as any)
-          : classOptionId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)
-            ? await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, classOptionId, {
+      const eventTypeId =
+        typeof timeslot.eventType === "object" && timeslot.eventType !== null
+          ? (timeslot.eventType as any).id
+          : (timeslot.eventType as any);
+      const eventType =
+        typeof timeslot.eventType === "object" && timeslot.eventType !== null
+          ? (timeslot.eventType as any)
+          : eventTypeId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)
+            ? await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, eventTypeId, {
                 depth: 0,
                 overrideAccess: Boolean(tenantId),
                 user: ctx.user,
@@ -1602,16 +1605,16 @@ export const bookingsRouter = {
             : null;
 
       const places =
-        classOption && typeof (classOption as any).places === "number"
-          ? (classOption as any).places
+        eventType && typeof (eventType as any).places === "number"
+          ? (eventType as any).places
           : null;
-      const isChildClass = classOption && (classOption as any).type === "child";
+      const isChildClass = eventType && (eventType as any).type === "child";
 
-      const computeScheduleState = async (): Promise<LessonScheduleState> => {
+      const computeScheduleState = async (): Promise<TimeslotScheduleState> => {
         const now = new Date();
-        const start = new Date(lesson.startTime);
+        const start = new Date(timeslot.startTime);
         const startMs = start.getTime();
-        const lockOutTime = typeof (lesson as any).lockOutTime === "number" ? (lesson as any).lockOutTime : 0;
+        const lockOutTime = typeof (timeslot as any).lockOutTime === "number" ? (timeslot as any).lockOutTime : 0;
 
         const closed =
           Number.isFinite(startMs) &&
@@ -1620,7 +1623,7 @@ export const bookingsRouter = {
 
         const confirmedCountResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
-            and: [{ lesson: { equals: lessonId } }, { status: { equals: "confirmed" } }],
+            and: [{ timeslot: { equals: timeslotId } }, { status: { equals: "confirmed" } }],
           },
           depth: 0,
           limit: 0,
@@ -1633,7 +1636,7 @@ export const bookingsRouter = {
         const viewerBookingsResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
             and: [
-              { lesson: { equals: lessonId } },
+              { timeslot: { equals: timeslotId } },
               { status: { in: ["confirmed", "waiting"] } },
               isChildClass ? { "user.parentUser": { equals: viewerId } } : { user: { equals: viewerId } },
             ],
@@ -1653,9 +1656,9 @@ export const bookingsRouter = {
           .map((b) => Number(b.id))
           .filter((n) => Number.isFinite(n));
 
-        const availability: LessonScheduleState["availability"] = closed ? "closed" : isFull ? "full" : "open";
+        const availability: TimeslotScheduleState["availability"] = closed ? "closed" : isFull ? "full" : "open";
 
-        let action: LessonScheduleState["action"] = "book";
+        let action: TimeslotScheduleState["action"] = "book";
         if (availability === "closed") action = "closed";
         else if (isChildClass) action = "manageChildren";
         else if (viewerConfirmedIds.length >= 2) action = "modify";
@@ -1664,7 +1667,7 @@ export const bookingsRouter = {
         else if (availability === "full") action = "joinWaitlist";
         else action = "book";
 
-        const labelByAction: Record<LessonScheduleState["action"], string> = {
+        const labelByAction: Record<TimeslotScheduleState["action"], string> = {
           book: "Book",
           cancel: "Cancel Booking",
           modify: "Modify Booking",
@@ -1688,11 +1691,11 @@ export const bookingsRouter = {
         };
       };
 
-      // Child lessons are handled on the dedicated children booking page.
+      // Child timeslots are handled on the dedicated children booking page.
       if (isChildClass) {
         return {
           scheduleState: await computeScheduleState(),
-          redirectUrl: `/bookings/children/${lessonId}`,
+          redirectUrl: `/bookings/children/${timeslotId}`,
         };
       }
 
@@ -1701,11 +1704,11 @@ export const bookingsRouter = {
       // Execute intent
       if (intent === "confirm") {
         if (currentState.availability === "closed") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Lesson is closed" });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is closed" });
         }
         if (currentState.viewer.confirmedCount === 0) {
           await createSafe(ctx.payload, "bookings", {
-            lesson: Number(lessonId),
+            timeslot: Number(timeslotId),
             user: Number(viewerId),
             status: "confirmed",
           }, {
@@ -1729,11 +1732,11 @@ export const bookingsRouter = {
         }
       } else if (intent === "joinWaitlist") {
         if (currentState.availability !== "full") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Lesson is not full" });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is not full" });
         }
         if (currentState.viewer.waitingCount === 0 && currentState.viewer.confirmedCount === 0) {
           await createSafe(ctx.payload, "bookings", {
-            lesson: Number(lessonId),
+            timeslot: Number(timeslotId),
             user: Number(viewerId),
             status: "waiting",
           }, {
@@ -1755,38 +1758,38 @@ export const bookingsRouter = {
       };
     }),
   /**
-   * Validates if a user can be checked in for a lesson and attempts check-in if possible.
+   * Validates if a user can be checked in for a timeslot and attempts check-in if possible.
    * This is designed to be called at the page level before rendering booking components.
    * 
    * @returns Object indicating whether check-in succeeded and redirect should occur
    */
   validateAndAttemptCheckIn: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
-    .input(z.object({ lessonId: z.number() }))
+    .use(requireBookingCollections("timeslots", "bookings"))
+    .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const { lessonId } = input;
+      const { timeslotId } = input;
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      if (!lesson) {
+      if (!timeslot) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Lesson with id ${lessonId} not found`,
+          message: `Timeslot with id ${timeslotId} not found`,
         });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      // Check if lesson status allows immediate check-in
-      if (!['active', 'trialable'].includes(lesson.bookingStatus || '')) {
+      // Check if timeslot status allows immediate check-in
+      if (!['active', 'trialable'].includes(timeslot.bookingStatus || '')) {
         return {
           shouldRedirect: false,
           error: null,
-          reason: `Lesson status is ${lesson.bookingStatus}, check-in not available`,
+          reason: `Timeslot status is ${timeslot.bookingStatus}, check-in not available`,
         };
       }
 
@@ -1794,35 +1797,35 @@ export const bookingsRouter = {
 
       // Attempt check-in by calling the existing checkIn procedure logic
       try {
-        // Business Logic: Handle children's lessons differently
-        const classOptionId =
-          typeof lesson.classOption === "object" && lesson.classOption !== null
-            ? (lesson.classOption as any).id
-            : (lesson.classOption as any);
-        const classOption =
-          typeof lesson.classOption === "object" && lesson.classOption !== null
-            ? (lesson.classOption as any)
-            : classOptionId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)
-              ? await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, classOptionId, {
+        // Business Logic: Handle children's timeslots differently
+        const eventTypeId =
+          typeof timeslot.eventType === "object" && timeslot.eventType !== null
+            ? (timeslot.eventType as any).id
+            : (timeslot.eventType as any);
+        const eventType =
+          typeof timeslot.eventType === "object" && timeslot.eventType !== null
+            ? (timeslot.eventType as any)
+            : eventTypeId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)
+              ? await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, eventTypeId, {
                   depth: 0,
                   overrideAccess: Boolean(tenantId),
                   user: ctx.user,
                 })
               : null;
 
-        if ((classOption as any)?.type === "child") {
+        if ((eventType as any)?.type === "child") {
           return {
             shouldRedirect: false,
             error: "REDIRECT_TO_CHILDREN_BOOKING",
-            reason: "This is a children's lesson",
-            redirectUrl: `/bookings/children/${lessonId}`,
+            reason: "This is a children's timeslot",
+            redirectUrl: `/bookings/children/${timeslotId}`,
           };
         }
 
         // Try to create/update booking
         const existingBooking = await findSafe(ctx.payload, "bookings", {
           where: {
-            lesson: { equals: lessonId },
+            timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
           },
           depth: 2,
@@ -1844,7 +1847,7 @@ export const bookingsRouter = {
           }
 
           await createSafe(ctx.payload, "bookings", {
-            lesson: Number(lessonId),
+            timeslot: Number(timeslotId),
             user: Number(userId),
             status: "confirmed",
           }, {
@@ -1874,59 +1877,59 @@ export const bookingsRouter = {
           shouldRedirect: false,
           error: "REDIRECT_TO_BOOKING_PAYMENT",
           reason: error.message || "Check-in failed - payment required",
-          redirectUrl: `/bookings/${lessonId}`,
+          redirectUrl: `/bookings/${timeslotId}`,
         };
       }
     }),
-  setMyBookingQuantityForLesson: protectedProcedure
-    .use(requireBookingCollections("lessons", "bookings"))
+  setMyBookingQuantityForTimeslot: protectedProcedure
+    .use(requireBookingCollections("timeslots", "bookings"))
     .input(
       z.object({
-        lessonId: z.number(),
+        timeslotId: z.number(),
         desiredQuantity: z.number().min(0),
       })
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
-      const { lessonId, desiredQuantity } = input;
+      const { timeslotId, desiredQuantity } = input;
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
       });
 
-      if (!lesson) {
+      if (!timeslot) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Lesson with id ${lessonId} not found`,
+          message: `Timeslot with id ${timeslotId} not found`,
         });
       }
-      if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
+      if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      // Ensure classOption has paymentMethods if we need subscription-based quantity rules.
-      if (hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)) {
-        const co = lesson.classOption as any;
+      // Ensure eventType has paymentMethods if we need subscription-based quantity rules.
+      if (hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)) {
+        const co = timeslot.eventType as any;
         const coId = typeof co === "object" && co != null ? co.id : co;
         const needsFetch =
           typeof co !== "object" ||
           co == null ||
           (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
         if (coId != null && needsFetch) {
-          const populated = await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, coId, {
+          const populated = await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, coId, {
             depth: 2,
             overrideAccess: Boolean(tenantId),
             user: ctx.user,
           });
           if (populated) {
-            (lesson as any).classOption = populated as any;
+            (timeslot as any).eventType = populated as any;
           }
         }
       }
 
       const currentBookings = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
-          lesson: { equals: lessonId },
+          timeslot: { equals: timeslotId },
           user: { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
         },
@@ -1958,7 +1961,7 @@ export const bookingsRouter = {
         const additional = desiredQuantity - currentConfirmed;
 
         // Validate capacity
-        const maxAdditional = lesson.remainingCapacity || 0;
+        const maxAdditional = timeslot.remainingCapacity || 0;
         if (additional > maxAdditional) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -1966,10 +1969,10 @@ export const bookingsRouter = {
           });
         }
 
-        // Enforce subscription allowMultipleBookingsPerLesson when adding confirmed bookings
-        const maxSubQty = await getMaxSubscriptionQuantityPerLesson(
+        // Enforce subscription allowMultipleBookingsPerTimeslot when adding confirmed bookings
+        const maxSubQty = await getMaxSubscriptionQuantityPerTimeslot(
           Number(ctx.user.id),
-          lesson,
+          timeslot,
           ctx.payload
         );
         if (maxSubQty != null) {
@@ -1979,8 +1982,8 @@ export const bookingsRouter = {
               code: "BAD_REQUEST",
               message:
                 maxAdditionalFromSub === 0
-                  ? "You already have the maximum bookings for this lesson. Your membership allows one slot per lesson."
-                  : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per lesson. You can add ${maxAdditionalFromSub} more.`,
+                  ? "You already have the maximum bookings for this timeslot. Your membership allows one slot per timeslot."
+                  : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per timeslot. You can add ${maxAdditionalFromSub} more.`,
             });
           }
         }
@@ -1992,7 +1995,7 @@ export const bookingsRouter = {
             ctx.payload,
             "bookings",
             {
-              lesson: Number(lessonId),
+              timeslot: Number(timeslotId),
               user: Number(ctx.user.id),
               status: "confirmed",
             },

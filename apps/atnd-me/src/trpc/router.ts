@@ -21,23 +21,23 @@ export const appRouter = createAppRouter({
       }),
     getDropInFeeBreakdown: async ({
       payload,
-      lessonId,
+      timeslotId,
       classPriceCents,
       originalClassPriceCents,
       promoDiscountCents,
     }) => {
-      const lesson = (await payload.findByID({
-        collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-        id: lessonId,
+      const timeslot = (await payload.findByID({
+        collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+        id: timeslotId,
         depth: 0,
         overrideAccess: true,
         select: { tenant: true } as any,
       })) as { tenant?: number | { id: number } } | null
       const tenantId =
-        lesson?.tenant != null
-          ? typeof lesson.tenant === 'object' && lesson.tenant !== null
-            ? lesson.tenant.id
-            : lesson.tenant
+        timeslot?.tenant != null
+          ? typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+            ? timeslot.tenant.id
+            : timeslot.tenant
           : null
       if (!tenantId) {
         return {

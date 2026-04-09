@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
-import type { User, Lesson, ClassOption, Booking } from '@repo/shared-types'
+import type { User, Timeslot, EventType, Booking } from '@repo/shared-types'
 
 const TEST_TIMEOUT = 120000 // 2 minutes (jobs can take time)
 const HOOK_TIMEOUT = 300000 // 5 minutes
 
-describe('Scheduler Lesson Generation with Tenant Context', () => {
+describe('Scheduler Timeslot Generation with Tenant Context', () => {
   let payload: Payload
   let testTenant: { id: number | string; slug: string }
   let secondTenant: { id: number | string; slug: string }
   let user: User
-  let classOption: ClassOption
-  let secondTenantClassOption: ClassOption
+  let eventType: EventType
+  let secondTenantEventType: EventType
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -54,7 +54,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
     } as Parameters<typeof payload.create>[0])) as User
 
     // Create class option for first tenant
-    classOption = (await payload.create({
+    eventType = (await payload.create({
       collection: 'event-types',
       data: {
         name: `Test Class Option ${Date.now()}`,
@@ -63,10 +63,10 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         tenant: Number(testTenant.id),
       },
       overrideAccess: true,
-    })) as ClassOption
+    })) as EventType
 
     // Create class option for second tenant
-    secondTenantClassOption = (await payload.create({
+    secondTenantEventType = (await payload.create({
       collection: 'event-types',
       data: {
         name: `Second Tenant Class Option ${Date.now()}`,
@@ -75,7 +75,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         tenant: Number(secondTenant.id),
       },
       overrideAccess: true,
-    })) as ClassOption
+    })) as EventType
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -85,7 +85,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
   })
 
   it(
-    'generates lessons for the correct tenant and handles conflicting lessons with active bookings',
+    'generates timeslots for the correct tenant and handles conflicting timeslots with active bookings',
     async () => {
       // Set up dates: start from tomorrow, end 3 days later
       const tomorrow = new Date()
@@ -96,38 +96,38 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       endDate.setDate(endDate.getDate() + 3)
       endDate.setHours(23, 59, 59, 999)
 
-      // Create existing lessons for the test tenant (some with bookings, some without)
-      const existingLessonWithoutBooking = (await payload.create({
+      // Create existing timeslots for the test tenant (some with bookings, some without)
+      const existingTimeslotWithoutBooking = (await payload.create({
         collection: 'timeslots',
         data: {
           date: tomorrow.toISOString(),
           startTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
           endTime: new Date(tomorrow.getTime() + 11 * 60 * 60 * 1000).toISOString(), // 11 AM
-          classOption: classOption.id,
+          eventType: eventType.id,
           tenant: Number(testTenant.id),
           active: true,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
-      const existingLessonWithBooking = (await payload.create({
+      const existingTimeslotWithBooking = (await payload.create({
         collection: 'timeslots',
         data: {
           date: tomorrow.toISOString(),
           startTime: new Date(tomorrow.getTime() + 14 * 60 * 60 * 1000).toISOString(), // 2 PM
           endTime: new Date(tomorrow.getTime() + 15 * 60 * 60 * 1000).toISOString(), // 3 PM
-          classOption: classOption.id,
+          eventType: eventType.id,
           tenant: Number(testTenant.id),
           active: true,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
       // Create a confirmed booking for the lesson with booking
       const booking = (await payload.create({
         collection: 'bookings',
         data: {
-          lesson: existingLessonWithBooking.id,
+          timeslot: existingTimeslotWithBooking.id,
           user: user.id,
           status: 'confirmed',
           quantity: 1,
@@ -138,30 +138,30 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Create a lesson for the second tenant (should not be affected)
       // Use a different time slot to avoid conflicts
-      const secondTenantLesson = (await payload.create({
+      const secondTenantTimeslot = (await payload.create({
         collection: 'timeslots',
         data: {
           date: tomorrow.toISOString(),
           startTime: new Date(tomorrow.getTime() + 16 * 60 * 60 * 1000).toISOString(), // 4 PM (different from test tenant's times)
           endTime: new Date(tomorrow.getTime() + 17 * 60 * 60 * 1000).toISOString(), // 5 PM
-          classOption: secondTenantClassOption.id,
+          eventType: secondTenantEventType.id,
           tenant: Number(secondTenant.id),
           active: true,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
       // Verify the second tenant's lesson exists before running the job
-      const secondTenantLessonBefore = await payload.findByID({
+      const secondTenantTimeslotBefore = await payload.findByID({
         collection: 'timeslots',
-        id: secondTenantLesson.id,
+        id: secondTenantTimeslot.id,
         overrideAccess: true,
       })
-      expect(secondTenantLessonBefore).toBeDefined()
-      expect(secondTenantLessonBefore.id).toBe(secondTenantLesson.id)
+      expect(secondTenantTimeslotBefore).toBeDefined()
+      expect(secondTenantTimeslotBefore.id).toBe(secondTenantTimeslot.id)
 
-      // Count lessons for second tenant before running scheduler
-      const secondTenantLessonsBefore = await payload.find({
+      // Count timeslots for second tenant before running scheduler
+      const secondTenantTimeslotsBefore = await payload.find({
         collection: 'timeslots',
         where: {
           and: [
@@ -185,7 +185,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         limit: 100,
         overrideAccess: true,
       })
-      const initialLessonCount = secondTenantLessonsBefore.docs.length
+      const initialTimeslotCount = secondTenantTimeslotsBefore.docs.length
 
       // Create scheduler for test tenant - let hook set tenant from context
       // Schedule: Monday 10-11 AM, Wednesday 2-3 PM
@@ -200,8 +200,8 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           tenant: Number(testTenant.id), // Explicitly set tenant for isGlobal collections
           startDate: tomorrow.toISOString(),
           endDate: endDate.toISOString(),
-          clearExisting: true, // Should delete lessons without bookings
-          defaultClassOption: classOption.id,
+          clearExisting: true, // Should delete timeslots without bookings
+          defaultEventType: eventType.id,
           lockOutTime: 60,
           week: {
             days: [
@@ -211,7 +211,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
                   {
                     startTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
                     endTime: new Date(tomorrow.getTime() + 11 * 60 * 60 * 1000).toISOString(), // 11 AM
-                    classOption: classOption.id,
+                    eventType: eventType.id,
                     location: 'Test Location',
                     active: true,
                   },
@@ -227,7 +227,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
                   {
                     startTime: new Date(tomorrow.getTime() + 14 * 60 * 60 * 1000).toISOString(), // 2 PM
                     endTime: new Date(tomorrow.getTime() + 15 * 60 * 60 * 1000).toISOString(), // 3 PM
-                    classOption: classOption.id,
+                    eventType: eventType.id,
                     location: 'Test Location',
                     active: true,
                   },
@@ -260,20 +260,20 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       // Give it some time to process
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      // Verify: Lesson without booking should be deleted (clearExisting: true)
-      const deletedLesson = await payload.findByID({
+      // Verify: Timeslot without booking should be deleted (clearExisting: true)
+      const deletedTimeslot = await payload.findByID({
         collection: 'timeslots',
-        id: existingLessonWithoutBooking.id,
+        id: existingTimeslotWithoutBooking.id,
       }).catch(() => null)
-      expect(deletedLesson).toBeNull()
+      expect(deletedTimeslot).toBeNull()
 
-      // Verify: Lesson with active booking should still exist
-      const preservedLesson = await payload.findByID({
+      // Verify: Timeslot with active booking should still exist
+      const preservedTimeslot = await payload.findByID({
         collection: 'timeslots',
-        id: existingLessonWithBooking.id,
+        id: existingTimeslotWithBooking.id,
       })
-      expect(preservedLesson).toBeDefined()
-      expect(preservedLesson.id).toBe(existingLessonWithBooking.id)
+      expect(preservedTimeslot).toBeDefined()
+      expect(preservedTimeslot.id).toBe(existingTimeslotWithBooking.id)
 
       // Verify: Booking should still exist
       const preservedBooking = await payload.findByID({
@@ -285,21 +285,21 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Verify: Second tenant's lesson should not be affected
       // Use overrideAccess to bypass filtering for verification
-      const secondTenantLessonPreserved = await payload.findByID({
+      const secondTenantTimeslotPreserved = await payload.findByID({
         collection: 'timeslots',
-        id: secondTenantLesson.id,
+        id: secondTenantTimeslot.id,
         overrideAccess: true,
       })
-      expect(secondTenantLessonPreserved).toBeDefined()
-      expect(secondTenantLessonPreserved.id).toBe(secondTenantLesson.id)
-      const lessonTenant = typeof secondTenantLessonPreserved.tenant === 'object' && secondTenantLessonPreserved.tenant !== null
-        ? secondTenantLessonPreserved.tenant.id
-        : secondTenantLessonPreserved.tenant
+      expect(secondTenantTimeslotPreserved).toBeDefined()
+      expect(secondTenantTimeslotPreserved.id).toBe(secondTenantTimeslot.id)
+      const lessonTenant = typeof secondTenantTimeslotPreserved.tenant === 'object' && secondTenantTimeslotPreserved.tenant !== null
+        ? secondTenantTimeslotPreserved.tenant.id
+        : secondTenantTimeslotPreserved.tenant
       expect(lessonTenant).toBe(secondTenant.id)
 
-      // Verify: New lessons should be generated for the test tenant
-      // Find all lessons for the test tenant in the date range
-      const generatedLessons = await payload.find({
+      // Verify: New timeslots should be generated for the test tenant
+      // Find all timeslots for the test tenant in the date range
+      const generatedTimeslots = await payload.find({
         collection: 'timeslots',
         where: {
           and: [
@@ -323,21 +323,21 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         limit: 100,
       })
 
-      // Should have at least the preserved lesson + new generated lessons
+      // Should have at least the preserved lesson + new generated timeslots
       // The exact count depends on which days fall in the range
-      expect(generatedLessons.docs.length).toBeGreaterThan(0)
+      expect(generatedTimeslots.docs.length).toBeGreaterThan(0)
 
-      // Verify all generated lessons belong to the test tenant
-      for (const lesson of generatedLessons.docs) {
+      // Verify all generated timeslots belong to the test tenant
+      for (const lesson of generatedTimeslots.docs) {
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
           ? lesson.tenant.id
           : lesson.tenant
         expect(lessonTenantId).toBe(testTenant.id)
       }
 
-      // Verify: No lessons were generated for the second tenant
+      // Verify: No timeslots were generated for the second tenant
       // Use overrideAccess and explicit tenant filter to verify isolation
-      const secondTenantLessons = await payload.find({
+      const secondTenantTimeslots = await payload.find({
         collection: 'timeslots',
         where: {
           and: [
@@ -362,18 +362,18 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
         overrideAccess: true,
       })
 
-      // Should have the same number of lessons as before (no new ones generated)
-      expect(secondTenantLessons.docs.length).toBe(initialLessonCount)
+      // Should have the same number of timeslots as before (no new ones generated)
+      expect(secondTenantTimeslots.docs.length).toBe(initialTimeslotCount)
       // Verify our specific lesson still exists
-      const ourLesson = secondTenantLessons.docs.find(l => l.id === secondTenantLesson.id)
-      expect(ourLesson).toBeDefined()
-      expect(ourLesson?.id).toBe(secondTenantLesson.id)
+      const ourTimeslot = secondTenantTimeslots.docs.find(l => l.id === secondTenantTimeslot.id)
+      expect(ourTimeslot).toBeDefined()
+      expect(ourTimeslot?.id).toBe(secondTenantTimeslot.id)
     },
     TEST_TIMEOUT,
   )
 
   it(
-    'does not delete lessons when clearExisting is false',
+    'does not delete timeslots when clearExisting is false',
     async () => {
       // Set up dates: start from 4 days from now
       const startDate = new Date()
@@ -385,18 +385,18 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       endDate.setHours(23, 59, 59, 999)
 
       // Create an existing lesson
-      const existingLesson = (await payload.create({
+      const existingTimeslot = (await payload.create({
         collection: 'timeslots',
         data: {
           date: startDate.toISOString(),
           startTime: new Date(startDate.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
           endTime: new Date(startDate.getTime() + 11 * 60 * 60 * 1000).toISOString(), // 11 AM
-          classOption: classOption.id,
+          eventType: eventType.id,
           tenant: Number(testTenant.id),
           active: true,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
       // Delete any existing scheduler for this tenant first (isGlobal: true means one per tenant)
       try {
@@ -433,8 +433,8 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
           tenant: Number(testTenant.id), // Explicitly set tenant for isGlobal collections
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
-          clearExisting: false, // Should NOT delete existing lessons
-          defaultClassOption: classOption.id,
+          clearExisting: false, // Should NOT delete existing timeslots
+          defaultEventType: eventType.id,
           lockOutTime: 60,
           // Don't set tenant in data - let the beforeChange hook set it from req.context.tenant
           week: {
@@ -445,7 +445,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
                   {
                     startTime: new Date(startDate.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
                     endTime: new Date(startDate.getTime() + 11 * 60 * 60 * 1000).toISOString(), // 11 AM
-                    classOption: classOption.id,
+                    eventType: eventType.id,
                     location: 'Test Location',
                     active: true,
                   },
@@ -468,12 +468,12 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Verify: Existing lesson should still exist
-      const preservedLesson = await payload.findByID({
+      const preservedTimeslot = await payload.findByID({
         collection: 'timeslots',
-        id: existingLesson.id,
+        id: existingTimeslot.id,
       })
-      expect(preservedLesson).toBeDefined()
-      expect(preservedLesson.id).toBe(existingLesson.id)
+      expect(preservedTimeslot).toBeDefined()
+      expect(preservedTimeslot.id).toBe(existingTimeslot.id)
     },
     TEST_TIMEOUT,
   )

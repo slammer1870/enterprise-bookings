@@ -25,7 +25,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "_posts_v_blocks_form_block" DISABLE ROW LEVEL SECURITY;
   DROP TABLE IF EXISTS "posts_blocks_form_block" CASCADE;
   DROP TABLE IF EXISTS "_posts_v_blocks_form_block" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-25T19:56:53.615Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-25T19:56:53.615Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-25T19:56:53.615Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-25T19:56:53.615Z';
   DO $$ BEGIN
@@ -89,7 +89,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   ALTER TABLE "_posts_v_blocks_content" DISABLE ROW LEVEL SECURITY;
   DROP TABLE IF EXISTS "posts_blocks_content" CASCADE;
   DROP TABLE IF EXISTS "_posts_v_blocks_content" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:01:30.610Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:01:30.610Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-23T11:01:30.610Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-23T11:01:30.610Z';
   DO $$ BEGIN

@@ -29,7 +29,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"sessions_information_sessions" numeric,
   	"sessions_information_interval_count" numeric,
   	"sessions_information_interval" "enum_plans_sessions_information_interval",
-  	"sessions_information_allow_multiple_bookings_per_lesson" boolean DEFAULT false,
+  	"sessions_information_allow_multiple_bookings_per_timeslot" boolean DEFAULT false,
   	"stripe_product_id" varchar,
   	"price_information_price" numeric,
   	"price_information_interval_count" numeric,
@@ -82,7 +82,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "footer" ALTER COLUMN "updated_at" SET NOT NULL;
   ALTER TABLE "footer" ALTER COLUMN "created_at" SET DEFAULT now();
   ALTER TABLE "footer" ALTER COLUMN "created_at" SET NOT NULL;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-10T06:47:06.223Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-10T06:47:06.223Z';
   DO $$ BEGIN ALTER TABLE "footer" ADD COLUMN "tenant_id" integer; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
   DO $$ BEGIN ALTER TABLE "class_options_rels" ADD COLUMN "plans_id" integer; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
   DO $$ BEGIN ALTER TABLE "bookings" ADD COLUMN "subscription_id_used" numeric; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -254,7 +254,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   ALTER TABLE "footer" ALTER COLUMN "updated_at" DROP NOT NULL;
   ALTER TABLE "footer" ALTER COLUMN "created_at" DROP DEFAULT;
   ALTER TABLE "footer" ALTER COLUMN "created_at" DROP NOT NULL;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-29T09:52:04.867Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-29T09:52:04.867Z';
   ALTER TABLE "class_options" ADD COLUMN "payment_methods_payments_enabled" boolean DEFAULT false;
   ALTER TABLE "class_options_rels" ADD COLUMN "memberships_id" integer;
   ALTER TABLE "class_pass_types" ADD COLUMN "price_information_price_cents" numeric;

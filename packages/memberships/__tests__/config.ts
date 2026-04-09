@@ -74,7 +74,7 @@ export const config: Config = {
     }),
     membershipsPlugin({
       enabled: true,
-      paymentMethodSlugs: ["class-options"],
+      paymentMethodSlugs: ["event-types"],
     }),
   ],
 };

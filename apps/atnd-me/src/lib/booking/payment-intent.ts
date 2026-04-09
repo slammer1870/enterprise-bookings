@@ -11,7 +11,7 @@ type PayloadLike = any
 export async function validateBookingIdsFromMetadata(
   payload: PayloadLike,
   metadata: { bookingIds?: string },
-  opts: { lessonId: number; userId: number; user?: unknown }
+  opts: { timeslotId: number; userId: number; user?: unknown }
 ): Promise<string[]> {
   const raw = metadata?.bookingIds
   if (!raw || typeof raw !== 'string') return []
@@ -30,7 +30,7 @@ export async function validateBookingIdsFromMetadata(
     where: {
       and: [
         { id: { in: ids } },
-        { lesson: { equals: opts.lessonId } },
+        { timeslot: { equals: opts.timeslotId } },
         { user: { equals: opts.userId } },
         { status: { equals: 'pending' } },
       ],
@@ -47,7 +47,7 @@ export async function validateBookingIdsFromMetadata(
 
 /** Format capacity error message. */
 export function formatCapacityError(remaining: number, requested: number): string {
-  if (remaining === 0) return 'This lesson is fully booked.'
+  if (remaining === 0) return 'This timeslot is fully booked.'
   return `Only ${remaining} spot${remaining !== 1 ? 's' : ''} available. You requested ${requested}.`
 }
 
@@ -55,14 +55,14 @@ export function formatCapacityError(remaining: number, requested: number): strin
 export async function reservePendingBookings(
   payload: PayloadLike,
   opts: {
-    lessonId: number
+    timeslotId: number
     userId: number
     user?: unknown
     tenantId: number
     quantity: number
   }
 ): Promise<string[]> {
-  const { lessonId, userId, tenantId, quantity } = opts
+  const { timeslotId, userId, tenantId, quantity } = opts
   const PENDING_CUTOFF_MS = 5 * 60 * 1000
   const pendingCutoff = new Date(Date.now() - PENDING_CUTOFF_MS).toISOString()
 
@@ -70,7 +70,7 @@ export async function reservePendingBookings(
     collection: 'bookings',
     where: {
       and: [
-        { lesson: { equals: lessonId } },
+        { timeslot: { equals: timeslotId } },
         { user: { equals: userId } },
         { status: { equals: 'pending' } },
         { createdAt: { greater_than: pendingCutoff } },
@@ -87,15 +87,15 @@ export async function reservePendingBookings(
   const need = quantity - existingIds.length
 
   if (need > 0) {
-    const lesson = (await payload.findByID({
-      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-      id: lessonId,
+    const timeslot = (await payload.findByID({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      id: timeslotId,
       depth: 1,
       overrideAccess: true,
     })) as { remainingCapacity?: number } | null
     const cap =
-      lesson && typeof lesson.remainingCapacity === 'number'
-        ? Math.max(0, lesson.remainingCapacity)
+      timeslot && typeof timeslot.remainingCapacity === 'number'
+        ? Math.max(0, timeslot.remainingCapacity)
         : 0
 
     if (need > cap) {
@@ -107,7 +107,7 @@ export async function reservePendingBookings(
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: timeslotId,
           tenant: tenantId,
           status: 'pending',
         },

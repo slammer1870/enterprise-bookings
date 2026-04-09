@@ -5,11 +5,11 @@ export {
   bookingUpdateAccess,
   createBookingAccess,
 } from "./access/bookings";
-export { generateLessonsFromSchedule } from "./tasks/generate-lessons";
-// Export from .ts handler so Node/Vite never resolves via `generate-lessons.js` (which omits the factory).
-export { createGenerateLessonsFromScheduleHandler } from "./tasks/create-generate-lessons-handler";
+export { generateTimeslotsFromSchedule } from "./tasks/generate-timeslots";
+// Export from .ts handler so Node/Vite never resolves via `generate-timeslots.js` (which omits the factory).
+export { createGenerateTimeslotsFromScheduleHandler } from "./tasks/create-generate-timeslots-handler";
 export {
-  resolveBookingsPluginSlugs,
-  DEFAULT_BOOKINGS_PLUGIN_SLUGS,
+  resolveBookingCollectionSlugs,
+  DEFAULT_BOOKING_COLLECTION_SLUGS,
 } from "./resolve-slugs";
-export type { BookingsPluginSlugs } from "./resolve-slugs";
+export type { BookingCollectionSlugs } from "./resolve-slugs";

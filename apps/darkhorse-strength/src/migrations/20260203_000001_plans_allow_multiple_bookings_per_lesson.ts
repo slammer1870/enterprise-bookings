@@ -1,7 +1,7 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 /**
- * Add allowMultipleBookingsPerLesson to plans.sessionsInformation.
+ * Add allowMultipleBookingsPerTimeslot to plans.sessionsInformation.
  * When true (and sessions is defined), subscribers can use multiple session credits on the same lesson.
  * Only alter if plans table exists.
  */

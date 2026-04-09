@@ -55,7 +55,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  CREATE TABLE IF NOT EXISTS "instructors" (
+  CREATE TABLE IF NOT EXISTS "staffMembers" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"name" varchar,
@@ -80,7 +80,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 	"data" jsonb NOT NULL
   );
   
-  ALTER TABLE "lessons" DROP CONSTRAINT IF EXISTS "lessons_instructor_id_users_id_fk";
+  ALTER TABLE "timeslots" DROP CONSTRAINT IF EXISTS "timeslots_instructor_id_users_id_fk";
   
   ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_image_id_media_id_fk";
   
@@ -90,8 +90,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   DROP INDEX IF EXISTS "users_image_idx";
   DROP INDEX IF EXISTS "payload_locked_documents_rels_payload_jobs_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-15T13:07:04.505Z';
-  ALTER TABLE "lessons" ALTER COLUMN "original_lock_out_time" SET DEFAULT 0;
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-15T13:07:04.505Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "original_lock_out_time" SET DEFAULT 0;
   ALTER TABLE "users" ALTER COLUMN "name" DROP NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-15T13:07:04.601Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-15T13:07:04.601Z';
@@ -105,7 +105,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN IF NOT EXISTS "sessions_id" integer;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN IF NOT EXISTS "verifications_id" integer;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN IF NOT EXISTS "admin_invitations_id" integer;
-  ALTER TABLE "payload_locked_documents_rels" ADD COLUMN IF NOT EXISTS "instructors_id" integer;
+  ALTER TABLE "payload_locked_documents_rels" ADD COLUMN IF NOT EXISTS "staffMembers_id" integer;
   DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'accounts_user_id_users_id_fk') THEN
       ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
@@ -125,14 +125,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_user_id_users_id_fk') THEN
-      ALTER TABLE "instructors" ADD CONSTRAINT "instructors_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'staffMembers_user_id_users_id_fk') THEN
+      ALTER TABLE "staffMembers" ADD CONSTRAINT "staffMembers_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
     END IF;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'instructors_profile_image_id_media_id_fk') THEN
-      ALTER TABLE "instructors" ADD CONSTRAINT "instructors_profile_image_id_media_id_fk" FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'staffMembers_profile_image_id_media_id_fk') THEN
+      ALTER TABLE "staffMembers" ADD CONSTRAINT "staffMembers_profile_image_id_media_id_fk" FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
     END IF;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
@@ -168,16 +168,16 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "admin_invitations_token_idx" ON "admin_invitations" USING btree ("token");
   CREATE INDEX IF NOT EXISTS "admin_invitations_updated_at_idx" ON "admin_invitations" USING btree ("updated_at");
   CREATE INDEX IF NOT EXISTS "admin_invitations_created_at_idx" ON "admin_invitations" USING btree ("created_at");
-  CREATE UNIQUE INDEX IF NOT EXISTS "instructors_user_idx" ON "instructors" USING btree ("user_id");
-  CREATE INDEX IF NOT EXISTS "instructors_profile_image_idx" ON "instructors" USING btree ("profile_image_id");
-  CREATE INDEX IF NOT EXISTS "instructors_updated_at_idx" ON "instructors" USING btree ("updated_at");
-  CREATE INDEX IF NOT EXISTS "instructors_created_at_idx" ON "instructors" USING btree ("created_at");
+  CREATE UNIQUE INDEX IF NOT EXISTS "staffMembers_user_idx" ON "staffMembers" USING btree ("user_id");
+  CREATE INDEX IF NOT EXISTS "staffMembers_profile_image_idx" ON "staffMembers" USING btree ("profile_image_id");
+  CREATE INDEX IF NOT EXISTS "staffMembers_updated_at_idx" ON "staffMembers" USING btree ("updated_at");
+  CREATE INDEX IF NOT EXISTS "staffMembers_created_at_idx" ON "staffMembers" USING btree ("created_at");
   CREATE INDEX IF NOT EXISTS "users_sessions_order_idx" ON "users_sessions" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "users_sessions_parent_id_idx" ON "users_sessions" USING btree ("_parent_id");
   CREATE UNIQUE INDEX IF NOT EXISTS "payload_kv_key_idx" ON "payload_kv" USING btree ("key");
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'lessons_instructor_id_instructors_id_fk') THEN
-      ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_instructors_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'timeslots_instructor_id_staffMembers_id_fk') THEN
+      ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_instructor_id_staffMembers_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."staffMembers"("id") ON DELETE set null ON UPDATE no action;
     END IF;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
@@ -206,14 +206,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payload_locked_documents_rels_instructors_fk') THEN
-      ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_instructors_fk" FOREIGN KEY ("instructors_id") REFERENCES "public"."instructors"("id") ON DELETE cascade ON UPDATE no action;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'payload_locked_documents_rels_staffMembers_fk') THEN
+      ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_staffMembers_fk" FOREIGN KEY ("staffMembers_id") REFERENCES "public"."staffMembers"("id") ON DELETE cascade ON UPDATE no action;
     END IF;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
   DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_instructor_id_instructors_id_fk') THEN
-      ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_instructors_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'scheduler_week_days_time_slot_instructor_id_staffMembers_id_fk') THEN
+      ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_staffMembers_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."staffMembers"("id") ON DELETE set null ON UPDATE no action;
     END IF;
   EXCEPTION WHEN OTHERS THEN null;
   END $$;
@@ -221,7 +221,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_sessions_id_idx" ON "payload_locked_documents_rels" USING btree ("sessions_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_verifications_id_idx" ON "payload_locked_documents_rels" USING btree ("verifications_id");
   CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_admin_invitations_id_idx" ON "payload_locked_documents_rels" USING btree ("admin_invitations_id");
-  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_instructors_id_idx" ON "payload_locked_documents_rels" USING btree ("instructors_id");
+  CREATE INDEX IF NOT EXISTS "payload_locked_documents_rels_staffMembers_id_idx" ON "payload_locked_documents_rels" USING btree ("staffMembers_id");
   ALTER TABLE "users" DROP COLUMN IF EXISTS "image_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN IF EXISTS "payload_jobs_id";`)
 }
@@ -232,17 +232,17 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   ALTER TABLE "sessions" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "verifications" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "admin_invitations" DISABLE ROW LEVEL SECURITY;
-  ALTER TABLE "instructors" DISABLE ROW LEVEL SECURITY;
+  ALTER TABLE "staffMembers" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "users_sessions" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "payload_kv" DISABLE ROW LEVEL SECURITY;
   DROP TABLE "accounts" CASCADE;
   DROP TABLE "sessions" CASCADE;
   DROP TABLE "verifications" CASCADE;
   DROP TABLE "admin_invitations" CASCADE;
-  DROP TABLE "instructors" CASCADE;
+  DROP TABLE "staffMembers" CASCADE;
   DROP TABLE "users_sessions" CASCADE;
   DROP TABLE "payload_kv" CASCADE;
-  ALTER TABLE "lessons" DROP CONSTRAINT "lessons_instructor_id_instructors_id_fk";
+  ALTER TABLE "timeslots" DROP CONSTRAINT "timeslots_instructor_id_staffMembers_id_fk";
   
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_accounts_fk";
   
@@ -252,23 +252,23 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_admin_invitations_fk";
   
-  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_instructors_fk";
+  ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_staffMembers_fk";
   
-  ALTER TABLE "scheduler_week_days_time_slot" DROP CONSTRAINT "scheduler_week_days_time_slot_instructor_id_instructors_id_fk";
+  ALTER TABLE "scheduler_week_days_time_slot" DROP CONSTRAINT "scheduler_week_days_time_slot_instructor_id_staffMembers_id_fk";
   
   DROP INDEX "payload_locked_documents_rels_accounts_id_idx";
   DROP INDEX "payload_locked_documents_rels_sessions_id_idx";
   DROP INDEX "payload_locked_documents_rels_verifications_id_idx";
   DROP INDEX "payload_locked_documents_rels_admin_invitations_id_idx";
-  DROP INDEX "payload_locked_documents_rels_instructors_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-12-09T16:41:50.230Z';
-  ALTER TABLE "lessons" ALTER COLUMN "original_lock_out_time" DROP DEFAULT;
+  DROP INDEX "payload_locked_documents_rels_staffMembers_id_idx";
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-12-09T16:41:50.230Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "original_lock_out_time" DROP DEFAULT;
   ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-12-09T16:41:50.230Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-12-09T16:41:50.230Z';
   ALTER TABLE "users" ADD COLUMN "image_id" integer;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "payload_jobs_id" integer;
-  ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "users" ADD CONSTRAINT "users_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_payload_jobs_fk" FOREIGN KEY ("payload_jobs_id") REFERENCES "public"."payload_jobs"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_users_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
@@ -284,7 +284,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "sessions_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "verifications_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "admin_invitations_id";
-  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "instructors_id";
+  ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "staffMembers_id";
   DROP TYPE "public"."enum_admin_invitations_role";
   DROP TYPE "public"."enum_users_role";`)
 }

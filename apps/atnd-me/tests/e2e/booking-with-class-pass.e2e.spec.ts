@@ -6,8 +6,8 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   getPayloadInstance,
 } from './helpers/data-helpers'
 
@@ -85,7 +85,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
       overrideAccess: true,
     })
 
-    const co = await createTestClassOption(tenantId, 'Class Pass Only', 5, undefined, w)
+    const co = await createTestEventType(tenantId, 'Class Pass Only', 5, undefined, w)
     const cpt = await payload.create({
       collection: 'class-pass-types',
       data: {
@@ -127,7 +127,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     start.setHours(14, 0, 0, 0)
     const end = new Date(start)
     end.setHours(15, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
 
     await new Promise((r) => setTimeout(r, 600))
 
@@ -144,13 +144,17 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     const qty = page.getByRole('button', { name: /increase quantity/i }).first()
     await qty.click().catch(() => null)
 
-    // Wait for payment methods to resolve (getValidClassPassesForLesson) so Class pass tab can appear
+    // Wait for payment methods to resolve (getValidClassPassesForTimeslot) so Class pass tab can appear
     await page.waitForTimeout(2000)
     const classPassTab = page.getByRole('tab', { name: /class pass/i })
     await expect(classPassTab).toBeVisible({ timeout: 15000 })
 
     await classPassTab.click()
-    await expect(page.getByText(/use this pass|confirm with class pass|remaining/i).first()).toBeVisible({ timeout: 5000 })
+    await expect(
+      page
+        .getByText(/use this pass|confirm with class pass|use a class pass to book|credits? remaining/i)
+        .first()
+    ).toBeVisible({ timeout: 15000 })
 
     const confirmBtn = page.getByRole('button', { name: /confirm with class pass|book|use pass/i }).first()
     await expect(confirmBtn).toBeVisible()
@@ -196,7 +200,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
 
     // Class pass type with priceJSON so "Buy pass" button appears
     const cptName = `E2E Buy+Book 5-Pack w${w} ${Date.now()}`
-    const co = await createTestClassOption(tenantId, 'Buy And Book Pass', 5, undefined, w)
+    const co = await createTestEventType(tenantId, 'Buy And Book Pass', 5, undefined, w)
     const cpt = await payload.create({
       collection: 'class-pass-types',
       data: {
@@ -224,7 +228,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     start.setHours(18, 0, 0, 0)
     const end = new Date(start)
     end.setHours(19, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
 
     await new Promise((r) => setTimeout(r, 600))
 
@@ -335,7 +339,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
       overrideAccess: true,
     })
 
-    const co = await createTestClassOption(tenantId, 'Class Pass Only No Valid Pass', 5, undefined, w)
+    const co = await createTestEventType(tenantId, 'Class Pass Only No Valid Pass', 5, undefined, w)
     const cpt = await payload.create({
       collection: 'class-pass-types',
       data: {
@@ -363,7 +367,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     start.setHours(16, 0, 0, 0)
     const end = new Date(start)
     end.setHours(17, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
 
     await new Promise((r) => setTimeout(r, 600))
 
@@ -409,14 +413,14 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
       overrideAccess: true,
     })
 
-    const co = await createTestClassOption(tenantId, 'Manageable Class Pass', 8, undefined, w)
+    const co = await createTestEventType(tenantId, 'Manageable Class Pass', 8, undefined, w)
     const cpt = await payload.create({
       collection: 'class-pass-types',
       data: {
         name: `E2E Manageable 5-Pack w${w} ${Date.now()}`,
         slug: `e2e-manageable-5-pack-${tenantId}-${w}-${Date.now()}`,
         quantity: 5,
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
         tenant: tenantId,
         priceInformation: { price: 29.99 },
         skipSync: true,
@@ -453,7 +457,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     start.setHours(11, 0, 0, 0)
     const end = new Date(start)
     end.setHours(12, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
 
     await new Promise((r) => setTimeout(r, 600))
 

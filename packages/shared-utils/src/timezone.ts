@@ -23,7 +23,7 @@ type TenantRelation =
   | null
   | undefined;
 
-type LessonTimeZoneSource = {
+type TimeslotTimeZoneSource = {
   timeZone?: string | null;
   tenant?: TenantRelation;
 };
@@ -45,8 +45,8 @@ export function resolveTimeZone(
   return isValidTimeZone(value) ? value : fallback;
 }
 
-export function resolveLessonTimeZone(
-  lesson: LessonTimeZoneSource | null | undefined,
+export function resolveTimeslotTimeZone(
+  lesson: TimeslotTimeZoneSource | null | undefined,
   fallback = DEFAULT_TIME_ZONE
 ): string {
   if (lesson && isValidTimeZone(lesson.timeZone)) {

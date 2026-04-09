@@ -40,17 +40,17 @@ Phase 2: add 2-segment **tenant.org**; resolution order is org-first, then locat
 - **Access**: tenant-scoped (multi-tenant plugin or explicit `where: { tenant: ... }`).
 - **Validation**: Compound unique `(tenant_id, slug)` (or `beforeValidate` check).
 
-### Location on lessons / bookings
+### Location on timeslots / bookings
 
-- **Lessons**: add **`location`** (relationship to `locations`, optional). If set, lesson is at that location.
+- **Timeslots**: add **`location`** (relationship to `locations`, optional). If set, lesson is at that location.
 - **Bookings**: location derived from lesson or stored for filtering.
-- **Instructors / class-options**: add `location` (optional) if they vary by location.
+- **StaffMembers / event-types**: add `location` (optional) if they vary by location.
 
 ### Pages (and Navbar, Footer) – no location
 
 - Do **not** add a `location` field. Pages stay **tenant-scoped only**.
 - **Who manages**: Only **tenant-admin** and super admin. **Location-manager** has **no access** to Pages (or read-only if you prefer).
-- **Frontend**: On `dublin.saunabusiness.atnd.me` the site loads the **tenant’s** pages; **location** is used for “Book at this location”, contact info, and which lessons to show — not for choosing which page document to load.
+- **Frontend**: On `dublin.saunabusiness.atnd.me` the site loads the **tenant’s** pages; **location** is used for “Book at this location”, contact info, and which timeslots to show — not for choosing which page document to load.
 
 ## Phase 1 – Resolution (2 segments only = location.tenant)
 
@@ -90,16 +90,16 @@ Ensure **getTenantContext** uses this when `subdomain-prefix` is present so exis
 
 ## Phase 1 – Admin dashboard
 
-- **Super admin**: Configuration → **Tenants**, **Locations**. Tenant selector + **location selector** (when tenant has locations). Pages, Lessons, Bookings scoped by tenant/location.
-- **Tenant-admin**: Their tenant only; **Locations** for their tenant (list, create, edit). **Pages** full access for their tenant. Lessons, Bookings with optional location filter.
-- **Location-manager**: No Organisations, no Tenants list, **no Pages**. **Locations**: only their location(s). Lessons, Bookings: only their location(s).
+- **Super admin**: Configuration → **Tenants**, **Locations**. Tenant selector + **location selector** (when tenant has locations). Pages, Timeslots, Bookings scoped by tenant/location.
+- **Tenant-admin**: Their tenant only; **Locations** for their tenant (list, create, edit). **Pages** full access for their tenant. Timeslots, Bookings with optional location filter.
+- **Location-manager**: No Organisations, no Tenants list, **no Pages**. **Locations**: only their location(s). Timeslots, Bookings: only their location(s).
 - **Location selector**: When current tenant has locations, show “All locations” + list (super admin / tenant-admin); location-manager sees only their locations. Store in e.g. `payload-location` cookie.
 - **URL preview**: On **Location** edit: “Public URL: https://{location.slug}.{tenant.slug}.atnd.me”. On **Tenant** edit: “Public URL: https://{tenant.slug}.atnd.me”.
 
 ## Phase 1 – Implementation checklist
 
 - [ ] Add **Locations** collection (slug, tenant, name, address?, timezone?; slug unique per tenant).
-- [ ] Add **location** to lessons (and optionally bookings, instructors, class-options).
+- [ ] Add **location** to timeslots (and optionally bookings, staffMembers, event-types).
 - [ ] Middleware: for 2 segments set `subdomain-prefix`; for 1 segment set `tenant-slug`; for 0 clear both.
 - [ ] Add **getSubdomainContext(payload, source)** returning `{ tenant, location? }` (no org in P1); wire into getTenantContext when `subdomain-prefix` is set.
 - [ ] **Pages (and Navbar, Footer)**: access so only admin and tenant-admin can create/update/delete; location-manager no access (or read-only).
@@ -231,7 +231,7 @@ Extend the Phase 1 resolver to support org:
 
 ## Who sees what (by role) – full matrix (Phase 1 + 2)
 
-| Role | Organisations | Tenants | Locations | Pages / Navbar / Footer | Lessons / Bookings |
+| Role | Organisations | Tenants | Locations | Pages / Navbar / Footer | Timeslots / Bookings |
 |------|----------------|----------|------------|---------------------------|---------------------|
 | **Super admin** | All (P2) | All | All | All | All |
 | **Tenant-admin** | — | Their tenant(s); edit (no slug/org change in P2) | Their tenant's locations | Their tenant's pages (full) | Their tenant's data; optional location filter |

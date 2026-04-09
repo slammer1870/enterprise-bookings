@@ -9,7 +9,7 @@ export type DecrementClassPassHookOptions = {
   getClassPassIdToDecrement: (_args: {
     doc: {
       id: number;
-      lesson?: number | { id: number };
+      timeslot?: number | { id: number };
       user?: number | { id: number };
       status?: string;
     };
@@ -36,7 +36,7 @@ export function createDecrementClassPassHook(
     const passId = await getClassPassIdToDecrement({
       doc: doc as {
         id: number;
-        lesson?: number | { id: number };
+        timeslot?: number | { id: number };
         user?: number | { id: number };
         status?: string;
       },

@@ -4,10 +4,10 @@ import { ToggleDate } from "@repo/ui/components/toggle-date";
 
 import { useSchedule } from "../../providers/schedule";
 
-import { LessonList } from "./lessons/lesson-list";
+import { TimeslotList } from "./lessons/lesson-list";
 
 export const Schedule = () => {
-  const { lessons, isLoading, error, selectedDate, setSelectedDate } =
+  const { timeslots, isLoading, error, selectedDate, setSelectedDate } =
     useSchedule();
 
   return (
@@ -15,7 +15,7 @@ export const Schedule = () => {
       <ToggleDate date={selectedDate} setDate={setSelectedDate} />
       {!isLoading ? (
         <div>
-          <LessonList lessons={lessons} />
+          <TimeslotList timeslots={timeslots} />
         </div>
       ) : (
         <div>Loading...</div>

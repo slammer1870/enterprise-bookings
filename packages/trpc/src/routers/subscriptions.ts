@@ -9,10 +9,10 @@ import { findByIdSafe, findSafe } from "../utils/collections";
 import {
   getTenantSlug,
   resolveTenantId,
-  resolveTenantIdFromLessonId,
+  resolveTenantIdFromTimeslotId,
 } from "../utils/tenant";
 
-import { Subscription, Lesson, Plan } from "@repo/shared-types";
+import { Subscription, Timeslot, Plan } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 import {
   hasReachedSubscriptionLimit,
@@ -113,12 +113,12 @@ export const subscriptionsRouter = {
               .optional(),
           }),
         }),
-        lessonDate: z.date(),
+        timeslotDate: z.date(),
       })
     )
     .query(async ({ ctx, input }) => {
       const { user, payload } = ctx;
-      const { subscription, lessonDate } = input;
+      const { subscription, timeslotDate } = input;
 
       const plan = subscription.plan;
 
@@ -137,7 +137,7 @@ export const subscriptionsRouter = {
       const { startDate, endDate } = getIntervalStartAndEndDate(
         plan.sessionsInformation.interval,
         plan.sessionsInformation.intervalCount || 1,
-        lessonDate
+        timeslotDate
       );
 
       // TODO: add a check to see if the subscription is a drop in or free
@@ -149,10 +149,10 @@ export const subscriptionsRouter = {
           depth: 5,
           where: {
             user: { equals: user.id },
-            "lesson.classOption.paymentMethods.allowedPlans": {
+            "timeslot.eventType.paymentMethods.allowedPlans": {
               contains: plan.id,
             },
-            "lesson.startTime": {
+            "timeslot.startTime": {
               greater_than: startDate,
               less_than: endDate,
             },
@@ -176,12 +176,12 @@ export const subscriptionsRouter = {
 
       return false;
     }),
-  getSubscriptionForLesson: optionalUserProcedure
-    .use(requireBookingCollections("lessons"))
+  getSubscriptionForTimeslot: optionalUserProcedure
+    .use(requireBookingCollections("timeslots"))
     .use(requireCollections("subscriptions"))
     .input(
       z.object({
-        lessonId: z.number(),
+        timeslotId: z.number(),
         /** Selected booking quantity on the booking page (used to filter eligible upgrade plans). */
         quantity: z.number().min(1).optional(),
       })
@@ -203,18 +203,18 @@ export const subscriptionsRouter = {
 
       let tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(payload, input.lessonId, ctx.bookingsSlugs.lessons);
+        tenantId = await resolveTenantIdFromTimeslotId(payload, input.timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
-      // Get the lesson to check allowed plans
-      const lesson = await findByIdSafe<Lesson>(
+      // Get the timeslot to check allowed plans
+      const timeslot = await findByIdSafe<Timeslot>(
         payload,
-        ctx.bookingsSlugs.lessons,
-        input.lessonId,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
         { depth: 2, overrideAccess: Boolean(tenantId), user }
       );
 
-      if (!lesson) {
+      if (!timeslot) {
         return {
           subscription: null,
           subscriptionLimitReached: false,
@@ -225,9 +225,9 @@ export const subscriptionsRouter = {
         };
       }
 
-      const classOption =
-        typeof lesson.classOption === "object" ? lesson.classOption : null;
-      const allowedPlans = classOption?.paymentMethods?.allowedPlans || [];
+      const eventType =
+        typeof timeslot.eventType === "object" ? timeslot.eventType : null;
+      const allowedPlans = eventType?.paymentMethods?.allowedPlans || [];
       const allowedPlanDocs = (allowedPlans as unknown[]).filter(
         (p): p is Plan => typeof p === "object" && p != null && "id" in p
       );
@@ -291,17 +291,17 @@ export const subscriptionsRouter = {
       const limitReached = await hasReachedSubscriptionLimit(
         subscription as Subscription,
         payload,
-        new Date(lesson.startTime)
+        new Date(timeslot.startTime)
       );
 
       const remainingSessions = await getRemainingSessionsInPeriod(
         subscription as Subscription,
         payload,
-        new Date(lesson.startTime)
+        new Date(timeslot.startTime)
       );
 
       const selectedQuantity = input.quantity ?? 1;
-      const lessonDate = new Date(lesson.startTime);
+      const timeslotDate = new Date(timeslot.startTime);
 
       const eligiblePlansForQuantity =
         selectedQuantity > 1
@@ -310,7 +310,7 @@ export const subscriptionsRouter = {
               const eligible: Plan[] = [];
               for (const plan of candidates) {
                 const allowsMultiple =
-                  plan.sessionsInformation?.allowMultipleBookingsPerLesson ===
+                  plan.sessionsInformation?.allowMultipleBookingsPerTimeslot ===
                   true;
                 if (!allowsMultiple) continue;
 
@@ -318,7 +318,7 @@ export const subscriptionsRouter = {
                   subscription as Subscription,
                   plan,
                   payload,
-                  lessonDate
+                  timeslotDate
                 );
 
                 if (remainingForPlan != null && remainingForPlan < selectedQuantity) {
@@ -337,7 +337,7 @@ export const subscriptionsRouter = {
               subscription as Subscription,
               (eligiblePlansForQuantity ?? allowedPlanDocs) as Plan[],
               payload,
-              new Date(lesson.startTime)
+              new Date(timeslot.startTime)
             )
           : [];
 

@@ -2,8 +2,8 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   getPayloadInstance,
 } from './helpers/data-helpers'
 
@@ -91,7 +91,7 @@ test.describe('Drop-in promo code breakdown', () => {
       overrideAccess: true,
     }) as { id: number }
 
-    const classOption = await createTestClassOption(tenantId, 'Promo Breakdown Class', 5, undefined, workerIndex)
+    const classOption = await createTestEventType(tenantId, 'Promo Breakdown Class', 5, undefined, workerIndex)
     await payload.update({
       collection: 'event-types',
       id: classOption.id,
@@ -107,7 +107,7 @@ test.describe('Drop-in promo code breakdown', () => {
     startTime.setHours(12, 0, 0, 0)
     const endTime = new Date(startTime)
     endTime.setHours(13, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, classOption.id, startTime, endTime, undefined, true)
 
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', {
       request,

@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * Integration tests for the payment intent succeeded webhook handler.
- * Tests that bookings are created when a lessonId is included in the payment intent metadata.
+ * Tests that bookings are created when timeslotId is included in the payment intent metadata.
  */
 
 import type { Payload } from "payload";
@@ -19,7 +19,7 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 import { User } from "@repo/shared-types";
 
-import { createLesson } from "../bookings/lesson-helpers";
+import { createTimeslot } from "../bookings/timeslot-helpers";
 
 import { paymentIntentSucceeded } from "@repo/bookings-payments";
 
@@ -29,7 +29,7 @@ let payload: Payload;
 
 const TEST_TIMEOUT = 300000; // 5 minutes
 
-describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => {
+describe("Payment Intent Succeeded Webhook - Timeslot ID Booking Creation", () => {
   beforeAll(async () => {
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
@@ -49,7 +49,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
   });
 
   it(
-    "should create a booking when lessonId is included in payment intent metadata",
+    "should create a booking when timeslotId is included in payment intent metadata",
     async () => {
       if (!payload) {
         throw new Error("Payload is not initialized");
@@ -67,7 +67,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Create a class option
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option for Payment",
           places: 10,
@@ -76,10 +76,10 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       });
 
       // Create a lesson
-      const lesson = await createLesson(payload, {
+      const lesson = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
         durationHours: 1,
-        classOption: classOption.id,
+        eventType: classOption.id,
         location: "Test Location Payment",
       });
 
@@ -87,7 +87,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const existingBookingsBefore = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
       });
@@ -101,7 +101,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
             id: "pi_test123",
             customer: "cus_test123",
             metadata: {
-              lessonId: lesson.id.toString(),
+              timeslotId: lesson.id.toString(),
             },
           } as unknown as Stripe.PaymentIntent,
         },
@@ -121,7 +121,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const bookingsAfter = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
         depth: 0, // Get IDs only, not populated objects
@@ -130,9 +130,9 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       expect(bookingsAfter.docs.length).toBe(1);
       expect(bookingsAfter.docs[0]?.status).toBe("confirmed");
       const lessonId =
-        typeof bookingsAfter.docs[0]?.lesson === "object"
-          ? bookingsAfter.docs[0]?.lesson?.id
-          : bookingsAfter.docs[0]?.lesson;
+        typeof bookingsAfter.docs[0]?.timeslot === "object"
+          ? bookingsAfter.docs[0]?.timeslot?.id
+          : bookingsAfter.docs[0]?.timeslot;
       const userId =
         typeof bookingsAfter.docs[0]?.user === "object"
           ? bookingsAfter.docs[0]?.user?.id
@@ -144,7 +144,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
   );
 
   it(
-    "should update existing booking to confirmed when lessonId is included and booking already exists",
+    "should update existing booking to confirmed when timeslotId is included and booking already exists",
     async () => {
       if (!payload) {
         throw new Error("Payload is not initialized");
@@ -162,7 +162,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Create a class option
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option for Payment Update",
           places: 10,
@@ -171,10 +171,10 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       });
 
       // Create a lesson
-      const lesson = await createLesson(payload, {
+      const lesson = await createTimeslot(payload, {
         startHoursOffset: 11, // 11 AM
         durationHours: 1,
-        classOption: classOption.id,
+        eventType: classOption.id,
         location: "Test Location Payment Update",
       });
 
@@ -182,7 +182,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const existingBooking = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user.id,
           status: "pending",
         },
@@ -197,7 +197,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
             id: "pi_test456",
             customer: "cus_test456",
             metadata: {
-              lessonId: lesson.id.toString(),
+              timeslotId: lesson.id.toString(),
             },
           } as unknown as Stripe.PaymentIntent,
         },
@@ -218,9 +218,9 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       expect(updatedBooking.status).toBe("confirmed");
       const lessonId =
-        typeof updatedBooking.lesson === "object"
-          ? updatedBooking.lesson?.id
-          : updatedBooking.lesson;
+        typeof updatedBooking.timeslot === "object"
+          ? updatedBooking.timeslot?.id
+          : updatedBooking.timeslot;
       const userId =
         typeof updatedBooking.user === "object"
           ? updatedBooking.user?.id
@@ -232,7 +232,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const allBookings = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
       });
@@ -251,7 +251,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Create a class option
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option for Payment No User",
           places: 10,
@@ -260,10 +260,10 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       });
 
       // Create a lesson
-      const lesson = await createLesson(payload, {
+      const lesson = await createTimeslot(payload, {
         startHoursOffset: 12, // 12 PM
         durationHours: 1,
-        classOption: classOption.id,
+        eventType: classOption.id,
         location: "Test Location Payment No User",
       });
 
@@ -274,7 +274,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
             id: "pi_test789",
             customer: "cus_nonexistent",
             metadata: {
-              lessonId: lesson.id.toString(),
+              timeslotId: lesson.id.toString(),
             },
           } as unknown as Stripe.PaymentIntent,
         },
@@ -290,7 +290,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const bookings = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
         },
       });
 
@@ -335,27 +335,27 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
 
       // Create a class option
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
-          name: "Test Class Option for Same Lesson Bookings",
+          name: "Test Class Option for Same Timeslot Bookings",
           places: 10,
-          description: "Test Class Option for Same Lesson Bookings",
+          description: "Test Class Option for Same Timeslot Bookings",
         },
       });
 
       // Create a single lesson
-      const lesson = await createLesson(payload, {
+      const lesson = await createTimeslot(payload, {
         startHoursOffset: 16, // 4 PM
         durationHours: 1,
-        classOption: classOption.id,
-        location: "Test Location Same Lesson",
+        eventType: classOption.id,
+        location: "Test Location Same Timeslot",
       });
 
       // Create multiple bookings for the same lesson (different users)
       const booking1 = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user.id,
           status: "pending",
         },
@@ -364,7 +364,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const booking2 = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user2.id,
           status: "pending",
         },
@@ -373,7 +373,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const booking3 = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user3.id,
           status: "pending",
         },
@@ -385,17 +385,17 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       expect(booking3.status).toBe("pending");
 
       const lesson1Id =
-        typeof booking1.lesson === "object"
-          ? booking1.lesson?.id
-          : booking1.lesson;
+        typeof booking1.timeslot === "object"
+          ? booking1.timeslot?.id
+          : booking1.timeslot;
       const lesson2Id =
-        typeof booking2.lesson === "object"
-          ? booking2.lesson?.id
-          : booking2.lesson;
+        typeof booking2.timeslot === "object"
+          ? booking2.timeslot?.id
+          : booking2.timeslot;
       const lesson3Id =
-        typeof booking3.lesson === "object"
-          ? booking3.lesson?.id
-          : booking3.lesson;
+        typeof booking3.timeslot === "object"
+          ? booking3.timeslot?.id
+          : booking3.timeslot;
 
       expect(lesson1Id).toBe(lesson.id);
       expect(lesson2Id).toBe(lesson.id);
@@ -444,22 +444,22 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       expect(updatedBooking3.status).toBe("confirmed");
 
       // Verify all bookings are still for the same lesson
-      const updatedLesson1Id =
-        typeof updatedBooking1.lesson === "object"
-          ? updatedBooking1.lesson?.id
-          : updatedBooking1.lesson;
-      const updatedLesson2Id =
-        typeof updatedBooking2.lesson === "object"
-          ? updatedBooking2.lesson?.id
-          : updatedBooking2.lesson;
-      const updatedLesson3Id =
-        typeof updatedBooking3.lesson === "object"
-          ? updatedBooking3.lesson?.id
-          : updatedBooking3.lesson;
+      const updatedTimeslot1Id =
+        typeof updatedBooking1.timeslot === "object"
+          ? updatedBooking1.timeslot?.id
+          : updatedBooking1.timeslot;
+      const updatedTimeslot2Id =
+        typeof updatedBooking2.timeslot === "object"
+          ? updatedBooking2.timeslot?.id
+          : updatedBooking2.timeslot;
+      const updatedTimeslot3Id =
+        typeof updatedBooking3.timeslot === "object"
+          ? updatedBooking3.timeslot?.id
+          : updatedBooking3.timeslot;
 
-      expect(updatedLesson1Id).toBe(lesson.id);
-      expect(updatedLesson2Id).toBe(lesson.id);
-      expect(updatedLesson3Id).toBe(lesson.id);
+      expect(updatedTimeslot1Id).toBe(lesson.id);
+      expect(updatedTimeslot2Id).toBe(lesson.id);
+      expect(updatedTimeslot3Id).toBe(lesson.id);
 
       // Verify all bookings are linked to their respective users
       const updatedUser1Id =
@@ -480,18 +480,18 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       expect(updatedUser3Id).toBe(user3.id);
 
       // Verify all bookings exist for the lesson
-      const allBookingsForLesson = await payload.find({
+      const allBookingsForTimeslot = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
         },
         depth: 0,
       });
 
-      expect(allBookingsForLesson.docs.length).toBeGreaterThanOrEqual(3);
+      expect(allBookingsForTimeslot.docs.length).toBeGreaterThanOrEqual(3);
 
       // Verify all confirmed bookings for this lesson
-      const confirmedBookings = allBookingsForLesson.docs.filter(
+      const confirmedBookings = allBookingsForTimeslot.docs.filter(
         (booking) => booking.status === "confirmed"
       );
       expect(confirmedBookings.length).toBeGreaterThanOrEqual(3);
@@ -500,7 +500,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
   );
 
   it(
-    "should create multiple bookings when lessonId and quantity are in payment intent metadata",
+    "should create multiple bookings when timeslotId and quantity are in payment intent metadata",
     async () => {
       if (!payload) {
         throw new Error("Payload is not initialized");
@@ -516,7 +516,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       })) as User;
 
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option for Quantity",
           places: 10,
@@ -524,17 +524,17 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
         },
       });
 
-      const lesson = await createLesson(payload, {
+      const lesson = await createTimeslot(payload, {
         startHoursOffset: 14,
         durationHours: 1,
-        classOption: classOption.id,
+        eventType: classOption.id,
         location: "Test Location Quantity",
       });
 
       const existingBefore = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
       });
@@ -546,7 +546,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
             id: "pi_test_quantity",
             customer: "cus_test_quantity",
             metadata: {
-              lessonId: lesson.id.toString(),
+              timeslotId: lesson.id.toString(),
               quantity: "2",
             },
           } as unknown as Stripe.PaymentIntent,
@@ -561,7 +561,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const bookingsAfter = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
         depth: 0,
@@ -598,7 +598,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       })) as User;
 
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option for Cap",
           places: 2,
@@ -606,17 +606,17 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
         },
       });
 
-      const lesson = await createLesson(payload, {
+      const lesson = await createTimeslot(payload, {
         startHoursOffset: 15,
         durationHours: 1,
-        classOption: classOption.id,
+        eventType: classOption.id,
         location: "Test Location Cap",
       });
 
       await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: otherUser.id,
           status: "confirmed",
         },
@@ -625,7 +625,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const existingForUser = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
       });
@@ -637,7 +637,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
             id: "pi_test_cap",
             customer: "cus_test_cap",
             metadata: {
-              lessonId: lesson.id.toString(),
+              timeslotId: lesson.id.toString(),
               quantity: "2",
             },
           } as unknown as Stripe.PaymentIntent,
@@ -652,7 +652,7 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       const bookingsAfter = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
         depth: 0,
@@ -661,12 +661,12 @@ describe("Payment Intent Succeeded Webhook - Lesson ID Booking Creation", () => 
       expect(bookingsAfter.docs.length).toBe(1);
       expect(bookingsAfter.docs[0]?.status).toBe("confirmed");
 
-      const allForLesson = await payload.find({
+      const allForTimeslot = await payload.find({
         collection: "bookings",
-        where: { lesson: { equals: lesson.id } },
+        where: { timeslot: { equals: lesson.id } },
         depth: 0,
       });
-      const confirmedCount = allForLesson.docs.filter((b) => b.status === "confirmed").length;
+      const confirmedCount = allForTimeslot.docs.filter((b) => b.status === "confirmed").length;
       expect(confirmedCount).toBe(2);
     },
     TEST_TIMEOUT

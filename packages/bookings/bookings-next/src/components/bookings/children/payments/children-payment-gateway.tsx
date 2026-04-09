@@ -1,6 +1,6 @@
 "use client";
 
-import { ClassOption, Lesson } from "@repo/shared-types";
+import { EventType, Timeslot } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
@@ -14,15 +14,15 @@ import { ChildrenValidateSubscription } from "./children-validate-subscription";
  */
 export function ChildrenPaymentGateway({
   paymentMethods,
-  lessonDate,
-  lessonId,
+  timeslotDate,
+  timeslotId,
   bookingStatus,
   remainingCapacity,
 }: {
-  paymentMethods?: ClassOption["paymentMethods"];
-  lessonDate: Date;
-  lessonId: number;
-  bookingStatus: Lesson["bookingStatus"];
+  paymentMethods?: EventType["paymentMethods"];
+  timeslotDate: Date;
+  timeslotId: number;
+  bookingStatus: Timeslot["bookingStatus"];
   remainingCapacity: number;
 }) {
   const trpc = useTRPC();
@@ -37,7 +37,7 @@ export function ChildrenPaymentGateway({
     return (
       <ChildrenManageNoValidSubscription
         paymentMethods={paymentMethods as any}
-        lessonId={lessonId}
+        timeslotId={timeslotId}
         bookingStatus={bookingStatus}
         remainingCapacity={remainingCapacity}
       />
@@ -45,7 +45,7 @@ export function ChildrenPaymentGateway({
   }
 
   return (
-    <ChildrenValidateSubscription subscription={data} lessonDate={lessonDate} lessonId={lessonId} />
+    <ChildrenValidateSubscription subscription={data} timeslotDate={timeslotDate} timeslotId={timeslotId} />
   );
 }
 

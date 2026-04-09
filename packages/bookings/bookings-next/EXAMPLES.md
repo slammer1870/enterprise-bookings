@@ -56,8 +56,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
 ### Behavior
 
-- **Lesson with payment methods** → Shows `PaymentMethods` component (membership/drop-in tabs)
-- **Lesson without payment methods** → Shows simple quantity selector + booking form (MVP)
+- **Timeslot with payment methods** → Shows `PaymentMethods` component (membership/drop-in tabs)
+- **Timeslot without payment methods** → Shows simple quantity selector + booking form (MVP)
 
 ### Benefits
 
@@ -76,13 +76,13 @@ If you need more control over the UI, you can create a custom component:
 
 import { BookingPageClientSmart } from '@repo/bookings-next'
 import { PaymentMethods } from '@repo/payments-next'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 
 export function SmartBookingPage({ 
   lesson, 
   onSuccessRedirect 
 }: { 
-  lesson: Lesson
+  lesson: Timeslot
   onSuccessRedirect?: string 
 }) {
   return (

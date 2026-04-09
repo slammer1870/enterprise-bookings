@@ -1,6 +1,6 @@
 export { createBookingPage, bookingPageConfig } from './config'
 export {
-  parseLessonId,
+  parseTimeslotId,
   getRequestHost,
   createCallerForBooking,
   requireAuthForBooking,

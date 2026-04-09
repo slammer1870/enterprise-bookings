@@ -29,7 +29,7 @@ export default buildConfig({
     multiTenantPlugin({ tenantsSlug: 'tenants' /* ... */ }),
     clearableTenantPlugin({
       rootDocCollections: ['navbar', 'footer'],
-      collectionsRequireTenantOnCreate: ['lessons', 'instructors' /* ... */],
+      collectionsRequireTenantOnCreate: ['timeslots', 'staffMembers' /* ... */],
       collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
       getCookieDomain: () => getPayloadTenantCookieDomain(), // optional, for subdomain
       userHasAccessToAllTenants: (user) => checkRole(['admin'], user),

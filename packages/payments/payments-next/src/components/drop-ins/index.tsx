@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DropIn, Lesson } from "@repo/shared-types";
+import { DropIn, Timeslot } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { usePayment } from "../../hooks/use-payment";
@@ -64,7 +64,7 @@ function DropInCheckoutWithFee({
   metadata,
   createPaymentIntentUrl,
   FeeBreakdownComponent: _FeeBreakdownComponent,
-  lessonId,
+  timeslotId,
   onPaymentRedirectStart,
   returnUrl,
 }: {
@@ -72,18 +72,18 @@ function DropInCheckoutWithFee({
   priceComponent: React.ReactNode;
   metadata?: Record<string, string>;
   createPaymentIntentUrl?: string;
-  FeeBreakdownComponent?: React.ComponentType<{ classPriceCents: number; lessonId: number }>;
-  lessonId: number;
+  FeeBreakdownComponent?: React.ComponentType<{ classPriceCents: number; timeslotId: number }>;
+  timeslotId: number;
   onPaymentRedirectStart?: () => void;
   returnUrl?: string;
 }) {
   const trpc = useTRPC();
-  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { lessonId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
+  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { timeslotId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
   const classPriceCents = Math.round(classPriceAmount * 100);
 
   const { data } = useQuery({
-    ...(procedure?.queryOptions({ lessonId, classPriceCents }) ?? {
-      queryKey: ["drop-in-fee", lessonId, classPriceCents],
+    ...(procedure?.queryOptions({ timeslotId, classPriceCents }) ?? {
+      queryKey: ["drop-in-fee", timeslotId, classPriceCents],
       queryFn: (): FeeBreakdownData | null => null,
       enabled: false,
     }),
@@ -114,11 +114,11 @@ function DropInCheckoutWithFee({
 
 /**
  * Optional component to render fee breakdown (class price, booking fee, total).
- * Receives classPriceCents (drop-in total in cents) and lessonId for fee lookup.
+ * Receives classPriceCents (drop-in total in cents) and timeslotId for fee lookup.
  */
 export type FeeBreakdownComponentProps = {
   classPriceCents: number;
-  lessonId: number;
+  timeslotId: number;
   originalClassPriceCents?: number;
   promoDiscountCents?: number;
   discountCode?: string;
@@ -136,7 +136,7 @@ export const DropInView = ({
   FeeBreakdownComponent,
   returnUrl,
 }: {
-  bookingStatus: Lesson["bookingStatus"];
+  bookingStatus: Timeslot["bookingStatus"];
   dropIn: DropIn | number;
   quantity?: number;
   discountCode?: string;
@@ -215,18 +215,18 @@ export const DropInView = ({
   const classPriceCents = Math.round(displayPrice.totalAmount * 100);
   const originalClassPriceCents = Math.round(price.totalAmount * 100);
   const promoDiscountCents = Math.round(promoAdjusted.promoDiscountAmount * 100);
-  const lessonId = metadata?.lessonId ? parseInt(metadata.lessonId, 10) : null;
+  const timeslotId = metadata?.timeslotId ? parseInt(metadata.timeslotId, 10) : null;
 
-  const lessonIdNum =
-    lessonId != null && !Number.isNaN(lessonId) ? lessonId : null;
+  const timeslotIdNum =
+    timeslotId != null && !Number.isNaN(timeslotId) ? timeslotId : null;
 
   return (
     <div>
-      {FeeBreakdownComponent && lessonIdNum != null && (
+      {FeeBreakdownComponent && timeslotIdNum != null && (
         <div className="mb-4">
           <FeeBreakdownComponent
             classPriceCents={classPriceCents}
-            lessonId={lessonIdNum}
+            timeslotId={timeslotIdNum}
             originalClassPriceCents={promoDiscountCents > 0 ? originalClassPriceCents : undefined}
             promoDiscountCents={promoDiscountCents > 0 ? promoDiscountCents : undefined}
             discountCode={discountCode}
@@ -239,7 +239,7 @@ export const DropInView = ({
           payment.
         </span>
       )}
-      {lessonIdNum != null && FeeBreakdownComponent ? (
+      {timeslotIdNum != null && FeeBreakdownComponent ? (
         <DropInCheckoutWithFee
           classPriceAmount={displayPrice.totalAmount}
           priceComponent={<PriceView price={displayPrice} />}
@@ -249,7 +249,7 @@ export const DropInView = ({
           }}
           createPaymentIntentUrl={createPaymentIntentUrl}
           FeeBreakdownComponent={FeeBreakdownComponent}
-          lessonId={lessonIdNum}
+          timeslotId={timeslotIdNum}
           onPaymentRedirectStart={onPaymentRedirectStart}
           returnUrl={returnUrl}
         />

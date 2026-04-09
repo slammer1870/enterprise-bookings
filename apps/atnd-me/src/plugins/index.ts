@@ -19,10 +19,10 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
 import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
-import { validateClassOptionNameUniqueWithinTenant } from '@/hooks/validateClassOptionNameUniqueWithinTenant'
+import { validateEventTypeNameUniqueWithinTenant } from '@/hooks/validateEventTypeNameUniqueWithinTenant'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { lessonsRead } from '@/access/lessonsRead'
+import { timeslotsRead } from '@/access/timeslotsRead'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -327,7 +327,7 @@ export const plugins: Plugin[] = [
   bookingsPlugin({
     enabled: true,
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
-    lessonOverrides: {
+    timeslotOverrides: {
       versions: false,
       fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
       hooks: ({ defaultHooks }) => {
@@ -347,13 +347,13 @@ export const plugins: Plugin[] = [
       },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: lessonsRead, // Preserve tenant scoping while hiding past/inactive lessons from public schedule
+        read: timeslotsRead, // Preserve tenant scoping while hiding past/inactive timeslots from public schedule
         create: tenantScopedCreate,
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,
       }),
     },
-    classOptionsOverrides: {
+    eventTypesOverrides: {
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
@@ -401,7 +401,7 @@ export const plugins: Plugin[] = [
                 operation,
                 req,
               }),
-            validateClassOptionNameUniqueWithinTenant,
+            validateEventTypeNameUniqueWithinTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
           ],
           beforeChange: [...(Array.isArray(d?.beforeChange) ? d.beforeChange : []), requireStripeConnectForPayments],
@@ -409,7 +409,7 @@ export const plugins: Plugin[] = [
         } as any
       },
     },
-    instructorOverrides: {
+    staffMembersOverrides: {
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
@@ -470,19 +470,19 @@ export const plugins: Plugin[] = [
         ...defaultHooks,
         beforeValidate: [
           ...(defaultHooks.beforeValidate || []),
-          // Auto-set tenant from lesson for multi-tenant support
+          // Auto-set tenant from timeslot for multi-tenant support
           async ({ req, data, operation }) => {
-            if (operation === 'create' && data?.lesson && !data?.tenant) {
-              const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
-              const lesson = await req.payload.findByID({
-                collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-                id: lessonId,
+            if (operation === 'create' && data?.timeslot && !data?.tenant) {
+              const timeslotId = typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
+              const timeslot = await req.payload.findByID({
+                collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+                id: timeslotId,
                 depth: 0,
               })
-              if (lesson?.tenant) {
-                const tenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-                  ? lesson.tenant.id
-                  : lesson.tenant
+              if (timeslot?.tenant) {
+                const tenantId = typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+                  ? timeslot.tenant.id
+                  : timeslot.tenant
                 if (tenantId) {
                   data.tenant = tenantId
                 }
@@ -511,7 +511,7 @@ export const plugins: Plugin[] = [
   bookingsPaymentsPlugin({
     classPass: {
       enabled: true,
-      classOptionsSlug: 'event-types',
+      eventTypesSlug: 'event-types',
       // Ensure admin product pickers (Stripe product dropdown) are tenant-scoped (no platform fallback)
       productsProxyScope: 'connect',
       bookingTransactionsOverrides: {
@@ -747,8 +747,8 @@ export const plugins: Plugin[] = [
       timeslots: {
         customTenantField: true,
         tenantFieldOverrides: { admin: { disableBulkEdit: true } },
-        // Disable the plugin's withTenantAccess wrapper for timeslots (lessons).
-        // Our custom `lessonsRead` access function already handles all tenant scoping
+        // Disable the plugin's withTenantAccess wrapper for timeslots (timeslots).
+        // Our custom `timeslotsRead` access function already handles all tenant scoping
         // (super-admin, tenant portal users with DB fallback, public/regular users via request context).
         // The plugin's wrapper causes a bug for authenticated better-auth users: their session
         // object has collection='users' but no `tenants` array (not saved to JWT), so

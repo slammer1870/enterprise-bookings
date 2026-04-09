@@ -3,11 +3,11 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BookingPageClient } from '../../src/components/bookings/booking-page-client'
-import type { Lesson } from '@repo/shared-types'
+import type { Timeslot } from '@repo/shared-types'
 
 // Mock child components
 vi.mock('../../src/components/bookings/booking-summary', () => ({
-  BookingSummary: ({ lesson }: { lesson: Lesson }) => (
+  BookingSummary: ({ lesson }: { lesson: Timeslot }) => (
     <div data-testid="booking-summary">Summary for {lesson.classOption.name}</div>
   ),
 }))
@@ -18,7 +18,7 @@ vi.mock('../../src/components/bookings/quantity-selector', () => ({
     quantity,
     onQuantityChange,
   }: {
-    lesson: Lesson
+    lesson: Timeslot
     quantity: number
     onQuantityChange: (q: number) => void
   }) => (
@@ -30,14 +30,14 @@ vi.mock('../../src/components/bookings/quantity-selector', () => ({
 }))
 
 vi.mock('../../src/components/bookings/booking-form', () => ({
-  BookingForm: ({ lesson, quantity }: { lesson: Lesson; quantity: number }) => (
+  BookingForm: ({ lesson, quantity }: { lesson: Timeslot; quantity: number }) => (
     <div data-testid="booking-form">
       Booking form for {lesson.id}, quantity: {quantity}
     </div>
   ),
 }))
 
-const createMockLesson = (remainingCapacity: number): Lesson => ({
+const createMockTimeslot = (remainingCapacity: number): Timeslot => ({
   id: 1,
   date: new Date().toISOString(),
   startTime: new Date().toISOString(),
@@ -53,11 +53,11 @@ const createMockLesson = (remainingCapacity: number): Lesson => ({
   location: 'Test Location',
   active: true,
   bookings: { docs: [] },
-} as unknown as Lesson)
+} as unknown as Timeslot)
 
 describe('BookingPageClient', () => {
   it('renders all child components', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     render(<BookingPageClient lesson={lesson} />)
 
@@ -67,7 +67,7 @@ describe('BookingPageClient', () => {
   })
 
   it('initializes with quantity of 1', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     render(<BookingPageClient lesson={lesson} />)
 
@@ -76,7 +76,7 @@ describe('BookingPageClient', () => {
 
   it('updates quantity when selector changes', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     render(<BookingPageClient lesson={lesson} />)
 
@@ -87,7 +87,7 @@ describe('BookingPageClient', () => {
   })
 
   it('passes onSuccessRedirect to BookingForm', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     render(<BookingPageClient lesson={lesson} onSuccessRedirect="/dashboard" />)
 
@@ -96,7 +96,7 @@ describe('BookingPageClient', () => {
   })
 
   it('only shows booking form when quantity is valid', () => {
-    const lesson = createMockLesson(3)
+    const lesson = createMockTimeslot(3)
 
     render(<BookingPageClient lesson={lesson} />)
 

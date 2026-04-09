@@ -115,7 +115,7 @@ export default buildConfig({
     bookingsPaymentsPlugin({
       membership: {
         enabled: true,
-        paymentMethodSlugs: ['class-options'],
+        paymentMethodSlugs: ['event-types'],
         // Allow read of priceJSON so booking/checkout UI can read Stripe price id (createCustomerCheckoutSession needs it)
         plansOverrides: {
           fields: ({ defaultFields }) =>

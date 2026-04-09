@@ -23,16 +23,16 @@ vi.mock('next/navigation', () => ({
 vi.mock('@repo/trpc/client', () => ({
   useTRPC: () => ({
     subscriptions: {
-      getSubscriptionForLesson: {
-        queryOptions: () => ({ queryKey: ['subscriptions.getSubscriptionForLesson'] }),
+      getSubscriptionForTimeslot: {
+        queryOptions: () => ({ queryKey: ['subscriptions.getSubscriptionForTimeslot'] }),
       },
     },
     bookings: {
-      getValidClassPassesForLesson: {
-        queryOptions: () => ({ queryKey: ['bookings.getValidClassPassesForLesson'] }),
+      getValidClassPassesForTimeslot: {
+        queryOptions: () => ({ queryKey: ['bookings.getValidClassPassesForTimeslot'] }),
       },
-      getPurchasableClassPassTypesForLesson: {
-        queryOptions: () => ({ queryKey: ['bookings.getPurchasableClassPassTypesForLesson'] }),
+      getPurchasableClassPassTypesForTimeslot: {
+        queryOptions: () => ({ queryKey: ['bookings.getPurchasableClassPassTypesForTimeslot'] }),
       },
       createBookings: {
         mutationOptions: () => ({}),
@@ -87,7 +87,7 @@ describe('PaymentMethods discount forwarding', () => {
     useQueryMock.mockImplementation((query: { queryKey?: string[]; enabled?: boolean }) => {
       const key = query?.queryKey?.[0]
       switch (key) {
-        case 'subscriptions.getSubscriptionForLesson':
+        case 'subscriptions.getSubscriptionForTimeslot':
           return {
             data: {
               subscription: null,
@@ -99,9 +99,9 @@ describe('PaymentMethods discount forwarding', () => {
             },
             isLoading: false,
           }
-        case 'bookings.getValidClassPassesForLesson':
+        case 'bookings.getValidClassPassesForTimeslot':
           return { data: [], isLoading: false }
-        case 'bookings.getPurchasableClassPassTypesForLesson':
+        case 'bookings.getPurchasableClassPassTypesForTimeslot':
           return { data: [], isLoading: false }
         case 'payments.getSubscriptionFeeBreakdown':
           return { data: undefined, isLoading: false }
@@ -285,7 +285,7 @@ describe('PaymentMethods discount forwarding', () => {
     useQueryMock.mockImplementation((query: { queryKey?: string[]; enabled?: boolean }) => {
       const key = query?.queryKey?.[0]
       switch (key) {
-        case 'subscriptions.getSubscriptionForLesson':
+        case 'subscriptions.getSubscriptionForTimeslot':
           return {
             data: {
               subscription: null,
@@ -297,9 +297,9 @@ describe('PaymentMethods discount forwarding', () => {
             },
             isLoading: false,
           }
-        case 'bookings.getValidClassPassesForLesson':
+        case 'bookings.getValidClassPassesForTimeslot':
           return { data: [], isLoading: false }
-        case 'bookings.getPurchasableClassPassTypesForLesson':
+        case 'bookings.getPurchasableClassPassTypesForTimeslot':
           return {
             data: [
               {

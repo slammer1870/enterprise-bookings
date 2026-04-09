@@ -1,6 +1,6 @@
 import { Payload, Where, CollectionSlug } from "payload";
 
-import { Lesson, Plan, Subscription, User } from "@repo/shared-types";
+import { Timeslot, Plan, Subscription, User } from "@repo/shared-types";
 import { getIntervalStartAndEndDate } from "@repo/shared-utils";
 
 /** Resolve plan collection slug (plans). */
@@ -11,19 +11,19 @@ function getPlanCollectionSlug(payload: Payload): CollectionSlug {
 }
 
 /**
- * Returns true if plan explicitly allows multiple bookings per lesson.
+ * Returns true if plan explicitly allows multiple bookings per timeslot.
  *
  * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
  * Multi-booking is controlled only by the explicit flag.
  */
-function planAllowsMultipleBookingsPerLesson(plan: Plan): boolean {
+function planAllowsMultipleBookingsPerTimeslot(plan: Plan): boolean {
   const si = plan?.sessionsInformation as
     | (NonNullable<Plan["sessionsInformation"]> & {
-        allowMultipleBookingsPerLesson?: boolean;
+        allowMultipleBookingsPerTimeslot?: boolean;
       })
     | null
     | undefined;
-  return si?.allowMultipleBookingsPerLesson === true;
+  return si?.allowMultipleBookingsPerTimeslot === true;
 }
 
 function getSubscriptionPeriodStartAndEndDate(opts: {
@@ -130,10 +130,10 @@ const query = (
 
   return {
     user: { equals: userId },
-    "lesson.classOption.paymentMethods.allowedPlans": {
+    "timeslot.eventType.paymentMethods.allowedPlans": {
       contains: planId,
     },
-    "lesson.startTime": {
+    "timeslot.startTime": {
       greater_than_equal: startDate,
       less_than_equal: endDate,
     },
@@ -292,17 +292,17 @@ export const getRemainingSessionsInPeriodForPlan = async (
 };
 
 /**
- * Returns the maximum additional booking quantity the user can create for this lesson
- * when booking via subscription. Returns null if user has no subscription for this lesson
+ * Returns the maximum additional booking quantity the user can create for this timeslot
+ * when booking via subscription. Returns null if user has no subscription for this timeslot
  * (caller may allow any quantity if they are paying).
- * When allowMultipleBookingsPerLesson is false, max is 1 per lesson.
+ * When allowMultipleBookingsPerTimeslot is false, max is 1 per timeslot.
  */
-export const getMaxSubscriptionQuantityPerLesson = async (
+export const getMaxSubscriptionQuantityPerTimeslot = async (
   userId: number,
-  lesson: Lesson,
+  timeslot: Timeslot,
   payload: Payload
 ): Promise<number | null> => {
-  const allowedPlans = lesson.classOption?.paymentMethods?.allowedPlans;
+  const allowedPlans = timeslot.eventType?.paymentMethods?.allowedPlans;
   if (!allowedPlans || allowedPlans.length === 0) return null;
 
   try {
@@ -338,12 +338,12 @@ export const getMaxSubscriptionQuantityPerLesson = async (
     }
     if (!plan) return null;
 
-    const maxPerLesson = planAllowsMultipleBookingsPerLesson(plan) ? Infinity : 1;
+    const maxPerTimeslot = planAllowsMultipleBookingsPerTimeslot(plan) ? Infinity : 1;
 
     const existing = await payload.find({
       collection: "bookings" as CollectionSlug,
       where: {
-        lesson: { equals: lesson.id },
+        timeslot: { equals: timeslot.id },
         user: { equals: userId },
         status: { equals: "confirmed" },
       },
@@ -352,10 +352,10 @@ export const getMaxSubscriptionQuantityPerLesson = async (
     });
 
     const existingCount = existing.totalDocs ?? 0;
-    const maxAdditional = Math.max(0, maxPerLesson - existingCount);
+    const maxAdditional = Math.max(0, maxPerTimeslot - existingCount);
     return maxAdditional;
   } catch (error) {
-    payload.logger?.error?.(`getMaxSubscriptionQuantityPerLesson: ${error}`);
+    payload.logger?.error?.(`getMaxSubscriptionQuantityPerTimeslot: ${error}`);
     return null;
   }
 };
@@ -438,10 +438,10 @@ export const getSubscriptionUpgradeOptions = async (
 // Helper function to check user subscription
 export const checkUserSubscription = async (
   user: User,
-  lesson: Lesson,
+  timeslot: Timeslot,
   payload: any
 ): Promise<boolean> => {
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
+  const allowedPlans = timeslot.eventType.paymentMethods?.allowedPlans;
 
   if (!allowedPlans || allowedPlans.length === 0) {
     return true;
@@ -470,7 +470,7 @@ export const checkUserSubscription = async (
     });
 
     if (userSubscription.docs.length === 0) {
-      payload.logger.error(`User does not have an active subscription (userId: ${user.id}, lessonId: ${lesson.id})`);
+      payload.logger.error(`User does not have an active subscription (userId: ${user.id}, timeslotId: ${timeslot.id})`);
       return false;
     }
 
@@ -482,10 +482,10 @@ export const checkUserSubscription = async (
       (subscription.cancelAt &&
         new Date(subscription.cancelAt) <= new Date()) ||
       (subscription.cancelAt &&
-        new Date(subscription.cancelAt) <= new Date(lesson.startTime))
+        new Date(subscription.cancelAt) <= new Date(timeslot.startTime))
     ) {
       payload.logger.error(
-        `User has an active subscription that is cancelled by the date of this lesson (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id})`
+        `User has an active subscription that is cancelled by the date of this timeslot (userId: ${user.id}, timeslotId: ${timeslot.id}, subscriptionId: ${subscription.id})`
       );
       return false;
     }
@@ -493,14 +493,14 @@ export const checkUserSubscription = async (
     const reachedLimit = await hasReachedSubscriptionLimit(
       subscription,
       payload,
-      new Date(lesson.startTime)
+      new Date(timeslot.startTime)
     );
     if (reachedLimit) {
-      payload.logger.error(`User has reached the subscription limit (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id})`);
+      payload.logger.error(`User has reached the subscription limit (userId: ${user.id}, timeslotId: ${timeslot.id}, subscriptionId: ${subscription.id})`);
       return false;
     }
 
-    if (lesson.classOption.type === "child") {
+    if (timeslot.eventType.type === "child") {
       const plan = subscription.plan as Plan;
 
       if (!plan) return false;
@@ -522,7 +522,7 @@ export const checkUserSubscription = async (
       const bookings = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: timeslot.id },
           user: { in: childrenIds },
           status: { equals: "confirmed" },
         },
@@ -531,7 +531,7 @@ export const checkUserSubscription = async (
       const quantity = plan.quantity || 1;
 
       if (bookings.totalDocs >= quantity) {
-        payload.logger.error(`User has reached the child subscription limit (userId: ${user.id}, lessonId: ${lesson.id}, subscriptionId: ${subscription.id}, limit: ${quantity})`);
+        payload.logger.error(`User has reached the child subscription limit (userId: ${user.id}, timeslotId: ${timeslot.id}, subscriptionId: ${subscription.id}, limit: ${quantity})`);
         return false;
       }
     }

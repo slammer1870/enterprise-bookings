@@ -1,7 +1,7 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 /**
- * Add paymentMethods group to class-options (step 2.6.1).
+ * Add paymentMethods group to event-types (step 2.6.1).
  * Column: payment_methods_payments_enabled (boolean).
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {

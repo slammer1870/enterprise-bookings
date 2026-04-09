@@ -84,9 +84,9 @@ Run `generate:types` (and `generate:importmap` if needed) in atnd-me after regis
 | `users` | `users` | Optional | Set `registrationTenant`, add bru-grappling to `tenants` array; map roles. |
 | `accounts`, `sessions`, `verifications` | same | Optional | Only if migrating users; Better Auth schema must align. |
 | **Booking (if migrating scheduling/payments)** | | | |
-| `instructors` | `instructors` | Optional | Add `tenant`. |
-| `lessons` | `lessons` | Optional | Add `tenant`; remap `classOption`, `instructor`. |
-| `class-options` | `class-options` | Optional | Add `tenant`; skip or map child-specific options per scope. |
+| `staffMembers` | `staffMembers` | Optional | Add `tenant`. |
+| `timeslots` | `timeslots` | Optional | Add `tenant`; remap `classOption`, `instructor`. |
+| `event-types` | `event-types` | Optional | Add `tenant`; skip or map child-specific options per scope. |
 | `drop-ins` | `drop-ins` | Optional | Add `tenant`. |
 | `class-pass-types` | `class-pass-types` | Optional | Add `tenant`; Stripe product IDs may need re-linking. |
 | `class-passes` | `class-passes` | Optional | Add `tenant`; remap `user`, `classPassType`. |
@@ -99,7 +99,7 @@ Run `generate:types` (and `generate:importmap` if needed) in atnd-me after regis
 | `scheduler` (global) | `scheduler` (collection) | Optional | One document per tenant; add `tenant` for bru-grappling. |
 | `redirects` | `redirects` | Optional | If atnd-me has redirects collection; add `tenant` if applicable. |
 
-**Out of scope (do not migrate):** Children-specific data (e.g. `type: 'child'` plans/class-options, child-only bookings) unless explicitly decided otherwise.
+**Out of scope (do not migrate):** Children-specific data (e.g. `type: 'child'` plans/event-types, child-only bookings) unless explicitly decided otherwise.
 
 ### 4.2 Migration order (dependency order)
 
@@ -113,7 +113,7 @@ Run in this order so every referenced ID exists in the target:
 6. **Users** (optional) – Migrate users, set `registrationTenant` and `tenants`; build `userIdMap` if migrating booking/form-submissions.
 7. **Form submissions** (optional) – Remap `form` via `formIdMap`, `submittedBy` via `userIdMap`.
 8. **Booking-related** (optional, in order):
-   - Instructors → Lessons → Class-options → Drop-ins → Class-pass-types → Class-passes → Plans → Discount-codes  
+   - StaffMembers → Timeslots → Class-options → Drop-ins → Class-pass-types → Class-passes → Plans → Discount-codes  
    - Then: Bookings (remap user, lesson, classOption) → Subscriptions (remap user, plan) → Transactions (remap by relation).
 9. **Scheduler** (optional) – One scheduler doc with `tenant` = `TENANT_ID`.
 10. **Posts** (optional) – Migrate with `tenant` and remap media/author via maps.
@@ -149,7 +149,7 @@ Run in this order so every referenced ID exists in the target:
 
 **Booking collections (optional)**
 
-- For each collection: add `tenant` = `TENANT_ID` to every document; remap relationship IDs using the maps (e.g. lessons → `classOption`, `instructor`; bookings → `user`, `lesson`, `classOption`). Stripe-related IDs (plans, class-pass-types, etc.) may need re-sync or manual mapping if Connect account changes.
+- For each collection: add `tenant` = `TENANT_ID` to every document; remap relationship IDs using the maps (e.g. timeslots → `classOption`, `instructor`; bookings → `user`, `lesson`, `classOption`). Stripe-related IDs (plans, class-pass-types, etc.) may need re-sync or manual mapping if Connect account changes.
 
 ### 4.4 ID mapping strategy
 
@@ -203,5 +203,5 @@ Run in this order so every referenced ID exists in the target:
 
 - **Website package:** New blocks under `packages/website/src/blocks/bru-grappling/` with "Bru"-prefixed names (BruHero, BruAbout, BruSchedule, BruLearning, BruMeetTheTeam, BruTestimonials, BruContact, BruHeroWaitlist); each with config + Component; exported from `@repo/website`.
 - **atnd-me:** Import and register those blocks in the block registry and blockComponents; add labels in Tenants; create bru-grappling tenant with `allowedBlocks` including the new slugs.
-- **Data:** Migrate all relevant collections in dependency order (Section 4.2): media → forms (if needed) → pages (block slug mapping + ID remap) → navbar/footer → optionally users, form-submissions, booking collections (instructors, lessons, class-options, etc.), scheduler, posts. Use ID maps (4.4) and the script structure (4.5) with dry-run and validation.
+- **Data:** Migrate all relevant collections in dependency order (Section 4.2): media → forms (if needed) → pages (block slug mapping + ID remap) → navbar/footer → optionally users, form-submissions, booking collections (staffMembers, timeslots, event-types, etc.), scheduler, posts. Use ID maps (4.4) and the script structure (4.5) with dry-run and validation.
 - **Out of scope:** Children-related functionality.

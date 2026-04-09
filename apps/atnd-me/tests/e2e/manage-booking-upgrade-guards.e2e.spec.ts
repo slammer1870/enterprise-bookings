@@ -3,8 +3,8 @@ import { loginAsRegularUser } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestBooking,
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestPlan,
   getPayloadInstance,
 } from './helpers/data-helpers'
@@ -108,9 +108,9 @@ async function createClassPassType(args: {
   tenantId: number
   workerIndex: number
   name: string
-  allowMultipleBookingsPerLesson: boolean
+  allowMultipleBookingsPerTimeslot: boolean
 }) {
-  const { payload, tenantId, workerIndex, name, allowMultipleBookingsPerLesson } = args
+  const { payload, tenantId, workerIndex, name, allowMultipleBookingsPerTimeslot } = args
 
   return (await payload.create({
     collection: 'class-pass-types',
@@ -119,7 +119,7 @@ async function createClassPassType(args: {
       slug: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${tenantId}-${workerIndex}-${Date.now()}`,
       quantity: 10,
       tenant: tenantId,
-      allowMultipleBookingsPerLesson,
+      allowMultipleBookingsPerTimeslot,
       priceInformation: { price: 39.99 },
       skipSync: true,
       stripeProductId: `prod_test_${tenantId}_${workerIndex}_${Date.now()}`,
@@ -215,7 +215,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             name: `Single Slot Membership ${tenant.id}-w${workerIndex}-${Date.now()}`,
             sessions: 10,
-            allowMultipleBookingsPerLesson: false,
+            allowMultipleBookingsPerTimeslot: false,
           })
 
           await payload.update({
@@ -235,7 +235,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             workerIndex,
             name: 'Single Slot Class Pass',
-            allowMultipleBookingsPerLesson: false,
+            allowMultipleBookingsPerTimeslot: false,
           })
 
           await createUserClassPass({
@@ -275,7 +275,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             name: `Single Slot All-Methods Plan ${tenant.id}-w${workerIndex}-${Date.now()}`,
             sessions: 10,
-            allowMultipleBookingsPerLesson: false,
+            allowMultipleBookingsPerTimeslot: false,
           })
 
           const classPassType = await createClassPassType({
@@ -283,7 +283,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             workerIndex,
             name: 'Single Slot All-Methods Class Pass',
-            allowMultipleBookingsPerLesson: false,
+            allowMultipleBookingsPerTimeslot: false,
           })
 
           await createUserClassPass({
@@ -314,7 +314,7 @@ test.describe('Manage booking upgrade guards', () => {
       const variant = variants[index]
 
       await test.step(`caps quantity for ${variant.name}`, async () => {
-        const classOption = await createTestClassOption(
+        const classOption = await createTestEventType(
           tenant.id,
           `Single Slot Upgrade Guard ${variant.slug}`,
           6,
@@ -330,7 +330,7 @@ test.describe('Manage booking upgrade guards', () => {
         const endTime = new Date(startTime)
         endTime.setHours(startTime.getHours() + 1, 0, 0, 0)
 
-        const lesson = await createTestLesson(
+        const lesson = await createTestTimeslot(
           tenant.id,
           classOption.id,
           startTime,
@@ -431,7 +431,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             name: `Manage Upgrade Membership ${tenant.id}-w${workerIndex}-${Date.now()}`,
             sessions: 10,
-            allowMultipleBookingsPerLesson: true,
+            allowMultipleBookingsPerTimeslot: true,
           })
 
           await payload.update({
@@ -468,7 +468,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             name: `Manage Upgrade Mixed Membership ${tenant.id}-w${workerIndex}-${Date.now()}`,
             sessions: 12,
-            allowMultipleBookingsPerLesson: true,
+            allowMultipleBookingsPerTimeslot: true,
           })
 
           await payload.update({
@@ -506,7 +506,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             name: `Manage Upgrade All-Methods Membership ${tenant.id}-w${workerIndex}-${Date.now()}`,
             sessions: 12,
-            allowMultipleBookingsPerLesson: true,
+            allowMultipleBookingsPerTimeslot: true,
           })
 
           const classPassType = await createClassPassType({
@@ -514,7 +514,7 @@ test.describe('Manage booking upgrade guards', () => {
             tenantId: tenant.id,
             workerIndex,
             name: 'Manage Upgrade All-Methods Class Pass',
-            allowMultipleBookingsPerLesson: true,
+            allowMultipleBookingsPerTimeslot: true,
           })
 
           await createUserClassPass({
@@ -546,7 +546,7 @@ test.describe('Manage booking upgrade guards', () => {
       const variant = variants[index]
 
       await test.step(`forces checkout for ${variant.name}`, async () => {
-        const classOption = await createTestClassOption(
+        const classOption = await createTestEventType(
           tenant.id,
           `Manage Upgrade ${variant.slug}`,
           8,
@@ -562,7 +562,7 @@ test.describe('Manage booking upgrade guards', () => {
         const endTime = new Date(startTime)
         endTime.setHours(startTime.getHours() + 1, 0, 0, 0)
 
-        const lesson = await createTestLesson(
+        const lesson = await createTestTimeslot(
           tenant.id,
           classOption.id,
           startTime,
@@ -632,7 +632,7 @@ test.describe('Manage booking upgrade guards', () => {
     })
     await page.waitForTimeout(process.env.CI ? 3000 : 1500)
 
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Manage checkout quantity display',
       8,
@@ -670,7 +670,7 @@ test.describe('Manage booking upgrade guards', () => {
     const endTime = new Date(startTime)
     endTime.setHours(startTime.getHours() + 1, 0, 0, 0)
 
-    const lesson = await createTestLesson(
+    const lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,

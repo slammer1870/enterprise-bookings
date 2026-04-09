@@ -3,7 +3,7 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsTenantAdmin } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
-  setLessonDateAndTime,
+  setTimeslotDateAndTime,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
 
@@ -185,7 +185,7 @@ async function advanceScheduleToDate(
   await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
 }
 
-async function selectLessonClassOption(
+async function selectTimeslotEventType(
   page: Page,
   className: string,
 ) {
@@ -257,13 +257,13 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
     await openCreateFromCollectionList(
       page,
       `${tenantOrigin}/admin/collections/timeslots`,
-      /lessons/i,
+      /timeslots/i,
       /create new/i,
     )
     await chooseTenantInCreateModal(page, tenant.name)
     await waitForModalOverlayToClear(page)
-    await selectLessonClassOption(page, className)
-    await setLessonDateAndTime(page, targetDate)
+    await selectTimeslotEventType(page, className)
+    await setTimeslotDateAndTime(page, targetDate)
     await saveObjectWithOverlayBypass(page, {
       apiPath: '/api/timeslots',
       expectedUrlPattern: /\/admin\/collections\/timeslots\/\d+/,
@@ -280,7 +280,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
 
     await advanceScheduleToDate(page, targetDate)
 
-    await expect(page.getByText('No lessons scheduled for today')).not.toBeVisible({ timeout: 5000 }).catch(() => null)
+    await expect(page.getByText('No timeslots scheduled for today')).not.toBeVisible({ timeout: 5000 }).catch(() => null)
     await expect(page.getByText(className).first()).toBeVisible({ timeout: 20000 })
 
     const lessonLink = page.locator(`a[href*="/bookings/"]:has-text("${className}")`).first()

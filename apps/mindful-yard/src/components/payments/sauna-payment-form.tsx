@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BookingDetails, Lesson, User } from '@repo/shared-types'
+import { BookingDetails, Timeslot, User } from '@repo/shared-types'
 import { Button } from '@repo/ui/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@repo/ui/components/ui/dialog'
 import { Separator } from '@repo/ui/components/ui/separator'
@@ -22,37 +22,37 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@repo/ui/components/ui
 import { createCashBooking } from '../../actions/bookings'
 
 type SaunaPaymentFormProps = {
-  lesson: Lesson
+  timeslot: Timeslot
   user: User
 }
 
-export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
+export const SaunaPaymentForm = ({ timeslot, user }: SaunaPaymentFormProps) => {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  // Use lesson data for booking details
+  // Use timeslot data for booking details
   const bookingDetails: BookingDetails = {
-    date: lesson.date,
-    startTime: lesson.startTime,
-    endTime: lesson.endTime,
-    bookingType: lesson.classOption.name,
+    date: timeslot.date,
+    startTime: timeslot.startTime,
+    endTime: timeslot.endTime,
+    bookingType: timeslot.eventType.name,
   }
 
   // Use our custom hooks
   const { attendees, setAttendees, remainingCapacity } = useAttendees({
     user,
-    maxCapacity: lesson.remainingCapacity,
+    maxCapacity: timeslot.remainingCapacity,
     currentAttendees:
-      lesson.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
+      timeslot.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
   })
 
-  const dropInPaymentOptions = lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods
-  const membershipPaymentOptions = lesson.classOption.paymentMethods?.allowedPlans?.length
+  const dropInPaymentOptions = timeslot.eventType.paymentMethods?.allowedDropIn?.paymentMethods
+  const membershipPaymentOptions = timeslot.eventType.paymentMethods?.allowedPlans?.length
 
   const { paymentMethod, setPaymentMethod, loading, setLoading, calculatePrice } = usePayment({
-    basePrice: lesson.classOption.paymentMethods?.allowedDropIn?.price || 0,
-    discountTiers: lesson.classOption.paymentMethods?.allowedDropIn?.discountTiers || [],
-    paymentMethods: lesson.classOption.paymentMethods?.allowedDropIn?.paymentMethods || [],
+    basePrice: timeslot.eventType.paymentMethods?.allowedDropIn?.price || 0,
+    discountTiers: timeslot.eventType.paymentMethods?.allowedDropIn?.discountTiers || [],
+    paymentMethods: timeslot.eventType.paymentMethods?.allowedDropIn?.paymentMethods || [],
   })
 
   // Calculate price based on attendees
@@ -66,7 +66,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
 
     try {
       const bookingData = {
-        lessonId: lesson.id,
+        lessonId: timeslot.id,
         attendees: attendees,
         totalPrice: priceCalculation.totalAmount,
         paymentMethod: 'cash',
@@ -91,7 +91,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
   return (
     <div className="grid md:grid-cols-2 gap-4 max-w-5xl mx-auto">
       {/* Booking Summary */}
-      <BookingSummary lesson={lesson} />
+      <BookingSummary timeslot={timeslot} />
 
       <Tabs defaultValue="drop-in" className="w-full">
         <TabsList className="w-full">
@@ -108,7 +108,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
         </TabsList>
         <TabsContent value="drop-in" className="flex flex-col gap-4">
           <PriceForm
-            price={lesson.classOption.paymentMethods?.allowedDropIn?.price || 0}
+            price={timeslot.eventType.paymentMethods?.allowedDropIn?.price || 0}
             attendeesCount={attendees.length}
             discountApplied={priceCalculation.discountApplied}
             totalAmount={priceCalculation.totalAmount}
@@ -117,7 +117,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
             attendees={attendees}
             setAttendees={setAttendees}
             adjustableQuantity={
-              lesson.classOption.paymentMethods?.allowedDropIn?.adjustable || false
+              timeslot.eventType.paymentMethods?.allowedDropIn?.adjustable || false
             }
           />
           {/* Attendees and Payment Form */}
@@ -149,7 +149,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                   </div>
                   <div className="flex justify-between">
                     <span>Booking Type:</span>
-                    <span>{lesson.classOption.name}</span>
+                    <span>{timeslot.eventType.name}</span>
                   </div>
                 </div>
 
@@ -159,7 +159,7 @@ export const SaunaPaymentForm = ({ lesson, user }: SaunaPaymentFormProps) => {
                   <div className="flex justify-between items-center">
                     <span>Price per person</span>
                     <span>
-                      €{lesson.classOption.paymentMethods?.allowedDropIn?.price.toFixed(2)}
+                      €{timeslot.eventType.paymentMethods?.allowedDropIn?.price.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">

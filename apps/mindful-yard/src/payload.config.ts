@@ -150,7 +150,7 @@ export default buildConfig({
     bookingsPaymentsPlugin({
       dropIns: {
         enabled: true,
-        paymentMethodSlugs: ['class-options'],
+        paymentMethodSlugs: ['event-types'],
       },
     }),
     seoPlugin({

@@ -42,7 +42,7 @@ export const prefetch: ServerTRPC['prefetch'] = serverTRPC.prefetch
  * @example
  * ```ts
  * const caller = await createCaller()
- * const result = await caller.bookings.validateAndAttemptCheckIn({ lessonId: 123 })
+ * const result = await caller.bookings.validateAndAttemptCheckIn({ timeslotId: 123 })
  * ```
  */
 export async function createCaller(opts?: {

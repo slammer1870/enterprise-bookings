@@ -19,13 +19,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   ALTER TABLE "payload_jobs_log" ALTER COLUMN "task_slug" SET DATA TYPE text;
   DROP TYPE "public"."enum_payload_jobs_log_task_slug";
-  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule');
   ALTER TABLE "payload_jobs_log" ALTER COLUMN "task_slug" SET DATA TYPE "public"."enum_payload_jobs_log_task_slug" USING "task_slug"::"public"."enum_payload_jobs_log_task_slug";
   ALTER TABLE "payload_jobs" ALTER COLUMN "task_slug" SET DATA TYPE text;
   DROP TYPE "public"."enum_payload_jobs_task_slug";
-  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule');
   ALTER TABLE "payload_jobs" ALTER COLUMN "task_slug" SET DATA TYPE "public"."enum_payload_jobs_task_slug" USING "task_slug"::"public"."enum_payload_jobs_task_slug";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-11T20:09:34.271Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-11T20:09:34.271Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-02-11T20:09:34.383Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-02-11T20:09:34.383Z';
   ALTER TABLE "booking_transactions" ADD COLUMN "subscription_id" numeric;
@@ -69,7 +69,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_booking_transactions_payment_method";
   CREATE TYPE "public"."enum_booking_transactions_payment_method" AS ENUM('stripe', 'class_pass');
   ALTER TABLE "booking_transactions" ALTER COLUMN "payment_method" SET DATA TYPE "public"."enum_booking_transactions_payment_method" USING "payment_method"::"public"."enum_booking_transactions_payment_method";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-27T19:00:08.519Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-27T19:00:08.519Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-27T19:00:08.707Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-27T19:00:08.707Z';
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "transactions_id" integer;

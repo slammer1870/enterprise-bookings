@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPayload, type Payload, createLocalReq } from 'payload'
 import config from '@/payload.config'
-import type { User, Lesson, ClassOption, Tenant } from "@/payload-types"
-import { getLessons } from '@repo/bookings-plugin/src/data/lessons'
+import type { User, Timeslot, EventType, Tenant } from "@/payload-types"
+import { getTimeslots } from '@repo/bookings-plugin/src/data/timeslots'
 
 
 // Mock next/navigation redirect to prevent test failures
@@ -15,16 +15,16 @@ vi.mock('next/navigation', () => ({
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
 
-describe('Lesson Admin View - Multi-Tenant Filtering', () => {
+describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
   let payload: Payload
   let adminUser: User
   let tenantAdminUser: User
   let testTenant: Tenant
   let secondTenant: Tenant
-  let testTenantClassOption: ClassOption
-  let secondTenantClassOption: ClassOption
-  let testTenantLesson: Lesson
-  let secondTenantLesson: Lesson
+  let testTenantEventType: EventType
+  let secondTenantEventType: EventType
+  let testTenantTimeslot: Timeslot
+  let secondTenantTimeslot: Timeslot
 
   // Helper to create tenant-scoped documents with tenant context
   const createWithTenantContext = async <T = any>(
@@ -153,7 +153,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     } as Parameters<typeof payload.create>[0])) as User
 
     // Create class options for both tenants
-    testTenantClassOption = (await createWithTenantContext<ClassOption>(
+    testTenantEventType = (await createWithTenantContext<EventType>(
       'event-types',
       {
         name: `Test Tenant Class ${Date.now()}`,
@@ -164,7 +164,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
       { overrideAccess: true }
     ))
 
-    secondTenantClassOption = (await createWithTenantContext<ClassOption>(
+    secondTenantEventType = (await createWithTenantContext<EventType>(
       'event-types',
       {
         name: `Second Tenant Class ${Date.now()}`,
@@ -175,7 +175,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
       { overrideAccess: true }
     ))
 
-    // Create lessons for both tenants
+    // Create timeslots for both tenants
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const startTime = new Date(today)
@@ -183,26 +183,26 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     const endTime = new Date(today)
     endTime.setHours(11, 0, 0, 0) // 11 AM
 
-    testTenantLesson = (await createWithTenantContext<Lesson>(
+    testTenantTimeslot = (await createWithTenantContext<Timeslot>(
       'timeslots',
       {
         date: today.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        classOption: testTenantClassOption.id,
+        eventType: testTenantEventType.id,
         active: true,
       },
       testTenant.id,
       { overrideAccess: true }
     ))
 
-    secondTenantLesson = (await createWithTenantContext<Lesson>(
+    secondTenantTimeslot = (await createWithTenantContext<Timeslot>(
       'timeslots',
       {
         date: today.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        classOption: secondTenantClassOption.id,
+        eventType: secondTenantEventType.id,
         active: true,
       },
       secondTenant.id,
@@ -216,68 +216,68 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     }
   })
 
-  describe('getLessons function with multi-tenant filtering', () => {
+  describe('getTimeslots function with multi-tenant filtering', () => {
     it(
-      'admin user should see all lessons across all tenants',
+      'admin user should see all timeslots across all tenants',
       async () => {
         // Create req object for admin user without tenant context
         const req = await createLocalReq({ user: { ...adminUser, collection: 'users' } }, payload)
 
         // Build search params that match the date range
-        // The getLessons function expects a specific query parameter format
+        // The getTimeslots function expects a specific query parameter format
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
         const endOfDay = new Date()
         endOfDay.setHours(23, 59, 59, 999)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getLessons checks for
+        // This is the key that getTimeslots checks for
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
         }
 
-        const lessons = await getLessons(payload, searchParams, params, req)
+        const timeslots = await getTimeslots(payload, searchParams, params, req)
 
-        // Admin should see both lessons
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testTenantLesson.id)
-        expect(lessonIds).toContain(secondTenantLesson.id)
+        // Admin should see both timeslots
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTenantTimeslot.id)
+        expect(lessonIds).toContain(secondTenantTimeslot.id)
       },
       TEST_TIMEOUT,
     )
 
     it(
-      'tenant-admin user should only see lessons from their assigned tenant',
+      'tenant-admin user should only see timeslots from their assigned tenant',
       async () => {
         // Create req object for tenant-admin user
         const req = await createLocalReq({ user: { ...tenantAdminUser, collection: 'users' } }, payload)
         // Don't set tenant context - access control should filter by user's assigned tenants
 
         // Build search params that match the date range
-        // The getLessons function expects a specific query parameter format
+        // The getTimeslots function expects a specific query parameter format
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getLessons checks for
+        // This is the key that getTimeslots checks for
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
         }
 
-        const lessons = await getLessons(payload, searchParams, params, req)
+        const timeslots = await getTimeslots(payload, searchParams, params, req)
 
         // Tenant-admin should only see their tenant's lesson
-        expect(lessons.length).toBeGreaterThanOrEqual(1)
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testTenantLesson.id)
-        expect(lessonIds).not.toContain(secondTenantLesson.id)
+        expect(timeslots.length).toBeGreaterThanOrEqual(1)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTenantTimeslot.id)
+        expect(lessonIds).not.toContain(secondTenantTimeslot.id)
 
-        // Verify all returned lessons belong to the tenant-admin's tenant
-        for (const lesson of lessons) {
+        // Verify all returned timeslots belong to the tenant-admin's tenant
+        for (const lesson of timeslots) {
           const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
             ? lesson.tenant.id
             : lesson.tenant
@@ -298,27 +298,27 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         req.context.tenant = testTenant.id
 
         // Build search params that match the date range
-        // The getLessons function expects a specific query parameter format
+        // The getTimeslots function expects a specific query parameter format
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getLessons checks for
+        // This is the key that getTimeslots checks for
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
         }
 
-        const lessons = await getLessons(payload, searchParams, params, req)
+        const timeslots = await getTimeslots(payload, searchParams, params, req)
 
-        // Should only see lessons from the specified tenant
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testTenantLesson.id)
-        expect(lessonIds).not.toContain(secondTenantLesson.id)
+        // Should only see timeslots from the specified tenant
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTenantTimeslot.id)
+        expect(lessonIds).not.toContain(secondTenantTimeslot.id)
 
-        // Verify all returned lessons belong to the specified tenant
-        for (const lesson of lessons) {
+        // Verify all returned timeslots belong to the specified tenant
+        for (const lesson of timeslots) {
           const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
             ? lesson.tenant.id
             : lesson.tenant
@@ -335,24 +335,24 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         const req = await createLocalReq({ user: { ...tenantAdminUser, collection: 'users' } }, payload)
 
         // Build search params that match the date range
-        // The getLessons function expects a specific query parameter format
+        // The getTimeslots function expects a specific query parameter format
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getLessons checks for
+        // This is the key that getTimeslots checks for
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
         }
 
-        const lessons = await getLessons(payload, searchParams, params, req)
+        const timeslots = await getTimeslots(payload, searchParams, params, req)
 
         // Tenant-admin should not see second tenant's lesson even if we try to query for it
         // because access control filters by their assigned tenants
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).not.toContain(secondTenantLesson.id)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).not.toContain(secondTenantTimeslot.id)
       },
       TEST_TIMEOUT,
     )

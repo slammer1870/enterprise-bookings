@@ -36,10 +36,10 @@ const formSchema = z.object({
 
 export const AddChild = ({
   bookChild,
-  lessonId,
+  timeslotId,
 }: {
-  bookChild: (_data: { lessonId: number; childId: number }) => void
-  lessonId: number
+  bookChild: (_data: { timeslotId: number; childId: number }) => void
+  timeslotId: number
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const trpc = useTRPC()
@@ -48,7 +48,7 @@ export const AddChild = ({
   const { mutate: createChildRaw, isPending } = useMutation(
     trpc.users.createChild.mutationOptions({
       onSuccess: (data: any) => {
-        bookChild({ lessonId, childId: data.id })
+        bookChild({ timeslotId, childId: data.id })
 
         queryClient.invalidateQueries({
           queryKey: trpc.users.getChildren.queryKey(),

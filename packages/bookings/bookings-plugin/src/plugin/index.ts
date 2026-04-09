@@ -1,24 +1,24 @@
 import type { Config, CollectionSlug, Plugin } from "payload";
 
-import { generateLessonCollection } from "../collections/lessons";
-import { generateClassOptionsCollection } from "../collections/class-options";
+import { generateTimeslotCollection } from "../collections/timeslots";
+import { generateEventTypesCollection } from "../collections/event-types";
 import { generateBookingCollection } from "../collections/bookings";
-import { generateInstructorCollection } from "../collections/instructors";
+import { generateStaffMemberCollection } from "../collections/staff-members";
 
 import { BookingsPluginConfig } from "../types";
 
 import { createSchedulerGlobal } from "../globals/scheduler";
 
-import { createGenerateLessonsFromScheduleHandler } from "../tasks/create-generate-lessons-handler";
+import { createGenerateTimeslotsFromScheduleHandler } from "../tasks/create-generate-timeslots-handler";
 
-import { resolveBookingsPluginSlugs } from "../resolve-slugs";
+import { resolveBookingCollectionSlugs } from "../resolve-slugs";
 
-function createGenerateLessonsTaskInputSchema(slugs: {
-  classOptions: string;
-  instructors: string;
+function createGenerateTimeslotsTaskInputSchema(slugs: {
+  eventTypes: string;
+  staffMembers: string;
 }) {
-  const classOptionsSlug = slugs.classOptions as CollectionSlug;
-  const instructorsSlug = slugs.instructors as CollectionSlug;
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
+  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
 
   return [
     {
@@ -59,18 +59,18 @@ function createGenerateLessonsTaskInputSchema(slugs: {
                   required: true,
                 },
                 {
-                  name: "classOption",
+                  name: "eventType",
                   type: "relationship" as const,
-                  relationTo: classOptionsSlug,
+                  relationTo: eventTypesSlug,
                 },
                 {
                   name: "location",
                   type: "text" as const,
                 },
                 {
-                  name: "instructor",
+                  name: "staffMember",
                   type: "relationship" as const,
-                  relationTo: instructorsSlug,
+                  relationTo: staffMembersSlug,
                 },
                 {
                   name: "lockOutTime",
@@ -89,9 +89,9 @@ function createGenerateLessonsTaskInputSchema(slugs: {
       required: true,
     },
     {
-      name: "defaultClassOption",
+      name: "defaultEventType",
       type: "relationship" as const,
-      relationTo: classOptionsSlug,
+      relationTo: eventTypesSlug,
       required: true,
     },
     {
@@ -111,18 +111,18 @@ export const bookingsPlugin =
       return config;
     }
 
-    const slugs = resolveBookingsPluginSlugs(pluginOptions);
+    const slugs = resolveBookingCollectionSlugs(pluginOptions);
 
     let collections = config.collections || [];
 
-    const instructors = generateInstructorCollection(pluginOptions, slugs);
-    const lessons = generateLessonCollection(pluginOptions, slugs);
-    const classOptions = generateClassOptionsCollection(pluginOptions, slugs);
+    const staffMembers = generateStaffMemberCollection(pluginOptions, slugs);
+    const timeslots = generateTimeslotCollection(pluginOptions, slugs);
+    const eventTypes = generateEventTypesCollection(pluginOptions, slugs);
     const bookings = generateBookingCollection(pluginOptions, slugs);
 
-    collections.push(instructors);
-    collections.push(lessons);
-    collections.push(classOptions);
+    collections.push(staffMembers);
+    collections.push(timeslots);
+    collections.push(eventTypes);
     collections.push(bookings);
 
     const globals = config.globals || [];
@@ -144,9 +144,9 @@ export const bookingsPlugin =
     }
 
     config.jobs.tasks.push({
-      slug: "generateLessonsFromSchedule",
-      handler: createGenerateLessonsFromScheduleHandler(slugs),
-      inputSchema: createGenerateLessonsTaskInputSchema(slugs),
+      slug: "generateTimeslotsFromSchedule",
+      handler: createGenerateTimeslotsFromScheduleHandler(slugs),
+      inputSchema: createGenerateTimeslotsTaskInputSchema(slugs),
       outputSchema: [
         {
           name: "success",

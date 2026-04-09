@@ -16,7 +16,7 @@ import {
 import { cn } from "@repo/ui/lib/utils";
 import { format } from "date-fns";
 
-import { getLessonsQuery } from "@repo/shared-utils/query";
+import { getTimeslotsQuery } from "@repo/shared-utils/query";
 
 function parseSelectedDate(selectedDateISO?: string): Date {
   if (!selectedDateISO) return new Date();
@@ -59,7 +59,7 @@ export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) =>
     if (selectedDateISO) return;
 
     startTransition(() => {
-      router.replace(pathname + getLessonsQuery(selectedDateFromUrl));
+      router.replace(pathname + getTimeslotsQuery(selectedDateFromUrl));
     });
   }, [pathname, router, selectedDateFromUrl, selectedDateISO]);
 
@@ -68,7 +68,7 @@ export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) =>
     setDate(nextDate);
     setMonth(nextDate);
     startTransition(() => {
-      router.push(pathname + getLessonsQuery(nextDate));
+      router.push(pathname + getTimeslotsQuery(nextDate));
     });
   };
 

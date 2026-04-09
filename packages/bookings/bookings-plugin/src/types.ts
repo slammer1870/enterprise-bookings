@@ -14,9 +14,9 @@ import {
   CollectionBeforeOperationHook,
   CollectionBeforeReadHook,
 } from "payload";
-import { ClassOption, Lesson, User } from "@repo/shared-types";
+import { EventType, Timeslot, User } from "@repo/shared-types";
 
-import type { BookingsPluginSlugs } from "./resolve-slugs";
+import type { BookingCollectionSlugs } from "./resolve-slugs";
 
 export type FieldsOverride = (_args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (_args: {
@@ -32,7 +32,7 @@ export type AccessControlHook = {
     req: PayloadRequest;
     data?: any;
     id?: string;
-    lesson: Lesson;
+    timeslot: Timeslot;
     user: User | null;
     access: boolean;
   }) => Promise<boolean>;
@@ -46,9 +46,9 @@ export type BookingsPluginConfig = {
   enabled?: boolean;
 
   /**
-   * Collection slugs (defaults: lessons, class-options, instructors, bookings).
+   * Collection slugs (defaults: timeslots, event-types, staffMembers, bookings).
    */
-  slugs?: Partial<BookingsPluginSlugs>;
+  slugs?: Partial<BookingCollectionSlugs>;
 
   /**
    * Enable or disable children
@@ -56,7 +56,7 @@ export type BookingsPluginConfig = {
    */
   childrenEnabled?: boolean;
 
-  lessonOverrides?: {
+  timeslotOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
     access?: AccessOverride;
@@ -66,12 +66,12 @@ export type BookingsPluginConfig = {
     hooks?: HooksOverride;
     access?: AccessOverride;
   } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
-  classOptionsOverrides?: {
+  eventTypesOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
     access?: AccessOverride;
   } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
-  instructorOverrides?: {
+  staffMembersOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
     access?: AccessOverride;
@@ -103,7 +103,7 @@ export type HooksConfig = {
   beforeRead?: CollectionBeforeReadHook[];
 };
 
-export interface TaskGenerateLessonsFromSchedule {
+export interface TaskGenerateTimeslotsFromSchedule {
   input: {
     startDate: string;
     endDate: string;
@@ -112,16 +112,16 @@ export interface TaskGenerateLessonsFromSchedule {
         timeSlot: {
           startTime: string;
           endTime: string;
-          classOption?: (number | null) | ClassOption;
+          eventType?: (number | null) | EventType;
           location?: string | null;
-          instructor?: (number | null) | User;
+          staffMember?: (number | null) | User;
           lockOutTime?: number | null;
           active?: boolean | null;
         }[];
       }[];
     };
     clearExisting: boolean;
-    defaultClassOption: number | ClassOption;
+    defaultEventType: number | EventType;
     lockOutTime: number;
   };
   output?: unknown;

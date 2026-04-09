@@ -24,7 +24,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-17T17:27:16.744Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-17T17:27:16.744Z';
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "discount_codes_id" integer;
   ALTER TABLE "discount_codes" ADD CONSTRAINT "discount_codes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
   CREATE INDEX "discount_codes_tenant_idx" ON "discount_codes" USING btree ("tenant_id");
@@ -41,7 +41,7 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
   ALTER TABLE "payload_locked_documents_rels" DROP CONSTRAINT "payload_locked_documents_rels_discount_codes_fk";
   
   DROP INDEX "payload_locked_documents_rels_discount_codes_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-17T12:54:26.169Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-17T12:54:26.169Z';
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "discount_codes_id";
   DROP TYPE "public"."enum_discount_codes_type";
   DROP TYPE "public"."enum_discount_codes_duration";

@@ -1,6 +1,6 @@
 "use client";
 
-import { ClassOption, Lesson, Plan } from "@repo/shared-types";
+import { EventType, Timeslot, Plan } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -12,13 +12,13 @@ import { ChildrenPaymentTabs } from "./children-payment-tabs";
 
 export function ChildrenManageNoValidSubscription({
   paymentMethods,
-  lessonId,
+  timeslotId,
   bookingStatus,
   remainingCapacity,
 }: {
-  paymentMethods: ClassOption["paymentMethods"];
-  lessonId: number;
-  bookingStatus: Lesson["bookingStatus"];
+  paymentMethods: EventType["paymentMethods"];
+  timeslotId: number;
+  bookingStatus: Timeslot["bookingStatus"];
   remainingCapacity: number;
 }) {
   const trpc = useTRPC();
@@ -48,7 +48,7 @@ export function ChildrenManageNoValidSubscription({
     return (
       <ChildrenPaymentTabs
         paymentMethods={paymentMethods}
-        lessonId={lessonId}
+        timeslotId={timeslotId}
         bookingStatus={bookingStatus}
         remainingCapacity={remainingCapacity}
       />
@@ -58,8 +58,8 @@ export function ChildrenManageNoValidSubscription({
   return (
     <div className="flex flex-col gap-4 w-full">
       <p>
-        You do not have a valid subscription to book this lesson. You can upgrade your subscription
-        to book this lesson.
+        You do not have a valid subscription to book this timeslot. You can upgrade your subscription
+        to book this timeslot.
       </p>
 
       {activePlans.map((plan) => (

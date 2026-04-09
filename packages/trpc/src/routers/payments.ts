@@ -13,7 +13,7 @@ import Stripe from "stripe";
 
 export type GetDropInFeeBreakdown = (_params: {
   payload: any;
-  lessonId: number;
+  timeslotId: number;
   classPriceCents: number;
   originalClassPriceCents?: number;
   promoDiscountCents?: number;
@@ -283,11 +283,11 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
        * Returns fee breakdown for drop-in checkout (class price, booking fee, total).
        */
       getDropInFeeBreakdown: protectedProcedure
-        .use(requireBookingCollections("lessons"))
+        .use(requireBookingCollections("timeslots"))
         .use(requireCollections("tenants"))
         .input(
           z.object({
-            lessonId: z.number(),
+            timeslotId: z.number(),
             classPriceCents: z.number().min(0),
             originalClassPriceCents: z.number().min(0).optional(),
             promoDiscountCents: z.number().min(0).optional(),
@@ -296,7 +296,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         .query(({ ctx, input }) =>
           getDropInFeeBreakdown({
             payload: ctx.payload,
-            lessonId: input.lessonId,
+            timeslotId: input.timeslotId,
             classPriceCents: input.classPriceCents,
             originalClassPriceCents: input.originalClassPriceCents,
             promoDiscountCents: input.promoDiscountCents,

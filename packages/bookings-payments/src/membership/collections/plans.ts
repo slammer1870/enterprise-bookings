@@ -42,7 +42,7 @@ const defaultFields: Field[] = [
     required: false,
     admin: {
       description:
-        "Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.",
+        "Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single timeslot when allow multiple bookings per timeslot is enabled.",
     },
     fields: [
       {
@@ -66,14 +66,14 @@ const defaultFields: Field[] = [
         ],
       },
       {
-        name: "allowMultipleBookingsPerLesson",
-        label: "Allow multiple bookings per lesson",
+        name: "allowMultipleBookingsPerTimeslot",
+        label: "Allow multiple bookings per timeslot",
         type: "checkbox",
         defaultValue: false,
         required: true,
         admin: {
           description:
-            "When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.",
+            "When enabled, subscribers can use multiple session credits on the same timeslot (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per timeslot per user.",
         },
       },
     ],

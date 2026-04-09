@@ -2,8 +2,8 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   getPayloadInstance,
 } from './helpers/data-helpers'
 
@@ -63,7 +63,7 @@ test.describe('Drop-in 100% promo booking', () => {
       overrideAccess: true,
     }) as { id: number }
 
-    const classOption = await createTestClassOption(tenantId, 'Free Promo Class', 5, undefined, workerIndex)
+    const classOption = await createTestEventType(tenantId, 'Free Promo Class', 5, undefined, workerIndex)
     await payload.update({
       collection: 'event-types',
       id: classOption.id,
@@ -79,7 +79,7 @@ test.describe('Drop-in 100% promo booking', () => {
     startTime.setHours(12, 0, 0, 0)
     const endTime = new Date(startTime)
     endTime.setHours(13, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, classOption.id, startTime, endTime, undefined, true)
 
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', {
       request,
@@ -115,7 +115,7 @@ test.describe('Drop-in 100% promo booking', () => {
       collection: 'bookings',
       where: {
         and: [
-          { lesson: { equals: lesson.id } },
+          { timeslot: { equals: lesson.id } },
           { user: { equals: Number(userId) } },
           { status: { equals: 'confirmed' } },
         ],

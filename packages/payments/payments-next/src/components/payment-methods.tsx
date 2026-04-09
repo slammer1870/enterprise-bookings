@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Lesson, Booking, DropIn, type Plan } from "@repo/shared-types";
+import { Timeslot, Booking, DropIn, type Plan } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,11 +21,11 @@ import {
 import { toast } from "sonner";
 import {
   getMembershipPlansForView,
-  planAllowsMultipleBookingsPerLesson,
+  planAllowsMultipleBookingsPerTimeslot,
 } from "./membership-plan-filter";
 
 type PaymentMethodsProps = {
-  lesson: Lesson;
+  timeslot: Timeslot;
   /** Quantity of bookings being paid for. When > 1, only payment methods that allow multiple bookings are shown. */
   quantity?: number;
   /** Pending bookings to confirm on payment. When provided, quantity defaults to pendingBookings.length. */
@@ -77,8 +77,8 @@ type ValidatedDiscount = {
   currency?: string | null;
 };
 
-/** Pass-like shape from getValidClassPassesForLesson */
-type ClassPassForLesson = {
+/** Pass-like shape from getValidClassPassesForTimeslot */
+type ClassPassForTimeslot = {
   id: number;
   quantity?: number;
   expirationDate?: string;
@@ -90,7 +90,7 @@ type PurchasableClassPassType = {
   name: string;
   description?: string | null;
   quantity: number;
-  allowMultipleBookingsPerLesson: boolean;
+  allowMultipleBookingsPerTimeslot: boolean;
   price?: number | null;
   priceId: string;
 };
@@ -102,7 +102,7 @@ function ClassPassTabContent({
   onConfirm,
   onPurchase,
 }: {
-  passes: ClassPassForLesson[];
+  passes: ClassPassForTimeslot[];
   purchasablePassTypes: PurchasableClassPassType[];
   quantity: number;
   onConfirm: (_classPassId: number) => Promise<void>;
@@ -136,7 +136,7 @@ function ClassPassTabContent({
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
         <p className="font-medium">No valid class pass</p>
         <p className="mt-1">
-          You don&apos;t have a valid class pass for this lesson. Contact the organiser to obtain one.
+          You don&apos;t have a valid class pass for this timeslot. Contact the organiser to obtain one.
         </p>
       </div>
     );
@@ -253,7 +253,7 @@ function ClassPassTabContent({
 }
 
 /**
- * Returns true if the drop-in allows multiple bookings per lesson.
+ * Returns true if the drop-in allows multiple bookings per timeslot.
  */
 function dropInAllowsMultiple(dropIn: unknown): boolean {
   if (!dropIn || typeof dropIn !== "object") return false;
@@ -282,12 +282,12 @@ function getPendingBookingIds(pendingBookings?: Booking[]): number[] {
 }
 
 /**
- * Component for displaying and managing payment methods for a lesson.
- * When quantity > 1, only shows payment methods that allow multiple bookings per lesson.
+ * Component for displaying and managing payment methods for a timeslot.
+ * When quantity > 1, only shows payment methods that allow multiple bookings per timeslot.
  * Uses tRPC procedures for data fetching and manipulation.
  */
 export function PaymentMethods({
-  lesson,
+  timeslot,
   quantity: quantityProp,
   pendingBookings,
   onPaymentSuccess: _onPaymentSuccess,
@@ -318,10 +318,10 @@ export function PaymentMethods({
   const quantity = hasPendingBookings ? pendingBookingIds.length : quantityProp ?? 1;
 
   const tenantId =
-    lesson.tenant != null
-      ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-        ? lesson.tenant.id
-        : lesson.tenant
+    timeslot.tenant != null
+      ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+        ? timeslot.tenant.id
+        : timeslot.tenant
       : null;
 
   const PlanPriceSummary = useMemo(() => {
@@ -370,24 +370,24 @@ export function PaymentMethods({
     };
   }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
-  // Get subscription data for this lesson using tRPC
+  // Get subscription data for this timeslot using tRPC
   const { data: subscriptionData } = useQuery(
-    trpc.subscriptions.getSubscriptionForLesson.queryOptions({
-      lessonId: lesson.id,
+    trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
       quantity,
     })
   );
 
-  // Get valid class passes for this lesson (Phase 4.6)
+  // Get valid class passes for this timeslot (Phase 4.6)
   const { data: validClassPasses = [] } = useQuery(
-    trpc.bookings.getValidClassPassesForLesson.queryOptions({
-      lessonId: lesson.id,
+    trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
       quantity,
     })
   );
   const { data: purchasableClassPassTypes = [] } = useQuery(
-    trpc.bookings.getPurchasableClassPassTypesForLesson.queryOptions({
-      lessonId: lesson.id,
+    trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
       quantity,
     })
   );
@@ -450,7 +450,7 @@ export function PaymentMethods({
         credentials: "include",
         body: JSON.stringify({
           discountCode: normalizedCode,
-          metadata: tenantId != null ? { tenantId: String(tenantId), lessonId: String(lesson.id) } : { lessonId: String(lesson.id) },
+          metadata: tenantId != null ? { tenantId: String(tenantId), timeslotId: String(timeslot.id) } : { timeslotId: String(timeslot.id) },
         }),
       });
 
@@ -499,7 +499,7 @@ export function PaymentMethods({
     } finally {
       setIsValidatingDiscountCode(false);
     }
-  }, [lesson.id, tenantId, validateDiscountCodeUrl]);
+  }, [timeslot.id, tenantId, validateDiscountCodeUrl]);
 
   useEffect(() => {
     if (!initialDiscountCode || !validateDiscountCodeUrl) {
@@ -628,14 +628,14 @@ export function PaymentMethods({
         )
       : {};
     const tenantId =
-      lesson.tenant != null
-        ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-          ? lesson.tenant.id
-          : lesson.tenant
+      timeslot.tenant != null
+        ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+          ? timeslot.tenant.id
+          : timeslot.tenant
         : undefined;
     const metaWithTenant: Record<string, string> = {
       ...cleanMetadata,
-      lessonId: String(lesson.id),
+      timeslotId: String(timeslot.id),
       ...(tenantId != null && { tenantId: String(tenantId) }),
     };
     if (hasPendingBookings) {
@@ -667,7 +667,7 @@ export function PaymentMethods({
       metadata: metaWithTenant,
       mode: "subscription",
       successUrl: `${successPath}${tenantQ}`,
-      cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
+      cancelUrl: `${origin}/bookings/${timeslot.id}${tenantQ}`,
     });
   };
 
@@ -679,12 +679,12 @@ export function PaymentMethods({
     const currentPath =
       typeof window !== "undefined"
         ? `${window.location.pathname}${window.location.search || ""}`
-        : `/bookings/${lesson.id}`;
+        : `/bookings/${timeslot.id}`;
     const tenantIdForMeta =
-      lesson.tenant != null
-        ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-          ? lesson.tenant.id
-          : lesson.tenant
+      timeslot.tenant != null
+        ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+          ? timeslot.tenant.id
+          : timeslot.tenant
         : undefined;
 
     await createCheckoutSession({
@@ -694,7 +694,7 @@ export function PaymentMethods({
       metadata: {
         type: "class_pass_purchase",
         classPassTypeId: String(passType.id),
-        lessonId: String(lesson.id),
+        timeslotId: String(timeslot.id),
         bookingQuantity: String(quantity),
         ...(tenantIdForMeta != null ? { tenantId: String(tenantIdForMeta) } : {}),
         ...(hasPendingBookings ? { bookingIds: pendingBookingIds.join(",") } : {}),
@@ -723,14 +723,14 @@ export function PaymentMethods({
     await createCustomerUpgradePortal({ planId: planIdentifier, returnUrl });
   };
 
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
+  const allowedPlans = timeslot.eventType.paymentMethods?.allowedPlans;
   const allowedPlanDocs: Plan[] = Array.isArray(allowedPlans)
     ? (allowedPlans.filter(
         (p: unknown): p is Plan => typeof p === "object" && p != null && "id" in p
       ) as Plan[])
     : [];
-  const allowedDropIn = lesson.classOption.paymentMethods?.allowedDropIn;
-  const allowedClassPasses = (lesson.classOption.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
+  const allowedDropIn = timeslot.eventType.paymentMethods?.allowedDropIn;
+  const allowedClassPasses = (timeslot.eventType.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
     ?.allowedClassPasses;
 
   const plansForView = getMembershipPlansForView({
@@ -747,14 +747,14 @@ export function PaymentMethods({
 
   const userPlanAllowsMultiple =
     subscription?.plan &&
-    planAllowsMultipleBookingsPerLesson(subscription.plan);
+    planAllowsMultipleBookingsPerTimeslot(subscription.plan);
 
   const subscriptionUsableForBooking =
     subscription &&
     (subscription.status === "active" || subscription.status === "trialing");
 
   // For "use current subscription": require (1) valid payment status (active/trialing), (2) session headroom,
-  // and (3) when quantity > 1, the plan must allow multiple bookings per lesson.
+  // and (3) when quantity > 1, the plan must allow multiple bookings per timeslot.
   const canUseSubscriptionForQuantity =
     hasSubscriptionWithPlan &&
     Boolean(subscriptionUsableForBooking) &&
@@ -763,7 +763,7 @@ export function PaymentMethods({
     (quantity <= 1 || Boolean(userPlanAllowsMultiple));
 
   // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
-  const classPassesWithEnoughCredits: ClassPassForLesson[] = Array.isArray(validClassPasses)
+  const classPassesWithEnoughCredits: ClassPassForTimeslot[] = Array.isArray(validClassPasses)
     ? validClassPasses.flatMap((p) => {
         if (
           typeof p !== "object" ||
@@ -774,7 +774,7 @@ export function PaymentMethods({
         ) {
           return [];
         }
-        return [p as ClassPassForLesson];
+        return [p as ClassPassForTimeslot];
       })
     : [];
   const purchasablePassesForQuantity: PurchasableClassPassType[] = Array.isArray(purchasableClassPassTypes)
@@ -791,7 +791,10 @@ export function PaymentMethods({
         return [passType as PurchasableClassPassType];
       })
     : [];
-  const hasClassPassTab = Boolean(allowedClassPasses?.length);
+  const hasClassPassTab =
+    Boolean(allowedClassPasses?.length) ||
+    classPassesWithEnoughCredits.length > 0 ||
+    purchasablePassesForQuantity.length > 0;
 
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
@@ -839,7 +842,7 @@ export function PaymentMethods({
         <p>
           {quantity > 1
             ? "No payment methods are available for multiple bookings. Try reducing the quantity or use a different payment method."
-            : "No payment methods are available for this lesson."}
+            : "No payment methods are available for this timeslot."}
         </p>
       </div>
     );
@@ -879,7 +882,7 @@ export function PaymentMethods({
               quantity={quantity}
               onConfirm={async (classPassId: number) => {
                 await createBookingsWithClassPass({
-                  lessonId: lesson.id,
+                  timeslotId: timeslot.id,
                   quantity: hasPendingBookings ? pendingBookingIds.length : quantity,
                   classPassId,
                   pendingBookingIds: hasPendingBookings ? pendingBookingIds : undefined,
@@ -894,12 +897,12 @@ export function PaymentMethods({
             <PlanView
               allowedPlans={plansForView}
               subscription={subscription}
-              lessonDate={new Date(lesson.startTime)}
+              timeslotDate={new Date(timeslot.startTime)}
               subscriptionLimitReached={subscriptionLimitReached}
               remainingSessions={remainingSessions}
               selectedQuantity={quantity}
               canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
-              subscriptionAllowsMultiplePerLesson={Boolean(userPlanAllowsMultiple)}
+              subscriptionAllowsMultiplePerTimeslot={Boolean(userPlanAllowsMultiple)}
               needsCustomerPortal={needsCustomerPortal}
               upgradeOptions={upgradeOptions}
               PlanPriceSummary={PlanPriceSummary}
@@ -911,7 +914,7 @@ export function PaymentMethods({
                   ? async (subscriptionId: number) => {
                       const pendingIds = hasPendingBookings ? pendingBookingIds : undefined;
                       await createBookingsWithSubscription({
-                        lessonId: lesson.id,
+                        timeslotId: timeslot.id,
                         quantity: pendingIds ? pendingIds.length : quantity,
                         subscriptionId,
                         pendingBookingIds: pendingIds,
@@ -986,7 +989,7 @@ export function PaymentMethods({
             </div>
             {allowedDropIn ? (
               <DropInView
-                bookingStatus={lesson.bookingStatus}
+                bookingStatus={timeslot.bookingStatus}
                 dropIn={allowedDropIn as DropIn}
                 quantity={quantity}
                 discountCode={appliedDiscountCode}
@@ -999,10 +1002,10 @@ export function PaymentMethods({
                   hasPendingBookings
                     ? {
                         bookingIds: pendingBookingIds.join(","),
-                        lessonId: lesson.id.toString(),
+                        timeslotId: timeslot.id.toString(),
                       }
                     : {
-                        lessonId: lesson.id.toString(),
+                        timeslotId: timeslot.id.toString(),
                         quantity: String(quantity),
                       }
                 }

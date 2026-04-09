@@ -128,7 +128,7 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      classOptionsOverrides: {
+      eventTypesOverrides: {
         fields: ({ defaultFields }) => [
           ...defaultFields.filter((field: any) => field.name !== 'paymentMethods'),
           {

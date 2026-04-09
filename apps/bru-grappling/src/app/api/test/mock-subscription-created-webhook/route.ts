@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { userEmail, lessonId } = body as { userEmail?: string; lessonId?: number }
+    const { userEmail, timeslotId } = body as { userEmail?: string; timeslotId?: number }
 
     const payload = await getPayload({ config: await config })
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
             has_more: false,
             url: '',
           },
-          metadata: lessonId ? { lessonId: lessonId.toString() } : {},
+          metadata: timeslotId ? { timeslotId: timeslotId.toString() } : {},
         } as unknown as Stripe.Subscription,
       },
       livemode: false,

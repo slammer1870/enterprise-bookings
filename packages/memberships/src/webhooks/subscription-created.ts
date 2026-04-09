@@ -78,11 +78,11 @@ export const subscriptionCreated: StripeWebhookHandler<{
       // Verify lesson exists
       try {
         await payload.findByID({
-          collection: "lessons",
+          collection: "timeslots",
           id: lessonIdNum,
         });
       } catch {
-        payload.logger.error(`Lesson not found: ${lessonIdNum}`);
+        payload.logger.error(`Timeslot not found: ${lessonIdNum}`);
         return;
       }
 

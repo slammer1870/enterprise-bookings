@@ -90,7 +90,7 @@ export default async function RootPage() {
               A powerful multi-tenant booking platform for fitness studios, yoga centers, and wellness businesses.
             </p>
             <p className="text-lg text-muted-foreground/80 mb-12">
-              Manage your classes, instructors, and bookings all in one place.
+              Manage your classes, staffMembers, and bookings all in one place.
             </p>
 
             <div className="grid md:grid-cols-3 gap-8 mt-16">
@@ -109,7 +109,7 @@ export default async function RootPage() {
               <div className="p-6 bg-card text-card-foreground rounded-lg border border-border shadow-sm">
                 <h2 className="text-2xl font-semibold mb-4">Flexible Management</h2>
                 <p className="text-muted-foreground">
-                  Manage instructors, class options, schedules, and bookings all from one admin panel.
+                  Manage staffMembers, class options, schedules, and bookings all from one admin panel.
                 </p>
               </div>
             </div>

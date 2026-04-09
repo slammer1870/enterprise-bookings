@@ -11,7 +11,7 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { createTestClassOption, createTestLesson, getPayloadInstance } from './helpers/data-helpers'
+import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 
 function addDays(start: Date, days: number): Date {
   const next = new Date(start)
@@ -97,7 +97,7 @@ test.describe('Trial class offer (first-time bookings only)', () => {
       overrideAccess: true,
     })) as { id: number }
 
-    const classOption = await createTestClassOption(tenantId, 'Trial offer gate', 10)
+    const classOption = await createTestEventType(tenantId, 'Trial offer gate', 10)
     await payload.update({
       collection: 'event-types',
       id: classOption.id,
@@ -108,21 +108,21 @@ test.describe('Trial class offer (first-time bookings only)', () => {
       overrideAccess: true,
     })
 
-    const priorClassOption = await createTestClassOption(tenantId, 'Prior confirmed booking gate', 5)
+    const priorEventType = await createTestEventType(tenantId, 'Prior confirmed booking gate', 5)
     const targetDate = addDays(new Date(), 5)
     targetDate.setHours(0, 0, 0, 0)
 
-    const mkLesson = async (daysFromNow: number, classOptionId: number) => {
+    const mkTimeslot = async (daysFromNow: number, classOptionId: number) => {
       const start = new Date()
       start.setDate(start.getDate() + daysFromNow)
       start.setHours(12, 0, 0, 0)
       const end = new Date(start)
       end.setHours(13, 0, 0, 0)
-      return createTestLesson(tenantId, classOptionId, start, end, undefined, true)
+      return createTestTimeslot(tenantId, classOptionId, start, end, undefined, true)
     }
 
-    const trialLesson = await mkLesson(5, classOption.id)
-    const priorLesson = await mkLesson(1, priorClassOption.id)
+    const trialTimeslot = await mkTimeslot(5, classOption.id)
+    const priorTimeslot = await mkTimeslot(1, priorEventType.id)
 
     await new Promise((r) => setTimeout(r, 600))
 
@@ -154,7 +154,7 @@ test.describe('Trial class offer (first-time bookings only)', () => {
 
     await navigateToTenant(page, tenantSlug, '/')
     await page.waitForLoadState('domcontentloaded').catch(() => null)
-    await navigateToTenant(page, tenantSlug, `/bookings/${trialLesson.id}`)
+    await navigateToTenant(page, tenantSlug, `/bookings/${trialTimeslot.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => null)
     await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 15_000 })
     await page.getByRole('tab', { name: /drop-?in/i }).click()
@@ -165,7 +165,7 @@ test.describe('Trial class offer (first-time bookings only)', () => {
       collection: 'bookings',
       data: {
         user: userId,
-        lesson: priorLesson.id,
+        timeslot: priorTimeslot.id,
         tenant: tenantId,
         status: 'confirmed',
       },
@@ -174,7 +174,7 @@ test.describe('Trial class offer (first-time bookings only)', () => {
 
     await navigateToTenant(page, tenantSlug, '/')
     await page.waitForLoadState('domcontentloaded').catch(() => null)
-    await navigateToTenant(page, tenantSlug, `/bookings/${trialLesson.id}`)
+    await navigateToTenant(page, tenantSlug, `/bookings/${trialTimeslot.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => null)
     await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 15_000 })
     await page.getByRole('tab', { name: /drop-?in/i }).click()

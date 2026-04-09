@@ -1,16 +1,16 @@
 import { APIRequestContext, Page, expect, test } from '@playwright/test'
 import {
-  createClassOption,
+  createEventType,
   ensureAdminLoggedIn,
   ensureAtLeastOneActivePlanWithStripePrice,
   mockSubscriptionCreatedWebhook,
   saveObjectAndWaitForNavigation,
-  setClassOptionAllowedPlans,
+  setEventTypeAllowedPlans,
   uniqueClassName,
   waitForServerReady,
 } from '@repo/testing-config/src/playwright'
 
-type LessonSnapshot = {
+type TimeslotSnapshot = {
   id: number
   date: string
   startTime: string
@@ -49,23 +49,23 @@ async function getAdminAuthHeaders(request: APIRequestContext): Promise<Record<s
   }
 }
 
-async function createLessonWithExactTimes(
+async function createTimeslotWithExactTimes(
   request: APIRequestContext,
   headers: Record<string, string>,
   options: {
-    classOptionId: number
+    eventTypeId: number
     date: string
     startTime: string
     endTime: string
   },
 ): Promise<number> {
-  const res = await request.post(`${baseUrl}/api/lessons`, {
+  const res = await request.post(`${baseUrl}/api/timeslots`, {
     headers,
     data: {
       date: options.date,
       startTime: options.startTime,
       endTime: options.endTime,
-      classOption: options.classOptionId,
+      eventType: options.eventTypeId,
       lockOutTime: 0,
       active: true,
     },
@@ -81,17 +81,17 @@ async function createLessonWithExactTimes(
   const lessonId = json?.doc?.id ?? json?.id
 
   if (!lessonId) {
-    throw new Error(`Lesson create response was missing an id: ${JSON.stringify(json)}`)
+    throw new Error(`Timeslot create response was missing an id: ${JSON.stringify(json)}`)
   }
 
   return Number(lessonId)
 }
 
-async function fetchLessonSnapshotFromPage(
+async function fetchTimeslotSnapshotFromPage(
   page: Page,
   lessonId: number,
-): Promise<LessonSnapshot> {
-  const res = await page.context().request.get(`${baseUrl}/api/lessons/${lessonId}?depth=0`, {
+): Promise<TimeslotSnapshot> {
+  const res = await page.context().request.get(`${baseUrl}/api/timeslots/${lessonId}?depth=0`, {
     timeout: 30000,
   })
 
@@ -110,12 +110,12 @@ async function fetchLessonSnapshotFromPage(
   }
 }
 
-async function fetchConfirmedBookingCountForLessonFromPage(
+async function fetchConfirmedBookingCountForTimeslotFromPage(
   page: Page,
   lessonId: number,
 ): Promise<number> {
   const url = new URL(`${baseUrl}/api/bookings`)
-  url.searchParams.set('where[and][0][lesson][equals]', String(lessonId))
+  url.searchParams.set('where[and][0][timeslot][equals]', String(lessonId))
   url.searchParams.set('where[and][1][status][equals]', 'confirmed')
   url.searchParams.set('limit', '10')
 
@@ -154,23 +154,23 @@ test.describe('Darkhorse Strength: booking keeps lesson on same Dublin day', () 
     const { planId } = await ensureAtLeastOneActivePlanWithStripePrice(page)
 
     const className = uniqueClassName('Late Dublin E2E Class')
-    await createClassOption(page, {
+    await createEventType(page, {
       name: className,
       description: 'Repro for lesson day shift after booking',
     })
     await saveObjectAndWaitForNavigation(page, {
-      apiPath: '/api/class-options',
-      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-      collectionName: 'class-options',
+      apiPath: '/api/event-types',
+      expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
+      collectionName: 'event-types',
     })
 
-    const classOptionId = (() => {
-      const match = page.url().match(/\/admin\/collections\/class-options\/(\d+)/)
+    const eventTypeId = (() => {
+      const match = page.url().match(/\/admin\/collections\/event-types\/(\d+)/)
       if (!match?.[1]) throw new Error(`Could not extract class option id from ${page.url()}`)
       return Number(match[1])
     })()
 
-    await setClassOptionAllowedPlans(page, { classOptionId, planIds: [planId] })
+    await setEventTypeAllowedPlans(page, { eventTypeId, planIds: [planId] })
 
     // Use a late-evening winter Dublin lesson so any accidental day rebasing is obvious
     // without depending on timezone helper packages in the Playwright runtime.
@@ -178,15 +178,15 @@ test.describe('Darkhorse Strength: booking keeps lesson on same Dublin day', () 
     const lessonStart = new Date('2030-01-15T23:30:00.000Z')
     const lessonEnd = new Date('2030-01-15T23:45:00.000Z')
 
-    const lessonId = await createLessonWithExactTimes(request, adminHeaders, {
-      classOptionId,
+    const lessonId = await createTimeslotWithExactTimes(request, adminHeaders, {
+      eventTypeId,
       date: lessonDate.toISOString(),
       startTime: lessonStart.toISOString(),
       endTime: lessonEnd.toISOString(),
     })
 
     await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
-    const beforeBooking = await fetchLessonSnapshotFromPage(page, lessonId)
+    const beforeBooking = await fetchTimeslotSnapshotFromPage(page, lessonId)
 
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
     await page.context().clearCookies()
@@ -265,7 +265,7 @@ test.describe('Darkhorse Strength: booking keeps lesson on same Dublin day', () 
       { email, password },
     )
 
-    await mockSubscriptionCreatedWebhook(request, { lessonId, userEmail: email })
+    await mockSubscriptionCreatedWebhook(request, { timeslotId: lessonId, userEmail: email })
 
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => {})
     await page.context().clearCookies()
@@ -273,12 +273,12 @@ test.describe('Darkhorse Strength: booking keeps lesson on same Dublin day', () 
     await page.goto('/dashboard', { waitUntil: 'load', timeout: 60000 })
 
     await expect
-      .poll(async () => fetchConfirmedBookingCountForLessonFromPage(page, lessonId), {
+      .poll(async () => fetchConfirmedBookingCountForTimeslotFromPage(page, lessonId), {
         timeout: 30000,
       })
       .toBeGreaterThan(0)
 
-    const afterBooking = await fetchLessonSnapshotFromPage(page, lessonId)
+    const afterBooking = await fetchTimeslotSnapshotFromPage(page, lessonId)
 
     expect(afterBooking.date).toBe(beforeBooking.date)
     expect(afterBooking.startTime).toBe(beforeBooking.startTime)

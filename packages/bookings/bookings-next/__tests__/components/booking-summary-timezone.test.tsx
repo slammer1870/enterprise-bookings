@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
 import { BookingSummary } from '../../src/components/bookings/booking-summary'
-import type { Lesson } from '@repo/shared-types'
+import type { Timeslot } from '@repo/shared-types'
 
-const createLesson = (): Lesson =>
+const createTimeslot = (): Timeslot =>
   ({
     id: 42,
     date: '2026-04-07T00:00:00.000Z',
@@ -27,7 +27,7 @@ const createLesson = (): Lesson =>
       slug: 'dublin-tenant',
       timeZone: 'Europe/Dublin',
     } as any,
-  }) as Lesson
+  }) as Timeslot
 
 describe('BookingSummary timezone display', () => {
   const ORIGINAL_TZ = process.env.TZ
@@ -41,7 +41,7 @@ describe('BookingSummary timezone display', () => {
   })
 
   it('renders lesson times in the tenant timezone instead of the runtime timezone', () => {
-    render(<BookingSummary lesson={createLesson()} />)
+    render(<BookingSummary lesson={createTimeslot()} />)
 
     expect(screen.getByText('18:00PM - 19:00PM')).toBeInTheDocument()
   })

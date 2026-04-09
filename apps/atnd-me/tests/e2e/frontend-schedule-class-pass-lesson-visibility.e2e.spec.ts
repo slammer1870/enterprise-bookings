@@ -77,7 +77,7 @@ async function chooseTenantInCreateModal(
   await expect(dialog).not.toBeVisible({ timeout: 15000 })
 }
 
-async function createPublishedLesson(args: {
+async function createPublishedTimeslot(args: {
   payload: Awaited<ReturnType<typeof getPayloadInstance>>
   tenantId: number
   classOptionId: number
@@ -91,10 +91,11 @@ async function createPublishedLesson(args: {
 
   const lesson = await payload.create({
     collection: 'timeslots',
+    draft: false,
     data: {
       tenant: tenantId,
-      classOption: classOptionId,
-      date: start.toISOString(),
+      eventType: classOptionId,
+      date: start.toISOString().split('T')[0],
       startTime: start.toISOString(),
       endTime: end.toISOString(),
       lockOutTime: 0,
@@ -145,7 +146,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
         quantity: 5,
         tenant: tenant.id,
         status: 'active',
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
         priceInformation: { price: 25 },
         priceJSON: JSON.stringify({
           id: `price_schedule_visibility_${tenant.id}_${workerIndex}_${Date.now()}`,
@@ -187,7 +188,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
     })
 
     await chooseTenantInCreateModal(page, tenantName)
-    const lessonId = await createPublishedLesson({
+    const lessonId = await createPublishedTimeslot({
       payload,
       tenantId: tenant.id,
       classOptionId: classOption.id,
@@ -207,7 +208,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
     await advanceScheduleToDate(page, targetDate)
 
-    await expect(page.getByText('No lessons scheduled for today')).not.toBeVisible({ timeout: 5000 }).catch(() => null)
+    await expect(page.getByText('No timeslots scheduled for today')).not.toBeVisible({ timeout: 5000 }).catch(() => null)
     await expect(page.getByText(className).first()).toBeVisible({ timeout: 20000 })
 
     const lessonLink = page.locator(`a[href*="/bookings/"]:has-text("${className}")`).first()
@@ -259,7 +260,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
         quantity: 5,
         tenant: tenant.id,
         status: 'active',
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
         priceInformation: { price: 25 },
         priceJSON: JSON.stringify({
           id: `price_schedule_booking_${tenant.id}_${workerIndex}_${Date.now()}`,
@@ -288,7 +289,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
     const targetDate = addDays(new Date(), 6)
     targetDate.setHours(0, 0, 0, 0)
 
-    const lessonId = await createPublishedLesson({
+    const lessonId = await createPublishedTimeslot({
       payload,
       tenantId: tenant.id,
       classOptionId: classOption.id,

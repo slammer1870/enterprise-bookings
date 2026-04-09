@@ -3,7 +3,7 @@ import type { User } from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils";
 
-export const adminOrUserOrInstructor: Access = ({ req: { user }, id }) => {
+export const adminOrUserOrStaffMember: Access = ({ req: { user }, id }) => {
   if (!user) {
     return false;
   }
@@ -23,7 +23,7 @@ export const adminOrUserOrInstructor: Access = ({ req: { user }, id }) => {
   return {
     or: [
       {
-        "lessons.instructor": {
+        "timeslots.instructor": {
           exists: true,
         },
       },

@@ -1,13 +1,13 @@
-import { Lesson } from "@repo/shared-types";
+import { Timeslot } from "@repo/shared-types";
 import type { CollectionAfterChangeHook, CollectionSlug } from "payload";
 
-import type { BookingsPluginSlugs } from "../resolve-slugs";
-import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
 export function createSetLockout(
-  slugs: BookingsPluginSlugs,
+  slugs: BookingCollectionSlugs,
 ): CollectionAfterChangeHook {
-  const lessonsSlug = slugs.lessons as CollectionSlug;
+  const timeslotsSlug = slugs.timeslots as CollectionSlug;
 
   return async ({ req, doc, context }) => {
     if (context.triggerAfterChange === false) {
@@ -15,16 +15,16 @@ export function createSetLockout(
     }
 
     const bookingLike = doc as any;
-    const lessonRel = bookingLike?.lesson;
+    const timeslotRel = bookingLike?.timeslot;
     const status = bookingLike?.status;
 
-    if (!lessonRel || !status) {
+    if (!timeslotRel || !status) {
       return;
     }
 
-    const lessonId = typeof lessonRel === "object" ? lessonRel.id : lessonRel;
+    const timeslotId = typeof timeslotRel === "object" ? timeslotRel.id : timeslotRel;
 
-    if (!lessonId) {
+    if (!timeslotId) {
       return;
     }
 
@@ -33,8 +33,8 @@ export function createSetLockout(
     try {
       if (confirmed) {
         await req.payload.update({
-          collection: lessonsSlug,
-          id: lessonId,
+          collection: timeslotsSlug,
+          id: timeslotId,
           data: {
             lockOutTime: 0,
           },
@@ -43,22 +43,22 @@ export function createSetLockout(
         return;
       }
 
-      const lesson = (await req.payload.findByID({
-        collection: lessonsSlug,
-        id: lessonId,
+      const timeslot = (await req.payload.findByID({
+        collection: timeslotsSlug,
+        id: timeslotId,
         depth: 2,
-      })) as Lesson;
+      })) as unknown as Timeslot;
 
       if (
-        !lesson.bookings?.docs
+        !timeslot.bookings?.docs
           ?.filter((booking) => booking.id != bookingLike.id)
           .some((booking) => booking.status === "confirmed")
       ) {
         await req.payload.update({
-          collection: lessonsSlug,
-          id: lessonId,
+          collection: timeslotsSlug,
+          id: timeslotId,
           data: {
-            lockOutTime: lesson.originalLockOutTime,
+            lockOutTime: timeslot.originalLockOutTime,
           },
           context: { triggerAfterChange: false },
         });
@@ -73,4 +73,4 @@ export function createSetLockout(
   };
 }
 
-export const setLockout = createSetLockout(DEFAULT_BOOKINGS_PLUGIN_SLUGS);
+export const setLockout = createSetLockout(DEFAULT_BOOKING_COLLECTION_SLUGS);

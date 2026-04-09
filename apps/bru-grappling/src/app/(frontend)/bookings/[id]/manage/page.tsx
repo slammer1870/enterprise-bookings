@@ -30,20 +30,20 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
   const caller = await createCaller()
 
   // Fetch existing bookings. You must have at least one booking to manage.
-  const userBookings = await caller.bookings.getUserBookingsForLesson({ lessonId: id })
+  const userBookings = await caller.bookings.getUserBookingsForTimeslot({ timeslotId: id })
   const bookingCount = userBookings?.length ?? 0
   if (bookingCount === 0) {
     redirect(`/bookings/${id}`)
   }
 
-  // getByIdForBooking rejects lessons that are 'booked' or 'closed', but we need to allow
+  // getByIdForBooking rejects timeslots that are 'booked' or 'closed', but we need to allow
   // managing bookings even when capacity is full.
-  const lesson = await caller.lessons.getById({ id })
+  const timeslot = await caller.timeslots.getById({ id })
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
       <ManageBookingPageClient
-        lesson={lesson}
+        timeslot={timeslot}
         initialBookings={userBookings}
         PaymentMethodsComponent={PaymentMethods}
       />

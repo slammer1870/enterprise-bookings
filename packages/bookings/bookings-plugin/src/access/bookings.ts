@@ -8,12 +8,12 @@ type AccessArgs<T> = Parameters<Access<T>> extends never
       : never
     : never;
 
-import { Booking, Lesson, User } from "@repo/shared-types";
+import { Booking, Timeslot, User } from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils";
 
-import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
-import type { BookingsPluginSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
 
 function normalizeID(id: unknown): number | null {
   if (typeof id === "number" && Number.isFinite(id)) return id;
@@ -29,8 +29,8 @@ function isElevatedOperator(user: User | null): boolean {
   return checkRole(["super-admin", "admin"], user);
 }
 
-export function createBookingAccess(slugs: BookingsPluginSlugs) {
-  const lessonsSlug = slugs.lessons;
+export function createBookingAccess(slugs: BookingCollectionSlugs) {
+  const timeslotsSlug = slugs.timeslots;
 
   const bookingCreateAccess = async ({
     req,
@@ -38,35 +38,35 @@ export function createBookingAccess(slugs: BookingsPluginSlugs) {
   }: AccessArgs<Booking>) => {
     const user = req.user as User | null;
 
-    if (!data?.lesson) return false;
+    if (!data?.timeslot) return false;
 
-    const lessonId =
-      typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
+    const timeslotId =
+      typeof data?.timeslot === "object" ? data?.timeslot.id : data?.timeslot;
 
     try {
-      const lesson = (await req.payload.findByID({
-        collection: lessonsSlug as CollectionSlug,
-        id: lessonId,
+      const timeslot = (await req.payload.findByID({
+        collection: timeslotsSlug as CollectionSlug,
+        id: timeslotId,
         depth: 3,
         overrideAccess: true,
         context: {
           triggerAfterChange: false,
         },
-      })) as unknown as Lesson;
+      })) as unknown as Timeslot;
 
-      if (!lesson) return false;
+      if (!timeslot) return false;
 
       if (!user) return false;
 
       if (isElevatedOperator(user)) return true;
 
-      if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
+      if (timeslot.bookingStatus === "waitlist" && data.status === "waiting") {
         return true;
       }
 
       if (
-        lesson.bookingStatus === "closed" ||
-        lesson.bookingStatus === "booked"
+        timeslot.bookingStatus === "closed" ||
+        timeslot.bookingStatus === "booked"
       ) {
         return false;
       }
@@ -84,9 +84,9 @@ export function createBookingAccess(slugs: BookingsPluginSlugs) {
   }: AccessArgs<Booking>) => {
     const searchParams = req.searchParams;
 
-    const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
+    const timeslotId = searchParams.get("where[and][0][timeslot][equals]") || id;
 
-    if (!lessonId) return false;
+    if (!timeslotId) return false;
 
     let booking: Booking | undefined;
 
@@ -108,14 +108,14 @@ export function createBookingAccess(slugs: BookingsPluginSlugs) {
         const bookingQuery = await req.payload.find({
           collection: "bookings",
           where: {
-            lesson: { equals: lessonId },
+            timeslot: { equals: timeslotId },
             user: { equals: requesterId },
           },
           depth: 3,
           overrideAccess: true,
         });
 
-        booking = bookingQuery.docs[0] as Booking | undefined;
+        booking = bookingQuery.docs[0] as unknown as Booking | undefined;
       }
 
       if (!booking) return false;
@@ -129,19 +129,19 @@ export function createBookingAccess(slugs: BookingsPluginSlugs) {
       if (req.data?.status === "cancelled") return true;
 
       if (
-        (booking as any)?.lesson?.bookingStatus === "closed" ||
-        (booking as any)?.lesson?.bookingStatus === "waitlist"
+        (booking as any)?.timeslot?.bookingStatus === "closed" ||
+        (booking as any)?.timeslot?.bookingStatus === "waitlist"
       ) {
-        const lessonLookup = (await req.payload.findByID({
-          collection: lessonsSlug as CollectionSlug,
-          id: (booking as any)?.lesson?.id ?? (booking as any)?.lesson,
+        const timeslotLookup = (await req.payload.findByID({
+          collection: timeslotsSlug as CollectionSlug,
+          id: (booking as any)?.timeslot?.id ?? (booking as any)?.timeslot,
           depth: 0,
           overrideAccess: true,
-        })) as unknown as Lesson | null;
-        if (!lessonLookup) return false;
+        })) as unknown as Timeslot | null;
+        if (!timeslotLookup) return false;
         if (
-          lessonLookup.bookingStatus === "closed" ||
-          lessonLookup.bookingStatus === "waitlist"
+          timeslotLookup.bookingStatus === "closed" ||
+          timeslotLookup.bookingStatus === "waitlist"
         )
           return false;
       }
@@ -173,7 +173,7 @@ export function createBookingAccess(slugs: BookingsPluginSlugs) {
 }
 
 /** @deprecated Prefer createBookingAccess(slugs) when using custom collection slugs. */
-const _legacyAccess = createBookingAccess(DEFAULT_BOOKINGS_PLUGIN_SLUGS);
+const _legacyAccess = createBookingAccess(DEFAULT_BOOKING_COLLECTION_SLUGS);
 export const bookingCreateAccess = _legacyAccess.bookingCreateAccess;
 export const bookingUpdateAccess = _legacyAccess.bookingUpdateAccess;
 export const isAdminOrOwner = _legacyAccess.isAdminOrOwner;

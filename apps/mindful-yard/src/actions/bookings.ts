@@ -4,7 +4,7 @@ import { getPayload } from 'payload'
 
 import config from '@payload-config'
 
-import { Lesson, User } from '@repo/shared-types'
+import { Timeslot, User } from '@repo/shared-types'
 
 import { render } from '@react-email/components'
 
@@ -26,35 +26,35 @@ export const createCashBooking = async (bookingData: BookingData) => {
   const { lessonId, userId, attendees, totalPrice } = bookingData
 
   try {
-    const lesson = (await payload.findByID({
-      collection: 'lessons',
+    const timeslot = (await payload.findByID({
+      collection: 'timeslots',
       id: lessonId,
-    })) as unknown as Lesson
+    })) as unknown as Timeslot
 
     const user = (await payload.findByID({
       collection: 'users',
       id: userId,
     })) as unknown as User
 
-    if (!lesson) {
+    if (!timeslot) {
       return {
         success: false,
-        error: 'Lesson not found',
+        error: 'Timeslot not found',
       }
     }
 
     if (
-      lesson.bookingStatus === 'closed' ||
-      lesson.bookingStatus === 'waitlist' ||
-      lesson.bookingStatus === 'booked'
+      timeslot.bookingStatus === 'closed' ||
+      timeslot.bookingStatus === 'waitlist' ||
+      timeslot.bookingStatus === 'booked'
     ) {
       return {
         success: false,
-        error: 'Lesson is not active',
+        error: 'Timeslot is not active',
       }
     }
 
-    if (attendees.length > (lesson.remainingCapacity || 0)) {
+    if (attendees.length > (timeslot.remainingCapacity || 0)) {
       return {
         success: false,
         error: 'Not enough places available',
@@ -66,7 +66,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
       await payload.create({
         collection: 'bookings',
         data: {
-          lesson: lessonId,
+          timeslot: lessonId,
           user: userId,
           status: 'confirmed',
         },
@@ -75,7 +75,7 @@ export const createCashBooking = async (bookingData: BookingData) => {
 
     const emailConfirmation = await render(
       BookingConfirmationEmail({
-        lesson,
+        timeslot,
         transaction: { amount: totalPrice },
         numberOfGuests: attendees.length,
       }),

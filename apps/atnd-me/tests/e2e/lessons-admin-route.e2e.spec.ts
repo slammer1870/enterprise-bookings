@@ -1,13 +1,13 @@
 /**
- * Phase 5: Lessons admin route (admin/collections/lessons) smoke test.
+ * Phase 5: Timeslots admin route (admin/collections/timeslots) smoke test.
  * Ensures the custom list view loads and key UI is present after replacing shadcn with payloadcms/ui.
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin, loginAsTenantAdmin } from './helpers/auth-helpers'
 import { BASE_URL } from './helpers/auth-helpers'
 
-test.describe('Lessons admin route (admin/collections/lessons)', () => {
-  test('super admin sees Lessons list view with heading and Create New', async ({
+test.describe('Timeslots admin route (admin/collections/timeslots)', () => {
+  test('super admin sees Timeslots list view with heading and Create New', async ({
     page,
     testData,
     request,
@@ -20,7 +20,7 @@ test.describe('Lessons admin route (admin/collections/lessons)', () => {
 
     expect(page.url()).toContain('/admin/collections/timeslots')
 
-    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+    await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
       timeout: 10000,
     })
     await expect(
@@ -28,7 +28,7 @@ test.describe('Lessons admin route (admin/collections/lessons)', () => {
     ).toBeVisible({ timeout: 5000 })
   })
 
-  test('tenant-admin sees Lessons list view for their tenant', async ({
+  test('tenant-admin sees Timeslots list view for their tenant', async ({
     page,
     testData,
     request,
@@ -41,16 +41,19 @@ test.describe('Lessons admin route (admin/collections/lessons)', () => {
 
     expect(page.url()).toContain('/admin/collections/timeslots')
 
-    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+    await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
       timeout: 10000,
     })
     await expect(
       page.getByRole('link', { name: /create new/i }).or(page.getByRole('button', { name: /create new/i })).first()
     ).toBeVisible({ timeout: 5000 })
 
-    // List view: table or empty/loading message
+    // List view: empty state, loading, or table (avoid matching hidden "Start Time" field labels)
     await expect(
-      page.getByText(/no classes for today|start time|loading lessons/i).first()
+      page
+        .getByText(/no classes for today|loading timeslots/i)
+        .first()
+        .or(page.getByRole('columnheader', { name: /^Start Time$/i }))
     ).toBeVisible({ timeout: 10000 })
   })
 })

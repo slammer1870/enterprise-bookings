@@ -47,7 +47,7 @@ describe('PlanView upgrade flow', () => {
         lessonDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached={false}
         canUseSubscriptionForQuantity
-        subscriptionAllowsMultiplePerLesson
+        subscriptionAllowsMultiplePerTimeslot
         onConfirmBookingWithSubscription={onConfirmBookingWithSubscription}
         onCreateCheckoutSession={vi.fn().mockResolvedValue(undefined)}
         onCreateCustomerPortal={vi.fn().mockResolvedValue(undefined)}
@@ -83,7 +83,7 @@ describe('PlanView upgrade flow', () => {
         lessonDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached={false}
         canUseSubscriptionForQuantity={false}
-        subscriptionAllowsMultiplePerLesson={false}
+        subscriptionAllowsMultiplePerTimeslot={false}
         onCreateCheckoutSession={vi.fn().mockResolvedValue(undefined)}
         onCreateCustomerPortal={vi.fn().mockResolvedValue(undefined)}
         onCreateCustomerUpgradePortal={onCreateCustomerUpgradePortal}
@@ -114,7 +114,7 @@ describe('PlanView upgrade flow', () => {
         lessonDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached={false}
         canUseSubscriptionForQuantity={false}
-        subscriptionAllowsMultiplePerLesson={false}
+        subscriptionAllowsMultiplePerTimeslot={false}
         needsCustomerPortal
         onCreateCheckoutSession={vi.fn().mockResolvedValue(undefined)}
         onCreateCustomerPortal={vi.fn().mockResolvedValue(undefined)}
@@ -148,7 +148,7 @@ describe('PlanView upgrade flow', () => {
         canUseSubscriptionForQuantity={false}
         remainingSessions={0}
         selectedQuantity={2}
-        subscriptionAllowsMultiplePerLesson
+        subscriptionAllowsMultiplePerTimeslot
         upgradeOptions={[
           {
             plan: upgradePlan,

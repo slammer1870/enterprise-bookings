@@ -88,7 +88,7 @@ export const paymentIntentSucceeded = async (
       }
 
       const lesson = await payload.findByID({
-        collection: "lessons",
+        collection: "timeslots",
         id: lessonId,
         depth: 1,
       }).catch(() => null);
@@ -132,7 +132,7 @@ export const paymentIntentSucceeded = async (
           },
         });
         payload.logger.info(
-          `Created booking ${createBooking.id} - Payment Intent: ${event.data.object.id}, Lesson: ${lessonId}`
+          `Created booking ${createBooking.id} - Payment Intent: ${event.data.object.id}, Timeslot: ${lessonId}`
         );
       }
       if (createCapped < toCreate || toConfirmCapped.length < toConfirm.length) {

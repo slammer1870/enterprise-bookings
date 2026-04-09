@@ -1,6 +1,6 @@
 /**
- * Phase 4.6 – Integration: getValidClassPassesForLesson and createBookings with classPassId.
- * - getValidClassPassesForLesson returns only passes for lesson's tenant and allowed types.
+ * Phase 4.6 – Integration: getValidClassPassesForTimeslot and createBookings with classPassId.
+ * - getValidClassPassesForTimeslot returns only passes for lesson's tenant and allowed types.
  * - createBookings with classPassId creates booking with paymentMethodUsed and classPassIdUsed; pass quantity decremented.
  * - Invalid pass / wrong tenant / quantity rejected.
  */
@@ -10,7 +10,7 @@ import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
-import type { User, Lesson } from '@repo/shared-types'
+import type { User, Timeslot } from '@repo/shared-types'
 
 const TEST_TIMEOUT = 60000
 const HOOK_TIMEOUT = 300000
@@ -95,7 +95,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         quantity: 5,
         tenant: testTenantId,
         status: 'active',
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
         priceInformation: { price: 29.99 },
       },
       draft: false,
@@ -152,7 +152,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       collection: 'timeslots',
       data: {
         tenant: testTenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -168,7 +168,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   afterAll(async () => {
     if (payload?.db) {
       try {
-        await payload.delete({ collection: 'bookings', where: { lesson: { equals: lessonId } }, overrideAccess: true })
+        await payload.delete({ collection: 'bookings', where: { timeslot: { equals: lessonId } }, overrideAccess: true })
         await payload.delete({ collection: 'timeslots', where: { id: { equals: lessonId } }, overrideAccess: true })
         await payload.delete({
           collection: 'class-passes',
@@ -187,15 +187,15 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   })
 
   it(
-    'getValidClassPassesForLesson returns only passes for lesson tenant and allowed types',
+    'getValidClassPassesForTimeslot returns only passes for lesson tenant and allowed types',
     async () => {
       const caller = await createCaller()
-      const getValid = (caller as any).bookings?.getValidClassPassesForLesson
+      const getValid = (caller as any).bookings?.getValidClassPassesForTimeslot
       if (typeof getValid !== 'function') {
         expect(getValid).toBeDefined()
         return
       }
-      const passes = await getValid({ lessonId })
+      const passes = await getValid({ timeslotId: lessonId })
       expect(Array.isArray(passes)).toBe(true)
       expect(passes.length).toBeGreaterThanOrEqual(1)
       const found = passes.find((p: any) => p.id === classPassId)
@@ -207,15 +207,15 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   )
 
   it(
-    'getValidClassPassesForLesson hides passes that cannot cover the requested quantity',
+    'getValidClassPassesForTimeslot hides passes that cannot cover the requested quantity',
     async () => {
       const caller = await createCaller()
-      const getValid = (caller as any).bookings?.getValidClassPassesForLesson
+      const getValid = (caller as any).bookings?.getValidClassPassesForTimeslot
       if (typeof getValid !== 'function') {
         expect(getValid).toBeDefined()
         return
       }
-      const passes = await getValid({ lessonId, quantity: 3 })
+      const passes = await getValid({ timeslotId: lessonId, quantity: 3 })
       expect(Array.isArray(passes)).toBe(true)
       expect(passes.find((p: any) => p.id === classPassId)).toBeDefined()
       expect(passes.find((p: any) => p.id === limitedClassPassId)).toBeUndefined()
@@ -233,7 +233,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         return
       }
       const result = await createBookings({
-        lessonId,
+        timeslotId: lessonId,
         quantity: 1,
         classPassId,
       })
@@ -262,7 +262,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       const caller = await createCaller()
       await expect(
         (caller as any).bookings.createBookings({
-          lessonId,
+          timeslotId: lessonId,
           quantity: 1,
           classPassId: 999999,
         }),
@@ -277,7 +277,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       const caller = await createCaller()
       await expect(
         (caller as any).bookings.createBookings({
-          lessonId,
+          timeslotId: lessonId,
           quantity: 3,
           classPassId: limitedClassPassId,
         }),

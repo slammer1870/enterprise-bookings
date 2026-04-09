@@ -79,7 +79,7 @@ describe('Drop-in fee breakdown total', () => {
       draft: false,
       data: {
         tenant: tenantId,
-        classOption: co.id,
+        eventType: co.id,
         date: startTime.toISOString().split('T')[0],
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -134,7 +134,7 @@ describe('Drop-in fee breakdown total', () => {
 
       const classPriceCents = 1000
       const result = await caller.payments.getDropInFeeBreakdown({
-        lessonId,
+        timeslotId: lessonId,
         classPriceCents,
       })
 

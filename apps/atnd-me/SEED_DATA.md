@@ -35,7 +35,7 @@ Each tenant has:
 - Stripe Connect enabled (seed uses fake account IDs)
 - Class pass types: Sauna Only, All Access
 - Class options: 50 min (Stripe + Class Pass), 30 min (Class Pass only)
-- Instructor, scheduler, lessons, and bookings
+- StaffMember, scheduler, timeslots, and bookings
 
 ## Test Users
 

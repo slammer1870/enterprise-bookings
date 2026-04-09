@@ -30,12 +30,12 @@ describe("transactions collection", () => {
     userId = user.id as number;
 
     const classOption = await payload.create({
-      collection: "class-options",
+      collection: "event-types",
       data: { name: "BT Class", places: 10, description: "Test" },
       overrideAccess: true,
     });
     const lesson = await payload.create({
-      collection: "lessons",
+      collection: "timeslots",
       data: {
         classOption: classOption.id,
         date: new Date().toISOString().slice(0, 10),
@@ -87,7 +87,7 @@ describe("transactions collection", () => {
       collection: "bookings",
       data: {
         user: userId,
-        lesson: (await payload.find({ collection: "lessons", limit: 1, overrideAccess: true })).docs[0].id,
+        lesson: (await payload.find({ collection: "timeslots", limit: 1, overrideAccess: true })).docs[0].id,
         status: "pending",
       },
       overrideAccess: true,

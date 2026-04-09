@@ -168,7 +168,7 @@ export interface Config {
   };
   jobs: {
     tasks: {
-      generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
+      generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -784,16 +784,16 @@ export interface Plan {
       }[]
     | null;
   /**
-   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
+   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single timeslot when allow multiple bookings per timeslot is enabled.
    */
   sessionsInformation: {
     sessions?: number | null;
     intervalCount?: number | null;
     interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
     /**
-     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
+     * When enabled, subscribers can use multiple session credits on the same timeslot (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per timeslot per user.
      */
-    allowMultipleBookingsPerLesson: boolean;
+    allowMultipleBookingsPerTimeslot: boolean;
   };
   stripeProductId?: string | null;
   /**
@@ -879,7 +879,7 @@ export interface DropIn {
   isActive: boolean;
   price: number;
   /**
-   * When enabled, users can book more than one spot for the same lesson when paying drop-in.
+   * When enabled, users can book more than one spot for the same timeslot when paying drop-in.
    */
   adjustable: boolean;
   discountTiers?:
@@ -925,9 +925,9 @@ export interface ClassPassType {
    */
   quantity: number;
   /**
-   * When enabled, users can use multiple credits from this pass type on the same lesson (e.g. book 3 spots using 3 credits). When disabled, only one spot per lesson per user.
+   * When enabled, users can use multiple credits from this pass type on the same timeslot (e.g. book 3 spots using 3 credits). When disabled, only one spot per timeslot per user.
    */
-  allowMultipleBookingsPerLesson: boolean;
+  allowMultipleBookingsPerTimeslot: boolean;
   /**
    * Link to a Stripe product with a one-time default price for purchase/checkout.
    */
@@ -2478,7 +2478,7 @@ export interface Footer {
   createdAt: string;
 }
 /**
- * Create recurring lessons across your weekly schedule for each tenant
+ * Create recurring timeslots across your weekly schedule for each tenant
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "scheduler".
@@ -2491,7 +2491,7 @@ export interface Scheduler {
    */
   startDate: string;
   /**
-   * When this schedule stops generating lessons
+   * When this schedule stops generating timeslots
    */
   endDate: string;
   /**
@@ -2499,9 +2499,9 @@ export interface Scheduler {
    */
   lockOutTime: number;
   /**
-   * Default class type to use when creating lessons (can be overridden per slot)
+   * Default class type to use when creating timeslots (can be overridden per slot)
    */
-  defaultClassOption: number | EventType;
+  defaultEventType: number | EventType;
   /**
    * The days of the week and their time slots
    */
@@ -2515,9 +2515,9 @@ export interface Scheduler {
                 /**
                  * Overrides the default class option
                  */
-                classOption?: (number | null) | EventType;
+                eventType?: (number | null) | EventType;
                 location?: string | null;
-                instructor?: (number | null) | StaffMember;
+                staffMember?: (number | null) | StaffMember;
                 /**
                  * Overrides the default lock out time
                  */
@@ -2534,7 +2534,7 @@ export interface Scheduler {
       | null;
   };
   /**
-   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
+   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
    */
   clearExisting?: boolean | null;
   updatedAt: string;
@@ -2551,17 +2551,17 @@ export interface StaffMember {
    */
   tenant: number | Tenant;
   /**
-   * The user associated with this instructor
+   * The user associated with this staffMember
    */
   user: number | User;
   name?: string | null;
   description?: string | null;
   /**
-   * Instructor profile image
+   * StaffMember profile image
    */
   profileImage?: (number | null) | Media;
   /**
-   * Whether this instructor is active and can be assigned to lessons
+   * Whether this staffMember is active and can be assigned to timeslots
    */
   active?: boolean | null;
   updatedAt: string;
@@ -2661,13 +2661,13 @@ export interface Timeslot {
   startTime: string;
   endTime: string;
   /**
-   * The time in minutes before the lesson will be closed for new bookings.
+   * The time in minutes before the timeslot will be closed for new bookings.
    */
   lockOutTime: number;
   originalLockOutTime?: number | null;
   location?: string | null;
-  instructor?: (number | null) | StaffMember;
-  classOption: number | EventType;
+  staffMember?: (number | null) | StaffMember;
+  eventType: number | EventType;
   /**
    * The number of places remaining
    */
@@ -2678,11 +2678,11 @@ export interface Timeslot {
     totalDocs?: number;
   };
   /**
-   * Status of the lesson
+   * Status of the timeslot
    */
   bookingStatus?: string | null;
   /**
-   * Whether the lesson is active and will be shown on the schedule
+   * Whether the timeslot is active and will be shown on the schedule
    */
   active?: boolean | null;
   updatedAt: string;
@@ -2696,7 +2696,7 @@ export interface Booking {
   id: number;
   tenant?: (number | null) | Tenant;
   user: number | User;
-  lesson: number | Timeslot;
+  timeslot: number | Timeslot;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
   /**
    * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
@@ -2881,7 +2881,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'schedulePublish';
+        taskSlug: 'inline' | 'generateTimeslotsFromSchedule' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -2914,7 +2914,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'generateTimeslotsFromSchedule' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -4197,7 +4197,7 @@ export interface SchedulerSelect<T extends boolean = true> {
   startDate?: T;
   endDate?: T;
   lockOutTime?: T;
-  defaultClassOption?: T;
+  defaultEventType?: T;
   week?:
     | T
     | {
@@ -4209,9 +4209,9 @@ export interface SchedulerSelect<T extends boolean = true> {
                 | {
                     startTime?: T;
                     endTime?: T;
-                    classOption?: T;
+                    eventType?: T;
                     location?: T;
-                    instructor?: T;
+                    staffMember?: T;
                     lockOutTime?: T;
                     active?: T;
                     id?: T;
@@ -4469,8 +4469,8 @@ export interface TimeslotsSelect<T extends boolean = true> {
   lockOutTime?: T;
   originalLockOutTime?: T;
   location?: T;
-  instructor?: T;
-  classOption?: T;
+  staffMember?: T;
+  eventType?: T;
   remainingCapacity?: T;
   bookings?: T;
   bookingStatus?: T;
@@ -4504,7 +4504,7 @@ export interface EventTypesSelect<T extends boolean = true> {
 export interface BookingsSelect<T extends boolean = true> {
   tenant?: T;
   user?: T;
-  lesson?: T;
+  timeslot?: T;
   status?: T;
   paymentMethodUsed?: T;
   classPassIdUsed?: T;
@@ -4547,7 +4547,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   slug?: T;
   description?: T;
   quantity?: T;
-  allowMultipleBookingsPerLesson?: T;
+  allowMultipleBookingsPerTimeslot?: T;
   stripeProductId?: T;
   priceInformation?:
     | T
@@ -4617,7 +4617,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
-        allowMultipleBookingsPerLesson?: T;
+        allowMultipleBookingsPerTimeslot?: T;
       };
   stripeProductId?: T;
   priceInformation?:
@@ -4877,9 +4877,9 @@ export interface PlatformFeesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskGenerateLessonsFromSchedule".
+ * via the `definition` "TaskGenerateTimeslotsFromSchedule".
  */
-export interface TaskGenerateLessonsFromSchedule {
+export interface TaskGenerateTimeslotsFromSchedule {
   input: {
     startDate: string;
     endDate: string;
@@ -4888,15 +4888,15 @@ export interface TaskGenerateLessonsFromSchedule {
         timeSlot: {
           startTime: string;
           endTime: string;
-          classOption?: (number | null) | EventType;
+          eventType?: (number | null) | EventType;
           location?: string | null;
-          instructor?: (number | null) | StaffMember;
+          staffMember?: (number | null) | StaffMember;
           lockOutTime?: number | null;
         }[];
       }[];
     };
     clearExisting: boolean;
-    defaultClassOption: number | EventType;
+    defaultEventType: number | EventType;
     lockOutTime: number;
   };
   output: {

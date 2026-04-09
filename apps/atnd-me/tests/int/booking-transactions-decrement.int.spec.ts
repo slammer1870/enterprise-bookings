@@ -62,7 +62,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
       collection: 'timeslots',
       data: {
         tenant: tenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -145,7 +145,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -183,7 +183,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -267,7 +267,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -341,7 +341,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },

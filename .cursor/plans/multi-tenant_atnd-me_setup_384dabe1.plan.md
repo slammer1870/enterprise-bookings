@@ -1,6 +1,6 @@
 ---
 name: Multi-tenant atnd-me setup (MVP)
-overview: Convert atnd-me app to multi-tenant architecture using Payload's multi-tenant plugin. MVP includes tenant-scoped collections (pages, lessons, instructors, class-options, scheduler, navbar, footer, users) and custom user access control allowing cross-tenant bookings. Payment functionality will be added in Phase 2.
+overview: Convert atnd-me app to multi-tenant architecture using Payload's multi-tenant plugin. MVP includes tenant-scoped collections (pages, timeslots, staffMembers, event-types, scheduler, navbar, footer, users) and custom user access control allowing cross-tenant bookings. Payment functionality will be added in Phase 2.
 todos:
   - id: setup-test-infrastructure
     content: Create test utilities and helpers for multi-tenant testing
@@ -31,7 +31,7 @@ todos:
     dependencies:
       - setup-test-infrastructure
   - id: implement-tenant-onboarding
-    content: Create hook to automatically create default data (home page, class options, lessons, navbar, footer) when tenant is created
+    content: Create hook to automatically create default data (home page, class options, timeslots, navbar, footer) when tenant is created
     status: done
     dependencies:
       - write-tenant-onboarding-tests
@@ -109,7 +109,7 @@ todos:
       - write-user-access-tests
       - add-user-tenant-fields
   - id: implement-tenant-access-control
-    content: Create access control functions for all tenant-scoped collections (pages, lessons, etc.)
+    content: Create access control functions for all tenant-scoped collections (pages, timeslots, etc.)
     status: done
     dependencies:
       - implement-user-access-control
@@ -166,7 +166,7 @@ isProject: false
 
 ## Overview
 
-Transform the atnd-me app into a multi-tenant application using `@payloadcms/plugin-multi-tenant`. Each tenant will have isolated instances of pages, lessons, instructors, class-options, scheduler, navbar, footer, and users, with subdomain-based tenant identification.
+Transform the atnd-me app into a multi-tenant application using `@payloadcms/plugin-multi-tenant`. Each tenant will have isolated instances of pages, timeslots, staffMembers, event-types, scheduler, navbar, footer, and users, with subdomain-based tenant identification.
 
 ## MVP Scope
 
@@ -176,7 +176,7 @@ Transform the atnd-me app into a multi-tenant application using `@payloadcms/plu
 
 - Tenant collection and management
 - Subdomain-based tenant identification
-- Tenant-scoped collections (pages, lessons, instructors, class-options, scheduler, navbar, footer)
+- Tenant-scoped collections (pages, timeslots, staffMembers, event-types, scheduler, navbar, footer)
 - Role structure (admin, tenant-admin, user)
 - User access control with cross-tenant booking capability
 - Marketing landing page and tenants listing page
@@ -189,8 +189,8 @@ Transform the atnd-me app into a multi-tenant application using `@payloadcms/plu
 - Posts collection
 - Media collection
 - Categories collection
-- Lessons collection
-- Instructors collection
+- Timeslots collection
+- StaffMembers collection
 - Class Options collection
 - Bookings collection (without payment validation)
 - Scheduler global (converted to collection)
@@ -228,9 +228,9 @@ The MVP will be structured to easily add payment functionality later:
 2.5 **Phase 2.5** – Stripe sync for Stripe-backed collections (admin as source of truth; create/update/archive in Stripe for plans/memberships, class pass types, discount codes, etc.)
 3. **Phase 3** – Custom tenant-scoped blocks
 4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
-5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes lessons bulk actions)
+5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes timeslots bulk actions)
 6. **Phase 4.6** – Class pass UI in bookings page (parity with drop-in and membership; show Class pass tab, valid passes for lesson, confirm booking with class pass)
-7. **Phase 5** – Admin bulk operations & Lessons admin UI (bulk actions for bookings/lessons; replace shadcn with payloadcms/ui at admin/collections/lessons)
+7. **Phase 5** – Admin bulk operations & Timeslots admin UI (bulk actions for bookings/timeslots; replace shadcn with payloadcms/ui at admin/collections/timeslots)
 8. **Phase 5.5** – Image storage (S3/Cloudflare R2) – configure Media uploads to use Cloudflare R2 via S3-compatible API
 9. **Phase 6** – Authentication across subdomains and custom domains (same user on tenant subdomain + custom domain; cross-tenant login; trusted origins; session propagation)
 10. **Phase 7** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
@@ -274,7 +274,7 @@ The MVP will be structured to easily add payment functionality later:
 
 - `access/is-admin-or-tenant-admin.ts` - Reusable access control for admin/tenant-admin
 - `access/tenant-scoped-access.ts` - Generic tenant-scoped access patterns
-- `tenant/getTenantFromLesson.ts` - Extract tenant from lesson (if reusable pattern)
+- `tenant/getTenantFromTimeslot.ts` - Extract tenant from lesson (if reusable pattern)
 
 **Extend Existing: `packages/shared-utils/**`
 
@@ -308,7 +308,7 @@ The MVP will be structured to easily add payment functionality later:
 - `src/middleware.ts` - Next.js middleware for atnd-me subdomain routing
 - `src/app/(frontend)/**` - Frontend routes and components
 - `src/utilities/getTenantContext.ts` - App-specific tenant context extraction
-- `src/utilities/getTenantFromLesson.ts` - App-specific tenant extraction logic
+- `src/utilities/getTenantFromTimeslot.ts` - App-specific tenant extraction logic
 
 **Tests** - App-specific:
 
@@ -398,7 +398,7 @@ This implementation will follow **Test-Driven Development (TDD)** principles:
 ### Role Structure
 
 - `**admin**` (Super Admin): Can access all tenants and all data across the entire system
-- `**tenant-admin**`: Can only access their assigned tenant's data (pages, lessons, instructors, bookings, etc.)
+- `**tenant-admin**`: Can only access their assigned tenant's data (pages, timeslots, staffMembers, bookings, etc.)
 - `**user**`: Regular users who can book classes across any tenant
 
 ### User Scoping Model
@@ -474,7 +474,7 @@ Create `apps/atnd-me/tests/int/tenants-collection.int.spec.ts`:
 - Test that default data is created when tenant is created:
   - Default home page with HeroScheduleBlock
   - Default class options (2-3 options)
-  - Default lessons (2-3 upcoming lessons)
+  - Default timeslots (2-3 upcoming timeslots)
   - Default instructor (optional)
   - Default navbar and footer
 
@@ -536,9 +536,9 @@ multiTenantPlugin({
   collections: {
     // Standard collections
     pages: {},
-    lessons: {},
-    instructors: {},
-    'class-options': {},
+    timeslots: {},
+    staffMembers: {},
+    'event-types': {},
     bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
     
     // Globals converted to collections
@@ -598,7 +598,7 @@ The monorepo packages extensively use `checkRole(["admin"], user)` from `@repo/s
 
 **Solution:**
 
-- For **tenant-scoped collections** (lessons, instructors, class-options, bookings): Allow both `admin` and `tenant-admin`
+- For **tenant-scoped collections** (timeslots, staffMembers, event-types, bookings): Allow both `admin` and `tenant-admin`
 - For **system-wide operations** (managing tenants, system config): Only allow `admin` (super admin)
 - Multi-tenant plugin automatically filters by tenant, so tenant-admin checks are naturally scoped
 
@@ -645,7 +645,7 @@ In `apps/atnd-me/src/plugins/index.ts`, update bookingsPlugin configuration for 
 ```typescript
 bookingsPlugin({
   enabled: true,
-  lessonsOverrides: {
+  timeslotsOverrides: {
     access: ({ defaultAccess }) => ({
       ...defaultAccess,
       create: ({ req: { user } }) => 
@@ -656,7 +656,7 @@ bookingsPlugin({
         checkRole(["admin", "tenant-admin"], user as User | null),
     }),
   },
-  instructorsOverrides: {
+  staffMembersOverrides: {
     access: ({ defaultAccess }) => ({
       ...defaultAccess,
       create: ({ req: { user } }) => 
@@ -667,7 +667,7 @@ bookingsPlugin({
         checkRole(["admin", "tenant-admin"], user as User | null),
     }),
   },
-  classOptionsOverrides: {
+  eventTypesOverrides: {
     access: ({ defaultAccess }) => ({
       ...defaultAccess,
       create: ({ req: { user } }) => 
@@ -710,7 +710,7 @@ Create `apps/atnd-me/src/access/userTenantAccess.ts`:
   - Super admin (`admin` role) - can see all
   - Tenant admin (`tenant-admin` role) - can see users in their assigned tenant
   - User's `registrationTenant` matches current tenant, OR
-  - User has bookings with lessons belonging to current tenant
+  - User has bookings with timeslots belonging to current tenant
 - `update`: 
   - Super admin can update anyone
   - Tenant admin can only update users in their tenant
@@ -720,7 +720,7 @@ Create `apps/atnd-me/src/access/userTenantAccess.ts`:
 
 #### 6.3 Collection-Level Access Control
 
-Update all tenant-scoped collections (pages, lessons, instructors, class-options, bookings, navbar, footer, scheduler):
+Update all tenant-scoped collections (pages, timeslots, staffMembers, event-types, bookings, navbar, footer, scheduler):
 
 - `read`: 
   - Super admin can read all
@@ -784,7 +784,7 @@ bookingsPlugin({
 
 - Users can book across tenants (cross-tenant capability)
 - Payment method validation checks user subscriptions against lesson's allowed plans
-- Subscriptions, plans, and class-options are tenant-scoped
+- Subscriptions, plans, and event-types are tenant-scoped
 - Need to validate subscriptions from the **lesson's tenant**, not the user's registration tenant
 
 **Solution:**
@@ -794,14 +794,14 @@ Create `apps/atnd-me/src/access/bookingAccess.ts`:
 ```typescript
 import { bookingCreateMembershipDropinAccess as baseAccess } from '@repo/shared-services'
 import { AccessArgs, Booking } from 'payload'
-import { getTenantFromLesson } from '@/utilities/getTenantFromLesson'
+import { getTenantFromTimeslot } from '@/utilities/getTenantFromTimeslot'
 
 export const bookingCreateMembershipDropinAccess = async (args: AccessArgs<Booking>) => {
   const { req, data } = args
   
   // Get tenant from lesson
   const lessonId = typeof data?.lesson === 'object' ? data?.lesson.id : data?.lesson
-  const tenantId = await getTenantFromLesson(lessonId, req.payload)
+  const tenantId = await getTenantFromTimeslot(lessonId, req.payload)
   
   // Set tenant context for subscription validation
   req.context = { ...req.context, tenant: tenantId }
@@ -827,7 +827,7 @@ Create `apps/atnd-me/tests/int/tenant-onboarding.int.spec.ts`:
 - Test that creating a tenant triggers default data creation
 - Test that default home page is created with HeroScheduleBlock
 - Test that default class options are created (2-3 options)
-- Test that default lessons are created (2-3 upcoming lessons)
+- Test that default timeslots are created (2-3 upcoming timeslots)
 - Test that default navbar and footer are created
 - Test that all default data is scoped to the tenant
 - Test that default data uses tenant context correctly
@@ -854,16 +854,16 @@ This hook will automatically create default data when a tenant is created to hel
   - "Yoga Class" - 10 places - "A relaxing yoga class for all levels"
   - "Fitness Class" - 15 places - "High-intensity fitness training"
   - "Small Group Class" - 5 places (optional) - "Intimate small group session"
-3. **Default Lessons** (2-3 upcoming lessons):
+3. **Default Timeslots** (2-3 upcoming timeslots):
   - Tomorrow at 10:00-11:00 (Yoga Class)
   - Day after tomorrow at 14:00-15:00 (Fitness Class)
   - 3 days from now at 16:00-17:00 (optional)
   - All active, with default lockOutTime (30 minutes)
   - Use default class options created above
-4. **Default Instructor** (optional):
+4. **Default StaffMember** (optional):
   - Create a placeholder instructor user
-  - Or skip if instructors require manual setup
-  - Assign to default lessons if created
+  - Or skip if staffMembers require manual setup
+  - Assign to default timeslots if created
 5. **Default Navbar**:
   - Basic navigation items:
     - Home (link to `/`)
@@ -901,9 +901,9 @@ export const createDefaultTenantData = async ({
   
   // 1. Create default class options
   // Reference: apps/atnd-me/src/endpoints/seed/bookings.ts lines 225-258
-  const classOptions = await Promise.all([
+  const eventTypes = await Promise.all([
     payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: 'Yoga Class',
         places: 10,
@@ -912,7 +912,7 @@ export const createDefaultTenantData = async ({
       req, // Maintains tenant context
     }),
     payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: 'Fitness Class',
         places: 15,
@@ -948,7 +948,7 @@ export const createDefaultTenantData = async ({
     req,
   })
   
-  // 3. Create default lessons (2-3 upcoming lessons)
+  // 3. Create default timeslots (2-3 upcoming timeslots)
   // Reference: apps/atnd-me/src/endpoints/seed/bookings.ts lines 260-350
   const now = new Date()
   const tomorrow = new Date(now)
@@ -958,21 +958,21 @@ export const createDefaultTenantData = async ({
   tomorrowEnd.setHours(11, 0, 0, 0)
   
   await payload.create({
-    collection: 'lessons',
+    collection: 'timeslots',
     data: {
       date: tomorrow.toISOString(),
       startTime: tomorrow.toISOString(),
       endTime: tomorrowEnd.toISOString(),
-      classOption: classOptions[0].id,
+      classOption: eventTypes[0].id,
       location: 'Main Studio',
       active: true,
       lockOutTime: 30,
-      // Note: Instructor is optional - can be null or create placeholder
+      // Note: StaffMember is optional - can be null or create placeholder
     },
     req,
   })
   
-  // Create additional lessons (day after tomorrow, etc.)
+  // Create additional timeslots (day after tomorrow, etc.)
   
   // 4. Create default navbar
   await payload.create({
@@ -1131,11 +1131,11 @@ Create `apps/atnd-me/src/middleware.ts`:
 
 **Schedule Component from `@repo/bookings-next`:**
 
-The `Schedule` component exported from `packages/bookings/bookings-next/src/components/schedule.tsx` does **not** need modification. It's a pure UI component that calls `trpc.lessons.getByDate.queryOptions()`.
+The `Schedule` component exported from `packages/bookings/bookings-next/src/components/schedule.tsx` does **not** need modification. It's a pure UI component that calls `trpc.timeslots.getByDate.queryOptions()`.
 
 **tRPC Router Modifications Required:**
 
-The tRPC router (`packages/trpc/src/routers/lessons.ts`) needs to be updated to extract tenant context from headers and set it on `req.context.tenant` before querying lessons. This allows the multi-tenant plugin to automatically filter queries.
+The tRPC router (`packages/trpc/src/routers/timeslots.ts`) needs to be updated to extract tenant context from headers and set it on `req.context.tenant` before querying timeslots. This allows the multi-tenant plugin to automatically filter queries.
 
 **Implementation:**
 
@@ -1147,9 +1147,9 @@ Modify `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts` and `apps/atnd-me/src/trp
 
 Modify `packages/trpc/src/trpc.ts` to include `tenantId` in context:
 
-1. **Update Lessons Router to Use Tenant Context:**
+1. **Update Timeslots Router to Use Tenant Context:**
 
-Modify `packages/trpc/src/routers/lessons.ts` to set tenant context before querying:
+Modify `packages/trpc/src/routers/timeslots.ts` to set tenant context before querying:
 
 **Alternative Approach (Recommended):**
 
@@ -1170,12 +1170,12 @@ Or, modify the tRPC context creation in `apps/atnd-me` to inject tenant context 
 - `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts` - Extract tenant from headers and pass to context
 - `apps/atnd-me/src/trpc/server.tsx` - Extract tenant from headers and pass to context
 - `packages/trpc/src/trpc.ts` - Add `tenantId` to context type (or handle in app-specific context)
-- `packages/trpc/src/routers/lessons.ts` - Set tenant context before querying lessons
+- `packages/trpc/src/routers/timeslots.ts` - Set tenant context before querying timeslots
 - Consider: `packages/trpc/src/routers/bookings.ts` - Similar updates for booking queries
 
 **Tests to Write:**
 
-- Test that `getByDate` returns only lessons for the current tenant
+- Test that `getByDate` returns only timeslots for the current tenant
 - Test that root domain (no tenant) returns empty array or appropriate response
 - Test that cross-tenant queries are properly filtered
 - Test that Schedule component works correctly with tenant-filtered data
@@ -1241,7 +1241,7 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 22. `apps/atnd-me/src/access/tenantAccess.ts` - New access control functions for tenant-scoped collections
 23. `apps/atnd-me/src/middleware.ts` - New middleware for tenant detection
 24. `apps/atnd-me/src/utilities/getTenantContext.ts` - Helper to get tenant from request
-25. `apps/atnd-me/src/utilities/getTenantFromLesson.ts` - Helper to extract tenant from lesson
+25. `apps/atnd-me/src/utilities/getTenantFromTimeslot.ts` - Helper to extract tenant from lesson
 26. `apps/atnd-me/src/access/bookingAccess.ts` - Custom booking access controls (Phase 2 - for payment validation, not needed for MVP)
 27. `apps/atnd-me/src/app/(frontend)/page.tsx` - Create marketing landing page for root domain
 28. `apps/atnd-me/src/app/(frontend)/tenants/page.tsx` - Create tenants listing page
@@ -1249,18 +1249,18 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 30. `packages/bookings/bookings-plugin/src/globals/scheduler.tsx` - May need updates for collection mode
 31. `apps/atnd-me/src/app/api/trpc/[trpc]/route.ts` - Extract tenant from headers and pass to tRPC context
 32. `apps/atnd-me/src/trpc/server.tsx` - Extract tenant from headers and pass to tRPC context
-33. `packages/trpc/src/routers/lessons.ts` - Set tenant context before querying lessons (Schedule component uses this)
+33. `packages/trpc/src/routers/timeslots.ts` - Set tenant context before querying timeslots (Schedule component uses this)
 34. `packages/trpc/src/routers/bookings.ts` - Set tenant context before querying bookings (if exists)
 35. **Phase 3**: `apps/atnd-me/src/blocks/registry.ts` - Block registry for tenant-scoped blocks
 36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
 37. **Phase 4**: `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard (payloadcms/ui)
-38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; **Lessons admin** (`admin/collections/lessons`): replace shadcn with payloadcms/ui
+38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; **Timeslots admin** (`admin/collections/timeslots`): replace shadcn with payloadcms/ui
 39. **Phase 6**: `apps/atnd-me/src/middleware.ts`, `getTenantContext.ts`, `lib/auth/options.ts` – Custom domain tenant resolution; trusted origins; session handoff (see Phase 6 section).
 40. **Phase 7**: `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection (tenant-scoped; slug unique per tenant)
 41. **Phase 7**: `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path or cookie for current tenant
 42. **Phase 7**: `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`
 43. **Phase 7**: `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (location-manager assignment)
-44. **Phase 7**: Lessons (and optionally bookings, instructors, class-options) – Add `location` relationship; access/listing filter by location
+44. **Phase 7**: Timeslots (and optionally bookings, staffMembers, event-types) – Add `location` relationship; access/listing filter by location
 45. **Phase 8**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
 46. **Phase 8**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
 47. **Phase 8**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
@@ -1287,7 +1287,7 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 
 - `apps/atnd-me/tests/unit/tenant-helpers.test.ts` - Test tenant utility functions
 - `apps/atnd-me/tests/unit/getTenantContext.test.ts` - Test tenant context extraction
-- `apps/atnd-me/tests/unit/getTenantFromLesson.test.ts` - Test tenant extraction from lesson
+- `apps/atnd-me/tests/unit/getTenantFromTimeslot.test.ts` - Test tenant extraction from lesson
 - `apps/atnd-me/tests/unit/middleware.test.ts` - Test middleware tenant detection
 - `apps/atnd-me/tests/unit/stripe-connect/env.test.ts` - Stripe env/config validation (Phase 2)
 - `apps/atnd-me/tests/unit/stripe-connect/tenant-stripe.test.ts` - Tenant Stripe connection context helpers (Phase 2)
@@ -1326,10 +1326,10 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 3**: `apps/atnd-me/tests/e2e/tenant-blocks-admin.e2e.spec.ts` - Tenant admin sees only allowed blocks
 - **Phase 4**: `apps/atnd-me/tests/int/analytics-api.int.spec.ts`, `apps/atnd-me/tests/e2e/admin-dashboard.e2e.spec.ts` - Custom dashboard
 - **Phase 4.5**: `tests/unit/stripe-connect/products.test.ts`, `tests/unit/stripe-connect/coupons.test.ts`, `tests/int/stripe-product-sync.int.spec.ts`, `tests/int/stripe-plans-proxy.int.spec.ts`, `tests/int/stripe-class-pass-products-proxy.int.spec.ts`, `tests/int/discount-codes.int.spec.ts`, `tests/int/plans-soft-delete.int.spec.ts`, `tests/int/class-pass-types-soft-delete.int.spec.ts`, `tests/e2e/stripe-product-sync-admin.e2e.spec.ts` (optional) – Stripe product sync & discount codes (see Phase 4.5 “Tests for Phase 4.5” in plan)
-- **Phase 4.6**: `tests/unit/class-pass-booking.test.ts`, `tests/int/class-pass-booking-ui.int.spec.ts`, `tests/e2e/booking-with-class-pass.e2e.spec.ts` – Class pass UI in bookings page (getValidClassPassesForLesson, createBookings with classPassId, Class pass tab and confirm flow)
+- **Phase 4.6**: `tests/unit/class-pass-booking.test.ts`, `tests/int/class-pass-booking-ui.int.spec.ts`, `tests/e2e/booking-with-class-pass.e2e.spec.ts` – Class pass UI in bookings page (getValidClassPassesForTimeslot, createBookings with classPassId, Class pass tab and confirm flow)
 - **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
 - **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
-- **Phase 5**: `apps/atnd-me/tests/e2e/lessons-admin-payload-ui.e2e.spec.ts` - Lessons admin route uses payloadcms/ui (optional smoke)
+- **Phase 5**: `apps/atnd-me/tests/e2e/timeslots-admin-payload-ui.e2e.spec.ts` - Timeslots admin route uses payloadcms/ui (optional smoke)
 - **Phase 6**: `tests/unit/validateCustomDomain.test.ts` (format, normalization, not-platform), `tests/int/tenant-custom-domain-validation.int.spec.ts` (save with invalid/duplicate domain fails), `tests/unit/getTenantSlugFromHost.test.ts`, `tests/int/tenant-resolution-custom-domain.int.spec.ts`, `tests/int/auth-trusted-origins.int.spec.ts`, `tests/e2e/auth-cross-domain-same-tenant.e2e.spec.ts`, `tests/e2e/auth-multi-tenant.e2e.spec.ts`, `tests/e2e/auth-admin-custom-domain.e2e.spec.ts` (optional) – Authentication and custom domain validation
 - **Phase 7**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
 - **Phase 7**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
@@ -1358,7 +1358,7 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 
 - `tenant-helpers.test.ts` - Test tenant utility functions
 - `getTenantContext.test.ts` - Test tenant context extraction
-- `getTenantFromLesson.test.ts` - Test tenant extraction from lesson
+- `getTenantFromTimeslot.test.ts` - Test tenant extraction from lesson
 - `middleware.test.ts` - Test middleware tenant detection logic
 
 #### Integration Tests (`tests/int/`)
@@ -1408,10 +1408,10 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - ✅ Bookings inherit tenant from lesson
 - **Phase 2 (Future)**: Payment method validation with subscriptions
 - **Phase 2 (Future)**: Subscription validation checks subscriptions from lesson's tenant
-- **Phase 2 (Future)**: Plans, subscriptions, and class-options are properly tenant-scoped
+- **Phase 2 (Future)**: Plans, subscriptions, and event-types are properly tenant-scoped
 - Test that existing data migrates correctly
 - Test that new tenants get isolated data
-- Test that new tenants get default onboarding data (home page, class options, lessons, navbar, footer)
+- Test that new tenants get default onboarding data (home page, class options, timeslots, navbar, footer)
 - Test that default data is properly scoped to tenant
 
 ## Migration Strategy
@@ -1438,9 +1438,9 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 - **5 – Roles**: `roles: ['user','admin','tenant-admin']` in auth options.
 - **6 – Package compatibility**: `tenant-scoped` access and bookings overrides used in plugins.
 - **7 – User tenant fields**: Users has `registrationTenant` and plugin-managed `tenants`; beforeValidate sets registrationTenant for tenant-admin.
-- **8 – Booking access**: Tenant-scoped and plugin overrides in place; lessons getByDate filters by tenant (shared trpc lessons router resolves tenant from cookie).
+- **8 – Booking access**: Tenant-scoped and plugin overrides in place; timeslots getByDate filters by tenant (shared trpc timeslots router resolves tenant from cookie).
 - **10 – Tenant onboarding**: `Tenants/hooks/createDefaultData.ts` exists.
-- **11 – Frontend**: Middleware (subdomain → `tenant-slug` cookie), root page (marketing vs redirect to `/home`), `/tenants` listing, `[slug]` with tenant filtering; tRPC lessons router resolves tenant from cookie in shared package (no app-level tenantId in context needed for Schedule).
+- **11 – Frontend**: Middleware (subdomain → `tenant-slug` cookie), root page (marketing vs redirect to `/home`), `/tenants` listing, `[slug]` with tenant filtering; tRPC timeslots router resolves tenant from cookie in shared package (no app-level tenantId in context needed for Schedule).
 - **12 – Payload config**: Tenants, Navbar, Footer, Scheduler in collections.
 - **13 – Migrations**: Migrations present for tenant fields / page slugs.
 - **14 – Seed**: Seed script exists.
@@ -1450,7 +1450,7 @@ Use this to see what’s still left to build from Phase 1 (MVP). The plan doesn�
 1. **Tenant-admin admin panel access** ✅ — `adminRoles: ['admin', 'tenant-admin']` in `src/lib/auth/options.ts`.
 2. **Users read/update scoping (userTenantAccess)** ✅ — `userTenantRead` / `userTenantUpdate` in `src/access/userTenantAccess.ts`; Users collection uses them for `read` and `update`.
   - ✅ Confirmed: implemented with tenant-aware query constraints plus self/booking visibility rules.
-3. **Central tenant helpers** ✅ — `getTenantContext.ts` and `getTenantFromLesson.ts` in `src/utilities`; used by `/api/tenant`, `getNavbarFooterForRequest`, `bookingAccess`.
+3. **Central tenant helpers** ✅ — `getTenantContext.ts` and `getTenantFromTimeslot.ts` in `src/utilities`; used by `/api/tenant`, `getNavbarFooterForRequest`, `bookingAccess`.
 4. **Globals cleanup** ✅ — `payload.config.ts` has `globals: [PlatformFees]` only; Header/Footer removed.
   - ✅ Confirmed: `globals` currently contains `PlatformFees` only.
 5. **Optional – tenantAccess.ts** — Not added; `tenant-scoped.ts` covers behavior. No action required.
@@ -1746,7 +1746,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
     - If not connected: show warning + connect CTA; inputs disabled
     - If connected: render the actual inputs
 - Server-side enforcement (cannot be bypassed):
-  - Add validation in the `class-options` collection (and any other “payment-enabled” config docs):
+  - Add validation in the `event-types` collection (and any other “payment-enabled” config docs):
     - `beforeChange` hook checks tenant’s `stripeConnectOnboardingStatus === 'active'`
     - If not active and the update attempts to enable payments, throw a validation error
   - Ensure tenant is derived from request context (no user-supplied tenant id)
@@ -1892,7 +1892,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 
 1. **Update Booking Access Controls:**
   - Implement `bookingAccess.ts` with payment validation
-  - Add `getTenantFromLesson.ts` utility
+  - Add `getTenantFromTimeslot.ts` utility
   - Update booking access to validate:
     - **Subscriptions**: Check user has valid subscription from lesson's tenant
     - **Class Passes**: Check user has valid, non-expired class pass for lesson's tenant (see section 7)
@@ -1900,7 +1900,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
   - **Stripe Connect**: Ensure payment validation uses tenant's Connect account
   - Priority order: Subscription > Class Pass > Drop-in payment
 2. **Update Class Options:**
-  - Add `paymentMethods` field to class-options
+  - Add `paymentMethods` field to event-types
   - Configure allowed plans per class option
   - Add `allowedClassPasses` (checkbox or relationship) - Whether class passes can be used for this class option
   - Add **Stripe connection status UI + gating** in the payment methods admin UI for class options:
@@ -1960,7 +1960,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
     }: {
       user: User
       tenant: Tenant
-      classOption: ClassOption
+      classOption: EventType
       payload: Payload
     }): Promise<{ valid: boolean; pass?: ClassPass; error?: string }> => {
       // 1. Check if class option allows class passes
@@ -2032,7 +2032,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (next phases):** Next = Phase 2.5 (Stripe sync for Stripe-backed collections) → Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Lessons Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 7.5 (Organisation / brand above tenants) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
+**Roadmap order (next phases):** Next = Phase 2.5 (Stripe sync for Stripe-backed collections) → Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Timeslots Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 7.5 (Organisation / brand above tenants) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
 
 ---
 
@@ -2292,9 +2292,9 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
 
 ---
 
-## Phase 4.5: Stripe Product Sync & Discount Codes (Pre–Lessons Bulk Actions)
+## Phase 4.5: Stripe Product Sync & Discount Codes (Pre–Timeslots Bulk Actions)
 
-*This phase precedes the refactor of the lessons area for bulk actions. It enables tenant-admins to create, update, and delete membership plans and class pass types with full sync to the tenant’s Stripe Connect account, and to manage discount codes (Stripe Coupons / Promotion Codes).*
+*This phase precedes the refactor of the timeslots area for bulk actions. It enables tenant-admins to create, update, and delete membership plans and class pass types with full sync to the tenant’s Stripe Connect account, and to manage discount codes (Stripe Coupons / Promotion Codes).*
 
 ### Overview
 
@@ -2313,7 +2313,7 @@ Additionally, introduce **discount codes**: a tenant-scoped collection for Strip
 ### Non-goals (this phase)
 
 - Migrating existing “link-only” plans/class-pass-types to auto-created products (can be a follow-up migration).
-- Lessons bulk actions or lesson-area refactor (that remains the next phase after this).
+- Timeslots bulk actions or lesson-area refactor (that remains the next phase after this).
 - Applying discount codes in checkout UI/API (can be done in this phase or immediately after; document the contract).
 
 ### Current State (brief)
@@ -2449,7 +2449,7 @@ Minimal collection for Phase 4.5. Tenant-scoped (multi-tenant plugin); slug: `di
 | **Delete behaviour** | Soft delete (`deletedAt`) in Payload; archive product in Stripe (`active: false`). Optional “Restore” to clear `deletedAt` and set `active: true`.                |
 | **Discount codes**   | New tenant-scoped collection; Coupon + Promotion Code on Connect; create/update/deactivate; optional application at checkout in this phase.                       |
 | **Stripe account**   | All product/price/coupon operations use tenant’s Connect account via `stripeAccount`.                                                                             |
-| **Placement**        | Before lessons bulk actions refactor; after Phase 4 (Custom Admin Dashboard) if desired, or in parallel with dashboard work.                                      |
+| **Placement**        | Before timeslots bulk actions refactor; after Phase 4 (Custom Admin Dashboard) if desired, or in parallel with dashboard work.                                      |
 
 
 ### Tests for Phase 4.5 (detail)
@@ -2491,7 +2491,7 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 - **Class pass tab**: When the lesson's class option has `allowedClassPasses` (and the user has at least one valid pass for that tenant/class), show a **Class pass** tab alongside Membership and Drop-in in the booking page payment methods.
 - **Valid passes for lesson**: New tRPC procedure (or equivalent) to return the current user's **valid class passes** for a given lesson (tenant + class option's allowed pass types; active, non-expired, quantity &gt; 0).
 - **Confirm with class pass**: Extend the existing `createBookings` mutation (or add a dedicated flow) to accept `classPassId` (and optionally `pendingBookingIds` for the manage flow). Create/confirm bookings with `paymentMethodUsed: 'class_pass'` and `classPassIdUsed`; existing plugin hook will decrement the pass.
-- **Quantity and multi-slot**: Respect class pass type's `allowMultipleBookingsPerLesson` and pass `quantity`: one pass can cover multiple credits when allowed; otherwise one pass per slot. UI shows how many credits will be used.
+- **Quantity and multi-slot**: Respect class pass type's `allowMultipleBookingsPerTimeslot` and pass `quantity`: one pass can cover multiple credits when allowed; otherwise one pass per slot. UI shows how many credits will be used.
 - **Payment-method gate**: Update the booking page client so that **class pass** is treated as a payment method: when the class option has only `allowedClassPasses` (no drop-in, no plans), the payment gateway is still shown with the Class pass tab.
 
 ### Non-goals (this phase)
@@ -2514,19 +2514,19 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
   - **ClassPassView (or inline)**: List user's valid passes for this lesson (type name, remaining quantity, expiry). "Use this pass" (or select one if multiple). On confirm: call createBookings with `classPassId` (and quantity / pendingBookingIds as needed).
   - **Quantity**: When quantity &gt; 1, show only passes that can cover it (e.g. pass.quantity >= quantity, or pass type allows multiple per lesson and quantity is within credits). Display e.g. "This will use 2 credits from your 10-Pack."
 3. **tRPC**
-  - **getValidClassPassesForLesson({ lessonId })**: Resolve tenant from lesson; get class option's allowed class pass type IDs; return user's class passes where tenant matches, type in allowed list, status active, quantity &gt; 0, expirationDate &gt; now. Sort e.g. by expirationDate (use soonest first).
+  - **getValidClassPassesForTimeslot({ lessonId })**: Resolve tenant from lesson; get class option's allowed class pass type IDs; return user's class passes where tenant matches, type in allowed list, status active, quantity &gt; 0, expirationDate &gt; now. Sort e.g. by expirationDate (use soonest first).
   - **createBookings**: Extend input with `classPassId?: number`. When provided: validate pass (user owns it, lesson's tenant and class option allow that pass type, sufficient quantity for requested slots); set `paymentMethodUsed: 'class_pass'`, `classPassIdUsed`; create booking(s); create transaction record for class_pass; plugin hook will decrement. Support `pendingBookingIds` with `classPassId` to confirm pending bookings with class pass (same pattern as subscription).
-4. **Quantity and allowMultipleBookingsPerLesson**
+4. **Quantity and allowMultipleBookingsPerTimeslot**
   - Pass type can allow multiple bookings per lesson (use N credits for N slots) or one slot per lesson. Validate in createBookings: if pass type does not allow multiple and quantity &gt; 1, require multiple passes or reduce to 1; if allows multiple, ensure pass.quantity >= quantity.
 
 ### Implementation outline (TDD-friendly)
 
-- **Step 4.6.1 – tRPC: getValidClassPassesForLesson**
+- **Step 4.6.1 – tRPC: getValidClassPassesForTimeslot**
   - Add procedure that returns list of valid class passes for the current user for the given lesson (tenant + allowed types, active, quantity &gt; 0, not expired). Unit/int tests with fixture lesson and passes.
 - **Step 4.6.2 – tRPC: createBookings with classPassId**
-  - Extend `createBookings` input with `classPassId`, `pendingBookingIds` (already exists). Implement validation (pass ownership, lesson tenant, allowed types, quantity/allowMultipleBookingsPerLesson). Set `paymentMethodUsed`, `classPassIdUsed`; create transaction. Tests: success, invalid pass, wrong tenant, insufficient quantity, allowMultipleBookingsPerLesson rules.
+  - Extend `createBookings` input with `classPassId`, `pendingBookingIds` (already exists). Implement validation (pass ownership, lesson tenant, allowed types, quantity/allowMultipleBookingsPerTimeslot). Set `paymentMethodUsed`, `classPassIdUsed`; create transaction. Tests: success, invalid pass, wrong tenant, insufficient quantity, allowMultipleBookingsPerTimeslot rules.
 - **Step 4.6.3 – PaymentMethods: Class pass tab and ClassPassView**
-  - In PaymentMethods, add query for getValidClassPassesForLesson(lessonId). Add "Class pass" tab when allowedClassPasses has length and query returns at least one pass. Build ClassPassView: list passes, select one, "Confirm with class pass" calls createBookings with classPassId (and quantity / pendingBookingIds). Handle quantity &gt; 1 (filter passes that can cover quantity; show credits used). Redirect to successUrl on success.
+  - In PaymentMethods, add query for getValidClassPassesForTimeslot(lessonId). Add "Class pass" tab when allowedClassPasses has length and query returns at least one pass. Build ClassPassView: list passes, select one, "Confirm with class pass" calls createBookings with classPassId (and quantity / pendingBookingIds). Handle quantity &gt; 1 (filter passes that can cover quantity; show credits used). Redirect to successUrl on success.
 - **Step 4.6.4 – BookingPageClientSmart: include allowedClassPasses in gate**
   - Update hasPaymentMethods to include `(lesson.classOption?.paymentMethods?.allowedClassPasses?.length ?? 0) > 0`. Tests: when only class passes are allowed, payment gateway is shown with Class pass tab.
 - **Step 4.6.5 – Manage booking flow (optional)**
@@ -2534,7 +2534,7 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 
 ### Files / areas to add or modify
 
-- `packages/trpc/src/routers/` – New procedure `getValidClassPassesForLesson` (e.g. under classPasses router or bookings); extend `bookings.createBookings` with `classPassId` and class-pass validation + payload.
+- `packages/trpc/src/routers/` – New procedure `getValidClassPassesForTimeslot` (e.g. under classPasses router or bookings); extend `bookings.createBookings` with `classPassId` and class-pass validation + payload.
 - `packages/payments/payments-next/src/components/payment-methods.tsx` – Class pass tab; query valid passes; ClassPassView (or new component) to list passes and confirm with classPassId.
 - `packages/bookings/bookings-next/src/components/bookings/booking-page-client-smart.tsx` – Include `allowedClassPasses` in hasPaymentMethods.
 - Optional: `packages/payments/payments-next/src/components/class-pass-view.tsx` – Reusable ClassPassView for lesson + quantity.
@@ -2543,7 +2543,7 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 ### Tests for Phase 4.6
 
 - **Unit**: Valid class passes query logic (given lesson + user passes, return only valid for that lesson).
-- **Integration**: createBookings with classPassId creates booking with paymentMethodUsed and classPassIdUsed; pass quantity decremented; invalid pass / wrong tenant / quantity rejected. getValidClassPassesForLesson returns only passes for lesson's tenant and allowed types.
+- **Integration**: createBookings with classPassId creates booking with paymentMethodUsed and classPassIdUsed; pass quantity decremented; invalid pass / wrong tenant / quantity rejected. getValidClassPassesForTimeslot returns only passes for lesson's tenant and allowed types.
 - **E2E**: Booking page for a lesson that allows class passes; user with valid pass sees Class pass tab; confirm with class pass redirects to success; booking is confirmed and pass decremented.
 
 ### Summary
@@ -2553,31 +2553,31 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 | ------------- | ---------------------------------------------------------------------------------------------------- |
 | **Scope**     | Public booking page only (and optionally manage pending with class pass).                            |
 | **UI parity** | Class pass appears as a tab alongside Membership and Drop-in when allowed and user has valid passes. |
-| **API**       | getValidClassPassesForLesson(lessonId); createBookings(..., classPassId, pendingBookingIds?).        |
-| **Quantity**  | Respect pass type allowMultipleBookingsPerLesson and pass.quantity; show credits used.               |
+| **API**       | getValidClassPassesForTimeslot(lessonId); createBookings(..., classPassId, pendingBookingIds?).        |
+| **Quantity**  | Respect pass type allowMultipleBookingsPerTimeslot and pass.quantity; show credits used.               |
 | **Placement** | After Phase 4.5 (discount codes); before Phase 5 (admin bulk operations).                            |
 
 
 ---
 
-## Phase 5: Admin Bulk Operations & Lessons Admin UI (payloadcms/ui)
+## Phase 5: Admin Bulk Operations & Timeslots Admin UI (payloadcms/ui)
 
 ### Overview
 
-This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bookings—and optionally Lessons—with multi-select, bulk update status, bulk delete); (2) **replace shadcn with payloadcms/ui** at the **Lessons** admin route (`admin/collections/lessons`) so the lessons collection admin uses Payload’s UI stack and matches the rest of the admin.
+This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bookings—and optionally Timeslots—with multi-select, bulk update status, bulk delete); (2) **replace shadcn with payloadcms/ui** at the **Timeslots** admin route (`admin/collections/timeslots`) so the timeslots collection admin uses Payload’s UI stack and matches the rest of the admin.
 
 ### Goals
 
-- **Bulk operations**: Support multi-select and bulk actions (e.g. bulk status update, bulk delete) for relevant admin collections (Bookings; optionally Lessons). Tenant-scoped: tenant-admin only affects their tenant’s data.
-- **Lessons admin UI**: At the **admin/collections/lessons** route, replace any shadcn / `@repo/ui` usage with **payloadcms/ui** (buttons, modals, dropdowns, tables, etc.) so styling and behaviour match the rest of the Payload admin.
+- **Bulk operations**: Support multi-select and bulk actions (e.g. bulk status update, bulk delete) for relevant admin collections (Bookings; optionally Timeslots). Tenant-scoped: tenant-admin only affects their tenant’s data.
+- **Timeslots admin UI**: At the **admin/collections/timeslots** route, replace any shadcn / `@repo/ui` usage with **payloadcms/ui** (buttons, modals, dropdowns, tables, etc.) so styling and behaviour match the rest of the Payload admin.
 - **Consistent list UX**: Use Payload’s default list view patterns (table, checkboxes, bulk action bar) where possible; or extend without replacing the whole list.
 - **Tenant-scoped**: All bulk actions respect tenant context and access control.
-- **Lessons custom list + bulk**: The lessons admin keeps its custom UX (day picker, per-day table) and adds bulk operations (row checkboxes, select-all, bulk action bar) so behaviour matches other collections while preserving the custom component.
+- **Timeslots custom list + bulk**: The timeslots admin keeps its custom UX (day picker, per-day table) and adds bulk operations (row checkboxes, select-all, bulk action bar) so behaviour matches other collections while preserving the custom component.
 
 ### Non-goals (for this phase)
 
 - Changing access control rules already defined in Phase 1/2.
-- Replacing shadcn in the **Bookings** admin (focus is lessons admin route).
+- Replacing shadcn in the **Bookings** admin (focus is timeslots admin route).
 - New analytics (covered by Phase 4 / Phase 9).
 - Public-facing UI changes.
 
@@ -2585,11 +2585,11 @@ This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bo
 
 1. **Bulk operations**
   - Bookings: list view with default Payload list (checkboxes, bulk bar); bulk update status and bulk delete with tenant-scoped access (see existing `bookings-bulk-actions.int.spec.ts`).
-  - Optional: Lessons collection bulk actions (bulk delete, bulk update) with tenant scope.
-2. **Lessons admin route (`admin/collections/lessons`)**
-  - Identify all custom components used on the lessons collection admin (list, detail, edit view, lesson picker, date picker, modals, etc.).
-  - Replace shadcn / `@repo/ui` imports with **payloadcms/ui** equivalents in those components (e.g. in `packages/bookings/bookings-plugin` or atnd-me overrides for lessons).
-  - If payloadcms/ui does not provide a component, use a minimal alternative that matches Payload admin styling; avoid new shadcn in the lessons admin.
+  - Optional: Timeslots collection bulk actions (bulk delete, bulk update) with tenant scope.
+2. **Timeslots admin route (`admin/collections/timeslots`)**
+  - Identify all custom components used on the timeslots collection admin (list, detail, edit view, lesson picker, date picker, modals, etc.).
+  - Replace shadcn / `@repo/ui` imports with **payloadcms/ui** equivalents in those components (e.g. in `packages/bookings/bookings-plugin` or atnd-me overrides for timeslots).
+  - If payloadcms/ui does not provide a component, use a minimal alternative that matches Payload admin styling; avoid new shadcn in the timeslots admin.
 3. **Tenant scope**
   - All bulk operations run with tenant context set so the multi-tenant plugin and access control only touch the correct tenant’s data.
 
@@ -2598,38 +2598,38 @@ This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bo
 - **Step 5.1 – Bookings list view and bulk actions**
   - Ensure Bookings collection uses Payload’s default list with checkboxes and bulk action toolbar; defaultColumns and access (tenant-scoped update/delete) as needed.
   - Tests: integration tests for bulk status update and bulk delete with tenant scope (e.g. `bookings-bulk-actions.int.spec.ts`).
-- **Step 5.2 – Optional: Lessons bulk actions**
-  - If adding bulk operations for Lessons, add tenant-scoped bulk update/delete and integration tests.
-- **Step 5.3 – Replace shadcn with payloadcms/ui at admin/collections/lessons**
-  - Audit components used on the **lessons** admin route (e.g. `packages/bookings/bookings-plugin` lesson list, lesson detail, date picker, manage-lesson, add-booking, edit-booking when used from lessons context, etc.).
-  - Replace shadcn/`@repo/ui` with payloadcms/ui in those components so the lessons collection admin is fully on payloadcms/ui.
-  - Tests: visual or E2E smoke test that `admin/collections/lessons` (list, create, edit, delete) still works; no regressions.
+- **Step 5.2 – Optional: Timeslots bulk actions**
+  - If adding bulk operations for Timeslots, add tenant-scoped bulk update/delete and integration tests.
+- **Step 5.3 – Replace shadcn with payloadcms/ui at admin/collections/timeslots**
+  - Audit components used on the **timeslots** admin route (e.g. `packages/bookings/bookings-plugin` lesson list, lesson detail, date picker, manage-lesson, add-booking, edit-booking when used from timeslots context, etc.).
+  - Replace shadcn/`@repo/ui` with payloadcms/ui in those components so the timeslots collection admin is fully on payloadcms/ui.
+  - Tests: visual or E2E smoke test that `admin/collections/timeslots` (list, create, edit, delete) still works; no regressions.
 - **Step 5.4 – Documentation and polish**
   - Document any custom list/bulk behaviour. Ensure keyboard and screen-reader behaviour is consistent with other collections.
 
 ### Files / areas to add or modify
 
-- `packages/bookings/bookings-plugin` – Bookings collection (list view, bulk actions); **Lessons admin** components used at `admin/collections/lessons`: replace shadcn with payloadcms/ui (e.g. `src/components/lessons/`, `src/components/schedule/`, lesson-related UI in `src/components/bookings/` when used from lessons).
-- `apps/atnd-me/src/plugins/index.ts` – Bookings admin overrides (e.g. defaultColumns, access); optional lessons overrides for custom components.
-- Tests: `tests/int/bookings-bulk-actions.int.spec.ts`; optional `tests/e2e/bookings-admin-bulk.e2e.spec.ts`, `tests/e2e/lessons-admin-payload-ui.e2e.spec.ts`.
+- `packages/bookings/bookings-plugin` – Bookings collection (list view, bulk actions); **Timeslots admin** components used at `admin/collections/timeslots`: replace shadcn with payloadcms/ui (e.g. `src/components/timeslots/`, `src/components/schedule/`, lesson-related UI in `src/components/bookings/` when used from timeslots).
+- `apps/atnd-me/src/plugins/index.ts` – Bookings admin overrides (e.g. defaultColumns, access); optional timeslots overrides for custom components.
+- Tests: `tests/int/bookings-bulk-actions.int.spec.ts`; optional `tests/e2e/bookings-admin-bulk.e2e.spec.ts`, `tests/e2e/timeslots-admin-payload-ui.e2e.spec.ts`.
 
 ### Summary
 
 
 | Aspect               | Notes                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------ |
-| **Bulk operations**  | Bookings (and optionally Lessons): multi-select, bulk status update, bulk delete.          |
-| **Lessons admin UI** | Replace shadcn with payloadcms/ui at **admin/collections/lessons** only.                   |
+| **Bulk operations**  | Bookings (and optionally Timeslots): multi-select, bulk status update, bulk delete.          |
+| **Timeslots admin UI** | Replace shadcn with payloadcms/ui at **admin/collections/timeslots** only.                   |
 | **Bookings admin**   | Keep default list + bulk actions; no requirement to replace shadcn in bookings admin here. |
 | **Tenant scope**     | All bulk actions respect tenant context and access control.                                |
-| **Green gates**      | Int tests for bulk actions; E2E smoke for lessons admin after UI swap.                     |
+| **Green gates**      | Int tests for bulk actions; E2E smoke for timeslots admin after UI swap.                     |
 
 
 ---
 
 ## Phase 5.5: Image Storage (S3 / Cloudflare R2)
 
-*This phase follows Phase 5 (Admin Bulk Operations & Lessons Admin UI). It configures the Media collection to store uploads in **Cloudflare R2** (or any S3-compatible storage) instead of the local filesystem, so media is durable, scalable, and suitable for production and multi-tenant usage.*
+*This phase follows Phase 5 (Admin Bulk Operations & Timeslots Admin UI). It configures the Media collection to store uploads in **Cloudflare R2** (or any S3-compatible storage) instead of the local filesystem, so media is durable, scalable, and suitable for production and multi-tenant usage.*
 
 ### Overview
 
@@ -2702,7 +2702,7 @@ Today, the **Media** collection uses `staticDir` (local `public/media`). For pro
 | **Config**       | Env-based: bucket, credentials, optional endpoint and public URL.                                      |
 | **Fallback**     | When R2/S3 env unset, keep local `staticDir` for dev/test.                                             |
 | **Media fields** | imageSizes, adminThumbnail, focalPoint unchanged; only storage backend and URL generation.             |
-| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Lessons Admin UI); before Phase 6 (Authentication). |
+| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Timeslots Admin UI); before Phase 6 (Authentication). |
 
 
 ---
@@ -2776,10 +2776,10 @@ Relevant test cases to implement **before** or alongside implementation.
 #### 6.5 Session: same user, multiple tenants
 
 - **E2E**
-  - User logs in on `subdomain1.atnd.me`. User navigates to `subdomain2.atnd.me`. **Expected**: User can log in again (or is prompted to “use this account” or switch tenant) and then has a valid session in tenant 2 context; tenant 2’s data (lessons, bookings) is shown; no cross-tenant data leak.
+  - User logs in on `subdomain1.atnd.me`. User navigates to `subdomain2.atnd.me`. **Expected**: User can log in again (or is prompted to “use this account” or switch tenant) and then has a valid session in tenant 2 context; tenant 2’s data (timeslots, bookings) is shown; no cross-tenant data leak.
   - Same user visits `subdomain2.com` (custom domain for tenant 2). **Expected**: After any required session establishment on that host, user sees tenant 2’s data and can book/manage as in 6.4.
 - **Integration**
-  - API/tRPC requests that require tenant context (e.g. lessons, bookings) use the tenant derived from the current request host (and/or cookie), not from the user’s “registration” tenant only; so the same user can perform actions in tenant 2 when on tenant 2’s subdomain or custom domain.
+  - API/tRPC requests that require tenant context (e.g. timeslots, bookings) use the tenant derived from the current request host (and/or cookie), not from the user’s “registration” tenant only; so the same user can perform actions in tenant 2 when on tenant 2’s subdomain or custom domain.
 
 #### 6.6 Admin on custom domain
 
@@ -2867,7 +2867,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 - **Locations collection**: Tenant-scoped collection (slug unique per tenant, name, address?, timezone?); **one subdomain = tenant** — no sub-subdomain for location.
 - **Subdomain resolution**: Unchanged: **one subdomain** = tenant (middleware sets `tenant-slug`; no 2-segment logic in this phase).
 - **Location context**: From **path** (e.g. `/locations/[locationSlug]`) and/or **frontend location selector** (cookie/state); server resolves location from path or cookie. Admin: `payload-location` cookie.
-- **Location on lessons/bookings**: Optional `location` relationship on lessons (and optionally bookings, instructors, class-options) so content can be location-scoped.
+- **Location on timeslots/bookings**: Optional `location` relationship on timeslots (and optionally bookings, staffMembers, event-types) so content can be location-scoped.
 - **Pages (and Navbar, Footer)**: Remain **tenant-scoped only**; no `location` field. Only **tenant-admin** and super admin manage pages; **location-manager** has no access (or read-only).
 - **Location-manager role**: New role (or `user.locations` relationship); access restricted to docs where location is in their assigned locations; included in `adminRoles`; Pages/Navbar/Footer create/update/delete denied (or read-only).
 - **Admin**: Location selector (e.g. `payload-location` cookie), URL preview on Tenant and Location edit views (e.g. `https://{tenant.slug}.atnd.me/locations/{location.slug}`), Locations in Configuration.
@@ -2882,7 +2882,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 
 1. **Data model**
   - **Locations** collection: slug (unique per tenant), tenant (required), name, address?, timezone?; tenant-scoped (multi-tenant plugin or explicit `where: { tenant }`); compound unique `(tenant_id, slug)` or `beforeValidate` check.
-  - **Lessons**: add `location` (relationship to locations, optional). Optionally bookings, instructors, class-options.
+  - **Timeslots**: add `location` (relationship to locations, optional). Optionally bookings, staffMembers, event-types.
   - **Pages / Navbar / Footer**: do **not** add location; stay tenant-scoped only.
 2. **Middleware**
   - No change in Phase 7: **one subdomain** = tenant only (current behaviour: 1 segment → `tenant-slug`; 0 segments clear). No `subdomain-prefix` or 2-segment handling.
@@ -2892,19 +2892,19 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 4. **Location-manager role and access**
   - Role `location-manager` (or model via `user.locations`). Access: read/update only docs where `location` in user’s locations and tenant matches. Pages (and Navbar, Footer): create/update/delete only admin and tenant-admin; location-manager `false` (or read-only); optionally hide Pages in sidebar for location-manager. Include `location-manager` in `adminRoles`.
 5. **Admin dashboard**
-  - Super admin: Configuration → Tenants, Locations; tenant selector + location selector when tenant has locations. Tenant-admin: their tenant; Locations for their tenant; Pages full access; Lessons/Bookings with optional location filter. Location-manager: no Tenants list, no Pages; only their location(s) and location-scoped Lessons, Bookings. Location selector: “All locations” + list (super admin / tenant-admin); location-manager only their locations; store in `payload-location` cookie. URL preview: Location edit → `https://{tenant.slug}.atnd.me/locations/{location.slug}`; Tenant edit → `https://{tenant.slug}.atnd.me`.
+  - Super admin: Configuration → Tenants, Locations; tenant selector + location selector when tenant has locations. Tenant-admin: their tenant; Locations for their tenant; Pages full access; Timeslots/Bookings with optional location filter. Location-manager: no Tenants list, no Pages; only their location(s) and location-scoped Timeslots, Bookings. Location selector: “All locations” + list (super admin / tenant-admin); location-manager only their locations; store in `payload-location` cookie. URL preview: Location edit → `https://{tenant.slug}.atnd.me/locations/{location.slug}`; Tenant edit → `https://{tenant.slug}.atnd.me`.
 
 ### Implementation outline (TDD-friendly)
 
 - **Step 7.1 – Locations collection**
   - Create Locations collection (slug, tenant, name, address?, timezone?; slug unique per tenant; tenant-scoped). Add to payload.config and multi-tenant plugin if applicable.
   - Tests: int tests for Locations CRUD, slug uniqueness per tenant, access (tenant-admin their tenant; location-manager their locations).
-- **Step 7.2 – Location on lessons (and optionally bookings)**
-  - Add `location` relationship to lessons; optionally to bookings, instructors, class-options. Migration.
-  - Tests: lessons can be scoped to location; list/filter by location.
+- **Step 7.2 – Location on timeslots (and optionally bookings)**
+  - Add `location` relationship to timeslots; optionally to bookings, staffMembers, event-types. Migration.
+  - Tests: timeslots can be scoped to location; list/filter by location.
 - **Step 7.3 – Location context (path / cookie)**
   - Add **getLocationContext(payload, source)** that resolves location from path (e.g. `locations/[locationSlug]`) or cookie/header (e.g. `location-slug`) for the current tenant; returns `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
-  - Frontend: route(s) for `/locations/[locationSlug]` (or equivalent) that set location context (cookie or state) and render location-scoped content (e.g. lessons, booking).
+  - Frontend: route(s) for `/locations/[locationSlug]` (or equivalent) that set location context (cookie or state) and render location-scoped content (e.g. timeslots, booking).
   - Tests: unit/int for getLocationContext (path, cookie, invalid slug); no 2-segment subdomain tests in Phase 7.
 - **Step 7.4 – Location-manager role and access**
   - Add `location-manager` to roles (and `user.locations` relationship); add to `adminRoles` in auth options. Access helpers for location-scoped collections. Pages (and Navbar, Footer): deny create/update/delete for location-manager (or read-only); optionally hide in nav.
@@ -2913,7 +2913,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
   - Location selector in sidebar/header when tenant has locations; persist `payload-location`; filter lists by location when set. URL preview on Tenant and Location edit views (tenant URL + `/locations/{location.slug}`).
   - Tests: E2E or int that selector and preview work.
 - **Step 7.6 – Frontend**
-  - When loading page by slug, use **tenant** only (no location) for Pages query. Use location context (from path or cookie) for “Book at this location”, lessons filter, contact info. E2E: navigate to tenant subdomain + `/locations/dublin` (or location selector), verify tenant + location context and location-manager scope.
+  - When loading page by slug, use **tenant** only (no location) for Pages query. Use location context (from path or cookie) for “Book at this location”, timeslots filter, contact info. E2E: navigate to tenant subdomain + `/locations/dublin` (or location selector), verify tenant + location context and location-manager scope.
 
 ### Files / areas to add or modify
 
@@ -2921,7 +2921,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 - `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path (e.g. `locations/[locationSlug]`) or cookie/header for current tenant; return `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
 - `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`.
 - `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (for location-manager assignment).
-- Lessons (and optionally bookings, instructors, class-options) – Add `location` relationship; access/listing filter by location when context set.
+- Timeslots (and optionally bookings, staffMembers, event-types) – Add `location` relationship; access/listing filter by location when context set.
 - Pages, Navbar, Footer – Access: location-manager no create/update/delete (or read-only).
 - Admin: location selector component, URL preview on Tenant and Location edit; payload.config collections (Locations).
 - Tests: `tests/int/locations-collection.int.spec.ts`, `tests/int/location-context.int.spec.ts` (getLocationContext from path/cookie), `tests/unit/getLocationContext.test.ts`, `tests/e2e/multi-location.e2e.spec.ts` (tenant subdomain + path or selector).
@@ -2936,7 +2936,7 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 | **Location context** | From path (e.g. `/locations/dublin`) or frontend cookie/selector; getLocationContext helper.          |
 | **Locations**        | Tenant-scoped collection; slug unique per tenant; no org in this phase.                               |
 | **Pages**            | Tenant-scoped only; no location field; managed by tenant-admin only; location-manager no access.      |
-| **Location-manager** | New role; access to their location(s) and location-scoped lessons/bookings; no Pages.                 |
+| **Location-manager** | New role; access to their location(s) and location-scoped timeslots/bookings; no Pages.                 |
 | **Resolution**       | getTenantContext unchanged (tenant from tenant-slug); getLocationContext from path/cookie.            |
 | **Green gates**      | Int tests (Locations, getLocationContext, access); E2E (tenant + path or selector, location-manager). |
 
@@ -3055,7 +3055,7 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ## Phase 11: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Lessons Admin UI (Phase 5), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Timeslots Admin UI (Phase 5), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
 
 When implementing flexible application fees:
 
@@ -3189,7 +3189,7 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 Enable **self-onboarding**: a prospective tenant (business owner) signs up, provides information about their business, and the platform uses that to **prepopulate all tenant-scoped collections** with personalised data so onboarding feels tailored rather than generic.
 
-An **MCP server** is the central integration point: it accepts the onboarding payload (social links, current booking software, schedule, etc.) and exposes **tools/resources** that the backend or an agent uses to create the tenant and fill pages, lessons, instructors, class-options, navbar, footer, scheduler, and—where applicable—Stripe-side config.
+An **MCP server** is the central integration point: it accepts the onboarding payload (social links, current booking software, schedule, etc.) and exposes **tools/resources** that the backend or an agent uses to create the tenant and fill pages, timeslots, staffMembers, event-types, navbar, footer, scheduler, and—where applicable—Stripe-side config.
 
 ### Goals
 
@@ -3219,7 +3219,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
     - Exposes **tools** (or resources) such as:
       - `create_tenant_from_onboarding(context)` → returns tenant id + suggested slug
       - `prepopulate_pages(tenantId, context)` → uses social/branding to suggest hero text, colours, logo URL
-      - `prepopulate_schedule(tenantId, context)` → uses “current software” / schedule export to suggest lessons, class names, times
+      - `prepopulate_schedule(tenantId, context)` → uses “current software” / schedule export to suggest timeslots, class names, times
       - `prepopulate_class_options(tenantId, context)` → suggests class types and capacities
     - Can call **Stripe MCP** tools (or a shared Stripe MCP plugin) to e.g. create Connect account, products, or placeholder prices during tenant creation.
   - Implementation options:
@@ -3230,7 +3230,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
   - Calls MCP server tools (or an agent using those tools) with that context.
   - MCP tools (or agent):
     - Create tenant (and optionally trigger Stripe Connect onboarding link).
-    - Create default pages, lessons, instructors, class-options, navbar, footer, scheduler using **personalised** values derived from context (e.g. class names from schedule export, hero text from social/business name).
+    - Create default pages, timeslots, staffMembers, event-types, navbar, footer, scheduler using **personalised** values derived from context (e.g. class names from schedule export, hero text from social/business name).
   - Tenant collections are **prepopulated**; user lands in admin to review/edit and complete Stripe Connect if not done in-flow.
 
 ### Implementation outline (TDD-friendly)
@@ -3282,7 +3282,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 | **MCP** | Custom MCP server receives onboarding context and exposes tools to create tenant + prepopulate collections; Stripe MCP used for Connect/products where needed. |
 
-| **Output** | New tenant + personalised pages, lessons, class-options, navbar, footer, scheduler; optional Stripe Connect onboarding link or account. |
+| **Output** | New tenant + personalised pages, timeslots, event-types, navbar, footer, scheduler; optional Stripe Connect onboarding link or account. |
 
 | **Green gates** | Validation API tests, MCP tool unit/int tests, prepopulation regression tests, E2E self-onboarding test. |
 
@@ -3292,7 +3292,7 @@ An **MCP server** is the central integration point: it accepts the onboarding pa
 
 ### Overview
 
-Add **analytics to the admin dashboard** that are **filterable by date** and **tenant-scoped**. Tenant-admins see only their tenant’s stats; super-admins can see all tenants or drill down by tenant. Metrics are derived from bookings, users, and lessons (e.g. bookings per week, top customers, “not seen since X”).
+Add **analytics to the admin dashboard** that are **filterable by date** and **tenant-scoped**. Tenant-admins see only their tenant’s stats; super-admins can see all tenants or drill down by tenant. Metrics are derived from bookings, users, and timeslots (e.g. bookings per week, top customers, “not seen since X”).
 
 ### Goals
 
@@ -3315,7 +3315,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 ### Architecture
 
 1. **Data sources**
-  - All from existing tenant-scoped collections: **bookings** (status, dates, user, lesson), **users**, **lessons** (classOption, instructor, tenant).  
+  - All from existing tenant-scoped collections: **bookings** (status, dates, user, lesson), **users**, **timeslots** (classOption, instructor, tenant).  
   - Tenant context comes from request (middleware / tenant selector); super-admin can pass `tenantId` or “all”.
 2. **Backend**
   - **Analytics API** – e.g. `GET /api/analytics` or tRPC procedures `analytics.bookingsPerWeek`, `analytics.topCustomers`, `analytics.notSeenSince`, etc.  
@@ -3389,7 +3389,7 @@ Add **analytics to the admin dashboard** that are **filterable by date** and **t
 
 | **Filtering** | Date range required; tenant implied or explicit. |
 
-| **Data** | Bookings, users, lessons (tenant-scoped, existing collections). |
+| **Data** | Bookings, users, timeslots (tenant-scoped, existing collections). |
 
 | **Metrics** | Bookings per week, top customers, not seen since X, + optional breakdowns. |
 

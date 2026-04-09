@@ -41,7 +41,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   DROP TABLE IF EXISTS "posts_blocks_form_block" CASCADE;
   DROP TABLE IF EXISTS "_posts_v_blocks_form_block" CASCADE;
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-25T20:02:22.923Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-25T20:02:22.923Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-25T20:02:23.082Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-25T20:02:23.082Z';
   
@@ -115,7 +115,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE IF EXISTS "pages_blocks_content" CASCADE;
   DROP TABLE IF EXISTS "posts_blocks_content" CASCADE;
   DROP TABLE IF EXISTS "_posts_v_blocks_content" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:42:37.142Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:42:37.142Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-23T11:42:37.303Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-23T11:42:37.303Z';
   ALTER TABLE "posts" ADD COLUMN IF NOT EXISTS "content" jsonb;

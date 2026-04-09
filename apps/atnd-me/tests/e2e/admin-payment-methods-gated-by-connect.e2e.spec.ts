@@ -5,7 +5,7 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsTenantAdmin, BASE_URL } from './helpers/auth-helpers'
-import { createTestClassOption } from './helpers/data-helpers'
+import { createTestEventType } from './helpers/data-helpers'
 
 test.describe('Admin payment methods gated by Stripe Connect', () => {
   test('when not connected, shows "Connect Stripe to enable payments" and Connect CTA on class option edit', async ({
@@ -13,7 +13,7 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
     testData,
     request,
   }) => {
-    const co = await createTestClassOption(testData.tenants[0]!.id, 'Gated Test Class', 5)
+    const co = await createTestEventType(testData.tenants[0]!.id, 'Gated Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
     await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, {
       waitUntil: 'networkidle',
@@ -90,7 +90,7 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
       overrideAccess: true,
     })
 
-    const co = await createTestClassOption(tenantId, 'Connected Test Class', 5)
+    const co = await createTestEventType(tenantId, 'Connected Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
     const tenantSlug = testData.tenants[0]!.slug
     await page.context().addCookies([

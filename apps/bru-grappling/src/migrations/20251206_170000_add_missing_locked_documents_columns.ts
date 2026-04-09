@@ -77,22 +77,22 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
         ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "form_submissions_id" integer;
       END IF;
 
-      -- Add instructors_id column if it doesn't exist
+      -- Add staffMembers_id column if it doesn't exist
       IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_name = 'payload_locked_documents_rels' 
-        AND column_name = 'instructors_id'
+        AND column_name = 'staffMembers_id'
       ) THEN
-        ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "instructors_id" integer;
+        ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "staffMembers_id" integer;
       END IF;
 
-      -- Add lessons_id column if it doesn't exist
+      -- Add timeslots_id column if it doesn't exist
       IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_name = 'payload_locked_documents_rels' 
-        AND column_name = 'lessons_id'
+        AND column_name = 'timeslots_id'
       ) THEN
-        ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "lessons_id" integer;
+        ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "timeslots_id" integer;
       END IF;
 
       -- Add class_options_id column if it doesn't exist

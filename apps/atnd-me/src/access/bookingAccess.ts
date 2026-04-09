@@ -8,7 +8,7 @@ import { createBookingAccess } from '@repo/bookings-plugin'
 import { checkClassPass } from '@repo/bookings-payments'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { getTenantFromLesson } from '@/utilities/getTenantFromLesson'
+import { getTenantFromTimeslot } from '@/utilities/getTenantFromTimeslot'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { resolveTenantAdminTenantIds } from './tenant-scoped'
 
@@ -23,9 +23,9 @@ type TenantLike = {
 }
 
 /** True if class option has any payment method attached (drop-in, plans, or class passes). */
-function hasAnyPaymentMethod(classOption: unknown): boolean {
-  if (!classOption || typeof classOption !== 'object') return false
-  const pm = (classOption as {
+function hasAnyPaymentMethod(eventType: unknown): boolean {
+  if (!eventType || typeof eventType !== 'object') return false
+  const pm = (eventType as {
     paymentMethods?: {
       allowedDropIn?: unknown
       allowedPlans?: unknown[] | null
@@ -39,9 +39,9 @@ function hasAnyPaymentMethod(classOption: unknown): boolean {
   return hasDropIn || hasPlans || hasClassPasses
 }
 
-function hasAllowedClassPasses(classOption: unknown): boolean {
-  if (!classOption || typeof classOption !== 'object') return false
-  const pm = (classOption as { paymentMethods?: { allowedClassPasses?: unknown[] | null } }).paymentMethods
+function hasAllowedClassPasses(eventType: unknown): boolean {
+  if (!eventType || typeof eventType !== 'object') return false
+  const pm = (eventType as { paymentMethods?: { allowedClassPasses?: unknown[] | null } }).paymentMethods
   return Array.isArray(pm?.allowedClassPasses) && pm.allowedClassPasses.length > 0
 }
 
@@ -62,13 +62,13 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
   const user = req.user as SharedUser | null
 
   // Tenant org admins and staff manage bookings for their venues (admin UI).
-  if (user && checkRole(['admin', 'staff'], user) && data?.lesson) {
+  if (user && checkRole(['admin', 'staff'], user) && data?.timeslot) {
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
     if (tenantIds.length > 0) {
-      const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
-      if (lessonId != null) {
-        const lessonTenantId = await getTenantFromLesson(req.payload, lessonId as number)
-        if (lessonTenantId != null && tenantIds.includes(lessonTenantId)) {
+      const timeslotId = typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
+      if (timeslotId != null) {
+        const timeslotTenantId = await getTenantFromTimeslot(req.payload, timeslotId as number)
+        if (timeslotTenantId != null && tenantIds.includes(timeslotTenantId)) {
           return true
         }
       }
@@ -78,35 +78,35 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
   const allowed = await bookingCreateAccess(args as Parameters<typeof bookingCreateAccess>[0])
   if (!allowed) return false
 
-  if (!data?.lesson) return true // no lesson, no payment check
+  if (!data?.timeslot) return true // no timeslot, no payment check
 
-  const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
-  if (lessonId == null) return true
+  const timeslotId = typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
+  if (timeslotId == null) return true
 
   try {
-    const lesson = await req.payload.findByID({
-      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-      id: lessonId,
+    const timeslot = await req.payload.findByID({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      id: timeslotId,
       depth: 2,
       context: { triggerAfterChange: false },
     })
-    if (!lesson) return true
+    if (!timeslot) return true
 
-    const classOption = lesson.classOption
-    const tenantId = await getTenantFromLesson(req.payload, lesson as { id: number; tenant?: number | { id: number } })
+    const eventType = timeslot.eventType
+    const tenantId = await getTenantFromTimeslot(req.payload, timeslot as { id: number; tenant?: number | { id: number } })
     if (tenantId == null) return false
 
-    if (user?.id && hasAllowedClassPasses(classOption)) {
+    if (user?.id && hasAllowedClassPasses(eventType)) {
       const result = await checkClassPass({
         payload: req.payload,
         user: { id: user.id as number },
         tenant: { id: tenantId },
-        classOption: classOption as { paymentMethods?: { allowedClassPasses?: unknown[] | null } },
+        eventType: eventType as { paymentMethods?: { allowedClassPasses?: unknown[] | null } },
       })
       if (result.valid) return true
     }
 
-    if (!hasAnyPaymentMethod(classOption)) return true
+    if (!hasAnyPaymentMethod(eventType)) return true
 
     const tenant = (await req.payload.findByID({
       collection: 'tenants',

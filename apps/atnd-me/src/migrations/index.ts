@@ -22,7 +22,7 @@ import * as migration_20260129_booking_transactions_subscription from './2026012
 import * as migration_20260129_bookings_rels from './20260129_bookings_rels';
 import * as migration_20260129_bookings_subscription_id_used from './20260129_bookings_subscription_id_used';
 import * as migration_20260129_class_pass_types_price_in_euros from './20260129_class_pass_types_price_in_euros';
-import * as migration_20260129_memberships_allow_multiple_per_lesson from './20260129_memberships_allow_multiple_per_lesson';
+import * as migration_20260129_memberships_allow_multiple_per_timeslot from './20260129_memberships_allow_multiple_per_timeslot';
 import * as migration_20260210_064706 from './20260210_064706';
 import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pages_generate_slug';
 import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
@@ -193,9 +193,9 @@ export const migrations = [
     name: '20260129_class_pass_types_price_in_euros',
   },
   {
-    up: migration_20260129_memberships_allow_multiple_per_lesson.up,
-    down: migration_20260129_memberships_allow_multiple_per_lesson.down,
-    name: '20260129_memberships_allow_multiple_per_lesson',
+    up: migration_20260129_memberships_allow_multiple_per_timeslot.up,
+    down: migration_20260129_memberships_allow_multiple_per_timeslot.down,
+    name: '20260129_memberships_allow_multiple_per_timeslot',
   },
   {
     up: migration_20260210_064706.up,

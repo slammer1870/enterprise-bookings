@@ -12,8 +12,8 @@ import { Payload } from "payload";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
 import {
-  mergeTRPCBookingsSlugs,
-  type TRPCBookingsCollectionSlugs,
+  mergeTRPCBookingCollectionSlugs,
+  type TRPCBookingCollectionSlugs,
 } from "./bookings-slugs";
 type BetterAuthInstance = {
   api: {
@@ -61,9 +61,9 @@ export const createTRPCContext = async (opts: {
   stripe?: Stripe;
   /**
    * Override booking collection slugs when the app renames plugin collections
-   * (e.g. lessons → timeslots). Defaults match @repo/bookings-plugin.
+   * (e.g. timeslots → timeslots). Defaults match @repo/bookings-plugin.
    */
-  bookingsCollectionSlugs?: Partial<TRPCBookingsCollectionSlugs>;
+  bookingsCollectionSlugs?: Partial<TRPCBookingCollectionSlugs>;
   /**
    * Optional user injection for server-side callers (e.g. integration tests).
    * API route handlers should NOT pass this.
@@ -88,7 +88,7 @@ export const createTRPCContext = async (opts: {
     stripe: opts.stripe,
     betterAuth,
     hostOverride: opts.hostOverride,
-    bookingsSlugs: mergeTRPCBookingsSlugs(opts.bookingsCollectionSlugs),
+    bookingsSlugs: mergeTRPCBookingCollectionSlugs(opts.bookingsCollectionSlugs),
     // Only allow user injection in test runs to avoid accidental auth bypass in production.
     user: isTestEnv ? (opts.user ?? null) : null,
   };
@@ -249,5 +249,5 @@ export const stripeProtectedProcedure = protectedProcedure.use(async (opts) => {
 
 // Re-export collection utilities for convenience
 export { requireCollections, requireBookingCollections, hasCollection } from "./utils/collections";
-export type { TRPCBookingsCollectionSlugs } from "./bookings-slugs";
-export { DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS, mergeTRPCBookingsSlugs } from "./bookings-slugs";
+export type { TRPCBookingCollectionSlugs } from "./bookings-slugs";
+export { DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS, mergeTRPCBookingCollectionSlugs } from "./bookings-slugs";

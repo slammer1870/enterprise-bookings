@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useMutation } from '@tanstack/react-query'
 import { BookingSummary } from './booking-summary'
@@ -13,11 +13,11 @@ type PaymentMethodsLike = {
   allowedDropIn?: {
     adjustable?: boolean
     /** Legacy/alternate field name used by some older seeds/tests */
-    allowMultipleBookingsPerLesson?: boolean
+    allowMultipleBookingsPerTimeslot?: boolean
   } | null
   allowedPlans?:
     | Array<{
-        sessionsInformation?: { allowMultipleBookingsPerLesson?: boolean } | null
+        sessionsInformation?: { allowMultipleBookingsPerTimeslot?: boolean } | null
       }>
     | null
   allowedClassPasses?: unknown[] | null
@@ -57,14 +57,14 @@ function asPaymentMethodsLike(value: unknown): PaymentMethodsLike {
  * ```
  */
 interface BookingPageClientSmartProps {
-  lesson: Lesson
+  timeslot: Timeslot
   onSuccessRedirect?: string
   /**
    * Component to render when payment methods are detected.
-   * Receives lesson, and optionally quantity, pendingBookings, onPaymentSuccess for multi-booking/manage flow.
+   * Receives timeslot, and optionally quantity, pendingBookings, onPaymentSuccess for multi-booking/manage flow.
    */
   PaymentMethodsComponent?: React.ComponentType<{
-    lesson: Lesson
+    timeslot: Timeslot
     quantity?: number
     pendingBookings?: import('@repo/shared-types').Booking[]
     onPaymentSuccess?: () => void
@@ -75,7 +75,7 @@ interface BookingPageClientSmartProps {
 }
 
 export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
-  lesson,
+  timeslot,
   onSuccessRedirect,
   PaymentMethodsComponent,
 }) => {
@@ -83,50 +83,50 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   const [quantity, setQuantity] = useState<number>(1)
   const paymentRedirectInProgressRef = useRef(false)
 
-  if (!lesson?.id) {
+  if (!timeslot?.id) {
     return (
       <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-        Invalid booking data: lesson is missing. Please go back and try again.
+        Invalid booking data: timeslot is missing. Please go back and try again.
       </div>
     )
   }
 
-  const { mutateAsync: cancelPendingForLesson } = useMutation(
-    trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
+  const { mutateAsync: cancelPendingForTimeslot } = useMutation(
+    trpc.bookings.cancelPendingBookingsForTimeslot.mutationOptions()
   )
 
-  // When user leaves the booking page, cancel any pending bookings for this lesson
+  // When user leaves the booking page, cancel any pending bookings for this timeslot
   useEffect(() => {
     return () => {
       if (paymentRedirectInProgressRef.current) return
-      cancelPendingForLesson({ lessonId: lesson.id }).catch(() => {})
+      cancelPendingForTimeslot({ timeslotId: timeslot.id }).catch(() => {})
     }
-  }, [lesson.id, cancelPendingForLesson])
+  }, [timeslot.id, cancelPendingForTimeslot])
 
-  // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the lesson data from the server
-  // is used; there is no client-side Stripe Connect or tenant check. If the server returns a lesson without
-  // classOption.paymentMethods populated (e.g. no tenant context so depth/overrideAccess omit it), this is false.
-  const paymentMethods = asPaymentMethodsLike(lesson.classOption?.paymentMethods)
+  // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the timeslot data from the server
+  // is used; there is no client-side Stripe Connect or tenant check. If the server returns a timeslot without
+  // eventType.paymentMethods populated (e.g. no tenant context so depth/overrideAccess omit it), this is false.
+  const paymentMethods = asPaymentMethodsLike(timeslot.eventType?.paymentMethods)
   const hasPaymentMethods = Boolean(
     paymentMethods?.allowedDropIn ||
     (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
     (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
   )
 
-  const capacityMaxQuantity = Math.max(1, lesson.remainingCapacity || 1)
+  const capacityMaxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
   const dropInAllowsMultiple =
     // Drop-in multi-quantity is controlled by the DropIn field `adjustable`.
     // Keep a fallback for legacy data/models that might have used a different name.
     paymentMethods?.allowedDropIn?.adjustable === true ||
-    paymentMethods?.allowedDropIn?.allowMultipleBookingsPerLesson === true
+    paymentMethods?.allowedDropIn?.allowMultipleBookingsPerTimeslot === true
   const planAllowsMultiple =
     paymentMethods?.allowedPlans?.some(
-      (p) => p.sessionsInformation?.allowMultipleBookingsPerLesson === true
+      (p) => p.sessionsInformation?.allowMultipleBookingsPerTimeslot === true
     ) ?? false
   const classPassAllowsMultiple =
     paymentMethods?.allowedClassPasses?.some((pass) => {
       if (!isObject(pass)) return false
-      return pass.allowMultipleBookingsPerLesson === true
+      return pass.allowMultipleBookingsPerTimeslot === true
     }) ?? false
   // Match server-side gating: if payment methods exist, only allow multi-quantity when at least one method supports it.
   const allowsMultipleBookingsForViewer =
@@ -142,17 +142,17 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     if (PaymentMethodsComponent) {
       return (
         <div className="space-y-6">
-          <BookingSummary lesson={lesson} />
+          <BookingSummary timeslot={timeslot} />
           <Card>
             <CardHeader>
               <CardTitle>Select Quantity</CardTitle>
               <CardDescription>
-                Choose how many slots you would like to book for this lesson
+                Choose how many slots you would like to book for this timeslot
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <QuantitySelector
-                lesson={lesson}
+                timeslot={timeslot}
                 quantity={quantity}
                 onQuantityChange={setQuantity}
                 maxQuantity={maxQuantity}
@@ -161,7 +161,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
           </Card>
 
           <PaymentMethodsComponent
-            lesson={lesson}
+            timeslot={timeslot}
             quantity={quantity}
             onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
             successUrl={onSuccessRedirect}
@@ -173,12 +173,12 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     // If payment methods exist but no component provided, show helpful message
     return (
       <div className="space-y-6">
-        <BookingSummary lesson={lesson} />
+        <BookingSummary timeslot={timeslot} />
         <Card>
           <CardHeader>
             <CardTitle>Payment Required</CardTitle>
             <CardDescription>
-              This lesson requires payment. Please provide a PaymentMethodsComponent
+              This timeslot requires payment. Please provide a PaymentMethodsComponent
               prop to handle payment method selection.
             </CardDescription>
           </CardHeader>
@@ -190,18 +190,18 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   // No payment methods - show MVP booking form (quantity selector + booking form)
   return (
     <div className="space-y-6">
-      <BookingSummary lesson={lesson} />
+      <BookingSummary timeslot={timeslot} />
 
       <Card>
         <CardHeader>
           <CardTitle>Select Quantity</CardTitle>
           <CardDescription>
-            Choose how many slots you would like to book for this lesson
+            Choose how many slots you would like to book for this timeslot
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <QuantitySelector
-            lesson={lesson}
+            timeslot={timeslot}
             quantity={quantity}
             onQuantityChange={setQuantity}
             maxQuantity={maxQuantity}
@@ -209,7 +209,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 
           {quantity >= 1 && quantity <= maxQuantity && (
             <BookingForm
-              lesson={lesson}
+              timeslot={timeslot}
               quantity={quantity}
               onSuccessRedirect={onSuccessRedirect}
             />

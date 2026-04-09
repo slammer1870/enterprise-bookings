@@ -226,7 +226,7 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
  */
 export const tenantScopedRead: Access = ({ req: { user: _user } }) => {
   // Public read access (for booking pages, etc.)
-  // This allows regular users to read lessons, class-options, etc. for booking
+  // This allows regular users to read timeslots, event-types, etc. for booking
   return true
 }
 
@@ -385,7 +385,7 @@ async function resolveTenantAdminReadConstraint(args: {
  * - Regular users: can read documents for the current tenant context (from subdomain)
  * 
  * IMPORTANT: When req.context.tenant is set (from subdomain), it takes precedence over
- * the user's tenants array. This allows cross-tenant booking - users can see lessons
+ * the user's tenants array. This allows cross-tenant booking - users can see timeslots
  * for the tenant they're viewing, regardless of their tenant assignments.
  */
 export const tenantScopedReadFiltered: Access = async ({ req }) => {
@@ -423,7 +423,7 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
   // 2. Having both explicit filter AND access control constraint can cause conflicts
   // 3. The explicit filter is more reliable and easier to debug
   //
-  // This allows cross-tenant booking - users can see lessons for the tenant
+  // This allows cross-tenant booking - users can see timeslots for the tenant
   // they're viewing (from subdomain), regardless of their tenant assignments.
   if (contextTenant) {
     // Return true to allow access - tenant filtering is handled by explicit where clause

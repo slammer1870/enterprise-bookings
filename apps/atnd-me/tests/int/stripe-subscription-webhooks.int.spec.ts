@@ -137,12 +137,12 @@ describe('Stripe subscription webhooks (Connect)', () => {
             overrideAccess: true,
           })
         }
-        const lessonsResult = await payload.find({
+        const timeslotsResult = await payload.find({
           collection: 'timeslots',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
-        for (const l of lessonsResult.docs) {
+        for (const l of timeslotsResult.docs) {
           await payload.delete({
             collection: 'timeslots',
             id: l.id,
@@ -448,7 +448,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: classOptionId,
+          eventType: classOptionId,
           date: startTime.toISOString().split('T')[0],
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -457,13 +457,13 @@ describe('Stripe subscription webhooks (Connect)', () => {
         },
         overrideAccess: true,
       })
-      const testLessonId = lesson.id as number
+      const testTimeslotId = lesson.id as number
 
       const pendingBooking = await payload.create({
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: testLessonId,
+          timeslot: testTimeslotId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -472,7 +472,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
       const pendingBookingId = pendingBooking.id as number
 
       const event = subscriptionCreatedEvent({
-        metadata: { lessonId: String(testLessonId) },
+        metadata: { lessonId: String(testTimeslotId) },
       })
       ;(event.data.object as { id: string }).id = 'sub_booking_flow_123'
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
@@ -532,7 +532,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: classOptionId,
+          eventType: classOptionId,
           date: startTime.toISOString().split('T')[0],
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -541,13 +541,13 @@ describe('Stripe subscription webhooks (Connect)', () => {
         },
         overrideAccess: true,
       })
-      const testLessonId = lesson.id as number
+      const testTimeslotId = lesson.id as number
 
       const childBooking = await payload.create({
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: testLessonId,
+          timeslot: testTimeslotId,
           tenant: tenantId,
           status: 'pending',
         },

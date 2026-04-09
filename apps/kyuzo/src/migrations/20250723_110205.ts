@@ -93,7 +93,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   ALTER TABLE "footer_navigation_items" DISABLE ROW LEVEL SECURITY;
   DROP TABLE "footer_navigation_items" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:02:05.409Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-23T11:02:05.409Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-23T11:02:05.555Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-23T11:02:05.555Z';
   ALTER TABLE "footer" ADD COLUMN "brand_name" varchar DEFAULT 'Kyuzo Brazilian Jiu Jitsu' NOT NULL;
@@ -167,7 +167,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "pages_blocks_coaching_team" CASCADE;
   DROP TABLE "pages_blocks_contact_form" CASCADE;
   DROP TABLE "pages_blocks_latest_posts" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-22T16:33:20.033Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-22T16:33:20.033Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-07-22T16:33:20.230Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-07-22T16:33:20.230Z';
   ALTER TABLE "footer" ADD COLUMN "logo" varchar DEFAULT 'BRÚ' NOT NULL;

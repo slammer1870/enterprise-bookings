@@ -23,8 +23,8 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
 // Export server-side utilities
 export { createTRPCContext, appRouter, createAppRouter };
 export type { AppRouter, AppRouterOptions, RouterInputs, RouterOutputs };
-export type { TRPCBookingsCollectionSlugs } from "./bookings-slugs";
-export { DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS, mergeTRPCBookingsSlugs } from "./bookings-slugs";
+export type { TRPCBookingCollectionSlugs } from "./bookings-slugs";
+export { DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS, mergeTRPCBookingCollectionSlugs } from "./bookings-slugs";
 
 // Export client-side utilities
 export { TRPCReactProvider, useTRPC } from "./client";

@@ -18,7 +18,7 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
   if (!metadata) return;
 
   try {
-    // When we have specific booking IDs (from reserve-at-checkout), confirm those first. Otherwise fall back to lessonId+quantity.
+    // When we have specific booking IDs (from reserve-at-checkout), confirm those first. Otherwise fall back to timeslotId+quantity.
     const explicitBookingIds: number[] = [];
     if (metadata.bookingId) {
       const id = parseInt(metadata.bookingId, 10);
@@ -63,8 +63,8 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
       return;
     }
 
-    if (metadata.lessonId) {
-      const lessonId = parseInt(metadata.lessonId, 10);
+    if (metadata.timeslotId) {
+      const timeslotId = parseInt(metadata.timeslotId, 10);
       const quantity = Math.max(1, parseInt(metadata.quantity ?? "1", 10) || 1);
       const userQuery = await payload.find({
         collection: "users",
@@ -75,20 +75,20 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
         payload.logger?.error?.(`User not found - Payment Intent: ${event.data.object.id}`);
         return;
       }
-      const lesson = await payload.findByID({
-        collection: "lessons" as any,
-        id: lessonId,
+      const timeslot = await payload.findByID({
+        collection: "timeslots" as any,
+        id: timeslotId,
         depth: 1,
       }).catch(() => null);
       const remainingCapacity =
-        lesson && typeof (lesson as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
-          ? Math.max(0, (lesson as unknown as { remainingCapacity: number }).remainingCapacity)
+        timeslot && typeof (timeslot as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
+          ? Math.max(0, (timeslot as unknown as { remainingCapacity: number }).remainingCapacity)
           : 0;
 
       const existingBookingsQuery = await payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lessonId },
+          timeslot: { equals: timeslotId },
           user: { equals: user.id },
         },
       });
@@ -113,7 +113,7 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
         const created = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lessonId,
+            timeslot: timeslotId,
             status: "confirmed",
             user: user.id,
           },

@@ -3,18 +3,18 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
-import type { User, Lesson, ClassOption, Tenant } from '@repo/shared-types'
+import type { User, Timeslot, EventType, Tenant } from '@repo/shared-types'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 /**
- * Tests that authenticated users can see lessons in the schedule on the homepage.
- * This verifies the fix for the issue where authenticated users couldn't see lessons
+ * Tests that authenticated users can see timeslots in the schedule on the homepage.
+ * This verifies the fix for the issue where authenticated users couldn't see timeslots
  * when accessing the schedule via tRPC getByDate procedure.
  */
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
 
-function getLessonTenantId(lesson: { tenant?: Lesson['tenant'] }): number | null {
+function getTimeslotTenantId(lesson: { tenant?: Timeslot['tenant'] }): number | null {
   if (typeof lesson.tenant === 'object' && lesson.tenant !== null && 'id' in lesson.tenant) {
     return lesson.tenant.id
   }
@@ -22,14 +22,14 @@ function getLessonTenantId(lesson: { tenant?: Lesson['tenant'] }): number | null
   return typeof lesson.tenant === 'number' ? lesson.tenant : null
 }
 
-describe('Schedule lessons visibility for authenticated users', () => {
+describe('Schedule timeslots visibility for authenticated users', () => {
   let payload: Payload
   let regularUser: User
   let testTenant: Tenant
-  let testLesson: Lesson
-  let inactiveLesson: Lesson
-  /** Lesson that started and ended earlier today — must still appear on today's schedule. */
-  let endedTodayLesson: Lesson
+  let testTimeslot: Timeslot
+  let inactiveTimeslot: Timeslot
+  /** Timeslot that started and ended earlier today — must still appear on today's schedule. */
+  let endedTodayTimeslot: Timeslot
   let instructorUser: User
   let instructorId: number
   let profileImageId: number
@@ -68,7 +68,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
     instructorUser = (await payload.create({
       collection: 'users',
       data: {
-        name: 'Schedule Instructor',
+        name: 'Schedule StaffMember',
         email: `instructor-schedule-${Date.now()}@test.com`,
         password: 'test',
         roles: ['user'],
@@ -81,7 +81,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
     const profileImage = await payload.create({
       collection: 'media',
       data: {
-        alt: 'Schedule Instructor Headshot',
+        alt: 'Schedule StaffMember Headshot',
         tenant: testTenant.id,
       },
       file: {
@@ -125,7 +125,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
           sessions: 2,
           intervalCount: 1,
           interval: 'week',
-          allowMultipleBookingsPerLesson: true,
+          allowMultipleBookingsPerTimeslot: true,
         },
         // Intentionally set Stripe-y fields that must never leak to public clients
         stripeProductId: 'prod_TEST_SHOULD_NOT_LEAK',
@@ -143,7 +143,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         slug: `schedule-test-pass-type-${Date.now()}`,
         tenant: testTenant.id,
         quantity: 10,
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
         status: 'active',
         stripeProductId: 'prod_TEST_SHOULD_NOT_LEAK',
         priceJSON: '{"id":"price_TEST_SHOULD_NOT_LEAK"}',
@@ -167,63 +167,63 @@ describe('Schedule lessons visibility for authenticated users', () => {
         },
       },
       overrideAccess: true,
-    })) as ClassOption
+    })) as EventType
 
-    // Create a lesson in the future (schedule endpoint hides ended lessons)
+    // Create a lesson in the future (schedule endpoint hides ended timeslots)
     const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
     startTime.setSeconds(0, 0)
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
-    testLesson = (await payload.create({
+    testTimeslot = (await payload.create({
       collection: 'timeslots',
       draft: false,
       data: {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        instructor: instructorId,
-        classOption: classOption.id,
+        staffMember: instructorId,
+        eventType: classOption.id,
         active: true,
         tenant: testTenant.id,
       },
       overrideAccess: true,
-    })) as Lesson
+    })) as Timeslot
 
-    inactiveLesson = (await payload.create({
+    inactiveTimeslot = (await payload.create({
       collection: 'timeslots',
       draft: false,
       data: {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-          instructor: instructorId,
-        classOption: classOption.id,
+          staffMember: instructorId,
+        eventType: classOption.id,
         active: false,
         tenant: testTenant.id,
       },
       overrideAccess: true,
-    })) as Lesson
+    })) as Timeslot
 
     // A lesson that started and ended earlier today. The schedule should still show it
-    // because the rule is "no lessons from yesterday or earlier", not "endTime >= now".
+    // because the rule is "no timeslots from yesterday or earlier", not "endTime >= now".
     const endedStart = new Date()
     endedStart.setHours(endedStart.getHours() - 2, 0, 0, 0)
     const endedEnd = new Date()
     endedEnd.setHours(endedEnd.getHours() - 1, 0, 0, 0)
 
-    endedTodayLesson = (await payload.create({
+    endedTodayTimeslot = (await payload.create({
       collection: 'timeslots',
       draft: false,
       data: {
         date: endedStart.toISOString(),
         startTime: endedStart.toISOString(),
         endTime: endedEnd.toISOString(),
-        classOption: classOption.id,
+        eventType: classOption.id,
         active: true,
         tenant: testTenant.id,
       },
       overrideAccess: true,
-    })) as Lesson
+    })) as Timeslot
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -232,15 +232,15 @@ describe('Schedule lessons visibility for authenticated users', () => {
         // Cleanup
         await payload.delete({
           collection: 'timeslots',
-          where: { id: { equals: testLesson.id } },
+          where: { id: { equals: testTimeslot.id } },
         })
         await payload.delete({
           collection: 'timeslots',
-          where: { id: { equals: inactiveLesson.id } },
+          where: { id: { equals: inactiveTimeslot.id } },
         })
         await payload.delete({
           collection: 'timeslots',
-          where: { id: { equals: endedTodayLesson.id } },
+          where: { id: { equals: endedTodayTimeslot.id } },
         })
         if (planId) {
           await payload.delete({
@@ -286,7 +286,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
   })
 
   it(
-    'allows authenticated user to see lessons via tRPC getByDate with tenant context',
+    'allows authenticated user to see timeslots via tRPC getByDate with tenant context',
     async () => {
       // Simulate tRPC call with authenticated user and tenant context
       // This mimics what the Schedule component does
@@ -306,18 +306,18 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        // Call getByDate using the lesson's calendar day (schedule endpoint hides past days/ended lessons)
-        const today = new Date(testLesson.startTime)
+        // Call getByDate using the lesson's calendar day (schedule endpoint hides past days/ended timeslots)
+        const today = new Date(testTimeslot.startTime)
         
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
         // User should be able to see the lesson
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testLesson.id)
-        expect(lessons.length).toBeGreaterThan(0)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTimeslot.id)
+        expect(timeslots.length).toBeGreaterThan(0)
       } finally {
         authSpy.mockRestore()
       }
@@ -326,7 +326,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
   )
 
   it(
-    'allows unauthenticated user to see lessons via tRPC getByDate with tenant context',
+    'allows unauthenticated user to see timeslots via tRPC getByDate with tenant context',
     async () => {
       // Simulate tRPC call without authenticated user but with tenant context
       const mockHeaders = new Headers()
@@ -344,29 +344,29 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
         
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
-        // Unauthenticated users should also be able to see lessons for booking
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testLesson.id)
+        // Unauthenticated users should also be able to see timeslots for booking
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTimeslot.id)
 
         // But unauthenticated users must not receive tenant/Stripe/payment-provider fields
         // embedded inside nested payment method relationships.
-        const lesson = lessons.find((l) => l.id === testLesson.id) as any
+        const lesson = timeslots.find((l) => l.id === testTimeslot.id) as any
         expect(lesson).toBeTruthy()
-        expect(lesson.instructor).toEqual({
+        expect(lesson.staffMember).toEqual({
           id: instructorId,
-          name: 'Schedule Instructor',
+          name: 'Schedule StaffMember',
           profileImage: expect.objectContaining({
             url: expect.stringContaining('/media/'),
           }),
         })
-        const co = lesson.classOption as any
+        const co = lesson.eventType as any
         expect(co).toBeTruthy()
         // Schedule endpoint must not expose payment method relationship docs at all.
         expect(co).not.toHaveProperty('paymentMethods')
@@ -378,7 +378,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
   )
 
   it(
-    'hides inactive lessons from the public schedule response',
+    'hides inactive timeslots from the public schedule response',
     async () => {
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
@@ -394,16 +394,16 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
 
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testLesson.id)
-        expect(lessonIds).not.toContain(inactiveLesson.id)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTimeslot.id)
+        expect(lessonIds).not.toContain(inactiveTimeslot.id)
       } finally {
         authSpy.mockRestore()
       }
@@ -412,7 +412,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
   )
 
   it(
-    'allows authenticated user to see lessons even when they do not have tenant in tenants array',
+    'allows authenticated user to see timeslots even when they do not have tenant in tenants array',
     async () => {
       // This is the key scenario: user is authenticated but viewing a tenant
       // they don't have explicit access to (cross-tenant booking scenario)
@@ -431,22 +431,22 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
         
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
-        // Regular authenticated user should be able to see lessons for the tenant
+        // Regular authenticated user should be able to see timeslots for the tenant
         // they're currently viewing, even if not in their tenants array
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testLesson.id)
-        expect(lessons.length).toBeGreaterThan(0)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTimeslot.id)
+        expect(timeslots.length).toBeGreaterThan(0)
         
-        // Verify all lessons belong to the tenant from subdomain (not user's tenants)
-        for (const lesson of lessons) {
-          expect(getLessonTenantId(lesson)).toBe(testTenant.id)
+        // Verify all timeslots belong to the tenant from subdomain (not user's tenants)
+        for (const lesson of timeslots) {
+          expect(getTimeslotTenantId(lesson)).toBe(testTenant.id)
         }
       } finally {
         authSpy.mockRestore()
@@ -458,10 +458,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
   // ─── Regressions for the three bugs fixed in this PR ───────────────────────
 
   it(
-    'shows lessons that ended earlier today for unauthenticated users (endTime >= now must not filter today)',
+    'shows timeslots that ended earlier today for unauthenticated users (endTime >= now must not filter today)',
     async () => {
-      // Before the fix, lessonsRead added `endTime >= now` for public users, hiding
-      // lessons that had already ended but started today. The correct rule is:
+      // Before the fix, timeslotsRead added `endTime >= now` for public users, hiding
+      // timeslots that had already ended but started today. The correct rule is:
       // "no access to yesterday or earlier", not "endTime must be in the future".
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
@@ -475,10 +475,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({ user: null } as any)
       try {
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({ date: new Date().toISOString() })
+        const timeslots = await caller.timeslots.getByDate({ date: new Date().toISOString() })
 
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(endedTodayLesson.id)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(endedTodayTimeslot.id)
       } finally {
         authSpy.mockRestore()
       }
@@ -487,7 +487,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
   )
 
   it(
-    'shows lessons that ended earlier today for authenticated users',
+    'shows timeslots that ended earlier today for authenticated users',
     async () => {
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
@@ -503,10 +503,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
       try {
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({ date: new Date().toISOString() })
+        const timeslots = await caller.timeslots.getByDate({ date: new Date().toISOString() })
 
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(endedTodayLesson.id)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(endedTodayTimeslot.id)
       } finally {
         authSpy.mockRestore()
       }
@@ -532,10 +532,10 @@ describe('Schedule lessons visibility for authenticated users', () => {
         yesterday.setDate(yesterday.getDate() - 1)
 
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({ date: yesterday.toISOString() })
+        const timeslots = await caller.timeslots.getByDate({ date: yesterday.toISOString() })
 
         // getByDate short-circuits to [] when endOfDay < today's start
-        expect(lessons).toHaveLength(0)
+        expect(timeslots).toHaveLength(0)
       } finally {
         authSpy.mockRestore()
       }
@@ -544,14 +544,14 @@ describe('Schedule lessons visibility for authenticated users', () => {
   )
 
   it(
-    'better-auth session user (collection="users", no tenants) can see lessons via getByDate',
+    'better-auth session user (collection="users", no tenants) can see timeslots via getByDate',
     async () => {
       // Regression: the multi-tenant plugin's withTenantAccess wrapper checked
       // user.collection === 'users' and added { tenant: { in: user.tenants ?? [] } }.
       // better-auth session users have collection:'users' set (via prepareUser/getFieldsToSign)
       // but the `tenants` array is not saved to the JWT, so getUserTenantIDs returned [].
       // The resulting { tenant: { in: [] } } constraint matched nothing → empty schedule.
-      // Fix: useTenantAccess: false on the lessons collection so withTenantAccess never runs.
+      // Fix: useTenantAccess: false on the timeslots collection so withTenantAccess never runs.
       const betterAuthSessionUser = {
         ...regularUser,
         collection: 'users', // set by payload-auth's prepareUser via getFieldsToSign
@@ -572,16 +572,16 @@ describe('Schedule lessons visibility for authenticated users', () => {
       } as any)
       try {
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
-          date: new Date(testLesson.startTime).toISOString(),
+        const timeslots = await caller.timeslots.getByDate({
+          date: new Date(testTimeslot.startTime).toISOString(),
         })
 
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testLesson.id)
-        expect(lessons.length).toBeGreaterThan(0)
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTimeslot.id)
+        expect(timeslots.length).toBeGreaterThan(0)
 
-        // Inactive lessons must still be hidden even with this user format
-        expect(lessonIds).not.toContain(inactiveLesson.id)
+        // Inactive timeslots must still be hidden even with this user format
+        expect(lessonIds).not.toContain(inactiveTimeslot.id)
       } finally {
         authSpy.mockRestore()
       }
@@ -596,7 +596,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       // better-auth session user (collection:'users', tenants:undefined). withTenantAccess
       // added { tenant: { in: [] } } → findByID returned null → TRPCError NOT_FOUND →
       // createBookingPage caught it and redirected to errorRedirectPath ('/').
-      // Fix: useTenantAccess:false for lessons disables the wrapper entirely.
+      // Fix: useTenantAccess:false for timeslots disables the wrapper entirely.
       const betterAuthSessionUser = {
         ...regularUser,
         collection: 'users',
@@ -616,16 +616,16 @@ describe('Schedule lessons visibility for authenticated users', () => {
 
       const caller = appRouter.createCaller(ctx)
 
-      // testLesson is 2 h in the future → bookingStatus === 'active' → should not throw
-      await expect(caller.lessons.getByIdForBooking({ id: testLesson.id })).resolves.toMatchObject({
-        id: testLesson.id,
+      // testTimeslot is 2 h in the future → bookingStatus === 'active' → should not throw
+      await expect(caller.timeslots.getByIdForBooking({ id: testTimeslot.id })).resolves.toMatchObject({
+        id: testTimeslot.id,
       })
     },
     TEST_TIMEOUT,
   )
 
   it(
-    'filters lessons by subdomain tenant context, not user tenants array',
+    'filters timeslots by subdomain tenant context, not user tenants array',
     async () => {
       // Create a second tenant and lesson
       const secondTenant = (await payload.create({
@@ -637,7 +637,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         overrideAccess: true,
       })) as Tenant
 
-      const secondClassOption = (await payload.create({
+      const secondEventType = (await payload.create({
         collection: 'event-types',
         data: {
           name: `Second Tenant Class ${Date.now()}`,
@@ -646,26 +646,26 @@ describe('Schedule lessons visibility for authenticated users', () => {
           tenant: secondTenant.id,
         },
         overrideAccess: true,
-      })) as ClassOption
+      })) as EventType
 
       const today = new Date()
       today.setHours(14, 0, 0, 0)
       const endTime = new Date(today)
       endTime.setHours(15, 0, 0, 0)
 
-      const secondLesson = (await payload.create({
+      const secondTimeslot = (await payload.create({
         collection: 'timeslots',
         draft: false,
         data: {
           date: today.toISOString(),
           startTime: today.toISOString(),
           endTime: endTime.toISOString(),
-          classOption: secondClassOption.id,
+          eventType: secondEventType.id,
           active: true,
           tenant: secondTenant.id,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
       try {
         // User is authenticated, viewing first tenant's subdomain
@@ -683,21 +683,21 @@ describe('Schedule lessons visibility for authenticated users', () => {
         } as any)
 
         try {
-          const today = new Date(testLesson.startTime)
+          const today = new Date(testTimeslot.startTime)
           
           const caller = appRouter.createCaller(ctx)
-          const lessons = await caller.lessons.getByDate({
+          const timeslots = await caller.timeslots.getByDate({
             date: today.toISOString(),
           })
 
-          // Should only see lessons from testTenant (from subdomain), not secondTenant
-          const lessonIds = lessons.map((l) => l.id)
-          expect(lessonIds).toContain(testLesson.id)
-          expect(lessonIds).not.toContain(secondLesson.id)
+          // Should only see timeslots from testTenant (from subdomain), not secondTenant
+          const lessonIds = timeslots.map((l) => l.id)
+          expect(lessonIds).toContain(testTimeslot.id)
+          expect(lessonIds).not.toContain(secondTimeslot.id)
           
-          // All lessons should be from the subdomain tenant
-          for (const lesson of lessons) {
-            expect(getLessonTenantId(lesson)).toBe(testTenant.id)
+          // All timeslots should be from the subdomain tenant
+          for (const lesson of timeslots) {
+            expect(getTimeslotTenantId(lesson)).toBe(testTenant.id)
           }
         } finally {
           authSpy.mockRestore()
@@ -707,11 +707,11 @@ describe('Schedule lessons visibility for authenticated users', () => {
         try {
           await payload.delete({
             collection: 'timeslots',
-            where: { id: { equals: secondLesson.id } },
+            where: { id: { equals: secondTimeslot.id } },
           })
           await payload.delete({
             collection: 'event-types',
-            where: { id: { equals: secondClassOption.id } },
+            where: { id: { equals: secondEventType.id } },
           })
           await payload.delete({
             collection: 'tenants',

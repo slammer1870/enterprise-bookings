@@ -2,25 +2,25 @@
  * Booking-related Payload collection slugs for tRPC.
  * Defaults match @repo/bookings-plugin; apps can override via createTRPCContext.
  */
-export type TRPCBookingsCollectionSlugs = {
-  lessons: string;
-  classOptions: string;
-  instructors: string;
+export type TRPCBookingCollectionSlugs = {
+  timeslots: string;
+  eventTypes: string;
+  staffMembers: string;
   bookings: string;
 };
 
-export const DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS: TRPCBookingsCollectionSlugs = {
-  lessons: "lessons",
-  classOptions: "class-options",
-  instructors: "instructors",
+export const DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS: TRPCBookingCollectionSlugs = {
+  timeslots: "timeslots",
+  eventTypes: "event-types",
+  staffMembers: "staff-members",
   bookings: "bookings",
 };
 
-export function mergeTRPCBookingsSlugs(
-  partial?: Partial<TRPCBookingsCollectionSlugs>
-): TRPCBookingsCollectionSlugs {
+export function mergeTRPCBookingCollectionSlugs(
+  partial?: Partial<TRPCBookingCollectionSlugs>
+): TRPCBookingCollectionSlugs {
   return {
-    ...DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS,
+    ...DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS,
     ...partial,
   };
 }

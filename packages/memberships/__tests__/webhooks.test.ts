@@ -216,9 +216,9 @@ describe("Subscription Webhooks", () => {
       },
     });
 
-    // Clean up lessons after each test
+    // Clean up timeslots after each test
     await payload.delete({
-      collection: "lessons",
+      collection: "timeslots",
       where: {
         id: {
           exists: true,
@@ -226,9 +226,9 @@ describe("Subscription Webhooks", () => {
       },
     });
 
-    // Clean up class-options after each test
+    // Clean up event-types after each test
     await payload.delete({
-      collection: "class-options",
+      collection: "event-types",
       where: {
         id: {
           exists: true,
@@ -309,7 +309,7 @@ describe("Subscription Webhooks", () => {
     it("should create booking when lessonId is provided in metadata", async () => {
       // Create a class option and lesson for booking
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -318,7 +318,7 @@ describe("Subscription Webhooks", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -353,7 +353,7 @@ describe("Subscription Webhooks", () => {
     it("should update existing booking when lessonId is provided", async () => {
       // Create a class option and lesson
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -362,7 +362,7 @@ describe("Subscription Webhooks", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(Date.now() + 24 * 60 * 60 * 1000),
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -628,7 +628,7 @@ describe("Subscription Webhooks", () => {
 
     it("should support both camelCase and snake_case metadata", async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -637,7 +637,7 @@ describe("Subscription Webhooks", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(Date.now() + 24 * 60 * 60 * 1000),
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -978,7 +978,7 @@ describe("Subscription Webhooks", () => {
 
     it("should cancel related bookings when planId is provided", async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -991,7 +991,7 @@ describe("Subscription Webhooks", () => {
 
       const futureDate = new Date(Date.now() + 48 * 60 * 60 * 1000); // 2 days from now
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: futureDate,
           startTime: futureDate,

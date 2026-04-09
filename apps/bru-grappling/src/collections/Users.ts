@@ -3,7 +3,7 @@ import type { CollectionConfig } from 'payload'
 
 import { User } from '@repo/shared-types'
 
-import { adminOrUserOrParentOrInstructor } from '@repo/shared-services'
+import { adminOrUserOrParentOrStaffMember } from '@repo/shared-services'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -13,16 +13,16 @@ export const Users: CollectionConfig = {
   },
   access: {
     create: () => true,
-    read: adminOrUserOrParentOrInstructor,
+    read: adminOrUserOrParentOrStaffMember,
     update: ({ req: { user } }) => checkRole(['admin'], user as User),
     delete: ({ req: { user } }) => checkRole(['admin'], user as User),
     admin: ({ req: { user } }) => checkRole(['admin'], user as User),
   },
   fields: [
     {
-      name: 'lessons',
+      name: 'timeslots',
       type: 'join',
-      collection: 'lessons',
+      collection: 'timeslots',
       on: 'instructor',
       admin: {
         condition: () => false,

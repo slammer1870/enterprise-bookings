@@ -124,9 +124,9 @@ export async function ensureAtLeastOneActivePlanWithStripePrice(page: Page): Pro
   }
 }
 
-export async function setClassOptionAllowedPlans(
+export async function setEventTypeAllowedPlans(
   page: Page,
-  options: { classOptionId: number; planIds: number[] },
+  options: { eventTypeId: number; planIds: number[] },
 ): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const request: any = (page.context() as any).request
@@ -155,7 +155,7 @@ export async function setClassOptionAllowedPlans(
     }
   }
 
-  const res = await request.patch(`${baseUrl}/api/class-options/${options.classOptionId}`, {
+  const res = await request.patch(`${baseUrl}/api/event-types/${options.eventTypeId}`, {
     headers: {
       ...(await adminAuthHeader()),
       Cookie: await cookieHeader(),
@@ -171,7 +171,7 @@ export async function setClassOptionAllowedPlans(
   if (!res.ok()) {
     const txt = await res.text().catch(() => '')
     throw new Error(
-      `Failed to set paymentMethods.allowedPlans on class-options/${options.classOptionId}: ${res.status()} ${txt}`,
+      `Failed to set paymentMethods.allowedPlans on event-types/${options.eventTypeId}: ${res.status()} ${txt}`,
     )
   }
 }

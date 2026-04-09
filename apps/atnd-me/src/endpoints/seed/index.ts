@@ -87,8 +87,8 @@ export const seed = async ({
     payload,
     req,
     tenants: bookingData.tenants,
-    classOptions: bookingData.classOptions,
-    instructors: bookingData.instructors,
+    eventTypes: bookingData.eventTypes,
+    staffMembers: bookingData.staffMembers,
   })
 
   payload.logger.info(`— Seeding pages, navbar and footer for each tenant...`)

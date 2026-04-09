@@ -1,8 +1,8 @@
-import { Booking, Lesson, User } from "@repo/shared-types";
+import { Booking, Timeslot, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
 import { AccessArgs } from "payload";
 
-import { validateLessonStatus } from "../lesson";
+import { validateTimeslotStatus } from "../timeslot";
 
 export const bookingCreateDropinAccess = async ({
   req,
@@ -14,17 +14,19 @@ export const bookingCreateDropinAccess = async ({
     return false;
   }
 
-  if (!data?.lesson) return false;
+  if (!data?.timeslot) return false;
 
   const lessonId =
-    typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
+    typeof data?.timeslot === "object"
+      ? (data.timeslot as Timeslot).id
+      : (data.timeslot as number);
 
   try {
     const lesson = (await req.payload.findByID({
-      collection: "lessons",
+      collection: "timeslots",
       id: lessonId,
       depth: 3,
-    })) as unknown as Lesson;
+    })) as unknown as Timeslot;
 
     if (!lesson) return false;
 
@@ -32,7 +34,7 @@ export const bookingCreateDropinAccess = async ({
 
     if (checkRole(["admin"], user)) return true;
 
-    if (!validateLessonStatus(lesson)) return false;
+    if (!validateTimeslotStatus(lesson)) return false;
 
     if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
       return true;
@@ -40,7 +42,7 @@ export const bookingCreateDropinAccess = async ({
 
     // Check if the lesson has an allowed plan payment method
 
-    if (lesson.classOption.paymentMethods?.allowedDropIn) {
+    if (lesson.eventType?.paymentMethods?.allowedDropIn) {
       return false;
     }
 
@@ -57,7 +59,10 @@ export const bookingUpdateDropinAccess = async ({
 }: AccessArgs<Booking>) => {
   const searchParams = req.searchParams;
 
-  const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
+  const lessonId =
+    searchParams.get("where[and][0][timeslot][equals]") ||
+    searchParams.get("where[and][0][lesson][equals]") ||
+    id;
 
   const userId =
     searchParams.get("where[and][1][user][equals]") || req.user?.id;
@@ -77,7 +82,7 @@ export const bookingUpdateDropinAccess = async ({
       const bookingQuery = await req.payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lessonId },
+          timeslot: { equals: lessonId },
           user: { equals: userId },
         },
         depth: 3,
@@ -89,10 +94,10 @@ export const bookingUpdateDropinAccess = async ({
     if (!booking) return false;
 
     const lesson = (await req.payload.findByID({
-      collection: "lessons",
-      id: booking.lesson.id,
+      collection: "timeslots",
+      id: booking.timeslot.id,
       depth: 3,
-    })) as unknown as Lesson;
+    })) as unknown as Timeslot;
 
     const user = (await req.payload.findByID({
       collection: "users",
@@ -120,7 +125,7 @@ export const bookingUpdateDropinAccess = async ({
     }
 
     // Check if the lesson has an allowed drop in payment method
-    if (lesson.classOption.paymentMethods?.allowedDropIn) {
+    if (lesson.eventType?.paymentMethods?.allowedDropIn) {
       //TODO: Check if the user has a drop in payment method that is allowed for this lesson
       return false;
     }

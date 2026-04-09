@@ -151,7 +151,7 @@ async function createSubscription(
   return { id }
 }
 
-async function createClassOption(
+async function createEventType(
   page: any,
   opts: {
     name: string
@@ -159,7 +159,7 @@ async function createClassOption(
     allowedPlans?: number[]
   },
 ): Promise<Created> {
-  return await apiPost(page, '/api/class-options', {
+  return await apiPost(page, '/api/event-types', {
     name: opts.name,
     places: 50,
     description: 'kiosk e2e',
@@ -171,13 +171,13 @@ async function createClassOption(
   })
 }
 
-async function createLesson(
+async function createTimeslot(
   page: any,
   opts: { classOptionId: number },
 ): Promise<Created> {
   const start = new Date(Date.now() + 10 * 60 * 1000)
   const end = new Date(Date.now() + 70 * 60 * 1000)
-  return await apiPost(page, '/api/lessons', {
+  return await apiPost(page, '/api/timeslots', {
     date: new Date().toISOString(),
     startTime: start.toISOString(),
     endTime: end.toISOString(),
@@ -211,7 +211,7 @@ async function checkInViaKiosk(
   // Check if the class is unexpectedly showing as full
   if (await fullMessage.isVisible().catch(() => false)) {
     throw new Error(
-      `Lesson ${opts.lessonId} shows "This class is full" unexpectedly. ` +
+      `Timeslot ${opts.lessonId} shows "This class is full" unexpectedly. ` +
         'Check that remainingCapacity is computed correctly.',
     )
   }
@@ -287,26 +287,26 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     await createSubscription(page, { userId: adultWithSub.id, planId: adultPlan.id })
     await createSubscription(page, { userId: parentWithSub.id, planId: childPlan.id })
 
-    // Class options + lessons
-    const adultRequiresSub = await createClassOption(page, {
+    // Class options + timeslots
+    const adultRequiresSub = await createEventType(page, {
       name: unique('Adult Requires Sub'),
       type: 'adult',
       allowedPlans: [adultPlan.id],
     })
-    const adultNoSubRequired = await createClassOption(page, {
+    const adultNoSubRequired = await createEventType(page, {
       name: unique('Adult No Sub Required'),
       type: 'adult',
       allowedPlans: [],
     })
-    const childRequiresSub = await createClassOption(page, {
+    const childRequiresSub = await createEventType(page, {
       name: unique('Child Requires Sub'),
       type: 'child',
       allowedPlans: [childPlan.id],
     })
 
-    const adultSubLesson = await createLesson(page, { classOptionId: adultRequiresSub.id })
-    const adultFreeLesson = await createLesson(page, { classOptionId: adultNoSubRequired.id })
-    const childSubLesson = await createLesson(page, { classOptionId: childRequiresSub.id })
+    const adultSubTimeslot = await createTimeslot(page, { classOptionId: adultRequiresSub.id })
+    const adultFreeTimeslot = await createTimeslot(page, { classOptionId: adultNoSubRequired.id })
+    const childSubTimeslot = await createTimeslot(page, { classOptionId: childRequiresSub.id })
 
     // Go to kiosk page once
     await page.goto('/kiosk', { waitUntil: 'domcontentloaded', timeout: 120000 })
@@ -314,7 +314,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     // Adult: active subscription
     await test.step('adult with active subscription can check in to subscription-required lesson', async () => {
       await checkInViaKiosk(page, {
-        lessonId: adultSubLesson.id,
+        lessonId: adultSubTimeslot.id,
         userName: adultWithSub.name as string,
         expectSuccess: true,
       })
@@ -323,7 +323,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     // Adult: no subscription, lesson requires subscription
     await test.step('adult without active subscription cannot check in to subscription-required lesson', async () => {
       await checkInViaKiosk(page, {
-        lessonId: adultSubLesson.id,
+        lessonId: adultSubTimeslot.id,
         userName: adultNoSub.name as string,
         expectSuccess: false,
       })
@@ -332,7 +332,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     // Adult: no subscription, lesson does not require subscription
     await test.step('adult without subscription can check in to lesson without subscription requirement', async () => {
       await checkInViaKiosk(page, {
-        lessonId: adultFreeLesson.id,
+        lessonId: adultFreeTimeslot.id,
         userName: adultNoSub.name as string,
         expectSuccess: true,
       })
@@ -341,7 +341,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     // Child: parent has active subscription for child plan
     await test.step('child can check in when parent has active subscription for child lesson that requires it', async () => {
       await checkInViaKiosk(page, {
-        lessonId: childSubLesson.id,
+        lessonId: childSubTimeslot.id,
         userName: childWithSubParent.name as string,
         expectSuccess: true,
       })
@@ -350,7 +350,7 @@ test.describe('Kiosk check-in access control (kyuzo)', () => {
     // Child: parent has no active subscription for child plan
     await test.step('child cannot check in when parent has no active subscription for child lesson that requires it', async () => {
       await checkInViaKiosk(page, {
-        lessonId: childSubLesson.id,
+        lessonId: childSubTimeslot.id,
         userName: childNoSubParent.name as string,
         expectSuccess: false,
       })

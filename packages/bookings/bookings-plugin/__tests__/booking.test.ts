@@ -78,7 +78,7 @@ describe("Booking tests", () => {
         },
       });
       const classOptionWithoutPaymentMethods = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 1",
           places: 4,
@@ -87,7 +87,7 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -140,7 +140,7 @@ describe("Booking tests", () => {
       });
 
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 2",
           places: 1,
@@ -149,7 +149,7 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -193,7 +193,7 @@ describe("Booking tests", () => {
     "should be able to create a booking",
     async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 3",
           places: 1,
@@ -202,7 +202,7 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
@@ -236,7 +236,7 @@ describe("Booking tests", () => {
     "should be able to update a booking",
     async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 4",
           places: 1,
@@ -245,7 +245,7 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),

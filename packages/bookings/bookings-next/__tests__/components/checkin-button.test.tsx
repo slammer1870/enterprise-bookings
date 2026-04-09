@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { CheckInButton } from '../../src/components/lessons/checkin-button'
+import { CheckInButton } from '../../src/components/timeslots/checkin-button'
 import { toast } from 'sonner'
 
 vi.mock('next/navigation', () => ({
@@ -13,11 +13,11 @@ vi.mock('next/navigation', () => ({
 vi.mock('@repo/trpc/client', () => ({
   useTRPC: () => ({
     bookings: {
-      setMyBookingForLesson: { mutationOptions: (opts: any) => opts },
-      bookSingleSlotLessonOrRedirect: { mutationOptions: (opts: any) => opts },
+      setMyBookingForTimeslot: { mutationOptions: (opts: any) => opts },
+      bookSingleSlotTimeslotOrRedirect: { mutationOptions: (opts: any) => opts },
     },
-    lessons: {
-      getByDate: { queryKey: () => ['lessons.getByDate'] },
+    timeslots: {
+      getByDate: { queryKey: () => ['timeslots.getByDate'] },
     },
   }),
 }))

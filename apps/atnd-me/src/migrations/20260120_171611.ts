@@ -40,9 +40,9 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE TYPE "public"."enum_users_roles" AS ENUM('user', 'admin');
   CREATE TYPE "public"."enum_users_role" AS ENUM('admin', 'user');
   CREATE TYPE "public"."enum_bookings_status" AS ENUM('pending', 'confirmed', 'cancelled', 'waiting');
-  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule', 'schedulePublish');
+  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule', 'schedulePublish');
   CREATE TYPE "public"."enum_payload_jobs_log_state" AS ENUM('failed', 'succeeded');
-  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule', 'schedulePublish');
+  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule', 'schedulePublish');
   CREATE TYPE "public"."enum_payload_folders_folder_type" AS ENUM('media');
   CREATE TYPE "public"."enum_header_nav_items_link_type" AS ENUM('reference', 'custom');
   CREATE TYPE "public"."enum_header_nav_items_button_variant" AS ENUM('default', 'outline', 'secondary', 'ghost');
@@ -935,7 +935,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"lock_until" timestamp(3) with time zone
   );
   
-  CREATE TABLE "instructors" (
+  CREATE TABLE "staff-members" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"user_id" integer NOT NULL,
   	"name" varchar,
@@ -946,7 +946,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  CREATE TABLE "lessons" (
+  CREATE TABLE "timeslots" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"date" timestamp(3) with time zone DEFAULT '2026-01-20T17:16:10.772Z' NOT NULL,
   	"start_time" timestamp(3) with time zone NOT NULL,
@@ -954,7 +954,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"lock_out_time" numeric DEFAULT 0 NOT NULL,
   	"original_lock_out_time" numeric DEFAULT 0,
   	"location" varchar,
-  	"instructor_id" integer,
+  	"staffMember_id" integer,
   	"class_option_id" integer NOT NULL,
   	"active" boolean DEFAULT true,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -973,7 +973,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE TABLE "bookings" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"user_id" integer NOT NULL,
-  	"lesson_id" integer NOT NULL,
+  	"timeslot_id" integer NOT NULL,
   	"status" "enum_bookings_status" NOT NULL,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
@@ -1054,8 +1054,8 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"form_submissions_id" integer,
   	"search_id" integer,
   	"users_id" integer,
-  	"instructors_id" integer,
-  	"lessons_id" integer,
+  	"staffMembers_id" integer,
+  	"timeslots_id" integer,
   	"class_options_id" integer,
   	"bookings_id" integer,
   	"payload_folders_id" integer
@@ -1157,7 +1157,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"end_time" timestamp(3) with time zone DEFAULT '2026-01-20T17:16:10.874Z' NOT NULL,
   	"class_option_id" integer,
   	"location" varchar,
-  	"instructor_id" integer,
+  	"staffMember_id" integer,
   	"lock_out_time" numeric,
   	"active" boolean DEFAULT true
   );
@@ -1286,12 +1286,12 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "search_rels" ADD CONSTRAINT "search_rels_posts_fk" FOREIGN KEY ("posts_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "users_roles" ADD CONSTRAINT "users_roles_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "users_sessions" ADD CONSTRAINT "users_sessions_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "instructors" ADD CONSTRAINT "instructors_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "instructors" ADD CONSTRAINT "instructors_profile_image_id_media_id_fk" FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "lessons" ADD CONSTRAINT "lessons_instructor_id_instructors_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "lessons" ADD CONSTRAINT "lessons_class_option_id_class_options_id_fk" FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "staff-members" ADD CONSTRAINT "staffMembers_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "staff-members" ADD CONSTRAINT "staffMembers_profile_image_id_media_id_fk" FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_staffMember_id_staffMembers_id_fk" FOREIGN KEY ("staffMember_id") REFERENCES "public"."staff-members"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_class_option_id_class_options_id_fk" FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "bookings" ADD CONSTRAINT "bookings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "bookings" ADD CONSTRAINT "bookings_lesson_id_lessons_id_fk" FOREIGN KEY ("lesson_id") REFERENCES "public"."lessons"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "bookings" ADD CONSTRAINT "bookings_timeslot_id_timeslots_id_fk" FOREIGN KEY ("timeslot_id") REFERENCES "public"."timeslots"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "payload_jobs_log" ADD CONSTRAINT "payload_jobs_log_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."payload_jobs"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_folders_folder_type" ADD CONSTRAINT "payload_folders_folder_type_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_folders"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_folders" ADD CONSTRAINT "payload_folders_folder_id_payload_folders_id_fk" FOREIGN KEY ("folder_id") REFERENCES "public"."payload_folders"("id") ON DELETE set null ON UPDATE no action;
@@ -1309,8 +1309,8 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_form_submissions_fk" FOREIGN KEY ("form_submissions_id") REFERENCES "public"."form_submissions"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_search_fk" FOREIGN KEY ("search_id") REFERENCES "public"."search"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_instructors_fk" FOREIGN KEY ("instructors_id") REFERENCES "public"."instructors"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_lessons_fk" FOREIGN KEY ("lessons_id") REFERENCES "public"."lessons"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_staffMembers_fk" FOREIGN KEY ("staffMembers_id") REFERENCES "public"."staff-members"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_timeslots_fk" FOREIGN KEY ("timeslots_id") REFERENCES "public"."timeslots"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_class_options_fk" FOREIGN KEY ("class_options_id") REFERENCES "public"."class_options"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_bookings_fk" FOREIGN KEY ("bookings_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_payload_folders_fk" FOREIGN KEY ("payload_folders_id") REFERENCES "public"."payload_folders"("id") ON DELETE cascade ON UPDATE no action;
@@ -1327,7 +1327,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   ALTER TABLE "footer_rels" ADD CONSTRAINT "footer_rels_pages_fk" FOREIGN KEY ("pages_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "footer_rels" ADD CONSTRAINT "footer_rels_posts_fk" FOREIGN KEY ("posts_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_class_option_id_class_options_id_fk" FOREIGN KEY ("class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_instructor_id_instructors_id_fk" FOREIGN KEY ("instructor_id") REFERENCES "public"."instructors"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_staffMember_id_staffMembers_id_fk" FOREIGN KEY ("staffMember_id") REFERENCES "public"."staff-members"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "scheduler_week_days_time_slot" ADD CONSTRAINT "scheduler_week_days_time_slot_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."scheduler_week_days"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "scheduler_week_days" ADD CONSTRAINT "scheduler_week_days_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."scheduler"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "scheduler" ADD CONSTRAINT "scheduler_default_class_option_id_class_options_id_fk" FOREIGN KEY ("default_class_option_id") REFERENCES "public"."class_options"("id") ON DELETE set null ON UPDATE no action;
@@ -1599,19 +1599,19 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX "users_updated_at_idx" ON "users" USING btree ("updated_at");
   CREATE INDEX "users_created_at_idx" ON "users" USING btree ("created_at");
   CREATE UNIQUE INDEX "users_email_idx" ON "users" USING btree ("email");
-  CREATE UNIQUE INDEX "instructors_user_idx" ON "instructors" USING btree ("user_id");
-  CREATE INDEX "instructors_profile_image_idx" ON "instructors" USING btree ("profile_image_id");
-  CREATE INDEX "instructors_updated_at_idx" ON "instructors" USING btree ("updated_at");
-  CREATE INDEX "instructors_created_at_idx" ON "instructors" USING btree ("created_at");
-  CREATE INDEX "lessons_instructor_idx" ON "lessons" USING btree ("instructor_id");
-  CREATE INDEX "lessons_class_option_idx" ON "lessons" USING btree ("class_option_id");
-  CREATE INDEX "lessons_updated_at_idx" ON "lessons" USING btree ("updated_at");
-  CREATE INDEX "lessons_created_at_idx" ON "lessons" USING btree ("created_at");
+  CREATE UNIQUE INDEX "staffMembers_user_idx" ON "staff-members" USING btree ("user_id");
+  CREATE INDEX "staffMembers_profile_image_idx" ON "staff-members" USING btree ("profile_image_id");
+  CREATE INDEX "staffMembers_updated_at_idx" ON "staff-members" USING btree ("updated_at");
+  CREATE INDEX "staffMembers_created_at_idx" ON "staff-members" USING btree ("created_at");
+  CREATE INDEX "timeslots_staffMember_idx" ON "timeslots" USING btree ("staffMember_id");
+  CREATE INDEX "timeslots_class_option_idx" ON "timeslots" USING btree ("class_option_id");
+  CREATE INDEX "timeslots_updated_at_idx" ON "timeslots" USING btree ("updated_at");
+  CREATE INDEX "timeslots_created_at_idx" ON "timeslots" USING btree ("created_at");
   CREATE UNIQUE INDEX "class_options_name_idx" ON "class_options" USING btree ("name");
   CREATE INDEX "class_options_updated_at_idx" ON "class_options" USING btree ("updated_at");
   CREATE INDEX "class_options_created_at_idx" ON "class_options" USING btree ("created_at");
   CREATE INDEX "bookings_user_idx" ON "bookings" USING btree ("user_id");
-  CREATE INDEX "bookings_lesson_idx" ON "bookings" USING btree ("lesson_id");
+  CREATE INDEX "bookings_timeslot_idx" ON "bookings" USING btree ("timeslot_id");
   CREATE INDEX "bookings_updated_at_idx" ON "bookings" USING btree ("updated_at");
   CREATE INDEX "bookings_created_at_idx" ON "bookings" USING btree ("created_at");
   CREATE UNIQUE INDEX "payload_kv_key_idx" ON "payload_kv" USING btree ("key");
@@ -1651,8 +1651,8 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX "payload_locked_documents_rels_form_submissions_id_idx" ON "payload_locked_documents_rels" USING btree ("form_submissions_id");
   CREATE INDEX "payload_locked_documents_rels_search_id_idx" ON "payload_locked_documents_rels" USING btree ("search_id");
   CREATE INDEX "payload_locked_documents_rels_users_id_idx" ON "payload_locked_documents_rels" USING btree ("users_id");
-  CREATE INDEX "payload_locked_documents_rels_instructors_id_idx" ON "payload_locked_documents_rels" USING btree ("instructors_id");
-  CREATE INDEX "payload_locked_documents_rels_lessons_id_idx" ON "payload_locked_documents_rels" USING btree ("lessons_id");
+  CREATE INDEX "payload_locked_documents_rels_staffMembers_id_idx" ON "payload_locked_documents_rels" USING btree ("staffMembers_id");
+  CREATE INDEX "payload_locked_documents_rels_timeslots_id_idx" ON "payload_locked_documents_rels" USING btree ("timeslots_id");
   CREATE INDEX "payload_locked_documents_rels_class_options_id_idx" ON "payload_locked_documents_rels" USING btree ("class_options_id");
   CREATE INDEX "payload_locked_documents_rels_bookings_id_idx" ON "payload_locked_documents_rels" USING btree ("bookings_id");
   CREATE INDEX "payload_locked_documents_rels_payload_folders_id_idx" ON "payload_locked_documents_rels" USING btree ("payload_folders_id");
@@ -1684,7 +1684,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX "scheduler_week_days_time_slot_order_idx" ON "scheduler_week_days_time_slot" USING btree ("_order");
   CREATE INDEX "scheduler_week_days_time_slot_parent_id_idx" ON "scheduler_week_days_time_slot" USING btree ("_parent_id");
   CREATE INDEX "scheduler_week_days_time_slot_class_option_idx" ON "scheduler_week_days_time_slot" USING btree ("class_option_id");
-  CREATE INDEX "scheduler_week_days_time_slot_instructor_idx" ON "scheduler_week_days_time_slot" USING btree ("instructor_id");
+  CREATE INDEX "scheduler_week_days_time_slot_staffMember_idx" ON "scheduler_week_days_time_slot" USING btree ("staffMember_id");
   CREATE INDEX "scheduler_week_days_order_idx" ON "scheduler_week_days" USING btree ("_order");
   CREATE INDEX "scheduler_week_days_parent_id_idx" ON "scheduler_week_days" USING btree ("_parent_id");
   CREATE INDEX "scheduler_default_class_option_idx" ON "scheduler" USING btree ("default_class_option_id");`)
@@ -1767,8 +1767,8 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP TABLE "users_roles" CASCADE;
   DROP TABLE "users_sessions" CASCADE;
   DROP TABLE "users" CASCADE;
-  DROP TABLE "instructors" CASCADE;
-  DROP TABLE "lessons" CASCADE;
+  DROP TABLE "staff-members" CASCADE;
+  DROP TABLE "timeslots" CASCADE;
   DROP TABLE "class_options" CASCADE;
   DROP TABLE "bookings" CASCADE;
   DROP TABLE "payload_kv" CASCADE;

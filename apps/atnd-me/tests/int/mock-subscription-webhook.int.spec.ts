@@ -96,7 +96,7 @@ describe('mock-subscription-created-webhook', () => {
       draft: false,
       data: {
         tenant: tenantId,
-        classOption: co.id,
+        eventType: co.id,
         date: startTime.toISOString().split('T')[0],
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -112,7 +112,7 @@ describe('mock-subscription-created-webhook', () => {
       draft: false,
       data: {
         user: userId,
-        lesson: lessonId,
+        timeslot: lessonId,
         tenant: tenantId,
         status: 'pending',
       },
@@ -160,12 +160,12 @@ describe('mock-subscription-created-webhook', () => {
             overrideAccess: true,
           })
         }
-        const lessonsResult = await payload.find({
+        const timeslotsResult = await payload.find({
           collection: 'timeslots',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
-        for (const l of lessonsResult.docs) {
+        for (const l of timeslotsResult.docs) {
           await payload.delete({
             collection: 'timeslots',
             id: l.id,
@@ -199,7 +199,7 @@ describe('mock-subscription-created-webhook', () => {
     async () => {
       const bookingsBefore = await payload.find({
         collection: 'bookings',
-        where: { user: { equals: userId }, lesson: { equals: lessonId } },
+        where: { user: { equals: userId }, timeslot: { equals: lessonId } },
         overrideAccess: true,
       })
       const pendingBooking = bookingsBefore.docs[0]

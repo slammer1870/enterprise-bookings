@@ -88,10 +88,10 @@ export const subscriptionCanceled: StripeWebhookHandler<{
           collection: "bookings",
           where: {
             user: { equals: subscriptionUserId },
-            "lesson.classOption.paymentMethods.allowedPlans": {
+            "timeslot.eventType.paymentMethods.allowedPlans": {
               contains: plan.docs[0].id,
             },
-            "lesson.startTime": {
+            "timeslot.startTime": {
               greater_than: new Date(),
             },
             status: {

@@ -35,8 +35,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { userEmail, lessonId, bookingIds, tenantId: tenantIdParam } = body as {
+    const {
+      userEmail,
+      timeslotId,
+      lessonId,
+      bookingIds,
+      tenantId: tenantIdParam,
+    } = body as {
       userEmail?: string
+      timeslotId?: number
       lessonId?: number
       bookingIds?: string
       tenantId?: number
@@ -120,8 +127,9 @@ export async function POST(request: NextRequest) {
     const subscriptionId = `sub_test_${Date.now()}`
     const now = Math.floor(Date.now() / 1000)
 
+    const slotId = timeslotId ?? lessonId
     const metadata: Record<string, string> = {}
-    if (lessonId != null) metadata.lessonId = String(lessonId)
+    if (slotId != null) metadata.timeslotId = String(slotId)
     if (bookingIds) metadata.bookingIds = bookingIds
 
     const event = {

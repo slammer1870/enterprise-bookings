@@ -19,7 +19,7 @@ import { PlatformFees } from './globals/PlatformFees'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
-import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
+import { generateTimeslotsFromScheduleWithTenant } from './tasks/generate-timeslots-with-tenant'
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
 import { resolvePayloadEmailConfig } from './utilities/emailConfig'
@@ -167,11 +167,11 @@ export default buildConfig({
       },
     },
     tasks: [
-      // Override the generateLessonsFromSchedule task to include tenant context
-      // This ensures the job can find tenant-scoped lessons correctly
+      // Override the generateTimeslotsFromSchedule task to include tenant context
+      // This ensures the job can find tenant-scoped timeslots correctly
       {
-        slug: 'generateLessonsFromSchedule',
-        handler: generateLessonsFromScheduleWithTenant,
+        slug: 'generateTimeslotsFromSchedule',
+        handler: generateTimeslotsFromScheduleWithTenant,
       },
     ],
   },

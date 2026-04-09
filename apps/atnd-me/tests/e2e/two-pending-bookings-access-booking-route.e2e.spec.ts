@@ -7,8 +7,8 @@ import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestBooking,
 } from './helpers/data-helpers'
 
@@ -22,7 +22,7 @@ test.describe('Two pending bookings: access booking route and make booking', () 
     const workerIndex = testData.workerIndex
 
     // Create pay-at-door lesson (no payment methods) so booking creates confirmed directly
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Two Pending Access Test',
       10,
@@ -36,7 +36,7 @@ test.describe('Two pending bookings: access booking route and make booking', () 
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0)
 
-    const lesson = await createTestLesson(
+    const lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,

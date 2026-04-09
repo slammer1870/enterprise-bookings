@@ -12,21 +12,21 @@ When e2e tests hit `http://{tenantSlug}.localhost:3000/bookings/{lessonId}` and 
    - **getSession()** – if no user → redirect to `authRedirectPath`.
    - **getRequestHost()** – `nextHeaders().get('host')` (e.g. `test-tenant-1.localhost:3000`).
    - **createCaller({ host })** – builds tRPC context with `hostOverride: host` so tenant can be resolved from the same request.
-   - **caller.lessons.getByIdForBooking({ id })** – can throw (NOT_FOUND, BAD_REQUEST, or any other error).
-   - **postValidation(lesson, user, caller)** – atnd-me calls **caller.bookings.getUserBookingsForLesson({ lessonId })**. If this throws, the error is not treated as NOT_FOUND/BAD_REQUEST, so it is rethrown and the user sees "Something went wrong".
+   - **caller.timeslots.getByIdForBooking({ id })** – can throw (NOT_FOUND, BAD_REQUEST, or any other error).
+   - **postValidation(lesson, user, caller)** – atnd-me calls **caller.bookings.getUserBookingsForTimeslot({ lessonId })**. If this throws, the error is not treated as NOT_FOUND/BAD_REQUEST, so it is rethrown and the user sees "Something went wrong".
    - Render `<BookingPageClientSmart lesson={lesson} ... />`. If serializing `lesson` or rendering throws, same outcome.
 
-3. **getByIdForBooking** (`packages/trpc/src/routers/lessons.ts`)
+3. **getByIdForBooking** (`packages/trpc/src/routers/timeslots.ts`)
    - Resolve tenant: cookie `tenant-slug` or from `ctx.hostOverride` / Host (subdomain).
    - Resolve tenant ID from slug (tenants collection).
-   - **findByIdSafe(payload, "lessons", id, { depth: 5, overrideAccess: true })** – can throw if DB or Payload fails.
+   - **findByIdSafe(payload, "timeslots", id, { depth: 5, overrideAccess: true })** – can throw if DB or Payload fails.
    - If no tenant from headers, derive tenant from lesson/classOption.
    - If tenant present: verify lesson belongs to tenant (else NOT_FOUND).
-   - If tenant present: **findByIdSafe(payload, "class-options", coId, { depth: 3, overrideAccess: true })** to populate `classOption.paymentMethods` (allowedDropIn, allowedPlans). Any throw here (e.g. missing DB column, Payload bug) propagates.
+   - If tenant present: **findByIdSafe(payload, "event-types", coId, { depth: 3, overrideAccess: true })** to populate `classOption.paymentMethods` (allowedDropIn, allowedPlans). Any throw here (e.g. missing DB column, Payload bug) propagates.
    - Booking status checks (closed / already booked / waitlist) → BAD_REQUEST or continue.
    - Return lesson (with classOption replaced by plain object for RSC).
 
-4. **getUserBookingsForLesson** (`packages/trpc/src/routers/bookings.ts`)
+4. **getUserBookingsForTimeslot** (`packages/trpc/src/routers/bookings.ts`)
    - Same tenant resolution (cookie / host).
    - **findSafe(payload, "bookings", { where: { lesson, user, status }, depth: 2, overrideAccess })** – can throw.
    - Filter results by tenant (booking or lesson.tenant). No throw in filter, but if `findSafe` or collection access fails, error propagates.
@@ -39,16 +39,16 @@ When e2e tests hit `http://{tenantSlug}.localhost:3000/bookings/{lessonId}` and 
 
 ## Hypotheses for "Something went wrong"
 
-1. **postValidation / getUserBookingsForLesson throws**
+1. **postValidation / getUserBookingsForTimeslot throws**
    - If `findSafe` for bookings throws (DB, Payload, or missing collection), or any other error in that procedure, createBookingPage catches it and only redirects on NOT_FOUND/BAD_REQUEST, then rethrows. Result: global error.
    - **Check:** Server logs when the e2e fails; add a try/catch in postValidation and log (or return redirect) instead of letting it throw.
 
-2. **getByIdForBooking – class-options fetch**
-   - When tenant is set, we do `findByIdSafe(payload, "class-options", coId, { depth: 3 })`. If Payload or the DB throws (e.g. schema/column mismatch, like the dropped `payment_methods_allowed_class_passes` column still being referenced somewhere), that error propagates.
+2. **getByIdForBooking – event-types fetch**
+   - When tenant is set, we do `findByIdSafe(payload, "event-types", coId, { depth: 3 })`. If Payload or the DB throws (e.g. schema/column mismatch, like the dropped `payment_methods_allowed_class_passes` column still being referenced somewhere), that error propagates.
    - **Check:** Confirm migration `20260210_drop_payment_methods_allowed_class_passes` has been run and that no Payload field still references that column.
 
 3. **getByIdForBooking – lesson fetch or bookingStatus**
-   - First call is `findByIdSafe(payload, "lessons", id, { depth: 5 })`. If the lessons collection has hooks (e.g. bookingStatus) that run extra queries or touch a bad schema, they could throw.
+   - First call is `findByIdSafe(payload, "timeslots", id, { depth: 5 })`. If the timeslots collection has hooks (e.g. bookingStatus) that run extra queries or touch a bad schema, they could throw.
    - **Check:** Whether any lesson hook or virtual depends on a dropped or invalid field.
 
 4. **Host/tenant missing on first request**

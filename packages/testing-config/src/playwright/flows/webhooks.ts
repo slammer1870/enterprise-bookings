@@ -2,7 +2,7 @@ import type { APIRequestContext } from '@playwright/test'
 
 export async function mockSubscriptionCreatedWebhook(
   request: APIRequestContext,
-  options: { lessonId: number; userEmail: string },
+  options: { timeslotId: number; userEmail: string },
 ): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const req: any = request as any
@@ -14,7 +14,7 @@ export async function mockSubscriptionCreatedWebhook(
 
   const res = await req.post(`${baseUrl}/api/test/mock-subscription-created-webhook`, {
     timeout: 120000,
-    data: { lessonId: options.lessonId, userEmail: options.userEmail },
+    data: { timeslotId: options.timeslotId, userEmail: options.userEmail },
   })
   if (!res.ok()) {
     const txt = await res.text().catch(() => '')
@@ -24,7 +24,7 @@ export async function mockSubscriptionCreatedWebhook(
 
 export async function mockPaymentIntentSucceededWebhook(
   request: APIRequestContext,
-  options: { lessonId: number; userEmail: string },
+  options: { timeslotId: number; userEmail: string },
 ): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000'
   const req: any = request as any
@@ -36,7 +36,7 @@ export async function mockPaymentIntentSucceededWebhook(
           object: {
             id: `pi_test_${Date.now()}`,
             customer: '',
-            metadata: { lessonId: options.lessonId.toString() },
+            metadata: { timeslotId: options.timeslotId.toString() },
           },
         },
       },

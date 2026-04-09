@@ -10,7 +10,7 @@ import {
 } from '@repo/ui/components/ui/card'
 
 export function SuccessReceipt({ receipt }: { receipt: ReceiptData }) {
-  const { lesson, bookingCount, amountPaidCents, currency, paymentMethod } = receipt
+  const { timeslot, bookingCount, amountPaidCents, currency, paymentMethod } = receipt
 
   const formatAmount = (cents: number) => {
     const amount = (cents / 100).toFixed(2)
@@ -39,12 +39,12 @@ export function SuccessReceipt({ receipt }: { receipt: ReceiptData }) {
         <CardDescription>Your booking confirmation details</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {lesson && (
+        {timeslot && (
           <div>
             <p className="text-sm font-medium text-muted-foreground">Class</p>
-            <p className="font-medium">{lesson.className}</p>
+            <p className="font-medium">{timeslot.className}</p>
             <p className="text-sm text-muted-foreground">
-              {formatDate(lesson.date, lesson.startTime, lesson.endTime)}
+              {formatDate(timeslot.date, timeslot.startTime, timeslot.endTime)}
             </p>
           </div>
         )}

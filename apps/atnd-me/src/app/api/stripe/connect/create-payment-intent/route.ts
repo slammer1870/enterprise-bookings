@@ -40,31 +40,31 @@ export async function POST(request: NextRequest) {
   const confirmOnly = body.confirmOnly === true
 
   const metadata = coerceMetadata(body.metadata)
-  const lessonIdRaw = metadata?.lessonId
-  const lessonId =
-    lessonIdRaw && /^\d+$/.test(lessonIdRaw) ? parseInt(lessonIdRaw, 10) : null
-  if (!lessonId) {
-    return NextResponse.json({ error: 'lessonId is required in metadata' }, { status: 400 })
+  const timeslotIdRaw = metadata?.timeslotId
+  const timeslotId =
+    timeslotIdRaw && /^\d+$/.test(timeslotIdRaw) ? parseInt(timeslotIdRaw, 10) : null
+  if (!timeslotId) {
+    return NextResponse.json({ error: 'timeslotId is required in metadata' }, { status: 400 })
   }
 
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
 
   let bookingIds = await validateBookingIdsFromMetadata(payload, metadata ?? {}, {
-    lessonId,
+    timeslotId,
     userId: user.id,
     user,
   })
 
-  const lesson = (await payload.findByID({
-    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
-    id: lessonId,
+  const timeslot = (await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    id: timeslotId,
     depth: 1,
     overrideAccess: true,
   })) as { tenant?: number | { id: number }; remainingCapacity?: number } | null
 
   const remainingCapacity =
-    lesson && typeof lesson.remainingCapacity === 'number'
-      ? Math.max(0, lesson.remainingCapacity)
+    timeslot && typeof timeslot.remainingCapacity === 'number'
+      ? Math.max(0, timeslot.remainingCapacity)
       : 0
 
   if (bookingIds.length === 0 && quantity > remainingCapacity) {
@@ -75,14 +75,14 @@ export async function POST(request: NextRequest) {
   }
 
   const tenantId =
-    lesson?.tenant != null
-      ? typeof lesson.tenant === 'object' && lesson.tenant !== null
-        ? lesson.tenant.id
-        : lesson.tenant
+    timeslot?.tenant != null
+      ? typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+        ? timeslot.tenant.id
+        : timeslot.tenant
       : null
 
   if (!tenantId) {
-    return NextResponse.json({ error: 'Tenant context not found for lesson' }, { status: 400 })
+    return NextResponse.json({ error: 'Tenant context not found for timeslot' }, { status: 400 })
   }
 
   const tenant = (await payload.findByID({
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
   if (bookingIds.length === 0 && !isTestMode) {
     try {
       bookingIds = await reservePendingBookings(payload, {
-        lessonId,
+        timeslotId,
         userId: user.id,
         user,
         tenantId,
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     if (bookingIds.length === 0) {
       try {
         bookingIds = await reservePendingBookings(payload, {
-          lessonId,
+          timeslotId,
           userId: user.id,
           user,
           tenantId,
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
       customerId: stripeCustomerId,
       metadata: {
         ...(metadata ?? {}),
-        lessonId: String(lessonId),
+        timeslotId: String(timeslotId),
         userId: String(user.id),
         quantity: String(quantity),
         ...(bookingIds.length > 0 ? { bookingIds: bookingIds.join(',') } : {}),

@@ -8,13 +8,13 @@ import {
 } from "@repo/shared-utils";
 
 /**
- * Server action to handle user check-in for a lesson
+ * Server action to handle user check-in for a timeslot
  */
-export async function checkInAction(lessonId: number, userId: number) {
+export async function checkInAction(timeslotId: number, userId: number) {
   const cookieStore = await cookies();
   const token = cookieStore.get("payload-token")?.value;
   try {
-    const query = getBookingsQuery(userId, lessonId);
+    const query = getBookingsQuery(userId, timeslotId);
 
     // Check if booking exists
     const booking = await fetch(
@@ -59,7 +59,7 @@ export async function checkInAction(lessonId: number, userId: number) {
         {
           method: "POST",
           body: JSON.stringify({
-            lesson: lessonId,
+            timeslot: timeslotId,
             user: userId,
             status: "confirmed",
           }),
@@ -93,11 +93,11 @@ export async function checkInAction(lessonId: number, userId: number) {
 /**
  * Server action to handle cancellation of a booking
  */
-export async function cancelBookingAction(lessonId: number, userId: number) {
+export async function cancelBookingAction(timeslotId: number, userId: number) {
   const cookieStore = await cookies();
   const token = cookieStore.get("payload-token")?.value;
   try {
-    const query = getBookingsQuery(userId, lessonId);
+    const query = getBookingsQuery(userId, timeslotId);
 
     // First find the specific booking
     const findResponse = await fetch(
@@ -160,12 +160,12 @@ export async function cancelBookingAction(lessonId: number, userId: number) {
   }
 }
 
-export async function joinWaitlistAction(lessonId: number, userId: number) {
+export async function joinWaitlistAction(timeslotId: number, userId: number) {
   const cookieStore = await cookies();
   const token = cookieStore.get("payload-token")?.value;
 
   try {
-    const query = getInactiveBookingsQuery(userId, lessonId);
+    const query = getInactiveBookingsQuery(userId, timeslotId);
 
     // Check if booking exists
     const booking = await fetch(
@@ -210,7 +210,7 @@ export async function joinWaitlistAction(lessonId: number, userId: number) {
         {
           method: "POST",
           body: JSON.stringify({
-            lesson: lessonId,
+            timeslot: timeslotId,
             user: userId,
             status: "waiting",
           }),

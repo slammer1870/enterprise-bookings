@@ -9,7 +9,7 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { createTestClassOption, createTestLesson, getPayloadInstance } from './helpers/data-helpers'
+import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 
 test.describe('Trialable drop-in pricing', () => {
   test.describe.configure({ timeout: 90_000 })
@@ -64,7 +64,7 @@ test.describe('Trialable drop-in pricing', () => {
       overrideAccess: true,
     })) as { id: number }
 
-    const classOption = await createTestClassOption(tenantId, 'Trialable Drop-in Class', 5)
+    const classOption = await createTestEventType(tenantId, 'Trialable Drop-in Class', 5)
     await payload.update({
       collection: 'event-types',
       id: classOption.id,
@@ -75,17 +75,17 @@ test.describe('Trialable drop-in pricing', () => {
       overrideAccess: true,
     })
 
-    const mkLesson = async (daysFromNow: number) => {
+    const mkTimeslot = async (daysFromNow: number) => {
       const start = new Date()
       start.setDate(start.getDate() + daysFromNow)
       start.setHours(12, 0, 0, 0)
       const end = new Date(start)
       end.setHours(13, 0, 0, 0)
-      return createTestLesson(tenantId, classOption.id, start, end, undefined, true)
+      return createTestTimeslot(tenantId, classOption.id, start, end, undefined, true)
     }
 
-    const lesson1 = await mkLesson(1)
-    const lesson2 = await mkLesson(2)
+    const lesson1 = await mkTimeslot(1)
+    const lesson2 = await mkTimeslot(2)
 
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
 
@@ -108,7 +108,7 @@ test.describe('Trialable drop-in pricing', () => {
       collection: 'bookings',
       data: {
         user: userId,
-        lesson: lesson1.id,
+        timeslot: lesson1.id,
         tenant: tenantId,
         status: 'confirmed',
       },

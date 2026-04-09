@@ -16,8 +16,8 @@ export const subscriptionCreated: StripeWebhookHandler<{
   const planId = event.data.object.items.data[0]?.plan?.product;
 
   const metadata = event.data.object.metadata ?? {};
-  const lessonId =
-    metadata.lessonId ?? metadata.lesson_id ?? undefined;
+  const timeslotId =
+    metadata.timeslotId ?? metadata.timeslot_id ?? undefined;
   const bookingIdsRaw = metadata.bookingIds ?? undefined;
 
   // Get current_period_start and current_period_end from subscription or items
@@ -131,22 +131,22 @@ export const subscriptionCreated: StripeWebhookHandler<{
           payload.logger.error(`Failed to confirm booking ${id} from subscription metadata`);
         }
       }
-    } else if (lessonId) {
-      const lessonIdNum = Number(lessonId);
-      if (isNaN(lessonIdNum)) {
-        payload.logger.error(`Invalid lessonId in metadata: ${lessonId}`);
+    } else if (timeslotId) {
+      const timeslotIdNum = Number(timeslotId);
+      if (isNaN(timeslotIdNum)) {
+        payload.logger.error(`Invalid timeslotId in metadata: ${timeslotId}`);
         return;
       }
 
-      let lesson: { id: number; tenant?: number | { id: number } } | null = null;
+      let timeslot: { id: number; tenant?: number | { id: number } } | null = null;
       try {
-        lesson = (await payload.findByID({
-          collection: "lessons" as any,
-          id: lessonIdNum,
+        timeslot = (await payload.findByID({
+          collection: "timeslots" as any,
+          id: timeslotIdNum,
           depth: 1,
         })) as { id: number; tenant?: number | { id: number } } | null;
       } catch {
-        payload.logger.error(`Lesson not found: ${lessonIdNum}`);
+        payload.logger.error(`Timeslot not found: ${timeslotIdNum}`);
         return;
       }
 
@@ -154,7 +154,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
         collection: "bookings",
         where: {
           user: { equals: user.id as number },
-          lesson: { equals: lessonIdNum },
+          timeslot: { equals: timeslotIdNum },
         },
         limit: 1,
       });
@@ -165,7 +165,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
         const created = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lessonIdNum,
+            timeslot: timeslotIdNum,
             user: user.id as number,
             status: "confirmed",
           },
@@ -184,10 +184,10 @@ export const subscriptionCreated: StripeWebhookHandler<{
       }
 
       const tenantId =
-        lesson?.tenant != null
-          ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-            ? lesson.tenant.id
-            : (lesson.tenant as number)
+        timeslot?.tenant != null
+          ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+            ? timeslot.tenant.id
+            : (timeslot.tenant as number)
           : undefined;
 
       await confirmBookingAndCreateTransaction(bookingId, tenantId);

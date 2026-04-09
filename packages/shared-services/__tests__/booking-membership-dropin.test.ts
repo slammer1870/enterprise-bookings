@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../src/lesson", () => ({
-  validateLessonStatus: vi.fn(() => true),
-  validateLessonPaymentMethods: vi.fn(async () => true),
+vi.mock("../src/timeslot", () => ({
+  validateTimeslotStatus: vi.fn(() => true),
+  validateTimeslotPaymentMethods: vi.fn(async () => true),
 }));
 
 import { bookingUpdateMembershipDropinAccess } from "../src/access/booking-membership-dropin";
@@ -30,7 +30,7 @@ describe("bookingUpdateMembershipDropinAccess", () => {
       .mockResolvedValueOnce({
         id: 123,
         user: { id: 42 },
-        lesson: { id: 88 },
+        timeslot: { id: 88 },
       })
       .mockResolvedValueOnce({
         id: 88,
@@ -63,7 +63,7 @@ describe("bookingUpdateMembershipDropinAccess", () => {
     expect(payload.findByID).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        collection: "lessons",
+        collection: "timeslots",
         id: 88,
         overrideAccess: true,
       })
@@ -84,7 +84,7 @@ describe("bookingUpdateMembershipDropinAccess", () => {
       .mockResolvedValueOnce({
         id: 123,
         user: { id: 77 },
-        lesson: { id: 88 },
+        timeslot: { id: 88 },
       })
       .mockResolvedValueOnce({
         id: 88,

@@ -1,12 +1,12 @@
 import type { CollectionSlug, FieldHook } from "payload";
 
-import type { BookingsPluginSlugs } from "../resolve-slugs";
-import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
 export function createGetRemainingCapacity(
-  slugs: BookingsPluginSlugs,
+  slugs: BookingCollectionSlugs,
 ): FieldHook {
-  const classOptionsSlug = slugs.classOptions as CollectionSlug;
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
   const bookingsSlug = slugs.bookings as CollectionSlug;
 
   return async ({ req, data, context }) => {
@@ -14,34 +14,34 @@ export function createGetRemainingCapacity(
       return;
     }
 
-    if (!data?.classOption) {
+    if (!data?.eventType) {
       return 0;
     }
 
     try {
-      const classOptionId =
-        typeof data.classOption === "object" && data.classOption !== null
-          ? data.classOption.id
-          : data.classOption;
+      const eventTypeId =
+        typeof data.eventType === "object" && data.eventType !== null
+          ? data.eventType.id
+          : data.eventType;
 
-      if (!classOptionId) {
+      if (!eventTypeId) {
         return 0;
       }
 
-      const classOption = (await req.payload.findByID({
-        collection: classOptionsSlug,
-        id: classOptionId,
+      const eventType = (await req.payload.findByID({
+        collection: eventTypesSlug,
+        id: eventTypeId,
         depth: 1,
         context: {
           triggerAfterChange: false,
         },
       })) as { places?: number } | null;
 
-      if (!classOption) {
+      if (!eventType) {
         return 0;
       }
 
-      const places = typeof classOption.places === "number" ? classOption.places : 0;
+      const places = typeof eventType.places === "number" ? eventType.places : 0;
 
       if (!data?.id) {
         return places;
@@ -53,7 +53,7 @@ export function createGetRemainingCapacity(
         depth: 1,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             {
               or: [
                 { status: { equals: "confirmed" } },
@@ -91,5 +91,5 @@ export function createGetRemainingCapacity(
 
 /** @deprecated Prefer createGetRemainingCapacity(slugs) for custom slugs. */
 export const getRemainingCapacity = createGetRemainingCapacity(
-  DEFAULT_BOOKINGS_PLUGIN_SLUGS,
+  DEFAULT_BOOKING_COLLECTION_SLUGS,
 );

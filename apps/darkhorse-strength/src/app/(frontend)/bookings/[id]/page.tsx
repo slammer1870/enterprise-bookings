@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 
 import { getPayload } from 'payload'
 
@@ -36,8 +36,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   const payload = await getPayload({ config })
 
-  const lessonQuery = await payload.find({
-    collection: 'lessons',
+  const timeslotQuery = await payload.find({
+    collection: 'timeslots',
     where: {
       id: { equals: id },
     },
@@ -46,20 +46,20 @@ export default async function BookingPage({ params }: BookingPageProps) {
     user: user as any,
   })
 
-  const lesson = lessonQuery.docs[0] as Lesson
+  const timeslot = timeslotQuery.docs[0] as unknown as Timeslot | undefined
 
-  if (!lesson) {
+  if (!timeslot) {
     redirect('/dashboard')
   }
 
-  if (['booked', 'closed'].includes(lesson.bookingStatus)) {
+  if (['booked', 'closed'].includes(timeslot.bookingStatus)) {
     redirect('/dashboard')
   }
 
-  // Attempt check-in if lesson status allows it (using tRPC procedure)
+  // Attempt check-in if timeslot status allows it (using tRPC procedure)
   const caller = await createCaller()
   const checkInResult = await caller.bookings.validateAndAttemptCheckIn({
-    lessonId: id,
+    timeslotId: id,
   })
 
   // Handle redirects based on check-in result
@@ -74,8 +74,8 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
   return (
     <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-      <BookingSummary lesson={lesson} />
-      <PaymentMethods lesson={lesson} />
+      <BookingSummary timeslot={timeslot} />
+      <PaymentMethods timeslot={timeslot} />
     </div>
   )
 }
