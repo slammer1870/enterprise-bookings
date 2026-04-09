@@ -37,7 +37,7 @@ describe("transactions collection", () => {
     const lesson = await payload.create({
       collection: "timeslots",
       data: {
-        classOption: classOption.id,
+        eventType: classOption.id,
         date: new Date().toISOString().slice(0, 10),
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 3600000).toISOString(),
@@ -46,7 +46,7 @@ describe("transactions collection", () => {
     });
     const booking = await payload.create({
       collection: "bookings",
-      data: { user: userId, lesson: lesson.id, status: "pending" },
+      data: { user: userId, timeslot: lesson.id, status: "pending" },
       overrideAccess: true,
     });
     bookingId = booking.id as number;
@@ -87,7 +87,7 @@ describe("transactions collection", () => {
       collection: "bookings",
       data: {
         user: userId,
-        lesson: (await payload.find({ collection: "timeslots", limit: 1, overrideAccess: true })).docs[0].id,
+        timeslot: (await payload.find({ collection: "timeslots", limit: 1, overrideAccess: true })).docs[0].id,
         status: "pending",
       },
       overrideAccess: true,

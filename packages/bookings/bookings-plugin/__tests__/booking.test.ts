@@ -92,7 +92,7 @@ describe("Booking tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOptionWithoutPaymentMethods.id,
+          eventType: classOptionWithoutPaymentMethods.id,
           location: "Test Location",
         },
       });
@@ -107,7 +107,7 @@ describe("Booking tests", () => {
         .then(() =>
           restClient.POST("/bookings", {
             body: JSON.stringify({
-              lesson: lesson.id,
+              timeslot: lesson.id,
               user: userWithoutPaymentMethods.id,
               status: "confirmed",
             }),
@@ -154,7 +154,7 @@ describe("Booking tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -162,7 +162,7 @@ describe("Booking tests", () => {
       const booking1 = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user1.id,
           status: "confirmed",
         },
@@ -178,7 +178,7 @@ describe("Booking tests", () => {
         .then(() =>
           restClient.POST("/bookings", {
             body: JSON.stringify({
-              lesson: lesson.id,
+              timeslot: lesson.id,
               user: user2.id,
               status: "confirmed",
             }),
@@ -207,7 +207,7 @@ describe("Booking tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -222,7 +222,7 @@ describe("Booking tests", () => {
 
       const response = await restClient.POST("/bookings", {
         body: JSON.stringify({
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user.id,
           status: "confirmed",
         }),
@@ -250,7 +250,7 @@ describe("Booking tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -266,7 +266,7 @@ describe("Booking tests", () => {
       const booking = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user.id,
           status: "confirmed",
         },

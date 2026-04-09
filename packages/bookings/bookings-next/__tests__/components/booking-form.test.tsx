@@ -25,23 +25,23 @@ vi.mock('sonner', () => ({
   },
 }))
 
-const createMockTimeslot = (remainingCapacity: number): Timeslot => ({
-  id: 1,
-  date: new Date().toISOString(),
-  startTime: new Date().toISOString(),
-  endTime: new Date().toISOString(),
-  classOption: {
+const createMockTimeslot = (remainingCapacity: number): Timeslot =>
+  ({
     id: 1,
-    name: 'Test Class',
-    places: 10,
-    description: 'Test Description',
-  },
-  remainingCapacity,
-  bookingStatus: 'active',
-  location: 'Test Location',
-  active: true,
-  bookings: { docs: [] },
-} as unknown as Timeslot)
+    date: new Date().toISOString(),
+    startTime: new Date().toISOString(),
+    endTime: new Date().toISOString(),
+    eventType: {
+      id: 1,
+      name: 'Test Class',
+      places: 10,
+      description: 'Test Description',
+    },
+    remainingCapacity,
+    bookingStatus: 'active',
+    location: 'Test Location',
+    bookings: { docs: [] },
+  }) as unknown as Timeslot
 
 describe('BookingForm', () => {
   let queryClient: QueryClient
@@ -73,10 +73,10 @@ describe('BookingForm', () => {
     })
   })
 
-  const renderComponent = (lesson: Timeslot, quantity: number, onSuccessRedirect?: string) => {
+  const renderComponent = (timeslot: Timeslot, quantity: number, onSuccessRedirect?: string) => {
     return render(
       <QueryClientProvider client={queryClient}>
-        <BookingForm lesson={lesson} quantity={quantity} onSuccessRedirect={onSuccessRedirect} />
+        <BookingForm timeslot={timeslot} quantity={quantity} onSuccessRedirect={onSuccessRedirect} />
       </QueryClientProvider>
     )
   }
@@ -119,7 +119,7 @@ describe('BookingForm', () => {
       // Check the first argument (the actual mutation variables)
       const callArgs = mockMutateAsync.mock.calls[0]
       expect(callArgs[0]).toEqual({
-        lessonId: 1,
+        timeslotId: 1,
         quantity: 2,
       })
     })

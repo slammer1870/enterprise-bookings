@@ -53,7 +53,7 @@ describe('CheckoutForm', () => {
       <CheckoutForm
         price={10}
         priceComponent={<div>Price</div>}
-        metadata={{ lessonId: '42' }}
+        metadata={{ timeslotId: '42' }}
         createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
       />
     )
@@ -62,7 +62,7 @@ describe('CheckoutForm', () => {
       <CheckoutForm
         price={8}
         priceComponent={<div>Price</div>}
-        metadata={{ discountCode: 'SAVE20', lessonId: '42' }}
+        metadata={{ discountCode: 'SAVE20', timeslotId: '42' }}
         createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
       />
     )
@@ -125,7 +125,7 @@ describe('CheckoutForm', () => {
       <CheckoutForm
         price={10}
         priceComponent={<div>Price</div>}
-        metadata={{ lessonId: '42', quantity: '1' }}
+        metadata={{ timeslotId: '42', quantity: '1' }}
         createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
       />
     )
@@ -138,7 +138,7 @@ describe('CheckoutForm', () => {
       <CheckoutForm
         price={10}
         priceComponent={<div>Price</div>}
-        metadata={{ quantity: '1', lessonId: '42' }}
+        metadata={{ quantity: '1', timeslotId: '42' }}
         createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
       />
     )

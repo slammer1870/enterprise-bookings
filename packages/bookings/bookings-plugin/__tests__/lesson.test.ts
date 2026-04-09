@@ -26,7 +26,7 @@ const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can
 
 let payload: Payload;
 let restClient: NextRESTClient;
-let classOption: EventType;
+let eventType: EventType;
 
 const getLocalDateTimeParts = (value: string | Date, timeZone: string) => {
   const zoned = new TZDate(new Date(value), timeZone);
@@ -54,7 +54,7 @@ describe("Timeslot tests", () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
 
-    classOption = (await payload.create({
+    eventType = (await payload.create({
       collection: "event-types",
       data: {
         name: "Test Class Option",
@@ -83,7 +83,7 @@ describe("Timeslot tests", () => {
           date: lessonDate.toISOString(),
           startTime: "18:00",
           endTime: "19:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "DST Manual Save",
         },
       });
@@ -112,7 +112,7 @@ describe("Timeslot tests", () => {
           date: lessonDate.toISOString(),
           startTime: "10:00",
           endTime: "11:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "DST Update Save",
           active: true,
         },
@@ -129,7 +129,7 @@ describe("Timeslot tests", () => {
           date: new Date(String(lesson.date)),
           startTime: new Date(String(lesson.startTime)),
           endTime: new Date(String(lesson.endTime)),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "DST Update Save",
           active: false,
         },
@@ -165,7 +165,7 @@ describe("Timeslot tests", () => {
           },
           startTime: "10:00",
           endTime: "11:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Object Date Save",
         },
       })) as Timeslot;
@@ -192,7 +192,7 @@ describe("Timeslot tests", () => {
           date: new TZDate(2026, 4, 1, 0, 0, 0, 0, timeZone).toISOString(),
           startTime: "08:00",
           endTime: "09:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Legacy Payload Update",
         },
       })) as Timeslot;
@@ -208,7 +208,7 @@ describe("Timeslot tests", () => {
           },
           startTime: "10:30",
           endTime: "11:30",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Legacy Payload Update",
         },
       })) as Timeslot;
@@ -252,7 +252,7 @@ describe("Timeslot tests", () => {
           startTime: tomorrow,
           endTime: oneHourLater,
           lockOutTime: 720,
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
@@ -275,7 +275,7 @@ describe("Timeslot tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
@@ -305,7 +305,7 @@ describe("Timeslot tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
@@ -314,7 +314,7 @@ describe("Timeslot tests", () => {
         collection: "bookings",
         data: {
           user: user.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -372,7 +372,7 @@ describe("Timeslot tests", () => {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
@@ -381,7 +381,7 @@ describe("Timeslot tests", () => {
         collection: "bookings",
         data: {
           user: user1.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -389,7 +389,7 @@ describe("Timeslot tests", () => {
         collection: "bookings",
         data: {
           user: user2.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -397,7 +397,7 @@ describe("Timeslot tests", () => {
         collection: "bookings",
         data: {
           user: user3.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -405,7 +405,7 @@ describe("Timeslot tests", () => {
         collection: "bookings",
         data: {
           user: user4.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });

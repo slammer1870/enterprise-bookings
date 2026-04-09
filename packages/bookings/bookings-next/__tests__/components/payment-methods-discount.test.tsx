@@ -112,12 +112,12 @@ describe('PaymentMethods discount forwarding', () => {
   })
 
   it('forwards discount code from search params to membership checkout', async () => {
-    const lesson = {
+    const timeslot = {
       id: 42,
       startTime: '2026-04-07T10:00:00.000Z',
       tenant: 9,
       bookingStatus: 'open',
-      classOption: {
+      eventType: {
         paymentMethods: {
           allowedPlans: [
             {
@@ -140,7 +140,7 @@ describe('PaymentMethods discount forwarding', () => {
       },
     } as any
 
-    render(<PaymentMethods lesson={lesson} />)
+    render(<PaymentMethods timeslot={timeslot} />)
 
     await userEvent.click(screen.getByRole('button', { name: /subscribe/i }))
 
@@ -151,7 +151,7 @@ describe('PaymentMethods discount forwarding', () => {
           mode: 'subscription',
           discountCode: 'SAVE20',
           metadata: expect.objectContaining({
-            lessonId: '42',
+            timeslotId: '42',
             tenantId: '9',
           }),
         }),
@@ -162,13 +162,24 @@ describe('PaymentMethods discount forwarding', () => {
   it('validates a customer-entered discount code before using it for checkout', async () => {
     searchDiscountCodeMock.current = null
 
-    const lesson = {
+    const timeslot = {
       id: 42,
       startTime: '2026-04-07T10:00:00.000Z',
       tenant: 9,
       bookingStatus: 'open',
-      classOption: {
+      eventType: {
         paymentMethods: {
+          allowedDropIn: {
+            id: 1,
+            name: 'Test drop-in',
+            isActive: true,
+            price: 10,
+            priceType: 'normal',
+            paymentMethods: ['card'],
+            discountTiers: [],
+            updatedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          },
           allowedPlans: [
             {
               id: 1,
@@ -192,11 +203,12 @@ describe('PaymentMethods discount forwarding', () => {
 
     render(
       <PaymentMethods
-        lesson={lesson}
+        timeslot={timeslot}
         validateDiscountCodeUrl="/api/stripe/connect/validate-discount-code"
       />
     )
 
+    await userEvent.click(screen.getByRole('tab', { name: /drop-in/i }))
     await userEvent.type(screen.getByLabelText(/promo code/i), 'save20')
     await userEvent.click(screen.getByRole('button', { name: /^apply$/i }))
 
@@ -208,6 +220,7 @@ describe('PaymentMethods discount forwarding', () => {
     )
     expect(await screen.findByText(/promo code applied/i)).toBeInTheDocument()
 
+    await userEvent.click(screen.getByRole('tab', { name: /membership/i }))
     await userEvent.click(screen.getByRole('button', { name: /subscribe/i }))
 
     await waitFor(() => {
@@ -230,13 +243,24 @@ describe('PaymentMethods discount forwarding', () => {
       }))
     )
 
-    const lesson = {
+    const timeslot = {
       id: 42,
       startTime: '2026-04-07T10:00:00.000Z',
       tenant: 9,
       bookingStatus: 'open',
-      classOption: {
+      eventType: {
         paymentMethods: {
+          allowedDropIn: {
+            id: 1,
+            name: 'Test drop-in',
+            isActive: true,
+            price: 10,
+            priceType: 'normal',
+            paymentMethods: ['card'],
+            discountTiers: [],
+            updatedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          },
           allowedPlans: [
             {
               id: 1,
@@ -260,16 +284,18 @@ describe('PaymentMethods discount forwarding', () => {
 
     render(
       <PaymentMethods
-        lesson={lesson}
+        timeslot={timeslot}
         validateDiscountCodeUrl="/api/stripe/connect/validate-discount-code"
       />
     )
 
+    await userEvent.click(screen.getByRole('tab', { name: /drop-in/i }))
     await userEvent.type(screen.getByLabelText(/promo code/i), 'notreal')
     await userEvent.click(screen.getByRole('button', { name: /^apply$/i }))
 
     expect(await screen.findByText(/invalid or inactive discount code/i)).toBeInTheDocument()
 
+    await userEvent.click(screen.getByRole('tab', { name: /membership/i }))
     await userEvent.click(screen.getByRole('button', { name: /subscribe/i }))
 
     await waitFor(() => {
@@ -318,12 +344,12 @@ describe('PaymentMethods discount forwarding', () => {
       }
     })
 
-    const lesson = {
+    const timeslot = {
       id: 42,
       startTime: '2026-04-07T10:00:00.000Z',
       tenant: 9,
       bookingStatus: 'open',
-      classOption: {
+      eventType: {
         paymentMethods: {
           allowedPlans: [],
           allowedClassPasses: [22],
@@ -331,7 +357,7 @@ describe('PaymentMethods discount forwarding', () => {
       },
     } as any
 
-    render(<PaymentMethods lesson={lesson} />)
+    render(<PaymentMethods timeslot={timeslot} />)
 
     await userEvent.click(screen.getByRole('tab', { name: /class pass/i }))
     await userEvent.click(screen.getByRole('button', { name: /buy pass/i }))
@@ -345,7 +371,7 @@ describe('PaymentMethods discount forwarding', () => {
           metadata: expect.objectContaining({
             type: 'class_pass_purchase',
             classPassTypeId: '22',
-            lessonId: '42',
+            timeslotId: '42',
             tenantId: '9',
           }),
         }),

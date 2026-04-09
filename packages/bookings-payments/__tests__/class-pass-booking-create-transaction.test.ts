@@ -108,7 +108,7 @@ describe("Class-pass booking create → booking-transaction", () => {
     const lesson = await payload.create({
       collection: "timeslots",
       data: {
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -177,7 +177,7 @@ describe("Class-pass booking create → booking-transaction", () => {
         collection: "bookings",
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           status: "pending",
           paymentMethodUsed: "class_pass",
           classPassIdUsed: classPassId,
@@ -216,7 +216,7 @@ describe("Class-pass booking create → booking-transaction", () => {
         collection: "bookings",
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           status: "pending",
         },
         overrideAccess: true,

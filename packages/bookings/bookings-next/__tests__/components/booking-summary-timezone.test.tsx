@@ -11,7 +11,7 @@ const createTimeslot = (): Timeslot =>
     date: '2026-04-07T00:00:00.000Z',
     startTime: '2026-04-07T17:00:00.000Z',
     endTime: '2026-04-07T18:00:00.000Z',
-    classOption: {
+    eventType: {
       id: 10,
       name: 'Evening Class',
       places: 12,
@@ -21,7 +21,6 @@ const createTimeslot = (): Timeslot =>
     bookings: { docs: [] },
     remainingCapacity: 7,
     bookingStatus: 'active',
-    active: true,
     tenant: {
       id: 1,
       slug: 'dublin-tenant',
@@ -40,8 +39,8 @@ describe('BookingSummary timezone display', () => {
     process.env.TZ = ORIGINAL_TZ
   })
 
-  it('renders lesson times in the tenant timezone instead of the runtime timezone', () => {
-    render(<BookingSummary lesson={createTimeslot()} />)
+  it('renders timeslot times in the tenant timezone instead of the runtime timezone', () => {
+    render(<BookingSummary timeslot={createTimeslot()} />)
 
     expect(screen.getByText('18:00PM - 19:00PM')).toBeInTheDocument()
   })

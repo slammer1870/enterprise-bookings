@@ -5,24 +5,23 @@ import userEvent from '@testing-library/user-event'
 import { QuantitySelector } from '../../src/components/bookings/quantity-selector'
 import type { Timeslot } from '@repo/shared-types'
 
-// Mock lesson data
-const createMockTimeslot = (remainingCapacity: number): Timeslot => ({
-  id: 1,
-  date: new Date().toISOString(),
-  startTime: new Date().toISOString(),
-  endTime: new Date().toISOString(),
-  classOption: {
+const createMockTimeslot = (remainingCapacity: number): Timeslot =>
+  ({
     id: 1,
-    name: 'Test Class',
-    places: 10,
-    description: 'Test Description',
-  },
-  remainingCapacity,
-  bookingStatus: 'active',
-  location: 'Test Location',
-  active: true,
-  bookings: { docs: [] },
-} as unknown as Timeslot)
+    date: new Date().toISOString(),
+    startTime: new Date().toISOString(),
+    endTime: new Date().toISOString(),
+    eventType: {
+      id: 1,
+      name: 'Test Class',
+      places: 10,
+      description: 'Test Description',
+    },
+    remainingCapacity,
+    bookingStatus: 'active',
+    location: 'Test Location',
+    bookings: { docs: [] },
+  }) as unknown as Timeslot
 
 describe('QuantitySelector', () => {
   it('renders with correct initial quantity', () => {
@@ -31,7 +30,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -48,7 +47,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -64,7 +63,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -83,7 +82,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={3}
         onQuantityChange={onQuantityChange}
       />
@@ -101,7 +100,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -117,7 +116,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={3}
         onQuantityChange={onQuantityChange}
       />
@@ -134,7 +133,7 @@ describe('QuantitySelector', () => {
 
     const { rerender } = render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -150,7 +149,7 @@ describe('QuantitySelector', () => {
     onQuantityChange.mockClear()
     rerender(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={2}
         onQuantityChange={onQuantityChange}
       />
@@ -165,7 +164,7 @@ describe('QuantitySelector', () => {
     onQuantityChange.mockClear()
     rerender(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={3}
         onQuantityChange={onQuantityChange}
       />
@@ -184,7 +183,7 @@ describe('QuantitySelector', () => {
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />

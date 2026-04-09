@@ -64,7 +64,7 @@ describe('CheckInButton (schedule single-slot shortcut)', () => {
 
     render(
       <CheckInButton
-        lessonId={123}
+        timeslotId={123}
         type="adult"
         scheduleState={{
           availability: 'open',
@@ -88,7 +88,7 @@ describe('CheckInButton (schedule single-slot shortcut)', () => {
 
     render(
       <CheckInButton
-        lessonId={123}
+        timeslotId={123}
         type="adult"
         scheduleState={{
           availability: 'open',

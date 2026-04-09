@@ -24,7 +24,7 @@ const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can
 
 let payload: Payload;
 let restClient: NextRESTClient;
-let classOption: EventType;
+let eventType: EventType;
 let user: User;
 
 describe("Hook tests", () => {
@@ -48,8 +48,8 @@ describe("Hook tests", () => {
       },
     })) as unknown as User;
 
-    // Create test class option
-    classOption = (await payload.create({
+    // Create test event type
+    eventType = (await payload.create({
       collection: "event-types",
       data: {
         name: "Hook Test Class",
@@ -75,7 +75,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -94,7 +94,7 @@ describe("Hook tests", () => {
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -103,7 +103,7 @@ describe("Hook tests", () => {
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user2.id,
             status: "confirmed",
           },
@@ -130,7 +130,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -158,7 +158,7 @@ describe("Hook tests", () => {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 26 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -170,7 +170,7 @@ describe("Hook tests", () => {
           await payload.create({
             collection: "bookings",
             data: {
-              lesson: lesson.id,
+              timeslot: lesson.id,
               user: user.id, // User who has already booked the class (user1)
               status: "confirmed",
             },
@@ -199,7 +199,7 @@ describe("Hook tests", () => {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 26 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -226,7 +226,7 @@ describe("Hook tests", () => {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000),
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 26 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -236,7 +236,7 @@ describe("Hook tests", () => {
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -269,7 +269,7 @@ describe("Hook tests", () => {
             date: new Date(Date.now() + 24 * 60 * 60 * 1000),
             startTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 26 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -289,7 +289,7 @@ describe("Hook tests", () => {
           await payload.create({
             collection: "bookings",
             data: {
-              lesson: lesson.id,
+              timeslot: lesson.id,
               user: testUser.id,
               status: "confirmed",
             },
@@ -316,7 +316,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
             endTime: new Date(Date.now() + 70 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30, // 30 minutes lockout
             originalLockOutTime: 30,
@@ -338,7 +338,7 @@ describe("Hook tests", () => {
     it(
       "should return 'active' as default status",
       async () => {
-        // Test that the hook handles the case where classOption is missing from data
+        // Test that the hook handles the case where eventType is missing from data
         // This tests the early return in the hook
         const lesson = await payload.create({
           collection: "timeslots",
@@ -346,7 +346,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -378,7 +378,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -388,7 +388,7 @@ describe("Hook tests", () => {
         const booking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -419,7 +419,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 45,
             originalLockOutTime: 45,
@@ -430,7 +430,7 @@ describe("Hook tests", () => {
         const booking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -467,7 +467,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 0, // Initially 0 because we'll create a booking
             originalLockOutTime: 45,
@@ -477,7 +477,7 @@ describe("Hook tests", () => {
         const booking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -516,7 +516,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 45,
             originalLockOutTime: 45,
@@ -525,12 +525,12 @@ describe("Hook tests", () => {
 
         const booking1 = await payload.create({
           collection: "bookings",
-          data: { lesson: lesson.id, user: user.id, status: "confirmed" },
+          data: { timeslot: lesson.id, user: user.id, status: "confirmed" },
         });
 
         await payload.create({
           collection: "bookings",
-          data: { lesson: lesson.id, user: user2.id, status: "confirmed" },
+          data: { timeslot: lesson.id, user: user2.id, status: "confirmed" },
         });
 
         // Verify both bookings drove lockOutTime to 0
@@ -572,7 +572,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 45,
             originalLockOutTime: 45,
@@ -581,12 +581,12 @@ describe("Hook tests", () => {
 
         const booking1 = await payload.create({
           collection: "bookings",
-          data: { lesson: lesson.id, user: user.id, status: "confirmed" },
+          data: { timeslot: lesson.id, user: user.id, status: "confirmed" },
         });
 
         const booking2 = await payload.create({
           collection: "bookings",
-          data: { lesson: lesson.id, user: user2.id, status: "confirmed" },
+          data: { timeslot: lesson.id, user: user2.id, status: "confirmed" },
         });
 
         // Cancel first booking — second is still confirmed, lockOutTime stays 0
@@ -627,7 +627,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -637,7 +637,7 @@ describe("Hook tests", () => {
         const booking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -677,7 +677,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -688,7 +688,7 @@ describe("Hook tests", () => {
         const confirmedBooking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },
@@ -706,7 +706,7 @@ describe("Hook tests", () => {
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: waitingUser.id,
             status: "waiting",
           },
@@ -742,7 +742,7 @@ describe("Hook tests", () => {
             date: new Date(),
             startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
             endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-            classOption: classOption.id,
+            eventType: eventType.id,
             location: "Test Location",
             lockOutTime: 30,
             originalLockOutTime: 30,
@@ -752,7 +752,7 @@ describe("Hook tests", () => {
         const booking = await payload.create({
           collection: "bookings",
           data: {
-            lesson: lesson.id,
+            timeslot: lesson.id,
             user: user.id,
             status: "confirmed",
           },

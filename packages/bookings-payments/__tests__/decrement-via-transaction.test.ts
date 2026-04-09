@@ -74,7 +74,7 @@ describe("decrement via booking-transaction", () => {
     const lesson = await payload.create({
       collection: "timeslots",
       data: {
-        classOption: classOption.id,
+        eventType: classOption.id,
         date: new Date().toISOString().slice(0, 10),
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 3600000).toISOString(),
@@ -96,7 +96,7 @@ describe("decrement via booking-transaction", () => {
     });
     const booking = await payload.create({
       collection: "bookings",
-      data: { user: user.id, lesson: lesson.id, status: "pending" },
+      data: { user: user.id, timeslot: lesson.id, status: "pending" },
       overrideAccess: true,
     });
     await payload.create({
@@ -139,7 +139,7 @@ describe("decrement via booking-transaction", () => {
     const lesson = await payload.create({
       collection: "timeslots",
       data: {
-        classOption: classOption.id,
+        eventType: classOption.id,
         date: new Date().toISOString().slice(0, 10),
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 3600000).toISOString(),
@@ -161,7 +161,7 @@ describe("decrement via booking-transaction", () => {
     });
     const booking = await payload.create({
       collection: "bookings",
-      data: { user: user.id, lesson: lesson.id, status: "pending" },
+      data: { user: user.id, timeslot: lesson.id, status: "pending" },
       overrideAccess: true,
     });
     await payload.create({
@@ -204,7 +204,7 @@ describe("decrement via booking-transaction", () => {
     const lesson = await payload.create({
       collection: "timeslots",
       data: {
-        classOption: classOption.id,
+        eventType: classOption.id,
         date: new Date().toISOString().slice(0, 10),
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 3600000).toISOString(),
@@ -226,7 +226,7 @@ describe("decrement via booking-transaction", () => {
     });
     const booking = await payload.create({
       collection: "bookings",
-      data: { user: user.id, lesson: lesson.id, status: "pending" },
+      data: { user: user.id, timeslot: lesson.id, status: "pending" },
       overrideAccess: true,
     });
     // no booking-transaction created
@@ -261,7 +261,7 @@ describe("decrement via booking-transaction", () => {
     const lesson = await payload.create({
       collection: "timeslots",
       data: {
-        classOption: classOption.id,
+        eventType: classOption.id,
         date: new Date().toISOString().slice(0, 10),
         startTime: new Date().toISOString(),
         endTime: new Date(Date.now() + 3600000).toISOString(),
@@ -283,7 +283,7 @@ describe("decrement via booking-transaction", () => {
     });
     const booking = await payload.create({
       collection: "bookings",
-      data: { user: user.id, lesson: lesson.id, status: "pending" },
+      data: { user: user.id, timeslot: lesson.id, status: "pending" },
       overrideAccess: true,
     });
     await payload.create({

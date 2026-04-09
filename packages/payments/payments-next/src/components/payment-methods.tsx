@@ -668,6 +668,7 @@ export function PaymentMethods({
       mode: "subscription",
       successUrl: `${successPath}${tenantQ}`,
       cancelUrl: `${origin}/bookings/${timeslot.id}${tenantQ}`,
+      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 
@@ -701,6 +702,7 @@ export function PaymentMethods({
       },
       successUrl: `${origin}${currentPath}`,
       cancelUrl: `${origin}${currentPath}`,
+      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 

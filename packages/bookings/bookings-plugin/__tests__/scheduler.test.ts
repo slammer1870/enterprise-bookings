@@ -74,7 +74,7 @@ describe("Scheduler tests", () => {
                 {
                   startTime: slotStart.toISOString(),
                   endTime: slotEnd.toISOString(),
-                  classOption: 1,
+                  eventType: 1,
                   location: "Test Location",
                   active: true,
                 },
@@ -162,7 +162,7 @@ describe("Scheduler tests", () => {
                 {
                   startTime: slotStart.toISOString(),
                   endTime: slotEnd.toISOString(),
-                  classOption: 1,
+                  eventType: 1,
                   location: "Test Location",
                   active: true,
                 },

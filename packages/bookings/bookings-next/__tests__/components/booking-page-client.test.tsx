@@ -7,18 +7,18 @@ import type { Timeslot } from '@repo/shared-types'
 
 // Mock child components
 vi.mock('../../src/components/bookings/booking-summary', () => ({
-  BookingSummary: ({ lesson }: { lesson: Timeslot }) => (
-    <div data-testid="booking-summary">Summary for {lesson.classOption.name}</div>
+  BookingSummary: ({ timeslot }: { timeslot: Timeslot }) => (
+    <div data-testid="booking-summary">Summary for {timeslot.eventType.name}</div>
   ),
 }))
 
 vi.mock('../../src/components/bookings/quantity-selector', () => ({
   QuantitySelector: ({
-    lesson,
+    timeslot,
     quantity,
     onQuantityChange,
   }: {
-    lesson: Timeslot
+    timeslot: Timeslot
     quantity: number
     onQuantityChange: (q: number) => void
   }) => (
@@ -30,36 +30,36 @@ vi.mock('../../src/components/bookings/quantity-selector', () => ({
 }))
 
 vi.mock('../../src/components/bookings/booking-form', () => ({
-  BookingForm: ({ lesson, quantity }: { lesson: Timeslot; quantity: number }) => (
+  BookingForm: ({ timeslot, quantity }: { timeslot: Timeslot; quantity: number }) => (
     <div data-testid="booking-form">
-      Booking form for {lesson.id}, quantity: {quantity}
+      Booking form for {timeslot.id}, quantity: {quantity}
     </div>
   ),
 }))
 
-const createMockTimeslot = (remainingCapacity: number): Timeslot => ({
-  id: 1,
-  date: new Date().toISOString(),
-  startTime: new Date().toISOString(),
-  endTime: new Date().toISOString(),
-  classOption: {
+const createMockTimeslot = (remainingCapacity: number): Timeslot =>
+  ({
     id: 1,
-    name: 'Test Class',
-    places: 10,
-    description: 'Test Description',
-  },
-  remainingCapacity,
-  bookingStatus: 'active',
-  location: 'Test Location',
-  active: true,
-  bookings: { docs: [] },
-} as unknown as Timeslot)
+    date: new Date().toISOString(),
+    startTime: new Date().toISOString(),
+    endTime: new Date().toISOString(),
+    eventType: {
+      id: 1,
+      name: 'Test Class',
+      places: 10,
+      description: 'Test Description',
+    },
+    remainingCapacity,
+    bookingStatus: 'active',
+    location: 'Test Location',
+    bookings: { docs: [] },
+  }) as unknown as Timeslot
 
 describe('BookingPageClient', () => {
   it('renders all child components', () => {
     const lesson = createMockTimeslot(5)
 
-    render(<BookingPageClient lesson={lesson} />)
+    render(<BookingPageClient timeslot={lesson} />)
 
     expect(screen.getByTestId('booking-summary')).toBeInTheDocument()
     expect(screen.getByTestId('quantity-selector')).toBeInTheDocument()
@@ -69,7 +69,7 @@ describe('BookingPageClient', () => {
   it('initializes with quantity of 1', () => {
     const lesson = createMockTimeslot(5)
 
-    render(<BookingPageClient lesson={lesson} />)
+    render(<BookingPageClient timeslot={lesson} />)
 
     expect(screen.getByText('Quantity: 1')).toBeInTheDocument()
   })
@@ -78,7 +78,7 @@ describe('BookingPageClient', () => {
     const user = userEvent.setup()
     const lesson = createMockTimeslot(5)
 
-    render(<BookingPageClient lesson={lesson} />)
+    render(<BookingPageClient timeslot={lesson} />)
 
     const increaseButton = screen.getByText('Increase')
     await user.click(increaseButton)
@@ -89,7 +89,7 @@ describe('BookingPageClient', () => {
   it('passes onSuccessRedirect to BookingForm', () => {
     const lesson = createMockTimeslot(5)
 
-    render(<BookingPageClient lesson={lesson} onSuccessRedirect="/dashboard" />)
+    render(<BookingPageClient timeslot={lesson} onSuccessRedirect="/dashboard" />)
 
     // The redirect prop is passed internally, so we just verify the form renders
     expect(screen.getByTestId('booking-form')).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('BookingPageClient', () => {
   it('only shows booking form when quantity is valid', () => {
     const lesson = createMockTimeslot(3)
 
-    render(<BookingPageClient lesson={lesson} />)
+    render(<BookingPageClient timeslot={lesson} />)
 
     // Form should render when quantity (1) is within valid range (1-3)
     expect(screen.getByTestId('booking-form')).toBeInTheDocument()

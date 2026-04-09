@@ -36,29 +36,29 @@ const createMockTimeslot = (opts?: { hasPaymentMethods?: boolean }): Timeslot =>
     date: new Date().toISOString(),
     startTime: new Date().toISOString(),
     endTime: new Date().toISOString(),
-    classOption: {
+    eventType: {
       id: 1,
       name: 'Test Class',
       places: 10,
       description: 'Test',
       paymentMethods: opts?.hasPaymentMethods
-        ? { allowedDropIn: { id: 1 }, allowedPlans: [] }
+        ? { allowedDropIn: { id: 1 } as any, allowedPlans: [] }
         : undefined,
     },
     remainingCapacity: 5,
     bookingStatus: 'active',
     location: 'Test',
-    active: true,
     bookings: { docs: [] },
   }) as unknown as Timeslot
 
 const createMockBooking = (id: number, status: 'confirmed' | 'pending'): Booking =>
   ({
     id,
-    lesson: 1,
-    user: 1,
+    timeslot: 1 as any,
+    user: 1 as any,
     status,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }) as unknown as Booking
 
 describe('ManageBookingPageClient', () => {
@@ -84,8 +84,8 @@ describe('ManageBookingPageClient', () => {
     ;(useTRPC as any).mockReturnValue({
       bookings: {
         getUserBookingsForTimeslot: {
-          queryKey: (opts: { lessonId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { lessonId: number }) => ({
+          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryOptions: (opts: { timeslotId: number }) => ({
             queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
             queryFn: () => [],
             initialData: undefined as Booking[] | undefined,
@@ -134,8 +134,8 @@ describe('ManageBookingPageClient', () => {
     ;(useTRPC as any).mockReturnValue({
       bookings: {
         getUserBookingsForTimeslot: {
-          queryKey: (opts: { lessonId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { lessonId: number }) => ({
+          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryOptions: (opts: { timeslotId: number }) => ({
             queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
             queryFn: () => bookings,
             initialData: bookings,
@@ -155,7 +155,7 @@ describe('ManageBookingPageClient', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <ManageBookingPageClient lesson={createMockTimeslot()} initialBookings={bookings} />
+        <ManageBookingPageClient timeslot={createMockTimeslot()} initialBookings={bookings} />
       </QueryClientProvider>
     )
 
@@ -179,8 +179,8 @@ describe('ManageBookingPageClient', () => {
     ;(useTRPC as any).mockReturnValue({
       bookings: {
         getUserBookingsForTimeslot: {
-          queryKey: (opts: { lessonId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { lessonId: number }) => ({
+          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryOptions: (opts: { timeslotId: number }) => ({
             queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
             queryFn: () => bookings,
             initialData: bookings,
@@ -201,7 +201,7 @@ describe('ManageBookingPageClient', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <ManageBookingPageClient
-          lesson={lesson}
+          timeslot={lesson}
           initialBookings={bookings}
           PaymentMethodsComponent={PaymentMethodsStub}
         />
@@ -217,7 +217,7 @@ describe('ManageBookingPageClient', () => {
 
   it('does not cancel pending bookings when payment flow quantity changes in place', async () => {
     const lesson = createMockTimeslot({ hasPaymentMethods: true })
-    ;(lesson.classOption as any).paymentMethods.allowedDropIn.adjustable = true
+    ;(lesson.eventType as any).paymentMethods.allowedDropIn.adjustable = true
     const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
     let serverBookings = [createMockBooking(1, 'confirmed')]
     const newPendingBooking = createMockBooking(101, 'pending')
@@ -229,8 +229,8 @@ describe('ManageBookingPageClient', () => {
     ;(useTRPC as any).mockReturnValue({
       bookings: {
         getUserBookingsForTimeslot: {
-          queryKey: (opts: { lessonId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { lessonId: number }) => ({
+          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryOptions: (opts: { timeslotId: number }) => ({
             queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
             queryFn: () => serverBookings,
             initialData: serverBookings,
@@ -250,7 +250,7 @@ describe('ManageBookingPageClient', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <ManageBookingPageClient lesson={lesson} initialBookings={serverBookings} PaymentMethodsComponent={PaymentMethodsStub} />
+        <ManageBookingPageClient timeslot={lesson} initialBookings={serverBookings} PaymentMethodsComponent={PaymentMethodsStub} />
       </QueryClientProvider>
     )
 
@@ -267,7 +267,7 @@ describe('ManageBookingPageClient', () => {
 
     expect(mockCreateBookings).toHaveBeenCalled()
     expect(mockCreateBookings.mock.calls[0]?.[0]).toEqual({
-      lessonId: 1,
+      timeslotId: 1,
       quantity: 1,
       status: 'pending',
     })
@@ -277,7 +277,7 @@ describe('ManageBookingPageClient', () => {
 
   it('applies checkout quantity changes immediately when user clicks plus or minus', async () => {
     const lesson = createMockTimeslot({ hasPaymentMethods: true })
-    ;(lesson.classOption as any).paymentMethods.allowedDropIn.adjustable = true
+    ;(lesson.eventType as any).paymentMethods.allowedDropIn.adjustable = true
     const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
     const confirmedBooking = createMockBooking(1, 'confirmed')
     const pendingBookings = [createMockBooking(101, 'pending')]
@@ -296,8 +296,8 @@ describe('ManageBookingPageClient', () => {
     ;(useTRPC as any).mockReturnValue({
       bookings: {
         getUserBookingsForTimeslot: {
-          queryKey: (opts: { lessonId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { lessonId: number }) => ({
+          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryOptions: (opts: { timeslotId: number }) => ({
             queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
             queryFn: () => serverBookings,
             initialData: serverBookings,
@@ -330,7 +330,7 @@ describe('ManageBookingPageClient', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <ManageBookingPageClient
-          lesson={lesson}
+          timeslot={lesson}
           initialBookings={serverBookings}
           PaymentMethodsComponent={PaymentMethodsStub}
         />
@@ -347,7 +347,7 @@ describe('ManageBookingPageClient', () => {
 
     await waitFor(() => {
       expect(mockCreateBookings.mock.calls[0]?.[0]).toEqual({
-        lessonId: 1,
+        timeslotId: 1,
         quantity: 1,
         status: 'pending',
       })
@@ -373,7 +373,7 @@ describe('ManageBookingPageClient', () => {
 
     const { unmount } = render(
       <QueryClientProvider client={queryClient}>
-        <ManageBookingPageClient lesson={lesson} initialBookings={pendingBookings} PaymentMethodsComponent={PaymentMethodsStub} />
+        <ManageBookingPageClient timeslot={lesson} initialBookings={pendingBookings} PaymentMethodsComponent={PaymentMethodsStub} />
       </QueryClientProvider>
     )
 
@@ -386,6 +386,6 @@ describe('ManageBookingPageClient', () => {
     await waitFor(() => {
       expect(mockCancelPendingBookingsForTimeslot).toHaveBeenCalled()
     })
-    expect(mockCancelPendingBookingsForTimeslot.mock.calls[0]?.[0]).toEqual({ lessonId: 1 })
+    expect(mockCancelPendingBookingsForTimeslot.mock.calls[0]?.[0]).toEqual({ timeslotId: 1 })
   })
 })

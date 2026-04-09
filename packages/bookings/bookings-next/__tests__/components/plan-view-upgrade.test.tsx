@@ -44,7 +44,7 @@ describe('PlanView upgrade flow', () => {
         // but could also include other active plans for upgrade/subscribe flows.
         allowedPlans={[inactiveLegacyPlan, activeUpgradePlan]}
         subscription={createSubscription(inactiveLegacyPlan, { status: 'active', id: 42 })}
-        lessonDate={new Date('2026-03-21T10:00:00.000Z')}
+        timeslotDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached={false}
         canUseSubscriptionForQuantity
         subscriptionAllowsMultiplePerTimeslot
@@ -55,7 +55,7 @@ describe('PlanView upgrade flow', () => {
     )
 
     expect(
-      screen.queryByText(/you do not have a plan that allows you to book into this lesson/i)
+      screen.queryByText(/you do not have a plan that allows you to book into this timeslot/i)
     ).not.toBeInTheDocument()
 
     const useMembershipButton = screen.getByRole('button', { name: /use my membership/i })
@@ -80,7 +80,7 @@ describe('PlanView upgrade flow', () => {
         // Only allowed plans should be shown as upgrade options.
         allowedPlans={[upgradePlanA, upgradePlanB]}
         subscription={createSubscription(inactiveLegacyPlan, { status: 'active' })}
-        lessonDate={new Date('2026-03-21T10:00:00.000Z')}
+        timeslotDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached={false}
         canUseSubscriptionForQuantity={false}
         subscriptionAllowsMultiplePerTimeslot={false}
@@ -91,7 +91,7 @@ describe('PlanView upgrade flow', () => {
     )
 
     expect(
-      screen.getByText(/you do not have a plan that allows you to book into this lesson/i)
+      screen.getByText(/you do not have a plan that allows you to book into this timeslot/i)
     ).toBeInTheDocument()
 
     // Inactive legacy plan should never appear as an upgrade option when it's not allowed.
@@ -111,7 +111,7 @@ describe('PlanView upgrade flow', () => {
       <PlanView
         allowedPlans={[upgradePlan]}
         subscription={createSubscription(currentPlan)}
-        lessonDate={new Date('2026-03-21T10:00:00.000Z')}
+        timeslotDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached={false}
         canUseSubscriptionForQuantity={false}
         subscriptionAllowsMultiplePerTimeslot={false}
@@ -123,7 +123,7 @@ describe('PlanView upgrade flow', () => {
     )
 
     expect(
-      screen.getByText(/you do not have a plan that allows you to book into this lesson/i)
+      screen.getByText(/you do not have a plan that allows you to book into this timeslot/i)
     ).toBeInTheDocument()
 
     const upgradeButton = screen.getByRole('button', { name: /upgrade subscription/i })
@@ -143,7 +143,7 @@ describe('PlanView upgrade flow', () => {
       <PlanView
         allowedPlans={[currentPlan, upgradePlan]}
         subscription={createSubscription(currentPlan, { status: 'active' })}
-        lessonDate={new Date('2026-03-21T10:00:00.000Z')}
+        timeslotDate={new Date('2026-03-21T10:00:00.000Z')}
         subscriptionLimitReached
         canUseSubscriptionForQuantity={false}
         remainingSessions={0}
