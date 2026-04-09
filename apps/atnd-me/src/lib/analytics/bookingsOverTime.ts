@@ -1,34 +1,23 @@
 /**
  * Bookings over time (daily or weekly buckets) for trend chart.
+ * Buckets by timeslot (lesson) date, not booking creation time.
  */
-import type { Payload, Where } from 'payload'
+import type { Payload } from 'payload'
 import type { AnalyticsQueryParams, BookingsOverTimeRow } from './types'
+import { buildAnalyticsBookingsWhere } from './analyticsBookingsWhere'
 
 const MAX_BOOKINGS_QUERY = 50_000
 
-function buildBookingsWhere(params: AnalyticsQueryParams): Where {
-  const dateFrom = new Date(params.dateFrom)
-  dateFrom.setHours(0, 0, 0, 0)
-  const dateTo = new Date(params.dateTo)
-  dateTo.setHours(23, 59, 59, 999)
-
-  const where: Where = {
-    status: { equals: 'confirmed' },
-    createdAt: {
-      greater_than_equal: dateToISO(dateFrom),
-      less_than_equal: dateToISO(dateTo),
-    },
+/** Normalize timeslot.date from populated relationship (string, Date, or localized value). */
+function timeslotDateToYmd(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw.slice(0, 10)
+  if (raw instanceof Date) return raw.toISOString().slice(0, 10)
+  if (raw && typeof raw === 'object' && 'value' in raw) {
+    const v = (raw as { value: unknown }).value
+    if (typeof v === 'string') return v.slice(0, 10)
+    if (v instanceof Date) return v.toISOString().slice(0, 10)
   }
-
-  if (params.tenantId != null) {
-    where.tenant = { equals: params.tenantId }
-  }
-
-  return where
-}
-
-function dateToISO(d: Date): string {
-  return d.toISOString()
+  return null
 }
 
 function toDateKey(iso: string, granularity: 'day' | 'week'): string {
@@ -48,23 +37,25 @@ export async function getBookingsOverTime(
   payload: Payload,
   params: AnalyticsQueryParams,
 ): Promise<BookingsOverTimeRow[]> {
-  const where = buildBookingsWhere(params)
+  const where = buildAnalyticsBookingsWhere(params)
   const granularity = params.granularity ?? 'day'
 
   const result = await payload.find({
     collection: 'bookings',
     where,
     limit: MAX_BOOKINGS_QUERY,
-    depth: 0,
-    select: { createdAt: true },
+    depth: 1,
+    select: { timeslot: true },
     overrideAccess: true,
   })
 
   const bucket = new Map<string, number>()
   for (const doc of result.docs) {
-    const createdAt = (doc as { createdAt: string }).createdAt
-    if (!createdAt) continue
-    const key = toDateKey(createdAt, granularity)
+    const ts = (doc as { timeslot?: number | { date?: unknown } }).timeslot
+    const rawDate = typeof ts === 'object' && ts !== null ? ts.date : undefined
+    const ymd = timeslotDateToYmd(rawDate)
+    if (!ymd) continue
+    const key = toDateKey(`${ymd}T12:00:00.000Z`, granularity)
     bucket.set(key, (bucket.get(key) ?? 0) + 1)
   }
 
