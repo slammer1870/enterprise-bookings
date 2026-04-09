@@ -76,30 +76,16 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    staffMembers: StaffMember;
-    timeslots: Timeslot;
-    'event-types': EventType;
-    bookings: Booking;
-    subscriptions: Subscription;
-    plans: Plan;
-    transactions: Transaction;
     users: User;
     'payload-kv': PayloadKv;
-    'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    timeslots: {
-      bookings: 'bookings';
-    };
     users: {
-      timeslots: 'timeslots';
-      children: 'users';
       account: 'accounts';
       session: 'sessions';
-      userSubscription: 'subscriptions';
     };
   };
   collectionsSelect: {
@@ -112,16 +98,8 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    staffMembers: StaffMembersSelect<false> | StaffMembersSelect<true>;
-    timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
-    'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
-    bookings: BookingsSelect<false> | BookingsSelect<true>;
-    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
-    plans: PlansSelect<false> | PlansSelect<true>;
-    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
-    'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -133,25 +111,17 @@ export interface Config {
   globals: {
     navbar: Navbar;
     footer: Footer;
-    scheduler: Scheduler;
   };
   globalsSelect: {
     navbar: NavbarSelect<false> | NavbarSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
-    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
   };
   locale: null;
   user: User & {
     collection: 'users';
   };
   jobs: {
-    tasks: {
-      generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
-      inline: {
-        input: unknown;
-        output: unknown;
-      };
-    };
+    tasks: unknown;
     workflows: unknown;
   };
 }
@@ -663,20 +633,6 @@ export interface Account {
  */
 export interface User {
   id: number;
-  timeslots?: {
-    docs?: (number | Timeslot)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Parent of the user
-   */
-  parentUser?: (number | null) | User;
-  children?: {
-    docs?: (number | User)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   /**
    * Users chosen display name
    */
@@ -718,19 +674,6 @@ export interface User {
     totalDocs?: number;
   };
   roles?: ('user' | 'admin')[] | null;
-  stripeCustomerId?: string | null;
-  stripeCustomers?:
-    | {
-        stripeAccountId: string;
-        stripeCustomerId: string;
-        id?: string | null;
-      }[]
-    | null;
-  userSubscription?: {
-    docs?: (number | Subscription)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   /**
    * The email of the user
    */
@@ -749,201 +692,6 @@ export interface User {
       }[]
     | null;
   password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "timeslots".
- */
-export interface Timeslot {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the lesson will be closed for new bookings.
-   */
-  lockOutTime: number;
-  originalLockOutTime?: number | null;
-  location?: string | null;
-  instructor?: (number | null) | StaffMember;
-  eventType: number | EventType;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the lesson
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the lesson is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staffMembers".
- */
-export interface StaffMember {
-  id: number;
-  /**
-   * The user associated with this instructor
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * StaffMember profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this instructor is active and can be assigned to timeslots
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-types".
- */
-export interface EventType {
-  id: number;
-  name: string;
-  /**
-   * How many people can book this class option?
-   */
-  places: number;
-  description: string;
-  /**
-   * Is this a class for adults or children?
-   */
-  type: 'adult' | 'child';
-  paymentMethods?: {
-    allowedPlans?: (number | Plan)[] | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans".
- */
-export interface Plan {
-  id: number;
-  name: string;
-  /**
-   * Features that are included in this plan
-   */
-  features?:
-    | {
-        feature?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
-   */
-  sessionsInformation: {
-    sessions?: number | null;
-    intervalCount?: number | null;
-    interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
-    /**
-     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
-     */
-    allowMultipleBookingsPerTimeslot: boolean;
-  };
-  stripeProductId?: string | null;
-  /**
-   * Price information for the plan
-   */
-  priceInformation?: {
-    /**
-     * Price of the plan
-     */
-    price?: number | null;
-    /**
-     * Number of intervals per period
-     */
-    intervalCount?: number | null;
-    /**
-     * How often the price is charged
-     */
-    interval?: ('day' | 'week' | 'month' | 'year') | null;
-  };
-  priceJSON?: string | null;
-  /**
-   * Status of the plan
-   */
-  status: 'active' | 'inactive';
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  /**
-   * Is this a membership for adults or children?
-   */
-  type?: ('adult' | 'child') | null;
-  /**
-   * The number of children who are subscribing to the plan
-   */
-  quantity?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  user: number | User;
-  timeslot: number | Timeslot;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  /**
-   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
-   */
-  transactions?: (number | Transaction)[] | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: number;
-  /**
-   * The booking this transaction applies to.
-   */
-  booking: number | Booking;
-  /**
-   * How the booking was paid.
-   */
-  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
-  /**
-   * The class pass id used when paymentMethod is class_pass.
-   */
-  classPassId?: number | null;
-  /**
-   * Stripe payment intent id when paymentMethod is stripe.
-   */
-  stripePaymentIntentId?: string | null;
-  /**
-   * Subscription id when paymentMethod is subscription (booking created by subscription).
-   */
-  subscriptionId?: number | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Sessions are active sessions for users. They are used to authenticate users with a session token
@@ -979,26 +727,6 @@ export interface Session {
    * The admin who is impersonating this session
    */
   impersonatedBy?: (number | null) | User;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions".
- */
-export interface Subscription {
-  id: number;
-  user: number | User;
-  plan: number | Plan;
-  status: 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused';
-  startDate?: string | null;
-  endDate?: string | null;
-  cancelAt?: string | null;
-  stripeSubscriptionId?: string | null;
-  /**
-   * Skip syncing to Stripe
-   */
-  skipSync?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Verifications are used to verify authentication requests
@@ -1042,98 +770,6 @@ export interface PayloadKv {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-jobs".
- */
-export interface PayloadJob {
-  id: number;
-  /**
-   * Input data provided to the job
-   */
-  input?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  taskStatus?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  completedAt?: string | null;
-  totalTried?: number | null;
-  /**
-   * If hasError is true this job will not be retried
-   */
-  hasError?: boolean | null;
-  /**
-   * If hasError is true, this is the error that caused it
-   */
-  error?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  /**
-   * Task execution log
-   */
-  log?:
-    | {
-        executedAt: string;
-        completedAt: string;
-        taskSlug: 'inline' | 'generateTimeslotsFromSchedule';
-        taskID: string;
-        input?:
-          | {
-              [k: string]: unknown;
-            }
-          | unknown[]
-          | string
-          | number
-          | boolean
-          | null;
-        output?:
-          | {
-              [k: string]: unknown;
-            }
-          | unknown[]
-          | string
-          | number
-          | boolean
-          | null;
-        state: 'failed' | 'succeeded';
-        error?:
-          | {
-              [k: string]: unknown;
-            }
-          | unknown[]
-          | string
-          | number
-          | boolean
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  taskSlug?: ('inline' | 'generateTimeslotsFromSchedule') | null;
-  queue?: string | null;
-  waitUntil?: string | null;
-  processing?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -1174,34 +810,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'verifications';
         value: number | Verification;
-      } | null)
-    | ({
-        relationTo: 'staffMembers';
-        value: number | StaffMember;
-      } | null)
-    | ({
-        relationTo: 'timeslots';
-        value: number | Timeslot;
-      } | null)
-    | ({
-        relationTo: 'event-types';
-        value: number | EventType;
-      } | null)
-    | ({
-        relationTo: 'bookings';
-        value: number | Booking;
-      } | null)
-    | ({
-        relationTo: 'subscriptions';
-        value: number | Subscription;
-      } | null)
-    | ({
-        relationTo: 'plans';
-        value: number | Plan;
-      } | null)
-    | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
       } | null)
     | ({
         relationTo: 'users';
@@ -1636,139 +1244,9 @@ export interface VerificationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staffMembers_select".
- */
-export interface StaffMembersSelect<T extends boolean = true> {
-  user?: T;
-  name?: T;
-  description?: T;
-  profileImage?: T;
-  active?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "timeslots_select".
- */
-export interface TimeslotsSelect<T extends boolean = true> {
-  date?: T;
-  startTime?: T;
-  endTime?: T;
-  lockOutTime?: T;
-  originalLockOutTime?: T;
-  location?: T;
-  instructor?: T;
-  eventType?: T;
-  remainingCapacity?: T;
-  bookings?: T;
-  bookingStatus?: T;
-  active?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-types_select".
- */
-export interface EventTypesSelect<T extends boolean = true> {
-  name?: T;
-  places?: T;
-  description?: T;
-  type?: T;
-  paymentMethods?:
-    | T
-    | {
-        allowedPlans?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings_select".
- */
-export interface BookingsSelect<T extends boolean = true> {
-  user?: T;
-  timeslot?: T;
-  status?: T;
-  transactions?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions_select".
- */
-export interface SubscriptionsSelect<T extends boolean = true> {
-  user?: T;
-  plan?: T;
-  status?: T;
-  startDate?: T;
-  endDate?: T;
-  cancelAt?: T;
-  stripeSubscriptionId?: T;
-  skipSync?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans_select".
- */
-export interface PlansSelect<T extends boolean = true> {
-  name?: T;
-  features?:
-    | T
-    | {
-        feature?: T;
-        id?: T;
-      };
-  sessionsInformation?:
-    | T
-    | {
-        sessions?: T;
-        intervalCount?: T;
-        interval?: T;
-        allowMultipleBookingsPerTimeslot?: T;
-      };
-  stripeProductId?: T;
-  priceInformation?:
-    | T
-    | {
-        price?: T;
-        intervalCount?: T;
-        interval?: T;
-      };
-  priceJSON?: T;
-  status?: T;
-  skipSync?: T;
-  type?: T;
-  quantity?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  booking?: T;
-  paymentMethod?: T;
-  classPassId?: T;
-  stripePaymentIntentId?: T;
-  subscriptionId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
-  timeslots?: T;
-  parentUser?: T;
-  children?: T;
   name?: T;
   emailVerified?: T;
   image?: T;
@@ -1781,15 +1259,6 @@ export interface UsersSelect<T extends boolean = true> {
   account?: T;
   session?: T;
   roles?: T;
-  stripeCustomerId?: T;
-  stripeCustomers?:
-    | T
-    | {
-        stripeAccountId?: T;
-        stripeCustomerId?: T;
-        id?: T;
-      };
-  userSubscription?: T;
   email?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;
@@ -1812,37 +1281,6 @@ export interface UsersSelect<T extends boolean = true> {
 export interface PayloadKvSelect<T extends boolean = true> {
   key?: T;
   data?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-jobs_select".
- */
-export interface PayloadJobsSelect<T extends boolean = true> {
-  input?: T;
-  taskStatus?: T;
-  completedAt?: T;
-  totalTried?: T;
-  hasError?: T;
-  error?: T;
-  log?:
-    | T
-    | {
-        executedAt?: T;
-        completedAt?: T;
-        taskSlug?: T;
-        taskID?: T;
-        input?: T;
-        output?: T;
-        state?: T;
-        error?: T;
-        id?: T;
-      };
-  taskSlug?: T;
-  queue?: T;
-  waitUntil?: T;
-  processing?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1910,68 +1348,6 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
- * Create recurring timeslots across your weekly schedule
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler".
- */
-export interface Scheduler {
-  id: number;
-  /**
-   * When this schedule becomes active
-   */
-  startDate: string;
-  /**
-   * When this schedule stops generating timeslots
-   */
-  endDate: string;
-  /**
-   * Minutes before start time when booking closes (can be overridden per slot)
-   */
-  lockOutTime: number;
-  /**
-   * Default class type to use when creating timeslots (can be overridden per slot)
-   */
-  defaultEventType: number | EventType;
-  /**
-   * The days of the week and their time slots
-   */
-  week?: {
-    days?:
-      | {
-          timeSlot?:
-            | {
-                startTime: string;
-                endTime: string;
-                /**
-                 * Overrides the default class option
-                 */
-                eventType?: (number | null) | EventType;
-                location?: string | null;
-                instructor?: (number | null) | StaffMember;
-                /**
-                 * Overrides the default lock out time
-                 */
-                lockOutTime?: number | null;
-                /**
-                 * Whether the time slot is active and will be shown on the schedule
-                 */
-                active?: boolean | null;
-                id?: string | null;
-              }[]
-            | null;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
-   */
-  clearExisting?: boolean | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "navbar_select".
  */
@@ -2007,70 +1383,6 @@ export interface FooterSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler_select".
- */
-export interface SchedulerSelect<T extends boolean = true> {
-  startDate?: T;
-  endDate?: T;
-  lockOutTime?: T;
-  defaultEventType?: T;
-  week?:
-    | T
-    | {
-        days?:
-          | T
-          | {
-              timeSlot?:
-                | T
-                | {
-                    startTime?: T;
-                    endTime?: T;
-                    eventType?: T;
-                    location?: T;
-                    instructor?: T;
-                    lockOutTime?: T;
-                    active?: T;
-                    id?: T;
-                  };
-              id?: T;
-            };
-      };
-  clearExisting?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskGenerateTimeslotsFromSchedule".
- */
-export interface TaskGenerateTimeslotsFromSchedule {
-  input: {
-    startDate: string;
-    endDate: string;
-    week: {
-      days: {
-        timeSlot: {
-          startTime: string;
-          endTime: string;
-          eventType?: (number | null) | EventType;
-          location?: string | null;
-          instructor?: (number | null) | StaffMember;
-          lockOutTime?: number | null;
-        }[];
-      }[];
-    };
-    clearExisting: boolean;
-    defaultEventType: number | EventType;
-    lockOutTime: number;
-  };
-  output: {
-    success?: boolean | null;
-    message?: string | null;
-  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

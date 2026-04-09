@@ -91,8 +91,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
           
           if (!existingStaffMember.rows || existingStaffMember.rows.length === 0) {
             // Create instructor using Payload API to ensure proper validation
-            const newStaffMember = await payload.create({
-              collection: "staffMembers",
+            const newInstructor = await payload.create({
+              collection: "instructors" as any,
               data: {
                 user: row.user_id,
                 name: userName,
@@ -107,7 +107,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
             const existing = existingStaffMember.rows[0]!;
             if (row.user_image_id && !existing.profile_image_id) {
               await payload.update({
-                collection: "staffMembers",
+              collection: "instructors" as any,
                 id: existing.id,
                 data: {
                   profileImage: row.user_image_id,

@@ -4,8 +4,8 @@ import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
  * Kyuzo uses bookings-payments membership plugin (collection slug: "memberships").
  *
  * In CI/test we run with `push: false`, so the DB schema must be created via migrations.
- * Older Kyuzo migrations created a "plans" table; this migration creates the current
- * "memberships" tables + enums and points existing FKs (subscriptions, rels tables) at it.
+ * Older Kyuzo migrations used a "plans" table; this migration creates or upgrades to
+ * the "memberships" tables + enums and points existing FKs (subscriptions, rels tables) at it.
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
@@ -74,14 +74,122 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     CREATE INDEX IF NOT EXISTS "memberships_updated_at_idx" ON "memberships" USING btree ("updated_at");
     CREATE INDEX IF NOT EXISTS "memberships_created_at_idx" ON "memberships" USING btree ("created_at");
 
-    -- Point subscriptions.plan_id at memberships (drop legacy FK to plans if present)
-    ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "subscriptions_plan_id_plans_id_fk";
+    -- Legacy safety: some deployed DBs may not yet have plans.features.
     DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_plan_id_memberships_id_fk') THEN
+      IF to_regclass('public.plans') IS NOT NULL THEN
+        ALTER TABLE "public"."plans" ADD COLUMN IF NOT EXISTS "features" jsonb;
+      END IF;
+    END $$;
+
+    -- Legacy safety: some deployed DBs may not yet have plans.sessions_information_allow_multiple_bookings_per_lesson.
+    DO $$ BEGIN
+      IF to_regclass('public.plans') IS NOT NULL THEN
+        ALTER TABLE "public"."plans" ADD COLUMN IF NOT EXISTS "sessions_information_allow_multiple_bookings_per_lesson" boolean DEFAULT true;
+      END IF;
+    END $$;
+
+    -- Migrate legacy "plans" data into "memberships" when present.
+    DO $$ BEGIN
+      IF to_regclass('public.plans') IS NOT NULL THEN
+        INSERT INTO "memberships" (
+          "id",
+          "name",
+          "features",
+          "sessions_information_sessions",
+          "sessions_information_interval_count",
+          "sessions_information_interval",
+          "sessions_information_allow_multiple_bookings_per_lesson",
+          "stripe_product_id",
+          "price_information_price",
+          "price_information_interval_count",
+          "price_information_interval",
+          "price_j_s_o_n",
+          "status",
+          "skip_sync",
+          "type",
+          "quantity",
+          "updated_at",
+          "created_at"
+        )
+        SELECT
+          "id",
+          "name",
+          "features",
+          "sessions_information_sessions",
+          "sessions_information_interval_count",
+          "sessions_information_interval"::text::"enum_memberships_sessions_information_interval" AS "sessions_information_interval",
+          "sessions_information_allow_multiple_bookings_per_lesson",
+          "stripe_product_id",
+          "price_information_price",
+          "price_information_interval_count",
+          "price_information_interval"::text::"enum_memberships_price_information_interval" AS "price_information_interval",
+          "price_j_s_o_n",
+          "status"::text::"enum_memberships_status" AS "status",
+          "skip_sync",
+          "type"::text::"enum_memberships_type" AS "type",
+          "quantity",
+          "updated_at",
+          "created_at"
+        FROM "public"."plans"
+        ON CONFLICT ("id")
+        DO UPDATE SET
+          "name" = EXCLUDED."name",
+          "features" = EXCLUDED."features",
+          "sessions_information_sessions" = EXCLUDED."sessions_information_sessions",
+          "sessions_information_interval_count" = EXCLUDED."sessions_information_interval_count",
+          "sessions_information_interval" = EXCLUDED."sessions_information_interval",
+          "sessions_information_allow_multiple_bookings_per_lesson" = EXCLUDED."sessions_information_allow_multiple_bookings_per_lesson",
+          "stripe_product_id" = EXCLUDED."stripe_product_id",
+          "price_information_price" = EXCLUDED."price_information_price",
+          "price_information_interval_count" = EXCLUDED."price_information_interval_count",
+          "price_information_interval" = EXCLUDED."price_information_interval",
+          "price_j_s_o_n" = EXCLUDED."price_j_s_o_n",
+          "status" = EXCLUDED."status",
+          "skip_sync" = EXCLUDED."skip_sync",
+          "type" = EXCLUDED."type",
+          "quantity" = EXCLUDED."quantity",
+          "updated_at" = EXCLUDED."updated_at",
+          "created_at" = EXCLUDED."created_at";
+      END IF;
+    END $$;
+
+    -- Copy legacy plan feature rows as membership features, preserving IDs.
+    DO $$ BEGIN
+      IF to_regclass('public.plans_features') IS NOT NULL THEN
+        INSERT INTO "memberships_features" ("_order", "_parent_id", "id", "feature")
+        SELECT "_order", "_parent_id", "id", "feature"
+        FROM "public"."plans_features"
+        ON CONFLICT ("id")
+        DO UPDATE SET
+          "_order" = EXCLUDED."_order",
+          "_parent_id" = EXCLUDED."_parent_id",
+          "feature" = EXCLUDED."feature";
+      END IF;
+    END $$;
+
+    -- If subscriptions contain old plan IDs that have not been migrated, null them first.
+    -- This avoids FK failures when switching the FK target from plans -> memberships.
+    DO $$ BEGIN
+      IF to_regclass('public.subscriptions') IS NOT NULL THEN
+        UPDATE "subscriptions" s
+        SET "plan_id" = NULL
+        WHERE "plan_id" IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM "public"."memberships" m WHERE m."id" = s."plan_id"
+          );
+      END IF;
+    END $$;
+
+    -- Point subscriptions.plan_id at memberships (drop legacy FK to plans if present)
+    DO $$ BEGIN
+      IF to_regclass('public.subscriptions') IS NOT NULL THEN
+        ALTER TABLE "subscriptions" DROP CONSTRAINT IF EXISTS "subscriptions_plan_id_plans_id_fk";
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_plan_id_memberships_id_fk') THEN
         ALTER TABLE "subscriptions"
           ADD CONSTRAINT "subscriptions_plan_id_memberships_id_fk"
           FOREIGN KEY ("plan_id") REFERENCES "public"."memberships"("id")
           ON DELETE set null ON UPDATE no action;
+        END IF;
       END IF;
     END $$;
 

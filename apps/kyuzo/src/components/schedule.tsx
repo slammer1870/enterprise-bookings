@@ -11,9 +11,6 @@ export default function ScheduleComponent() {
         height={1200}
         title="Class schedule"
       />
-      <a href="https://www.glofox.com" target="_blank" rel="noreferrer">
-        powered by <b>Glofox</b>
-      </a>
     </div>
   )
 }
