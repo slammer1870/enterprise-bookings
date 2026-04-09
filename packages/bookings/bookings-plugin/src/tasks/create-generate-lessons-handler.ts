@@ -7,7 +7,6 @@ import { TaskGenerateLessonsFromSchedule } from "../types";
 import { Lesson } from "@repo/shared-types";
 
 import type { BookingsPluginSlugs } from "../resolve-slugs";
-import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
 
 /** Normalize relationship value to ID (handles populated { id } or raw number). */
 function toId(value: unknown): number | null {

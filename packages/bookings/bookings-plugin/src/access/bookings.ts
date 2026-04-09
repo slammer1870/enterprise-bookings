@@ -2,7 +2,7 @@ import type { Access, CollectionSlug } from "payload";
 
 type AccessArgs<T> = Parameters<Access<T>> extends never
   ? { req: any; id?: string | number; data?: any }
-  : Parameters<Extract<Access<T>, (...args: any[]) => any>> extends infer P
+  : Parameters<Extract<Access<T>, (..._args: any[]) => any>> extends infer P
     ? P extends [infer A]
       ? A
       : never
@@ -176,3 +176,4 @@ export function createBookingAccess(slugs: BookingsPluginSlugs) {
 const _legacyAccess = createBookingAccess(DEFAULT_BOOKINGS_PLUGIN_SLUGS);
 export const bookingCreateAccess = _legacyAccess.bookingCreateAccess;
 export const bookingUpdateAccess = _legacyAccess.bookingUpdateAccess;
+export const isAdminOrOwner = _legacyAccess.isAdminOrOwner;

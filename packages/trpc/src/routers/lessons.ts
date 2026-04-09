@@ -7,7 +7,6 @@ import {
   protectedProcedure,
   publicProcedure,
   requireBookingCollections,
-  requireCollections,
 } from "../trpc";
 import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
 import {
