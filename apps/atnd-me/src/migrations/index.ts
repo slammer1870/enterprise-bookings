@@ -70,6 +70,7 @@ import * as migration_20260329_202734 from './20260329_202734';
 import * as migration_20260331_125424 from './20260331_125424';
 import * as migration_20260409000000_roles_and_booking_collection_tables from './20260409000000_roles_and_booking_collection_tables';
 import * as migration_20260409000001_roles_data_and_booking_table_renames from './20260409000001_roles_data_and_booking_table_renames';
+import * as migration_20260409_144441 from './20260409_144441';
 
 export const migrations = [
   {
@@ -431,5 +432,10 @@ export const migrations = [
     up: migration_20260409000001_roles_data_and_booking_table_renames.up,
     down: migration_20260409000001_roles_data_and_booking_table_renames.down,
     name: '20260409000001_roles_data_and_booking_table_renames',
+  },
+  {
+    up: migration_20260409_144441.up,
+    down: migration_20260409_144441.down,
+    name: '20260409_144441'
   },
 ];
