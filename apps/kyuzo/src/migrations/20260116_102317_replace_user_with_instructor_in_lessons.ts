@@ -101,7 +101,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
               },
               req,
             });
-            console.log(`Created instructor ${newStaffMember.id} for user ${row.user_id}${row.user_image_id ? ` with image ${row.user_image_id}` : ''}`);
+            console.log(`Created instructor ${newInstructor.id} for user ${row.user_id}${row.user_image_id ? ` with image ${row.user_image_id}` : ''}`);
           } else if (existingStaffMember.rows && existingStaffMember.rows.length > 0) {
             // Update existing instructor with image if it doesn't have one
             const existing = existingStaffMember.rows[0]!;

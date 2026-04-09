@@ -77,9 +77,21 @@ export const AnalyticsDashboardClient: React.FC<{
     })
     if (comparePrevious) params.set('comparePrevious', 'true')
     if (selectedTenantId != null) params.set('tenantId', String(selectedTenantId))
-    fetch(`/api/analytics?${params}`, { credentials: 'include' })
-      .then((res) => {
-        if (!res.ok) throw new Error(res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics')
+    fetch(`${typeof window !== 'undefined' ? window.location.origin : ''}/api/analytics?${params}`, {
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          let message =
+            res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics'
+          try {
+            const body = (await res.json()) as { error?: string }
+            if (typeof body?.error === 'string' && body.error) message = body.error
+          } catch {
+            /* non-JSON error response */
+          }
+          throw new Error(message)
+        }
         return res.json()
       })
       .then((body: AnalyticsData) => {

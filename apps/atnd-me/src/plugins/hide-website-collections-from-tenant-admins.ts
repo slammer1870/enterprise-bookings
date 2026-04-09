@@ -3,7 +3,6 @@ import type { CollectionConfig, Config, Plugin } from 'payload'
 import { isAdmin } from '@/access/userTenantAccess'
 
 const WEBSITE_ADMIN_ONLY_COLLECTION_SLUGS = [
-  'posts',
   'categories',
   'redirects',
   'search',

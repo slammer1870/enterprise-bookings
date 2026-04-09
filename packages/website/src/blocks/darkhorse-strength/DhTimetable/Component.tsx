@@ -29,7 +29,7 @@ export const DhTimetableBlock: React.FC<TimetableProps> = ({
       <div className="container mx-auto px-5 py-12 text-foreground">
         <div className="mb-4 flex w-full flex-col">
           <h5 className="mb-4 text-3xl font-medium">{title}</h5>
-          <p className="text-base leading-relaxed">{description}</p>
+          <p className="text-base leading-relaxed text-yellow-600">{description}</p>
         </div>
         <div className="mx-auto w-full overflow-auto">
           <table className="whitespace-no-wrap w-full table-auto text-left">

@@ -40,6 +40,7 @@ import {
   DhPricing,
   DhContact,
   DhGroups,
+  createTwoColumnLayout,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
@@ -53,6 +54,8 @@ import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
 import { CroiLanHeroWithLocation } from '@/blocks/CroiLanHeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
+import { DhLiveSchedule } from '@/blocks/DhLiveSchedule/config'
+import { DhLiveMembership } from '@/blocks/DhLiveMembership/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -108,12 +111,15 @@ const availableBlocks = [
   DhPricing,
   DhContact,
   DhGroups,
+  DhLiveSchedule,
+  DhLiveMembership,
   // Croí Lán (tenant-scoped extras)
   CroiLanHeroWithLocation,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
+const TwoColumnLayout = createTwoColumnLayout(availableBlocks)
 
 const pageBlocks = [
   HeroSchedule,
@@ -122,6 +128,7 @@ const pageBlocks = [
   Hero,
   MarketingHero,
   ThreeColumnLayout,
+  TwoColumnLayout,
   ...availableBlocks.filter(
     (block) =>
       block.slug !== 'heroSchedule' &&
@@ -568,6 +575,15 @@ export const Pages: CollectionConfig<'pages'> = {
               const nested =
                 typeof b === 'object' && b !== null && 'blocks' in b ? (b as { blocks?: unknown }).blocks : undefined
               out.push(...collectBlockTypes(nested))
+            }
+
+            if (blockType === 'twoColumnLayout') {
+              const row = b as {
+                leftBlocks?: unknown
+                rightBlocks?: unknown
+              }
+              out.push(...collectBlockTypes(row.leftBlocks))
+              out.push(...collectBlockTypes(row.rightBlocks))
             }
           }
           return out

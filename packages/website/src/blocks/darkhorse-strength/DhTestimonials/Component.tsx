@@ -20,7 +20,7 @@ export const DhTestimonialsBlock: React.FC<TestimonialsProps> = ({
       <div className="container mx-auto px-4 py-12 text-foreground">
         <div className="mb-4 flex w-full flex-col">
           <h5 className="mb-4 text-3xl font-medium">{title}</h5>
-          <p className="text-base leading-relaxed">{description}</p>
+          <p className="text-base leading-relaxed text-yellow-600">{description}</p>
         </div>
         <div className="grid grid-cols-1 grid-rows-2 gap-4 md:grid-cols-2 md:grid-rows-1">
           {videos.map((video, index) => (

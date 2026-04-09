@@ -167,6 +167,8 @@ function mapBlockType(oldType: string): string {
       return 'bruContact'
     case 'hero-waitlist':
       return 'bruHeroWaitlist'
+    case 'dhDashboardLayout':
+      return 'twoColumnLayout'
     default:
       return oldType
   }
@@ -1233,7 +1235,7 @@ async function migratePages(
   const tenantNum = Number(tenantId)
   const tenantReq = { ...req, context: { ...(req as any).context, tenant: tenantNum } }
 
-  const knownBlockSlugs = new Set<string>([...allBlockSlugs, 'threeColumnLayout'])
+  const knownBlockSlugs = new Set<string>([...allBlockSlugs, 'threeColumnLayout', 'twoColumnLayout'])
 
   const remapLayout = (layoutUnknown: unknown): unknown[] => {
     const raw = parseJSONIfString(layoutUnknown)

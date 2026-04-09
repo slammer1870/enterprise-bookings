@@ -229,6 +229,7 @@ export interface Page {
     | HeroBlock
     | MarketingHeroBlock
     | ThreeColumnLayoutBlock
+    | TwoColumnLayoutBlock
     | AboutBlock
     | LocationBlock
     | ScheduleBlock
@@ -274,6 +275,20 @@ export interface Page {
     | DhPricingBlock
     | DhContactBlock
     | DhGroupsBlock
+    | {
+        /**
+         * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
+         */
+        tenantId?: number | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveSchedule';
+      }
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveMembership';
+      }
     | CroiLanHeroWithLocationBlock
   )[];
   meta?: {
@@ -340,8 +355,11 @@ export interface Tenant {
         | 'dhPricing'
         | 'dhContact'
         | 'dhGroups'
+        | 'dhLiveSchedule'
+        | 'dhLiveMembership'
         | 'clHeroLoc'
         | 'threeColumnLayout'
+        | 'twoColumnLayout'
       )[]
     | null;
   logo?: (number | null) | Media;
@@ -495,12 +513,18 @@ export interface HeroScheduleBlock {
   blockType: 'heroSchedule';
 }
 /**
+ * Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts".
  */
 export interface Post {
   id: number;
   title: string;
+  /**
+   * Optional. Leave empty for posts on the main platform domain only. Set for tenant blog content.
+   */
+  tenant?: (number | null) | Tenant;
   heroImage?: (number | null) | Media;
   content: {
     root: {
@@ -535,10 +559,6 @@ export interface Post {
         name?: string | null;
       }[]
     | null;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
   slug: string;
   updatedAt: string;
   createdAt: string;
@@ -843,12 +863,12 @@ export interface EventType {
   tenant: number | Tenant;
   name: string;
   /**
-   * How many people can book this class option?
+   * How many people can book this event type?
    */
   places: number;
   description: string;
   /**
-   * Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.
+   * Configure how customers can pay for this event type. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.
    */
   paymentMethods?: {
     /**
@@ -1231,6 +1251,20 @@ export interface ThreeColumnLayoutBlock {
         | DhPricingBlock
         | DhContactBlock
         | DhGroupsBlock
+        | {
+            /**
+             * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
+             */
+            tenantId?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveSchedule';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveMembership';
+          }
         | CroiLanHeroWithLocationBlock
       )[]
     | null;
@@ -2291,6 +2325,155 @@ export interface CroiLanHeroWithLocationBlock {
   blockType: 'clHeroLoc';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TwoColumnLayoutBlock".
+ */
+export interface TwoColumnLayoutBlock {
+  leftColumnHeading?: string | null;
+  rightColumnHeading?: string | null;
+  leftBlocks?:
+    | (
+        | HeroScheduleBlock
+        | HeroScheduleSanctuaryBlock
+        | HeroWithLocationBlock
+        | HeroBlock
+        | MarketingHeroBlock
+        | AboutBlock
+        | LocationBlock
+        | ScheduleBlock
+        | TenantScopedScheduleBlock
+        | HealthBenefitsBlock
+        | SectionTaglineBlock
+        | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
+          }
+        | FeaturesBlock
+        | CaseStudiesBlock
+        | CallToActionBlock
+        | MarketingCtaBlock
+        | ContentBlock
+        | MediaBlock
+        | ArchiveBlock
+        | FormBlock
+        | BruHeroBlock
+        | BruAboutBlock
+        | BruScheduleBlock
+        | BruLearningBlock
+        | BruMeetTheTeamBlock
+        | BruTestimonialsBlock
+        | BruContactBlock
+        | BruHeroWaitlistBlock
+        | DhHeroBlock
+        | DhTeamBlock
+        | DhTimetableBlock
+        | DhTestimonialsBlock
+        | DhPricingBlock
+        | DhContactBlock
+        | DhGroupsBlock
+        | {
+            /**
+             * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
+             */
+            tenantId?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveSchedule';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveMembership';
+          }
+        | CroiLanHeroWithLocationBlock
+      )[]
+    | null;
+  rightBlocks?:
+    | (
+        | HeroScheduleBlock
+        | HeroScheduleSanctuaryBlock
+        | HeroWithLocationBlock
+        | HeroBlock
+        | MarketingHeroBlock
+        | AboutBlock
+        | LocationBlock
+        | ScheduleBlock
+        | TenantScopedScheduleBlock
+        | HealthBenefitsBlock
+        | SectionTaglineBlock
+        | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
+          }
+        | FeaturesBlock
+        | CaseStudiesBlock
+        | CallToActionBlock
+        | MarketingCtaBlock
+        | ContentBlock
+        | MediaBlock
+        | ArchiveBlock
+        | FormBlock
+        | BruHeroBlock
+        | BruAboutBlock
+        | BruScheduleBlock
+        | BruLearningBlock
+        | BruMeetTheTeamBlock
+        | BruTestimonialsBlock
+        | BruContactBlock
+        | BruHeroWaitlistBlock
+        | DhHeroBlock
+        | DhTeamBlock
+        | DhTimetableBlock
+        | DhTestimonialsBlock
+        | DhPricingBlock
+        | DhContactBlock
+        | DhGroupsBlock
+        | {
+            /**
+             * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
+             */
+            tenantId?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveSchedule';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveMembership';
+          }
+        | CroiLanHeroWithLocationBlock
+      )[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'twoColumnLayout';
+}
+/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3109,6 +3292,7 @@ export interface PagesSelect<T extends boolean = true> {
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
+        twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
@@ -3152,6 +3336,19 @@ export interface PagesSelect<T extends boolean = true> {
         dhPricing?: T | DhPricingBlockSelect<T>;
         dhContact?: T | DhContactBlockSelect<T>;
         dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              tenantId?: T;
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   meta?:
@@ -3367,6 +3564,19 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         dhPricing?: T | DhPricingBlockSelect<T>;
         dhContact?: T | DhContactBlockSelect<T>;
         dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              tenantId?: T;
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   id?: T;
@@ -3933,10 +4143,153 @@ export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TwoColumnLayoutBlock_select".
+ */
+export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
+  leftColumnHeading?: T;
+  rightColumnHeading?: T;
+  leftBlocks?:
+    | T
+    | {
+        heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
+        heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
+        hero?: T | HeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
+        about?: T | AboutBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        schedule?: T | ScheduleBlockSelect<T>;
+        tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
+        healthBenefits?: T | HealthBenefitsBlockSelect<T>;
+        sectionTagline?: T | SectionTaglineBlockSelect<T>;
+        faqs?:
+          | T
+          | {
+              title?: T;
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
+        cta?: T | CallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+        mediaBlock?: T | MediaBlockSelect<T>;
+        archive?: T | ArchiveBlockSelect<T>;
+        formBlock?: T | FormBlockSelect<T>;
+        bruHero?: T | BruHeroBlockSelect<T>;
+        bruAbout?: T | BruAboutBlockSelect<T>;
+        bruSchedule?: T | BruScheduleBlockSelect<T>;
+        bruLearning?: T | BruLearningBlockSelect<T>;
+        bruMeetTheTeam?: T | BruMeetTheTeamBlockSelect<T>;
+        bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
+        bruContact?: T | BruContactBlockSelect<T>;
+        bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        dhHero?: T | DhHeroBlockSelect<T>;
+        dhTeam?: T | DhTeamBlockSelect<T>;
+        dhTimetable?: T | DhTimetableBlockSelect<T>;
+        dhTestimonials?: T | DhTestimonialsBlockSelect<T>;
+        dhPricing?: T | DhPricingBlockSelect<T>;
+        dhContact?: T | DhContactBlockSelect<T>;
+        dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              tenantId?: T;
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+      };
+  rightBlocks?:
+    | T
+    | {
+        heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
+        heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
+        hero?: T | HeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
+        about?: T | AboutBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        schedule?: T | ScheduleBlockSelect<T>;
+        tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
+        healthBenefits?: T | HealthBenefitsBlockSelect<T>;
+        sectionTagline?: T | SectionTaglineBlockSelect<T>;
+        faqs?:
+          | T
+          | {
+              title?: T;
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
+        cta?: T | CallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+        mediaBlock?: T | MediaBlockSelect<T>;
+        archive?: T | ArchiveBlockSelect<T>;
+        formBlock?: T | FormBlockSelect<T>;
+        bruHero?: T | BruHeroBlockSelect<T>;
+        bruAbout?: T | BruAboutBlockSelect<T>;
+        bruSchedule?: T | BruScheduleBlockSelect<T>;
+        bruLearning?: T | BruLearningBlockSelect<T>;
+        bruMeetTheTeam?: T | BruMeetTheTeamBlockSelect<T>;
+        bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
+        bruContact?: T | BruContactBlockSelect<T>;
+        bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        dhHero?: T | DhHeroBlockSelect<T>;
+        dhTeam?: T | DhTeamBlockSelect<T>;
+        dhTimetable?: T | DhTimetableBlockSelect<T>;
+        dhTestimonials?: T | DhTestimonialsBlockSelect<T>;
+        dhPricing?: T | DhPricingBlockSelect<T>;
+        dhContact?: T | DhContactBlockSelect<T>;
+        dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              tenantId?: T;
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts_select".
  */
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
+  tenant?: T;
   heroImage?: T;
   content?: T;
   relatedPosts?: T;
@@ -3956,7 +4309,6 @@ export interface PostsSelect<T extends boolean = true> {
         id?: T;
         name?: T;
       };
-  generateSlug?: T;
   slug?: T;
   updatedAt?: T;
   createdAt?: T;

@@ -73,6 +73,7 @@ import * as migration_20260409000001_roles_data_and_booking_table_renames from '
 import * as migration_20260409_144441 from './20260409_144441';
 import * as migration_20260409_152419 from './20260409_152419';
 import * as migration_20260409_posts_tenant_scoped from './20260409_posts_tenant_scoped';
+import * as migration_20260410_add_two_column_layout_enum from './20260410_add_two_column_layout_enum';
 import * as migration_20260410_rename_dh_dashboard_to_two_column_layout from './20260410_rename_dh_dashboard_to_two_column_layout';
 import * as migration_20260410_timeslots_staff_member_id from './20260410_timeslots_staff_member_id';
 
@@ -451,6 +452,11 @@ export const migrations = [
     up: migration_20260409_posts_tenant_scoped.up,
     down: migration_20260409_posts_tenant_scoped.down,
     name: '20260409_posts_tenant_scoped',
+  },
+  {
+    up: migration_20260410_add_two_column_layout_enum.up,
+    down: migration_20260410_add_two_column_layout_enum.down,
+    name: '20260410_add_two_column_layout_enum',
   },
   {
     up: migration_20260410_rename_dh_dashboard_to_two_column_layout.up,

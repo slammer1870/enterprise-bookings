@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, Where } from 'payload'
 
 import {
   BlocksFeature,
@@ -9,8 +9,16 @@ import {
   lexicalEditor,
 } from '@payloadcms/richtext-lexical'
 
-import { authenticated } from '../../access/authenticated'
-import { authenticatedOrPublished } from '../../access/authenticatedOrPublished'
+import type { User as SharedUser } from '@repo/shared-types'
+import { checkRole } from '@repo/shared-utils'
+
+import { postsCreate, postsDelete, postsRead, postsUpdate } from '../../access/postsAccess'
+import {
+  getUserTenantIds,
+  resolveTenantIdFromRequest,
+  type RequestLike,
+} from '../../access/tenant-scoped'
+import { tenantScopedSlugField } from '../../fields/tenant-scoped-slug-field'
 import { Banner } from '../../blocks/Banner/config'
 import { Code } from '../../blocks/Code/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
@@ -25,15 +33,17 @@ import {
   OverviewField,
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
-import { slugField } from 'payload'
-
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
   access: {
-    create: authenticated,
-    delete: authenticated,
-    read: authenticatedOrPublished,
-    update: authenticated,
+    admin: ({ req: { user } }) => {
+      if (!user) return false
+      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
+    },
+    create: postsCreate,
+    delete: postsDelete,
+    read: postsRead,
+    update: postsUpdate,
   },
   // This config controls what's populated by default when a post is referenced
   // https://payloadcms.com/docs/queries/select#defaultpopulate-collection-config-property
@@ -41,6 +51,7 @@ export const Posts: CollectionConfig<'posts'> = {
   defaultPopulate: {
     title: true,
     slug: true,
+    tenant: true,
     categories: true,
     meta: {
       image: true,
@@ -49,7 +60,8 @@ export const Posts: CollectionConfig<'posts'> = {
   },
   admin: {
     group: 'Website',
-    defaultColumns: ['title', 'slug', 'updatedAt'],
+    description: 'Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.',
+    defaultColumns: ['title', 'slug', 'tenant', 'updatedAt'],
     livePreview: {
       url: ({ data, req }) =>
         generatePreviewPath({
@@ -71,6 +83,37 @@ export const Posts: CollectionConfig<'posts'> = {
       name: 'title',
       type: 'text',
       required: true,
+    },
+    {
+      name: 'tenant',
+      type: 'relationship',
+      relationTo: 'tenants',
+      required: false,
+      index: true,
+      label: 'Assigned tenant',
+      admin: {
+        position: 'sidebar',
+        description:
+          'Optional. Leave empty for posts on the main platform domain only. Set for tenant blog content.',
+      },
+      filterOptions: ({ req }) => {
+        const tenantIds = getUserTenantIds((req.user ?? null) as unknown as SharedUser | null)
+        if (tenantIds === null) return true
+        if (Array.isArray(tenantIds) && tenantIds.length > 0) {
+          return { id: { in: tenantIds } }
+        }
+        return true
+      },
+    },
+    {
+      name: '_tenantSelectorSync',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: '@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField',
+        },
+      },
     },
     {
       type: 'tabs',
@@ -111,12 +154,31 @@ export const Posts: CollectionConfig<'posts'> = {
               admin: {
                 position: 'sidebar',
               },
-              filterOptions: ({ id }) => {
-                return {
-                  id: {
-                    not_in: [id],
-                  },
+              filterOptions: ({ data, id }) => {
+                const selfId = id != null ? [id] : []
+                const t = data?.tenant as unknown
+                const tenantId =
+                  typeof t === 'object' && t !== null && 'id' in t
+                    ? (t as { id: number }).id
+                    : typeof t === 'number'
+                      ? t
+                      : typeof t === 'string' && /^\d+$/.test(t)
+                        ? parseInt(t, 10)
+                        : null
+
+                const clauses: Where[] = []
+                if (selfId.length) {
+                  clauses.push({ id: { not_in: selfId } })
                 }
+                if (tenantId != null && Number.isFinite(tenantId)) {
+                  clauses.push({ tenant: { equals: tenantId } })
+                } else {
+                  clauses.push({ tenant: { equals: null } })
+                }
+                if (clauses.length === 1) {
+                  return clauses[0] as Where
+                }
+                return { and: clauses } satisfies Where
               },
               hasMany: true,
               relationTo: 'posts',
@@ -215,9 +277,66 @@ export const Posts: CollectionConfig<'posts'> = {
         },
       ],
     },
-    slugField(),
+    tenantScopedSlugField({ fieldToUse: 'title', collection: 'posts' }),
   ],
   hooks: {
+    beforeValidate: [
+      async ({ data, operation, req, originalDoc }) => {
+        if (!data) return data
+        if (data.tenant === null) return data
+        if (data.tenant) return data
+
+        const tid = await resolveTenantIdFromRequest(req as RequestLike)
+        if (tid != null) {
+          data.tenant = tid
+          return data
+        }
+
+        if (operation === 'update' && originalDoc?.tenant) {
+          data.tenant =
+            typeof originalDoc.tenant === 'object' && originalDoc.tenant !== null && 'id' in originalDoc.tenant
+              ? (originalDoc.tenant as { id: number }).id
+              : originalDoc.tenant
+        }
+        return data
+      },
+      async ({ data, operation, req, originalDoc }) => {
+        if (!data || !req.user) return data
+        if (checkRole(['super-admin'], req.user as unknown as SharedUser)) return data
+        if (!checkRole(['admin', 'staff'], req.user as unknown as SharedUser)) return data
+
+        const tenantIdFromValue = (raw: unknown): number | null => {
+          if (raw === null || raw === undefined || raw === '') return null
+          if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+          if (typeof raw === 'string' && /^\d+$/.test(raw)) return parseInt(raw, 10)
+          if (typeof raw === 'object' && raw !== null && 'id' in raw) {
+            const rid = (raw as { id: unknown }).id
+            if (typeof rid === 'number' && Number.isFinite(rid)) return rid
+            if (typeof rid === 'string' && /^\d+$/.test(rid)) return parseInt(rid, 10)
+          }
+          return null
+        }
+
+        if (operation === 'create' && tenantIdFromValue(data.tenant) == null) {
+          throw new Error(
+            'Assign a tenant to create a post. Platform-wide posts require a super-admin account.',
+          )
+        }
+
+        if (
+          operation === 'update' &&
+          originalDoc &&
+          Object.prototype.hasOwnProperty.call(data, 'tenant') &&
+          tenantIdFromValue(data.tenant) == null &&
+          originalDoc.tenant != null
+        ) {
+          const ot = originalDoc.tenant
+          data.tenant =
+            typeof ot === 'object' && ot !== null && 'id' in ot ? (ot as { id: number }).id : ot
+        }
+        return data
+      },
+    ],
     afterChange: [revalidatePost],
     afterRead: [populateAuthors],
     afterDelete: [revalidateDelete],

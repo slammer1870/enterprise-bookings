@@ -130,41 +130,42 @@ const Navbar: React.FC = () => {
           <div
             className={`transform ${
               open ? '-translate-x-0' : 'translate-x-full'
-            } fixed right-0 top-0 z-30 flex h-screen w-1/2 items-start bg-background transition-all duration-300 ease-in-out md:relative md:flex md:h-auto md:w-full md:translate-x-0 md:flex-row md:items-center md:bg-transparent md:py-0`}
+            } fixed right-0 top-0 z-30 flex h-screen w-1/2 min-w-0 max-w-[50vw] flex-col items-stretch overflow-x-hidden bg-background transition-all duration-300 ease-in-out md:relative md:max-w-none md:flex md:h-auto md:w-full md:translate-x-0 md:flex-row md:items-center md:overflow-visible md:bg-transparent md:py-0`}
           >
-            <ul className="mt-20 flex flex-col text-sm font-light md:relative md:mt-0 md:flex md:h-auto md:w-full md:flex-row md:items-center md:justify-end md:bg-transparent md:px-0 md:py-0 md:text-base text-foreground">
-              <Link href="/personal-training">
-                <li
-                  className="ml-9 mt-4 cursor-pointer md:mt-0 md:ml-16 text-foreground md:text-background"
+            <ul className="mt-20 flex w-full min-w-0 max-w-full flex-col gap-4 px-4 text-sm font-light text-foreground md:relative md:mt-0 md:flex md:h-auto md:w-full md:flex-row md:items-center md:justify-end md:gap-0 md:bg-transparent md:px-0 md:py-0 md:text-base">
+              <li className="min-w-0 md:ml-16">
+                <Link
+                  href="/personal-training"
+                  className="block cursor-pointer wrap-break-word text-foreground md:text-background"
                   onClick={handleOpen}
                 >
                   Personal Training
-                </li>
-              </Link>
+                </Link>
+              </li>
               {user ? (
-                <Link href="/dashboard">
-                  <li
-                    className="ml-9 mt-4 cursor-pointer md:mt-0 md:ml-16 text-foreground md:text-background"
+                <li className="min-w-0 md:ml-16">
+                  <Link
+                    href="/dashboard"
+                    className="block cursor-pointer wrap-break-word text-foreground md:text-background"
                     onClick={handleOpen}
                   >
                     Dashboard
-                  </li>
-                </Link>
+                  </Link>
+                </li>
               ) : (
-                <Link href="/dashboard">
-                  <li>
-                    <Button
-                      variant="default"
-                      onClick={handleOpen}
-                      className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-12 md:w-auto border-none"
-                    >
-                      Members
-                    </Button>
-                  </li>
-                </Link>
+                <li className="min-w-0 md:ml-12">
+                  <Button
+                    variant="default"
+                    onClick={handleOpen}
+                    className="h-auto w-full max-w-full cursor-pointer whitespace-normal rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:w-auto border-none"
+                    asChild
+                  >
+                    <Link href="/dashboard">Members</Link>
+                  </Button>
+                </li>
               )}
               {user && (
-                <li>
+                <li className="min-w-0 md:ml-16">
                   <Button
                     variant="outline"
                     onClick={() =>
@@ -173,7 +174,7 @@ const Navbar: React.FC = () => {
                         router.refresh()
                       })
                     }
-                    className="ml-9 mt-4 cursor-pointer rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:ml-16 md:w-auto border-none"
+                    className="h-auto w-full max-w-full cursor-pointer whitespace-normal rounded bg-primary px-2 py-1 text-center text-primary-foreground md:mt-0 md:w-auto border-none"
                   >
                     Logout
                   </Button>

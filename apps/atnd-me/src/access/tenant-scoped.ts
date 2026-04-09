@@ -67,7 +67,7 @@ type TenantsFindResult = {
   }>
 }
 
-type RequestLike = {
+export type RequestLike = {
   user?: unknown
   context?: Record<string, unknown>
   payload: Payload
@@ -129,7 +129,7 @@ function normalizeContextTenantId(contextTenant: unknown): number | null {
   return null
 }
 
-async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | null> {
+export async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | null> {
   const contextTenantId = normalizeContextTenantId(req.context?.tenant)
   if (contextTenantId) return contextTenantId
 
@@ -253,16 +253,24 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
     if (tenantIds.length === 0) return false
     
-    // If data.tenant is set, validate it's in the user's tenants
+    // If data.tenant is set, it must be one of the user's tenants (otherwise deny)
     const dataTenant = data?.tenant
-    if (dataTenant) {
-      const dataTenantId = typeof dataTenant === 'object' && dataTenant !== null
-        ? dataTenant.id
-        : dataTenant
-      
-      if (dataTenantId && typeof dataTenantId === 'number' && tenantIds.includes(dataTenantId)) {
+    if (dataTenant !== undefined && dataTenant !== null && dataTenant !== '') {
+      const raw =
+        typeof dataTenant === 'object' && dataTenant !== null && 'id' in dataTenant
+          ? (dataTenant as { id: unknown }).id
+          : dataTenant
+      const dataTenantId =
+        typeof raw === 'number' && Number.isFinite(raw)
+          ? raw
+          : typeof raw === 'string' && /^\d+$/.test(raw)
+            ? parseInt(raw, 10)
+            : NaN
+
+      if (Number.isFinite(dataTenantId) && tenantIds.includes(dataTenantId)) {
         return true
       }
+      return false
     }
     
     // If data.tenant is not set, check if context.tenant is set and valid
@@ -343,7 +351,7 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   return false
 }
 
-async function resolveTenantAdminReadConstraint(args: {
+export async function resolveTenantAdminReadConstraint(args: {
   req: {
     user?: unknown
     payload: Payload
@@ -516,4 +524,22 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     // No tenant context could be resolved: only publicly-linked media.
     return { isPublic: { equals: true } } as unknown as Where
   })()
+}
+
+/**
+ * Resolve the current site tenant for React Server Components (e.g. page blocks) using
+ * cookies, host, and slug — same rules as `resolveTenantIdFromRequest` on a Payload request.
+ */
+export async function resolveTenantIdFromServerContext(): Promise<number | null> {
+  const { getPayload } = await import('@/lib/payload')
+  const payload = await getPayload()
+  const { cookies, headers } = await import('next/headers')
+  const cookieStore = await cookies()
+  const headerList = await headers()
+  return resolveTenantIdFromRequest({
+    payload,
+    cookies: cookieStore,
+    headers: headerList,
+    context: {},
+  })
 }

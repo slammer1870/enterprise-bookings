@@ -78,6 +78,8 @@ const generateTitle: GenerateTitle<Post | Page> = ({ doc }) => {
 }
 
 const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
+  if (!doc || typeof doc !== 'object') return getServerSideURL()
+
   const page = doc as Partial<Page>
   const tenant =
     page?.tenant && typeof page.tenant === 'object'
@@ -91,12 +93,12 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
     return baseURL
   }
 
-  if (doc?.slug) {
-    const pathname = 'tenant' in page ? `/${doc.slug}` : `/posts/${doc.slug}`
-    return getAbsoluteURL(pathname, baseURL)
-  }
+  const slug = page.slug
+  if (!slug) return getServerSideURL()
 
-  return getServerSideURL()
+  const isPayloadPage = 'layout' in doc && Array.isArray((doc as Page).layout)
+  const pathname = isPayloadPage ? `/${slug}` : `/posts/${slug}`
+  return getAbsoluteURL(pathname, baseURL)
 }
 
 async function assignTenantOnCreateFromRequest({
@@ -329,7 +331,10 @@ export const plugins: Plugin[] = [
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     timeslotOverrides: {
       versions: false,
-      fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
+      fields: ({ defaultFields }) =>
+        withExplicitTenantSyncFields(defaultFields).map((f) =>
+          'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
+        ),
       hooks: ({ defaultHooks }) => {
         const d = defaultHooks as Record<string, unknown>
         return {
@@ -354,6 +359,10 @@ export const plugins: Plugin[] = [
       }),
     },
     eventTypesOverrides: {
+      labels: {
+        singular: 'Event Type',
+        plural: 'Event Types',
+      },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
@@ -371,16 +380,26 @@ export const plugins: Plugin[] = [
         },
       }),
       fields: ({ defaultFields }) => [
-        ...withExplicitTenantSyncFields(defaultFields).map((f) =>
-          'name' in f && f.name === 'name' ? { ...f, unique: false } : f,
-        ),
+        ...withExplicitTenantSyncFields(defaultFields).map((f) => {
+          if ('name' in f && f.name === 'name') return { ...f, unique: false }
+          if ('name' in f && f.name === 'places' && 'type' in f && f.type === 'number') {
+            return {
+              ...f,
+              admin: {
+                ...f.admin,
+                description: 'How many people can book this event type?',
+              },
+            }
+          }
+          return f
+        }),
         {
           name: 'paymentMethods',
           type: 'group',
           label: 'Payment Methods',
           admin: {
             description:
-              'Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.',
+              'Configure how customers can pay for this event type. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.',
             components: {
               Field: '@/components/admin/RequireStripeConnectField',
             },
@@ -769,6 +788,7 @@ export const plugins: Plugin[] = [
       media: {}, // Tenant-scoped media uploads
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions
+      posts: { customTenantField: true },
       // Globals converted to collections (one per tenant). customTenantField so we can allow
       // optional tenant (null = root site navbar/footer) and clear it in the admin form.
       navbar: { isGlobal: true, customTenantField: true },
@@ -801,9 +821,10 @@ export const plugins: Plugin[] = [
       'form-submissions',
       'scheduler',
     ],
-    collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
+    collectionsCreateRequireTenantForTenantAdmin: ['pages', 'posts', 'navbar', 'footer'],
     collectionsWithTenantField: [
       'pages',
+      'posts',
       'navbar',
       'footer',
       'timeslots',

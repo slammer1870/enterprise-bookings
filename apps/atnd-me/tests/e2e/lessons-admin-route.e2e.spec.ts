@@ -51,7 +51,7 @@ test.describe('Timeslots admin route (admin/collections/timeslots)', () => {
     // List view: empty state, loading, or table (avoid matching hidden "Start Time" field labels)
     await expect(
       page
-        .getByText(/no classes for today|loading timeslots/i)
+        .getByText(/no classes for (today|selected date)|loading timeslots/i)
         .first()
         .or(page.getByRole('columnheader', { name: /^Start Time$/i }))
     ).toBeVisible({ timeout: 10000 })

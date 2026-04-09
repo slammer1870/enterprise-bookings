@@ -25,6 +25,7 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   archive: 'Archive',
   formBlock: 'Form Block',
   threeColumnLayout: 'Three Column Layout',
+  twoColumnLayout: 'Two Column Layout',
   bruHero: 'Hero (Brú)',
   bruAbout: 'About (Brú)',
   bruSchedule: 'Schedule (Brú)',
@@ -40,6 +41,8 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   dhPricing: 'Pricing (Dark Horse)',
   dhContact: 'Contact (Dark Horse)',
   dhGroups: 'Groups (Dark Horse)',
+  dhLiveSchedule: 'Live class schedule (Dark Horse)',
+  dhLiveMembership: 'Membership — subscribe / manage (tenant)',
   clHeroLoc: 'Croí Lán – Hero with Location',
 }
 

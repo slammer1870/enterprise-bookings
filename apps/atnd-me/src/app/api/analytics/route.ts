@@ -7,8 +7,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
-import { getUserTenantIds } from '@/access/tenant-scoped'
-import { checkRole } from '@repo/shared-utils'
+import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
+import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 import {
   getSummaryMetrics,
   getBookingsOverTime,
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!checkRole(['super-admin', 'admin', 'staff'], user as Parameters<typeof checkRole>[1])) {
+    if (!isAdmin(user) && !isTenantAdmin(user) && !isStaff(user)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -56,7 +56,10 @@ export async function GET(request: NextRequest) {
       tenantId = id
     }
 
-    const allowedTenantIds = getUserTenantIds(user as Parameters<typeof getUserTenantIds>[0])
+    let allowedTenantIds: number[] | null = null
+    if (!isAdmin(user)) {
+      allowedTenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    }
     if (allowedTenantIds !== null && allowedTenantIds.length === 0) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

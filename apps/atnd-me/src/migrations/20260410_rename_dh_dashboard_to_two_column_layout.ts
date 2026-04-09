@@ -7,15 +7,9 @@ import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
  * - `_path` / `path` strings for nested blocks (`scheduleBlocks` / `membershipBlocks` → `leftBlocks` / `rightBlocks`)
  *
  * Leaves enum value `dhDashboardLayout` on the type (Postgres cannot drop enum values safely).
+ * Requires prior migration `20260410_add_two_column_layout_enum` (enum value must exist in a committed txn).
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {
-  await db.execute(sql`
-    DO $$ BEGIN
-      ALTER TYPE "public"."enum_tenants_allowed_blocks" ADD VALUE IF NOT EXISTS 'twoColumnLayout' BEFORE 'threeColumnLayout';
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END $$;
-  `)
-
   await db.execute(sql`
     UPDATE "tenants_allowed_blocks"
     SET "value" = 'twoColumnLayout'::"public"."enum_tenants_allowed_blocks"

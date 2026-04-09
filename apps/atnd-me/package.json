@@ -53,6 +53,7 @@
     "@repo/auth-next": "workspace:*",
     "@repo/better-auth-config": "workspace:*",
     "@repo/bookings-next": "workspace:*",
+    "@repo/membership-next": "workspace:*",
     "@repo/bookings-payments": "workspace:*",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/payments-next": "workspace:*",

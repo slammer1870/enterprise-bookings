@@ -13,44 +13,12 @@ function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function formatCalendarButtonLabel(date: Date): string {
-  const weekdays = [
-    'Sunday',
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-  ]
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ]
-  const day = date.getDate()
-  const mod100 = day % 100
-  const suffix =
-    mod100 >= 11 && mod100 <= 13
-      ? 'th'
-      : day % 10 === 1
-        ? 'st'
-        : day % 10 === 2
-          ? 'nd'
-          : day % 10 === 3
-            ? 'rd'
-            : 'th'
-
-  return `${weekdays[date.getDay()]}, ${months[date.getMonth()]} ${day}${suffix}, ${date.getFullYear()}`
+/** Local calendar day as YYYY-MM-DD (matches `data-day` on react-day-picker day buttons). */
+function formatLocalYmd(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function getTenantSelector(page: Page) {
@@ -151,25 +119,30 @@ async function openTimeslotsDashboardForDate(
     timeout: process.env.CI ? 120000 : 60000,
   })
 
-  const monthStatus = page.getByRole('status').first()
-  const nextMonthButton = page.getByRole('button', { name: /go to the next month/i })
+  // react-day-picker v9: no `role="status"` caption; day buttons use `data-day="YYYY-MM-DD"`.
+  const calendar = page.locator('[data-slot="calendar"]').first()
+  await expect(calendar).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
+
   const targetMonthLabel = targetDate.toLocaleString('en-US', {
     month: 'long',
     year: 'numeric',
   })
+  const nextMonthButton = page.getByRole('button', { name: /go to the next month/i })
 
   for (let i = 0; i < 12; i += 1) {
-    const visibleMonth = (await monthStatus.textContent())?.trim()
-    if (visibleMonth === targetMonthLabel) break
+    const monthCaption = calendar.getByText(targetMonthLabel, { exact: true })
+    if (await monthCaption.isVisible().catch(() => false)) break
     await nextMonthButton.click()
   }
 
-  await expect(monthStatus).toHaveText(targetMonthLabel, {
+  await expect(calendar.getByText(targetMonthLabel, { exact: true })).toBeVisible({
     timeout: process.env.CI ? 120000 : 60000,
   })
 
-  const targetDateLabel = formatCalendarButtonLabel(targetDate)
-  await page.getByRole('button', { name: new RegExp(`^${escapeRegex(targetDateLabel)}$`) }).click()
+  const ymd = formatLocalYmd(targetDate)
+  const dayButton = calendar.locator(`button[data-day="${ymd}"]`)
+  await expect(dayButton).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
+  await dayButton.click()
 }
 
 test.describe('Admin lesson creation date regression', () => {

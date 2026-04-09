@@ -42,7 +42,11 @@ import {
   DhPricing,
   DhContact,
   DhGroups,
+  createTwoColumnLayout,
 } from '@repo/website'
+
+import { DhLiveSchedule } from './DhLiveSchedule/config'
+import { DhLiveMembership } from './DhLiveMembership/config'
 
 const allBlocks: Block[] = [
   HeroSchedule,
@@ -83,11 +87,14 @@ const allBlocks: Block[] = [
   DhPricing,
   DhContact,
   DhGroups,
+  DhLiveSchedule,
+  DhLiveMembership,
   // Croí Lán (tenant-scoped extras)
   CroiLanHeroWithLocation,
 ]
 
 const ThreeColumnLayout = createThreeColumnLayout(allBlocks)
+const TwoColumnLayout = createTwoColumnLayout(allBlocks)
 
 /** Block slugs that all tenants always have access to. */
 export const defaultBlockSlugs: string[] = [
@@ -107,6 +114,7 @@ allBlocks.forEach((b) => {
   if (b.slug && !blockMap.has(b.slug)) blockMap.set(b.slug, b)
 })
 blockMap.set('threeColumnLayout', ThreeColumnLayout)
+blockMap.set('twoColumnLayout', TwoColumnLayout)
 
 /** Get block config by slug. */
 export function getBlockBySlug(slug: string): Block | undefined {
