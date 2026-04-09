@@ -476,12 +476,17 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  /** In payment flow: apply desired number of new (pending) bookings — cancel or create pending as needed. */
-  const handleUpdatePendingQuantity = async () => {
+  const isUpdatingPendingQuantity = isCreating || isCancelling || isAbandoningCheckout
+
+  /** In payment flow, +/- applies immediately so checkout stays in sync with the selected quantity. */
+  const handlePendingQuantityChange = async (requestedQuantity: number) => {
     const current = pendingBookings.length
-    const target = desiredPendingQuantity
+    const maxPendingQuantity = Math.max(0, lesson.remainingCapacity)
+    const target = Math.min(Math.max(requestedQuantity, 0), maxPendingQuantity)
 
     if (target === current) return
+
+    setDesiredPendingQuantity(target)
 
     if (target === 0) {
       setIsAbandoningCheckout(true)
@@ -489,11 +494,13 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         await cancelPendingForLesson({ lessonId: lesson.id })
         setIsInPaymentFlow(false)
         setPendingBookings([])
+        setDesiredPendingQuantity(0)
         setDesiredQuantity(confirmedBookings.length)
         await queryClient.invalidateQueries({
           queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
         })
       } catch (err: any) {
+        setDesiredPendingQuantity(current)
         toast.error(err?.message ?? 'Failed to cancel pending bookings')
       } finally {
         setIsAbandoningCheckout(false)
@@ -510,11 +517,15 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         for (const booking of pendingToCancel) {
           if (booking.id != null) await cancelBookingAsync({ id: booking.id })
         }
+        setPendingBookings((prev) =>
+          prev.filter((booking) => !pendingToCancel.some((pending) => pending.id === booking.id))
+        )
         await queryClient.invalidateQueries({
           queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
         })
         toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
       } catch (err: any) {
+        setDesiredPendingQuantity(current)
         toast.error(err?.message ?? 'Failed to update pending bookings')
       }
       return
@@ -531,6 +542,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       setPendingBookings((prev) => [...prev, ...newPending])
       toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
     } catch (err: any) {
+      setDesiredPendingQuantity(current)
       toast.error(err?.message ?? 'Failed to add pending bookings')
     }
   }
@@ -609,8 +621,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   type="button"
                   size="icon"
                   variant="outline"
-                  disabled={desiredPendingQuantity <= minPendingQuantity || isCreating || isCancelling}
-                  onClick={() => setDesiredPendingQuantity((q) => Math.max(minPendingQuantity, q - 1))}
+                  disabled={
+                    desiredPendingQuantity <= minPendingQuantity || isUpdatingPendingQuantity
+                  }
+                  onClick={() => {
+                    void handlePendingQuantityChange(desiredPendingQuantity - 1)
+                  }}
                   aria-label="Decrease new bookings"
                 >
                   <Minus className="h-4 w-4" />
@@ -626,32 +642,20 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   size="icon"
                   variant="outline"
                   disabled={
-                    desiredPendingQuantity >= maxPendingQuantity || isCreating || isCancelling
+                    desiredPendingQuantity >= maxPendingQuantity || isUpdatingPendingQuantity
                   }
-                  onClick={() =>
-                    setDesiredPendingQuantity((q) => Math.min(maxPendingQuantity, q + 1))
-                  }
+                  onClick={() => {
+                    void handlePendingQuantityChange(desiredPendingQuantity + 1)
+                  }}
                   aria-label="Increase new bookings"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-
-            <Button
-              className="w-full"
-              disabled={isCreating || isCancelling || isAbandoningCheckout || desiredPendingQuantity === pendingBookings.length}
-              onClick={handleUpdatePendingQuantity}
-            >
-              {isCreating || isCancelling || isAbandoningCheckout ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                'Update Quantity'
-              )}
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              {isUpdatingPendingQuantity ? 'Updating quantity...' : 'Changes save automatically.'}
+            </p>
           </CardContent>
         </Card>
 

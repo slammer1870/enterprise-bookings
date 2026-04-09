@@ -608,7 +608,7 @@ test.describe('Manage booking upgrade guards', () => {
     }
   })
 
-  test('new booking quantity display stays in sync when increased during checkout', async ({
+  test('new booking quantity updates immediately when changed during checkout', async ({
     page,
     testData,
   }) => {
@@ -701,6 +701,7 @@ test.describe('Manage booking upgrade guards', () => {
     const pendingQuantity = page.getByTestId('pending-booking-quantity')
     const totalBookingsCopy = page.getByText(/this will bring your total number of bookings up to 2\./i)
     const increaseNewBookingsButton = page.getByRole('button', { name: /increase new bookings/i })
+    const decreaseNewBookingsButton = page.getByRole('button', { name: /decrease new bookings/i })
 
     await expect(pendingQuantity).toHaveText('1', { timeout: 10000 })
     await expect(totalBookingsCopy).toBeVisible({ timeout: 10000 })
@@ -714,10 +715,10 @@ test.describe('Manage booking upgrade guards', () => {
     await page.waitForTimeout(process.env.CI ? 1500 : 750)
     await expect(pendingQuantity).toHaveText('2')
 
-    await page.getByRole('button', { name: /update quantity/i }).click()
-    await expect(pendingQuantity).toHaveText('2', { timeout: 10000 })
-    await expect(page.getByText(/you have 2 pending bookings? for this lesson/i).first()).toBeVisible({
-      timeout: 10000,
-    })
+    await decreaseNewBookingsButton.click()
+    await expect(pendingQuantity).toHaveText('1', { timeout: 10000 })
+    await expect(
+      page.getByText(/this will bring your total number of bookings up to 2\./i)
+    ).toBeVisible({ timeout: 10000 })
   })
 })

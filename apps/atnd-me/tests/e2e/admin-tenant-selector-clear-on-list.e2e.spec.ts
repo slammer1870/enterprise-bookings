@@ -207,6 +207,12 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
       .poll(async () => await getPayloadTenantCookie(), { timeout: 20_000 })
       .toBe('')
 
+    // Full navigation refetches the list with cleared cookies. Relying only on client
+    // router.refresh() after clear can race in CI: cookie is empty but the list RSC
+    // still reflects the previous tenant filter until a new document request runs.
+    await page.goto(PAGES_LIST_URL, { waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+
     await expect(page.getByText(title1)).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(title2)).toBeVisible({ timeout: 20_000 })
 
