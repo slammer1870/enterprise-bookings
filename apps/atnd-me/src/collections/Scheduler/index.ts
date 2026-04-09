@@ -124,6 +124,10 @@ const days: Field = {
 
 export const Scheduler: CollectionConfig = {
     slug: 'scheduler',
+    labels: {
+        singular: 'Scheduler',
+        plural: 'Scheduler',
+    },
     admin: {
         useAsTitle: 'tenant',
         defaultColumns: ['tenant', 'startDate', 'endDate', 'updatedAt'],
