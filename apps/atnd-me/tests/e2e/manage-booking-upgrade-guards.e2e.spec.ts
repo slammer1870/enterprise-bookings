@@ -607,4 +607,117 @@ test.describe('Manage booking upgrade guards', () => {
       })
     }
   })
+
+  test('new booking quantity display stays in sync when increased during checkout', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user3 ?? testData.users.user1
+    const workerIndex = testData.workerIndex
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectAccountId: null,
+      },
+      overrideAccess: true,
+    })
+
+    await loginAsRegularUser(page, 1, user.email, 'password', {
+      tenantSlug: tenant.slug,
+    })
+    await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+
+    const classOption = await createTestClassOption(
+      tenant.id,
+      'Manage checkout quantity display',
+      8,
+      undefined,
+      workerIndex
+    )
+
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `Manage checkout quantity drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        isActive: true,
+        price: 24,
+        adjustable: true,
+        paymentMethods: ['card'],
+        tenant: tenant.id,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
+    await payload.update({
+      collection: 'class-options',
+      id: classOption.id,
+      data: {
+        paymentMethods: {
+          allowedDropIn: dropIn.id,
+        },
+      },
+      overrideAccess: true,
+    })
+
+    const startTime = new Date()
+    startTime.setHours(16, 0, 0, 0)
+    startTime.setDate(startTime.getDate() + 2 + workerIndex)
+    const endTime = new Date(startTime)
+    endTime.setHours(startTime.getHours() + 1, 0, 0, 0)
+
+    const lesson = await createTestLesson(
+      tenant.id,
+      classOption.id,
+      startTime,
+      endTime,
+      undefined,
+      true
+    )
+
+    await createTestBooking(user.id, lesson.id, 'confirmed')
+
+    await openManagePageWithExpectedState({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: lesson.id,
+      expectedState: 'quantity',
+    })
+
+    const bookingQuantity = page.getByTestId('booking-quantity')
+    await expect(bookingQuantity).toHaveText('1', { timeout: 10000 })
+
+    await page.getByRole('button', { name: /increase quantity/i }).click()
+    await expect(bookingQuantity).toHaveText('2', { timeout: 10000 })
+
+    await page.getByRole('button', { name: /update bookings/i }).click()
+    await expectCurrentManageCheckoutState(page)
+
+    const pendingQuantity = page.getByTestId('pending-booking-quantity')
+    const totalBookingsCopy = page.getByText(/this will bring your total number of bookings up to 2\./i)
+    const increaseNewBookingsButton = page.getByRole('button', { name: /increase new bookings/i })
+
+    await expect(pendingQuantity).toHaveText('1', { timeout: 10000 })
+    await expect(totalBookingsCopy).toBeVisible({ timeout: 10000 })
+
+    await increaseNewBookingsButton.click()
+    await expect(pendingQuantity).toHaveText('2', { timeout: 10000 })
+    await expect(
+      page.getByText(/this will bring your total number of bookings up to 3\./i)
+    ).toBeVisible({ timeout: 10000 })
+
+    await page.waitForTimeout(process.env.CI ? 1500 : 750)
+    await expect(pendingQuantity).toHaveText('2')
+
+    await page.getByRole('button', { name: /update quantity/i }).click()
+    await expect(pendingQuantity).toHaveText('2', { timeout: 10000 })
+    await expect(page.getByText(/you have 2 pending bookings? for this lesson/i).first()).toBeVisible({
+      timeout: 10000,
+    })
+  })
 })

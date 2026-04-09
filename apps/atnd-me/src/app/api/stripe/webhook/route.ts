@@ -1,5 +1,6 @@
 /**
- * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*, product.*, price.*.
+ * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*, product.*, price.*,
+ * coupon.*, promotion_code.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
@@ -35,6 +36,7 @@ import {
   getStripeProductIdFromWebhookObject,
   syncStripeProductToPayload,
 } from '@/lib/stripe-connect/webhook/sync-products'
+import { syncDiscountFromWebhookEvent } from '@/lib/stripe-connect/webhook/sync-discount-codes'
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
 
 export async function POST(request: NextRequest) {
@@ -240,6 +242,39 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       payload.logger?.error?.(
         `Failed to sync Stripe product ${stripeProductId} from webhook ${event.type}: ${error}`,
+      )
+    }
+
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  const isDiscountSyncEvent =
+    event.type === 'coupon.updated' ||
+    event.type === 'coupon.deleted' ||
+    event.type === 'promotion_code.created' ||
+    event.type === 'promotion_code.updated'
+
+  if (isDiscountSyncEvent) {
+    if (!accountId) {
+      payload.logger?.info?.(
+        `discount sync event skipped: missing account id (event=${event.type})`,
+      )
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    try {
+      await syncDiscountFromWebhookEvent({
+        payload,
+        tenantId,
+        accountId,
+        eventType: event.type,
+        eventObject: (event.data?.object ?? {}) as Record<string, unknown>,
+      })
+    } catch (error) {
+      payload.logger?.error?.(
+        `Failed to sync discount/coupon from webhook ${event.type}: ${error}`,
       )
     }
 

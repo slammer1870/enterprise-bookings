@@ -244,11 +244,15 @@ export const DiscountCodes: CollectionConfig = {
   ],
   hooks: {
     beforeChange: [
-      async ({ data, operation, originalDoc }) => {
+      async ({ data, operation, originalDoc, req }) => {
         if (!data) return data
 
         const normalizedData = normalizeDiscountCodeData(data as Record<string, unknown>)
         if (operation !== 'update' || !originalDoc) return normalizedData
+        // Stripe → Payload webhook sync may update code/type/value/currency/duration fields.
+        if ((req.context as { stripeWebhookSync?: boolean } | undefined)?.stripeWebhookSync) {
+          return normalizedData
+        }
         if (!originalDoc.stripeCouponId && !originalDoc.stripePromotionCodeId) return normalizedData
 
         return restoreStripeImmutableFields(
