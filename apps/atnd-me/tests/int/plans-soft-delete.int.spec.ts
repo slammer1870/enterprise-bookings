@@ -38,7 +38,7 @@ describe('Plans soft delete (Phase 4.5)', () => {
         name: 'Admin Plans Soft Delete',
         email: `admin-plans-soft-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

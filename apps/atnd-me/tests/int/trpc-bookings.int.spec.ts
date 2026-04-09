@@ -4,6 +4,7 @@ import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import type { User, Lesson, ClassOption } from '@repo/shared-types'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
@@ -20,12 +21,17 @@ describe('tRPC Bookings Integration Tests', () => {
   let testTenant: { id: number | string; slug: string }
   // Helper to create tenant-scoped documents with tenant automatically added
   const createWithTenant = async <T = any>(
-    collection: 'lessons' | 'class-options' | 'bookings' | 'instructors',
+    collection: 'timeslots' | 'event-types' | 'bookings' | 'staff-members',
     data: any,
     options?: Omit<Parameters<typeof payload.create>[0], 'collection' | 'data'>
   ): Promise<T> => {
-    const tenantScopedCollections: Array<'lessons' | 'class-options' | 'bookings' | 'instructors'> = ['lessons', 'class-options', 'bookings', 'instructors']
-    if (tenantScopedCollections.includes(collection)) {
+    const tenantScopedCollections = [
+      'timeslots',
+      'event-types',
+      'bookings',
+      'staff-members',
+    ] as const
+    if ((tenantScopedCollections as readonly string[]).includes(collection)) {
       data = { ...data, tenant: testTenant.id }
     }
     return payload.create({
@@ -70,7 +76,7 @@ describe('tRPC Bookings Integration Tests', () => {
     // Use unique name with timestamp to avoid conflicts
     const uniqueName = `Test Class Option ${Date.now()}`
     classOption = (await createWithTenant<ClassOption>(
-      'class-options',
+      'event-types',
       {
         name: uniqueName,
         places: 10,
@@ -88,7 +94,7 @@ describe('tRPC Bookings Integration Tests', () => {
     endTime.setHours(11, 0, 0, 0) // 11 AM
 
     lesson = (await createWithTenant<Lesson>(
-      'lessons',
+      'timeslots',
       {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
@@ -110,7 +116,7 @@ describe('tRPC Bookings Integration Tests', () => {
       // Cleanup test data
       try {
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: lesson.id } },
         })
       } catch (_e) {
@@ -118,7 +124,7 @@ describe('tRPC Bookings Integration Tests', () => {
       }
       try {
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: classOption.id } },
         })
       } catch (_e) {
@@ -143,6 +149,7 @@ describe('tRPC Bookings Integration Tests', () => {
       headers,
       payload,
       user,
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     })
     return appRouter.createCaller(ctx)
   }
@@ -151,7 +158,11 @@ describe('tRPC Bookings Integration Tests', () => {
   const createUnauthenticatedCaller = async () => {
     const headers = new Headers()
     headers.set('cookie', `tenant-slug=${testTenant.slug}`)
-    const ctx = await createTRPCContext({ headers, payload })
+    const ctx = await createTRPCContext({
+      headers,
+      payload,
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+    })
     return appRouter.createCaller(ctx)
   }
 
@@ -213,7 +224,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(15, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -239,7 +250,7 @@ describe('tRPC Bookings Integration Tests', () => {
 
       // Cleanup
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -255,7 +266,7 @@ describe('tRPC Bookings Integration Tests', () => {
       async () => {
         // Use a small class option (3 places) to avoid creating many users/bookings and reduce timeout risk
         const smallClassOption = (await createWithTenant<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Fully Booked Class ${Date.now()}`,
             places: 3,
@@ -271,7 +282,7 @@ describe('tRPC Bookings Integration Tests', () => {
         endTime.setHours(12, 0, 0, 0)
 
         const testLesson = (await createWithTenant<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: startTime.toISOString(),
             startTime: startTime.toISOString(),
@@ -335,12 +346,12 @@ describe('tRPC Bookings Integration Tests', () => {
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: testLesson.id } },
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: smallClassOption.id } },
           overrideAccess: true,
         })
@@ -358,7 +369,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(13, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -393,7 +404,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { equals: result[0]?.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -406,7 +417,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(15, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -442,7 +453,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { in: result.map((b) => b.id) } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -455,7 +466,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(17, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -499,7 +510,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -534,7 +545,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(19, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -572,7 +583,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { in: result.map((b) => b.id) } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -587,7 +598,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(21, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -641,7 +652,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { in: [booking1.id, booking2.id] } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -654,7 +665,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(11, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -708,7 +719,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { in: [confirmedBooking.id, cancelledBooking.id] } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -724,7 +735,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(11, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -773,7 +784,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { equals: booking.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -807,7 +818,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(13, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -847,7 +858,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { equals: otherUserBooking.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
       await payload.delete({
@@ -866,7 +877,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(15, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -925,7 +936,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { id: { in: [confirmed.id, pending1.id, pending2.id] } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -938,7 +949,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(17, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -959,7 +970,7 @@ describe('tRPC Bookings Integration Tests', () => {
       expect(result).toEqual({ cancelled: 0 })
 
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -975,7 +986,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(15, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1027,7 +1038,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1041,7 +1052,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(17, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1088,7 +1099,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1096,7 +1107,7 @@ describe('tRPC Bookings Integration Tests', () => {
     it('should prevent increasing quantity beyond remaining capacity', async () => {
       // Create a fresh lesson with limited capacity (small places to keep test fast)
       const smallClassOption = (await createWithTenant<ClassOption>(
-        'class-options',
+        'event-types',
         {
           name: `Small Cap ${Date.now()}`,
           places: 3,
@@ -1111,7 +1122,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(19, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1174,11 +1185,11 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { id: { equals: smallClassOption.id } },
       })
       await payload.delete({
@@ -1198,7 +1209,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(17, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1267,7 +1278,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1281,7 +1292,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(18, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1369,7 +1380,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1383,7 +1394,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(20, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1449,7 +1460,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1463,7 +1474,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(21, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1541,7 +1552,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
       await payload.delete({
@@ -1559,7 +1570,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(22, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1638,7 +1649,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
       try {
@@ -1661,7 +1672,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(11, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1711,7 +1722,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1724,7 +1735,7 @@ describe('tRPC Bookings Integration Tests', () => {
       endTime.setHours(10, 0, 0, 0)
 
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1766,7 +1777,7 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: testLesson.id } },
       })
     }, TEST_TIMEOUT)
@@ -1799,7 +1810,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: {
           paymentMethods: { allowedPlans: [plan.id] },
@@ -1839,7 +1850,7 @@ describe('tRPC Bookings Integration Tests', () => {
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
@@ -1876,7 +1887,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
@@ -1902,7 +1913,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -1929,11 +1940,11 @@ describe('tRPC Bookings Integration Tests', () => {
       expect(booking.paymentMethodUsed).toBe('subscription')
       expect(booking.subscriptionIdUsed).toBe(sub.id)
       await payload.delete({ collection: 'bookings', where: { id: { equals: created[0]!.id } }, overrideAccess: true })
-      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
@@ -1970,7 +1981,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
@@ -1996,7 +2007,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -2060,11 +2071,11 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
         overrideAccess: true,
       })
-      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
@@ -2101,7 +2112,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
@@ -2127,7 +2138,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(22, 0, 0, 0)
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -2147,11 +2158,11 @@ describe('tRPC Bookings Integration Tests', () => {
           subscriptionId: Number(sub.id),
         })
       ).rejects.toThrow(/past due|portal/)
-      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
@@ -2199,7 +2210,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
 
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
@@ -2228,7 +2239,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(10, 0, 0, 0)
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -2272,11 +2283,11 @@ describe('tRPC Bookings Integration Tests', () => {
         where: { lesson: { equals: testLesson.id } },
         overrideAccess: true,
       })
-      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: {} },
         overrideAccess: true,
@@ -2321,7 +2332,7 @@ describe('tRPC Bookings Integration Tests', () => {
       })
 
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedPlans: [plan.id] } },
         overrideAccess: true,
@@ -2350,7 +2361,7 @@ describe('tRPC Bookings Integration Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(12, 0, 0, 0)
       const testLesson = (await createWithTenant<Lesson>(
-        'lessons',
+        'timeslots',
         {
           date: startTime.toISOString(),
           startTime: startTime.toISOString(),
@@ -2387,11 +2398,11 @@ describe('tRPC Bookings Integration Tests', () => {
       })
       expect(bookings.totalDocs).toBe(0)
 
-      await payload.delete({ collection: 'lessons', where: { id: { equals: testLesson.id } }, overrideAccess: true })
+      await payload.delete({ collection: 'timeslots', where: { id: { equals: testLesson.id } }, overrideAccess: true })
       await payload.delete({ collection: 'subscriptions', id: sub.id, overrideAccess: true })
       await payload.delete({ collection: 'plans', id: plan.id, overrideAccess: true })
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: {} },
         overrideAccess: true,

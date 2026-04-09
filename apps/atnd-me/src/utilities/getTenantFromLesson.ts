@@ -4,6 +4,8 @@
  */
 import type { Payload } from 'payload'
 
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
 type LessonLike = { id?: number; tenant?: number | { id: number } | null }
 
 export async function getTenantFromLesson(
@@ -13,7 +15,7 @@ export async function getTenantFromLesson(
   let lesson: LessonLike | null = null
   if (typeof lessonOrLessonId === 'number') {
     const doc = await payload.findByID({
-      collection: 'lessons',
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
       id: lessonOrLessonId,
       depth: 0,
       overrideAccess: true,

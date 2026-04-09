@@ -100,7 +100,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
       overrideAccess: true,
     }) as { id: number }
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
       overrideAccess: true,
@@ -213,7 +213,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     }) as { id: number }
 
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
       overrideAccess: true,
@@ -352,7 +352,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     }) as { id: number }
 
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
       overrideAccess: true,
@@ -426,7 +426,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     }) as { id: number }
 
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
       overrideAccess: true,

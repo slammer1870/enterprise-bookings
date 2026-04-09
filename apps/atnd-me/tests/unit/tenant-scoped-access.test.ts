@@ -21,7 +21,7 @@ function createTenantAdminReq(cookieValues: Record<string, string | undefined> =
   return {
     user: {
       id: 99,
-      roles: ['tenant-admin'],
+      roles: ['admin'],
       tenants: [1, 2],
     },
     payload: {},

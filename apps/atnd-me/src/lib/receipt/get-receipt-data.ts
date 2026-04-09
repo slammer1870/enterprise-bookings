@@ -3,6 +3,8 @@
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import type { Payload } from 'payload'
 
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
 export type ReceiptData = {
   lesson?: {
     id: number
@@ -58,7 +60,7 @@ export async function getReceiptFromPaymentIntent(
     : lessonRef
 
   const lesson = await payload.findByID({
-    collection: 'lessons',
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
     id: lessonId,
     depth: 1,
     overrideAccess: true,
@@ -129,7 +131,7 @@ export async function getReceiptFromBookingIds(
     : lessonRef
 
   const lesson = await payload.findByID({
-    collection: 'lessons',
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
     id: lessonId,
     depth: 1,
     overrideAccess: true,

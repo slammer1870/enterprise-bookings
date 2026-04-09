@@ -83,9 +83,9 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    instructors: Instructor;
-    lessons: Lesson;
-    'class-options': ClassOption;
+    'staff-members': StaffMember;
+    timeslots: Timeslot;
+    'event-types': EventType;
     bookings: Booking;
     'drop-ins': DropIn;
     'class-pass-types': ClassPassType;
@@ -102,14 +102,14 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    lessons: {
+    timeslots: {
       bookings: 'bookings';
     };
     'drop-ins': {
-      'class-optionsPaymentMethods': 'class-options';
+      'event-typesPaymentMethods': 'event-types';
     };
     plans: {
-      'class-optionsPaymentMethods': 'class-options';
+      'event-typesPaymentMethods': 'event-types';
     };
     users: {
       account: 'accounts';
@@ -134,9 +134,9 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    instructors: InstructorsSelect<false> | InstructorsSelect<true>;
-    lessons: LessonsSelect<false> | LessonsSelect<true>;
-    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
+    timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
+    'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
@@ -202,7 +202,7 @@ export interface UserAuthOperations {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'tenant-admin' | 'user';
+  role: 'super-admin' | 'admin' | 'staff' | 'user';
   token: string;
   url?: string | null;
   updatedAt: string;
@@ -595,7 +595,7 @@ export interface User {
   /**
    * The role/ roles of the user
    */
-  role?: ('admin' | 'tenant-admin' | 'user')[] | null;
+  role?: ('super-admin' | 'admin' | 'staff' | 'user')[] | null;
   /**
    * Whether the user is banned from the platform
    */
@@ -618,7 +618,7 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
+  roles?: ('user' | 'staff' | 'admin' | 'super-admin')[] | null;
   stripeCustomerId?: string | null;
   stripeCustomers?:
     | {
@@ -823,8 +823,8 @@ export interface Plan {
    */
   skipSync?: boolean | null;
   deletedAt?: string | null;
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
+  'event-typesPaymentMethods'?: {
+    docs?: (number | EventType)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -833,9 +833,9 @@ export interface Plan {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
+ * via the `definition` "event-types".
  */
-export interface ClassOption {
+export interface EventType {
   id: number;
   /**
    * Controlled by the tenant selector when creating tenant-scoped documents.
@@ -891,8 +891,8 @@ export interface DropIn {
       }[]
     | null;
   paymentMethods: 'card'[];
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
+  'event-typesPaymentMethods'?: {
+    docs?: (number | EventType)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -2501,7 +2501,7 @@ export interface Scheduler {
   /**
    * Default class type to use when creating lessons (can be overridden per slot)
    */
-  defaultClassOption: number | ClassOption;
+  defaultClassOption: number | EventType;
   /**
    * The days of the week and their time slots
    */
@@ -2515,9 +2515,9 @@ export interface Scheduler {
                 /**
                  * Overrides the default class option
                  */
-                classOption?: (number | null) | ClassOption;
+                classOption?: (number | null) | EventType;
                 location?: string | null;
-                instructor?: (number | null) | Instructor;
+                instructor?: (number | null) | StaffMember;
                 /**
                  * Overrides the default lock out time
                  */
@@ -2542,9 +2542,9 @@ export interface Scheduler {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
+ * via the `definition` "staff-members".
  */
-export interface Instructor {
+export interface StaffMember {
   id: number;
   /**
    * Controlled by the tenant selector when creating tenant-scoped documents.
@@ -2649,9 +2649,9 @@ export interface Verification {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
+ * via the `definition` "timeslots".
  */
-export interface Lesson {
+export interface Timeslot {
   id: number;
   /**
    * Controlled by the tenant selector when creating tenant-scoped documents.
@@ -2666,8 +2666,8 @@ export interface Lesson {
   lockOutTime: number;
   originalLockOutTime?: number | null;
   location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
+  instructor?: (number | null) | StaffMember;
+  classOption: number | EventType;
   /**
    * The number of places remaining
    */
@@ -2696,7 +2696,7 @@ export interface Booking {
   id: number;
   tenant?: (number | null) | Tenant;
   user: number | User;
-  lesson: number | Lesson;
+  lesson: number | Timeslot;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
   /**
    * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
@@ -2993,16 +2993,16 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
-        relationTo: 'instructors';
-        value: number | Instructor;
+        relationTo: 'staff-members';
+        value: number | StaffMember;
       } | null)
     | ({
-        relationTo: 'lessons';
-        value: number | Lesson;
+        relationTo: 'timeslots';
+        value: number | Timeslot;
       } | null)
     | ({
-        relationTo: 'class-options';
-        value: number | ClassOption;
+        relationTo: 'event-types';
+        value: number | EventType;
       } | null)
     | ({
         relationTo: 'bookings';
@@ -4445,9 +4445,9 @@ export interface VerificationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors_select".
+ * via the `definition` "staff-members_select".
  */
-export interface InstructorsSelect<T extends boolean = true> {
+export interface StaffMembersSelect<T extends boolean = true> {
   tenant?: T;
   user?: T;
   name?: T;
@@ -4459,9 +4459,9 @@ export interface InstructorsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons_select".
+ * via the `definition` "timeslots_select".
  */
-export interface LessonsSelect<T extends boolean = true> {
+export interface TimeslotsSelect<T extends boolean = true> {
   tenant?: T;
   date?: T;
   startTime?: T;
@@ -4480,9 +4480,9 @@ export interface LessonsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options_select".
+ * via the `definition` "event-types_select".
  */
-export interface ClassOptionsSelect<T extends boolean = true> {
+export interface EventTypesSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
   places?: T;
@@ -4533,7 +4533,7 @@ export interface DropInsSelect<T extends boolean = true> {
         id?: T;
       };
   paymentMethods?: T;
-  'class-optionsPaymentMethods'?: T;
+  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4631,7 +4631,7 @@ export interface PlansSelect<T extends boolean = true> {
   status?: T;
   skipSync?: T;
   deletedAt?: T;
-  'class-optionsPaymentMethods'?: T;
+  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4888,15 +4888,15 @@ export interface TaskGenerateLessonsFromSchedule {
         timeSlot: {
           startTime: string;
           endTime: string;
-          classOption?: (number | null) | ClassOption;
+          classOption?: (number | null) | EventType;
           location?: string | null;
-          instructor?: (number | null) | Instructor;
+          instructor?: (number | null) | StaffMember;
           lockOutTime?: number | null;
         }[];
       }[];
     };
     clearExisting: boolean;
-    defaultClassOption: number | ClassOption;
+    defaultClassOption: number | EventType;
     lockOutTime: number;
   };
   output: {

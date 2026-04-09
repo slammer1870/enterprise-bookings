@@ -1,6 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
 import type { User, Lesson, Booking } from '@repo/shared-types'
-import type { Tenant, ClassOption, Instructor } from '@/payload-types'
+import type { Tenant, EventType, StaffMember } from '@/payload-types'
 
 const SAUNA_TENANTS = [
   { name: 'Dundrum', slug: 'dundrum', description: 'Sauna — Dublin South' },
@@ -25,7 +25,7 @@ async function deleteDefaultTenantData(
 
   try {
     const lessons = await payload.find({
-      collection: 'lessons',
+      collection: 'timeslots',
       where: {
         location: { equals: 'Main Studio' },
         tenant: { equals: tenantId },
@@ -37,7 +37,7 @@ async function deleteDefaultTenantData(
 
     for (const lesson of lessons.docs) {
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: lesson.id,
         req: tenantReq,
         overrideAccess: true,
@@ -47,16 +47,16 @@ async function deleteDefaultTenantData(
     payload.logger.warn(`    Could not delete default lessons: ${error}`)
   }
 
-  const defaultClassOptionPatterns = [
+  const defaultEventTypePatterns = [
     `Yoga Class ${tenantId}`,
     `Fitness Class ${tenantId}`,
     `Small Group Class ${tenantId}`,
   ]
 
-  for (const pattern of defaultClassOptionPatterns) {
+  for (const pattern of defaultEventTypePatterns) {
     try {
       const classOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           name: { equals: pattern },
           tenant: { equals: tenantId },
@@ -68,7 +68,7 @@ async function deleteDefaultTenantData(
 
       for (const classOption of classOptions.docs) {
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           id: classOption.id,
           req: tenantReq,
           overrideAccess: true,
@@ -93,8 +93,8 @@ export async function seedBookings({
 }): Promise<{
   tenants: Tenant[]
   users: User[]
-  instructors: Instructor[]
-  classOptions: ClassOption[]
+  instructors: StaffMember[]
+  classOptions: EventType[]
   lessons: Lesson[]
   bookings: Booking[]
 }> {
@@ -112,12 +112,12 @@ export async function seedBookings({
     payload.logger.warn(`  Could not delete bookings: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
-    await payload.db.deleteMany({ collection: 'lessons', req, where: {} })
+    await payload.db.deleteMany({ collection: 'timeslots', req, where: {} })
   } catch (e) {
     payload.logger.warn(`  Could not delete lessons: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
-    await payload.db.deleteMany({ collection: 'class-options', req, where: {} })
+    await payload.db.deleteMany({ collection: 'event-types', req, where: {} })
   } catch (e) {
     payload.logger.warn(`  Could not delete class-options: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
@@ -132,7 +132,7 @@ export async function seedBookings({
     payload.logger.warn(`  Could not delete class-pass-types: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
-    await payload.db.deleteMany({ collection: 'instructors', req, where: {} })
+    await payload.db.deleteMany({ collection: 'staff-members', req, where: {} })
   } catch (e) {
     payload.logger.warn(`  Could not delete instructors: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
@@ -264,8 +264,8 @@ export async function seedBookings({
 
   const allLessons: Lesson[] = []
   const allBookings: Booking[] = []
-  const allClassOptions: ClassOption[] = []
-  const allInstructors: Instructor[] = []
+  const allEventTypes: EventType[] = []
+  const allStaffMembers: StaffMember[] = []
 
   const now = new Date()
 
@@ -297,12 +297,12 @@ export async function seedBookings({
     }
 
     const instructor = await createWithTenant(
-      'instructors',
+      'staff-members',
       { user: instructorUser.id, active: true },
       tenant.id,
       { overrideAccess: true },
     )
-    allInstructors.push(instructor as Instructor)
+    allStaffMembers.push(instructor as StaffMember)
 
     const saunaOnly = await createWithTenant(
       'class-pass-types',
@@ -330,7 +330,7 @@ export async function seedBookings({
     const allAccessId = getId(allAccess)
 
     const opt50 = await createWithTenant(
-      'class-options',
+      'event-types',
       {
         name: 'Wood fired sauna (50 min)',
         places: 12,
@@ -341,7 +341,7 @@ export async function seedBookings({
       { draft: false, overrideAccess: true },
     )
     const opt30 = await createWithTenant(
-      'class-options',
+      'event-types',
       {
         name: 'Wood fired sauna (30 min)',
         places: 8,
@@ -351,7 +351,7 @@ export async function seedBookings({
       tenant.id,
       { draft: false, overrideAccess: true },
     )
-    allClassOptions.push(opt50 as ClassOption, opt30 as ClassOption)
+    allEventTypes.push(opt50 as EventType, opt30 as EventType)
     const opt50Id = getId(opt50)
 
     const pastLessons: { id: number }[] = []
@@ -362,7 +362,7 @@ export async function seedBookings({
       const endDate = new Date(lessonDate)
       endDate.setHours(17, 50, 0, 0)
       const lesson = await createWithTenant(
-        'lessons',
+        'timeslots',
         {
           date: lessonDate.toISOString(),
           startTime: lessonDate.toISOString(),
@@ -387,7 +387,7 @@ export async function seedBookings({
       const endDate = new Date(lessonDate)
       endDate.setHours(17, 50, 0, 0)
       const lesson = await createWithTenant(
-        'lessons',
+        'timeslots',
         {
           date: lessonDate.toISOString(),
           startTime: lessonDate.toISOString(),
@@ -472,14 +472,14 @@ export async function seedBookings({
   }
 
   payload.logger.info(
-    `  Created: ${tenants.length} tenants, ${1 + demoUsers.length} users, ${allInstructors.length} instructors, ${allClassOptions.length} class options, ${allLessons.length} lessons, ${allBookings.length} bookings`,
+    `  Created: ${tenants.length} tenants, ${1 + demoUsers.length} users, ${allStaffMembers.length} instructors, ${allEventTypes.length} class options, ${allLessons.length} lessons, ${allBookings.length} bookings`,
   )
 
   return {
     tenants,
     users: [adminUser as User, ...(demoUsers as unknown as User[])],
-    instructors: allInstructors,
-    classOptions: allClassOptions,
+    instructors: allStaffMembers,
+    classOptions: allEventTypes,
     lessons: allLessons,
     bookings: allBookings,
   }
@@ -498,8 +498,8 @@ export async function seedSchedulers({
   payload: Payload
   req: PayloadRequest
   tenants: Tenant[]
-  classOptions: ClassOption[]
-  instructors: Instructor[]
+  classOptions: EventType[]
+  instructors: StaffMember[]
 }): Promise<void> {
   payload.logger.info('— Seeding schedulers for tenants...')
 
@@ -518,20 +518,20 @@ export async function seedSchedulers({
 
   for (const tenant of tenants) {
     const tenantReq = { ...req, context: { ...req.context, tenant: tenant.id } }
-    const tenantClassOptions = classOptions.filter((co) => getId(co.tenant) === tenant.id)
-    const tenantInstructors = instructors.filter((inst) => getId(inst.tenant) === tenant.id)
+    const tenantEventTypes = classOptions.filter((co) => getId(co.tenant) === tenant.id)
+    const tenantStaffMembers = instructors.filter((inst) => getId(inst.tenant) === tenant.id)
 
-    const defaultClassOption = tenantClassOptions[0]
-    const defaultInstructor = tenantInstructors[0]
-    const defaultClassOptionId =
-      typeof getId(defaultClassOption) === 'string'
-        ? Number(getId(defaultClassOption))
-        : (getId(defaultClassOption) as number)
-    const defaultInstructorIdRaw = getId(defaultInstructor)
-    const defaultInstructorId =
-      typeof defaultInstructorIdRaw === 'string' ? Number(defaultInstructorIdRaw) : defaultInstructorIdRaw
+    const defaultEventType = tenantEventTypes[0]
+    const defaultStaffMember = tenantStaffMembers[0]
+    const defaultEventTypeId =
+      typeof getId(defaultEventType) === 'string'
+        ? Number(getId(defaultEventType))
+        : (getId(defaultEventType) as number)
+    const defaultStaffMemberIdRaw = getId(defaultStaffMember)
+    const defaultStaffMemberId =
+      typeof defaultStaffMemberIdRaw === 'string' ? Number(defaultStaffMemberIdRaw) : defaultStaffMemberIdRaw
 
-    if (!defaultClassOptionId || !defaultInstructorId) {
+    if (!defaultEventTypeId || !defaultStaffMemberId) {
       payload.logger.warn(`  Skipping scheduler for tenant ${tenant.id}: missing class option or instructor`)
       continue
     }
@@ -549,17 +549,17 @@ export async function seedSchedulers({
         {
           startTime: new Date('2000-01-01T17:00:00').toISOString(),
           endTime: new Date('2000-01-01T17:50:00').toISOString(),
-          classOption: defaultClassOptionId,
+          classOption: defaultEventTypeId,
           location: 'Sauna 1',
-          instructor: defaultInstructorId as number,
+          instructor: defaultStaffMemberId as number,
           active: true,
         },
         {
           startTime: new Date('2000-01-01T18:00:00').toISOString(),
           endTime: new Date('2000-01-01T18:50:00').toISOString(),
-          classOption: defaultClassOptionId,
+          classOption: defaultEventTypeId,
           location: 'Sauna 1',
-          instructor: defaultInstructorId as number,
+          instructor: defaultStaffMemberId as number,
           active: true,
         },
       ],
@@ -570,7 +570,7 @@ export async function seedSchedulers({
       startDate: startDate.toISOString().split('T')[0] as string,
       endDate: endDate.toISOString().split('T')[0] as string,
       lockOutTime: 30,
-      defaultClassOption: defaultClassOptionId,
+      defaultClassOption: defaultEventTypeId,
       week: { days: weekDays },
       clearExisting: false,
     }

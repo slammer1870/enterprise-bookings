@@ -205,14 +205,14 @@ export const DiscountCodes: CollectionConfig = {
       type: 'text',
       label: 'Stripe Coupon ID',
       admin: { readOnly: true, position: 'sidebar', description: 'Set after sync to Stripe' },
-      access: { read: ({ req: { user } }) => checkRole(['admin', 'tenant-admin'], user as SharedUser) },
+      access: { read: ({ req: { user } }) => checkRole(['super-admin', 'admin'], user as SharedUser) },
     },
     {
       name: 'stripePromotionCodeId',
       type: 'text',
       label: 'Stripe Promotion Code ID',
       admin: { readOnly: true, position: 'sidebar', description: 'Set after sync to Stripe' },
-      access: { read: ({ req: { user } }) => checkRole(['admin', 'tenant-admin'], user as SharedUser) },
+      access: { read: ({ req: { user } }) => checkRole(['super-admin', 'admin'], user as SharedUser) },
     },
     {
       name: 'stripePromotionCodeDashboardLink',

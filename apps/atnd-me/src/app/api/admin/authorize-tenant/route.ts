@@ -91,13 +91,12 @@ export async function GET(request: NextRequest) {
   }
 
   const sharedUser = user as unknown as SharedUser
-  const isAdmin = checkRole(['admin'], sharedUser)
-  if (isAdmin) {
+  if (checkRole(['super-admin'], sharedUser)) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const isTenantAdmin = checkRole(['tenant-admin'], sharedUser)
-  if (!isTenantAdmin) {
+  const isTenantPortalUser = checkRole(['admin', 'staff'], sharedUser)
+  if (!isTenantPortalUser) {
     // Non-admin users should not be in the Payload admin UI at all.
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

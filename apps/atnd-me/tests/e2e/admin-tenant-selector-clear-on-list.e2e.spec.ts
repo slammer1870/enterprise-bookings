@@ -280,7 +280,7 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
     await expect(page.getByText(tenant1PageTitle)).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(tenant2PageTitle)).toHaveCount(0)
 
-    await page.goto(`${BASE_URL}/admin/collections/lessons`, { waitUntil: 'load' })
+    await page.goto(`${BASE_URL}/admin/collections/timeslots`, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
     await expect(getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant1.name), 'i')).first()).toBeVisible({
       timeout: 20_000,
@@ -311,7 +311,7 @@ test.describe('Admin tenant selector — clearing on list shows all tenants', ()
     await expect(page.getByText(tenant2PageTitle)).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(tenant1PageTitle)).toHaveCount(0)
 
-    await page.goto(`${BASE_URL}/admin/collections/lessons`, { waitUntil: 'load' })
+    await page.goto(`${BASE_URL}/admin/collections/timeslots`, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
     await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
       timeout: 20_000,

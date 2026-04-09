@@ -79,7 +79,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     userId = user.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Payment Webhook Class ${Date.now()}`,
         places: 10,
@@ -95,7 +95,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     const endTime = new Date(startTime)
     endTime.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         tenant: tenantId,
@@ -142,12 +142,12 @@ describe('Stripe payment webhooks (step 2.8)', () => {
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: lessonId } },
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: classOptionId } },
           overrideAccess: true,
         })
@@ -266,7 +266,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     'payment_intent.succeeded: confirms existing pending when lessonId+userId in metadata (quantity 1)',
     async () => {
       const lessonConfirm = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
@@ -320,7 +320,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: lessonConfirmId } },
         overrideAccess: true,
       })
@@ -332,7 +332,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     'payment_intent.succeeded: creates two bookings when lessonId+userId+quantity 2 in metadata',
     async () => {
       const co2 = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Payment Webhook Class Qty ${Date.now()}`,
           places: 10,
@@ -346,7 +346,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       const endTime2 = new Date(startTime2)
       endTime2.setHours(17, 0, 0, 0)
       const lesson2 = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
@@ -411,12 +411,12 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         })
       }
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: lesson2Id } },
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { id: { equals: co2.id } },
         overrideAccess: true,
       })
@@ -428,7 +428,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     'payment_intent.succeeded: caps bookings to remainingCapacity when quantity exceeds capacity',
     async () => {
       const coCap = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Payment Webhook Class Cap ${Date.now()}`,
           places: 2,
@@ -442,7 +442,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       const endTimeCap = new Date(startTimeCap)
       endTimeCap.setHours(19, 0, 0, 0)
       const lessonCap = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
@@ -536,12 +536,12 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: lessonCapId } },
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { id: { equals: coCap.id } },
         overrideAccess: true,
       })

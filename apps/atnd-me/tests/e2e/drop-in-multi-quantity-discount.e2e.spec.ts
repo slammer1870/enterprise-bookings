@@ -53,7 +53,7 @@ test.describe('Drop-in multi-quantity discount', () => {
 
     const classOption = await createTestClassOption(tenantId, 'Drop-in Discount Class', 5)
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },

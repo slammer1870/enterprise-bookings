@@ -44,7 +44,7 @@ describe('admin create Stripe subscription endpoint', () => {
         name: 'Admin Create Subscription',
         email: `admin-create-sub-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

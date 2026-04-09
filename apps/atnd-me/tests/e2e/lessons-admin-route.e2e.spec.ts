@@ -13,12 +13,12 @@ test.describe('Lessons admin route (admin/collections/lessons)', () => {
     request,
   }) => {
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
-    await page.goto(`${BASE_URL}/admin/collections/lessons`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${BASE_URL}/admin/collections/timeslots`, { waitUntil: 'domcontentloaded' })
     await page
-      .waitForURL((url) => url.pathname === '/admin/collections/lessons', { timeout: 15000 })
+      .waitForURL((url) => url.pathname === '/admin/collections/timeslots', { timeout: 15000 })
       .catch(() => {})
 
-    expect(page.url()).toContain('/admin/collections/lessons')
+    expect(page.url()).toContain('/admin/collections/timeslots')
 
     await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
       timeout: 10000,
@@ -34,12 +34,12 @@ test.describe('Lessons admin route (admin/collections/lessons)', () => {
     request,
   }) => {
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`${BASE_URL}/admin/collections/lessons`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`${BASE_URL}/admin/collections/timeslots`, { waitUntil: 'domcontentloaded' })
     await page
-      .waitForURL((url) => url.pathname === '/admin/collections/lessons', { timeout: 15000 })
+      .waitForURL((url) => url.pathname === '/admin/collections/timeslots', { timeout: 15000 })
       .catch(() => {})
 
-    expect(page.url()).toContain('/admin/collections/lessons')
+    expect(page.url()).toContain('/admin/collections/timeslots')
 
     await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
       timeout: 10000,

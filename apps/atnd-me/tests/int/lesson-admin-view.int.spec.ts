@@ -39,7 +39,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     } as any
 
     // Fix lesson dates if they're the same (endTime must be after startTime)
-    if (collection === 'lessons' && data.startTime && data.endTime) {
+    if (collection === 'timeslots' && data.startTime && data.endTime) {
       const startTime = new Date(data.startTime)
       const endTime = new Date(data.endTime)
       // If endTime is same or before startTime, set it to 1 hour later
@@ -129,7 +129,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         name: 'Admin User',
         email: `admin-lesson-view-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -144,7 +144,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         name: 'Tenant Admin User',
         email: `tenant-admin-lesson-view-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        roles: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenant.id }], // Array of objects with 'tenant' property
       },
@@ -154,7 +154,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
 
     // Create class options for both tenants
     testTenantClassOption = (await createWithTenantContext<ClassOption>(
-      'class-options',
+      'event-types',
       {
         name: `Test Tenant Class ${Date.now()}`,
         places: 10,
@@ -165,7 +165,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     ))
 
     secondTenantClassOption = (await createWithTenantContext<ClassOption>(
-      'class-options',
+      'event-types',
       {
         name: `Second Tenant Class ${Date.now()}`,
         places: 10,
@@ -184,7 +184,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     endTime.setHours(11, 0, 0, 0) // 11 AM
 
     testTenantLesson = (await createWithTenantContext<Lesson>(
-      'lessons',
+      'timeslots',
       {
         date: today.toISOString(),
         startTime: startTime.toISOString(),
@@ -197,7 +197,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
     ))
 
     secondTenantLesson = (await createWithTenantContext<Lesson>(
-      'lessons',
+      'timeslots',
       {
         date: today.toISOString(),
         startTime: startTime.toISOString(),
@@ -235,7 +235,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
-          segments: ['admin', 'collections', 'lessons'],
+          segments: ['admin', 'collections', 'timeslots'],
         }
 
         const lessons = await getLessons(payload, searchParams, params, req)
@@ -265,7 +265,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
-          segments: ['admin', 'collections', 'lessons'],
+          segments: ['admin', 'collections', 'timeslots'],
         }
 
         const lessons = await getLessons(payload, searchParams, params, req)
@@ -307,7 +307,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
-          segments: ['admin', 'collections', 'lessons'],
+          segments: ['admin', 'collections', 'timeslots'],
         }
 
         const lessons = await getLessons(payload, searchParams, params, req)
@@ -344,7 +344,7 @@ describe('Lesson Admin View - Multi-Tenant Filtering', () => {
         searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
 
         const params = {
-          segments: ['admin', 'collections', 'lessons'],
+          segments: ['admin', 'collections', 'timeslots'],
         }
 
         const lessons = await getLessons(payload, searchParams, params, req)

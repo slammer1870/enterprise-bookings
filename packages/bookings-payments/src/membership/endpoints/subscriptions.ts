@@ -7,7 +7,10 @@ const logs = process.env.LOGS_STRIPE_PROXY === "1";
 
 export function createSubscriptionsProxy(membership: MembershipConfig): PayloadHandler {
   return async (req): Promise<Response> => {
-    if (!req.user || !checkRole(["admin"], req.user as unknown as User | null)) {
+    if (
+      !req.user ||
+      !checkRole(["super-admin", "admin", "staff"], req.user as unknown as User | null)
+    ) {
       if (logs) req.payload.logger?.error?.({ err: "You are not authorized to access subscriptions" });
       return new Response(JSON.stringify("You are not authorized to access subscriptions"), {
         status: 401,

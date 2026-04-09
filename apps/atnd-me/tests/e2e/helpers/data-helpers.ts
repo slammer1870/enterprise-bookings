@@ -251,7 +251,7 @@ export async function createTestClassOption(
 
   // Idempotent: if it already exists, reuse it.
   const existing = await payload.find({
-    collection: 'class-options',
+    collection: 'event-types',
     where: { name: { equals: scopedName } },
     limit: 1,
     depth: 0,
@@ -261,7 +261,7 @@ export async function createTestClassOption(
   if (existingDoc) return existingDoc
 
   return (await payload.create({
-    collection: 'class-options',
+    collection: 'event-types',
     data: {
       name: scopedName,
       places,
@@ -296,7 +296,7 @@ export async function createTestLesson(
   const date = startTime.toISOString().split('T')[0] as string
 
   return (await payload.create({
-    collection: 'lessons',
+    collection: 'timeslots',
     data: {
       tenant: tenantIdNumber,
       classOption: classOptionIdNumber,
@@ -327,7 +327,7 @@ export async function createTestBooking(
 
   // Get lesson to determine tenant
   const lesson = (await payload.findByID({
-    collection: 'lessons',
+    collection: 'timeslots',
     id: typeof lessonId === 'string' ? lessonId : String(lessonId),
     overrideAccess: true,
   })) as Lesson
@@ -418,7 +418,7 @@ export async function setClassOptionAllowedPlans(
     typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
 
   return (await payload.update({
-    collection: 'class-options',
+    collection: 'event-types',
     id: classOptionIdNumber,
     data: {
       paymentMethods: {
@@ -558,7 +558,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     `admin${emailSuffix}@test.com`,
     'password',
     'Super Admin',
-    ['admin']
+    ['super-admin']
   )
 
   // Create tenant-admin users with worker-scoped emails
@@ -566,7 +566,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     `tenantadmin1${emailSuffix}@test.com`,
     'password',
     'Tenant Admin 1',
-    ['tenant-admin']
+    ['admin']
   )
   // Assign tenant-admin to tenant1 (tenants array + registrationTenant so status API can resolve tenant)
   await payload.update({
@@ -583,7 +583,7 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     `tenantadmin2${emailSuffix}@test.com`,
     'password',
     'Tenant Admin 2',
-    ['tenant-admin']
+    ['admin']
   )
   // Assign tenant-admin to tenant2
   await payload.update({

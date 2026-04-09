@@ -16,6 +16,8 @@ import {
 } from "payload";
 import { ClassOption, Lesson, User } from "@repo/shared-types";
 
+import type { BookingsPluginSlugs } from "./resolve-slugs";
+
 export type FieldsOverride = (_args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (_args: {
   defaultHooks: HooksConfig;
@@ -42,6 +44,11 @@ export type BookingsPluginConfig = {
    * @default true
    */
   enabled?: boolean;
+
+  /**
+   * Collection slugs (defaults: lessons, class-options, instructors, bookings).
+   */
+  slugs?: Partial<BookingsPluginSlugs>;
 
   /**
    * Enable or disable children

@@ -77,7 +77,7 @@ describe('mock-subscription-created-webhook', () => {
     planId = plan.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Mock Sub Class ${Date.now()}`,
         places: 10,
@@ -92,7 +92,7 @@ describe('mock-subscription-created-webhook', () => {
     const endTime = new Date(startTime)
     endTime.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         tenant: tenantId,
@@ -161,25 +161,25 @@ describe('mock-subscription-created-webhook', () => {
           })
         }
         const lessonsResult = await payload.find({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
         for (const l of lessonsResult.docs) {
           await payload.delete({
-            collection: 'lessons',
+            collection: 'timeslots',
             id: l.id,
             overrideAccess: true,
           })
         }
         const coResult = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
         for (const c of coResult.docs) {
           await payload.delete({
-            collection: 'class-options',
+            collection: 'event-types',
             id: c.id,
             overrideAccess: true,
           })

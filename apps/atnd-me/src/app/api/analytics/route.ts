@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!checkRole(['admin', 'tenant-admin'], user as Parameters<typeof checkRole>[1])) {
+    if (!checkRole(['super-admin', 'admin', 'staff'], user as Parameters<typeof checkRole>[1])) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

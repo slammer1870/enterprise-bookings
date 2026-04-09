@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { optionalUserProcedure, protectedProcedure, requireCollections } from "../trpc";
+import {
+  optionalUserProcedure,
+  protectedProcedure,
+  requireBookingCollections,
+  requireCollections,
+} from "../trpc";
 import { findByIdSafe, findSafe } from "../utils/collections";
 import {
   getTenantSlug,
@@ -172,7 +177,8 @@ export const subscriptionsRouter = {
       return false;
     }),
   getSubscriptionForLesson: optionalUserProcedure
-    .use(requireCollections("lessons", "subscriptions"))
+    .use(requireBookingCollections("lessons"))
+    .use(requireCollections("subscriptions"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -197,13 +203,13 @@ export const subscriptionsRouter = {
 
       let tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(payload, input.lessonId);
+        tenantId = await resolveTenantIdFromLessonId(payload, input.lessonId, ctx.bookingsSlugs.lessons);
       }
 
       // Get the lesson to check allowed plans
       const lesson = await findByIdSafe<Lesson>(
         payload,
-        "lessons",
+        ctx.bookingsSlugs.lessons,
         input.lessonId,
         { depth: 2, overrideAccess: Boolean(tenantId), user }
       );

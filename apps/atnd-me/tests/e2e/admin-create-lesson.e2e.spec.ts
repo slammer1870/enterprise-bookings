@@ -142,7 +142,7 @@ async function openLessonsDashboardForDate(
   page: Page,
   targetDate: Date,
 ) {
-  await page.goto('/admin/collections/lessons', {
+  await page.goto('/admin/collections/timeslots', {
     waitUntil: 'domcontentloaded',
     timeout: process.env.CI ? 120000 : 60000,
   })
@@ -175,7 +175,7 @@ async function openLessonsDashboardForDate(
 test.describe('Admin lesson creation date regression', () => {
   test.setTimeout(180000)
 
-  test('creating a lesson from the lessons screen requires selecting a tenant first', async ({
+  test('creating a lesson from the lessons screen preserves an empty tenant selection until the admin chooses one', async ({
     page,
     request,
     testData,
@@ -196,7 +196,7 @@ test.describe('Admin lesson creation date regression', () => {
       timeout: 20_000,
     })
 
-    await page.goto('/admin/collections/lessons', {
+    await page.goto('/admin/collections/timeslots', {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
@@ -213,23 +213,13 @@ test.describe('Admin lesson creation date regression', () => {
       await createNewButton.click()
     }
 
-    await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/lessons/create'), {
+    await page.waitForURL((url) => url.pathname.endsWith('/admin/collections/timeslots/create'), {
       timeout: process.env.CI ? 120000 : 60000,
     })
 
-    const dialog = page.getByRole('dialog', { name: /select tenant/i })
-    const continueButton = dialog.getByRole('button', { name: /continue/i })
-
-    await expect(dialog).toBeVisible({ timeout: 20_000 })
-    await expect(continueButton).toBeDisabled({ timeout: 10_000 })
-
-    const modalMustStayOpenUntilSelectionMs = process.env.CI ? 5_000 : 3_000
-    const start = Date.now()
-    while (Date.now() - start < modalMustStayOpenUntilSelectionMs) {
-      await expect(dialog).toBeVisible({ timeout: 2_000 })
-      await expect(continueButton).toBeDisabled({ timeout: 2_000 })
-      await page.waitForTimeout(250)
-    }
+    await expect(getTenantSelector(page).getByText(/select a value/i).first()).toBeVisible({
+      timeout: 20_000,
+    })
   })
 
   test('lesson created from /create appears on the selected future date in the lessons dashboard', async ({
@@ -244,7 +234,7 @@ test.describe('Admin lesson creation date regression', () => {
     if (!tenant?.id || !tenant?.name) throw new Error('Expected tenant fixture for admin lesson creation test')
 
     const className = uniqueClassName('ATND Admin Lesson')
-    await page.goto('/admin/collections/class-options/create', {
+    await page.goto('/admin/collections/event-types/create', {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
@@ -255,16 +245,16 @@ test.describe('Admin lesson creation date regression', () => {
       .getByRole('textbox', { name: /Description/i })
       .fill('E2E class option for shared admin lesson date regression coverage')
     await saveObjectAndWaitForNavigation(page, {
-      apiPath: '/api/class-options',
-      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-      collectionName: 'class-options',
+      apiPath: '/api/event-types',
+      expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
+      collectionName: 'event-types',
     })
 
     const targetDate = new Date()
     targetDate.setDate(targetDate.getDate() + 3)
     targetDate.setHours(0, 0, 0, 0)
 
-    await page.goto('/admin/collections/lessons/create', {
+    await page.goto('/admin/collections/timeslots/create', {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })

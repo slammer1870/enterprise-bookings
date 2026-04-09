@@ -4,12 +4,17 @@
  * payments enabled (drop-in) unless user has a valid class pass.
  */
 import type { Access, AccessArgs } from 'payload'
-import { bookingCreateAccess, bookingUpdateAccess } from '@repo/bookings-plugin'
+import { createBookingAccess } from '@repo/bookings-plugin'
 import { checkClassPass } from '@repo/bookings-payments'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getTenantFromLesson } from '@/utilities/getTenantFromLesson'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { resolveTenantAdminTenantIds } from './tenant-scoped'
+
+const { bookingCreateAccess, bookingUpdateAccess } = createBookingAccess(
+  ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+)
 
 type TenantLike = {
   id?: number
@@ -56,9 +61,8 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
   const { req, data } = args
   const user = req.user as SharedUser | null
 
-  // Tenant-admins manage bookings for their venues (admin UI): same as platform admin for
-  // lesson capacity / payment gates; still scoped to the lesson's tenant.
-  if (user && checkRole(['tenant-admin'], user) && data?.lesson) {
+  // Tenant org admins and staff manage bookings for their venues (admin UI).
+  if (user && checkRole(['admin', 'staff'], user) && data?.lesson) {
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
     if (tenantIds.length > 0) {
       const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
@@ -81,7 +85,7 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
 
   try {
     const lesson = await req.payload.findByID({
-      collection: 'lessons',
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
       id: lessonId,
       depth: 2,
       context: { triggerAfterChange: false },
@@ -129,7 +133,7 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
 export const bookingUpdateAccessWithPaymentValidation: Access = async (args: AccessArgs) => {
   const { req } = args
   const requester = req.user as SharedUser | null
-  if (requester && checkRole(['tenant-admin'], requester)) {
+  if (requester && checkRole(['admin', 'staff'], requester)) {
     const tenantIds = await resolveTenantAdminTenantIds({ user: requester, payload: req.payload })
     if (tenantIds.length === 0) return false
     return { tenant: { in: tenantIds } }

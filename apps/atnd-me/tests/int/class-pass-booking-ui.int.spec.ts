@@ -9,6 +9,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User, Lesson } from '@repo/shared-types'
 
 const TEST_TIMEOUT = 60000
@@ -33,6 +34,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       headers,
       payload,
       user,
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     })
     return appRouter.createCaller(ctx)
   }
@@ -74,7 +76,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     } as Parameters<typeof payload.create>[0])) as User
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `CP UI Class ${Date.now()}`,
         places: 10,
@@ -102,7 +104,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     classPassTypeId = cpt.id as number
 
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOptionId,
       data: { paymentMethods: { allowedClassPasses: [classPassTypeId] } },
       overrideAccess: true,
@@ -147,7 +149,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     const end = new Date(start)
     end.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data: {
         tenant: testTenantId,
         classOption: classOptionId,
@@ -167,14 +169,14 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     if (payload?.db) {
       try {
         await payload.delete({ collection: 'bookings', where: { lesson: { equals: lessonId } }, overrideAccess: true })
-        await payload.delete({ collection: 'lessons', where: { id: { equals: lessonId } }, overrideAccess: true })
+        await payload.delete({ collection: 'timeslots', where: { id: { equals: lessonId } }, overrideAccess: true })
         await payload.delete({
           collection: 'class-passes',
           where: { id: { in: [classPassId, limitedClassPassId] } },
           overrideAccess: true,
         })
         await payload.delete({ collection: 'class-pass-types', where: { id: { equals: classPassTypeId } }, overrideAccess: true })
-        await payload.delete({ collection: 'class-options', where: { id: { equals: classOptionId } }, overrideAccess: true })
+        await payload.delete({ collection: 'event-types', where: { id: { equals: classOptionId } }, overrideAccess: true })
         await payload.delete({ collection: 'users', where: { id: { equals: user.id } }, overrideAccess: true })
         await payload.delete({ collection: 'tenants', where: { id: { in: [testTenantId, otherTenantId] } }, overrideAccess: true })
       } catch {

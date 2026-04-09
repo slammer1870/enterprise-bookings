@@ -88,7 +88,7 @@ const days: Field = {
                 {
                     name: 'classOption',
                     type: 'relationship',
-                    relationTo: 'class-options',
+                    relationTo: 'event-types',
                     admin: {
                         description: 'Overrides the default class option',
                     },
@@ -100,7 +100,7 @@ const days: Field = {
                 {
                     name: 'instructor',
                     type: 'relationship',
-                    relationTo: 'instructors',
+                    relationTo: 'staff-members',
                 },
                 {
                     name: 'lockOutTime',
@@ -133,7 +133,7 @@ export const Scheduler: CollectionConfig = {
     access: {
         admin: ({ req: { user } }) => {
             if (!user) return false
-            return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+            return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
         },
         read: tenantScopedReadFiltered,
         create: tenantScopedCreate,
@@ -249,7 +249,7 @@ export const Scheduler: CollectionConfig = {
             name: 'defaultClassOption',
             label: 'Default Class Option',
             type: 'relationship',
-            relationTo: 'class-options',
+            relationTo: 'event-types',
             required: true,
             admin: {
                 description: 'Default class type to use when creating lessons (can be overridden per slot)',

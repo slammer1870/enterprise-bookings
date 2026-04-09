@@ -6,8 +6,8 @@ import {
   CollectionSlug,
 } from "payload";
 
-import { getRemainingCapacity } from "../hooks/remaining-capacity";
-import { getBookingStatus } from "../hooks/booking-status";
+import { createGetRemainingCapacity } from "../hooks/remaining-capacity";
+import { createGetBookingStatus } from "../hooks/booking-status";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types/";
 import {
@@ -22,7 +22,9 @@ import type { BookingsPluginConfig } from "../types";
 import { AccessControls, HooksConfig } from "@repo/shared-types";
 
 import { lessonReadAccess } from "../access/lessons";
-import { setLockout } from "../hooks/set-lockout";
+import { createSetLockout } from "../hooks/set-lockout";
+
+import type { BookingsPluginSlugs } from "../resolve-slugs";
 
 const hasTenantsCollection = (req: any): boolean => {
   const collections = req?.payload?.config?.collections;
@@ -239,7 +241,14 @@ const resolveLessonTimeZone = async ({
   }
 };
 
-const defaultFields: Field[] = [
+function createLessonDefaultFields(slugs: BookingsPluginSlugs): Field[] {
+  const getRemainingCapacity = createGetRemainingCapacity(slugs);
+  const getBookingStatus = createGetBookingStatus(slugs);
+  const instructorsSlug = slugs.instructors as CollectionSlug;
+  const classOptionsSlug = slugs.classOptions as CollectionSlug;
+  const bookingsSlug = slugs.bookings as CollectionSlug;
+
+  return [
   {
     type: "row",
     fields: [
@@ -391,7 +400,7 @@ const defaultFields: Field[] = [
         name: "instructor",
         label: "Instructor",
         type: "relationship",
-        relationTo: "instructors" as CollectionSlug,
+        relationTo: instructorsSlug,
         required: false,
         filterOptions: () => {
           // Only show active instructors in the relationship dropdown
@@ -411,7 +420,7 @@ const defaultFields: Field[] = [
     name: "classOption",
     label: "Class Option",
     type: "relationship",
-    relationTo: "class-options",
+    relationTo: classOptionsSlug,
     required: true,
     hasMany: false,
   },
@@ -431,7 +440,7 @@ const defaultFields: Field[] = [
     name: "bookings",
     label: "Bookings",
     type: "join",
-    collection: "bookings",
+    collection: bookingsSlug,
     maxDepth: 3,
     defaultLimit: 0,
     hasMany: true,
@@ -461,6 +470,7 @@ const defaultFields: Field[] = [
     },
   },
 ];
+}
 
 const defaultLabels: Labels = {
   singular: "Lesson",
@@ -469,9 +479,12 @@ const defaultLabels: Labels = {
 
 const defaultAccess: AccessControls = {
   read: lessonReadAccess,
-  create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  create: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
+  update: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
+  delete: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
 };
 
 const defaultAdmin: CollectionAdminOptions = {
@@ -489,157 +502,163 @@ const defaultAdmin: CollectionAdminOptions = {
   },
 };
 
-const defaultHooks: HooksConfig = {
-  beforeOperation: [
-    async ({ args, operation }) => {
-      if (operation === "create" && args?.data && typeof args.data === "object") {
-        // `args.data` is typed as `unknown` here (Payload generics), so safely narrow before writing.
-        const data = args.data as Record<string, unknown>;
+function createLessonDefaultHooks(slugs: BookingsPluginSlugs): HooksConfig {
+  const instructorsSlug = slugs.instructors as CollectionSlug;
+  const bookingsSlug = slugs.bookings as CollectionSlug;
+  const setLockout = createSetLockout(slugs);
 
-        // Only set the snapshot field if not explicitly provided.
-        if (typeof data.originalLockOutTime === "undefined") {
-          data.originalLockOutTime = data.lockOutTime;
+  return {
+    beforeOperation: [
+      async ({ args, operation }) => {
+        if (
+          operation === "create" &&
+          args?.data &&
+          typeof args.data === "object"
+        ) {
+          const data = args.data as Record<string, unknown>;
+
+          if (typeof data.originalLockOutTime === "undefined") {
+            data.originalLockOutTime = data.lockOutTime;
+          }
         }
-      }
-      return args;
-    },
-  ],
-  beforeDelete: [
-    async ({ req, id }) => {
-      await req.payload.delete({
-        collection: "bookings",
-        where: {
-          lesson: {
-            equals: id,
+        return args;
+      },
+    ],
+    beforeDelete: [
+      async ({ req, id }) => {
+        await req.payload.delete({
+          collection: bookingsSlug,
+          where: {
+            lesson: {
+              equals: id,
+            },
           },
-        },
-        context: {
-          triggerAfterChange: false,
-        },
-      });
-    },
-  ],
-  beforeChange: [
-    async ({ data, req, operation }) => {
-      // Backward compatibility: If instructor is set to a user ID instead of an instructor ID,
-      // automatically create an instructor record for that user
-      if (data && data.instructor && operation === "create") {
-        try {
-          // Check if the instructor ID exists in instructors collection
-          const instructor = await req.payload
-            .findByID({
-              collection: "instructors" as CollectionSlug,
-              id: data.instructor,
-              req,
-            })
-            .catch(() => null);
-
-          // If instructor doesn't exist, check if it's a user ID
-          if (!instructor) {
-            const user = await req.payload
+          context: {
+            triggerAfterChange: false,
+          },
+        });
+      },
+    ],
+    beforeChange: [
+      async ({ data, req, operation }) => {
+        if (data && data.instructor && operation === "create") {
+          try {
+            const instructor = await req.payload
               .findByID({
-                collection: "users",
+                collection: instructorsSlug,
                 id: data.instructor,
                 req,
               })
               .catch(() => null);
 
-            if (user) {
-              // Check if an instructor record already exists for this user
-              const existingInstructor = await req.payload.find({
-                collection: "instructors" as CollectionSlug,
-                where: {
-                  user: {
-                    equals: data.instructor,
-                  },
-                },
-                limit: 1,
-                req,
-              });
+            if (!instructor) {
+              const user = await req.payload
+                .findByID({
+                  collection: "users",
+                  id: data.instructor,
+                  req,
+                })
+                .catch(() => null);
 
-              if (
-                existingInstructor.docs &&
-                existingInstructor.docs.length > 0 &&
-                existingInstructor.docs[0]
-              ) {
-                // Use existing instructor
-                const existingDoc = existingInstructor.docs[0];
-                data.instructor =
-                  typeof existingDoc.id === "number"
-                    ? existingDoc.id
-                    : parseInt(existingDoc.id as string);
-              } else {
-                // Create new instructor record for this user
-                const newInstructor = await req.payload.create({
-                  collection: "instructors" as CollectionSlug,
-                  data: {
-                    user: data.instructor,
-                    profileImage: (user as any).image || undefined,
-                    active: true,
-                  } as any,
+              if (user) {
+                const existingInstructor = await req.payload.find({
+                  collection: instructorsSlug,
+                  where: {
+                    user: {
+                      equals: data.instructor,
+                    },
+                  },
+                  limit: 1,
                   req,
                 });
-                data.instructor =
-                  typeof newInstructor.id === "number"
-                    ? newInstructor.id
-                    : parseInt(newInstructor.id as string);
+
+                if (
+                  existingInstructor.docs &&
+                  existingInstructor.docs.length > 0 &&
+                  existingInstructor.docs[0]
+                ) {
+                  const existingDoc = existingInstructor.docs[0];
+                  data.instructor =
+                    typeof existingDoc.id === "number"
+                      ? existingDoc.id
+                      : parseInt(existingDoc.id as string);
+                } else {
+                  const newInstructor = await req.payload.create({
+                    collection: instructorsSlug,
+                    data: {
+                      user: data.instructor,
+                      profileImage: (user as any).image || undefined,
+                      active: true,
+                    } as any,
+                    req,
+                  });
+                  data.instructor =
+                    typeof newInstructor.id === "number"
+                      ? newInstructor.id
+                      : parseInt(newInstructor.id as string);
+                }
               }
             }
-          }
-        } catch (error) {
-          console.error(
-            "Error handling instructor backward compatibility:",
-            error
-          );
-          // If there's an error, set instructor to null to prevent the lesson creation from failing
-          if (data) {
-            data.instructor = null;
+          } catch (error) {
+            console.error(
+              "Error handling instructor backward compatibility:",
+              error
+            );
+            if (data) {
+              data.instructor = null;
+            }
           }
         }
-      }
 
-      if (req?.context?.skipLessonTimeNormalization) {
+        if (req?.context?.skipLessonTimeNormalization) {
+          return data;
+        }
+
+        if (data?.date) {
+          const siblingData = data as Record<string, unknown>;
+          const lessonDate = resolveLessonDate(data.date);
+          if (lessonDate) {
+            const timeZone = await resolveLessonTimeZone({
+              req,
+              siblingData,
+            });
+
+            const normalizeTimeField = (fieldName: "startTime" | "endTime") => {
+              const rawValue = siblingData?.[fieldName];
+              if (typeof rawValue === "undefined") return;
+
+              const time = getWallClockTimeInTimeZone(rawValue, timeZone);
+              if (!time) return;
+
+              siblingData[fieldName] = combineDateAndTimeInTimeZone(
+                lessonDate,
+                time,
+                timeZone
+              ).toISOString();
+            };
+
+            normalizeTimeField("startTime");
+            normalizeTimeField("endTime");
+          }
+        }
         return data;
-      }
+      },
+    ],
+    afterChange: [setLockout],
+  };
+}
 
-      if (data?.date) {
-        const siblingData = data as Record<string, unknown>;
-        const lessonDate = resolveLessonDate(data.date);
-        if (lessonDate) {
-          const timeZone = await resolveLessonTimeZone({
-            req,
-            siblingData,
-          });
-
-          const normalizeTimeField = (fieldName: "startTime" | "endTime") => {
-            const rawValue = siblingData?.[fieldName];
-            if (typeof rawValue === "undefined") return;
-
-            const time = getWallClockTimeInTimeZone(rawValue, timeZone);
-            if (!time) return;
-
-            siblingData[fieldName] = combineDateAndTimeInTimeZone(
-              lessonDate,
-              time,
-              timeZone
-            ).toISOString();
-          };
-
-          normalizeTimeField("startTime");
-          normalizeTimeField("endTime");
-        }
-      }
-      return data;
-    },
-  ],
-  afterChange: [setLockout],
-};
-
-export const generateLessonCollection = (config: BookingsPluginConfig) => {
+export const generateLessonCollection = (
+  config: BookingsPluginConfig,
+  slugs: BookingsPluginSlugs,
+) => {
   const overrides = config?.lessonOverrides;
+  const defaultFields = createLessonDefaultFields(slugs);
+  const defaultHooks = createLessonDefaultHooks(slugs);
+
   const lessonConfig: CollectionConfig = {
     ...(overrides || {}),
-    slug: "lessons",
+    slug: slugs.lessons,
     labels: {
       ...(overrides?.labels || defaultLabels),
     },

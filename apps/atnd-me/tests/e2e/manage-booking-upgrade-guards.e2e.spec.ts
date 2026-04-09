@@ -200,7 +200,7 @@ test.describe('Manage booking upgrade guards', () => {
           })) as { id: number }
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: { paymentMethods: { allowedDropIn: dropIn.id } },
             overrideAccess: true,
@@ -219,7 +219,7 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: { paymentMethods: { allowedPlans: [plan.id] } },
             overrideAccess: true,
@@ -247,7 +247,7 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
             overrideAccess: true,
@@ -295,7 +295,7 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: {
               paymentMethods: {
@@ -411,7 +411,7 @@ test.describe('Manage booking upgrade guards', () => {
           })) as { id: number }
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: {
               paymentMethods: {
@@ -435,7 +435,7 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: {
               paymentMethods: {
@@ -472,7 +472,7 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: {
               paymentMethods: {
@@ -526,7 +526,7 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'class-options',
+            collection: 'event-types',
             id: classOptionId,
             data: {
               paymentMethods: {
@@ -654,7 +654,7 @@ test.describe('Manage booking upgrade guards', () => {
     })) as { id: number }
 
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: {

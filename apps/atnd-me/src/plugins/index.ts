@@ -52,7 +52,7 @@ import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
 } from '../access/bookingAccess'
-import { userTenantRead, userTenantUpdate } from '../access/userTenantAccess'
+import { isStaff, userTenantRead, userTenantUpdate, isTenantAdmin } from '../access/userTenantAccess'
 import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
 import {
   bookingsPaymentsPlugin,
@@ -71,6 +71,7 @@ import { getActiveR2Config } from '@/lib/storage/config'
 
 import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 const generateTitle: GenerateTitle<Post | Page> = ({ doc }) => {
   return doc?.title ? `${doc.title} | ATND` : 'ATND'
@@ -313,9 +314,9 @@ export const plugins: Plugin[] = [
   fixBetterAuthTimestamps(),
   rolesPlugin({
     enabled: true,
-    roles: ['user', 'admin', 'tenant-admin'],
+    roles: ['user', 'staff', 'admin', 'super-admin'],
     defaultRole: 'user',
-    firstUserRole: 'admin',
+    firstUserRole: 'super-admin',
   }),
   // Must run after both payloadAuth() and rolesPlugin() to sync role/roles fields
   fixBetterAuthRoleField(),
@@ -325,6 +326,7 @@ export const plugins: Plugin[] = [
   hideWebsiteCollectionsFromTenantAdmins(),
   bookingsPlugin({
     enabled: true,
+    slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     lessonOverrides: {
       versions: false,
       fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
@@ -355,9 +357,18 @@ export const plugins: Plugin[] = [
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       }),
       fields: ({ defaultFields }) => [
         ...withExplicitTenantSyncFields(defaultFields).map((f) =>
@@ -402,9 +413,18 @@ export const plugins: Plugin[] = [
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       }),
       fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
     },
@@ -455,7 +475,7 @@ export const plugins: Plugin[] = [
             if (operation === 'create' && data?.lesson && !data?.tenant) {
               const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
               const lesson = await req.payload.findByID({
-                collection: 'lessons',
+                collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
                 id: lessonId,
                 depth: 0,
               })
@@ -491,7 +511,7 @@ export const plugins: Plugin[] = [
   bookingsPaymentsPlugin({
     classPass: {
       enabled: true,
-      classOptionsSlug: 'class-options',
+      classOptionsSlug: 'event-types',
       // Ensure admin product pickers (Stripe product dropdown) are tenant-scoped (no platform fallback)
       productsProxyScope: 'connect',
       bookingTransactionsOverrides: {
@@ -561,7 +581,7 @@ export const plugins: Plugin[] = [
     // Drop-ins: single-use payment options per class option
     dropIns: {
       enabled: true,
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: ['event-types'],
       dropInsOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
@@ -575,7 +595,7 @@ export const plugins: Plugin[] = [
     // Membership (subscriptions): recurring plans that grant access; sync job disabled (subscription lifecycle via Connect webhook)
     membership: {
       enabled: true,
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: ['event-types'],
       getStripeAccountIdForRequest,
       // Ensure the tenant's connected account is the merchant of record (no platform fallback)
       scope: 'connect',
@@ -713,7 +733,7 @@ export const plugins: Plugin[] = [
     // Configure admin users to have access to all tenants
     userHasAccessToAllTenants: (user) => {
       if (!user) return false
-      return checkRole(['admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin'], user as unknown as SharedUser)
     },
     // Type assertion: multi-tenant plugin's types omit collections from @repo/bookings-payments
     collections: {
@@ -724,19 +744,19 @@ export const plugins: Plugin[] = [
         // our own optional `tenant` field in the Pages collection instead.
         customTenantField: true,
       },
-      lessons: {
+      timeslots: {
         customTenantField: true,
         tenantFieldOverrides: { admin: { disableBulkEdit: true } },
-        // Disable the plugin's withTenantAccess wrapper for lessons.
+        // Disable the plugin's withTenantAccess wrapper for timeslots (lessons).
         // Our custom `lessonsRead` access function already handles all tenant scoping
-        // (admin, tenant-admin with DB fallback, public/regular users via request context).
+        // (super-admin, tenant portal users with DB fallback, public/regular users via request context).
         // The plugin's wrapper causes a bug for authenticated better-auth users: their session
         // object has collection='users' but no `tenants` array (not saved to JWT), so
         // withTenantAccess generates { tenant: { in: [] } } which matches no documents.
         useTenantAccess: false,
       },
-      instructors: { customTenantField: true },
-      'class-options': { customTenantField: true },
+      'staff-members': { customTenantField: true },
+      'event-types': { customTenantField: true },
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
       // From @repo/bookings-payments
       'class-pass-types': {}, // Pass types (e.g. Fitness Only, Sauna Only); tenant-scoped
@@ -765,9 +785,9 @@ export const plugins: Plugin[] = [
   clearableTenantPlugin({
     rootDocCollections: ['navbar', 'footer'],
     collectionsRequireTenantOnCreate: [
-      'lessons',
-      'instructors',
-      'class-options',
+      'timeslots',
+      'staff-members',
+      'event-types',
       'bookings',
       'class-pass-types',
       'class-passes',
@@ -786,9 +806,9 @@ export const plugins: Plugin[] = [
       'pages',
       'navbar',
       'footer',
-      'lessons',
-      'instructors',
-      'class-options',
+      'timeslots',
+      'staff-members',
+      'event-types',
       'bookings',
       'class-pass-types',
       'class-passes',
@@ -806,7 +826,8 @@ export const plugins: Plugin[] = [
     // Used by the selector→document sync hook. We want tenant-admin autosave drafts
     // (Pages create flow) to pick up the selected tenant automatically, while still
     // keeping "no tenant" (base pages) effectively admin-only via the UI.
-    userHasAccessToAllTenants: (user) => checkRole(['admin', 'tenant-admin'], user as SharedUser),
+    userHasAccessToAllTenants: (user) =>
+      checkRole(['super-admin', 'admin', 'staff'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,

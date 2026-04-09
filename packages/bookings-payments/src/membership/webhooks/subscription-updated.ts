@@ -112,7 +112,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       // Verify lesson exists
       try {
         await payload.findByID({
-          collection: "lessons",
+          collection: "lessons" as any,
           id: lessonIdNum,
         });
       } catch {

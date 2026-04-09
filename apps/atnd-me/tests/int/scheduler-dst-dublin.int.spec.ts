@@ -4,6 +4,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { ClassOption, Lesson, User } from '@repo/shared-types'
 import { createTRPCContext, appRouter } from '@repo/trpc'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { TZDate } from '@date-fns/tz'
 
 const TEST_TIMEOUT = 120000
@@ -59,7 +60,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
     } as any)) as User
 
     classOption = (await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `DST Class Option ${Date.now()}`,
         places: 10,
@@ -83,6 +84,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       headers,
       payload,
       user,
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     })
     return appRouter.createCaller(ctx)
   }
@@ -389,7 +391,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       const timeZone = 'Europe/Dublin'
 
       const lesson = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         data: {
           tenant: Number(testTenant.id),
           date: new TZDate(2026, 2, 30, 0, 0, 0, 0, timeZone).toISOString(),
@@ -407,7 +409,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       const beforeEnd = getLocalDateTimeParts(String(lesson.endTime), timeZone)
 
       const updated = (await payload.update({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: lesson.id,
         data: {
           tenant: Number(testTenant.id),

@@ -69,7 +69,7 @@ export async function POST(): Promise<Response> {
   }
 
   // Require admin role
-  if (!checkRole(['admin'], user as User)) {
+  if (!checkRole(['super-admin'], user as User)) {
     return new Response(
       JSON.stringify({ 
         error: 'Admin access required.',

@@ -1,6 +1,9 @@
 import { Booking, ClassOption, User } from "@repo/shared-types";
 
-import { FieldHook } from "payload";
+import type { CollectionSlug, FieldHook } from "payload";
+
+import type { BookingsPluginSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../resolve-slugs";
 
 // Constants
 const MILLISECONDS_PER_MINUTE = 60000;
@@ -107,13 +110,15 @@ const isTrialable = (classOption: ClassOption): boolean => {
   );
 };
 
-export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
-  // Early return if hook should not run
+export function createGetBookingStatus(slugs: BookingsPluginSlugs): FieldHook {
+  const classOptionsSlug = slugs.classOptions as CollectionSlug;
+  const bookingsSlug = slugs.bookings as CollectionSlug;
+
+  return async ({ req, data, context }) => {
   if (context.triggerAfterChange === false) {
     return;
   }
 
-  // Validate required data
   if (!data?.id || !data?.classOption) {
     return "active";
   }
@@ -122,9 +127,8 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   const userId = getUserId(req.user);
 
   try {
-    // Fetch class option
     const classOption = (await req.payload.findByID({
-      collection: "class-options",
+      collection: classOptionsSlug,
       id: data.classOption,
     })) as unknown as ClassOption;
 
@@ -135,7 +139,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     // Compute capacity cheaply (avoid loading all bookings + deep relationships).
     // We bypass access control here because this is an internal derived field.
     const confirmedCountResult = await req.payload.find({
-      collection: "bookings",
+      collection: bookingsSlug,
       depth: 0,
       limit: 0,
       overrideAccess: true,
@@ -165,7 +169,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     // Check children bookings (only for child classes) - check this first
     if (classOption.type === "child" && userId) {
       const parentConfirmed = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 0,
         limit: 1,
         overrideAccess: true,
@@ -187,7 +191,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     // Check if user already has confirmed bookings for this lesson
     if (userId) {
       const userConfirmed = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 0,
         limit: 2,
         overrideAccess: true,
@@ -208,7 +212,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     // Check if user is on waiting list
     if (userId && isFull) {
       const userWaiting = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 0,
         limit: 1,
         overrideAccess: true,
@@ -246,7 +250,7 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       // Check if user has any confirmed bookings
       // For child classes, check parent's bookings; for adult classes, check user's bookings
       const bookingCheckQuery = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 1,
         limit: 1,
         where: {
@@ -279,8 +283,12 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
     return "active";
   } catch (error) {
-    // Log error in production, but return a safe default
     console.error("Error calculating booking status:", error);
     return "active";
   }
-};
+  };
+}
+
+export const getBookingStatus = createGetBookingStatus(
+  DEFAULT_BOOKINGS_PLUGIN_SLUGS,
+);

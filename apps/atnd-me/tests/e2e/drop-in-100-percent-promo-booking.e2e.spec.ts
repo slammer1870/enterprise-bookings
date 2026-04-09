@@ -65,7 +65,7 @@ test.describe('Drop-in 100% promo booking', () => {
 
     const classOption = await createTestClassOption(tenantId, 'Free Promo Class', 5, undefined, workerIndex)
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },

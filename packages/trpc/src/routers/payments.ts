@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   stripeProtectedProcedure,
   protectedProcedure,
+  requireBookingCollections,
   requireCollections,
   type GetSubscriptionBookingFeeCents,
 } from "../trpc";
@@ -282,7 +283,8 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
        * Returns fee breakdown for drop-in checkout (class price, booking fee, total).
        */
       getDropInFeeBreakdown: protectedProcedure
-        .use(requireCollections("lessons", "tenants"))
+        .use(requireBookingCollections("lessons"))
+        .use(requireCollections("tenants"))
         .input(
           z.object({
             lessonId: z.number(),

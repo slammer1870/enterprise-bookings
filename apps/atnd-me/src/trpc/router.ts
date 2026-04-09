@@ -1,5 +1,6 @@
 import { createAppRouter } from '@repo/trpc'
 import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 /**
  * App router with subscription + drop-in booking fee support.
@@ -26,7 +27,7 @@ export const appRouter = createAppRouter({
       promoDiscountCents,
     }) => {
       const lesson = (await payload.findByID({
-        collection: 'lessons',
+        collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
         id: lessonId,
         depth: 0,
         overrideAccess: true,

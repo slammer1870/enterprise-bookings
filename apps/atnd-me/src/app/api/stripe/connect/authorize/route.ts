@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const payload = await getPayload()
     const user = await getCurrentUser(payload, request)
 
-    if (!user || !userHasStripeConnectAccess(user, ['admin', 'tenant-admin'])) {
+    if (!user || !userHasStripeConnectAccess(user, ['super-admin', 'admin'])) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 400 })
     }
 
-    if (!userHasStripeConnectAccess(user, ['admin', 'tenant-admin'], tenant.id)) {
+    if (!userHasStripeConnectAccess(user, ['super-admin', 'admin'], tenant.id)) {
       return NextResponse.json({ error: 'Forbidden: tenant not accessible' }, { status: 403 })
     }
 

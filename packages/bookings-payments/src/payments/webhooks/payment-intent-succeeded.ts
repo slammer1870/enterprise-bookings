@@ -76,7 +76,7 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
         return;
       }
       const lesson = await payload.findByID({
-        collection: "lessons",
+        collection: "lessons" as any,
         id: lessonId,
         depth: 1,
       }).catch(() => null);

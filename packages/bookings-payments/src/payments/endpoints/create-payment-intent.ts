@@ -60,7 +60,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
     const quantity = Math.max(1, parseInt(String(rawMetadata.quantity ?? "1"), 10) || 1);
     const lesson = await req.payload
       .findByID({
-        collection: "lessons",
+        collection: "lessons" as any,
         id: lessonId,
         depth: 1,
       })
@@ -100,7 +100,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
       const need = quantity - existingIds.length;
       if (need > 0) {
         const lessonNow = await req.payload
-          .findByID({ collection: "lessons", id: lessonId, depth: 1 })
+          .findByID({ collection: "lessons" as any, id: lessonId, depth: 1 })
           .catch(() => null);
         const cap =
           lessonNow &&

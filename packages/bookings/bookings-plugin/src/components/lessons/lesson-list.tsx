@@ -1,16 +1,19 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Lesson } from "@repo/shared-types";
 import { LessonDetail } from "./lesson-detail";
 import { Button, toast, ConfirmationModal, useModal } from "@payloadcms/ui";
 
 export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const { openModal, closeModal } = useModal();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const collectionSlug =
+    pathname?.split("/").filter(Boolean)[2] ?? "lessons";
 
   const toggleSelection = useCallback((id: number, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -42,7 +45,7 @@ export const LessonList: React.FC<{ lessons: Lesson[] }> = ({ lessons }) => {
 
     setBulkDeleting(true);
     try {
-      const response = await fetch("/api/lessons", {
+      const response = await fetch(`/api/${collectionSlug}`, {
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

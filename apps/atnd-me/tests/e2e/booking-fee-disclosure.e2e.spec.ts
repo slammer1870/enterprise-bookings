@@ -80,7 +80,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
 
     // Update class option with drop-in payment method
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },

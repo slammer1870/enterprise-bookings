@@ -6,6 +6,7 @@ import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@/trpc/router'
 import { getPayload } from '@/lib/payload'
 import { stripe } from '@/lib/stripe'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
     payload,
     stripe,
     hostOverride: request.headers.get('host') ?? request.headers.get('x-forwarded-host') ?? undefined,
+    bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
   })
 
   const caller = appRouter.createCaller(ctx)

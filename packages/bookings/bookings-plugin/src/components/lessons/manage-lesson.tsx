@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,6 +79,12 @@ export const ManageLesson = ({
   lessonId: number;
   tenantSlug?: string | null;
 }) => {
+  const pathname = usePathname();
+  const collectionBasePath =
+    pathname && pathname.startsWith("/admin/collections/")
+      ? pathname
+      : "/admin/collections/lessons";
+
   const handleCopyBookingLink = async () => {
     const url = getPublicBookingUrl(lessonId, tenantSlug);
     try {
@@ -102,7 +109,7 @@ export const ManageLesson = ({
       <DropdownMenuContent align="end" className="z-[100]">
         <DropdownMenuItem asChild>
           <Link
-            href={`/admin/collections/lessons/${lessonId}`}
+            href={`${collectionBasePath}/${lessonId}`}
             className="flex items-center gap-2"
           >
             <Edit2Icon className="h-4 w-4" />

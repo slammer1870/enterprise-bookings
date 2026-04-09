@@ -41,7 +41,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
         name: 'Tenant Admin Payments',
         email: `tenant-admin-payments-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        roles: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenantId }],
       },
@@ -64,7 +64,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
     dropInId = dropIn.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Payments Test Class ${Date.now()}`,
         places: 5,
@@ -81,7 +81,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
     async () => {
       await expect(
         payload.update({
-          collection: 'class-options',
+          collection: 'event-types',
           id: classOptionId,
           data: {
             paymentMethods: { allowedDropIn: dropInId },
@@ -108,7 +108,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
       })
 
       const updated = await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOptionId,
         data: {
           paymentMethods: { allowedDropIn: dropInId },

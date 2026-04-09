@@ -44,7 +44,7 @@ describe('Stripe plans proxy (Phase 4.5)', () => {
         name: 'Admin Plans Proxy',
         email: `admin-proxy-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

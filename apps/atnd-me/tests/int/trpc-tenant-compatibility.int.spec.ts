@@ -3,6 +3,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User, Lesson, ClassOption, Tenant, Booking } from '@repo/shared-types'
 import { TZDate } from '@date-fns/tz'
 
@@ -56,7 +57,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
     // Create class option for the tenant
     testClassOption = (await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Compat Test Class ${Date.now()}`,
         places: 10,
@@ -72,7 +73,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
     testLesson = (await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data: {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
@@ -106,11 +107,11 @@ describe('tRPC Tenant Compatibility Tests', () => {
           where: { id: { equals: testBooking.id } },
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: testLesson.id } },
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: testClassOption.id } },
         })
         await payload.delete({
@@ -132,7 +133,11 @@ describe('tRPC Tenant Compatibility Tests', () => {
     it('lessons.getById throws when no user in context', async () => {
       const headers = new Headers()
       headers.set('cookie', `tenant-slug=${testTenant.slug}`)
-      const ctx = await createTRPCContext({ headers, payload })
+      const ctx = await createTRPCContext({
+        headers,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
       const caller = appRouter.createCaller(ctx)
       await expect(caller.lessons.getById({ id: testLesson.id })).rejects.toThrow(
         'You must be logged in to access this resource'
@@ -142,7 +147,11 @@ describe('tRPC Tenant Compatibility Tests', () => {
     it('bookings.createBookings throws when no user in context', async () => {
       const headers = new Headers()
       headers.set('cookie', `tenant-slug=${testTenant.slug}`)
-      const ctx = await createTRPCContext({ headers, payload })
+      const ctx = await createTRPCContext({
+        headers,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
       const caller = appRouter.createCaller(ctx)
       await expect(
         caller.bookings.createBookings({
@@ -165,6 +174,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const today = new Date(testLesson.startTime)
@@ -202,7 +212,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         })) as Tenant
 
         const zonedClassOption = (await payload.create({
-          collection: 'class-options',
+          collection: 'event-types',
           data: {
             name: `Timezone Class ${Date.now()}`,
             places: 10,
@@ -237,7 +247,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           tenantTimeZone,
         )
         const lesson = (await payload.create({
-          collection: 'lessons',
+          collection: 'timeslots',
           data: {
             date: start.toISOString(),
             startTime: start.toISOString(),
@@ -256,6 +266,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
             headers,
             payload,
             user: regularUser,
+            bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
           })
 
           const caller = appRouter.createCaller(ctx)
@@ -276,12 +287,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
         } finally {
           try {
             await payload.delete({
-              collection: 'lessons',
+              collection: 'timeslots',
               where: { id: { equals: lesson.id } },
               overrideAccess: true,
             })
             await payload.delete({
-              collection: 'class-options',
+              collection: 'event-types',
               where: { id: { equals: zonedClassOption.id } },
               overrideAccess: true,
             })
@@ -308,6 +319,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -338,7 +350,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
         // Create a class option with more capacity
         const largeClassOption = (await payload.create({
-          collection: 'class-options',
+          collection: 'event-types',
           data: {
             name: `Large Class ${Date.now()}`,
             places: 20, // More capacity
@@ -349,7 +361,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         })) as ClassOption
 
         const availableLesson = (await payload.create({
-          collection: 'lessons',
+          collection: 'timeslots',
           data: {
             date: futureDate.toISOString(),
             startTime: futureDate.toISOString(),
@@ -372,6 +384,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
             headers: mockHeaders,
             payload,
             user: regularUser,
+            bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
           })
 
           const caller = appRouter.createCaller(ctx)
@@ -389,11 +402,11 @@ describe('tRPC Tenant Compatibility Tests', () => {
           // Cleanup
           try {
             await payload.delete({
-              collection: 'lessons',
+              collection: 'timeslots',
               where: { id: { equals: availableLesson.id } },
             })
             await payload.delete({
-              collection: 'class-options',
+              collection: 'event-types',
               where: { id: { equals: largeClassOption.id } },
             })
           } catch {
@@ -414,6 +427,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -454,6 +468,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -506,6 +521,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -542,6 +558,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const today = new Date(testLesson.startTime)
@@ -570,6 +587,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -594,6 +612,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -620,7 +639,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         endTime.setHours(19, 0, 0, 0)
 
         const availableLesson = (await payload.create({
-          collection: 'lessons',
+          collection: 'timeslots',
           data: {
             date: today.toISOString(),
             startTime: today.toISOString(),
@@ -640,6 +659,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
             headers: mockHeaders,
             payload,
             user: regularUser,
+            bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
           })
 
           const caller = appRouter.createCaller(ctx)
@@ -664,7 +684,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           // Cleanup
           try {
             await payload.delete({
-              collection: 'lessons',
+              collection: 'timeslots',
               where: { id: { equals: availableLesson.id } },
             })
           } catch {
@@ -687,6 +707,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const today = new Date(testLesson.startTime)
@@ -723,6 +744,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const today = new Date(testLesson.startTime)

@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { CollectionSlug, JsonObject, PaginatedDocs, Payload, TypeWithID } from "payload";
+import type { TRPCBookingsCollectionSlugs } from "../bookings-slugs";
 
 /**
  * Helper function to check if a collection exists in the Payload instance
@@ -32,6 +33,32 @@ export function requireCollections(...collectionSlugs: string[]) {
     const missingCollections: string[] = [];
 
     for (const slug of collectionSlugs) {
+      if (!hasCollection(ctx.payload, slug)) {
+        missingCollections.push(slug);
+      }
+    }
+
+    if (missingCollections.length > 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `The following collections are not available in this application: ${missingCollections.join(", ")}`,
+      });
+    }
+
+    return next();
+  };
+}
+
+/**
+ * Ensure booking plugin collections exist using slugs from context (supports renamed collections).
+ */
+export function requireBookingCollections(...keys: (keyof TRPCBookingsCollectionSlugs)[]) {
+  return async ({ ctx, next }: any) => {
+    const slugs = ctx.bookingsSlugs as TRPCBookingsCollectionSlugs;
+    const missingCollections: string[] = [];
+
+    for (const key of keys) {
+      const slug = slugs[key];
       if (!hasCollection(ctx.payload, slug)) {
         missingCollections.push(slug);
       }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,13 +17,16 @@ import { DropdownMenuItem } from "@repo/ui/components/ui/dropdown-menu";
 
 export const DeleteLesson = ({ lessonId }: { lessonId: number }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const collectionSlug =
+    pathname?.split("/").filter(Boolean)[2] ?? "lessons";
 
   const handleConfirm = async () => {
     setDeleting(true);
     try {
-      const response = await fetch(`/api/lessons/${lessonId}?depth=2`, {
+      const response = await fetch(`/api/${collectionSlug}/${lessonId}?depth=2`, {
         method: "DELETE",
         credentials: "include",
       });

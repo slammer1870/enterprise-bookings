@@ -2,6 +2,8 @@
  * Helpers for create-payment-intent API: validate booking IDs, reserve pending capacity.
  */
 
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PayloadLike = any
 
@@ -86,7 +88,7 @@ export async function reservePendingBookings(
 
   if (need > 0) {
     const lesson = (await payload.findByID({
-      collection: 'lessons',
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
       id: lessonId,
       depth: 1,
       overrideAccess: true,

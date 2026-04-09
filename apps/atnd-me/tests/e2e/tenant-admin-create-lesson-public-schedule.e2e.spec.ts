@@ -238,7 +238,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
 
     await openCreateFromCollectionList(
       page,
-      `${tenantOrigin}/admin/collections/class-options`,
+      `${tenantOrigin}/admin/collections/event-types`,
       /class options/i,
       /create new/i,
     )
@@ -249,14 +249,14 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
       .getByRole('textbox', { name: /Description/i })
       .fill('E2E class option for tenant-admin public schedule lesson coverage')
     await saveObjectWithOverlayBypass(page, {
-      apiPath: '/api/class-options',
-      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-      collectionName: 'class-options',
+      apiPath: '/api/event-types',
+      expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
+      collectionName: 'event-types',
     })
 
     await openCreateFromCollectionList(
       page,
-      `${tenantOrigin}/admin/collections/lessons`,
+      `${tenantOrigin}/admin/collections/timeslots`,
       /lessons/i,
       /create new/i,
     )
@@ -265,9 +265,9 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
     await selectLessonClassOption(page, className)
     await setLessonDateAndTime(page, targetDate)
     await saveObjectWithOverlayBypass(page, {
-      apiPath: '/api/lessons',
-      expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
-      collectionName: 'lessons',
+      apiPath: '/api/timeslots',
+      expectedUrlPattern: /\/admin\/collections\/timeslots\/\d+/,
+      collectionName: 'timeslots',
     })
 
     await navigateToTenant(page, tenant.slug, '/')

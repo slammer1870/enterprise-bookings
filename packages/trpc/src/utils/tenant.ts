@@ -2,6 +2,7 @@ import type { Payload } from "payload";
 import { TRPCError } from "@trpc/server";
 
 import { findSafe, findByIdSafe, hasCollection } from "./collections";
+import { DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS } from "../bookings-slugs";
 import type { ClassOption, Lesson } from "@repo/shared-types";
 import { resolveTimeZone } from "@repo/shared-utils";
 
@@ -131,12 +132,13 @@ export function assertLessonBelongsToTenant(
  */
 export async function populateLessonClassOption(
   payload: Payload,
-  lesson: Lesson
+  lesson: Lesson,
+  classOptionsSlug: string = DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS.classOptions
 ): Promise<void> {
   const coId = getClassOptionId(lesson);
-  if (coId == null || !hasCollection(payload, "class-options")) return;
+  if (coId == null || !hasCollection(payload, classOptionsSlug)) return;
   try {
-    const populated = await findByIdSafe<ClassOption>(payload, "class-options", coId, {
+    const populated = await findByIdSafe<ClassOption>(payload, classOptionsSlug, coId, {
       depth: 3,
       overrideAccess: true,
     });
@@ -169,10 +171,11 @@ export function deriveTenantIdFromLesson(lesson: Lesson): number | null {
  */
 export async function resolveTenantIdFromLessonId(
   payload: Payload,
-  lessonId: number
+  lessonId: number,
+  lessonsSlug: string = DEFAULT_TRPC_BOOKINGS_COLLECTION_SLUGS.lessons
 ): Promise<number | null> {
-  if (!hasCollection(payload, "lessons")) return null;
-  const lesson = await findByIdSafe<Lesson>(payload, "lessons", lessonId, {
+  if (!hasCollection(payload, lessonsSlug)) return null;
+  const lesson = await findByIdSafe<Lesson>(payload, lessonsSlug, lessonId, {
     depth: 0,
     overrideAccess: true,
   });

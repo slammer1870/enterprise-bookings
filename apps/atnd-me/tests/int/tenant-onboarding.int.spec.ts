@@ -46,7 +46,7 @@ describe('Tenant Onboarding Hook', () => {
       // Verify default class options were created
       // Note: Hook may fail silently if images are missing, but class options should still be created
       const classOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           tenant: {
             equals: tenant.id,
@@ -104,7 +104,7 @@ describe('Tenant Onboarding Hook', () => {
       // Verify default lessons were created (if hook succeeded)
       if (classOptions.docs.length > 0) {
         const lessons = await payload.find({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: {
             tenant: {
               equals: tenant.id,
@@ -220,7 +220,7 @@ describe('Tenant Onboarding Hook', () => {
 
       // Verify tenant1's data is isolated (check class options instead of pages, as pages may fail)
       const tenant1ClassOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           tenant: {
             equals: tenant1.id,
@@ -231,7 +231,7 @@ describe('Tenant Onboarding Hook', () => {
 
       // Verify tenant2's data is isolated
       const tenant2ClassOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           tenant: {
             equals: tenant2.id,

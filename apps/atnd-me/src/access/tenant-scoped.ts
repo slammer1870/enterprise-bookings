@@ -18,16 +18,16 @@ import {
 export function getUserTenantIds(user: SharedUser | null): number[] | null {
   if (!user) return []
   
-  // Admin can access all tenants
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  // Platform super-admin can access all tenants
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return null // null means "all tenants"
   }
-  
-  // Tenant-admin can access their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+
+  // Tenant org admin or staff: assigned tenants
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenants = (user as unknown as Record<string, unknown>).tenants as Array<{ tenant?: number | { id: number }; id?: number } | number> | undefined
     // Auth/session payloads often omit the `tenants` relationship. Fall back to `registrationTenant`
-    // so tenant-admins still have access to their primary tenant.
+    // so tenant portal users still have access to their primary tenant.
     if (!tenants || tenants.length === 0) {
       const reg = (user as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
@@ -244,12 +244,12 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
   if (!user) return false
   
   // Admin can create for any tenant
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
   
   // Tenant-admin can only create for their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
     if (tenantIds.length === 0) return false
     
@@ -298,12 +298,12 @@ export const tenantScopedUpdate: Access = async ({ req: { user, payload }, id: _
   if (!user) return false
   
   // Admin can update any document
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
   
   // Tenant-admin can only update documents from their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     // We need to check the document's tenant
     // This will be handled by query constraints in the access control
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
@@ -327,13 +327,13 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   if (!user) return false
   
   // Admin can delete any document
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
   
   // Tenant-admin can delete documents from their assigned tenants
   // (query constraint will be applied automatically by update access)
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
     if (tenantIds.length === 0) return false
     return { tenant: { in: tenantIds } }
@@ -397,7 +397,7 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
   
   // Admin can read all documents, but when the admin sidebar selected a tenant
   // we should scope list data to that tenant on the server as well.
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
     if (resolvedTenantId != null) {
       return {
@@ -410,7 +410,7 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
   }
   
   // Tenant-admin can only read documents from their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     return await resolveTenantAdminReadConstraint({ req })
   }
   
@@ -444,11 +444,11 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
 export const tenantScopedPublicReadStrict: Access = async ({ req }) => {
   const user = req.user
 
-  if (user && checkRole(['admin'], user as SharedUser)) {
+  if (user && checkRole(['super-admin'], user as SharedUser)) {
     return true
   }
 
-  if (user && checkRole(['tenant-admin'], user as SharedUser)) {
+  if (user && checkRole(['admin', 'staff'], user as SharedUser)) {
     return await resolveTenantAdminReadConstraint({ req })
   }
 
@@ -483,12 +483,12 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     }) as unknown as Where
 
   // Admin can read all documents
-  if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+  if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
 
   // Tenant-admin: constrain to their tenants
-  if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (user && checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
     if (tenantIds === null || tenantIds.length === 0) return false
     return whereTenantsOrPublic(tenantIds)

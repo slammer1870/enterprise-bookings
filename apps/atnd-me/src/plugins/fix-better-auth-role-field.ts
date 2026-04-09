@@ -1,6 +1,6 @@
 import type { CollectionConfig, Config, PayloadRequest, Plugin } from 'payload'
 
-import { isAdmin, isTenantAdmin } from '@/access/userTenantAccess'
+import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 
 /**
  * Fix for `payload-auth/better-auth` role field schema mismatch.
@@ -13,7 +13,7 @@ import { isAdmin, isTenantAdmin } from '@/access/userTenantAccess'
  * We sync them so both systems work together.
  *
  * We also restrict the `role` field to admin-only read/update (same as the roles plugin does
- * for `roles`) so tenant-admins cannot change their own or others' role to admin.
+ * for `roles`) so tenant portal users cannot change roles to super-admin.
  */
 export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Config => {
   const config = { ...incomingConfig }
@@ -27,14 +27,17 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
 
   const fields = usersCollection.fields || []
 
-  // Allow tenant-admins to edit role/roles, but enforce safe scoping in Users collection hooks.
+  // Allow tenant org admins and staff to edit role/roles; Users hooks enforce super-admin safety.
   // (Field-level access can only return boolean; it cannot enforce tenant scoping.)
   const fieldsWithRoleAccess = fields.map((field) => {
     if ('name' in field && field.name === 'role') {
       const access = {
-        create: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
-        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
-        update: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+        create: ({ req }: { req: PayloadRequest }) =>
+          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+        read: ({ req }: { req: PayloadRequest }) =>
+          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+        update: ({ req }: { req: PayloadRequest }) =>
+          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
       }
       return { ...field, access } as typeof field
     }
@@ -42,9 +45,12 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
       const existingAccess = (field as { access?: unknown }).access
       const access = {
         ...(typeof existingAccess === 'object' && existingAccess ? (existingAccess as Record<string, unknown>) : {}),
-        create: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
-        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
-        update: ({ req }: { req: PayloadRequest }) => isAdmin(req.user) || isTenantAdmin(req.user),
+        create: ({ req }: { req: PayloadRequest }) =>
+          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+        read: ({ req }: { req: PayloadRequest }) =>
+          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+        update: ({ req }: { req: PayloadRequest }) =>
+          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
       }
       return { ...field, access } as typeof field
     }

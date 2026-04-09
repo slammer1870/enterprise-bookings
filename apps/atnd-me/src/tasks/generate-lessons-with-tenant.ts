@@ -1,5 +1,12 @@
 import type { TaskHandler } from 'payload'
-import { generateLessonsFromSchedule } from '@repo/bookings-plugin'
+import { createGenerateLessonsFromScheduleHandler } from '@repo/bookings-plugin'
+
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
+/** Must match bookingsPlugin slugs — the package default handler targets `lessons`, not `timeslots`. */
+const generateLessonsForAtndMe = createGenerateLessonsFromScheduleHandler(
+  ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+)
 
 /**
  * Wrapper for generateLessonsFromSchedule that ensures tenant context is set
@@ -7,7 +14,7 @@ import { generateLessonsFromSchedule } from '@repo/bookings-plugin'
  */
 export const generateLessonsFromScheduleWithTenant: TaskHandler<'generateLessonsFromSchedule'> = async (args) => {
   const { input, req } = args
-  
+
   // Extract tenant from input (passed from scheduler document)
   const tenantId = (input as { tenant?: number }).tenant
 
@@ -21,8 +28,5 @@ export const generateLessonsFromScheduleWithTenant: TaskHandler<'generateLessons
     req.context.tenant = tenantId
   }
 
-  // Call the original task handler with updated req context
-  // The multi-tenant plugin will automatically filter all queries by tenant
-  // and set the tenant field on new documents
-  return generateLessonsFromSchedule(args)
+  return generateLessonsForAtndMe(args)
 }

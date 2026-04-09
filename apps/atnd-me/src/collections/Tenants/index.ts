@@ -52,15 +52,15 @@ const STRIPE_CONNECT_STATUS_OPTIONS = [
   'deauthorized',
 ] as const
 
-/** True if req.user is admin or tenant-admin (for Stripe field visibility). */
+/** Super-admin or tenant org admin can read Stripe Connect fields; staff cannot. */
 function canReadStripeFields(user: unknown): boolean {
   if (!user) return false
-  return checkRole(['admin', 'tenant-admin'], user as SharedUser)
+  return checkRole(['super-admin', 'admin'], user as SharedUser)
 }
 
-/** Only full admin can update Stripe Connect fields (set by OAuth/webhooks). */
+/** Only platform super-admin can update restricted tenant fields. */
 const adminOnlyUpdate = ({ req }: { req: { user?: unknown } }) =>
-  Boolean(req?.user && checkRole(['admin'], req.user as SharedUser))
+  Boolean(req?.user && checkRole(['super-admin'], req.user as SharedUser))
 
 export const Tenants: CollectionConfig = {
   slug: 'tenants',
@@ -72,15 +72,14 @@ export const Tenants: CollectionConfig = {
   access: {
     admin: ({ req: { user } }) => {
       if (!user) return false
-      return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
     },
     read: (args) => {
       const { req: { user } } = args
-      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+      if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
       }
-      // Tenant-admins can read only their assigned tenant(s) (e.g. for Stripe Connect status, logo)
-      if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+      if (user && checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
         const tenantIds = getUserTenantIds(user as unknown as SharedUser)
         if (tenantIds === null || tenantIds.length === 0) return false
         return { id: { in: tenantIds } }
@@ -90,14 +89,13 @@ export const Tenants: CollectionConfig = {
     create: (args) => {
       const { req: { user } } = args
       if (!user) return false
-      return checkRole(['admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin'], user as unknown as SharedUser)
     },
     update: (args) => {
       const { req: { user } } = args
       if (!user) return false
-      if (checkRole(['admin'], user as unknown as SharedUser)) return true
-      // Tenant-admins can update only their assigned tenant(s) (e.g. logo, description)
-      if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+      if (checkRole(['super-admin'], user as unknown as SharedUser)) return true
+      if (checkRole(['admin'], user as unknown as SharedUser)) {
         const tenantIds = getUserTenantIds(user as unknown as SharedUser)
         if (tenantIds === null || tenantIds.length === 0) return false
         return { id: { in: tenantIds } }
@@ -107,7 +105,7 @@ export const Tenants: CollectionConfig = {
     delete: (args) => {
       const { req: { user } } = args
       if (!user) return false
-      return checkRole(['admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin'], user as unknown as SharedUser)
     },
   },
   fields: [
@@ -237,7 +235,7 @@ export const Tenants: CollectionConfig = {
       required: false,
       admin: { description: 'Last OAuth or webhook error (admin-only).' },
       access: {
-        read: ({ req }) => Boolean(req?.user && checkRole(['admin'], req.user as SharedUser)),
+        read: ({ req }) => Boolean(req?.user && checkRole(['super-admin'], req.user as SharedUser)),
         update: adminOnlyUpdate,
       },
     },

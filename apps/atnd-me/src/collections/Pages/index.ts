@@ -376,7 +376,7 @@ export const Pages: CollectionConfig<'pages'> = {
     // Without this, Payload can render a 404 Not Found for /admin/collections/pages/*.
     admin: ({ req: { user } }) => {
       if (!user) return false
-      return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
     },
     read: tenantScopedReadFiltered,
     create: tenantScopedCreate,

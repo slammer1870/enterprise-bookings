@@ -68,6 +68,8 @@ import * as migration_20260326_form_submissions_tenant_id from './20260326_form_
 import * as migration_20260329_162234 from './20260329_162234';
 import * as migration_20260329_202734 from './20260329_202734';
 import * as migration_20260331_125424 from './20260331_125424';
+import * as migration_20260409000000_roles_and_booking_collection_tables from './20260409000000_roles_and_booking_collection_tables';
+import * as migration_20260409000001_roles_data_and_booking_table_renames from './20260409000001_roles_data_and_booking_table_renames';
 
 export const migrations = [
   {
@@ -418,6 +420,16 @@ export const migrations = [
   {
     up: migration_20260331_125424.up,
     down: migration_20260331_125424.down,
-    name: '20260331_125424'
+    name: '20260331_125424',
+  },
+  {
+    up: migration_20260409000000_roles_and_booking_collection_tables.up,
+    down: migration_20260409000000_roles_and_booking_collection_tables.down,
+    name: '20260409000000_roles_and_booking_collection_tables',
+  },
+  {
+    up: migration_20260409000001_roles_data_and_booking_table_renames.up,
+    down: migration_20260409000001_roles_data_and_booking_table_renames.down,
+    name: '20260409000001_roles_data_and_booking_table_renames',
   },
 ];

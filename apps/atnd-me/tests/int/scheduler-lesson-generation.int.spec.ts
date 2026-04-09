@@ -55,7 +55,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
     // Create class option for first tenant
     classOption = (await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Test Class Option ${Date.now()}`,
         places: 10,
@@ -67,7 +67,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
     // Create class option for second tenant
     secondTenantClassOption = (await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Second Tenant Class Option ${Date.now()}`,
         places: 10,
@@ -98,7 +98,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Create existing lessons for the test tenant (some with bookings, some without)
       const existingLessonWithoutBooking = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         data: {
           date: tomorrow.toISOString(),
           startTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
@@ -111,7 +111,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       })) as Lesson
 
       const existingLessonWithBooking = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         data: {
           date: tomorrow.toISOString(),
           startTime: new Date(tomorrow.getTime() + 14 * 60 * 60 * 1000).toISOString(), // 2 PM
@@ -139,7 +139,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       // Create a lesson for the second tenant (should not be affected)
       // Use a different time slot to avoid conflicts
       const secondTenantLesson = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         data: {
           date: tomorrow.toISOString(),
           startTime: new Date(tomorrow.getTime() + 16 * 60 * 60 * 1000).toISOString(), // 4 PM (different from test tenant's times)
@@ -153,7 +153,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Verify the second tenant's lesson exists before running the job
       const secondTenantLessonBefore = await payload.findByID({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: secondTenantLesson.id,
         overrideAccess: true,
       })
@@ -162,7 +162,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Count lessons for second tenant before running scheduler
       const secondTenantLessonsBefore = await payload.find({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: {
           and: [
             {
@@ -262,14 +262,14 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Verify: Lesson without booking should be deleted (clearExisting: true)
       const deletedLesson = await payload.findByID({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: existingLessonWithoutBooking.id,
       }).catch(() => null)
       expect(deletedLesson).toBeNull()
 
       // Verify: Lesson with active booking should still exist
       const preservedLesson = await payload.findByID({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: existingLessonWithBooking.id,
       })
       expect(preservedLesson).toBeDefined()
@@ -286,7 +286,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       // Verify: Second tenant's lesson should not be affected
       // Use overrideAccess to bypass filtering for verification
       const secondTenantLessonPreserved = await payload.findByID({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: secondTenantLesson.id,
         overrideAccess: true,
       })
@@ -300,7 +300,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       // Verify: New lessons should be generated for the test tenant
       // Find all lessons for the test tenant in the date range
       const generatedLessons = await payload.find({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: {
           and: [
             {
@@ -338,7 +338,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
       // Verify: No lessons were generated for the second tenant
       // Use overrideAccess and explicit tenant filter to verify isolation
       const secondTenantLessons = await payload.find({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: {
           and: [
             {
@@ -386,7 +386,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Create an existing lesson
       const existingLesson = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         data: {
           date: startDate.toISOString(),
           startTime: new Date(startDate.getTime() + 10 * 60 * 60 * 1000).toISOString(), // 10 AM
@@ -469,7 +469,7 @@ describe('Scheduler Lesson Generation with Tenant Context', () => {
 
       // Verify: Existing lesson should still exist
       const preservedLesson = await payload.findByID({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: existingLesson.id,
       })
       expect(preservedLesson).toBeDefined()

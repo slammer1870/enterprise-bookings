@@ -6,6 +6,7 @@ import { TRPCRouterRecord } from "@trpc/server";
 import {
   protectedProcedure,
   publicProcedure,
+  requireBookingCollections,
   requireCollections,
 } from "../trpc";
 import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
@@ -29,20 +30,20 @@ import {
 
 export const lessonsRouter = {
   getById: protectedProcedure
-    .use(requireCollections("lessons"))
+    .use(requireBookingCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       const tenantSlug = getTenantSlug(ctx);
       let tenantId = await resolveTenantId(ctx.payload, tenantSlug);
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.id);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.id, ctx.bookingsSlugs.lessons);
       }
 
       // IMPORTANT: when operating on behalf of a user, enforce Payload access controls.
       // We pass req.context.tenant so multi-tenant access functions can scope correctly.
       const lesson = (await ctx.payload
         .findByID({
-          collection: "lessons" as any,
+          collection: ctx.bookingsSlugs.lessons as any,
           id: input.id,
           depth: 3,
           overrideAccess: false,
@@ -72,7 +73,7 @@ export const lessonsRouter = {
 
       if (effectiveTenantId) {
         assertLessonBelongsToTenant(lesson, effectiveTenantId, input.id);
-        await populateLessonClassOption(ctx.payload, lesson);
+        await populateLessonClassOption(ctx.payload, lesson, ctx.bookingsSlugs.classOptions);
       }
 
       const fallbackTimeZone = resolveTimeZone(
@@ -88,14 +89,14 @@ export const lessonsRouter = {
     }),
 
   getByIdForBooking: protectedProcedure
-    .use(requireCollections("lessons"))
+    .use(requireBookingCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
       const lesson = (await ctx.payload
         .findByID({
-          collection: "lessons" as any,
+          collection: ctx.bookingsSlugs.lessons as any,
           id: input.id,
           depth: 5,
           // Enforce access control for the caller, but provide tenant context for cross-tenant booking
@@ -125,7 +126,7 @@ export const lessonsRouter = {
       }
       if (tenantId) {
         assertLessonBelongsToTenant(lesson, tenantId, input.id);
-        await populateLessonClassOption(ctx.payload, lesson);
+        await populateLessonClassOption(ctx.payload, lesson, ctx.bookingsSlugs.classOptions);
       }
 
       const fallbackTimeZone = resolveTimeZone(
@@ -171,10 +172,10 @@ export const lessonsRouter = {
       // Validate remaining capacity - but allow access if the user has pending bookings
       // for this lesson so they can return to the page and complete payment
       if (lesson.remainingCapacity <= 0 || lesson.bookingStatus === "waitlist") {
-        if (hasCollection(ctx.payload, "bookings")) {
+        if (hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
           const userId = typeof ctx.user?.id === "string" ? parseInt(ctx.user.id, 10) : ctx.user?.id;
           if (userId && !Number.isNaN(userId)) {
-            const userPending = await findSafe(ctx.payload, "bookings", {
+            const userPending = await findSafe(ctx.payload, ctx.bookingsSlugs.bookings, {
               where: {
                 and: [
                   { lesson: { equals: input.id } },
@@ -203,10 +204,10 @@ export const lessonsRouter = {
     }),
 
   getByIdForChildren: protectedProcedure
-    .use(requireCollections("lessons"))
+    .use(requireBookingCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.id, {
         depth: 2,
         overrideAccess: false,
         user: ctx.user,
@@ -232,7 +233,7 @@ export const lessonsRouter = {
     }),
 
   getByDate: publicProcedure
-    .use(requireCollections("lessons"))
+    .use(requireBookingCollections("lessons"))
     .input(z.object({
       date: z.string(),
       /** When provided (e.g. from root home page schedule block), filter lessons to this tenant. */
@@ -288,9 +289,9 @@ export const lessonsRouter = {
 
         // Schedule UX: don't allow browsing past days, and don't show lessons that already ended today.
         // Use Date.now so test suites can stub current time deterministically.
-        const now = Date.now();
+        const nowMs = Date.now();
         const { startOfDay: todayStart } = getDayBoundsInTimeZone(
-          new Date(now).toISOString(),
+          new Date(nowMs).toISOString(),
           timeZone
         );
         if (endOfDay.getTime() < todayStart.getTime()) {
@@ -360,7 +361,7 @@ export const lessonsRouter = {
         } as any;
 
         const lessons = await ctx.payload.find({
-          collection: "lessons" as CollectionSlug,
+          collection: ctx.bookingsSlugs.lessons as CollectionSlug,
           where: queryOptions.where,
           depth: queryOptions.depth,
           sort: queryOptions.sort,
@@ -515,9 +516,9 @@ export const lessonsRouter = {
           new Set(lessonDocs.map((l) => relationId(l.instructor)).filter(Boolean) as number[])
         );
         const instructorsById: Map<number, any> = new Map();
-        if (instructorIds.length > 0 && hasCollection(ctx.payload, "instructors")) {
+        if (instructorIds.length > 0 && hasCollection(ctx.payload, ctx.bookingsSlugs.instructors)) {
           const instructors = await ctx.payload.find({
-            collection: "instructors" as CollectionSlug,
+            collection: ctx.bookingsSlugs.instructors as CollectionSlug,
             where: { id: { in: instructorIds } },
             depth: 2,
             limit: 0,
@@ -536,9 +537,9 @@ export const lessonsRouter = {
           new Set(lessonDocs.map((l) => relationId(l.classOption)).filter(Boolean) as number[])
         );
         const classOptionsById: Map<number, any> = new Map();
-        if (classOptionIds.length > 0 && hasCollection(ctx.payload, "class-options")) {
+        if (classOptionIds.length > 0 && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)) {
           const classOptions = await ctx.payload.find({
-            collection: "class-options" as CollectionSlug,
+            collection: ctx.bookingsSlugs.classOptions as CollectionSlug,
             where: { id: { in: classOptionIds } },
             depth: 2,
             limit: 0,
@@ -554,7 +555,7 @@ export const lessonsRouter = {
 
         // Helpers
         const getId = relationId;
-        const nowForStatus = new Date();
+        const nowForStatus = new Date(nowMs);
 
         const isLessonClosed = (startTime: string | undefined, lockOutTime: number | undefined) => {
           if (!startTime) return false;
@@ -573,9 +574,9 @@ export const lessonsRouter = {
         // Batch-fetch bookings for all returned lessons (for capacity + viewer state).
         // Only confirmed and waiting - pending does not show "Modify Booking" (user goes to manage via postValidation redirect)
         const bookingsByLessonId: Map<number, any[]> = new Map();
-        if (lessonIds.length > 0 && hasCollection(ctx.payload, "bookings")) {
+        if (lessonIds.length > 0 && hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
           const bookingsResult = await ctx.payload.find({
-            collection: "bookings" as CollectionSlug,
+            collection: ctx.bookingsSlugs.bookings as CollectionSlug,
             where: {
               and: [
                 { lesson: { in: lessonIds } },
@@ -608,10 +609,10 @@ export const lessonsRouter = {
         });
 
         let viewerHasAnyConfirmedBooking = false;
-        if (viewerId && hasTrialableLesson && hasCollection(ctx.payload, "bookings")) {
+        if (viewerId && hasTrialableLesson && hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
           try {
             const anyConfirmed = await ctx.payload.find({
-              collection: "bookings" as CollectionSlug,
+              collection: ctx.bookingsSlugs.bookings as CollectionSlug,
               where: {
                 and: [
                   {
@@ -814,15 +815,15 @@ export const lessonsRouter = {
       }
     }),
   getForKiosk: protectedProcedure
-    .use(requireCollections("lessons"))
+    .use(requireBookingCollections("lessons"))
     .query(async ({ ctx }) => {
-      if (!checkRole(["admin"], ctx.user as any)) {
+      if (!checkRole(["super-admin"], ctx.user as any)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
       }
 
       const { endOfDay } = getDayRange(new Date());
 
-      const lessons = await findSafe(ctx.payload, "lessons", {
+      const lessons = await findSafe(ctx.payload, ctx.bookingsSlugs.lessons, {
         where: {
           and: [
             {

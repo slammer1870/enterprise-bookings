@@ -3,14 +3,18 @@ import qs from "qs";
 import { describe, expect, it } from "vitest";
 
 import { generateLessonCollection } from "../src/collections/lessons";
+import { DEFAULT_BOOKINGS_PLUGIN_SLUGS } from "../src/resolve-slugs";
 import { getLessonsQuery } from "../src/utils/query";
 
 const LESSON_TIMEZONE = "Europe/Dublin";
 
 const normalizeTimeFields = async (data: Record<string, unknown>) => {
-  const lessonCollection = generateLessonCollection({
-    enabled: true,
-  });
+  const lessonCollection = generateLessonCollection(
+    {
+      enabled: true,
+    },
+    DEFAULT_BOOKINGS_PLUGIN_SLUGS,
+  );
   const hook = lessonCollection.hooks?.beforeChange?.[0];
   if (!hook) throw new Error("Expected lesson beforeChange hook");
 

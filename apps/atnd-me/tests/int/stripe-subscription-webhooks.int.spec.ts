@@ -138,25 +138,25 @@ describe('Stripe subscription webhooks (Connect)', () => {
           })
         }
         const lessonsResult = await payload.find({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
         for (const l of lessonsResult.docs) {
           await payload.delete({
-            collection: 'lessons',
+            collection: 'timeslots',
             id: l.id,
             overrideAccess: true,
           })
         }
         const coResult = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
         for (const c of coResult.docs) {
           await payload.delete({
-            collection: 'class-options',
+            collection: 'event-types',
             id: c.id,
             overrideAccess: true,
           })
@@ -428,7 +428,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
     'customer.subscription.created with lessonId in metadata: creates subscription and confirms booking (subscription-from-booking-page flow)',
     async () => {
       const co = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Sub Booking Class ${Date.now()}`,
           places: 10,
@@ -444,7 +444,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
       const lesson = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
@@ -512,7 +512,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
     'customer.subscription.created with bookingIds in metadata: confirms specified bookings (children flow)',
     async () => {
       const co = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Sub BookingIds Class ${Date.now()}`,
           places: 10,
@@ -528,7 +528,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
       const lesson = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,

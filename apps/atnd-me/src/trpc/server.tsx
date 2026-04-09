@@ -7,6 +7,7 @@ import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@/trpc/router'
 import { getPayload } from '@/lib/payload'
 import { stripe } from '../lib/stripe'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 const createContext = cache(async () => {
   const heads = new Headers(await nextHeaders())
@@ -22,6 +23,7 @@ const createContext = cache(async () => {
     headers: heads,
     payload: payload,
     stripe: stripe,
+    bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
   })
 })
 
@@ -62,6 +64,7 @@ export async function createCaller(opts?: {
     payload,
     stripe,
     hostOverride: opts?.host || host || undefined,
+    bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
   })
 
   return appRouter.createCaller(ctx)

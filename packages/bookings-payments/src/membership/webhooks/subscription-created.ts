@@ -141,7 +141,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
       let lesson: { id: number; tenant?: number | { id: number } } | null = null;
       try {
         lesson = (await payload.findByID({
-          collection: "lessons",
+          collection: "lessons" as any,
           id: lessonIdNum,
           depth: 1,
         })) as { id: number; tenant?: number | { id: number } } | null;

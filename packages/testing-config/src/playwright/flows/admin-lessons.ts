@@ -135,9 +135,9 @@ export async function selectClassOptionInLessonForm(page: Page, className: strin
 
 export async function saveLesson(page: Page): Promise<void> {
   await saveObjectAndWaitForNavigation(page as any, {
-    apiPath: '/api/lessons',
-    expectedUrlPattern: /\/admin\/collections\/lessons\/\d+/,
-    collectionName: 'lessons',
+    apiPath: '/api/timeslots',
+    expectedUrlPattern: /\/admin\/collections\/timeslots\/\d+/,
+    collectionName: 'timeslots',
   })
 }
 

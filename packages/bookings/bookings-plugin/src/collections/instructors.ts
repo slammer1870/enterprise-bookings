@@ -12,6 +12,8 @@ import { checkRole } from "@repo/shared-utils";
 
 import type { User, AccessControls, HooksConfig } from "@repo/shared-types/";
 
+import type { BookingsPluginSlugs } from "../resolve-slugs";
+
 const defaultFields: Field[] = [
   {
     name: "user",
@@ -69,20 +71,21 @@ const defaultLabels: Labels = {
 
 const defaultAccess: AccessControls = {
   read: ({ req: { user } }) => {
-    // Admins can see all instructors
-    if (checkRole(["admin"], user as User | null)) {
+    if (checkRole(["super-admin", "admin"], user as User | null)) {
       return true;
     }
-    // Regular users can only see active instructors
     return {
       active: {
         equals: true,
       },
     };
   },
-  create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  create: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
+  update: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
+  delete: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
 };
 
 const defaultAdmin: CollectionAdminOptions = {
@@ -90,146 +93,144 @@ const defaultAdmin: CollectionAdminOptions = {
   useAsTitle: "name",
 };
 
-const defaultHooks = {
-  beforeChange: [
-    async ({ data, req, operation }: any) => {
-      // Auto-populate name from user's name when creating or updating
-      if (data && data.user) {
-        try {
-          const userId =
-            typeof data.user === "object" && "id" in data.user
-              ? data.user.id
-              : data.user;
-          const user = await req.payload.findByID({
-            collection: "users",
-          id: userId,
-          req,
-        });
-        data.name = (user as any)?.name || `User ${userId}`;
-      } catch {
-        data.name = data.name || `User ${data.user}`;
-      }
-      } else if (data && !data.name && operation === "update") {
-        // If updating and user exists but name is missing, populate it
-        try {
-          const existing = await req.payload.findByID({
-            collection: "instructors" as CollectionSlug,
-            id: data.id || (req as any).params?.id,
-            req,
-          });
-          if (existing && existing.user) {
+function createInstructorDefaultHooks(
+  slugs: BookingsPluginSlugs,
+): HooksConfig {
+  const instructorsSlug = slugs.instructors as CollectionSlug;
+
+  return {
+    beforeChange: [
+      async ({ data, req, operation }: any) => {
+        if (data && data.user) {
+          try {
             const userId =
-              typeof existing.user === "object" && "id" in existing.user
-                ? existing.user.id
-                : existing.user;
+              typeof data.user === "object" && "id" in data.user
+                ? data.user.id
+                : data.user;
             const user = await req.payload.findByID({
               collection: "users",
               id: userId,
-            req,
-          });
-          data.name = (user as any)?.name || `User ${userId}`;
-        }
-      } catch {
-        // Ignore errors
-      }
-      }
-      return data;
-    },
-  ],
-  afterChange: [
-    async ({ doc, req, operation: _operation }: any) => {
-      // Ensure name is saved after change
-      if (doc && doc.user && (!doc.name || doc.name === "")) {
-        try {
-          const userId =
-            typeof doc.user === "object" && "id" in doc.user
-              ? doc.user.id
-              : doc.user;
-          const user = await req.payload.findByID({
-            collection: "users",
-            id: userId,
-            req,
-          });
-          const userName = (user as any)?.name || `User ${userId}`;
-
-          // Update the document with the name
-          await req.payload.update({
-            collection: "instructors" as CollectionSlug,
-          id: doc.id,
-          data: { name: userName },
-          req,
-        });
-      } catch {
-        // Ignore errors
-      }
-      }
-      return doc;
-    },
-  ],
-  afterRead: [
-    async ({ doc, req }: any) => {
-      // Ensure name is populated from user when reading (for display purposes)
-      // Handle both single doc and result objects with docs array
-      let docsToProcess: any[] = [];
-
-      if (doc?.docs && Array.isArray(doc.docs)) {
-        // Result object with docs array
-        docsToProcess = doc.docs;
-      } else if (Array.isArray(doc)) {
-        // Array of docs
-        docsToProcess = doc;
-      } else if (doc) {
-        // Single doc
-        docsToProcess = [doc];
-      }
-
-      for (const d of docsToProcess) {
-        if (d && d.user) {
-          // Check if user is already populated with name
-          if (typeof d.user === "object" && "name" in d.user && d.user.name) {
-            d.name = d.user.name;
-          } else if (!d.name || d.name === "") {
-            try {
+              req,
+            });
+            data.name = (user as any)?.name || `User ${userId}`;
+          } catch {
+            data.name = data.name || `User ${data.user}`;
+          }
+        } else if (data && !data.name && operation === "update") {
+          try {
+            const existing = await req.payload.findByID({
+              collection: instructorsSlug,
+              id: data.id || (req as any).params?.id,
+              req,
+            });
+            if (existing && existing.user) {
               const userId =
-                typeof d.user === "object" && "id" in d.user
-                  ? d.user.id
-                  : d.user;
+                typeof existing.user === "object" && "id" in existing.user
+                  ? existing.user.id
+                  : existing.user;
               const user = await req.payload.findByID({
                 collection: "users",
                 id: userId,
-            req,
-          });
-          // Update the document with the name for display
-          d.name = (user as any)?.name || `User ${userId}`;
-        } catch {
-          d.name = d.name || `User ${d.user}`;
-        }
+                req,
+              });
+              data.name = (user as any)?.name || `User ${userId}`;
+            }
+          } catch {
+            // Ignore errors
           }
         }
-      }
+        return data;
+      },
+    ],
+    afterChange: [
+      async ({ doc, req }: any) => {
+        if (doc && doc.user && (!doc.name || doc.name === "")) {
+          try {
+            const userId =
+              typeof doc.user === "object" && "id" in doc.user
+                ? doc.user.id
+                : doc.user;
+            const user = await req.payload.findByID({
+              collection: "users",
+              id: userId,
+              req,
+            });
+            const userName = (user as any)?.name || `User ${userId}`;
 
-      // Return in the same format as received
-      if (doc?.docs && Array.isArray(doc.docs)) {
-        return { ...doc, docs: docsToProcess };
-      } else if (Array.isArray(doc)) {
-        return docsToProcess;
-      } else {
-        return docsToProcess[0] || doc;
-      }
-    },
-  ],
-} as HooksConfig;
+            await req.payload.update({
+              collection: instructorsSlug,
+              id: doc.id,
+              data: { name: userName },
+              req,
+            });
+          } catch {
+            // Ignore errors
+          }
+        }
+        return doc;
+      },
+    ],
+    afterRead: [
+      async ({ doc, req }: any) => {
+        let docsToProcess: any[] = [];
 
-export const generateInstructorCollection = (config: BookingsPluginConfig) => {
+        if (doc?.docs && Array.isArray(doc.docs)) {
+          docsToProcess = doc.docs;
+        } else if (Array.isArray(doc)) {
+          docsToProcess = doc;
+        } else if (doc) {
+          docsToProcess = [doc];
+        }
+
+        for (const d of docsToProcess) {
+          if (d && d.user) {
+            if (typeof d.user === "object" && "name" in d.user && d.user.name) {
+              d.name = d.user.name;
+            } else if (!d.name || d.name === "") {
+              try {
+                const userId =
+                  typeof d.user === "object" && "id" in d.user
+                    ? d.user.id
+                    : d.user;
+                const user = await req.payload.findByID({
+                  collection: "users",
+                  id: userId,
+                  req,
+                });
+                d.name = (user as any)?.name || `User ${userId}`;
+              } catch {
+                d.name = d.name || `User ${d.user}`;
+              }
+            }
+          }
+        }
+
+        if (doc?.docs && Array.isArray(doc.docs)) {
+          return { ...doc, docs: docsToProcess };
+        } else if (Array.isArray(doc)) {
+          return docsToProcess;
+        } else {
+          return docsToProcess[0] || doc;
+        }
+      },
+    ],
+  } as HooksConfig;
+}
+
+export const generateInstructorCollection = (
+  config: BookingsPluginConfig,
+  slugs: BookingsPluginSlugs,
+) => {
   const overrides = config?.instructorOverrides;
-  // Determine fields first, before spreading overrides
+  const defaultHooks = createInstructorDefaultHooks(slugs);
+
   const fields =
     overrides?.fields && typeof overrides?.fields === "function"
       ? overrides.fields({ defaultFields })
       : defaultFields;
 
   const instructorConfig: CollectionConfig = {
-    slug: "instructors",
+    slug: slugs.instructors,
     labels: {
       ...(overrides?.labels || defaultLabels),
     },
@@ -247,13 +248,19 @@ export const generateInstructorCollection = (config: BookingsPluginConfig) => {
         : defaultHooks),
     },
     fields,
-    // Spread other overrides properties (but not fields, hooks, access, admin, labels, slug)
     ...(overrides
       ? Object.fromEntries(
           Object.entries(overrides).filter(
             ([key]) =>
-              !["fields", "hooks", "access", "admin", "labels", "slug"].includes(key)
-          )
+              ![
+                "fields",
+                "hooks",
+                "access",
+                "admin",
+                "labels",
+                "slug",
+              ].includes(key),
+          ),
         )
       : {}),
   };

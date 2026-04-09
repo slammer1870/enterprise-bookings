@@ -12,7 +12,10 @@ export function createCustomersProxy(params?: {
   scope?: CustomersProxyScope;
 }): PayloadHandler {
   return async (req): Promise<Response> => {
-    if (!req.user || !checkRole(["admin"], req.user as unknown as User | null)) {
+    if (
+      !req.user ||
+      !checkRole(["super-admin", "admin", "staff"], req.user as unknown as User | null)
+    ) {
       if (logs) req.payload.logger?.error?.({ err: "You are not authorized to access customers" });
       return new Response(JSON.stringify("You are not authorized to access customers"), { status: 401 });
     }

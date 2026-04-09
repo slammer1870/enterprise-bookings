@@ -90,7 +90,7 @@ async function createPublishedLesson(args: {
   end.setHours(11, 0, 0, 0)
 
   const lesson = await payload.create({
-    collection: 'lessons',
+    collection: 'timeslots',
     data: {
       tenant: tenantId,
       classOption: classOptionId,
@@ -158,7 +158,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
 
     const className = uniqueClassName(`ATND Schedule CP ${tenant.id}`)
     const classOption = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: className,
         places: 10,
@@ -181,7 +181,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
     })
 
     await setPayloadTenantCookie(page, tenant.id, tenant.slug)
-    await page.goto(`${tenantOrigin}/admin/collections/lessons/create`, {
+    await page.goto(`${tenantOrigin}/admin/collections/timeslots/create`, {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
@@ -194,7 +194,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
       targetDate,
     })
 
-    await page.goto(`${tenantOrigin}/admin/collections/lessons/${lessonId}`, {
+    await page.goto(`${tenantOrigin}/admin/collections/timeslots/${lessonId}`, {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
@@ -217,7 +217,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
     }
 
     const lessonInDb = await payload.findByID({
-      collection: 'lessons',
+      collection: 'timeslots',
       id: lessonId,
       overrideAccess: true,
     })
@@ -272,7 +272,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
 
     const className = uniqueClassName(`ATND Schedule Book CP ${tenant.id}`)
     const classOption = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: className,
         places: 10,

@@ -4,6 +4,7 @@ import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import type { User, Lesson, ClassOption, Tenant } from '@repo/shared-types'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 /**
  * Tests that authenticated users can see lessons in the schedule on the homepage.
@@ -97,7 +98,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
     profileImageId = (profileImage as any).id as number
 
     const instructor = await payload.create({
-      collection: 'instructors',
+      collection: 'staff-members',
       data: {
         user: instructorUser.id,
         active: true,
@@ -154,7 +155,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
 
     // Create class option for the tenant
     const classOption = (await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Schedule Test Class ${Date.now()}`,
         places: 10,
@@ -174,7 +175,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
     testLesson = (await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         date: startTime.toISOString(),
@@ -189,7 +190,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
     })) as Lesson
 
     inactiveLesson = (await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         date: startTime.toISOString(),
@@ -211,7 +212,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
     endedEnd.setHours(endedEnd.getHours() - 1, 0, 0, 0)
 
     endedTodayLesson = (await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         date: endedStart.toISOString(),
@@ -230,15 +231,15 @@ describe('Schedule lessons visibility for authenticated users', () => {
       try {
         // Cleanup
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: testLesson.id } },
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: inactiveLesson.id } },
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: endedTodayLesson.id } },
         })
         if (planId) {
@@ -259,7 +260,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         })
         if (instructorId) {
           await payload.delete({
-            collection: 'instructors',
+            collection: 'staff-members',
             where: { id: { equals: instructorId } },
           })
         }
@@ -296,6 +297,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const ctx = await createTRPCContext({
         headers: mockHeaders,
         payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
 
       // Mock the auth to return our regular user
@@ -333,6 +335,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const ctx = await createTRPCContext({
         headers: mockHeaders,
         payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
 
       // Mock the auth to return no user
@@ -383,6 +386,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const ctx = await createTRPCContext({
         headers: mockHeaders,
         payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
 
       const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
@@ -418,6 +422,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const ctx = await createTRPCContext({
         headers: mockHeaders,
         payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
 
       // Mock the auth to return regular user (who doesn't have this tenant)
@@ -461,7 +466,11 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
 
-      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+      const ctx = await createTRPCContext({
+        headers: mockHeaders,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
 
       const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({ user: null } as any)
       try {
@@ -483,7 +492,11 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
 
-      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+      const ctx = await createTRPCContext({
+        headers: mockHeaders,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
 
       const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
         user: regularUser as any,
@@ -507,7 +520,11 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
 
-      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+      const ctx = await createTRPCContext({
+        headers: mockHeaders,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
 
       const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({ user: null } as any)
       try {
@@ -544,7 +561,11 @@ describe('Schedule lessons visibility for authenticated users', () => {
       const mockHeaders = new Headers()
       mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
 
-      const ctx = await createTRPCContext({ headers: mockHeaders, payload })
+      const ctx = await createTRPCContext({
+        headers: mockHeaders,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
 
       const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
         user: betterAuthSessionUser as any,
@@ -590,6 +611,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         headers: mockHeaders,
         payload,
         user: betterAuthSessionUser,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
 
       const caller = appRouter.createCaller(ctx)
@@ -616,7 +638,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       })) as Tenant
 
       const secondClassOption = (await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Second Tenant Class ${Date.now()}`,
           places: 10,
@@ -632,7 +654,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
       endTime.setHours(15, 0, 0, 0)
 
       const secondLesson = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           date: today.toISOString(),
@@ -653,6 +675,7 @@ describe('Schedule lessons visibility for authenticated users', () => {
         const ctx = await createTRPCContext({
           headers: mockHeaders,
           payload,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const authSpy = vi.spyOn(payload, 'auth').mockResolvedValue({
@@ -683,11 +706,11 @@ describe('Schedule lessons visibility for authenticated users', () => {
         // Cleanup second tenant data
         try {
           await payload.delete({
-            collection: 'lessons',
+            collection: 'timeslots',
             where: { id: { equals: secondLesson.id } },
           })
           await payload.delete({
-            collection: 'class-options',
+            collection: 'event-types',
             where: { id: { equals: secondClassOption.id } },
           })
           await payload.delete({

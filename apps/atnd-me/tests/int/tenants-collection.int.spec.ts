@@ -22,7 +22,7 @@ describe('Tenants collection', () => {
         name: 'Admin User',
         email: `admin-tenants-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

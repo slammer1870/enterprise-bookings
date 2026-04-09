@@ -56,7 +56,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         workerIndex
       )
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedDropIn: dropIn.id } },
         overrideAccess: true,

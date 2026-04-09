@@ -27,7 +27,7 @@ describe('User Tenant Access Control', () => {
     } as any
     
     // Fix lesson dates if they're the same (endTime must be after startTime)
-    if (collection === 'lessons' && data.startTime && data.endTime) {
+    if (collection === 'timeslots' && data.startTime && data.endTime) {
       const startTime = new Date(data.startTime)
       const endTime = new Date(data.endTime)
       // If endTime is same or before startTime, set it to 1 hour later
@@ -82,7 +82,7 @@ describe('User Tenant Access Control', () => {
         name: 'Admin User',
         email: `admin-access-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -97,7 +97,7 @@ describe('User Tenant Access Control', () => {
         name: 'Tenant Admin User',
         email: `tenant-admin-access-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        roles: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenant.id }], // Array of objects with 'tenant' property
       },
@@ -210,7 +210,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create test data for both tenants using tenant context
         const testTenantClassOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Test Class ${Date.now()}`,
             places: 10,
@@ -221,7 +221,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const testTenantLesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: new Date().toISOString(),
             startTime: new Date().toISOString(),
@@ -234,7 +234,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const secondTenantClassOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Second Class ${Date.now()}`,
             places: 10,
@@ -245,7 +245,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const secondTenantLesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: new Date().toISOString(),
             startTime: new Date().toISOString(),
@@ -259,7 +259,7 @@ describe('User Tenant Access Control', () => {
 
         // Admin should be able to read both lessons
         const adminLessons = await payload.find({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: {},
           limit: 100,
           user: adminUser,
@@ -278,7 +278,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create class option for testTenant (same tenant as the lesson we'll create)
         const classOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Admin Class ${Date.now()}`,
             places: 10,
@@ -302,7 +302,7 @@ describe('User Tenant Access Control', () => {
         lessonEndTime.setHours(11, 0, 0, 0)
 
         const newLesson = await payload.create({
-          collection: 'lessons',
+          collection: 'timeslots',
           data: {
             tenant: testTenant.id, // Explicitly set tenant
             date: lessonDate.toISOString(),
@@ -328,7 +328,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create test data for both tenants using tenant context
         const testTenantClassOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Tenant Admin Class ${Date.now()}`,
             places: 10,
@@ -339,7 +339,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const testTenantLesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: new Date().toISOString(),
             startTime: new Date().toISOString(),
@@ -352,7 +352,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const secondTenantClassOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Other Tenant Class ${Date.now()}`,
             places: 10,
@@ -363,7 +363,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const secondTenantLesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: new Date().toISOString(),
             startTime: new Date().toISOString(),
@@ -384,7 +384,7 @@ describe('User Tenant Access Control', () => {
         } as any
 
         const tenantAdminLessons = await payload.find({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: {},
           limit: 100,
           req: tenantAdminReq,
@@ -403,7 +403,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create class option first with tenant context
         const classOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Tenant Admin Create Class ${Date.now()}`,
             places: 10,
@@ -427,7 +427,7 @@ describe('User Tenant Access Control', () => {
         lessonEndTime.setHours(11, 0, 0, 0)
 
         const newLesson = await payload.create({
-          collection: 'lessons',
+          collection: 'timeslots',
           data: {
             tenant: testTenant.id, // Explicitly set tenant (tenant-admin can only create for their tenant)
             date: lessonDate.toISOString(),
@@ -451,7 +451,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create class option for second tenant (tenant-admin shouldn't be able to create lesson for it)
         const classOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Unauthorized Class ${Date.now()}`,
             places: 10,
@@ -470,7 +470,7 @@ describe('User Tenant Access Control', () => {
 
         await expect(
           payload.create({
-            collection: 'lessons',
+            collection: 'timeslots',
             data: {
               date: new Date().toISOString(),
               startTime: new Date().toISOString(),
@@ -683,8 +683,8 @@ describe('User Tenant Access Control', () => {
           id: tenantAdminUser.id,
           email: tenantAdminUser.email,
           name: tenantAdminUser.name,
-          roles: ['tenant-admin'],
-          role: 'tenant-admin',
+          roles: ['admin'],
+          role: 'admin',
           // Intentionally omit: tenants
         }
         const req = {
@@ -729,7 +729,7 @@ describe('User Tenant Access Control', () => {
         } as Parameters<typeof payload.create>[0])) as User
 
         const classOpt = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Booking visibility class ${Date.now()}`,
             places: 10,
@@ -739,7 +739,7 @@ describe('User Tenant Access Control', () => {
           { overrideAccess: true },
         ))
         bookingLesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: new Date().toISOString(),
             startTime: new Date().toISOString(),
@@ -789,9 +789,9 @@ describe('User Tenant Access Control', () => {
       )
     })
 
-    describe('Tenant-admin cannot escalate to admin', () => {
+    describe('Tenant org admin cannot escalate to super-admin', () => {
       it(
-        'tenant-admin cannot escalate self to admin via roles',
+        'org admin cannot add super-admin to self',
         async () => {
           const req = {
             ...payload,
@@ -803,7 +803,7 @@ describe('User Tenant Access Control', () => {
             await payload.update({
               collection: 'users',
               id: tenantAdminUser.id,
-              data: { roles: ['admin', 'tenant-admin'] },
+              data: { roles: ['super-admin', 'admin'] },
               req,
               overrideAccess: false,
             })
@@ -816,14 +816,14 @@ describe('User Tenant Access Control', () => {
             id: tenantAdminUser.id,
             overrideAccess: true,
           }) as User
-          expect(refetched.roles).not.toContain('admin')
-          expect(refetched.roles).toContain('tenant-admin')
+          expect(refetched.roles).not.toContain('super-admin')
+          expect(refetched.roles).toContain('admin')
         },
         TEST_TIMEOUT,
       )
 
       it(
-        'tenant-admin cannot escalate another user in their tenant to admin',
+        'org admin cannot grant super-admin to another user in their tenant',
         async () => {
           const req = {
             ...payload,
@@ -835,7 +835,7 @@ describe('User Tenant Access Control', () => {
             await payload.update({
               collection: 'users',
               id: userInTestTenant.id,
-              data: { roles: ['admin', 'user'] },
+              data: { roles: ['super-admin', 'user'] },
               req,
               overrideAccess: false,
             })
@@ -848,15 +848,15 @@ describe('User Tenant Access Control', () => {
             id: userInTestTenant.id,
             overrideAccess: true,
           }) as User
-          expect(refetched.roles).not.toContain('admin')
+          expect(refetched.roles).not.toContain('super-admin')
         },
         TEST_TIMEOUT,
       )
     })
 
-    describe('Tenant-admin can grant tenant-admin within tenant', () => {
+    describe('Tenant org admin can grant org admin within tenant', () => {
       it(
-        'tenant-admin can promote another user in their tenant to tenant-admin',
+        'org admin can promote another user in their tenant to org admin',
         async () => {
           const req = {
             ...payload,
@@ -867,19 +867,19 @@ describe('User Tenant Access Control', () => {
           const updated = (await payload.update({
             collection: 'users',
             id: userInTestTenant.id,
-            data: { roles: ['user', 'tenant-admin'] },
+            data: { roles: ['user', 'admin'] },
             req,
             overrideAccess: false,
           })) as User
 
-          expect(updated.roles).toContain('tenant-admin')
+          expect(updated.roles).toContain('admin')
 
           const refetched = (await payload.findByID({
             collection: 'users',
             id: userInTestTenant.id,
             overrideAccess: true,
           })) as User
-          expect(refetched.roles).toContain('tenant-admin')
+          expect(refetched.roles).toContain('admin')
         },
         TEST_TIMEOUT,
       )
@@ -892,7 +892,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create a lesson for testTenant using tenant context
         const classOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `User Read Class ${Date.now()}`,
             places: 10,
@@ -903,7 +903,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const testTenantLesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: new Date().toISOString(),
             startTime: new Date().toISOString(),
@@ -924,7 +924,7 @@ describe('User Tenant Access Control', () => {
         } as any
 
         const userLessons = await payload.find({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: {
             tenant: {
               equals: testTenant.id,
@@ -946,7 +946,7 @@ describe('User Tenant Access Control', () => {
       async () => {
         // Create class option first
         const classOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `User Create Class ${Date.now()}`,
             places: 10,
@@ -965,7 +965,7 @@ describe('User Tenant Access Control', () => {
 
         await expect(
           payload.create({
-            collection: 'lessons',
+            collection: 'timeslots',
             data: {
               date: new Date().toISOString(),
               startTime: new Date().toISOString(),
@@ -1003,7 +1003,7 @@ describe('User Tenant Access Control', () => {
         lessonEndTime.setHours(11, 0, 0, 0)
 
         const classOption = (await createWithTenantContext<ClassOption>(
-          'class-options',
+          'event-types',
           {
             name: `Leak Test Class ${Date.now()}`,
             places: 10,
@@ -1014,7 +1014,7 @@ describe('User Tenant Access Control', () => {
         ))
 
         const lesson = (await createWithTenantContext<Lesson>(
-          'lessons',
+          'timeslots',
           {
             date: lessonDate.toISOString(),
             startTime: lessonDate.toISOString(),
@@ -1040,7 +1040,7 @@ describe('User Tenant Access Control', () => {
         } as Parameters<typeof payload.create>[0])) as User
 
         const instructor = await createWithTenantContext(
-          'instructors',
+          'staff-members',
           {
             user: instructorUser.id,
             description: 'Tenant-scoped instructor should not leak',
@@ -1079,7 +1079,7 @@ describe('User Tenant Access Control', () => {
           await Promise.all([
             runNoLeakQuery(
               payload.find({
-                collection: 'lessons',
+                collection: 'timeslots',
                 where: { id: { equals: lesson.id } },
                 limit: 10,
                 req: publicReq,
@@ -1088,7 +1088,7 @@ describe('User Tenant Access Control', () => {
             ),
             runNoLeakQuery(
               payload.find({
-                collection: 'class-options',
+                collection: 'event-types',
                 where: { id: { equals: classOption.id } },
                 limit: 10,
                 req: publicReq,
@@ -1097,7 +1097,7 @@ describe('User Tenant Access Control', () => {
             ),
             runNoLeakQuery(
               payload.find({
-                collection: 'instructors',
+                collection: 'staff-members',
                 where: { id: { equals: (instructor as { id: number }).id } },
                 limit: 10,
                 req: publicReq,
@@ -1106,7 +1106,7 @@ describe('User Tenant Access Control', () => {
             ),
             runNoLeakQuery(
               payload.find({
-                collection: 'lessons',
+                collection: 'timeslots',
                 where: { id: { equals: lesson.id } },
                 limit: 10,
                 req: regularUserReq,
@@ -1115,7 +1115,7 @@ describe('User Tenant Access Control', () => {
             ),
             runNoLeakQuery(
               payload.find({
-                collection: 'class-options',
+                collection: 'event-types',
                 where: { id: { equals: classOption.id } },
                 limit: 10,
                 req: regularUserReq,
@@ -1124,7 +1124,7 @@ describe('User Tenant Access Control', () => {
             ),
             runNoLeakQuery(
               payload.find({
-                collection: 'instructors',
+                collection: 'staff-members',
                 where: { id: { equals: (instructor as { id: number }).id } },
                 limit: 10,
                 req: regularUserReq,

@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 
 import { TRPCRouterRecord } from "@trpc/server";
 import type Stripe from "stripe";
-import { protectedProcedure, requireCollections } from "../trpc";
+import { protectedProcedure, requireBookingCollections, requireCollections } from "../trpc";
 import { findByIdSafe, findSafe, createSafe, updateSafe, hasCollection } from "../utils/collections";
 import {
   getTenantSlug,
@@ -35,17 +35,18 @@ export const bookingsRouter = {
    * viewer can only ever book 1 slot and the flow is decided by membership state.
    */
   bookSingleSlotLessonOrRedirect: protectedProcedure
-    .use(requireCollections("lessons", "bookings", "class-options", "subscriptions"))
+    .use(requireBookingCollections("lessons", "bookings", "classOptions"))
+    .use(requireCollections("subscriptions"))
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId, ctx.bookingsSlugs.lessons);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -63,7 +64,7 @@ export const bookingsRouter = {
         typeof lesson.classOption === "object" && lesson.classOption !== null
           ? (lesson.classOption as any)
           : classOptionId != null
-            ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+            ? await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, classOptionId, {
                 depth: 2,
                 overrideAccess: Boolean(tenantId),
                 user: ctx.user,
@@ -150,7 +151,7 @@ export const bookingsRouter = {
         return { redirectUrl: `/bookings/${lessonId}/manage` };
       }
 
-      // Book directly (mark as subscription-backed) using the viewer context.
+      // Book directly (mark as subscription-backed). Capacity and subscription were validated above.
       await createSafe(
         ctx.payload,
         "bookings",
@@ -161,19 +162,19 @@ export const bookingsRouter = {
           paymentMethodUsed: "subscription",
           subscriptionIdUsed: Number((usable as any).id),
         } as unknown) as Record<string, unknown>,
-        { overrideAccess: false, user: ctx.user }
+        { overrideAccess: true }
       );
 
       return { redirectUrl: null };
     }),
   checkIn: protectedProcedure
-    .use(requireCollections("lessons", "bookings"))
+    .use(requireBookingCollections("lessons", "bookings"))
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
         depth: 3,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -304,12 +305,13 @@ export const bookingsRouter = {
       return created as Booking;
     }),
   createBooking: protectedProcedure
-    .use(requireCollections("lessons", "bookings", "subscriptions", "users"))
+    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireCollections("subscriptions", "users"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.id, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.id, {
         depth: 3,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -335,7 +337,8 @@ export const bookingsRouter = {
       return booking;
     }),
   createBookings: protectedProcedure
-    .use(requireCollections("lessons", "bookings", "subscriptions"))
+    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireCollections("subscriptions"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -355,10 +358,10 @@ export const bookingsRouter = {
         subscriptionId != null || classPassId != null ? "confirmed" : (statusInput ?? "confirmed");
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId, ctx.bookingsSlugs.lessons);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -373,7 +376,7 @@ export const bookingsRouter = {
       if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Only load a fully populated classOption if we need its payment method config.
-      if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, "class-options")) {
+      if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)) {
         const co = lesson.classOption as any;
         const coId = typeof co === "object" && co != null ? co.id : co;
         const needsFetch =
@@ -382,7 +385,7 @@ export const bookingsRouter = {
           (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
 
         if (coId != null && needsFetch) {
-          const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+          const populated = await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, coId, {
             depth: 2,
             overrideAccess: Boolean(tenantId),
             user: ctx.user,
@@ -840,15 +843,15 @@ export const bookingsRouter = {
   getValidClassPassesForLesson: protectedProcedure
     .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-passes")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.lessons) || !hasCollection(ctx.payload, "class-passes")) {
         return [];
       }
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId, ctx.bookingsSlugs.lessons);
       }
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.lessonId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -907,16 +910,16 @@ export const bookingsRouter = {
   getPurchasableClassPassTypesForLesson: protectedProcedure
     .input(z.object({ lessonId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, "lessons") || !hasCollection(ctx.payload, "class-pass-types")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.lessons) || !hasCollection(ctx.payload, "class-pass-types")) {
         return [];
       }
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId, ctx.bookingsSlugs.lessons);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", input.lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, input.lessonId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -1086,7 +1089,7 @@ export const bookingsRouter = {
     }),
 
   createOrUpdateBooking: protectedProcedure
-    .use(requireCollections("lessons", "bookings"))
+    .use(requireBookingCollections("lessons", "bookings"))
     .input(
       z.object({
         id: z.number(),
@@ -1279,12 +1282,12 @@ export const bookingsRouter = {
       return updatedBooking as Booking;
     }),
   canBookChild: protectedProcedure
-    .use(requireCollections("lessons"))
+    .use(requireBookingCollections("lessons"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       const lesson = await findByIdSafe<Lesson>(
         ctx.payload,
-        "lessons",
+        ctx.bookingsSlugs.lessons,
         input.id,
         {
           depth: 3,
@@ -1386,7 +1389,8 @@ export const bookingsRouter = {
       return true;
     }),
   createChildBooking: protectedProcedure
-    .use(requireCollections("lessons", "bookings", "users"))
+    .use(requireBookingCollections("lessons", "bookings"))
+    .use(requireCollections("users"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -1518,7 +1522,7 @@ export const bookingsRouter = {
     .query(async ({ ctx, input }) => {
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, input.lessonId, ctx.bookingsSlugs.lessons);
       }
 
       const bookings = await findSafe(ctx.payload, "bookings", {
@@ -1549,7 +1553,7 @@ export const bookingsRouter = {
    * - returns a scheduleState snapshot so the UI can update predictably
    */
   setMyBookingForLesson: protectedProcedure
-    .use(requireCollections("lessons", "bookings"))
+    .use(requireBookingCollections("lessons", "bookings"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -1568,10 +1572,10 @@ export const bookingsRouter = {
 
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId);
+        tenantId = await resolveTenantIdFromLessonId(ctx.payload, lessonId, ctx.bookingsSlugs.lessons);
       }
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -1589,8 +1593,8 @@ export const bookingsRouter = {
       const classOption =
         typeof lesson.classOption === "object" && lesson.classOption !== null
           ? (lesson.classOption as any)
-          : classOptionId != null && hasCollection(ctx.payload, "class-options")
-            ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+          : classOptionId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)
+            ? await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, classOptionId, {
                 depth: 0,
                 overrideAccess: Boolean(tenantId),
                 user: ctx.user,
@@ -1757,13 +1761,13 @@ export const bookingsRouter = {
    * @returns Object indicating whether check-in succeeded and redirect should occur
    */
   validateAndAttemptCheckIn: protectedProcedure
-    .use(requireCollections("lessons", "bookings"))
+    .use(requireBookingCollections("lessons", "bookings"))
     .input(z.object({ lessonId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { lessonId } = input;
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -1798,8 +1802,8 @@ export const bookingsRouter = {
         const classOption =
           typeof lesson.classOption === "object" && lesson.classOption !== null
             ? (lesson.classOption as any)
-            : classOptionId != null && hasCollection(ctx.payload, "class-options")
-              ? await findByIdSafe<ClassOption>(ctx.payload, "class-options", classOptionId, {
+            : classOptionId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)
+              ? await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, classOptionId, {
                   depth: 0,
                   overrideAccess: Boolean(tenantId),
                   user: ctx.user,
@@ -1875,7 +1879,7 @@ export const bookingsRouter = {
       }
     }),
   setMyBookingQuantityForLesson: protectedProcedure
-    .use(requireCollections("lessons", "bookings"))
+    .use(requireBookingCollections("lessons", "bookings"))
     .input(
       z.object({
         lessonId: z.number(),
@@ -1886,7 +1890,7 @@ export const bookingsRouter = {
       const { lessonId, desiredQuantity } = input;
       const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
-      const lesson = await findByIdSafe<Lesson>(ctx.payload, "lessons", lessonId, {
+      const lesson = await findByIdSafe<Lesson>(ctx.payload, ctx.bookingsSlugs.lessons, lessonId, {
         depth: 0,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
@@ -1901,7 +1905,7 @@ export const bookingsRouter = {
       if (tenantId) assertLessonBelongsToTenant(lesson, tenantId, lessonId);
 
       // Ensure classOption has paymentMethods if we need subscription-based quantity rules.
-      if (hasCollection(ctx.payload, "class-options")) {
+      if (hasCollection(ctx.payload, ctx.bookingsSlugs.classOptions)) {
         const co = lesson.classOption as any;
         const coId = typeof co === "object" && co != null ? co.id : co;
         const needsFetch =
@@ -1909,7 +1913,7 @@ export const bookingsRouter = {
           co == null ||
           (typeof co === "object" && co != null && (co as any).paymentMethods === undefined);
         if (coId != null && needsFetch) {
-          const populated = await findByIdSafe<ClassOption>(ctx.payload, "class-options", coId, {
+          const populated = await findByIdSafe<ClassOption>(ctx.payload, ctx.bookingsSlugs.classOptions, coId, {
             depth: 2,
             overrideAccess: Boolean(tenantId),
             user: ctx.user,
@@ -1993,8 +1997,8 @@ export const bookingsRouter = {
               status: "confirmed",
             },
             {
-              overrideAccess: false,
-              user: ctx.user,
+              // Same as createBookings: access and capacity already validated in this mutation.
+              overrideAccess: true,
             }
           );
           newBookings.push(booking as Booking);

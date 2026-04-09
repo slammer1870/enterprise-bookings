@@ -30,11 +30,16 @@ async function getConnectedTenantIds(args: AccessArgs): Promise<number[] | null>
   const { req } = args
   const user = req.user
 
-  if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+  if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
     return null
   }
 
-  if (!user || !checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  // Staff do not manage Stripe products or billing collections.
+  if (user && checkRole(['staff'], user as unknown as SharedUser) && !checkRole(['admin'], user as unknown as SharedUser)) {
+    return []
+  }
+
+  if (!user || !checkRole(['admin'], user as unknown as SharedUser)) {
     return []
   }
 
@@ -67,8 +72,7 @@ export const productsRequireStripeConnectRead: Access = async (args) => {
   const connected = await getConnectedTenantIds(args)
   if (connected === null) return true
   if (connected.length === 0) {
-    // Tenant-admin with no connected tenants: deny (they see nothing)
-    if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+    if (user && checkRole(['admin'], user as unknown as SharedUser)) {
       return false
     }
     return true

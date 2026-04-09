@@ -23,6 +23,12 @@ export const LessonAdmin: React.FC<{
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
+  const collectionSlug =
+    typeof params?.collection === "string"
+      ? params.collection
+      : typeof params?.segments?.[1] === "string"
+        ? params.segments[1]
+        : "lessons";
   const hasTenantsCollection = payload.config.collections.some(
     (collection) => String(collection.slug) === "tenants",
   );
@@ -79,7 +85,7 @@ export const LessonAdmin: React.FC<{
         <h1>Lessons</h1>
         <Link
           href={{
-            pathname: "/admin/collections/lessons/create",
+            pathname: `/admin/collections/${collectionSlug}/create`,
           }}
         >
           <Button buttonStyle="pill" size="small" className="whitespace-nowrap">

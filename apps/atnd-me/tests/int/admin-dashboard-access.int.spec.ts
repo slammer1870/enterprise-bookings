@@ -5,52 +5,48 @@ import type { User } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 
 /**
- * Tests that the admin dashboard access rule is enforced: only users with
- * 'admin' or 'tenant-admin' role can access the admin panel; regular users
- * (and unauthenticated) cannot.
+ * Tests that the admin dashboard access rule matches panel access: super-admin,
+ * org admin (admin), and staff can use the admin UI; regular users cannot.
  *
- * Note: Auth routes (login, create-first-user, logout, etc.) are accessible
- * without authentication and are handled separately in the layout.
- *
- * This mirrors the core access logic in src/app/(payload)/admin/layout.tsx:
- *   if (!user || !checkRole(['admin', 'tenant-admin'], user)) redirect('/')
+ * Align with Better Auth adminRoles in src/lib/auth/options.ts:
+ *   adminRoles: ['super-admin', 'admin', 'staff']
  */
 const canAccessAdmin = (user: User | null): boolean =>
-  !!user && checkRole(['admin', 'tenant-admin'], user)
+  !!user && checkRole(['super-admin', 'admin', 'staff'], user)
 
 const HOOK_TIMEOUT = 300000 // 5 minutes
 const TEST_TIMEOUT = 60000 // 60 seconds
 
 describe('Admin dashboard access control', () => {
   let payload: Payload
-  let adminUser: User
-  let tenantAdminUser: User
+  let superAdminUser: User
+  let orgAdminUser: User
   let regularUser: User
 
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
 
-    adminUser = (await payload.create({
+    superAdminUser = (await payload.create({
       collection: 'users',
       data: {
-        name: 'Admin User',
-        email: `admin-dash-${Date.now()}@test.com`,
+        name: 'Super Admin User',
+        email: `super-admin-dash-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        roles: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0])) as User
 
-    tenantAdminUser = (await payload.create({
+    orgAdminUser = (await payload.create({
       collection: 'users',
       data: {
-        name: 'Tenant Admin User',
-        email: `tenant-admin-dash-${Date.now()}@test.com`,
+        name: 'Org Admin User',
+        email: `org-admin-dash-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        roles: ['admin'],
         emailVerified: true,
       },
       draft: false,
@@ -76,7 +72,7 @@ describe('Admin dashboard access control', () => {
       try {
         await payload.delete({
           collection: 'users',
-          where: { id: { in: [adminUser.id, tenantAdminUser.id, regularUser.id] } },
+          where: { id: { in: [superAdminUser.id, orgAdminUser.id, regularUser.id] } },
         })
       } catch {
         // ignore
@@ -86,17 +82,17 @@ describe('Admin dashboard access control', () => {
   })
 
   it(
-    'allows admin to access the admin dashboard',
+    'allows super-admin to access the admin dashboard',
     () => {
-      expect(canAccessAdmin(adminUser)).toBe(true)
+      expect(canAccessAdmin(superAdminUser)).toBe(true)
     },
     TEST_TIMEOUT,
   )
 
   it(
-    'allows tenant-admin to access the admin dashboard',
+    'allows org admin to access the admin dashboard',
     () => {
-      expect(canAccessAdmin(tenantAdminUser)).toBe(true)
+      expect(canAccessAdmin(orgAdminUser)).toBe(true)
     },
     TEST_TIMEOUT,
   )

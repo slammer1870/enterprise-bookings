@@ -11,10 +11,10 @@ function makeConfig(baseURL: string) {
     hidePluginCollections: true,
     enableMagicLink: true,
     roles: {
-      adminRoles: ['admin', 'tenant-admin'],
+      adminRoles: ['super-admin', 'admin', 'staff'],
       defaultRole: 'user',
       defaultAdminRole: 'admin',
-      roles: ['user', 'admin', 'tenant-admin'],
+      roles: ['user', 'super-admin', 'admin', 'staff'],
       allowedFields: ['name'],
     },
   }

@@ -6,6 +6,7 @@ import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@/trpc/router'
 import { getPayload } from '@/lib/payload'
 import { stripe } from '@/lib/stripe'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 /**
  * Configure basic CORS headers
@@ -39,6 +40,7 @@ const handler = async (req: NextRequest) => {
         headers: req.headers,
         payload,
         stripe,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       }),
     onError({ error, path }) {
       console.error(`>>> tRPC Error on '${path}'`, error)

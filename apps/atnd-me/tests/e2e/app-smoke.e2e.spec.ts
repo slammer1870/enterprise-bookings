@@ -148,7 +148,7 @@ test.describe('App smoke', () => {
     const co = await createTestClassOption(tenantId, 'Smoke Stripe UI', 5, undefined, w)
     // Use only allowedDropIn; omit allowedClassPasses to avoid touching dropped column / rels (see migration 20260210).
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: { paymentMethods: { allowedDropIn: dropIn.id } },
       overrideAccess: true,
@@ -247,7 +247,7 @@ test.describe('App smoke', () => {
     }) as { id: number }
     const co = await createTestClassOption(tenantId, 'Smoke Class Pass Only', 5, undefined, w)
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: {
         paymentMethods: {

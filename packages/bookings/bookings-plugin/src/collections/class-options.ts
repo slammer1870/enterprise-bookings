@@ -11,6 +11,8 @@ import { checkRole } from "@repo/shared-utils";
 
 import type { User, AccessControls, HooksConfig } from "@repo/shared-types/";
 
+import type { BookingsPluginSlugs } from "../resolve-slugs";
+
 const defaultFields: Field[] = [
   {
     name: "name",
@@ -43,9 +45,12 @@ const defaultLabels: Labels = {
 
 const defaultAccess: AccessControls = {
   read: () => true,
-  create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-  delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+  create: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
+  update: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
+  delete: ({ req: { user } }) =>
+    checkRole(["super-admin", "admin"], user as User | null),
 };
 
 const defaultAdmin: CollectionAdminOptions = {
@@ -56,12 +61,13 @@ const defaultAdmin: CollectionAdminOptions = {
 const defaultHooks: HooksConfig = {};
 
 export const generateClassOptionsCollection = (
-  config: BookingsPluginConfig
+  config: BookingsPluginConfig,
+  slugs: BookingsPluginSlugs,
 ) => {
   const overrides = config?.classOptionsOverrides;
   const classOptionsConfig: CollectionConfig = {
     ...(overrides || {}),
-    slug: "class-options",
+    slug: slugs.classOptions,
     defaultSort: "updatedAt",
     labels: {
       ...(overrides?.labels || defaultLabels),

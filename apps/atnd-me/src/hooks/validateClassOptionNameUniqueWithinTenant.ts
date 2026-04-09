@@ -42,7 +42,7 @@ export const validateClassOptionNameUniqueWithinTenant: CollectionBeforeValidate
   const currentDocId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
 
   const existing = await req.payload.find({
-    collection: 'class-options',
+    collection: 'event-types',
     where: {
       and: [
         { name: { equals: name.trim() } },

@@ -115,7 +115,7 @@ describe('Tenant Page Filtering', () => {
       // Use class options instead of pages to test tenant filtering
       // (Pages require complex layout structures that are hard to create in tests)
       const tenant1ClassOption = (await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: 'Tenant 1 Class',
           places: 10,
@@ -126,7 +126,7 @@ describe('Tenant Page Filtering', () => {
       })) as ClassOption
 
       const tenant2ClassOption = (await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: 'Tenant 2 Class',
           places: 10,
@@ -138,7 +138,7 @@ describe('Tenant Page Filtering', () => {
 
       // Query class options with tenant1 context
       const tenant1ClassOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             {
@@ -163,7 +163,7 @@ describe('Tenant Page Filtering', () => {
 
       // Query class options with tenant2 context
       const tenant2ClassOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             {
@@ -188,7 +188,7 @@ describe('Tenant Page Filtering', () => {
 
       // Verify tenant1 cannot see tenant2's class option
       const crossTenantQuery = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             {
@@ -238,7 +238,7 @@ describe('Tenant Page Filtering', () => {
       const name2 = `shared-name-t2-${ts}`
 
       const tenant1ClassOption = (await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: name1,
           places: 10,
@@ -249,7 +249,7 @@ describe('Tenant Page Filtering', () => {
       })) as ClassOption
 
       const tenant2ClassOption = (await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: name2,
           places: 10,
@@ -261,7 +261,7 @@ describe('Tenant Page Filtering', () => {
 
       // Query with tenant1 context - should only get tenant1's class option
       const tenant1Result = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             { name: { equals: name1 } },
@@ -276,7 +276,7 @@ describe('Tenant Page Filtering', () => {
 
       // Query with tenant2 context - should only get tenant2's class option
       const tenant2Result = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             { name: { equals: name2 } },
@@ -316,7 +316,7 @@ describe('Tenant Page Filtering', () => {
       // Verify that data created for each tenant is isolated
       // Use class options as they're simpler to create than pages
       const tenant1ClassOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           tenant: {
             equals: verifyTenant1.id,
@@ -326,7 +326,7 @@ describe('Tenant Page Filtering', () => {
       })
 
       const tenant2ClassOptions = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           tenant: {
             equals: verifyTenant2.id,
@@ -339,7 +339,7 @@ describe('Tenant Page Filtering', () => {
       // If onboarding failed, create test data
       if (tenant1ClassOptions.docs.length === 0) {
         await payload.create({
-          collection: 'class-options',
+          collection: 'event-types',
           data: {
             name: 'Test Class 1',
             places: 10,
@@ -350,7 +350,7 @@ describe('Tenant Page Filtering', () => {
         })
         // Re-query
         const updated = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: {
             tenant: {
               equals: verifyTenant1.id,
@@ -363,7 +363,7 @@ describe('Tenant Page Filtering', () => {
       
       if (tenant2ClassOptions.docs.length === 0) {
         await payload.create({
-          collection: 'class-options',
+          collection: 'event-types',
           data: {
             name: 'Test Class 2',
             places: 10,
@@ -374,7 +374,7 @@ describe('Tenant Page Filtering', () => {
         })
         // Re-query
         const updated = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: {
             tenant: {
               equals: verifyTenant2.id,

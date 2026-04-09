@@ -91,7 +91,7 @@ export async function resolveTenantForConnect(
 /** Check user has one of the roles and (optionally) access to tenantId. */
 export function userHasStripeConnectAccess(
   user: SharedUser | null,
-  roles: ('admin' | 'tenant-admin')[],
+  roles: ('super-admin' | 'admin')[],
   tenantId?: number
 ): boolean {
   if (!user) return false

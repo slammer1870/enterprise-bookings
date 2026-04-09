@@ -3,6 +3,8 @@
  * Handles confirming bookings and creating transaction records.
  */
 
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PayloadLike = any
 
@@ -71,7 +73,7 @@ export async function confirmBookingsFromQuantityFlow(
   const qty = Math.max(1, quantity)
 
   const lesson = (await payload.findByID({
-    collection: 'lessons',
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
     id: lessonId,
     depth: 1,
     overrideAccess: true,
@@ -255,7 +257,7 @@ export async function findOrCreateAndConfirmBookingForLesson(
   const { lessonId, userId, tenantId, subscriptionId } = opts
   const bookingTenantContext = opts.tenantContext ?? { tenant: tenantId }
   const lesson = (await payload.findByID({
-    collection: 'lessons',
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
     id: lessonId,
     depth: 1,
     overrideAccess: true,

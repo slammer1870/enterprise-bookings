@@ -17,6 +17,7 @@ import {
 } from '@/lib/booking/payment-intent'
 import { confirmBookingsFromPaymentIntent } from '@/lib/stripe-connect/webhook/confirm-bookings'
 import { formatAmountForStripe } from '@repo/shared-utils'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   })
 
   const lesson = (await payload.findByID({
-    collection: 'lessons',
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.lessons,
     id: lessonId,
     depth: 1,
     overrideAccess: true,
@@ -165,8 +166,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (isTestMode) {
+    // Stripe Elements expects a PaymentIntent-style client secret shape in tests too.
     return NextResponse.json(
-      { clientSecret: `pi_test_${Date.now()}_secret_test`, amount: price },
+      { clientSecret: `pi_${Date.now()}_secret_test`, amount: price },
       { status: 200 }
     )
   }

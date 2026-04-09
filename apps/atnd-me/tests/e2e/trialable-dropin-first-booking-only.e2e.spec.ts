@@ -66,7 +66,7 @@ test.describe('Trialable drop-in pricing', () => {
 
     const classOption = await createTestClassOption(tenantId, 'Trialable Drop-in Class', 5)
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },

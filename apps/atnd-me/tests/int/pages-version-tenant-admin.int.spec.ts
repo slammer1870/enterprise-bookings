@@ -39,7 +39,7 @@ describe('Pages versions and tenant-from-context (tenant-admin)', () => {
         name: 'Tenant Admin Pages',
         email: `tenant-admin-pages-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        roles: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenantId }],
       },

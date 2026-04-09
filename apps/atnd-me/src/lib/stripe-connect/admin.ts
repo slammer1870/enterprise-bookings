@@ -7,18 +7,18 @@ import { getPlatformStripe } from '@/lib/stripe/platform'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 
-function isAdmin(user: unknown): user is SharedUser {
-  return checkRole(['admin'], user as SharedUser | null)
+function isPlatformSuperAdmin(user: unknown): user is SharedUser {
+  return checkRole(['super-admin'], user as SharedUser | null)
 }
 
-function isTenantAdmin(user: unknown): user is SharedUser {
-  return checkRole(['tenant-admin'], user as SharedUser | null)
+function isTenantOrgAdmin(user: unknown): user is SharedUser {
+  return checkRole(['admin'], user as SharedUser | null)
 }
 
 function assertCanAccessTenant(user: unknown, tenantId: number | null): void {
   if (!user) throw new Error('Unauthorized')
-  if (isAdmin(user)) return
-  if (!isTenantAdmin(user) || tenantId == null) throw new Error('Forbidden')
+  if (isPlatformSuperAdmin(user)) return
+  if (!isTenantOrgAdmin(user) || tenantId == null) throw new Error('Forbidden')
 
   const tenantIds = getUserTenantIds(user as SharedUser | null)
   if (tenantIds === null || tenantIds.includes(tenantId)) return
@@ -266,7 +266,7 @@ export async function getStripeDashboardLinkForDocument(params: {
       : getRelationshipId(doc.tenant) ??
         getRelationshipId((doc as { registrationTenant?: unknown }).registrationTenant)
 
-  if (collection === 'users' && !isAdmin(user)) {
+  if (collection === 'users' && !isPlatformSuperAdmin(user)) {
     return null
   }
   if (collection !== 'users') {
