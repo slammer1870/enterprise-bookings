@@ -40,7 +40,7 @@ export const DhContactBlock: React.FC<ContactProps> = ({
       <div className="container mx-auto flex flex-wrap px-4 py-12 sm:flex-nowrap">
         <div className="mb-24 md:w-1/2">
           <h5 className="mb-4 text-3xl font-medium">{locationTitle}</h5>
-          <p className="mb-4 text-yellow-600">{locationDescription}</p>
+          <p className="mb-4 text-gray-600">{locationDescription}</p>
           <div className="relative flex items-end justify-start overflow-hidden rounded-lg bg-muted p-10">
             <iframe
               width="100%"
@@ -76,7 +76,7 @@ export const DhContactBlock: React.FC<ContactProps> = ({
         </div>
         <div className="md:w-1/2 md:pl-12 lg:pl-36">
           <h5 className="mb-4 text-3xl font-medium">{contactTitle}</h5>
-          <p className="mb-4 text-yellow-600">{contactDescription}</p>
+          <p className="mb-4 text-gray-600">{contactDescription}</p>
           <FormBlock enableIntro={false} form={form as never} />
         </div>
       </div>

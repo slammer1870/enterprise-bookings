@@ -23,7 +23,7 @@ export const DhPricingBlock: React.FC<PricingProps> = ({
       <div className="container mx-auto px-4 py-12">
         <div className="mb-4 flex w-full flex-col text-left">
           <h1 className="mb-2 text-3xl font-medium text-foreground">{title}</h1>
-          <p className="text-base leading-relaxed text-yellow-600 lg:w-2/3">{description}</p>
+          <p className="text-base leading-relaxed text-gray-600 lg:w-2/3">{description}</p>
         </div>
         <div className="mx-auto w-full overflow-auto">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">

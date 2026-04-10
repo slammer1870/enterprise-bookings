@@ -16,6 +16,16 @@ import {
 } from '@/lib/analytics'
 import { resolveTimeslotIdsForAnalytics } from '@/lib/analytics/analyticsBookingsWhere'
 
+function jsonStringifySafe(data: unknown): string {
+  return JSON.stringify(data, (_key, value) => {
+    if (typeof value === 'bigint') {
+      const n = Number(value)
+      return Number.isSafeInteger(n) ? n : value.toString()
+    }
+    return value
+  })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const payload = await getPayload()
@@ -147,11 +157,15 @@ export async function GET(request: NextRequest) {
       body.bookingsOverTimePrevious = bookingsOverTimePrevious
     }
 
-    return NextResponse.json(body)
+    return new NextResponse(jsonStringifySafe(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Analytics failed'
+    // Always log server-side so production (Vercel, etc.) captures the real failure.
+    console.error('[api/analytics]', err)
     if (process.env.NODE_ENV === 'development') {
-      console.error('[api/analytics]', err)
       return NextResponse.json({ error: message }, { status: 500 })
     }
     return NextResponse.json({ error: 'Analytics failed' }, { status: 500 })

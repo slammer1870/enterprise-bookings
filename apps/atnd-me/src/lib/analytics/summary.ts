@@ -28,11 +28,9 @@ export async function getSummaryMetrics(
     const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
 
     const [countResult, docsResult] = await Promise.all([
-      payload.find({
+      payload.count({
         collection: 'bookings',
         where,
-        limit: 0,
-        depth: 0,
         overrideAccess: true,
       }),
       payload.find({
