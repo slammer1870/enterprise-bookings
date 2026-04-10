@@ -272,7 +272,7 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
           <div
             id="mobile-header-nav"
             className={[
-              'absolute right-0 top-0 h-screen w-1/3 bg-background text-foreground border-l border-border shadow-lg',
+              'absolute right-0 top-0 h-screen w-1/2 max-w-[50vw] bg-background text-foreground border-l border-border shadow-lg',
               'transition-transform duration-200 ease-out will-change-transform',
               mobileOpen ? 'translate-x-0' : 'translate-x-full',
             ].join(' ')}
