@@ -208,43 +208,45 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
 
   return (
     <nav className="relative flex items-center">
-      <div className="hidden md:flex gap-3 items-center">
-        {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
-          const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
-            | 'inline'
-            | 'default'
-            | 'outline'
-            | 'secondary'
-            | 'ghost'
-            | 'link'
-          const displayIcon =
-            icon === 'instagram' || icon === 'facebook' || icon === 'x'
-              ? icon
-              : null
-          const linkProps = link as React.ComponentProps<typeof CMSLink>
-          return (
-            <CMSLink
-              key={i}
-              {...linkProps}
-              appearance={appearance}
-              className={cn(
-                linkProps.className,
-                appearance === 'link' && 'text-inherit hover:text-inherit',
-              )}
-              {...(displayIcon != null
-                ? {
-                    label: undefined,
-                    children: (
-                      <>
-                        <NavIcon icon={displayIcon} />
-                        <span className="ml-1.5">{linkProps.label ?? ''}</span>
-                      </>
-                    ),
-                  }
-                : {})}
-            />
-          )
-        })}
+      <div className="hidden md:flex items-center gap-6">
+        <div className="flex gap-3 items-center">
+          {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
+            const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
+              | 'inline'
+              | 'default'
+              | 'outline'
+              | 'secondary'
+              | 'ghost'
+              | 'link'
+            const displayIcon =
+              icon === 'instagram' || icon === 'facebook' || icon === 'x'
+                ? icon
+                : null
+            const linkProps = link as React.ComponentProps<typeof CMSLink>
+            return (
+              <CMSLink
+                key={i}
+                {...linkProps}
+                appearance={appearance}
+                className={cn(
+                  linkProps.className,
+                  appearance === 'link' && 'text-inherit hover:text-inherit',
+                )}
+                {...(displayIcon != null
+                  ? {
+                      label: undefined,
+                      children: (
+                        <>
+                          <NavIcon icon={displayIcon} />
+                          <span className="ml-1.5">{linkProps.label ?? ''}</span>
+                        </>
+                      ),
+                    }
+                  : {})}
+              />
+            )
+          })}
+        </div>
         <HeaderAuthMenu />
       </div>
 
