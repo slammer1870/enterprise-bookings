@@ -119,7 +119,9 @@ export async function setTimeslotTomorrowAtTenToEleven(page: Page): Promise<Date
 
 export async function selectEventTypeInTimeslotForm(page: Page, className: string): Promise<void> {
   const p: any = page as any
-  const eventTypeCombobox = p.locator('text=Class Option').locator('..').locator('[role="combobox"]').first()
+  // react-select combobox a11y name is usually the placeholder ("Select a value"), same as StaffMember.
+  // Scope by Payload admin field wrapper (matches `#field-date` above).
+  const eventTypeCombobox = p.locator('#field-eventType').getByRole('combobox').first()
 
   await expect(eventTypeCombobox).toBeVisible({ timeout: 20000 })
   await eventTypeCombobox.click()

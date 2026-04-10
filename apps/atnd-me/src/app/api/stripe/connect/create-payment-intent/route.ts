@@ -14,6 +14,7 @@ import {
   validateBookingIdsFromMetadata,
   reservePendingBookings,
   formatCapacityError,
+  computeRemainingCapacityForTimeslot,
 } from '@/lib/booking/payment-intent'
 import { confirmBookingsFromPaymentIntent } from '@/lib/stripe-connect/webhook/confirm-bookings'
 import { formatAmountForStripe } from '@repo/shared-utils'
@@ -60,14 +61,27 @@ export async function POST(request: NextRequest) {
     id: timeslotId,
     depth: 1,
     overrideAccess: true,
-  })) as { tenant?: number | { id: number }; remainingCapacity?: number } | null
+  })) as {
+    tenant?: number | { id: number }
+    remainingCapacity?: number
+    eventType?: number | { id: number } | null
+  } | null
+
+  if (!timeslot) {
+    return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+  }
 
   const remainingCapacity =
-    timeslot && typeof timeslot.remainingCapacity === 'number'
+    typeof timeslot.remainingCapacity === 'number'
       ? Math.max(0, timeslot.remainingCapacity)
-      : 0
+      : await computeRemainingCapacityForTimeslot(payload, timeslotId, timeslot)
 
-  if (bookingIds.length === 0 && quantity > remainingCapacity) {
+  const classPriceAmountCents = formatAmountForStripe(price, 'eur')
+  // €0 bootstrap (e.g. 100% promo): skip capacity precheck so we can return { zeroAmount } before
+  // any heavier checks; confirmOnly still reserves with real capacity.
+  const skipCapacityPrecheck = classPriceAmountCents <= 0 && !confirmOnly
+
+  if (bookingIds.length === 0 && quantity > remainingCapacity && !skipCapacityPrecheck) {
     return NextResponse.json(
       { error: formatCapacityError(remainingCapacity, quantity) },
       { status: 400 }
@@ -101,10 +115,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  if (!tenant.stripeConnectAccountId || tenant.stripeConnectOnboardingStatus !== 'active') {
-    return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
-  }
-
   const placeholderAccount =
     /^acct_[a-z0-9_]+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
   const isTestMode =
@@ -112,6 +122,15 @@ export async function POST(request: NextRequest) {
     process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
     isStripeTestAccount(tenant.stripeConnectAccountId) ||
     placeholderAccount
+
+  // €0 flows (bootstrap or confirm-only) never create a PaymentIntent; don't require Connect.
+  const needsLiveStripeConnect = classPriceAmountCents > 0 && !isTestMode
+  if (
+    needsLiveStripeConnect &&
+    (!tenant.stripeConnectAccountId || tenant.stripeConnectOnboardingStatus !== 'active')
+  ) {
+    return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
+  }
 
   if (bookingIds.length === 0 && !isTestMode) {
     try {
@@ -128,8 +147,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const classPriceAmountCents = formatAmountForStripe(price, 'eur')
-
   if (classPriceAmountCents <= 0) {
     if (!confirmOnly) {
       return NextResponse.json({ zeroAmount: true, amount: 0 }, { status: 200 })
@@ -143,6 +160,7 @@ export async function POST(request: NextRequest) {
           user,
           tenantId,
           quantity,
+          trustedServerReservation: true,
         })
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Capacity exceeded'

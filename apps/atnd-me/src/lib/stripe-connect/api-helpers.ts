@@ -6,13 +6,14 @@ import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { getTenantIdentifierFromRequest } from '@/utilities/tenantRequest'
+import type { TenantStripeStatus } from '@/lib/stripe-connect/tenantStripe'
 
 export type TenantForConnect = {
   id: number
   slug?: string | null
   domain?: string | null
   stripeConnectAccountId?: string | null
-  stripeConnectOnboardingStatus?: string | null
+  stripeConnectOnboardingStatus?: TenantStripeStatus | null
 }
 
 /** Resolve tenant slug/id from request (headers, cookies, searchParams). Supports test mode. */

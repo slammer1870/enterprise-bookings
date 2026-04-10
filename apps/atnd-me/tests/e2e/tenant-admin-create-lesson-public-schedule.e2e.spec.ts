@@ -239,7 +239,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
     await openCreateFromCollectionList(
       page,
       `${tenantOrigin}/admin/collections/event-types`,
-      /class options/i,
+      /event types/i,
       /create new/i,
     )
     await chooseTenantInCreateModal(page, tenant.name)

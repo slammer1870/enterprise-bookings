@@ -142,10 +142,26 @@ test.describe('Drop-in promo code breakdown', () => {
       },
       { timeout: 30_000 },
     )
+    const discountedIntentOk = page.waitForResponse(
+      async (res) => {
+        if (!res.url().includes('/api/stripe/connect/create-payment-intent')) return false
+        if (res.request().method() !== 'POST' || res.status() !== 200) return false
+        const postData = res.request().postData()
+        if (!postData) return false
+        try {
+          const body = JSON.parse(postData) as { price?: number; metadata?: Record<string, unknown> }
+          return Number(body.price) === 8 && body.metadata?.discountCode === promoCode
+        } catch {
+          return false
+        }
+      },
+      { timeout: 30_000 },
+    )
 
     await page.getByLabel('Promo code').fill(promoCode)
     await Promise.all([
       discountedRequestPromise,
+      discountedIntentOk,
       page.getByRole('button', { name: /^Apply$/i }).click(),
     ])
 
@@ -154,13 +170,6 @@ test.describe('Drop-in promo code breakdown', () => {
     await expect(page.getByTestId('promo-discount')).toHaveText('-€2.00')
     await expect(page.getByTestId('booking-fee')).toHaveText('€0.80')
     await expect(page.getByTestId('total')).toHaveText('€8.80')
-    await page
-      .waitForResponse(
-        (resp) =>
-          resp.url().includes('/api/trpc/payments.getDropInFeeBreakdown') && resp.status() === 200,
-        { timeout: 15_000 },
-      )
-      .catch(() => null)
-    await expect(page.getByTestId('payment-total')).toHaveText('€8.80', { timeout: 15_000 })
+    await expect(page.getByTestId('payment-total')).toHaveText('€8.80', { timeout: 5_000 })
   })
 })

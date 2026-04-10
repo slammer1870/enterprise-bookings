@@ -93,9 +93,38 @@ test.describe('Drop-in 100% promo booking', () => {
     })
     await page.getByRole('tab', { name: /drop-?in/i }).click()
 
+    // Listen before Apply: match the completed response for the €0 bootstrap POST.
+    // Do not filter on status inside the predicate — a 400 would never match and the wait would
+    // time out with a useless error; assert ok() after instead.
+    const zeroAmountIntent = page.waitForResponse(
+      (res) => {
+        if (!res.url().includes('/api/stripe/connect/create-payment-intent')) return false
+        const req = res.request()
+        if (req.method() !== 'POST') return false
+        const postData = req.postData()
+        if (!postData) return false
+        try {
+          const body = JSON.parse(postData) as { price?: number; confirmOnly?: boolean }
+          return body.price === 0 && body.confirmOnly !== true
+        } catch {
+          return false
+        }
+      },
+      { timeout: 30_000 },
+    )
+
     await page.getByLabel('Promo code').fill(promoCode)
     await page.getByRole('button', { name: /^Apply$/i }).click()
-    await expect(page.getByText(/promo code applied/i)).toBeVisible({ timeout: 15_000 })
+    await Promise.all([
+      expect(page.getByText(/promo code applied/i)).toBeVisible({ timeout: 15_000 }),
+      zeroAmountIntent,
+    ])
+
+    const bootstrapRes = await zeroAmountIntent
+    expect(
+      bootstrapRes.ok(),
+      `create-payment-intent (€0 bootstrap) failed: ${bootstrapRes.status()} ${await bootstrapRes.text()}`,
+    ).toBeTruthy()
 
     const classPriceText = await page.getByTestId('class-price').innerText()
     const promoDiscountText = await page.getByTestId('promo-discount').innerText()
@@ -103,8 +132,7 @@ test.describe('Drop-in 100% promo booking', () => {
     await expect(page.getByTestId('booking-fee')).toHaveCount(0)
     await expect(page.getByTestId('total')).toHaveText('€0.00')
 
-    await expect(page.getByText(/invalid payment request/i)).toHaveCount(0)
-    await expect(page.getByTestId('complete-free-booking')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('complete-free-booking')).toBeVisible({ timeout: 5_000 })
     await page.getByTestId('complete-free-booking').click()
 
     await page.waitForURL(/\/success\?/, { timeout: 20_000 })
