@@ -114,7 +114,7 @@ function createSchedulerDaysField(slugs: BookingCollectionSlugs): Field {
           },
           {
             name: "staffMember",
-            label: "StaffMember",
+            label: "Staff Member",
             type: "relationship",
             relationTo: staffMembersSlug,
             hasMany: false,

@@ -65,8 +65,8 @@ const defaultFields: Field[] = [
 ];
 
 const defaultLabels: Labels = {
-  singular: "StaffMember",
-  plural: "StaffMembers",
+  singular: "Staff Member",
+  plural: "Staff Members",
 };
 
 const defaultAccess: AccessControls = {
