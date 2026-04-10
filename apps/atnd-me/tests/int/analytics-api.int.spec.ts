@@ -328,5 +328,105 @@ describe('Analytics API (Phase 4)', () => {
       },
       TEST_TIMEOUT,
     )
+
+    /**
+     * Proves the Postgres-safe path (startTime query + calendar date filter + booking chunks):
+     * without this, tests only assert shape and >= 0 counts.
+     */
+    it(
+      'increments totalBookings by 1 after adding a confirmed booking in a far-future calendar range',
+      async () => {
+        const from = '2045-03-01'
+        const to = '2045-03-31'
+        const baseUrl = `http://localhost/api/analytics?dateFrom=${from}&dateTo=${to}`
+        const adminHeaders = { 'x-test-user-id': String(adminUser.id) }
+
+        const beforeRes = await GET(request({ headers: adminHeaders, url: baseUrl }))
+        expect(beforeRes.status).toBe(200)
+        const beforeJson = (await beforeRes.json()) as { summary: { totalBookings: number } }
+        const beforeTotal = beforeJson.summary.totalBookings
+
+        const uniqueName = `Analytics ET ${Date.now()}`
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: uniqueName,
+            places: 10,
+            description: 'analytics int test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const startTime = new Date('2045-03-15T12:00:00.000Z')
+        const endTime = new Date('2045-03-15T13:00:00.000Z')
+        const timeslot = await payload.create({
+          collection: 'timeslots',
+          data: {
+            date: startTime.toISOString(),
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            eventType: eventType.id,
+            tenant: testTenantId,
+            active: true,
+            lockOutTime: 0,
+          },
+          draft: false,
+          overrideAccess: true,
+        })
+
+        const booking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: timeslot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        try {
+          const afterRes = await GET(request({ headers: adminHeaders, url: baseUrl }))
+          expect(afterRes.status).toBe(200)
+          const afterJson = (await afterRes.json()) as {
+            summary: { totalBookings: number; uniqueCustomers: number }
+            bookingsOverTime: { date: string; count: number }[]
+            topCustomers: { userId: number; count: number }[]
+          }
+          expect(afterJson.summary.totalBookings - beforeTotal).toBe(1)
+          expect(afterJson.summary.uniqueCustomers).toBeGreaterThanOrEqual(1)
+
+          const marchRow = afterJson.bookingsOverTime.find((r) => r.date.startsWith('2045-03'))
+          expect(marchRow?.count).toBeGreaterThanOrEqual(1)
+
+          const top = afterJson.topCustomers.find((r) => r.userId === regularUser.id)
+          expect(top?.count).toBeGreaterThanOrEqual(1)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { equals: booking.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { equals: timeslot.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
   })
 })
