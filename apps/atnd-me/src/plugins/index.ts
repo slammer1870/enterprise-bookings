@@ -331,6 +331,8 @@ export const plugins: Plugin[] = [
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     timeslotOverrides: {
       versions: false,
+      // Analytics + schedule: range on startTime, often with tenant equality (leading column covers date-only scans too).
+      indexes: [{ fields: ['startTime', 'tenant'] }],
       fields: ({ defaultFields }) =>
         withExplicitTenantSyncFields(defaultFields).map((f) =>
           'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
@@ -448,6 +450,11 @@ export const plugins: Plugin[] = [
       fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
     },
     bookingOverrides: {
+      // Admin analytics: confirmed + timeslot IN (...). Tenant-scoped dashboard: tenant + same filters.
+      indexes: [
+        { fields: ['timeslot', 'status'] },
+        { fields: ['tenant', 'timeslot', 'status'] },
+      ],
       fields: ({ defaultFields }) => [
         ...defaultFields,
         {

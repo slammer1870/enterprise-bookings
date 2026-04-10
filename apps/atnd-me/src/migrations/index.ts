@@ -80,6 +80,7 @@ import * as migration_20260410_rename_dh_dashboard_to_two_column_layout from './
 import * as migration_20260410_timeslots_event_type_id from './20260410_timeslots_event_type_id';
 import * as migration_20260410_timeslots_staff_member_id from './20260410_timeslots_staff_member_id';
 import * as migration_20260410_ensure_class_pass_types_allow_multiple_column from './20260410_ensure_class_pass_types_allow_multiple_column';
+import * as migration_20260411_analytics_compound_indexes from './20260411_analytics_compound_indexes';
 
 export const migrations = [
   {
@@ -491,5 +492,10 @@ export const migrations = [
     up: migration_20260410_ensure_class_pass_types_allow_multiple_column.up,
     down: migration_20260410_ensure_class_pass_types_allow_multiple_column.down,
     name: '20260410_ensure_class_pass_types_allow_multiple_column',
+  },
+  {
+    up: migration_20260411_analytics_compound_indexes.up,
+    down: migration_20260411_analytics_compound_indexes.down,
+    name: '20260411_analytics_compound_indexes',
   },
 ];
