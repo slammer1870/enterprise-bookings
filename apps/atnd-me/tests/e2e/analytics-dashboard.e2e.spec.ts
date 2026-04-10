@@ -25,11 +25,15 @@ test.describe('Admin analytics dashboard', () => {
     if (!tenantId) throw new Error('Tenant required')
 
     const co = await createTestEventType(tenantId, 'E2E Analytics Dashboard', 10, undefined, w)
-    const start = new Date()
-    start.setDate(start.getDate() + 1)
-    start.setHours(11, 0, 0, 0)
-    const end = new Date(start)
-    end.setHours(12, 0, 0, 0)
+    // Default dashboard range is last N days through "today" where dates come from
+    // AnalyticsDashboardClient.toYYYYMMDD (= UTC YYYY-MM-DD). A timeslot on local "tomorrow"
+    // often maps to the next UTC calendar day and falls outside [dateFrom, dateTo] on CI (UTC).
+    const now = new Date()
+    const y = now.getUTCFullYear()
+    const m = now.getUTCMonth()
+    const d = now.getUTCDate()
+    const start = new Date(Date.UTC(y, m, d, 11, 0, 0, 0))
+    const end = new Date(Date.UTC(y, m, d, 12, 0, 0, 0))
     const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
     await createTestBooking(testData.users.user1.id, lesson.id, 'confirmed')
 
