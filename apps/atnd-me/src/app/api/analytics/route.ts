@@ -9,11 +9,7 @@ import { getPayload } from '@/lib/payload'
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
 import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
-import {
-  getSummaryMetrics,
-  getBookingsOverTime,
-  getTopCustomers,
-} from '@/lib/analytics'
+import { getAnalyticsDashboardBundle } from '@/lib/analytics'
 import { resolveTimeslotIdsForAnalytics } from '@/lib/analytics/analyticsBookingsWhere'
 
 function jsonStringifySafe(data: unknown): string {
@@ -116,11 +112,11 @@ export async function GET(request: NextRequest) {
     const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
     const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-    const [summary, bookingsOverTime, topCustomers] = await Promise.all([
-      getSummaryMetrics(payload, paramsWithTimeslots),
-      getBookingsOverTime(payload, paramsWithTimeslots),
-      getTopCustomers(payload, paramsWithTimeslots),
-    ])
+    const { summary, bookingsOverTime, topCustomers } = await getAnalyticsDashboardBundle(
+      payload,
+      paramsWithTimeslots,
+      { includeTopCustomers: true },
+    )
 
     let previousParams: { dateFrom: string; dateTo: string; tenantId?: number; granularity: 'day' | 'week'; limitTopCustomers?: number } | null = null
     if (comparePrevious) {
@@ -149,10 +145,8 @@ export async function GET(request: NextRequest) {
     if (comparePrevious && previousParams) {
       const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousParams)
       const previousWithTimeslots = { ...previousParams, preResolvedTimeslotIds: previousTimeslotIds }
-      const [summaryPrevious, bookingsOverTimePrevious] = await Promise.all([
-        getSummaryMetrics(payload, previousWithTimeslots),
-        getBookingsOverTime(payload, previousWithTimeslots),
-      ])
+      const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
+        await getAnalyticsDashboardBundle(payload, previousWithTimeslots, { includeTopCustomers: false })
       body.summaryPrevious = summaryPrevious
       body.bookingsOverTimePrevious = bookingsOverTimePrevious
     }

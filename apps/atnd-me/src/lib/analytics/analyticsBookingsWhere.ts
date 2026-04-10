@@ -14,7 +14,7 @@ import type { Payload } from 'payload'
 import type { Where } from 'payload'
 import type { AnalyticsQueryParams } from './types'
 
-const TIMESLOT_PAGE_SIZE = 500
+const TIMESLOT_PAGE_SIZE = 1000
 /** Keep `in` lists bounded for Postgres parameter limits. */
 export const TIMESLOT_ID_IN_CHUNK_SIZE = 1000
 
@@ -101,6 +101,7 @@ export async function resolveTimeslotIdsForAnalytics(
       limit: TIMESLOT_PAGE_SIZE,
       page,
       depth: 0,
+      select: { id: true, date: true },
       overrideAccess: true,
     })
     for (const d of res.docs) {
