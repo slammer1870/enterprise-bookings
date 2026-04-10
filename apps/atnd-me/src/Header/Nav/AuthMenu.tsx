@@ -90,12 +90,15 @@ export function HeaderAuthMenu({
         </div>
 
         <div className="border-t border-border pt-3">
-          <Button
+          <button
             type="button"
-            size="sm"
-            variant="outline"
-            className="w-full justify-center cursor-pointer"
             disabled={billingLoading}
+            className={cn(
+              'w-full text-left text-sm text-primary underline-offset-4 hover:underline',
+              'bg-transparent p-0 border-0 shadow-none',
+              'cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm',
+            )}
             onClick={async () => {
               if (billingLoading) return
               setBillingLoading(true)
@@ -119,7 +122,7 @@ export function HeaderAuthMenu({
             }}
           >
             {billingLoading ? 'Opening billing portal…' : 'Billing portal'}
-          </Button>
+          </button>
         </div>
 
         <Button

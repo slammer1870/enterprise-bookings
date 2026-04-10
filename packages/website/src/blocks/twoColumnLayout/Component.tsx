@@ -59,7 +59,7 @@ export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4">
+    <section className="mx-auto w-full max-w-7xl px-4 pt-24 sm:pt-28">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4">
         <div className="mx-auto w-full max-w-screen-sm p-6">
           {leftColumnHeading ? (
