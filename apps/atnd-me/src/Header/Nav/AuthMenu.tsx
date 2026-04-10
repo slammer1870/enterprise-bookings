@@ -74,7 +74,7 @@ export function HeaderAuthMenu({
         <div className="flex items-center gap-4">
           <span
             className={cn(
-              'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold',
+              'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-foreground',
             )}
             aria-hidden
           >
@@ -150,7 +150,7 @@ export function HeaderAuthMenu({
       >
         <span
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold',
+            'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-foreground',
           )}
           aria-hidden
         >
@@ -160,7 +160,7 @@ export function HeaderAuthMenu({
 
       <div
         className={cn(
-          'absolute right-0 mt-2 w-56 rounded-md border border-border bg-background shadow-lg',
+          'absolute right-0 mt-2 w-56 rounded-md border border-border bg-background text-foreground shadow-lg',
         )}
       >
         <div className="px-3 py-2 border-b border-border">

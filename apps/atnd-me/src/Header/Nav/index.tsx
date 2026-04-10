@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 
 import { CMSLink } from '@/components/Link'
 import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
+import { cn } from '@/utilities/ui'
 import { HeaderAuthMenu } from './AuthMenu'
 
 const iconClass = 'size-5 flex-shrink-0'
@@ -226,6 +227,10 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
               key={i}
               {...linkProps}
               appearance={appearance}
+              className={cn(
+                linkProps.className,
+                appearance === 'link' && 'text-inherit hover:text-inherit',
+              )}
               {...(displayIcon != null
                 ? {
                     label: undefined,
