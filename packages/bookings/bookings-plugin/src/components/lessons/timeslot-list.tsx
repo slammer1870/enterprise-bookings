@@ -112,7 +112,7 @@ export const TimeslotList: React.FC<{ timeslots: Timeslot[] }> = ({ timeslots })
             </th>
             <th>Start Time</th>
             <th>End Time</th>
-            <th>Class Name</th>
+            <th>Event Type</th>
             <th>Bookings</th>
             <th className="text-right">Actions</th>
           </tr>

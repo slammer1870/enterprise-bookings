@@ -20,7 +20,7 @@ export const TimeslotLoading: React.FC<{}> = () => {
           <TableHead className="w-10" />
           <TableHead>Start Time</TableHead>
           <TableHead>End Time</TableHead>
-          <TableHead>Class Name</TableHead>
+          <TableHead>Event Type</TableHead>
           <TableHead>Bookings</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
