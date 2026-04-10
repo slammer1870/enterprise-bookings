@@ -3,33 +3,45 @@
  */
 import type { Payload } from 'payload'
 import type { AnalyticsQueryParams, TopCustomerRow } from './types'
-import { buildAnalyticsBookingsWhere } from './analyticsBookingsWhere'
+import {
+  buildConfirmedBookingsWhereForTimeslots,
+  chunkIds,
+  resolveTimeslotIdsForAnalytics,
+  TIMESLOT_ID_IN_CHUNK_SIZE,
+} from './analyticsBookingsWhere'
 
-const MAX_BOOKINGS_QUERY = 50_000
+const MAX_BOOKINGS_PER_CHUNK = 50_000
 const DEFAULT_TOP_LIMIT = 10
 
 export async function getTopCustomers(
   payload: Payload,
   params: AnalyticsQueryParams,
 ): Promise<TopCustomerRow[]> {
-  const where = buildAnalyticsBookingsWhere(params)
+  const timeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
   const limit = params.limitTopCustomers ?? DEFAULT_TOP_LIMIT
 
-  const result = await payload.find({
-    collection: 'bookings',
-    where,
-    limit: MAX_BOOKINGS_QUERY,
-    depth: 0,
-    select: { user: true },
-    overrideAccess: true,
-  })
-
   const byUser = new Map<number, number>()
-  for (const doc of result.docs) {
-    const u = (doc as { user?: number | { id: number } }).user
-    const userId = typeof u === 'object' && u !== null ? u.id : u
-    if (typeof userId === 'number') {
-      byUser.set(userId, (byUser.get(userId) ?? 0) + 1)
+
+  if (timeslotIds.length > 0) {
+    for (const idChunk of chunkIds(timeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+      const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
+
+      const result = await payload.find({
+        collection: 'bookings',
+        where,
+        limit: MAX_BOOKINGS_PER_CHUNK,
+        depth: 0,
+        select: { user: true },
+        overrideAccess: true,
+      })
+
+      for (const doc of result.docs) {
+        const u = (doc as { user?: number | { id: number } }).user
+        const userId = typeof u === 'object' && u !== null ? u.id : u
+        if (typeof userId === 'number') {
+          byUser.set(userId, (byUser.get(userId) ?? 0) + 1)
+        }
+      }
     }
   }
 

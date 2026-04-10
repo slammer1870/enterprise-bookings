@@ -4,9 +4,14 @@
  */
 import type { Payload } from 'payload'
 import type { AnalyticsQueryParams, BookingsOverTimeRow } from './types'
-import { buildAnalyticsBookingsWhere } from './analyticsBookingsWhere'
+import {
+  buildConfirmedBookingsWhereForTimeslots,
+  chunkIds,
+  resolveTimeslotIdsForAnalytics,
+  TIMESLOT_ID_IN_CHUNK_SIZE,
+} from './analyticsBookingsWhere'
 
-const MAX_BOOKINGS_QUERY = 50_000
+const MAX_BOOKINGS_PER_CHUNK = 50_000
 
 /** Normalize timeslot.date from populated relationship (string, Date, or localized value). */
 function timeslotDateToYmd(raw: unknown): string | null {
@@ -37,26 +42,35 @@ export async function getBookingsOverTime(
   payload: Payload,
   params: AnalyticsQueryParams,
 ): Promise<BookingsOverTimeRow[]> {
-  const where = buildAnalyticsBookingsWhere(params)
+  const timeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
   const granularity = params.granularity ?? 'day'
 
-  const result = await payload.find({
-    collection: 'bookings',
-    where,
-    limit: MAX_BOOKINGS_QUERY,
-    depth: 1,
-    select: { timeslot: true },
-    overrideAccess: true,
-  })
-
   const bucket = new Map<string, number>()
-  for (const doc of result.docs) {
-    const ts = (doc as { timeslot?: number | { date?: unknown } }).timeslot
-    const rawDate = typeof ts === 'object' && ts !== null ? ts.date : undefined
-    const ymd = timeslotDateToYmd(rawDate)
-    if (!ymd) continue
-    const key = toDateKey(`${ymd}T12:00:00.000Z`, granularity)
-    bucket.set(key, (bucket.get(key) ?? 0) + 1)
+
+  if (timeslotIds.length === 0) {
+    return []
+  }
+
+  for (const idChunk of chunkIds(timeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+    const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
+
+    const result = await payload.find({
+      collection: 'bookings',
+      where,
+      limit: MAX_BOOKINGS_PER_CHUNK,
+      depth: 1,
+      select: { timeslot: true },
+      overrideAccess: true,
+    })
+
+    for (const doc of result.docs) {
+      const ts = (doc as { timeslot?: number | { date?: unknown } }).timeslot
+      const rawDate = typeof ts === 'object' && ts !== null ? ts.date : undefined
+      const ymd = timeslotDateToYmd(rawDate)
+      if (!ymd) continue
+      const key = toDateKey(`${ymd}T12:00:00.000Z`, granularity)
+      bucket.set(key, (bucket.get(key) ?? 0) + 1)
+    }
   }
 
   const sorted = Array.from(bucket.entries()).sort(([a], [b]) => a.localeCompare(b))

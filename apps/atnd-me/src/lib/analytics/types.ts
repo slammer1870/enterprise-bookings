@@ -10,6 +10,11 @@ export type AnalyticsQueryParams = AnalyticsDateRange & {
   tenantId?: number | null
   granularity?: 'day' | 'week'
   limitTopCustomers?: number
+  /**
+   * When set (e.g. by the analytics API route), skips re-querying timeslots so summary,
+   * trend, and top-customers share one ID list.
+   */
+  preResolvedTimeslotIds?: number[]
 }
 
 export type SummaryMetrics = {

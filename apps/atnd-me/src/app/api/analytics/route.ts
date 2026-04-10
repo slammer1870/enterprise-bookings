@@ -14,6 +14,7 @@ import {
   getBookingsOverTime,
   getTopCustomers,
 } from '@/lib/analytics'
+import { resolveTimeslotIdsForAnalytics } from '@/lib/analytics/analyticsBookingsWhere'
 
 export async function GET(request: NextRequest) {
   try {
@@ -102,10 +103,13 @@ export async function GET(request: NextRequest) {
       limitTopCustomers,
     }
 
+    const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
+    const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
+
     const [summary, bookingsOverTime, topCustomers] = await Promise.all([
-      getSummaryMetrics(payload, params),
-      getBookingsOverTime(payload, params),
-      getTopCustomers(payload, params),
+      getSummaryMetrics(payload, paramsWithTimeslots),
+      getBookingsOverTime(payload, paramsWithTimeslots),
+      getTopCustomers(payload, paramsWithTimeslots),
     ])
 
     let previousParams: { dateFrom: string; dateTo: string; tenantId?: number; granularity: 'day' | 'week'; limitTopCustomers?: number } | null = null
@@ -133,9 +137,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (comparePrevious && previousParams) {
+      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousParams)
+      const previousWithTimeslots = { ...previousParams, preResolvedTimeslotIds: previousTimeslotIds }
       const [summaryPrevious, bookingsOverTimePrevious] = await Promise.all([
-        getSummaryMetrics(payload, previousParams),
-        getBookingsOverTime(payload, previousParams),
+        getSummaryMetrics(payload, previousWithTimeslots),
+        getBookingsOverTime(payload, previousWithTimeslots),
       ])
       body.summaryPrevious = summaryPrevious
       body.bookingsOverTimePrevious = bookingsOverTimePrevious

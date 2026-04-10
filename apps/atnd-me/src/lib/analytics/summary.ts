@@ -3,40 +3,55 @@
  */
 import type { Payload } from 'payload'
 import type { AnalyticsQueryParams, SummaryMetrics } from './types'
-import { buildAnalyticsBookingsWhere } from './analyticsBookingsWhere'
+import {
+  buildConfirmedBookingsWhereForTimeslots,
+  chunkIds,
+  resolveTimeslotIdsForAnalytics,
+  TIMESLOT_ID_IN_CHUNK_SIZE,
+} from './analyticsBookingsWhere'
 
-const MAX_BOOKINGS_QUERY = 50_000
+const MAX_BOOKINGS_PER_CHUNK = 50_000
 
 export async function getSummaryMetrics(
   payload: Payload,
   params: AnalyticsQueryParams,
 ): Promise<SummaryMetrics> {
-  const where = buildAnalyticsBookingsWhere(params)
+  const timeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
+  if (timeslotIds.length === 0) {
+    return { totalBookings: 0, uniqueCustomers: 0, grossVolumeCents: 0 }
+  }
 
-  const [countResult, docsResult] = await Promise.all([
-    payload.find({
-      collection: 'bookings',
-      where,
-      limit: 0,
-      depth: 0,
-      overrideAccess: true,
-    }),
-    payload.find({
-      collection: 'bookings',
-      where,
-      limit: MAX_BOOKINGS_QUERY,
-      depth: 0,
-      select: { user: true },
-      overrideAccess: true,
-    }),
-  ])
+  let totalBookings = 0
+  const uniqueUserIds = new Set<number>()
 
-  const totalBookings = countResult.totalDocs ?? 0
-  const userIds = docsResult.docs.map((d) => {
-    const u = (d as { user?: number | { id: number } }).user
-    return typeof u === 'object' && u !== null ? u.id : u
-  })
-  const uniqueCustomers = new Set(userIds.filter((id): id is number => typeof id === 'number')).size
+  for (const idChunk of chunkIds(timeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+    const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
+
+    const [countResult, docsResult] = await Promise.all([
+      payload.find({
+        collection: 'bookings',
+        where,
+        limit: 0,
+        depth: 0,
+        overrideAccess: true,
+      }),
+      payload.find({
+        collection: 'bookings',
+        where,
+        limit: MAX_BOOKINGS_PER_CHUNK,
+        depth: 0,
+        select: { user: true },
+        overrideAccess: true,
+      }),
+    ])
+
+    totalBookings += countResult.totalDocs ?? 0
+    for (const d of docsResult.docs) {
+      const u = (d as { user?: number | { id: number } }).user
+      const uid = typeof u === 'object' && u !== null ? u.id : u
+      if (typeof uid === 'number') uniqueUserIds.add(uid)
+    }
+  }
 
   // Gross volume: sum of class price from timeslot's eventType for each booking.
   // We don't have amount on Transaction in payload-types; for MVP we use 0 or optionally join timeslot->eventType later.
@@ -44,7 +59,7 @@ export async function getSummaryMetrics(
 
   return {
     totalBookings,
-    uniqueCustomers,
+    uniqueCustomers: uniqueUserIds.size,
     grossVolumeCents,
   }
 }
